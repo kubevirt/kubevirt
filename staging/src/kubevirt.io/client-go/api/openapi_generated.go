@@ -551,7 +551,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystemList":                                    schema_kubevirtio_api_core_v1_VirtualMachineInstanceFileSystemList(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceGuestAgentInfo":                                    schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestAgentInfo(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo":                                       schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestOSInfo(ref),
-		"kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSLoad":                                       schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestOSLoad(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSUser":                                       schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestOSUser(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSUserList":                                   schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestOSUserList(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceList":                                              schema_kubevirtio_api_core_v1_VirtualMachineInstanceList(ref),
@@ -25996,17 +25995,11 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestAgentInfo(ref comm
 							Format:      "",
 						},
 					},
-					"load": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Load contains the system load averages (1M, 5M, 15M) from the guest agent",
-							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSLoad"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.GuestAgentCommandInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystemInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSLoad", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSUser"},
+			"kubevirt.io/api/core/v1.GuestAgentCommandInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceFileSystemInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSUser"},
 	}
 }
 
@@ -26070,61 +26063,6 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestOSInfo(ref common.
 							Description: "Guest OS Id",
 							Type:        []string{"string"},
 							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestOSLoad(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineInstanceGuestOSLoad represents the system load averages from the guest agent",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"load1mSet": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Load1mSet indicates whether the 1 minute load average is set",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"load1m": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Load average over 1 minute",
-							Type:        []string{"number"},
-							Format:      "double",
-						},
-					},
-					"load5mSet": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Load5mSet indicates whether the 5 minute load average is set",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"load5m": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Load average over 5 minutes",
-							Type:        []string{"number"},
-							Format:      "double",
-						},
-					},
-					"load15mSet": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Load15mSet indicates whether the 15 minute load average is set",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"load15m": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Load average over 15 minutes",
-							Type:        []string{"number"},
-							Format:      "double",
 						},
 					},
 				},
