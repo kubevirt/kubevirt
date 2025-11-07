@@ -42,9 +42,13 @@ import (
 
 const (
 	EchoLastReturnValue = "echo $?\n"
-	PromptExpression    = `(\$ |\# )`
-	CRLF                = "\r\n"
-	UTFPosEscape        = "\u001b\\[[0-9]+;[0-9]+H"
+	// PromptExpression matches shell prompts ($ or #) allowing optional ANSI escape sequences before them
+	// Shell integration codes (OSC escape sequences) can appear before the prompt
+	// The pattern uses (?s) for dotall mode and non-greedy matching to handle escape sequences
+	// Note: When used in ExpectBatchWithValidatedSend, the pattern is modified to include the sent command
+	PromptExpression = `(?s).*?(\$ |\# )`
+	CRLF             = "\r\n"
+	UTFPosEscape     = "\u001b\\[[0-9]+;[0-9]+H"
 
 	consoleConnectionTimeout = 30 * time.Second
 )
@@ -298,7 +302,13 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 
 			// Remove the \n since it is translated by the console to \r\n.
 			previousSend = strings.TrimSuffix(previousSend, "\n")
-			bExp.R = fmt.Sprintf("%s%s%s%s%s", previousSend, "((?s).*)", bExp.R, "((?s).*)", PromptExpression)
+			// If bExp.R is already PromptExpression, don't add another PromptExpression at the end
+			// to avoid redundant pattern matching
+			if bExp.R == PromptExpression {
+				bExp.R = fmt.Sprintf("%s%s%s", previousSend, "((?s).*)", PromptExpression)
+			} else {
+				bExp.R = fmt.Sprintf("%s%s%s%s%s", previousSend, "((?s).*)", bExp.R, "((?s).*)", PromptExpression)
+			}
 		case expect.BatchSend:
 			if sendFlag {
 				return nil, fmt.Errorf("two sequential expect.BSend are not allowed")
@@ -319,7 +329,10 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 
 func RetValueWithPrompt(retcode string) string {
 	// Allow for escape sequences and different newline types
-	return `[\r\n]` + retcode + CRLF + ".*" + PromptExpression
+	// Shell integration codes (OSC escape sequences like \u001b]8003;...) can appear
+	// before or after the return value, so we need to allow them anywhere
+	// Use non-greedy matching to find the return code and prompt with any characters (including escape sequences) in between
+	return `(?s)[\r\n].*?` + retcode + `.*?` + PromptExpression
 }
 
 func RetValue(retcode string) string {
