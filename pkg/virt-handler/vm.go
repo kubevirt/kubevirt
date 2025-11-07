@@ -1242,7 +1242,7 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 	// Only issue vmi update if status has changed
 	if !equality.Semantic.DeepEqual(*oldStatus, vmi.Status) {
 		key := controller.VirtualMachineInstanceKey(vmi)
-		c.vmiExpectations.SetExpectations(key, 1, 0)
+		c.vmiExpectations.RaiseExpectations(key, 1, 0)
 		_, err := c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.SetExpectations(key, 0, 0)
@@ -2596,6 +2596,7 @@ func (c *VirtualMachineController) deleteDomainFunc(obj interface{}) {
 func (c *VirtualMachineController) updateDomainFunc(_, new interface{}) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
+		c.vmiExpectations.LowerExpectations(key, 1, 0)
 		c.queue.Add(key)
 	}
 }
