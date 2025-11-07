@@ -66,8 +66,10 @@ const (
 	FailedUpdateVirtualMachineReason     = "FailedUpdate"
 	SuccessfulUpdateVirtualMachineReason = "SuccessfulUpdate"
 
-	defaultAddDelay   = 1 * time.Second
-	defaultRetryDelay = 3 * time.Second
+	defaultAddDelay                = 1 * time.Second
+	defaultRetryDelay              = 3 * time.Second
+	defaultStartUpFailureThreshold = 3
+	minFailingToStartDuration      = 5 * time.Minute
 )
 
 const (
@@ -702,7 +704,7 @@ func (c *Controller) scaleIn(pool *poolv1.VirtualMachinePool, vms []*virtv1.Virt
 	c.expectations.ExpectDeletions(poolKey, controller.VirtualMachineKeys(deleteList))
 	wg.Add(len(deleteList))
 	errChan := make(chan error, len(deleteList))
-	for i := 0; i < len(deleteList); i++ {
+	for i := range deleteList {
 		go func(idx int) {
 			defer wg.Done()
 			vm := deleteList[idx]
@@ -1574,6 +1576,13 @@ func (c *Controller) execute(key string) error {
 		return err
 	}
 
+	if isAutohealingEnabled(pool) {
+		if err := c.autoHealFailingVMs(pool, vms); err != nil {
+			logger.Reason(err).Error("Failed to auto heal failing vms.")
+			return err
+		}
+	}
+
 	// If any adoptions are attempted, we should first recheck for deletion with
 	// an uncached quorum read sometime after listing VirtualMachines (see kubernetes/kubernetes#42639).
 	canAdoptFunc := controller.RecheckDeletionTimestamp(func() (metav1.Object, error) {
@@ -1982,6 +1991,78 @@ func isStatePreservationEnabled(statePreservation poolv1.StatePreservation) bool
 
 func isOpportunisticUpdate(pool *poolv1.VirtualMachinePool) bool {
 	return pool.Spec.UpdateStrategy != nil && pool.Spec.UpdateStrategy.Opportunistic != nil
+}
+
+func isAutohealingEnabled(pool *poolv1.VirtualMachinePool) bool {
+	return pool.Spec.Autohealing != nil
+}
+
+func (c *Controller) autoHealFailingVMs(pool *poolv1.VirtualMachinePool, vms []*virtv1.VirtualMachine) error {
+	vmsToCleanup := filterFailingVMsToStart(vms, pool.Spec.Autohealing)
+
+	return c.scaleIn(pool, vmsToCleanup, len(vmsToCleanup))
+}
+
+func filterFailingVMsToStart(vms []*virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) []*virtv1.VirtualMachine {
+	var filtered []*virtv1.VirtualMachine
+	for _, vm := range vms {
+		// Check for consecutive VMI start failures (tracked in Status.StartFailure)
+		if vm.Status.StartFailure != nil && vm.Status.StartFailure.ConsecutiveFailCount >= getFailureToStartThreshold(autohealing) {
+			filtered = append(filtered, vm)
+			continue
+		}
+
+		// Check for status-based failures (CrashLoopBackOff, Unschedulable, etc.)
+		if shouldAutohealBasedOnStatus(vm, autohealing) {
+			filtered = append(filtered, vm)
+		}
+	}
+
+	return filtered
+}
+
+// shouldAutohealBasedOnStatus checks if a VM's PrintableStatus indicates it should be autohealed
+func shouldAutohealBasedOnStatus(vm *virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) bool {
+	switch vm.Status.PrintableStatus {
+	case virtv1.VirtualMachineStatusCrashLoopBackOff,
+		virtv1.VirtualMachineStatusUnschedulable,
+		virtv1.VirtualMachineStatusDataVolumeError,
+		virtv1.VirtualMachineStatusPvcNotFound,
+		virtv1.VirtualMachineStatusErrImagePull,
+		virtv1.VirtualMachineStatusImagePullBackOff:
+		return hasVMBeenFailingLongEnough(vm, autohealing)
+	default:
+		return false
+	}
+}
+
+// hasVMBeenFailingLongEnough checks if VM has not been ready for minimum duration
+func hasVMBeenFailingLongEnough(vm *virtv1.VirtualMachine, autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) bool {
+	condManager := controller.NewVirtualMachineConditionManager()
+	if c := condManager.GetCondition(vm, virtv1.VirtualMachineReady); c != nil && c.Status == k8score.ConditionFalse {
+		failingSince := c.LastProbeTime.Time
+		if time.Since(failingSince) >= getMinFailingToStartDuration(autohealing) {
+			log.Log.Object(vm).Infof("VM %s/%s has been failing to start for %v, adding to list", vm.Namespace, vm.Name, time.Since(failingSince))
+			return true
+		}
+	}
+	return false
+}
+
+func getFailureToStartThreshold(autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) int {
+	if autohealing.StartUpFailureThreshold == nil {
+		return defaultStartUpFailureThreshold
+	}
+
+	return int(*autohealing.StartUpFailureThreshold)
+}
+
+func getMinFailingToStartDuration(autohealing *poolv1.VirtualMachinePoolAutohealingStrategy) time.Duration {
+	if autohealing.MinFailingToStartDuration == nil {
+		return minFailingToStartDuration
+	}
+
+	return autohealing.MinFailingToStartDuration.Duration
 }
 
 // NodeSelectorRequirementsAsSelector converts the []NodeSelectorRequirement api type into a struct that implements
