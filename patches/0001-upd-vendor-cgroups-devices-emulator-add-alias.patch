@@ -1,0 +1,27 @@
+From 189344f32325ce1d9a92eb480bf30ede9d697a35 Mon Sep 17 00:00:00 2001
+From: Nikita Korolev <nikita.korolev@flant.com>
+Date: Fri, 7 Nov 2025 15:23:31 +0300
+Subject: [PATCH] upd vendor cgroups devices emulator, add alias
+
+Signed-off-by: Nikita Korolev <nikita.korolev@flant.com>
+---
+ .../runc/libcontainer/cgroups/devices/devices_emulator.go      | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/vendor/github.com/opencontainers/runc/libcontainer/cgroups/devices/devices_emulator.go b/vendor/github.com/opencontainers/runc/libcontainer/cgroups/devices/devices_emulator.go
+index 3e1f49f0f7..00a890f3ce 100644
+--- a/vendor/github.com/opencontainers/runc/libcontainer/cgroups/devices/devices_emulator.go
++++ b/vendor/github.com/opencontainers/runc/libcontainer/cgroups/devices/devices_emulator.go
+@@ -295,6 +295,9 @@ func emulatorFromList(list io.Reader) (*emulator, error) {
+ 	return e, nil
+ }
+ 
++// Add alias for backward compatibility
++var EmulatorFromList = emulatorFromList
++
+ // Transition calculates what is the minimally-disruptive set of rules need to
+ // be applied to a devices cgroup in order to transition to the given target.
+ // This means that any already-existing rules will not be applied, and
+-- 
+2.44.0
+
