@@ -42,7 +42,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	poolv1alpha1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1beta1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	mime "kubevirt.io/kubevirt/pkg/rest"
@@ -233,14 +233,14 @@ func instancetypeApiServiceDefinitions() []*restful.WebService {
 }
 
 func poolApiServiceDefinitions() []*restful.WebService {
-	poolGVR := poolv1alpha1.SchemeGroupVersion.WithResource("virtualmachinepools")
+	poolGVR := poolv1beta1.SchemeGroupVersion.WithResource("virtualmachinepools")
 
-	ws, err := groupVersionProxyBase(poolv1alpha1.SchemeGroupVersion)
+	ws, err := groupVersionProxyBase(poolv1beta1.SchemeGroupVersion)
 	if err != nil {
 		panic(err)
 	}
 
-	ws, err = genericNamespacedResourceProxy(ws, poolGVR, &poolv1alpha1.VirtualMachinePool{}, "VirtualMachinePool", &poolv1alpha1.VirtualMachinePoolList{})
+	ws, err = genericNamespacedResourceProxy(ws, poolGVR, &poolv1beta1.VirtualMachinePool{}, "VirtualMachinePool", &poolv1beta1.VirtualMachinePoolList{})
 	if err != nil {
 		panic(err)
 	}
