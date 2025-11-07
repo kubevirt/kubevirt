@@ -207,4 +207,17 @@ var _ = Describe("IsRestartRequired", func() {
 
 		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
 	})
+
+	It("should require restart when pod network is added to networkless VM", func() {
+		vmi := libvmi.New()
+
+		vm := libvmi.NewVirtualMachine(
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			),
+		)
+
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
+	})
 })
