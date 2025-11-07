@@ -25,6 +25,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "kubevirt.io/api/core/v1"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -286,6 +287,73 @@ var _ = Describe("Operator Config", func() {
 			Expect(parsedConfig.VirtExportServerImage).To(Equal(exportServerImage), errMsg)
 			Expect(parsedConfig.GsImage).To(Equal(gsImage), errMsg)
 		})
+
+		type testInput struct {
+			kv            *v1.KubeVirt
+			envVars       map[string]string
+			expectedImage string
+		}
+
+		DescribeTable("should ", func(input testInput) {
+			envManager := EnvVarManagerMock{}
+			for k, v := range input.envVars {
+				envManager.Setenv(k, v)
+			}
+			config := GetTargetConfigFromKVWithEnvVarManager(
+				input.kv,
+				&envManager)
+			Expect(config.VirtOperatorImage).To(Equal(input.expectedImage))
+		},
+			Entry("prefer KubeVirt Spec over operator env", testInput{
+				kv: &v1.KubeVirt{Spec: v1.KubeVirtSpec{
+					ImageTag:      "v1.6.2",
+					ImageRegistry: "quay.io/kubevirt",
+				}},
+				envVars:       map[string]string{VirtOperatorImageEnvName: "registry/kubevirt/virt-operator"},
+				expectedImage: "quay.io/kubevirt/virt-operator:v1.6.2",
+			}),
+			Entry("prefer KubeVirt Spec over the old operator env", testInput{
+				kv: &v1.KubeVirt{Spec: v1.KubeVirtSpec{
+					ImageTag:      "v1.6.2",
+					ImageRegistry: "quay.io/kubevirt",
+				}},
+				envVars:       map[string]string{OldOperatorImageEnvName: "registry/kubevirt/virt-operator"},
+				expectedImage: "quay.io/kubevirt/virt-operator:v1.6.2",
+			}),
+			Entry("use operator env", testInput{
+				kv:            &v1.KubeVirt{},
+				envVars:       map[string]string{VirtOperatorImageEnvName: "registry/kubevirt/virt-operator"},
+				expectedImage: "registry/kubevirt/virt-operator",
+			}),
+			Entry("use the old operator env", testInput{
+				kv:            &v1.KubeVirt{},
+				envVars:       map[string]string{OldOperatorImageEnvName: "registry/kubevirt/virt-operator"},
+				expectedImage: "registry/kubevirt/virt-operator",
+			}),
+
+			Entry("prefer the new operator env over old one", testInput{
+				kv: &v1.KubeVirt{},
+				envVars: map[string]string{
+					OldOperatorImageEnvName:  "registry/kubevirt/virt-operator",
+					VirtOperatorImageEnvName: "registry/kubevirt/virt-operator:new",
+				},
+				expectedImage: "registry/kubevirt/virt-operator:new",
+			}),
+			Entry("prefer KubeVirt Spec tag over the operator env", testInput{
+				kv: &v1.KubeVirt{Spec: v1.KubeVirtSpec{
+					ImageTag: "v1.6.2",
+				}},
+				envVars:       map[string]string{VirtOperatorImageEnvName: "registry/kubevirt/virt-operator"},
+				expectedImage: "registry/kubevirt/virt-operator:v1.6.2",
+			}),
+			Entry("prefer KubeVirt Spec prefix over the operator env", testInput{
+				kv: &v1.KubeVirt{Spec: v1.KubeVirtSpec{
+					ImageRegistry: "quay.io/kubevirt",
+				}},
+				envVars:       map[string]string{VirtOperatorImageEnvName: "registry/kubevirt/virt-operator"},
+				expectedImage: "quay.io/kubevirt/virt-operator:latest",
+			}),
+		)
 
 		DescribeTable("when virt-operator image is", func(envVarName string, isValid bool) {
 			const image = "some.registry.io/virt-operator@sha256:abcdefg"
