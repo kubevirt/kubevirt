@@ -51,14 +51,9 @@ func (c *KubeVirtController) deleteAllInstallStrategy() error {
 	return nil
 }
 
-func (c *KubeVirtController) deleteAllOldInstallStrategies() error {
-	config, err := operatorutil.GetConfigFromEnv()
-	if err != nil {
-		return err
-	}
-	kvVersion := config.GetKubeVirtVersion()
+func (c *KubeVirtController) deleteAllOldInstallStrategies(kvVersion string) error {
 	for _, obj := range c.stores.InstallStrategyConfigMapCache.List() {
-		configMap, ok := obj.(*k8sv1.ConfigMap)
+		configMap := obj.(*k8sv1.ConfigMap)
 		version, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 		if ok && configMap.DeletionTimestamp == nil && version != kvVersion {
 			err := c.clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{})

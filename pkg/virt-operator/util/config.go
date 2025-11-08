@@ -252,53 +252,74 @@ func GetOperatorImageWithEnvVarManager(envVarManager EnvVarManager) string {
 	return envVarManager.Getenv(OldOperatorImageEnvName)
 }
 
-func getConfig(registry, tag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
+func getImagePrefix(parsedImage [][]string) string {
+	if len(parsedImage) == 1 {
+		return parsedImage[0][2]
+	}
+	return ""
+}
+
+func getImageRegistry(parsedImage [][]string) string {
+	if len(parsedImage) == 1 {
+		return parsedImage[0][1]
+
+	}
+	return ""
+}
+
+func getTag(parsedImage [][]string, kubeVirtVersion string) string {
+	if len(parsedImage) != 1 {
+		return kubeVirtVersion
+
+	}
+	version := parsedImage[0][3]
+	if version == "" {
+		return "latest"
+	} else if strings.HasPrefix(version, ":") {
+		return strings.TrimPrefix(version, ":")
+	} else {
+		// we have a shasum... chances are high that we get the shasums for the other images as well from env vars,
+		// but as a fallback use latest tag
+		return kubeVirtVersion
+	}
+}
+
+func getConfig(providedRegistry, providedTag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
 
 	// get registry and tag/shasum from operator image
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
-	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
+	parsedImage := imageRegEx.FindAllStringSubmatch(imageString, 1)
 	kubeVirtVersion := envVarManager.Getenv(KubeVirtVersionEnvName)
 	if kubeVirtVersion == "" {
 		kubeVirtVersion = "latest"
 	}
 
-	tagFromOperator := ""
 	imagePrefix, useStoredImagePrefix := additionalProperties[ImagePrefixKey]
-
-	if len(matches) == 1 {
-		// only use registry from operator image if it was not given yet
-		if registry == "" {
-			registry = matches[0][1]
-		}
-		if !useStoredImagePrefix {
-			imagePrefix = matches[0][2]
-		}
-
-		version := matches[0][3]
-		if version == "" {
-			tagFromOperator = "latest"
-		} else if strings.HasPrefix(version, ":") {
-			tagFromOperator = strings.TrimPrefix(version, ":")
-		} else {
-			// we have a shasum... chances are high that we get the shasums for the other images as well from env vars,
-			// but as a fallback use latest tag
-			tagFromOperator = kubeVirtVersion
-		}
-
-		if tag == "" {
-			tag = tagFromOperator
-		}
+	if !useStoredImagePrefix {
+		imagePrefix = getImagePrefix(parsedImage)
+	}
+	operatorImage := ""
+	registry, tag := getImageRegistry(parsedImage), getTag(parsedImage, kubeVirtVersion)
+	if providedRegistry == "" && providedTag == "" {
+		operatorImage = imageString
 	} else {
-		// operator image name has unexpected syntax.
-		if tag == "" {
-			tag = kubeVirtVersion
+		if providedRegistry != "" {
+			registry = providedRegistry
 		}
+		if providedTag != "" {
+			tag = providedTag
+		}
+		operatorImagePrefix := imagePrefix
+		if !useStoredImagePrefix {
+			operatorImagePrefix = ""
+		}
+		version := fmt.Sprintf(":%s", tag)
+		operatorImage = fmt.Sprintf("%s/%s%s", registry, fmt.Sprintf("%s%s", operatorImagePrefix, "virt-operator"), version)
 	}
 
 	passthroughEnv := GetPassthroughEnv()
 
-	operatorImage := GetOperatorImageWithEnvVarManager(envVarManager)
 	apiImage := envVarManager.Getenv(VirtApiImageEnvName)
 	controllerImage := envVarManager.Getenv(VirtControllerImageEnvName)
 	handlerImage := envVarManager.Getenv(VirtHandlerImageEnvName)
