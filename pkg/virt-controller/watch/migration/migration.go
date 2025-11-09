@@ -956,6 +956,27 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 		}
 	}
 
+	// Ensure migration happens only between nodes with the same CPU vendor
+	// This prevents migrations between AMD and Intel nodes which are not supported
+	vendorLabelKey := getCPUVendorLabelKey(templatePod.Spec.NodeSelector)
+	if vendorLabelKey == "" {
+		var sourceLabels map[string]string
+		if migration.IsDecentralizedTarget() {
+			sourceLabels = vmi.Status.MigrationState.SourceState.NodeSelectors
+		} else {
+			node, err := c.getNodeForVMI(vmi)
+			if err != nil {
+				return err
+			}
+			sourceLabels = node.Labels
+		}
+
+		vendorLabelKey = getCPUVendorLabelKey(sourceLabels)
+		if vendorLabelKey != "" {
+			templatePod.Spec.NodeSelector[vendorLabelKey] = "true"
+		}
+	}
+
 	matchLevelOnTarget := c.clusterConfig.GetMigrationConfiguration().MatchSELinuxLevelOnMigration
 	if matchLevelOnTarget == nil || *matchLevelOnTarget {
 		err = setTargetPodSELinuxLevel(templatePod, selinuxContext)
@@ -1121,7 +1142,7 @@ func (c *Controller) getNodeSelectorsFromNodeName(nodeName string) (map[string]s
 	if exists {
 		node := obj.(*k8sv1.Node)
 		for key, value := range node.Labels {
-			if strings.HasPrefix(key, virtv1.HostModelCPULabel) || strings.HasPrefix(key, virtv1.HostModelRequiredFeaturesLabel) {
+			if strings.HasPrefix(key, virtv1.HostModelCPULabel) || strings.HasPrefix(key, virtv1.HostModelRequiredFeaturesLabel) || strings.HasPrefix(key, virtv1.CPUModelVendorLabel) {
 				res[key] = value
 			}
 		}
@@ -2423,6 +2444,15 @@ func isNodeSuitableForHostModelMigration(node *k8sv1.Node, requiredNodeLabels ma
 	}
 
 	return true
+}
+
+func getCPUVendorLabelKey(labels map[string]string) string {
+	for key := range labels {
+		if strings.HasPrefix(key, virtv1.CPUModelVendorLabel) {
+			return key
+		}
+	}
+	return ""
 }
 
 func (c *Controller) matchMigrationPolicy(vmi *virtv1.VirtualMachineInstance, clusterMigrationConfiguration *virtv1.MigrationConfiguration) error {
