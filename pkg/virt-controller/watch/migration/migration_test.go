@@ -621,7 +621,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
-
+			addNode(newNode(vmi.Status.NodeName))
 			sanityExecute()
 
 			testutils.ExpectEvents(recorder, virtcontroller.SuccessfulCreatePodReason)
@@ -638,6 +638,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			addNode(newNode(vmi.Status.NodeName))
 			addPod(newSourcePodForVirtualMachine(vmi))
 
 			sanityExecute()
@@ -674,6 +675,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			addNode(newNode(vmi.Status.NodeName))
 			addPod(newSourcePodForVirtualMachine(vmi))
 
 			// Ensure that 4 migrations are there which are in non-final state
@@ -772,6 +774,7 @@ var _ = Describe("Migration watcher", func() {
 
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
+			addNode(newNode(vmi.Status.NodeName))
 			addPod(newSourcePodForVirtualMachine(vmi))
 
 			// Ensure that 4 migrations are there which are in non-final state
@@ -913,6 +916,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(newNode(vmi.Status.NodeName))
 
 			sanityExecute()
 
@@ -981,6 +985,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(newNode(vmi.Status.NodeName))
 
 			sanityExecute()
 
@@ -2153,6 +2158,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(pendingMigration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(failedMigration)
 
 			sanityExecute()
@@ -2182,6 +2188,7 @@ var _ = Describe("Migration watcher", func() {
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addMigration(failedMigration)
+			addNode(newNode(vmi.Status.NodeName))
 
 			sanityExecute()
 
@@ -2213,6 +2220,7 @@ var _ = Describe("Migration watcher", func() {
 			addPod(newSourcePodForVirtualMachine(vmi))
 			addMigration(failedMigration)
 			addMigration(successfulMigration)
+			addNode(newNode(vmi.Status.NodeName))
 
 			sanityExecute()
 
@@ -2250,6 +2258,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(newNode(vmi.Status.NodeName))
 
 			sanityExecute()
 
@@ -2271,6 +2280,7 @@ var _ = Describe("Migration watcher", func() {
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(newNode(vmi.Status.NodeName))
 
 			sanityExecute()
 

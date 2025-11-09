@@ -163,6 +163,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 				hyperVLabelPresent := false
 				hostCPUModelPresent := false
 				hostCPURequiredFeaturesPresent := false
+				vendorPresent := false
 				for key := range node.Labels {
 					if strings.Contains(key, v1.CPUModelLabel) {
 						cpuModelLabelPresent = true
@@ -180,8 +181,12 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 						hostCPURequiredFeaturesPresent = true
 					}
 
+					if strings.Contains(key, v1.CPUModelVendorLabel) {
+						vendorPresent = true
+					}
+
 					if cpuModelLabelPresent && cpuFeatureLabelPresent && hyperVLabelPresent && hostCPUModelPresent &&
-						hostCPURequiredFeaturesPresent {
+						hostCPURequiredFeaturesPresent && vendorPresent {
 						break
 					}
 				}
@@ -192,6 +197,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 				Expect(hyperVLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "hyperV"))
 				Expect(hostCPUModelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
 				Expect(hostCPURequiredFeaturesPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu required features"))
+				Expect(vendorPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "vendor"))
 			}
 		})
 

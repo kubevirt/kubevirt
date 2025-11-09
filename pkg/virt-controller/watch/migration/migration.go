@@ -951,6 +951,21 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 			templatePod.Spec.NodeSelector[k] = v
 		}
 	}
+	vendor, includeVendor := templatePod.Spec.NodeSelector[virtv1.CPUModelVendorLabel]
+	if !includeVendor {
+		if !migration.IsDecentralizedTarget() {
+			node, err := c.getNodeForVMI(vmi)
+			if err != nil {
+				return err
+			}
+			vendor = node.Labels[virtv1.CPUModelVendorLabel]
+		} else {
+			vendor = vmi.Status.MigrationState.SourceState.NodeSelectors[virtv1.CPUModelVendorLabel]
+		}
+		if vendor != "" {
+			templatePod.Spec.NodeSelector[virtv1.CPUModelVendorLabel] = vendor
+		}
+	}
 
 	matchLevelOnTarget := c.clusterConfig.GetMigrationConfiguration().MatchSELinuxLevelOnMigration
 	if matchLevelOnTarget == nil || *matchLevelOnTarget {
@@ -1117,7 +1132,7 @@ func (c *Controller) getNodeSelectorsFromNodeName(nodeName string) (map[string]s
 	if exists {
 		node := obj.(*k8sv1.Node)
 		for key, value := range node.Labels {
-			if strings.HasPrefix(key, virtv1.HostModelCPULabel) || strings.HasPrefix(key, virtv1.HostModelRequiredFeaturesLabel) {
+			if strings.HasPrefix(key, virtv1.HostModelCPULabel) || strings.HasPrefix(key, virtv1.HostModelRequiredFeaturesLabel) || strings.HasPrefix(key, virtv1.CPUModelVendorLabel) {
 				res[key] = value
 			}
 		}
