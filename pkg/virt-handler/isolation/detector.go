@@ -127,8 +127,14 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		// make the best estimate for memory required by libvirt
 		memlockSize := services.GetMemoryOverhead(vm, runtime.GOARCH, additionalOverheadRatio)
 		// Add base memory requested for the VM
-		vmiMemoryReq := vm.Spec.Domain.Resources.Requests.Memory()
-		memlockSize.Add(*resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo))
+		var vmBaseMemory *resource.Quantity
+		if vm.Spec.Domain.Memory != nil && vm.Spec.Domain.Memory.Guest != nil {
+			vmBaseMemory = vm.Spec.Domain.Memory.Guest
+		} else {
+			vmBaseMemory = vm.Spec.Domain.Resources.Requests.Memory()
+		}
+
+		memlockSize.Add(*resource.NewScaledQuantity(vmBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
 
 		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize.Value())
 		if err != nil {
