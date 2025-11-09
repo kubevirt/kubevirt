@@ -95,14 +95,14 @@ func (s *socketBasedIsolationDetector) DetectForSocket(vm *v1.VirtualMachineInst
 	return NewIsolationResult(pid, ppid), nil
 }
 
-func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
+func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
 	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
-	if !util.IsVFIOVMI(vm) && !vm.IsRealtimeEnabled() && !util.IsSEVVMI(vm) {
+	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
 		return nil
 	}
 
 	// bump memlock ulimit for virtqemud
-	res, err := s.Detect(vm)
+	res, err := s.Detect(vmi)
 	if err != nil {
 		return err
 	}
@@ -125,16 +125,16 @@ func (s *socketBasedIsolationDetector) AdjustResources(vm *v1.VirtualMachineInst
 		}
 
 		// make the best estimate for memory required by libvirt
-		memlockSize := services.GetMemoryOverhead(vm, runtime.GOARCH, additionalOverheadRatio)
+		memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
 		// Add base memory requested for the VM
-		var vmBaseMemory *resource.Quantity
-		if vm.Spec.Domain.Memory != nil && vm.Spec.Domain.Memory.Guest != nil {
-			vmBaseMemory = vm.Spec.Domain.Memory.Guest
+		var vmiBaseMemory *resource.Quantity
+		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+			vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
 		} else {
-			vmBaseMemory = vm.Spec.Domain.Resources.Requests.Memory()
+			vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
 		}
 
-		memlockSize.Add(*resource.NewScaledQuantity(vmBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
+		memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
 
 		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize.Value())
 		if err != nil {
