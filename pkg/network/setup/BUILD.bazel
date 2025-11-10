@@ -26,7 +26,7 @@ go_library(
         "//pkg/network/vmispec:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
-        "//pkg/virt-launcher/virtwrap/converter:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/network:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
