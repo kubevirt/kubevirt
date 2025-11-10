@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "channels.go",
+        "clock.go",
         "launch_security.go",
         "tpm.go",
         "vsock.go",
@@ -24,6 +25,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "channels_test.go",
+        "clock_test.go",
         "compute_suite_test.go",
         "launch_security_test.go",
         "tpm_test.go",

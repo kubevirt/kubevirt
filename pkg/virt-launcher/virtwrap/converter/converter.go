@@ -1059,54 +1059,6 @@ func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input
 	return nil
 }
 
-func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
-	if source.UTC != nil {
-		clock.Offset = "utc"
-		if source.UTC.OffsetSeconds != nil {
-			clock.Adjustment = strconv.Itoa(*source.UTC.OffsetSeconds)
-		} else {
-			clock.Adjustment = "reset"
-		}
-	} else if source.Timezone != nil {
-		clock.Offset = "timezone"
-		clock.Timezone = string(*source.Timezone)
-	}
-
-	if source.Timer != nil {
-		if source.Timer.RTC != nil {
-			newTimer := api.Timer{Name: "rtc"}
-			newTimer.Track = string(source.Timer.RTC.Track)
-			newTimer.TickPolicy = string(source.Timer.RTC.TickPolicy)
-			newTimer.Present = boolToYesNo(source.Timer.RTC.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
-		}
-		if source.Timer.PIT != nil {
-			newTimer := api.Timer{Name: "pit"}
-			newTimer.Present = boolToYesNo(source.Timer.PIT.Enabled, true)
-			newTimer.TickPolicy = string(source.Timer.PIT.TickPolicy)
-			clock.Timer = append(clock.Timer, newTimer)
-		}
-		if source.Timer.KVM != nil {
-			newTimer := api.Timer{Name: "kvmclock"}
-			newTimer.Present = boolToYesNo(source.Timer.KVM.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
-		}
-		if source.Timer.HPET != nil {
-			newTimer := api.Timer{Name: "hpet"}
-			newTimer.Present = boolToYesNo(source.Timer.HPET.Enabled, true)
-			newTimer.TickPolicy = string(source.Timer.HPET.TickPolicy)
-			clock.Timer = append(clock.Timer, newTimer)
-		}
-		if source.Timer.Hyperv != nil {
-			newTimer := api.Timer{Name: "hypervclock"}
-			newTimer.Present = boolToYesNo(source.Timer.Hyperv.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
-		}
-	}
-
-	return nil
-}
-
 func convertFeatureState(source *v1.FeatureState) *api.FeatureState {
 	if source != nil {
 		return &api.FeatureState{
@@ -1555,6 +1507,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.VSOCKDomainConfigurator{},
 		compute.NewLaunchSecurityDomainConfigurator(c.Architecture.GetArchitecture()),
 		compute.ChannelsDomainConfigurator{},
+		compute.ClockDomainConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1848,16 +1801,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 			},
 		)
-	}
-
-	if vmi.Spec.Domain.Clock != nil {
-		clock := vmi.Spec.Domain.Clock
-		newClock := &api.Clock{}
-		err := Convert_v1_Clock_To_api_Clock(clock, newClock)
-		if err != nil {
-			return err
-		}
-		domain.Spec.Clock = newClock
 	}
 
 	if vmi.Spec.Domain.Features != nil {
