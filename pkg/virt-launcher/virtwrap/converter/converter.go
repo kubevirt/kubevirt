@@ -58,7 +58,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
@@ -1871,17 +1870,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				return err
 			}
 		}
-	}
-
-	// Make use of the tsc frequency topology hint
-	if topology.IsManualTSCFrequencyRequired(vmi) {
-		freq := *vmi.Status.TopologyHints.TSCFrequency
-		clock := domain.Spec.Clock
-		if clock == nil {
-			clock = &api.Clock{}
-		}
-		clock.Timer = append(clock.Timer, api.Timer{Name: "tsc", Frequency: strconv.FormatInt(freq, 10)})
-		domain.Spec.Clock = clock
 	}
 
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GenericHostDevices...)

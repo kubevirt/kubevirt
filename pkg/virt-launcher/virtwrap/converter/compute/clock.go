@@ -24,6 +24,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -38,6 +39,17 @@ func (c ClockDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domai
 			return err
 		}
 		domain.Spec.Clock = newClock
+	}
+
+	// Make use of the tsc frequency topology hint
+	if topology.IsManualTSCFrequencyRequired(vmi) {
+		freq := *vmi.Status.TopologyHints.TSCFrequency
+		clock := domain.Spec.Clock
+		if clock == nil {
+			clock = &api.Clock{}
+		}
+		clock.Timer = append(clock.Timer, api.Timer{Name: "tsc", Frequency: strconv.FormatInt(freq, 10)})
+		domain.Spec.Clock = clock
 	}
 
 	return nil

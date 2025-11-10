@@ -15,6 +15,7 @@ go_library(
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/tpm:go_default_library",
         "//pkg/util:go_default_library",
+        "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/launchsecurity:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
