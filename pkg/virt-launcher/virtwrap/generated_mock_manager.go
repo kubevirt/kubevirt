@@ -263,20 +263,6 @@ func (mr *MockDomainManagerMockRecorder) GetUsers() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetUsers", reflect.TypeOf((*MockDomainManager)(nil).GetUsers))
 }
 
-// GuestPing mocks base method.
-func (m *MockDomainManager) GuestPing(arg0 string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GuestPing", arg0)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// GuestPing indicates an expected call of GuestPing.
-func (mr *MockDomainManagerMockRecorder) GuestPing(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GuestPing", reflect.TypeOf((*MockDomainManager)(nil).GuestPing), arg0)
-}
-
 // HotplugHostDevices mocks base method.
 func (m *MockDomainManager) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {
 	m.ctrl.T.Helper()
@@ -317,6 +303,20 @@ func (m *MockDomainManager) InterfacesStatus() []api.InterfaceStatus {
 func (mr *MockDomainManagerMockRecorder) InterfacesStatus() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InterfacesStatus", reflect.TypeOf((*MockDomainManager)(nil).InterfacesStatus))
+}
+
+// IsAgentConnected mocks base method.
+func (m *MockDomainManager) IsAgentConnected() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsAgentConnected")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// IsAgentConnected indicates an expected call of IsAgentConnected.
+func (mr *MockDomainManagerMockRecorder) IsAgentConnected() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsAgentConnected", reflect.TypeOf((*MockDomainManager)(nil).IsAgentConnected))
 }
 
 // KillVMI mocks base method.

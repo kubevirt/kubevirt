@@ -601,13 +601,15 @@ func (l *Launcher) Exec(ctx context.Context, request *cmdv1.ExecRequest) (*cmdv1
 	return resp, nil
 }
 
-func (l *Launcher) GuestPing(ctx context.Context, request *cmdv1.GuestPingRequest) (*cmdv1.GuestPingResponse, error) {
+func (l *Launcher) GuestPing(_ context.Context, _ *cmdv1.GuestPingRequest) (*cmdv1.GuestPingResponse, error) {
 	resp := &cmdv1.GuestPingResponse{
 		Response: &cmdv1.Response{
 			Success: true,
 		},
 	}
-	err := l.domainManager.GuestPing(request.DomainName)
+	// Qemu guest agent ping command is not used anymore, the guest agent connection state is
+	// determined based on the libvirt agent lifecycle events instead
+	err := l.domainManager.IsAgentConnected()
 	if err != nil {
 		resp.Response.Success = false
 		resp.Response.Message = err.Error()

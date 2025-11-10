@@ -337,15 +337,15 @@ var _ = Describe("Virt remote commands", func() {
 			Expect(client.SyncVirtualMachineMemory(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
 		})
 
-		Context("exec & guestPing", func() {
+		Context("exec & IsAgentConnected", func() {
 			var (
-				testDomainName           = "test"
-				testCommand              = "testCmd"
-				testArgs                 = []string{"-v", "2"}
-				testExecErr              = errors.New("exec error")
-				testGuestPingErr         = errors.New("guest ping error")
-				testStdOut               = "stdOut"
-				testTimeoutSeconds int32 = 10
+				testDomainName              = "test"
+				testCommand                 = "testCmd"
+				testArgs                    = []string{"-v", "2"}
+				testExecErr                 = errors.New("exec error")
+				testAgentConnectedErr       = errors.New("agent not connected")
+				testStdOut                  = "stdOut"
+				testTimeoutSeconds    int32 = 10
 
 				expectExec = func() *gomock.Call {
 					return domainManager.EXPECT().Exec(
@@ -363,8 +363,8 @@ var _ = Describe("Virt remote commands", func() {
 						TimeoutSeconds: testTimeoutSeconds,
 					}
 				}
-				expectGuestPing = func() *gomock.Call {
-					return domainManager.EXPECT().GuestPing(testDomainName)
+				expectIsAgentConnected = func() *gomock.Call {
+					return domainManager.EXPECT().IsAgentConnected()
 				}
 				guestPingRequest = func() *cmdv1.GuestPingRequest {
 					return &cmdv1.GuestPingRequest{
@@ -422,19 +422,19 @@ var _ = Describe("Virt remote commands", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Response.Success).To(BeTrue())
 			})
-			It("should call guest ping", func() {
-				expectGuestPing().Times(1)
+			It("should call IsAgentConnected", func() {
+				expectIsAgentConnected().Times(1)
 				server.GuestPing(context.TODO(), guestPingRequest())
 			})
-			It("returns errors in the response", func() {
-				expectGuestPing().Times(1).Return(testGuestPingErr)
+			It("returns errors in the response when agent not connected", func() {
+				expectIsAgentConnected().Times(1).Return(testAgentConnectedErr)
 				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
 				Expect(err).To(HaveOccurred())
 				Expect(resp.Response.Success).To(BeFalse())
-				Expect(resp.Response.Message).To(Equal(testGuestPingErr.Error()))
+				Expect(resp.Response.Message).To(Equal(testAgentConnectedErr.Error()))
 			})
-			It("returns zero exit code", func() {
-				expectGuestPing().Times(1).Return(nil)
+			It("returns success when agent is connected", func() {
+				expectIsAgentConnected().Times(1).Return(nil)
 				resp, err := server.GuestPing(context.TODO(), guestPingRequest())
 				Expect(err).ToNot(HaveOccurred())
 				Expect(resp.Response.Success).To(BeTrue())

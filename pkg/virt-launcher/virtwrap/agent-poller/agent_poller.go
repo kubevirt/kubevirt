@@ -45,6 +45,7 @@ const (
 	GetAgent          AgentCommand = "guest-info"
 	GetFSFreezeStatus AgentCommand = "guest-fsfreeze-status"
 
+	agentConnected      = "agent-connected"
 	pollInitialInterval = 10 * time.Second
 )
 
@@ -220,6 +221,14 @@ func (s *AsyncAgentStore) GetLoad() *stats.DomainStatsLoad {
 	return &load
 }
 
+func (s *AsyncAgentStore) IsAgentConnected() bool {
+	data, ok := s.store.Load(agentConnected)
+	if !ok {
+		return false
+	}
+	return data.(bool)
+}
+
 // PollerWorker collects the data from the guest agent
 // only unique items are stored as configuration
 type PollerWorker struct {
@@ -385,12 +394,14 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
 			log.Log.Infof("Stopping agent poller for %s due to agent disconnect", p.domainName)
 			p.agentConnected = false
+			p.agentStore.Store(agentConnected, false)
 			p.Stop()
 			return
 		}
 		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
 			log.Log.Infof("Starting agent poller for %s due to agent connect", p.domainName)
 			p.agentConnected = true
+			p.agentStore.Store(agentConnected, true)
 			p.Start()
 			return
 		}
