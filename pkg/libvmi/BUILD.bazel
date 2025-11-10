@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "accesscredentials.go",
+        "clock.go",
         "cloudinit.go",
         "config.go",
         "cpu.go",

@@ -222,12 +222,6 @@ func withFeatures(features v1.Features) libvmi.Option {
 	}
 }
 
-func withClock(clock v1.Clock) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Clock = &clock
-	}
-}
-
 func withFirmwareUID(uid types.UID) libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Firmware == nil {
@@ -283,7 +277,7 @@ var _ = Describe("[Sysprep][sig-compute]Syspreped VirtualMachineInstance", Seria
 					Spinlocks: &v1.FeatureSpinlocks{Retries: pointer.P(uint32(8191))},
 				},
 			}),
-			withClock(v1.Clock{
+			libvmi.WithClock(v1.Clock{
 				ClockOffset: v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				Timer: &v1.Timer{
 					HPET:   &v1.HPETTimer{Enabled: pointer.P(false)},
