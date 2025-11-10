@@ -4021,7 +4021,7 @@ var _ = Describe("direct IO checker", func() {
 	})
 })
 
-var _ = Describe("SetDriverCacheMode", func() {
+var _ = Describe("Driver Cache and IO Settings", func() {
 	var ctrl *gomock.Controller
 	var mockDirectIOChecker *MockDirectIOChecker
 
@@ -4045,6 +4045,9 @@ var _ = Describe("SetDriverCacheMode", func() {
 		mockDirectIOChecker.EXPECT().CheckBlockDevice(gomock.Any()).AnyTimes().Return(false, checkerError)
 		mockDirectIOChecker.EXPECT().CheckFile(gomock.Any()).AnyTimes().Return(false, checkerError)
 	}
+
+	preAllocated := func(path string) bool { return true }
+	notPreAllocated := func(path string) bool { return false }
 
 	DescribeTable("should correctly set driver cache mode", func(cache, expectedCache string, setExpectations func()) {
 		disk := &api.Disk{
@@ -4073,6 +4076,17 @@ var _ = Describe("SetDriverCacheMode", func() {
 		Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckTrue),
 		Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckFalse),
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
+	)
+
+	DescribeTable("should set appropriate IO modes", func(disk *api.Disk, expectedIO v1.DriverIO, isPreAllocated func(path string) bool) {
+		SetOptimalIOMode(disk, isPreAllocated)
+		Expect(disk.Driver.IO).To(Equal(expectedIO))
+	},
+		Entry("user-specified IO", &api.Disk{Driver: &api.DiskDriver{IO: v1.IOThreads}}, v1.IOThreads, notPreAllocated),
+		Entry("sparse image", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{}}, v1.DriverIO(""), notPreAllocated),
+		Entry("pre-allocated image with O_DIRECT", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}}, v1.IONative, preAllocated),
+		Entry("pre-allocated image without O_DIRECT", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheWriteThrough)}}, v1.DriverIO(""), preAllocated),
+		Entry("block device with O_DIRECT", &api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}}, v1.IONative, notPreAllocated),
 	)
 })
 
