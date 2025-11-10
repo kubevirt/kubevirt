@@ -57,12 +57,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
@@ -1565,6 +1565,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			network.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 		),
+		compute.TPMDomainConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -2065,25 +2066,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				api.Arg{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", QEMUSeaBiosDebugPipe)},
 				api.Arg{Value: "-device"},
 				api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"})
-		}
-	}
-
-	if tpm.HasDevice(&vmi.Spec) {
-		domain.Spec.Devices.TPMs = []api.TPM{
-			{
-				Model: "tpm-tis",
-				Backend: api.TPMBackend{
-					Type:    "emulator",
-					Version: "2.0",
-				},
-			},
-		}
-		if tpm.HasPersistentDevice(&vmi.Spec) {
-			domain.Spec.Devices.TPMs[0].Backend.PersistentState = "yes"
-			// tpm-crb is not techincally required for persistence, but since there was a desire for both,
-			//   we decided to introduce them together. Ultimately, we should use tpm-crb for all cases,
-			//   as it is now the generally preferred model
-			domain.Spec.Devices.TPMs[0].Model = "tpm-crb"
 		}
 	}
 
