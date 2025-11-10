@@ -39,22 +39,6 @@ func stripAgentStringResponse(agentReply string) string {
 	return result[1]
 }
 
-// Filesystem disk of the host
-type FSDisk struct {
-	Serial  string `json:"serial,omitempty"`
-	BusType string `json:"bus-type"`
-}
-
-// Filesystem of the host
-type Filesystem struct {
-	Name       string   `json:"name"`
-	Mountpoint string   `json:"mountpoint"`
-	Type       string   `json:"type"`
-	UsedBytes  int      `json:"used-bytes,omitempty"`
-	TotalBytes int      `json:"total-bytes,omitempty"`
-	Disk       []FSDisk `json:"disk,omitempty"`
-}
-
 // AgentInfo from the guest VM serves the purpose
 // of checking the GA presence and version compatibility
 type AgentInfo struct {
@@ -72,44 +56,6 @@ func ParseFSFreezeStatus(agentReply string) (api.FSFreeze, error) {
 	return api.FSFreeze{
 		Status: response,
 	}, nil
-}
-
-// parseFilesystem from the agent response
-func parseFilesystem(agentReply string) ([]api.Filesystem, error) {
-	result := []Filesystem{}
-	response := stripAgentResponse(agentReply)
-
-	err := json.Unmarshal([]byte(response), &result)
-	if err != nil {
-		return []api.Filesystem{}, err
-	}
-
-	convertedResult := []api.Filesystem{}
-
-	for _, fs := range result {
-		convertedResult = append(convertedResult, api.Filesystem{
-			Name:       fs.Name,
-			Mountpoint: fs.Mountpoint,
-			Type:       fs.Type,
-			TotalBytes: fs.TotalBytes,
-			UsedBytes:  fs.UsedBytes,
-			Disk:       parseFSDisks(fs.Disk),
-		})
-	}
-
-	return convertedResult, nil
-}
-
-func parseFSDisks(fsDisks []FSDisk) []api.FSDisk {
-	disks := []api.FSDisk{}
-	for _, fsDisk := range fsDisks {
-		disks = append(disks, api.FSDisk{
-			Serial:  fsDisk.Serial,
-			BusType: fsDisk.BusType,
-		})
-	}
-
-	return disks
 }
 
 // parseAgent gets the agent version from response
