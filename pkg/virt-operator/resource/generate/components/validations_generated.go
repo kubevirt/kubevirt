@@ -25944,6 +25944,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
           type: object
         indications:
+          description: 'Deprecated: Use SourceIndications instead. This field will
+            be removed in a future version.'
           items:
             description: Indication is a way to indicate the state of the vm when
               taking the snapshot
@@ -25970,6 +25972,23 @@ var CRDsValidation map[string]string = map[string]string{
               type: array
               x-kubernetes-list-type: set
           type: object
+        sourceIndications:
+          items:
+            description: SourceIndication provides an indication of the source VM
+              with its description message
+            properties:
+              indication:
+                description: Indication is the indication type
+                type: string
+              message:
+                description: Message provides a description message of the indication
+                type: string
+            required:
+            - indication
+            - message
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         sourceUID:
           description: |-
             UID is a type that holds unique ID values, including UUIDs.  Because we
