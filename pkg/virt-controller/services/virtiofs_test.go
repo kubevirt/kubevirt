@@ -128,4 +128,46 @@ var _ = Describe("virtiofs container", func() {
 		Expect(containers).To(HaveLen(1))
 		Expect(containers[0].Name).To(Equal("virtiofs-pvc-volume"))
 	})
+
+	It("should not verify file handles for config volumes", func() {
+		vmi := api.NewMinimalVMI("testvm")
+
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "secret-volume",
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: "test-secret",
+				},
+			},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name:     "secret-volume",
+			Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+
+		container := generateVirtioFSContainers(vmi, "virtiofs-container", config)
+		Expect(container).To(HaveLen(1))
+
+		Expect(container[0].Args).ShouldNot(ContainElement("--migration-verify-handles"))
+	})
+
+	It("should verify file handles for PVCs", func() {
+		vmi := api.NewMinimalVMI("testvm")
+
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "sharedtestdisk",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
+			},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name:     "sharedtestdisk",
+			Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+
+		container := generateVirtioFSContainers(vmi, "virtiofs-container", config)
+		Expect(container).To(HaveLen(1))
+
+		Expect(container[0].Args).Should(ContainElement("--migration-verify-handles"))
+	})
 })

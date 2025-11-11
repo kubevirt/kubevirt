@@ -9,6 +9,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
@@ -78,6 +79,14 @@ func generateContainerFromVolume(volume *v1.Volume, image string, resources k8sv
 	// falling back to iterating through the shared directory (exhaustive search) to find those paths.
 	// This migration mode doesn't require any privileges.
 	args = append(args, "--migration-mode=find-paths")
+
+	if storagetypes.IsStorageVolume(volume) {
+		// Check the migration target opens the same inodes as the source.
+		// This option protects against external parties renaming or replacing inodes while migration is
+		// ongoing. It requires that both source and target access the same filesystem, for instance using
+		// a network filesystem
+		args = append(args, "--migration-verify-handles")
+	}
 
 	volumeMounts := []k8sv1.VolumeMount{
 		// This is required to pass socket to compute
