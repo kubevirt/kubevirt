@@ -35,6 +35,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"libvirt.org/go/libvirtxml"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -77,7 +79,6 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	dmetricsmanager "kubevirt.io/kubevirt/pkg/virt-handler/dmetrics-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
 	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
@@ -273,8 +274,6 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
-	ksmHandler := ksm.NewHandler(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig)
-	ksmHandler.Start()
 
 	if err := app.setupTLS(factory); err != nil {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
@@ -296,6 +295,10 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
+
+	ksmHandler := ksm.NewHandler(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig)
+	go ksmHandler.Run(stop)
+
 	var capabilities libvirtxml.Caps
 	var hostCpuModel string
 

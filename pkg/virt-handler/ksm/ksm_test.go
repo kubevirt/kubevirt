@@ -27,6 +27,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -56,6 +58,7 @@ const (
 
 var _ = Describe("KSM", func() {
 	var fakeSysKSMDir string
+	var fakeNodeStore cache.Store
 
 	createCustomKSMTree := func() {
 		var err error
@@ -113,6 +116,8 @@ var _ = Describe("KSM", func() {
 		ksmRunPath = ksmBasePath + "run"
 		ksmSleepPath = ksmBasePath + "sleep_millisecs"
 		ksmPagesPath = ksmBasePath + "pages_to_scan"
+		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&v1.Node{})
+		fakeNodeStore = fakeNodeInformer.GetStore()
 	})
 
 	AfterEach(func() {
@@ -129,8 +134,10 @@ var _ = Describe("KSM", func() {
 				},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
+			fakeNodeStore.Add(node)
 			clusterConfig := generateClusterConfig(featuregate.CPUManager)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
+			handler.nodeStore = fakeNodeStore
 			handler.spin()
 
 			createCustomMemInfo(false)
@@ -193,7 +200,9 @@ var _ = Describe("KSM", func() {
 				},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
+			fakeNodeStore.Add(node)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
+			handler.nodeStore = fakeNodeStore
 			handler.spin()
 
 			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
@@ -218,9 +227,11 @@ var _ = Describe("KSM", func() {
 				},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
+			fakeNodeStore.Add(node)
 			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0644)
 			Expect(err).ToNot(HaveOccurred())
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
+			handler.nodeStore = fakeNodeStore
 			handler.spin()
 
 			createCustomMemInfo(true)
@@ -271,8 +282,10 @@ var _ = Describe("KSM", func() {
 				pages:   nPagesInitDefault,
 			}
 			fakeClient := fake.NewSimpleClientset(node)
+			fakeNodeStore.Add(node)
 			createCustomMemInfo(false)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
+			handler.nodeStore = fakeNodeStore
 			handler.spin()
 
 			By("running a first HandleKSMUpdate and expecting no change")
@@ -338,8 +351,10 @@ var _ = Describe("KSM", func() {
 				pages:   166,
 			}
 			fakeClient := fake.NewSimpleClientset(node)
+			fakeNodeStore.Add(node)
 			createCustomMemInfo(false)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
+			handler.nodeStore = fakeNodeStore
 			handler.spin()
 
 			By("running a first HandleKSMUpdate and expecting the right values")
@@ -357,8 +372,9 @@ var _ = Describe("KSM", func() {
 
 			By("cancelling memory pressure and expecting to decrease pages and stop running when reaching minimum")
 			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s"}}}`, kubevirtv1.KSMFreePercentOverride, "0.1"))
-			_, err := fakeClient.CoreV1().Nodes().Patch(context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+			node, err := fakeClient.CoreV1().Nodes().Patch(context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
+			fakeNodeStore.Update(node)
 			handler.spin()
 			expected.pages = 789 - 50
 			expectKSMState(expected)
