@@ -32,8 +32,7 @@ func (c ChannelsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newGuestAgentChannel())
 
 	if downwardmetrics.HasDevice(&vmi.Spec) {
-		// Handle downwardMetrics
-		domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, convertDownwardMetricsChannel())
+		domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newDownwardMetricsChannel())
 	}
 
 	return nil
@@ -50,7 +49,7 @@ func newGuestAgentChannel() api.Channel {
 	}
 }
 
-func convertDownwardMetricsChannel() api.Channel {
+func newDownwardMetricsChannel() api.Channel {
 	return api.Channel{
 		Type: "unix",
 		Source: &api.ChannelSource{
