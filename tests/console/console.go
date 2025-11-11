@@ -163,30 +163,6 @@ func skipInput(scanner *bufio.Scanner) bool {
 	return scanner.Scan()
 }
 
-// SecureBootExpecter should be called on a VMI that has EFI enabled
-// It will parse the kernel output (dmesg) and succeed if it finds that Secure boot is enabled
-// The VMI was just created and may not be running yet. This is because we want to catch early boot logs.
-func SecureBootExpecter(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
-	virtClient := kubevirt.Client()
-	expecter, _, err := NewExpecter(virtClient, vmi, consoleConnectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer expecter.Close()
-
-	b := []expect.Batcher{&expect.BExp{R: "secureboot: Secure boot enabled"}}
-	expectBatchTimeout := 180 * time.Second
-	if len(timeout) > 0 {
-		expectBatchTimeout = timeout[0]
-	}
-	res, err := expecter.ExpectBatch(b, expectBatchTimeout)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Kernel: %+v", res)
-	}
-
-	return err
-}
-
 // NetBootExpecter should be called on a VMI that has BIOS serial logging enabled
 // It will parse the SeaBIOS output and succeed if it finds the string "iPXE"
 // The VMI was just created and may not be running yet. This is because we want to catch early boot logs.
