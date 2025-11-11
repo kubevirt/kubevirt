@@ -33,16 +33,18 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/tools/cache"
 )
 
 const (
@@ -76,48 +78,73 @@ type ksmState struct {
 }
 
 type Handler struct {
-	isLoopRunning     bool
-	clusterConfig     *virtconfig.ClusterConfig
-	nodeName          string
-	client            k8scorev1.CoreV1Interface
-	lock              sync.Mutex
-	nodeCache         *cache.OneShotCache[*k8sv1.Node]
-	clusterConfigChan chan struct{}
-	doneChan          chan struct{}
+	isLoopRunning bool
+	clusterConfig *virtconfig.ClusterConfig
+	nodeName      string
+	client        k8scorev1.CoreV1Interface
+	lock          sync.Mutex
+	nodeStore     cache.Store
+	// chan for being notified by KV config or node labels changes
+	extChangesChan chan struct{}
+	loopChan       chan struct{}
 }
 
 func NewHandler(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) *Handler {
-	nodeCache, err := cache.NewOneShotCache(func() (*k8sv1.Node, error) {
-		node, err := client.Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-		if err != nil {
-			log.Log.Reason(err).Errorf("Can't get node %s", nodeName)
-		}
-		return node, err
-	})
-	if err != nil {
+	return &Handler{
+		isLoopRunning:  false,
+		clusterConfig:  clusterConfig,
+		nodeName:       nodeName,
+		client:         client,
+		extChangesChan: make(chan struct{}),
+	}
+}
+
+func (k *Handler) Run(stopCh chan struct{}) {
+	// Create a ListWatch filtered to only the local node
+	listWatch := cache.NewListWatchFromClient(
+		k.client.RESTClient(),
+		"nodes",
+		metav1.NamespaceAll,
+		fields.OneTermEqualSelector("metadata.name", k.nodeName),
+	)
+
+	nodeInformer := cache.NewSharedIndexInformer(listWatch, &k8sv1.Node{}, 12*time.Hour, cache.Indexers{})
+	go nodeInformer.Run(stopCh)
+	cache.WaitForCacheSync(stopCh, nodeInformer.HasSynced)
+
+	if _, err := nodeInformer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			UpdateFunc: k.handleNodeUpdate,
+		}); err != nil {
 		panic(err)
 	}
-	return &Handler{
-		isLoopRunning: false,
-		clusterConfig: clusterConfig,
-		nodeName:      nodeName,
-		client:        client,
-		nodeCache:     nodeCache,
+	k.nodeStore = nodeInformer.GetStore()
+	go k.Start()
+	<-stopCh
+}
+
+func (k *Handler) handleNodeUpdate(oldObj, newObj interface{}) {
+	oldNode := oldObj.(*k8sv1.Node)
+	newNode := newObj.(*k8sv1.Node)
+	if !equality.Semantic.DeepEqual(oldNode.Labels, newNode.Labels) {
+		k.extChangesChan <- struct{}{}
+		return
+	}
+	if !equality.Semantic.DeepEqual(oldNode.Annotations, newNode.Annotations) {
+		k.extChangesChan <- struct{}{}
+		return
 	}
 }
 
 func (k *Handler) Start() {
-	go func() {
-		// Perform the initial node patch
-		if ksmEligible := k.spin(); ksmEligible {
-			k.isLoopRunning = true
-			k.doneChan = make(chan struct{})
-			go k.loop()
-		}
+	// Perform the initial node patch
+	if ksmEligible := k.spin(); ksmEligible {
+		k.isLoopRunning = true
+		k.loopChan = make(chan struct{})
+		go k.loop()
+	}
 
-		k.clusterConfigChan = make(chan struct{})
-		k.clusterConfig.SetConfigModifiedCallback(k.configCallback)
-	}()
+	k.clusterConfig.SetConfigModifiedCallback(k.configCallback)
 }
 
 func (k *Handler) configCallback() {
@@ -125,11 +152,11 @@ func (k *Handler) configCallback() {
 	defer k.lock.Unlock()
 	ksmEligible, curState := k.isKSMEligible()
 	if !ksmEligible {
-		// stop the jitter if running
+		// stop the loop if running
 		if k.isLoopRunning {
 			k.isLoopRunning = false
 			// Stop the ksm loop
-			close(k.doneChan)
+			close(k.loopChan)
 		}
 		if curState {
 			k.disableKSM()
@@ -141,27 +168,27 @@ func (k *Handler) configCallback() {
 
 	// loop already running, trigger another spin
 	if k.isLoopRunning {
-		k.clusterConfigChan <- struct{}{}
+		k.extChangesChan <- struct{}{}
 		return
 	}
 
 	k.isLoopRunning = true
-	k.doneChan = make(chan struct{})
+	k.loopChan = make(chan struct{})
 	go k.loop()
 }
 
 func (k *Handler) loop() {
 	k.spin()
-	ticker := time.NewTicker(10 * time.Minute)
+	ticker := time.NewTicker(3 * time.Minute)
 	defer ticker.Stop()
 	for {
 		select {
-		case <-k.clusterConfigChan:
+		case <-k.extChangesChan:
 			k.spin()
-			ticker.Reset(10 * time.Minute)
+			ticker.Reset(3 * time.Minute)
 		case <-ticker.C:
 			k.spin()
-		case <-k.doneChan:
+		case <-k.loopChan:
 			return
 		}
 	}
@@ -170,10 +197,6 @@ func (k *Handler) loop() {
 func (k *Handler) spin() bool {
 	k.lock.Lock()
 	defer k.lock.Unlock()
-	if err := k.nodeCache.ForceUpdate(); err != nil {
-		log.Log.Reason(err).Errorf("Can't force update")
-		return false
-	}
 	// check that a concurrent config update has not disabled the ksm
 	ksmEligible, curState := k.isKSMEligible()
 	if !ksmEligible && curState {
@@ -204,7 +227,7 @@ func (k *Handler) shouldNodeHandleKSM() (shouldHandle, currentState bool, err er
 		return false, enabled, fmt.Errorf("an error occurred while converting the ksm selector: %s", err)
 	}
 
-	node, err := k.nodeCache.Get()
+	node, err := k.getNode()
 	if err != nil {
 		return false, enabled, err
 	}
@@ -231,7 +254,7 @@ func (k *Handler) isKSMEligible() (shouldHandle, currentState bool) {
 }
 
 func (k *Handler) handleNodePressure(currentState bool) (ksmEnabledByUs bool) {
-	node, err := k.nodeCache.Get()
+	node, err := k.getNode()
 	if err != nil {
 		return false
 	}
@@ -277,7 +300,7 @@ func (k *Handler) patchKSM(ksmEligible, ksmEnabledByUs bool) {
 }
 
 func (k *Handler) disableKSM() {
-	node, err := k.nodeCache.Get()
+	node, err := k.getNode()
 	if err != nil {
 		return
 	}
@@ -287,6 +310,25 @@ func (k *Handler) disableKSM() {
 			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
 		}
 	}
+}
+
+func (k *Handler) getNode() (*k8sv1.Node, error) {
+	nodeObj, exists, err := k.nodeStore.GetByKey(k.nodeName)
+	if err != nil {
+		log.DefaultLogger().Errorf("Unable to get not: %s", err.Error())
+		return nil, err
+	}
+	if !exists {
+		log.DefaultLogger().Errorf("node %s does not exist", k.nodeName)
+		return nil, fmt.Errorf("node %s does not exist", k.nodeName)
+	}
+
+	node, ok := nodeObj.(*k8sv1.Node)
+	if !ok {
+		return nil, fmt.Errorf("unknown object type found in node informer")
+	}
+
+	return node, nil
 }
 
 // Inspired from https://github.com/artyom/meminfo

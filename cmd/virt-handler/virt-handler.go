@@ -273,8 +273,6 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
-	ksmHandler := ksm.NewHandler(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig)
-	ksmHandler.Start()
 
 	if err := app.setupTLS(factory); err != nil {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
@@ -296,6 +294,10 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
+
+	ksmHandler := ksm.NewHandler(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig)
+	go ksmHandler.Run(stop)
+
 	var capabilities libvirtxml.Caps
 	var hostCpuModel string
 
