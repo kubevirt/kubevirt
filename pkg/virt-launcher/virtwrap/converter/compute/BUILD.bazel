@@ -32,6 +32,7 @@ go_test(
     race = "on",
     deps = [
         ":go_default_library",
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/status:go_default_library",
         "//pkg/pointer:go_default_library",

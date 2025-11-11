@@ -25,6 +25,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
@@ -47,6 +48,42 @@ var _ = Describe("Channels Domain Configurator", func() {
 							Target: &api.ChannelTarget{
 								Name: "org.qemu.guest_agent.0",
 								Type: v1.VirtIO,
+							},
+						},
+					},
+				},
+			},
+		}
+		Expect(domain).To(Equal(expectedDomain))
+	})
+
+	It("Should configure guest-agent and downwardmetrics channels when downwardmetrics is specified on the VMI", func() {
+		vmi := libvmi.New(libvmi.WithDownwardMetricsChannel())
+		var domain api.Domain
+
+		Expect(compute.ChannelsDomainConfigurator{}.Configure(vmi, &domain)).To(Succeed())
+
+		expectedDomain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					Channels: []api.Channel{
+						{
+							Type:   "unix",
+							Source: nil,
+							Target: &api.ChannelTarget{
+								Name: "org.qemu.guest_agent.0",
+								Type: v1.VirtIO,
+							},
+						},
+						{
+							Type: "unix",
+							Source: &api.ChannelSource{
+								Mode: "bind",
+								Path: downwardmetrics.DownwardMetricsChannelSocket,
+							},
+							Target: &api.ChannelTarget{
+								Type: v1.VirtIO,
+								Name: downwardmetrics.DownwardMetricsSerialDeviceName,
 							},
 						},
 					},
