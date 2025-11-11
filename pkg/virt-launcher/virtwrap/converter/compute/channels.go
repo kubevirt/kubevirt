@@ -29,8 +29,7 @@ import (
 type ChannelsDomainConfigurator struct{}
 
 func (c ChannelsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	newChannel := Add_Agent_To_api_Channel()
-	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newChannel)
+	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newGuestAgentChannel())
 
 	if downwardmetrics.HasDevice(&vmi.Spec) {
 		// Handle downwardMetrics
@@ -40,17 +39,15 @@ func (c ChannelsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 	return nil
 }
 
-// Add_Agent_To_api_Channel creates the channel for guest agent communication
-func Add_Agent_To_api_Channel() (channel api.Channel) {
-	channel.Type = "unix"
-	// let libvirt decide which path to use
-	channel.Source = nil
-	channel.Target = &api.ChannelTarget{
-		Name: "org.qemu.guest_agent.0",
-		Type: v1.VirtIO,
+func newGuestAgentChannel() api.Channel {
+	return api.Channel{
+		Type:   "unix",
+		Source: nil, // let libvirt decide which path to use
+		Target: &api.ChannelTarget{
+			Name: "org.qemu.guest_agent.0",
+			Type: v1.VirtIO,
+		},
 	}
-
-	return
 }
 
 func convertDownwardMetricsChannel() api.Channel {
