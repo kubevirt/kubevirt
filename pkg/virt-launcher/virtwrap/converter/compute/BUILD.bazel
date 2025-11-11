@@ -11,6 +11,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/tpm:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

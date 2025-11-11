@@ -22,14 +22,20 @@ package compute
 import (
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type ChannelsDomainConfigurator struct{}
 
-func (c ChannelsDomainConfigurator) Configure(_ *v1.VirtualMachineInstance, domain *api.Domain) error {
+func (c ChannelsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	newChannel := Add_Agent_To_api_Channel()
 	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newChannel)
+
+	if downwardmetrics.HasDevice(&vmi.Spec) {
+		// Handle downwardMetrics
+		domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, convertDownwardMetricsChannel())
+	}
 
 	return nil
 }
@@ -45,4 +51,18 @@ func Add_Agent_To_api_Channel() (channel api.Channel) {
 	}
 
 	return
+}
+
+func convertDownwardMetricsChannel() api.Channel {
+	return api.Channel{
+		Type: "unix",
+		Source: &api.ChannelSource{
+			Mode: "bind",
+			Path: downwardmetrics.DownwardMetricsChannelSocket,
+		},
+		Target: &api.ChannelTarget{
+			Type: v1.VirtIO,
+			Name: downwardmetrics.DownwardMetricsSerialDeviceName,
+		},
+	}
 }
