@@ -37,27 +37,16 @@ import (
 	hooksV1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 )
 
-type dynamicInfoServer struct {
-	hookName          string
-	hookPointName     string
-	hookPointPriority int32
+type infoServer struct {
+	hooksInfo.InfoResult
 }
 
-func (s dynamicInfoServer) Info(ctx context.Context, params *hooksInfo.InfoParams) (*hooksInfo.InfoResult, error) {
-	fmt.Fprintf(GinkgoWriter, "Hook's Info method has been called")
-
-	return &hooksInfo.InfoResult{
-		Name: s.hookName,
-		Versions: []string{
-			hooksV1alpha3.Version,
-		},
-		HookPoints: []*hooksInfo.HookPoint{
-			{
-				Name:     s.hookPointName,
-				Priority: s.hookPointPriority,
-			},
-		},
-	}, nil
+func (s *infoServer) Info(
+	_ context.Context,
+	_ *hooksInfo.InfoParams,
+) (*hooksInfo.InfoResult, error) {
+	GinkgoWriter.Println("Hook's Info method has been called")
+	return &s.InfoResult, nil
 }
 
 func hookListenAndServe(socketPath string, hookName string, hookPointName string, hookPointPriority int32) (net.Listener, error) {
@@ -67,10 +56,17 @@ func hookListenAndServe(socketPath string, hookName string, hookPointName string
 	}
 
 	server := grpc.NewServer([]grpc.ServerOption{}...)
-	hooksInfo.RegisterInfoServer(server, dynamicInfoServer{
-		hookName:          hookName,
-		hookPointName:     hookPointName,
-		hookPointPriority: hookPointPriority,
+	hooksInfo.RegisterInfoServer(server, &infoServer{
+		hooksInfo.InfoResult{
+			Name:     hookName,
+			Versions: []string{hooksV1alpha3.Version},
+			HookPoints: []*hooksInfo.HookPoint{
+				{
+					Name:     hookPointName,
+					Priority: hookPointPriority,
+				},
+			},
+		},
 	})
 	fmt.Fprintf(GinkgoWriter, "Starting hook server exposing 'info' services on socket %s", socketPath)
 	go func() {
