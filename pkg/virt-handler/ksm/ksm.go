@@ -44,6 +44,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -108,7 +109,7 @@ func (k *Handler) Run(stopCh chan struct{}) {
 		fields.OneTermEqualSelector("metadata.name", k.nodeName),
 	)
 
-	nodeInformer := cache.NewSharedIndexInformer(listWatch, &k8sv1.Node{}, 12*time.Hour, cache.Indexers{})
+	nodeInformer := cache.NewSharedIndexInformer(listWatch, &k8sv1.Node{}, controller.ResyncPeriod(12*time.Hour), cache.Indexers{})
 	go nodeInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, nodeInformer.HasSynced)
 
