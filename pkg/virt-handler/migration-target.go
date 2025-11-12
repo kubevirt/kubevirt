@@ -83,6 +83,7 @@ type MigrationTargetController struct {
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 	netConf                          netconf
 	passtRepairHandler               passtRepairTargetHandler
+	vmiExpectations                  *controller.UIDTrackingControllerExpectations
 }
 
 func NewMigrationTargetController(
@@ -150,6 +151,7 @@ func NewMigrationTargetController(
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 		netConf:                          netConf,
 		passtRepairHandler:               passtRepairHandler,
+		vmiExpectations:                  controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -209,10 +211,10 @@ func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachin
 	c.logger.Object(vmi).Info("The target node detected that the migration has completed")
 }
 
-func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) (error, bool) {
 	if migrations.MigrationFailed(vmi) {
 		c.logger.Object(vmi).V(4).Info("migration has failed, nothing to report on the target node")
-		return nil
+		return nil, false
 	}
 
 	domainExists := domain != nil
@@ -258,7 +260,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 
 	if migrations.IsMigrating(vmi) {
 		c.logger.Object(vmi).V(4).Info("migration is already in progress")
-		return nil
+		return nil, false
 	}
 
 	vmiUID := string(vmi.UID)
@@ -270,7 +272,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		msg := "target migration listener is not up for this vmi, giving it time"
 		c.logger.Object(vmi).Info(msg)
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-		return nil
+		return nil, true
 	}
 
 	hostAddress := ""
@@ -299,15 +301,15 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 	if vmi.IsCPUDedicated() {
 		err := c.reportDedicatedCPUSetForMigratingVMI(vmi)
 		if err != nil {
-			return err
+			return err, false
 		}
 		err = c.reportTargetTopologyForMigratingVMI(vmi)
 		if err != nil {
-			return err
+			return err, false
 		}
 	}
 
-	return nil
+	return nil, false
 }
 
 func (c *MigrationTargetController) Run(threadiness int, stopCh chan struct{}) {
@@ -363,11 +365,18 @@ func (c *MigrationTargetController) Execute() bool {
 	return true
 }
 
-func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, oldStatus *v1.VirtualMachineInstanceStatus, oldLabels map[string]string) error {
+func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, oldStatus *v1.VirtualMachineInstanceStatus, oldLabels map[string]string, shouldExpect bool) error {
 	// update the VMI if necessary
 	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) || !equality.Semantic.DeepEqual(oldLabels, vmi.Labels) {
+		key := controller.VirtualMachineInstanceKey(vmi)
+		if shouldExpect {
+			c.vmiExpectations.SetExpectations(key, 1, 0)
+		}
 		_, err := c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
 		if err != nil {
+			if shouldExpect {
+				c.vmiExpectations.SetExpectations(key, 0, 0)
+			}
 			return err
 		}
 	}
@@ -438,7 +447,7 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 	// Effectively removes the VMI from our VMI informer
 	delete(vmi.Labels, v1.MigrationTargetNodeNameLabel)
 	delete(vmi.Annotations, v1.CreateMigrationTarget)
-	return c.updateVMI(vmi, oldStatus, oldLabels)
+	return c.updateVMI(vmi, oldStatus, oldLabels, false)
 }
 
 func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -458,7 +467,7 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 		c.logger.Object(vmi).Infof("VMI is in phase: %v | Domain does not exist", vmi.Status.Phase)
 	}
 
-	syncErr := c.processVMI(vmi)
+	syncErr, syncReEnqueued := c.processVMI(vmi)
 	if syncErr != nil {
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
 		// `syncErr` will be propagated anyway, and it will be logged in `re-enqueueing`
@@ -466,7 +475,7 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 		c.logger.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
 	}
 
-	updateErr := c.updateStatus(vmi, domain)
+	updateErr, updateReEnqueued := c.updateStatus(vmi, domain)
 	if updateErr != nil {
 		c.logger.Object(vmi).Reason(updateErr).Error("Updating the migration status failed.")
 		return updateErr
@@ -475,7 +484,7 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 	// If processVMI is just waiting for something to be ready, we can't and don't need to increase expectations.
 	// We can't because the VMI may not update before the thing is ready, deadlocking us
 	// We don't need to because every time processVMI is waiting for something it re-adds the key to the queue
-	updateVMIErr := c.updateVMI(vmi, &oldStatus, oldLabels)
+	updateVMIErr := c.updateVMI(vmi, &oldStatus, oldLabels, !syncReEnqueued && !updateReEnqueued)
 	if updateVMIErr != nil {
 		return updateVMIErr
 	}
@@ -497,6 +506,7 @@ func (c *MigrationTargetController) execute(key string) error {
 
 	if !vmiExists {
 		c.logger.V(4).Infof("vmi for key %v does not exists", key)
+		c.vmiExpectations.DeleteExpectations(key)
 		return nil
 	}
 
@@ -506,6 +516,11 @@ func (c *MigrationTargetController) execute(key string) error {
 		_ = c.netConf.Teardown(vmi)
 		c.netStat.Teardown(vmi)
 		c.launcherClients.CloseLauncherClient(vmi)
+		return nil
+	}
+
+	if !c.vmiExpectations.SatisfiedExpectations(key) {
+		log.Log.V(4).Object(vmi).Info("waiting for expectations to be satisfied")
 		return nil
 	}
 
@@ -673,27 +688,27 @@ func (c *MigrationTargetController) unmountVolumes(vmi *v1.VirtualMachineInstanc
 
 // processVMI handles the necessary operations to prepare/cleanup for/after a migration.
 // It returns an error and a boolean informing the caller if the key was re-enqueued by us.
-func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) error {
+func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (error, bool) {
 	if migrationNeedsFinalization(vmi.Status.MigrationState) {
 		c.logger.Object(vmi).V(4).Info("finalize migration")
-		return c.finalizeMigration(vmi)
+		return c.finalizeMigration(vmi), false
 	}
 
 	client, err := c.launcherClients.GetLauncherClient(vmi)
 	if err != nil {
-		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
+		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err), false
 	}
 
 	shouldReturn, err := c.checkLauncherClient(vmi)
 	if shouldReturn {
-		return err
+		return err, false
 	}
 
 	if migrations.IsMigrating(vmi) {
 		// If the migration has already started,
 		// then there's nothing left to prepare on the target side
 		c.logger.Object(vmi).V(4).Info("migration is already in progress")
-		return nil
+		return nil, false
 	}
 
 	vmi = vmi.DeepCopy()
@@ -702,19 +717,19 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 	if goerror.Is(err, containerdisk.ErrWaitingForDisks) {
 		c.logger.Object(vmi).V(4).Info("waiting for container disks to become ready")
 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-		return nil
+		return nil, true
 	}
 	if err != nil {
 		c.logger.Object(vmi).Reason(err).Error("Failed to sync Volumes")
-		return err
+		return err, false
 	}
 
 	if err := c.setupNetwork(vmi, netsetup.FilterNetsForMigrationTarget(vmi), c.netConf); err != nil {
-		return fmt.Errorf("failed to configure vmi network for migration target: %w", err)
+		return fmt.Errorf("failed to configure vmi network for migration target: %w", err), false
 	}
 
 	if err := c.setupDevicesOwnerships(vmi, c.recorder); err != nil {
-		return err
+		return err, false
 	}
 
 	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
@@ -727,22 +742,23 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 	}
 
 	if err := client.SyncMigrationTarget(vmi, options); err != nil {
-		return fmt.Errorf("syncing migration target failed: %v", err)
+		return fmt.Errorf("syncing migration target failed: %v", err), false
 	}
 
 	err = c.handleTargetMigrationProxy(vmi)
 	if err != nil {
-		return fmt.Errorf("failed to handle post sync migration proxy: %v", err)
+		return fmt.Errorf("failed to handle post sync migration proxy: %v", err), false
 	}
 
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.PreparingTarget.String(), VMIMigrationTargetPrepared)
 
-	return nil
+	return nil, false
 }
 
 func (c *MigrationTargetController) addFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
+		c.vmiExpectations.SetExpectations(key, 0, 0)
 		c.queue.Add(key)
 	}
 }
@@ -750,6 +766,7 @@ func (c *MigrationTargetController) addFunc(obj interface{}) {
 func (c *MigrationTargetController) deleteFunc(obj interface{}) {
 	key, err := controller.KeyFunc(obj)
 	if err == nil {
+		c.vmiExpectations.SetExpectations(key, 0, 0)
 		c.queue.Add(key)
 	}
 }
@@ -757,6 +774,7 @@ func (c *MigrationTargetController) deleteFunc(obj interface{}) {
 func (c *MigrationTargetController) updateFunc(_, new interface{}) {
 	key, err := controller.KeyFunc(new)
 	if err == nil {
+		c.vmiExpectations.SetExpectations(key, 0, 0)
 		c.queue.Add(key)
 	}
 }
