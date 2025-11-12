@@ -43,5 +43,6 @@ go_test(
         "//vendor/google.golang.org/grpc:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
     ],
 )
