@@ -357,7 +357,7 @@ func NewKubeInformerFactory(restClient *rest.RESTClient, clientSet kubecli.Kubev
 		clientSet:        clientSet,
 		aggregatorClient: aggregatorClient,
 		// Resulting resync period will be between 12 and 24 hours, like the default for k8s
-		defaultResync:     resyncPeriod(12 * time.Hour),
+		defaultResync:     ResyncPeriod(12 * time.Hour),
 		informers:         make(map[string]cache.SharedIndexInformer),
 		startedInformers:  make(map[string]bool),
 		kubevirtNamespace: kubevirtNamespace,
@@ -1084,8 +1084,8 @@ func (f *kubeInformerFactory) KubeVirt() cache.SharedIndexInformer {
 	})
 }
 
-// resyncPeriod computes the time interval a shared informer waits before resyncing with the api server
-func resyncPeriod(minResyncPeriod time.Duration) time.Duration {
+// ResyncPeriod computes the time interval a shared informer waits before resyncing with the api server
+func ResyncPeriod(minResyncPeriod time.Duration) time.Duration {
 	// #nosec no need for better randomness
 	factor := rand.Float64() + 1
 	return time.Duration(float64(minResyncPeriod.Nanoseconds()) * factor)
