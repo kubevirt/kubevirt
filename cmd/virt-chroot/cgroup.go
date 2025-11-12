@@ -12,6 +12,9 @@ import (
 	runc_fs2 "github.com/opencontainers/runc/libcontainer/cgroups/fs2"
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
 
+	// Import the cgroups/devices package to register the default cgroups managers.
+	_ "github.com/opencontainers/runc/libcontainer/cgroups/devices"
+
 	cgroupconsts "kubevirt.io/kubevirt/pkg/virt-handler/cgroup/constants"
 )
 
