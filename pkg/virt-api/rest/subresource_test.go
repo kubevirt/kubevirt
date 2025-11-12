@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
@@ -502,6 +503,32 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				Entry("in status Running with dry-run", v1.Running, &v1.StopOptions{GracePeriod: gracePeriodZero, DryRun: withDryRun()}),
 				Entry("in status Failed with dry-run", v1.Failed, &v1.StopOptions{GracePeriod: gracePeriodZero, DryRun: withDryRun()}),
 			)
+
+			It("should fail to stop a paused VMI", func() {
+				request.PathParameters()["name"] = testVMName
+				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
+
+				vmi := libvmi.New(
+					libvmi.WithNamespace(k8smetav1.NamespaceDefault),
+					libvmi.WithName(testVMName),
+					libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running),
+						libvmistatus.WithCondition(v1.VirtualMachineInstanceCondition{
+							Type:   v1.VirtualMachineInstancePaused,
+							Status: k8sv1.ConditionTrue,
+						}),
+					)),
+				)
+
+				vm := libvmi.NewVirtualMachine(vmi)
+
+				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+				vmiClient.EXPECT().Get(context.Background(), vmi.Name, k8smetav1.GetOptions{}).Return(vmi, nil)
+
+				app.StopVMRequestHandler(request, response)
+
+				status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+				Expect(status.Error()).To(ContainSubstring("cannot stop a paused VirtualMachineInstance; it must be unpaused first"))
+			})
 		})
 	})
 
