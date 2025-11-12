@@ -216,12 +216,9 @@ http_file(
 
 http_archive(
     name = "bazeldnf",
-    sha256 = "0a4b9740da1839ded674c8f5012c069b235b101f1eaa2552a4721287808541af",
-    strip_prefix = "bazeldnf-v0.5.9-2",
-    urls = [
-        "https://github.com/brianmcarey/bazeldnf/releases/download/v0.5.9-2/bazeldnf-v0.5.9-2.tar.gz",
-        "https://storage.googleapis.com/builddeps/0a4b9740da1839ded674c8f5012c069b235b101f1eaa2552a4721287808541af",
-    ],
+    sha256 = "03852830a239efaa7ee4ba7d50344b2bfd5b41c604e379011bcadf0477ecc8db",
+    strip_prefix = "bazeldnf-v0.99.1",
+    url = "https://github.com/rmohr/bazeldnf/releases/download/v0.99.1/bazeldnf-v0.99.1.tar.gz",
 )
 
 load("@bazeldnf//bazeldnf:defs.bzl", "rpm")
