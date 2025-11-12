@@ -21,6 +21,8 @@ package hooks
 
 import (
 	"context"
+	_ "embed"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"net"
@@ -35,8 +37,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	v1 "kubevirt.io/api/core/v1"
+
+	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	hooksInfo "kubevirt.io/kubevirt/pkg/hooks/info"
 	hooksV1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
+	virtwrapApi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type infoServer struct {
@@ -51,9 +57,52 @@ func (s *infoServer) Info(
 	return &s.InfoResult, nil
 }
 
+type callbackServer struct {
+	done chan struct{}
+
+	// For the tests
+	countOnDefineDomain  int
+	countPreCloudInitIso int
+	countShutdown        int
+}
+
+func (s *callbackServer) OnDefineDomain(
+	_ context.Context,
+	params *hooksV1alpha3.OnDefineDomainParams,
+) (*hooksV1alpha3.OnDefineDomainResult, error) {
+	GinkgoWriter.Println("Hook's OnDefineDomain method has been called")
+	s.countOnDefineDomain++
+
+	return &hooksV1alpha3.OnDefineDomainResult{
+		DomainXML: params.GetDomainXML(),
+	}, nil
+}
+
+func (s *callbackServer) PreCloudInitIso(
+	_ context.Context,
+	params *hooksV1alpha3.PreCloudInitIsoParams,
+) (*hooksV1alpha3.PreCloudInitIsoResult, error) {
+	GinkgoWriter.Println("Hook's PreCloudInitIso method has been called")
+	s.countPreCloudInitIso++
+	return &hooksV1alpha3.PreCloudInitIsoResult{
+		CloudInitData: params.GetCloudInitData(),
+	}, nil
+}
+
+func (s *callbackServer) Shutdown(
+	_ context.Context,
+	_ *hooksV1alpha3.ShutdownParams,
+) (*hooksV1alpha3.ShutdownResult, error) {
+	GinkgoWriter.Println("Hook's Shutdown method has been called")
+	s.countShutdown++
+	close(s.done)
+	return &hooksV1alpha3.ShutdownResult{}, nil
+}
+
 type testCase struct {
 	socketPath string
 	info       infoServer
+	callback   callbackServer
 
 	// error from the Run(), will be read on Stop()
 	errch  chan error
@@ -77,6 +126,9 @@ func newTestCase(socketDir, name string) *testCase {
 				HookPoints: []*hooksInfo.HookPoint{},
 			},
 		},
+		callback: callbackServer{
+			done: make(chan struct{}),
+		},
 		errch:  make(chan error),
 		ctx:    ctx,
 		cancel: cancel,
@@ -94,6 +146,7 @@ func (t *testCase) Run() {
 		defer socket.Close()
 
 		hooksInfo.RegisterInfoServer(server, &t.info)
+		hooksV1alpha3.RegisterCallbacksServer(server, &t.callback)
 
 		GinkgoWriter.Printf("Starting hook server exposing 'info' services on socket %s\n", t.socketPath)
 		grpcDone <- server.Serve(socket)
@@ -130,6 +183,9 @@ func (t *testCase) Stop() error {
 	t.cancel()
 	return <-t.errch
 }
+
+//go:embed testdata/domain.xml
+var domainXML []byte
 
 const collectTimeout = 10 * time.Second
 
@@ -212,6 +268,65 @@ var _ = Describe("HooksManager", func() {
 				Expect(callbackMaps).Should(HaveKey(hook.hookPointName))
 				Expect(callbackMaps[hook.hookPointName]).Should(HaveLen(1))
 			}
+		})
+
+		Context("on calling the methods", func() {
+			It("should call each once in order", func() {
+				t := newTestCase(socketDir, "hook1")
+				t.info.HookPoints = []*hooksInfo.HookPoint{
+					{Name: hooksInfo.OnDefineDomainHookPointName},
+					{Name: hooksInfo.PreCloudInitIsoHookPointName},
+					{Name: hooksInfo.ShutdownHookPointName},
+				}
+				t.Run()
+
+				manager := newManager(socketDir)
+				err := manager.Collect(1, collectTimeout)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Calling OnDefineDomain")
+				domainSpec := &virtwrapApi.DomainSpec{}
+				err = xml.Unmarshal(domainXML, domainSpec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domainSpec).ToNot(BeNil())
+
+				vmi := &v1.VirtualMachineInstance{
+					Spec: v1.VirtualMachineInstanceSpec{
+						Domain: v1.DomainSpec{
+							Devices: v1.Devices{},
+						},
+					},
+				}
+
+				Expect(t.callback.countOnDefineDomain).To(Equal(0))
+				resultXML, err := manager.OnDefineDomain(domainSpec, vmi)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(t.callback.countOnDefineDomain).To(Equal(1))
+
+				resultSpec := &virtwrapApi.DomainSpec{}
+				err = xml.Unmarshal([]byte(resultXML), resultSpec)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(domainSpec).To(Equal(resultSpec))
+
+				By("Calling PreCloudInitIso")
+				initData := &cloudinit.CloudInitData{
+					UserData:        "KubeVirt",
+					NoCloudMetaData: &cloudinit.NoCloudMetadata{},
+				}
+
+				Expect(t.callback.countPreCloudInitIso).To(Equal(0))
+				resultInitData, err := manager.PreCloudInitIso(vmi, initData)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(t.callback.countPreCloudInitIso).To(Equal(1))
+				Expect(initData).To(Equal(resultInitData))
+
+				By("Calling Shutdown")
+				Expect(t.callback.countShutdown).To(Equal(0))
+				err = manager.Shutdown()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(t.callback.countShutdown).To(Equal(1))
+				Expect(t.Stop()).ToNot(HaveOccurred())
+			})
 		})
 
 		AfterEach(func() {
