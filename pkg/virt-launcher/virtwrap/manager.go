@@ -42,9 +42,12 @@ import (
 	"syscall"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/ioctl"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 
@@ -204,6 +207,10 @@ type LibvirtDomainManager struct {
 	libvirtHooksServerAndClientEnabled bool
 	setTimeOnce                        sync.Once
 
+	diskGuestSizeCache map[string]uint64
+
+	ioctlFactory ioctl.Factory
+
 	// Premigration hook server for VMI updates during migration
 	hookServer *premigrationhookserver.PreMigrationHookServer
 
@@ -277,6 +284,8 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		setTimeOnce:                        sync.Once{},
 		imageVolumeFeatureGateEnabled:      imageVolumeEnabled,
 		libvirtHooksServerAndClientEnabled: libvirtHooksServerAndClientEnabled,
+		diskGuestSizeCache:                 map[string]uint64{},
+		ioctlFactory:                       ioctl.NewFactory(),
 		hookServer:                         hookServer,
 		hypervisorName:                     hypervisorName,
 		hypervisorDeviceAvailable:          hypervisorDeviceAvailable,
@@ -859,16 +868,16 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	}
 
 	// expand disk image files if they're too small
-	expandDiskImagesOffline(vmi, domain)
+	l.expandDiskImagesOffline(vmi, domain)
 
 	return domain, err
 }
 
-func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+func (l *LibvirtDomainManager) expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	logger := log.Log.Object(vmi)
 	for _, disk := range domain.Spec.Devices.Disks {
-		if shouldExpandOffline(disk) {
-			possibleGuestSize, ok := possibleGuestSize(disk)
+		if l.shouldExpandOffline(disk) {
+			possibleGuestSize, ok := l.possibleGuestSize(disk)
 			if !ok {
 				logger.Errorf("Failed to get possible guest size from disk")
 				break
@@ -901,9 +910,14 @@ func expandDiskImageOffline(imagePath string, size int64) error {
 	return nil
 }
 
-func possibleGuestSize(disk api.Disk) (int64, bool) {
+func (l *LibvirtDomainManager) possibleGuestSize(disk api.Disk) (int64, bool) {
 	if disk.Source.Dev != "" {
-		return 0, true
+		blockDevSize, err := l.getBlockDeviceSize(disk.Source.Dev)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Errorf("Failed to get block device size for %q", disk.Source.Dev)
+			return 0, false
+		}
+		return int64(blockDevSize), true
 	}
 
 	if disk.Capacity == nil {
@@ -926,7 +940,7 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 	}
 
 	preferredSize := *disk.Capacity
-	usableSize, err := getUsableDiskSize(getBackendSource(disk))
+	usableSize, err := getUsableFileBackedDiskSize(getBackendSource(disk))
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
 		usableSize = preferredSize
@@ -941,7 +955,7 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 	return size, true
 }
 
-func getUsableDiskSize(path string) (int64, error) {
+func getUsableFileBackedDiskSize(path string) (int64, error) {
 	var statfs syscall.Statfs_t
 	err := syscall.Statfs(path, &statfs)
 	if err != nil {
@@ -958,7 +972,7 @@ func getUsableDiskSize(path string) (int64, error) {
 	return usableSize, nil
 }
 
-func shouldExpandOffline(disk api.Disk) bool {
+func (l *LibvirtDomainManager) shouldExpandOffline(disk api.Disk) bool {
 	if disk.Source.Dev != "" {
 		// Block devices don't need to be expanded
 		return false
@@ -968,7 +982,7 @@ func shouldExpandOffline(disk api.Disk) bool {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
 		return false
 	}
-	possibleGuestSize, ok := possibleGuestSize(disk)
+	possibleGuestSize, ok := l.possibleGuestSize(disk)
 	if !ok || possibleGuestSize <= diskInfo.VirtualSize {
 		return false
 	}
@@ -1279,6 +1293,7 @@ func (l *LibvirtDomainManager) syncDisks(
 			logger.Reason(err).Error("marshalling detached disk failed")
 			return err
 		}
+		delete(l.diskGuestSizeCache, getSourceFile(detachDisk))
 		err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("detaching device")
@@ -1345,25 +1360,38 @@ func (l *LibvirtDomainManager) syncDisks(
 		}
 	}
 
-	// Resize and notify the VM about changed disks
-	for _, disk := range domain.Spec.Devices.Disks {
-		if shouldExpandOnline(dom, disk) {
-			possibleGuestSize, ok := possibleGuestSize(disk)
-			if !ok {
-				logger.Warningf("Failed to get possible guest size from disk %v", disk)
-				break
-			}
-			flags := libvirt.DOMAIN_BLOCK_RESIZE_BYTES
-			if possibleGuestSize == 0 {
-				flags |= libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY
-			}
-			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), flags)
-			if err != nil {
-				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
-			}
-		}
+	if err := l.syncDiskExpansion(domain, dom, logger); err != nil {
+		return err
 	}
 
+	return nil
+}
+
+func (l *LibvirtDomainManager) syncDiskExpansion(
+	domain *api.Domain,
+	dom cli.VirDomain,
+	logger *log.FilteredLogger,
+) error {
+	// Resize and notify the VM about changed disks
+	for _, disk := range domain.Spec.Devices.Disks {
+		if l.shouldExpandOnline(dom, disk) {
+			sourceFile := getSourceFile(disk)
+			log.Log.V(1).Infof("Expanding disk %q online", sourceFile)
+
+			possibleGuestSize, ok := l.possibleGuestSize(disk)
+			if !ok {
+				logger.Warningf("Failed to get possible guest size from disk %v", disk)
+				continue
+			}
+
+			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES)
+			if err != nil {
+				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
+				continue
+			}
+			l.diskGuestSizeCache[sourceFile] = uint64(possibleGuestSize)
+		}
+	}
 	return nil
 }
 
@@ -1640,23 +1668,42 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 	return false, fmt.Errorf("error checking for block device: %v", err)
 }
 
-func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
-	blockInfo, err := dom.GetBlockInfo(getSourceFile(disk), 0)
-	if err != nil {
-		log.DefaultLogger().Reason(err).Error("Failed to get block info")
-		return false
-	}
-	guestSize := blockInfo.Capacity
-	// If block device, expand if capacity is lower than physical
-	if disk.Source.Dev != "" {
-		return guestSize < blockInfo.Physical
+func (l *LibvirtDomainManager) shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
+	sourceFile := getSourceFile(disk)
+	guestSize, ok := l.diskGuestSizeCache[sourceFile]
+	if !ok {
+		log.DefaultLogger().V(3).Infof("Calling GetBlockInfo on %q", sourceFile)
+		blockInfo, err := dom.GetBlockInfo(sourceFile, 0)
+		if err != nil {
+			log.DefaultLogger().Reason(err).Errorf("Failed to get block info for %q", sourceFile)
+			return false
+		}
+		guestSize = blockInfo.Capacity
+		l.diskGuestSizeCache[sourceFile] = guestSize
 	}
 
-	possibleGuestSize, ok := possibleGuestSize(disk)
+	possibleGuestSize, ok := l.possibleGuestSize(disk)
 	if !ok || possibleGuestSize <= int64(guestSize) {
 		return false
 	}
+
 	return true
+}
+
+// getBlockDeviceSize gets the size of the block device at devicePath.
+func (l *LibvirtDomainManager) getBlockDeviceSize(devicePath string) (int, error) {
+	h, err := l.ioctlFactory.New(devicePath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open device %s: %w", devicePath, err)
+	}
+	defer h.Close()
+
+	size, err := h.IoctlGetInt(unix.BLKGETSIZE64)
+	if err != nil {
+		return 0, fmt.Errorf("ioctl BLKGETSIZE64 failed for %s: %w", devicePath, err)
+	}
+
+	return size, nil
 }
 
 func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
