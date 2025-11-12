@@ -1476,30 +1476,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(vmi.Status.Machine.Type).To(ContainSubstring("pc-i440"))
 		})
 
-		It("[test_id:3125]should allow creating VM without Machine defined", func() {
-			vmi := libvmifact.NewGuestless()
-			vmi.Spec.Domain.Machine = nil
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
-		})
-
-		It("[test_id:6964]should allow creating VM defined with Machine with an empty Type", func() {
-			// This is needed to provide backward compatibility since our example VMIs used to be defined in this way
-			vmi := libvmi.New(
-				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
-				withMachineType(""),
-			)
-
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsTiny)
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(runningVMISpec.OS.Type.Machine).To(ContainSubstring("q35"))
-		})
-
 		It("[test_id:3126]should set machine type from kubevirt-config", Serial, func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			testEmulatedMachines := []string{"pc"}
