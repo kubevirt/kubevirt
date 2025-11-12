@@ -2364,26 +2364,43 @@ var _ = Describe("Migration watcher", func() {
 			// Add should bump pending3 higher than pending but lower than active
 			controller.Queue.Add("default/pending3")
 
-			for i := range 5 {
+			runningMigrationsFromQueue := make([]string, 0, 5)
+			for range 5 {
 				item, priority, shutdown := controller.Queue.GetWithPriority()
-				Expect(item).To(BeEquivalentTo(fmt.Sprintf("default/active%d", i)))
+				runningMigrationsFromQueue = append(runningMigrationsFromQueue, item)
 				Expect(priority).To(Equal(migrationsutil.QueuePriorityRunning))
 				Expect(shutdown).To(BeFalse())
 			}
+			Expect(runningMigrationsFromQueue).To(
+				ConsistOf(
+					"default/active0",
+					"default/active1",
+					"default/active2",
+					"default/active3",
+					"default/active4",
+				),
+			)
+
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(BeEquivalentTo("default/pending3"))
 			Expect(priority).To(BeNumerically("<", migrationsutil.QueuePriorityRunning))
 			Expect(priority).To(BeNumerically(">", migrationsutil.QueuePriorityPending))
 			Expect(shutdown).To(BeFalse())
-			for i := range 5 {
-				if i == 3 {
-					continue
-				}
+			runningMigrationsFromQueue = make([]string, 0, 4)
+			for range 4 {
 				item, priority, shutdown := controller.Queue.GetWithPriority()
-				Expect(item).To(BeEquivalentTo(fmt.Sprintf("default/pending%d", i)))
+				runningMigrationsFromQueue = append(runningMigrationsFromQueue, item)
 				Expect(priority).To(Equal(migrationsutil.QueuePriorityPending))
 				Expect(shutdown).To(BeFalse())
 			}
+			Expect(runningMigrationsFromQueue).To(
+				ConsistOf(
+					"default/pending0",
+					"default/pending1",
+					"default/pending2",
+					"default/pending4",
+				),
+			)
 		})
 
 		Context("with MigrationPriorityQueue feature gate enabled", func() {
