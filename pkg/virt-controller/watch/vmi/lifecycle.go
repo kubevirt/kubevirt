@@ -31,6 +31,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -46,6 +47,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -465,9 +467,14 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 	case vmi.IsScheduled():
 		if !vmiPodExists {
-			if vmiCopy.IsDecentralizedMigration() {
+			if vmiCopy.IsDecentralizedMigration() && vmiCopy.IsMigrationTarget() {
 				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduled because pod does not exist")
 				vmiCopy.Status.Phase = virtv1.WaitingForSync
+				if vmiCopy.Status.MigrationState != nil {
+					vmiCopy.Status.MigrationState.Failed = true
+					vmiCopy.Status.MigrationState.Completed = true
+					vmiCopy.Status.MigrationState.EndTimestamp = pointer.P(metav1.Now())
+				}
 				break
 			}
 			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while scheduled because pod does not exist")
