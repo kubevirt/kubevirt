@@ -90,15 +90,23 @@ var _ = Describe("Migration watcher", func() {
 		})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pods.Items).To(HaveLen(1))
-		Expect(pods.Items[0].Spec.Affinity).ToNot(BeNil())
-		Expect(pods.Items[0].Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
-		Expect(pods.Items[0].Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(expectedAntiAffinityCount))
-		if expectedAffinityCount > 0 {
-			Expect(pods.Items[0].Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(expectedAffinityCount))
+		if expectedAntiAffinityCount > 0 || expectedAffinityCount > 0 || expectedNodeAffinityCount > 0 {
+			Expect(pods.Items[0].Spec.Affinity).ToNot(BeNil())
+			if expectedAntiAffinityCount > 0 {
+				Expect(pods.Items[0].Spec.Affinity.PodAntiAffinity).ToNot(BeNil())
+				Expect(pods.Items[0].Spec.Affinity.PodAntiAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(expectedAntiAffinityCount))
+			}
+			if expectedAffinityCount > 0 {
+				Expect(pods.Items[0].Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution).To(HaveLen(expectedAffinityCount))
+			}
+			if expectedNodeAffinityCount > 0 {
+				Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(expectedNodeAffinityCount))
+			}
 		}
-		if expectedNodeAffinityCount > 0 {
-			Expect(pods.Items[0].Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms).To(HaveLen(expectedNodeAffinityCount))
-		}
+	}
+
+	expectReceiverPodCreation := func(namespace string, uid types.UID, migrationUid types.UID) {
+		expectPodCreation(namespace, uid, migrationUid, 0, 0, 0)
 	}
 
 	expectPodDoesNotExist := func(namespace, uid, migrationUid string) {
@@ -604,6 +612,8 @@ var _ = Describe("Migration watcher", func() {
 	})
 
 	Context("Migration object in pending state", func() {
+		const defaultMaxOutboundMigrationsPerNode = 2
+
 		It("should patch VMI with nonroot user", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			delete(vmi.Annotations, virtv1.DeprecatedNonRootVMIAnnotation)
@@ -781,6 +791,39 @@ var _ = Describe("Migration watcher", func() {
 			expectPodCreation(vmi.Namespace, vmi.UID, migration.UID, 1, 0, 0)
 		})
 
+		DescribeTable("should properly count decentralized live migrations when creating the target pod", func(phase virtv1.VirtualMachineInstanceMigrationPhase, otherMigrations int, sameNode, expectedRunning bool) {
+			vmi := newReceiverVirtualMachine("testvmi", virtv1.Pending, "testmigration")
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, phase)
+			addNodeNameToVMI(vmi, "node")
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			for i := 0; i < otherMigrations; i++ {
+				vmi := newReceiverVirtualMachine(fmt.Sprintf("testvmi%v", i), virtv1.WaitingForSync, fmt.Sprintf("testmigration%v", i))
+				migration := newDecentralizedReceiverMigration(fmt.Sprintf("testmigration%v", i), vmi.Name, virtv1.MigrationRunning)
+				if sameNode {
+					addNodeNameToVMI(vmi, "node")
+				} else {
+					addNodeNameToVMI(vmi, fmt.Sprintf("node%v", i))
+				}
+				addMigration(migration)
+				addVirtualMachineInstance(vmi)
+			}
+			sanityExecute()
+			if expectedRunning {
+				testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+				expectReceiverPodCreation(vmi.Namespace, vmi.UID, migration.UID)
+			} else {
+				expectPodDoesNotExist(vmi.Namespace, "testvmi", "testmigration")
+			}
+		},
+			Entry("per node limit, with a Pending decentralized migration, two others running", virtv1.MigrationPending, defaultMaxOutboundMigrationsPerNode, true, false),
+			Entry("per node limit, with a Pending decentralized migration, one other running", virtv1.MigrationPending, 1, true, true),
+			Entry("cluster limit, with a Pending decentralized migration, two others running", virtv1.MigrationPending, defaultMaxOutboundMigrationsPerNode, false, true),
+			Entry("cluster limit, with a Pending decentralized migration, one other running", virtv1.MigrationPending, 1, false, true),
+			Entry("cluster limit, with a Pending decentralized migration, five others running", virtv1.MigrationPending, 5, false, false),
+		)
+
 		DescribeTable("should not overload the node and only run 2 outbound migrations in parallel",
 			func(generateVMIandMigration func(int)) {
 				// It should create a pod for this one if we would not limit migrations
@@ -791,7 +834,6 @@ var _ = Describe("Migration watcher", func() {
 				addVirtualMachineInstance(vmi)
 				addPod(newSourcePodForVirtualMachine(vmi))
 
-				const defaultMaxOutboundMigrationsPerNode = 2
 				for i := 0; i < defaultMaxOutboundMigrationsPerNode; i++ {
 					generateVMIandMigration(i)
 				}
@@ -2393,6 +2435,14 @@ func newMigration(name string, vmiName string, phase virtv1.VirtualMachineInstan
 	return migration
 }
 
+func newDecentralizedReceiverMigration(name string, vmiName string, phase virtv1.VirtualMachineInstanceMigrationPhase) *virtv1.VirtualMachineInstanceMigration {
+	migration := newMigration(name, vmiName, phase)
+	migration.Spec.Receive = &virtv1.VirtualMachineInstanceMigrationTarget{
+		MigrationID: vmiName,
+	}
+	return migration
+}
+
 func newMigrationWithAddedNodeSelector(name string, vmiName string, phase virtv1.VirtualMachineInstanceMigrationPhase, addedNodeSelector map[string]string) *virtv1.VirtualMachineInstanceMigration {
 	migration := newMigration(name, vmiName, phase)
 	migration.Spec.AddedNodeSelector = addedNodeSelector
@@ -2410,6 +2460,24 @@ func newVirtualMachine(name string, phase virtv1.VirtualMachineInstancePhase) *v
 	vmi.Status.RuntimeUser = 107
 	vmi.ObjectMeta.Annotations = map[string]string{
 		virtv1.DeprecatedNonRootVMIAnnotation: "true",
+	}
+	return vmi
+}
+
+func newReceiverVirtualMachine(name string, phase virtv1.VirtualMachineInstancePhase, migrationUID string) *virtv1.VirtualMachineInstance {
+	vmi := newVirtualMachine(name, phase)
+	vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+		TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+			VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+				MigrationUID: types.UID(migrationUID),
+			},
+		},
+		SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+			VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+				Node:           "testnode",
+				SelinuxContext: "none",
+			},
+		},
 	}
 	return vmi
 }
