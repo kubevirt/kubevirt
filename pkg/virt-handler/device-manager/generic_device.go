@@ -79,11 +79,10 @@ func (dpi *GenericDevicePlugin) SetupDevicePluginFunc() error {
 	if dpi.preOpen {
 		devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 		devnode, err := os.Open(devicePath)
-		if err == nil {
-			devnode.Close()
-		} else {
+		if err != nil {
 			return fmt.Errorf("error opening the device node %s: %v", devicePath, err)
 		}
+		defer devnode.Close()
 	}
 	return nil
 }
@@ -118,7 +117,6 @@ func (dpi *GenericDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watc
 }
 
 func (dpi *GenericDevicePlugin) GetIDDeviceNameFunc(_ string) string {
-	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 	// don't worry about the device id here, since its the same underlying device
-	return fmt.Sprintf("generic device (%s)", devicePath)
+	return fmt.Sprintf("generic device (%s)", dpi.devicePath)
 }
