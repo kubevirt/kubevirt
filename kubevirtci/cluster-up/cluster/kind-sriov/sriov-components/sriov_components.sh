@@ -152,6 +152,7 @@ function sriov_components::deploy_dra() {
   return 0
 }
 
+<<<<<<< HEAD
 function sriov_components::deploy_network_resources_injector() {
   _kubectl apply -f "$NETWORK_RESOURCES_INJECTOR_AUTH_MANIFEST"
   _kubectl apply -f "$NETWORK_RESOURCES_INJECTOR_SERVICE_MANIFEST"
@@ -159,6 +160,8 @@ function sriov_components::deploy_network_resources_injector() {
   return 0
 }
 
+=======
+>>>>>>> 9e3d1c0436 (kind-sriov: Allow to use DRA)
 function _create_custom_manifests_dir() {
   mkdir -p "$CUSTOM_MANIFESTS"
 
