@@ -130,14 +130,14 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 						log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
 					}
 					if wpid == 0 {
-						log.Log.Infof("No more processes to be reaped")
+						log.Log.V(4).Infof("No more processes to be reaped")
 						break
 					}
 					if wpid == cmd.Process.Pid {
 						log.Log.Infof("Reaped Launcher main pid")
 						exitStatus <- wstatus.ExitStatus()
 					}
-					log.Log.Infof("Reaped pid %d with status %d", wpid, int(wstatus))
+					log.Log.V(4).Infof("Reaped pid %d with status %d", wpid, int(wstatus))
 				}
 
 			default:
