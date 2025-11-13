@@ -40,11 +40,7 @@ func (archLabellerS390X) hasHostSupportedFeatures() bool {
 	return true
 }
 
-func (archLabellerS390X) supportsHostModel() bool {
-	return true
-}
-
-func (archLabellerS390X) supportsNamedModels() bool {
+func (archLabellerS390X) supportsCPUModels() bool {
 	return true
 }
 

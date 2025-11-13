@@ -245,15 +245,6 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 		}
 	}
 
-	if n.arch.supportsNamedModels() {
-		for _, value := range n.getSupportedCpuModels(obsoleteCPUsx86) {
-			newLabels[kubevirtv1.CPUModelLabel+value] = "true"
-		}
-		for _, value := range n.getKnownCpuModels(obsoleteCPUsx86) {
-			newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
-		}
-	}
-
 	for _, machine := range n.supportedMachines {
 		labelKey := kubevirtv1.SupportedMachineTypeLabel + machine.Name
 		newLabels[labelKey] = "true"
@@ -268,7 +259,7 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 		newLabels[kubevirtv1.CPUTimerLabel+"tsc-scalable"] = fmt.Sprintf("%t", n.cpuCounter.Scaling == "yes")
 	}
 
-	if n.arch.supportsHostModel() {
+	if n.arch.supportsCPUModels() {
 		if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; hostModelObsolete {
 			newLabels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
 			err := n.alertIfHostModelIsObsolete(node, hostCpuModel.Name, obsoleteCPUsx86)
@@ -283,6 +274,13 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 
 		newLabels[kubevirtv1.CPUModelVendorLabel+n.cpuModelVendor] = "true"
 		newLabels[kubevirtv1.HostModelCPULabel+hostCpuModel.Name] = "true"
+
+		for _, value := range n.getSupportedCpuModels(obsoleteCPUsx86) {
+			newLabels[kubevirtv1.CPUModelLabel+value] = "true"
+		}
+		for _, value := range n.getKnownCpuModels(obsoleteCPUsx86) {
+			newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
+		}
 	}
 
 	capable, err := isNodeRealtimeCapable()
