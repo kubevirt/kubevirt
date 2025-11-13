@@ -1566,6 +1566,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 		),
 		compute.TPMDomainConfigurator{},
+		compute.VSOCKDomainConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -2066,19 +2067,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				api.Arg{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", QEMUSeaBiosDebugPipe)},
 				api.Arg{Value: "-device"},
 				api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"})
-		}
-	}
-
-	// Handle VSOCK CID
-	if vmi.Status.VSOCKCID != nil {
-		domain.Spec.Devices.VSOCK = &api.VSOCK{
-			// Force virtio v1 for vhost-vsock-pci.
-			// https://gitlab.com/qemu-project/qemu/-/commit/6209070503989cf4f28549f228989419d4f0b236
-			Model: "virtio-non-transitional",
-			CID: api.CID{
-				Auto:    "no",
-				Address: *vmi.Status.VSOCKCID,
-			},
 		}
 	}
 

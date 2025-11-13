@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["tpm.go"],
+    srcs = [
+        "tpm.go",
+        "vsock.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute",
     visibility = ["//visibility:public"],
     deps = [
@@ -17,12 +20,16 @@ go_test(
     srcs = [
         "compute_suite_test.go",
         "tpm_test.go",
+        "vsock_test.go",
     ],
     race = "on",
     deps = [
         ":go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/status:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
