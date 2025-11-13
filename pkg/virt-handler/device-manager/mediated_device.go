@@ -86,7 +86,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 		iommuToMDEVMap[mdev.iommuGroup] = mdev.UUID
 		dpiDev := &pluginapi.Device{
 			ID:     mdev.iommuGroup,
-			Health: pluginapi.Healthy,
+			Health: pluginapi.Unhealthy, // set to unhealthy by default
 		}
 		if mdev.numaNode >= 0 {
 			numaInfo := &pluginapi.NUMANode{
@@ -120,7 +120,7 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 				allocatedDevices = append(allocatedDevices, mdevUUID)
 
 				// Perform check that node didn't disappear
-				_, err := os.Stat(filepath.Join(util.HostRootMount, vfioDevicePath, devID))
+				_, err := os.Stat(filepath.Join(dpi.deviceRoot, vfioDevicePath, devID))
 				if err != nil {
 					if errors.Is(err, os.ErrNotExist) {
 						log.DefaultLogger().Errorf("Mediated device %s with id %s for resource %s disappeared", mdevUUID, devID, dpi.resourceName)
@@ -197,26 +197,8 @@ func (dpi *MediatedDevicePlugin) GetIDDeviceNameFunc(monDevId string) string {
 	return fmt.Sprintf("mediated device (mdev=%s, id=%s)", mdev, monDevId)
 }
 
-// TODO:
-// Watch the directory, not individual files. When files are deleted, inotify automatically
-// removes watches on them, so we wouldn't get CREATE events when they're recreated.
-// By watching only the directory, we get all file events within it.
 func (dpi *MediatedDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
-	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
-	deviceDirPath := filepath.Dir(devicePath)
-	if err := watcher.Add(deviceDirPath); err != nil {
-		return fmt.Errorf("failed to add the device path to the watcher: %v", err)
-	}
-	// probe all devices
-	for _, dev := range dpi.devs {
-		vfioDevice := filepath.Join(devicePath, dev.ID)
-		err := watcher.Add(vfioDevice)
-		if err != nil {
-			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
-		}
-		monitoredDevices[vfioDevice] = dev.ID
-	}
-	return nil
+	return setupVFIOMonitoredDevices(dpi.deviceRoot, dpi.devicePath, dpi.devs, watcher, monitoredDevices)
 }
 
 func getMdevTypeName(mdevUUID string) (string, error) {

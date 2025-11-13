@@ -85,7 +85,7 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 		iommuToPCIMap[pciDevice.iommuGroup] = pciDevice.pciAddress
 		dpiDev := &pluginapi.Device{
 			ID:     pciDevice.iommuGroup,
-			Health: pluginapi.Healthy,
+			Health: pluginapi.Unhealthy, // set to unhealthy by default
 		}
 		if pciDevice.numaNode >= 0 {
 			numaInfo := &pluginapi.NUMANode{
@@ -135,29 +135,34 @@ func (dpi *PCIDevicePlugin) GetIDDeviceNameFunc(monDevId string) string {
 	return fmt.Sprintf("PCI device (pciAddr=%s, id=%s)", pciID, monDevId)
 }
 
-func (dpi *PCIDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
-	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
-	deviceDirPath := filepath.Dir(devicePath)
-	if err := watcher.Add(deviceDirPath); err != nil {
-		return fmt.Errorf("failed to add the device path to the watcher: %v", err)
+func setupVFIOMonitoredDevices(deviceRoot, devicePath string, devs []*pluginapi.Device, watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+	fullDevicePath := filepath.Join(deviceRoot, devicePath)
+	// for pci and mediated devices, devices are added directly into the devicePath directory
+	if err := watcher.Add(fullDevicePath); err != nil {
+		log.DefaultLogger().Warningf("failed to add device path %s to the watcher: %v", fullDevicePath, err)
 	}
-	// probe all devices
-	for _, dev := range dpi.devs {
-		vfioDevice := filepath.Join(devicePath, dev.ID)
-		err := watcher.Add(vfioDevice)
-		if err != nil {
-			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
-		}
+	deviceDirPath := filepath.Dir(fullDevicePath)
+	if err := watcher.Add(deviceDirPath); err != nil {
+		// unrecoverable error
+		return fmt.Errorf("failed to add device directory %s to the watcher", deviceDirPath)
+	}
+	// mark devices to be tracked by the watcher
+	for _, dev := range devs {
+		vfioDevice := filepath.Join(fullDevicePath, dev.ID)
 		monitoredDevices[vfioDevice] = dev.ID
 	}
 	return nil
 }
 
+func (dpi *PCIDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+	return setupVFIOMonitoredDevices(dpi.deviceRoot, dpi.devicePath, dpi.devs, watcher, monitoredDevices)
+}
+
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {
 	pciDevicesMap := make(map[string][]*PCIDevice)
-	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 		if info.IsDir() {
 			return nil

@@ -88,6 +88,7 @@ func (pd *PluginDevices) toKubeVirtDevicePlugin() *pluginapi.Device {
 	return &pluginapi.Device{
 		ID:       pd.ID,
 		Topology: nil,
+		Health:   pluginapi.Unhealthy, // set to unhealthy by default
 	}
 }
 
@@ -112,7 +113,7 @@ func (plugin *USBDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watch
 	watchedDirs := make(map[string]struct{})
 	for _, pd := range plugin.devices {
 		for _, usb := range pd.Devices {
-			usbDevicePath := filepath.Join(util.HostRootMount, usb.DevicePath)
+			usbDevicePath := filepath.Join(plugin.deviceRoot, usb.DevicePath)
 			usbDeviceDirPath := filepath.Dir(usbDevicePath)
 			if _, exists := watchedDirs[usbDeviceDirPath]; !exists {
 				if err := watcher.Add(usbDeviceDirPath); err != nil {
@@ -121,11 +122,6 @@ func (plugin *USBDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watch
 				watchedDirs[usbDeviceDirPath] = struct{}{}
 			}
 
-			if err := watcher.Add(usbDevicePath); err != nil {
-				return fmt.Errorf("failed to add the device %s to the watcher: %s", usbDevicePath, err)
-			} else if _, err := os.Stat(usbDevicePath); err != nil {
-				return fmt.Errorf("failed to validate device %s: %s", usbDevicePath, err)
-			}
 			monitoredDevices[usbDevicePath] = pd.ID
 		}
 	}
@@ -182,7 +178,7 @@ func parseSysUeventFile(path string) *USBDevice {
 	}
 	defer file.Close()
 
-	u := USBDevice{}
+	u := USBDevice{Healthy: false}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -370,7 +366,7 @@ func discoverAllowedUSBDevices(usbs []v1.USBHostDevice) map[string][]*PluginDevi
 	return plugins
 }
 
-func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices, p PermissionManager) *USBDevicePlugin {
+func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []*PluginDevices, p PermissionManager) *USBDevicePlugin {
 	s := strings.Split(resourceName, "/")
 	resourceID := s[0]
 	if len(s) > 1 {
@@ -380,8 +376,8 @@ func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices, p P
 
 	usb := &USBDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
-			socketPath:   SocketPath(resourceID),
-			deviceRoot:   util.HostRootMount,
+			socketPath:   SocketPath(strings.Replace(resourceID, "/", "-", -1)),
+			deviceRoot:   deviceRoot,
 			devicePath:   pathToUSBDevices,
 			resourceName: resourceName,
 			initialized:  false,
@@ -398,12 +394,8 @@ func NewUSBDevicePlugin(resourceName string, pluginDevices []*PluginDevices, p P
 	usb.GetIDDeviceName = usb.GetIDDeviceNameFunc
 	// If permission manager is not provided, we assume that device doesn't need any permissions configured.
 	if p != nil {
-		usb.ConfigurePermissions = func(devicePath string) error {
-			dp, err := safepath.JoinAndResolveWithRelativeRoot("/", usb.deviceRoot, devicePath)
-			if err != nil {
-				return fmt.Errorf("failed to construct absolute path to device: %v", err)
-			}
-			err = usb.p.ChownAtNoFollow(dp, util.NonRootUID, util.NonRootUID)
+		usb.ConfigurePermissions = func(dp *safepath.Path) error {
+			err := usb.p.ChownAtNoFollow(dp, util.NonRootUID, util.NonRootUID)
 			if err != nil {
 				return fmt.Errorf("error setting the ownership of the device: %v", err)
 			}

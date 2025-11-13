@@ -34,6 +34,7 @@ import (
 	"google.golang.org/grpc"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
@@ -65,9 +66,9 @@ type DevicePluginBase struct {
 	deviceRoot            string                                           // Root directory where the device is located
 	devicePath            string                                           // Relative path to the device from the device root
 	SetupDevicePlugin     func() error                                     // Optional function to perform additional setup steps that are not covered by the default implementation
-	SetupMonitoredDevices func(*fsnotify.Watcher, map[string]string) error // REQUIRED function to set up the devices that are being monitored
+	SetupMonitoredDevices func(*fsnotify.Watcher, map[string]string) error // REQUIRED function to set up the devices that are being monitored and update map such that key contains absolute paths to watch, and value contains the device id.
 	GetIDDeviceName       func(string) string                              // Optional function to convert device id to a human readable name for logging
-	ConfigurePermissions  func(string) error                               // Optional function to configure permissions for the device if needed. When present, device being marked healthy is contingent on the hook existing with out error.
+	ConfigurePermissions  func(*safepath.Path) error                       // Optional function to configure permissions for the device if needed. When present, device being marked healthy is contingent on the hook exiting with out error.
 }
 
 func (dpi *DevicePluginBase) GetResourceName() string {
@@ -80,16 +81,14 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 	dpi.done = make(chan struct{})
 	dpi.deregistered = make(chan struct{})
 
-	err = dpi.cleanup()
-	if err != nil {
+	if err := dpi.cleanup(); err != nil {
 		return err
 	}
 
 	// If a custom SetupDevicePlugin hook is implemented, call it
 	// for additional setup steps that are not covered by the default implementation
 	if dpi.SetupDevicePlugin != nil {
-		err = dpi.SetupDevicePlugin()
-		if err != nil {
+		if err = dpi.SetupDevicePlugin(); err != nil {
 			return err
 		}
 	}
@@ -181,13 +180,12 @@ func (dpi *DevicePluginBase) healthCheck() error {
 
 	// Set up monitored device paths
 	// Should watch before stat'ing the device path to avoid race conditions
-	if dpi.SetupMonitoredDevices != nil {
-		err = dpi.SetupMonitoredDevices(watcher, monitoredDevices)
-		if err != nil {
-			return err
-		}
-	} else {
+	if dpi.SetupMonitoredDevices == nil {
 		return fmt.Errorf("SetupMonitoredDevices is not implemented")
+	}
+	err = dpi.SetupMonitoredDevices(watcher, monitoredDevices)
+	if err != nil {
+		return err
 	}
 
 	// Check the device plugin socket to ensure we can communicate with it
@@ -200,13 +198,25 @@ func (dpi *DevicePluginBase) healthCheck() error {
 	}
 
 	// Define helper functions for health checks
-	//  - configurePermissionsAndReportHealth: configures permissions for a device and reports success
-	configurePermissionsAndReportHealth := func(devicePath string) bool {
+	//  - configurePermissionsAndReportSuccess: configures permissions for a device and reports success
+	configurePermissionsAndReportSuccess := func(devicePath string) bool {
 		success := true
 		// If the ConfigurePermissions hook is not implemented, we consider the operation successful
 		if dpi.ConfigurePermissions != nil {
 			logger.V(4).Infof("ensuring permissions for device %s", devicePath)
-			if err := dpi.ConfigurePermissions(devicePath); err != nil {
+			// Since devicePath is an absolute path, we need to get the relative path from deviceRoot to enforce containment
+			relPath, err := filepath.Rel(dpi.deviceRoot, devicePath)
+			if err != nil {
+				logger.Reason(err).Warningf("failed to get relative path for device %s", devicePath)
+				return false
+			}
+			// Use JoinAndResolveWithRelativeRoot to ensure path stays within deviceRoot
+			dp, err := safepath.JoinAndResolveWithRelativeRoot("/", dpi.deviceRoot, relPath)
+			if err != nil {
+				logger.Reason(err).Warningf("failed to create safepath for device %s", devicePath)
+				return false
+			}
+			if err := dpi.ConfigurePermissions(dp); err != nil {
 				logger.Reason(err).Warningf("failed to ensure permissions for device %s", devicePath)
 				success = false
 			}
@@ -241,7 +251,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 		}
 
 		// Device exists, try to configure permissions before marking as healthy
-		isHealthy := configurePermissionsAndReportHealth(idDevicePath)
+		isHealthy := configurePermissionsAndReportSuccess(idDevicePath)
 		if isHealthy {
 			logger.Infof("device %s is present, marking device as healthy", idDevicePath)
 		} else {
@@ -280,21 +290,23 @@ func (dpi *DevicePluginBase) healthCheck() error {
 				// Health in this case is if the device path actually exists
 				switch event.Op {
 				case fsnotify.Create:
-					logger.Infof("monitored device \"%s\" for resource %s appeared", friendlyName, dpi.resourceName)
+					logger.Infof("monitored device \"%s\" with resource %s appeared", friendlyName, dpi.resourceName)
 					// Try to configure permissions before marking the device as healthy.
-					isHealthy := configurePermissionsAndReportHealth(event.Name)
+					isHealthy := configurePermissionsAndReportSuccess(event.Name)
 					if isHealthy {
-						logger.Infof("monitored device \"%s\" for resource %s is healthy", friendlyName, dpi.resourceName)
+						logger.Infof("monitored device \"%s\" with resource %s is healthy", friendlyName, dpi.resourceName)
 					} else {
-						logger.Warningf("monitored device \"%s\" for resource %s permissions could not be configured, marking as unhealthy", friendlyName, dpi.resourceName)
+						logger.Warningf("failed to configure permissions for monitored device \"%s\" with resource %s, marking as unhealthy", friendlyName, dpi.resourceName)
 					}
 					reportHealth(monDevId, isHealthy)
 				case fsnotify.Remove:
-					logger.Infof("monitored device \"%s\" for resource %s was deleted, marking device as unhealthy", friendlyName, dpi.resourceName)
+					logger.Infof("monitored device \"%s\" with resource %s was deleted, marking device as unhealthy", friendlyName, dpi.resourceName)
 					reportHealth(monDevId, false)
 				case fsnotify.Rename:
-					logger.Infof("monitored device \"%s\" for resource %s was renamed, marking device as unhealthy", friendlyName, dpi.resourceName)
+					logger.Infof("monitored device \"%s\" with resource %s was renamed, marking device as unhealthy", friendlyName, dpi.resourceName)
 					reportHealth(monDevId, false)
+				case fsnotify.Chmod:
+					logger.Infof("monitored device \"%s\" with resource %s had its permissions modified", friendlyName, dpi.resourceName)
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
