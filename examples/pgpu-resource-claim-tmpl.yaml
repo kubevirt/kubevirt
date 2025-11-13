@@ -1,5 +1,5 @@
 ---
-apiVersion: resource.k8s.io/v1beta1
+apiVersion: resource.k8s.io/v1beta2
 kind: ResourceClaimTemplate
 metadata:
   name: pgpu-resource-claim-tmpl
@@ -9,5 +9,6 @@ spec:
   spec:
     devices:
       requests:
-      - deviceClassName: gpu.example.com
+      - exactly:
+          deviceClassName: gpu.example.com
         name: pgpu

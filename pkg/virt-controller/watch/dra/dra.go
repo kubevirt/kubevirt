@@ -27,7 +27,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	k8sv1 "k8s.io/api/core/v1"
-	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	resourcev1beta2 "k8s.io/api/resource/v1beta2"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -570,7 +570,7 @@ func getResourceClaimNameForDevice(claimName string, pod *k8sv1.Pod) *string {
 	return nil
 }
 
-func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourceClaimName, requestName string) (*resourcev1beta1.DeviceRequestAllocationResult, error) {
+func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourceClaimName, requestName string) (*resourcev1beta2.DeviceRequestAllocationResult, error) {
 	key := controller.NamespacedKey(resourceClaimNamespace, resourceClaimName)
 	obj, exists, err := c.resourceClaimIndexer.GetByKey(key)
 	if err != nil {
@@ -579,7 +579,7 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 	if !exists {
 		return nil, fmt.Errorf("resource claim %s does not exist", key)
 	}
-	resourceClaim := obj.(*resourcev1beta1.ResourceClaim)
+	resourceClaim := obj.(*resourcev1beta2.ResourceClaim)
 
 	if resourceClaim.Status.Allocation == nil {
 		return nil, nil
@@ -610,11 +610,11 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, d
 	pciAddress := ""
 	mdevUUID := ""
 	for _, obj := range resourceSlices {
-		rs := obj.(*resourcev1beta1.ResourceSlice)
+		rs := obj.(*resourcev1beta2.ResourceSlice)
 		if rs.Spec.Driver == driverName {
 			for _, device := range rs.Spec.Devices {
 				if device.Name == deviceName {
-					for key, value := range device.Basic.Attributes {
+					for key, value := range device.Attributes {
 						if string(key) == PCIAddressDeviceAttributeKey {
 							pciAddress = *value.StringValue
 						} else if string(key) == MDevUUIDDeviceAttributeKey {
@@ -633,11 +633,14 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, d
 }
 
 func indexResourceSliceByNodeName(obj interface{}) ([]string, error) {
-	rs, ok := obj.(*resourcev1beta1.ResourceSlice)
+	rs, ok := obj.(*resourcev1beta2.ResourceSlice)
 	if !ok {
 		return nil, nil
 	}
-	return []string{rs.Spec.NodeName}, nil
+	if rs.Spec.NodeName == nil {
+		return nil, nil
+	}
+	return []string{*rs.Spec.NodeName}, nil
 }
 
 func (c *DRAStatusController) getHostDevicesFromVMISpec(vmi *v1.VirtualMachineInstance) ([]DeviceInfo, error) {

@@ -39,7 +39,7 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	resourcev1beta2 "k8s.io/api/resource/v1beta2"
 	storagev1 "k8s.io/api/storage/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	extclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -1487,28 +1487,28 @@ func (f *kubeInformerFactory) ResourceQuota() cache.SharedIndexInformer {
 
 func (f *kubeInformerFactory) ResourceClaim() cache.SharedIndexInformer {
 	return f.getInformer("resourceClaimInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.ResourceV1beta1().RESTClient(), "resourceclaims", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &resourcev1beta1.ResourceClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		lw := cache.NewListWatchFromClient(f.clientSet.ResourceV1beta2().RESTClient(), "resourceclaims", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &resourcev1beta2.ResourceClaim{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
 func (f *kubeInformerFactory) DummyResourceClaim() cache.SharedIndexInformer {
 	return f.getInformer("fakeResourceClaimInformer", func() cache.SharedIndexInformer {
-		informer, _ := testutils.NewFakeInformerFor(&resourcev1beta1.ResourceClaim{})
+		informer, _ := testutils.NewFakeInformerFor(&resourcev1beta2.ResourceClaim{})
 		return informer
 	})
 }
 
 func (f *kubeInformerFactory) ResourceSlice() cache.SharedIndexInformer {
 	return f.getInformer("resourceSliceInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.ResourceV1beta1().RESTClient(), "resourceslices", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &resourcev1beta1.ResourceSlice{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+		lw := cache.NewListWatchFromClient(f.clientSet.ResourceV1beta2().RESTClient(), "resourceslices", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &resourcev1beta2.ResourceSlice{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
 func (f *kubeInformerFactory) DummyResourceSlice() cache.SharedIndexInformer {
 	return f.getInformer("fakeResourceSliceInformer", func() cache.SharedIndexInformer {
-		informer, _ := testutils.NewFakeInformerFor(&resourcev1beta1.ResourceSlice{})
+		informer, _ := testutils.NewFakeInformerFor(&resourcev1beta2.ResourceSlice{})
 		return informer
 	})
 }
