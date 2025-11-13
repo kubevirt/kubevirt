@@ -39,7 +39,7 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 
-	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	resourcev1 "k8s.io/api/resource/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	validating_webhook "kubevirt.io/kubevirt/pkg/virt-api/webhooks/validating-webhook/admitters"
@@ -151,7 +151,7 @@ func main() {
 		utils.MigrationPolicyName: utils.GetMigrationPolicy(),
 	}
 
-	var resourceClaimTemplates = map[string]*resourcev1beta1.ResourceClaimTemplate{
+	var resourceClaimTemplates = map[string]*resourcev1.ResourceClaimTemplate{
 		utils.ResourceClaimTemplatePGPU: utils.GetResourceClaimTemplatePGPU(),
 	}
 
