@@ -26,6 +26,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/kubernetes"
+
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +45,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
@@ -55,22 +58,22 @@ const (
 var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdmissionPolicy", decorators.SigCompute, Serial, func() {
 
 	var (
-		virtClient  kubecli.KubevirtClient
+		k8sClient   kubernetes.Interface
 		nodeName    string
 		anotherNode string
 	)
 
 	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-		isValidatingAdmissionPolicyEnabled, err := util.IsValidatingAdmissionPolicyEnabled(virtClient)
+		k8sClient = k8s.Client()
+		isValidatingAdmissionPolicyEnabled, err := util.IsValidatingAdmissionPolicyEnabled(kubevirt.Client())
 		Expect(err).ToNot(HaveOccurred())
 		Expect(isValidatingAdmissionPolicyEnabled).To(BeTrue(), "ValidatingAdmissionPolicy should be enabled")
-		_, err = virtClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), "kubevirt-node-restriction-policy", metav1.GetOptions{})
+		_, err = k8sClient.AdmissionregistrationV1().ValidatingAdmissionPolicies().Get(context.Background(), "kubevirt-node-restriction-policy", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "validating admission policy should appear")
-		_, err = virtClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.Background(), "kubevirt-node-restriction-binding", metav1.GetOptions{})
+		_, err = k8sClient.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Get(context.Background(), "kubevirt-node-restriction-binding", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "validating admission policy binding should appear")
 
-		nodesList := libnode.GetAllSchedulableNodes(virtClient)
+		nodesList := libnode.GetAllSchedulableNodes(k8sClient)
 		Expect(nodesList.Items).ToNot(BeEmpty())
 		nodeName = nodesList.Items[0].Name
 
@@ -95,10 +98,10 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 			"annotation update":   {patch.New(patch.WithReplace(notAllowedAnnotationPath, "other-value")), components.NodeRestrictionErrUpdateAnnotations},
 			"annotation removal":  {patch.New(patch.WithRemove(notAllowedAnnotationPath)), components.NodeRestrictionErrAddDeleteAnnotations},
 		}
-		node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		node, err := k8sClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		pod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
+		pod, err := libnode.GetVirtHandlerPod(k8sClient, nodeName)
 		Expect(err).ToNot(HaveOccurred())
 
 		token, err := exec.ExecuteCommandOnPod(
@@ -110,8 +113,8 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		)
 		Expect(err).ToNot(HaveOccurred())
 
-		handlerClient, err := kubecli.GetKubevirtClientFromRESTConfig(&rest.Config{
-			Host: virtClient.Config().Host,
+		handlerClient, err := kubecli.GetK8sClientFromRESTConfig(&rest.Config{
+			Host: kubevirt.Client().Config().Host,
 			TLSClientConfig: rest.TLSClientConfig{
 				Insecure: true,
 			},
@@ -138,10 +141,10 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 			"kubevirt.io annotation update":   patch.New(patch.WithReplace(allowedAnnotationPath, "other-value")),
 			"kubevirt.io annotation removal":  patch.New(patch.WithRemove(allowedAnnotationPath)),
 		}
-		node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		node, err := k8sClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		pod, err := libnode.GetVirtHandlerPod(virtClient, node.Name)
+		pod, err := libnode.GetVirtHandlerPod(k8sClient, node.Name)
 		Expect(err).ToNot(HaveOccurred())
 
 		token, err := exec.ExecuteCommandOnPod(
@@ -153,8 +156,8 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		)
 
 		Expect(err).ToNot(HaveOccurred())
-		handlerClient, err := kubecli.GetKubevirtClientFromRESTConfig(&rest.Config{
-			Host: virtClient.Config().Host,
+		handlerClient, err := kubecli.GetK8sClientFromRESTConfig(&rest.Config{
+			Host: kubevirt.Client().Config().Host,
 			TLSClientConfig: rest.TLSClientConfig{
 				Insecure: true,
 			},
@@ -172,7 +175,7 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 
 	Context("patching another node", func() {
 		BeforeEach(func() {
-			nodesList := libnode.GetAllSchedulableNodes(virtClient)
+			nodesList := libnode.GetAllSchedulableNodes(k8sClient)
 			Expect(nodesList.Items).ToNot(BeEmpty())
 			Expect(len(nodesList.Items)).To(BeNumerically(">", 1))
 			for _, node := range nodesList.Items {
@@ -195,10 +198,10 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 				"kubevirt.io annotation update":   patch.New(patch.WithReplace(allowedAnnotationPath, "other-value")),
 				"kubevirt.io annotation removal":  patch.New(patch.WithRemove(allowedAnnotationPath)),
 			}
-			node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+			node, err := k8sClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			pod, err := libnode.GetVirtHandlerPod(virtClient, node.Name)
+			pod, err := libnode.GetVirtHandlerPod(k8sClient, node.Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			token, err := exec.ExecuteCommandOnPod(
@@ -210,8 +213,8 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 			)
 
 			Expect(err).ToNot(HaveOccurred())
-			handlerClient, err := kubecli.GetKubevirtClientFromRESTConfig(&rest.Config{
-				Host: virtClient.Config().Host,
+			handlerClient, err := kubecli.GetK8sClientFromRESTConfig(&rest.Config{
+				Host: kubevirt.Client().Config().Host,
 				TLSClientConfig: rest.TLSClientConfig{
 					Insecure: true,
 				},
@@ -219,7 +222,7 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 			})
 			Expect(err).ToNot(HaveOccurred())
 
-			otherNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), anotherNode, metav1.GetOptions{})
+			otherNode, err := k8sClient.CoreV1().Nodes().Get(context.Background(), anotherNode, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			for description, patchSet := range patchSetList {
@@ -242,12 +245,12 @@ func prepareNode(name string) {
 	).GeneratePayload()
 	Expect(err).ToNot(HaveOccurred())
 
-	_, err = kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = k8s.Client().CoreV1().Nodes().Patch(context.Background(), name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 }
 
 func cleanup(nodeName string) {
-	node, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	node, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	old, err := json.Marshal(node)
@@ -264,7 +267,7 @@ func cleanup(nodeName string) {
 	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJSON, node)
 	Expect(err).ToNot(HaveOccurred())
 
-	_, err = kubevirt.Client().CoreV1().Nodes().Patch(
+	_, err = k8s.Client().CoreV1().Nodes().Patch(
 		context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 }

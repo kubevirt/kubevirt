@@ -16,6 +16,7 @@
  * Copyright The KubeVirt Authors.
  *
  */
+
 package find
 
 import (
@@ -25,25 +26,25 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-	"kubevirt.io/client-go/kubecli"
 )
 
 type controllerRevisionFinder struct {
-	store      cache.Store
-	virtClient kubecli.KubevirtClient
+	store     cache.Store
+	k8sClient kubernetes.Interface
 }
 
-func NewControllerRevisionFinder(store cache.Store, virtClient kubecli.KubevirtClient) *controllerRevisionFinder {
+func NewControllerRevisionFinder(store cache.Store, k8sClient kubernetes.Interface) *controllerRevisionFinder {
 	return &controllerRevisionFinder{
-		store:      store,
-		virtClient: virtClient,
+		store:     store,
+		k8sClient: k8sClient,
 	}
 }
 
 func (f *controllerRevisionFinder) Find(namespacedName types.NamespacedName) (*appsv1.ControllerRevision, error) {
 	if f.store == nil {
-		return f.virtClient.AppsV1().ControllerRevisions(namespacedName.Namespace).Get(
+		return f.k8sClient.AppsV1().ControllerRevisions(namespacedName.Namespace).Get(
 			context.Background(), namespacedName.Name, metav1.GetOptions{})
 	}
 
@@ -52,7 +53,7 @@ func (f *controllerRevisionFinder) Find(namespacedName types.NamespacedName) (*a
 		return nil, err
 	}
 	if !exists {
-		return f.virtClient.AppsV1().ControllerRevisions(namespacedName.Namespace).Get(
+		return f.k8sClient.AppsV1().ControllerRevisions(namespacedName.Namespace).Get(
 			context.Background(), namespacedName.Name, metav1.GetOptions{})
 	}
 	revision, ok := obj.(*appsv1.ControllerRevision)

@@ -17,18 +17,18 @@ import (
 
 	. "github.com/onsi/gomega"
 
+	ocpv1 "github.com/openshift/api/route/v1"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	prometheusv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
-	ocpv1 "github.com/openshift/api/route/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/testing"
-
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	execute "kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -51,7 +51,7 @@ type promData struct {
 	Result     []testing.PromResult `json:"result"`
 }
 
-func GetAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
+func GetAlerts(cli kubernetes.Interface) ([]prometheusv1.Alert, error) {
 	bodyBytes := DoPrometheusHTTPRequest(cli, "/alerts")
 
 	var result AlertRequestResult
@@ -67,11 +67,11 @@ func GetAlerts(cli kubecli.KubevirtClient) ([]prometheusv1.Alert, error) {
 	return result.Alerts.Alerts, nil
 }
 
-func WaitForMetricValue(client kubecli.KubevirtClient, metric string, expectedValue float64) {
+func WaitForMetricValue(client kubernetes.Interface, metric string, expectedValue float64) {
 	WaitForMetricValueWithLabels(client, metric, expectedValue, nil, 2)
 }
 
-func WaitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, expectedValue float64, labels map[string]string, offset int) {
+func WaitForMetricValueWithLabels(client kubernetes.Interface, metric string, expectedValue float64, labels map[string]string, offset int) {
 	EventuallyWithOffset(offset, func() float64 {
 		i, err := GetMetricValueWithLabels(client, metric, labels)
 		if err != nil {
@@ -81,7 +81,7 @@ func WaitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, 
 	}, 3*time.Minute, 1*time.Second).Should(Equal(expectedValue), "Metric %s with labels %v has value %f, not the expected %f", metric, labels, expectedValue, expectedValue)
 }
 
-func WaitForMetricValueWithLabelsToBe(client kubecli.KubevirtClient, metric string, labels map[string]string, offset int, comparator string, expectedValue float64) {
+func WaitForMetricValueWithLabelsToBe(client kubernetes.Interface, metric string, labels map[string]string, offset int, comparator string, expectedValue float64) {
 	EventuallyWithOffset(offset, func() float64 {
 		i, err := GetMetricValueWithLabels(client, metric, labels)
 		if err != nil {
@@ -91,7 +91,7 @@ func WaitForMetricValueWithLabelsToBe(client kubecli.KubevirtClient, metric stri
 	}, 3*time.Minute, 1*time.Second).Should(BeNumerically(comparator, expectedValue))
 }
 
-func GetMetricValueWithLabels(cli kubecli.KubevirtClient, query string, labels map[string]string) (float64, error) {
+func GetMetricValueWithLabels(cli kubernetes.Interface, query string, labels map[string]string) (float64, error) {
 	result, err := fetchMetric(cli, query)
 	if err != nil {
 		return -1, err
@@ -138,7 +138,7 @@ func labelsMatch(pr testing.PromResult, labels map[string]string) bool {
 	return true
 }
 
-func fetchMetric(cli kubecli.KubevirtClient, query string) (*QueryRequestResult, error) {
+func fetchMetric(cli kubernetes.Interface, query string) (*QueryRequestResult, error) {
 	bodyBytes := DoPrometheusHTTPRequest(cli, fmt.Sprintf("/query?query=%s", query))
 
 	var result QueryRequestResult
@@ -154,7 +154,7 @@ func fetchMetric(cli kubecli.KubevirtClient, query string) (*QueryRequestResult,
 	return &result, nil
 }
 
-func QueryRange(cli kubecli.KubevirtClient, query string, start time.Time, end time.Time, step time.Duration) (*QueryRequestResult, error) {
+func QueryRange(cli kubernetes.Interface, query string, start time.Time, end time.Time, step time.Duration) (*QueryRequestResult, error) {
 	bodyBytes := DoPrometheusHTTPRequest(cli, fmt.Sprintf("/query_range?query=%s&start=%d&end=%d&step=%d", query, start.Unix(), end.Unix(), int(step.Seconds())))
 
 	var result QueryRequestResult
@@ -170,9 +170,9 @@ func QueryRange(cli kubecli.KubevirtClient, query string, start time.Time, end t
 	return &result, nil
 }
 
-func DoPrometheusHTTPRequest(cli kubecli.KubevirtClient, endpoint string) []byte {
+func DoPrometheusHTTPRequest(cli kubernetes.Interface, endpoint string) []byte {
 
-	monitoringNs := getMonitoringNs(cli)
+	monitoringNs := getMonitoringNs()
 	token := getAuthorizationToken(cli, monitoringNs)
 
 	var result []byte
@@ -249,7 +249,7 @@ func doHttpRequest(url string, endpoint string, token string) *http.Response {
 	return resp
 }
 
-func getAuthorizationToken(cli kubecli.KubevirtClient, monitoringNs string) string {
+func getAuthorizationToken(cli kubernetes.Interface, monitoringNs string) string {
 	var token string
 	Eventually(func() bool {
 		secretName := fmt.Sprintf("prometheus-k8s-%s-token", monitoringNs)
@@ -282,7 +282,7 @@ func getAuthorizationToken(cli kubecli.KubevirtClient, monitoringNs string) stri
 	return token
 }
 
-func getMonitoringNs(cli kubecli.KubevirtClient) string {
+func getMonitoringNs() string {
 	if checks.IsOpenShift() {
 		return "openshift-monitoring"
 	}
@@ -310,8 +310,8 @@ func KillPortForwardCommand(portForwardCmd *exec.Cmd) error {
 	return err
 }
 
-func CheckAlertExists(virtClient kubecli.KubevirtClient, alertName string) bool {
-	currentAlerts, err := GetAlerts(virtClient)
+func CheckAlertExists(k8sClient kubernetes.Interface, alertName string) bool {
+	currentAlerts, err := GetAlerts(k8sClient)
 	if err != nil {
 		return false
 	}
@@ -323,20 +323,20 @@ func CheckAlertExists(virtClient kubecli.KubevirtClient, alertName string) bool 
 	return false
 }
 
-func VerifyAlertExistWithCustomTime(virtClient kubecli.KubevirtClient, alertName string, timeout time.Duration) {
+func VerifyAlertExistWithCustomTime(k8sClient kubernetes.Interface, alertName string, timeout time.Duration) {
 	EventuallyWithOffset(1, func() bool {
-		return CheckAlertExists(virtClient, alertName)
+		return CheckAlertExists(k8sClient, alertName)
 	}, timeout, 10*time.Second).Should(BeTrue(), "Alert %s should exist", alertName)
 }
 
-func VerifyAlertExist(virtClient kubecli.KubevirtClient, alertName string) {
-	VerifyAlertExistWithCustomTime(virtClient, alertName, 120*time.Second)
+func VerifyAlertExist(k8sClient kubernetes.Interface, alertName string) {
+	VerifyAlertExistWithCustomTime(k8sClient, alertName, 120*time.Second)
 }
 
-func WaitUntilAlertDoesNotExistWithCustomTime(virtClient kubecli.KubevirtClient, timeout time.Duration, alertNames ...string) {
+func WaitUntilAlertDoesNotExistWithCustomTime(k8sClient kubernetes.Interface, timeout time.Duration, alertNames ...string) {
 	presentAlert := EventuallyWithOffset(1, func() string {
 		for _, name := range alertNames {
-			if CheckAlertExists(virtClient, name) {
+			if CheckAlertExists(k8sClient, name) {
 				return name
 			}
 		}
@@ -346,8 +346,8 @@ func WaitUntilAlertDoesNotExistWithCustomTime(virtClient kubecli.KubevirtClient,
 	presentAlert.Should(BeEmpty(), "Alert %v should not exist", presentAlert)
 }
 
-func WaitUntilAlertDoesNotExist(virtClient kubecli.KubevirtClient, alertNames ...string) {
-	WaitUntilAlertDoesNotExistWithCustomTime(virtClient, 5*time.Minute, alertNames...)
+func WaitUntilAlertDoesNotExist(k8sClient kubernetes.Interface, alertNames ...string) {
+	WaitUntilAlertDoesNotExistWithCustomTime(k8sClient, 5*time.Minute, alertNames...)
 }
 
 func ReduceAlertPendingTime(virtClient kubecli.KubevirtClient) {

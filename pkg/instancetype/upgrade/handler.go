@@ -25,6 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -45,12 +46,14 @@ type controllerRevisionFinder interface {
 type upgrader struct {
 	controllerRevisionFinder controllerRevisionFinder
 	virtClient               kubecli.KubevirtClient
+	k8sClient                kubernetes.Interface
 }
 
-func New(store cache.Store, virtClient kubecli.KubevirtClient) *upgrader {
+func New(store cache.Store, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) *upgrader {
 	return &upgrader{
-		controllerRevisionFinder: find.NewControllerRevisionFinder(store, virtClient),
+		controllerRevisionFinder: find.NewControllerRevisionFinder(store, k8sClient),
 		virtClient:               virtClient,
+		k8sClient:                k8sClient,
 	}
 }
 
@@ -86,7 +89,7 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 	}
 
 	if newInstancetypeCR != nil {
-		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+		if err := u.k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
 			context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed instance type object upgrade")
 		}
@@ -94,7 +97,7 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 	}
 
 	if newPreferenceCR != nil {
-		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+		if err := u.k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
 			context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed preference object upgrade")
 		}
@@ -152,7 +155,7 @@ func (u *upgrader) upgradeControllerRevision(
 	}
 
 	// Recreate the CR with the now upgraded runtime.Object
-	newCR, err = u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), newCR, metav1.CreateOptions{})
+	newCR, err = u.k8sClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), newCR, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}

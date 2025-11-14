@@ -30,12 +30,14 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -50,8 +52,8 @@ var _ = Describe(SIGSerial("virt-handler", func() {
 	)
 	const trueStr = "true"
 
-	getNodesWithKSMAvailable := func(virtCli kubecli.KubevirtClient) []string {
-		nodes := libnode.GetAllSchedulableNodes(virtCli)
+	getNodesWithKSMAvailable := func(k8sCli kubernetes.Interface) []string {
+		nodes := libnode.GetAllSchedulableNodes(k8sCli)
 
 		nodesWithKSM := make([]string, 0)
 		for _, node := range nodes.Items {
@@ -70,7 +72,7 @@ var _ = Describe(SIGSerial("virt-handler", func() {
 				v1.KSMFreePercentOverride, "1.0",
 				v1.KSMPagesDecayOverride, "-300",
 			))
-			_, err := virtClient.CoreV1().Nodes().Patch(context.Background(), node, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+			_, err := k8s.Client().CoreV1().Nodes().Patch(context.Background(), node, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
 		}
 	}
@@ -83,9 +85,9 @@ var _ = Describe(SIGSerial("virt-handler", func() {
 				strings.ReplaceAll(v1.KSMPagesDecayOverride, "/", "~1"))))
 			patchBytes, err := patchSet.GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
-			_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), node, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+			_, err = k8s.Client().CoreV1().Nodes().Patch(context.Background(), node, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 			if err != nil {
-				node2, err2 := virtClient.CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
+				node2, err2 := k8s.Client().CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
 				Expect(err2).NotTo(HaveOccurred())
 				Expect(err).NotTo(HaveOccurred(), `patch:"%s" annotations:%#v`, string(patchBytes), node2.GetAnnotations())
 			}
@@ -95,7 +97,7 @@ var _ = Describe(SIGSerial("virt-handler", func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		nodesToEnableKSM = getNodesWithKSMAvailable(virtClient)
+		nodesToEnableKSM = getNodesWithKSMAvailable(k8s.Client())
 		if len(nodesToEnableKSM) == 0 {
 			Fail("There isn't any node with KSM available")
 		}
@@ -128,7 +130,7 @@ var _ = Describe(SIGSerial("virt-handler", func() {
 			}, 3*time.Minute, 2*time.Second).Should(BeEquivalentTo("1\n"), fmt.Sprintf("KSM should be enabled in node %s", node))
 
 			Eventually(func() (bool, error) {
-				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
+				node, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}
@@ -152,7 +154,7 @@ var _ = Describe(SIGSerial("virt-handler", func() {
 			}, 3*time.Minute, 2*time.Second).Should(BeEquivalentTo("0\n"), fmt.Sprintf("KSM should be disabled in node %s", node))
 
 			Eventually(func() (bool, error) {
-				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
+				node, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), node, metav1.GetOptions{})
 				if err != nil {
 					return false, err
 				}

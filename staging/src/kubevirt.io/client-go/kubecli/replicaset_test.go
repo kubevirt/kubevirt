@@ -35,7 +35,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
-var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet Client", func() {
+var _ = Describe("Kubevirt VirtualMachineInstanceReplicaSet VirtClient", func() {
 	var server *ghttp.Server
 	basePath := "/apis/kubevirt.io/v1/namespaces/default/virtualmachineinstancereplicasets"
 	rsPath := path.Join(basePath, "testrs")

@@ -71,7 +71,7 @@ func NewCommand() *cobra.Command {
 }
 
 func (c *createPreference) setDefaults(cmd *cobra.Command) error {
-	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	_, _, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

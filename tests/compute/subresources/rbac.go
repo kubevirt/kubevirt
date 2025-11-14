@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -34,6 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/compute"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -44,7 +46,7 @@ var _ = Describe(compute.SIG("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.co
 
 	When("correct permissions are provided", func() {
 		BeforeEach(func() {
-			saClient = getClientForSA(kubevirt.Client(), testsuite.SubresourceServiceAccountName)
+			saClient = getClientForSA(kubevirt.Client(), k8s.Client(), testsuite.SubresourceServiceAccountName)
 		})
 
 		It("[test_id:3170]should allow access to vm subresource endpoint", func() {
@@ -73,7 +75,7 @@ var _ = Describe(compute.SIG("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.co
 
 	When("correct permissions are not provided", func() {
 		BeforeEach(func() {
-			saClient = getClientForSA(kubevirt.Client(), testsuite.SubresourceUnprivilegedServiceAccountName)
+			saClient = getClientForSA(kubevirt.Client(), k8s.Client(), testsuite.SubresourceUnprivilegedServiceAccountName)
 		})
 
 		It("[test_id:3171]should block access to vm subresource endpoint", func() {
@@ -103,8 +105,8 @@ var _ = Describe(compute.SIG("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.co
 	})
 }))
 
-func getClientForSA(virtCli kubecli.KubevirtClient, saName string) kubecli.KubevirtClient {
-	secret, err := virtCli.CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Get(context.Background(), saName, metav1.GetOptions{})
+func getClientForSA(virtCli kubecli.KubevirtClient, k8sCli kubernetes.Interface, saName string) kubecli.KubevirtClient {
+	secret, err := k8sCli.CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Get(context.Background(), saName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	token, ok := secret.Data["token"]

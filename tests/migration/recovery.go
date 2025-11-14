@@ -22,8 +22,6 @@ package migration
 import (
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/matcher"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -33,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -43,6 +42,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnet/job"
@@ -81,9 +82,9 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 
 		if fakeSuccess {
 			By("Creating the backend-storage PVC ourselves to be able to alter it before the VM starts")
-			pvc := createPVCFor(virtClient, vm)
+			pvc := createPVCFor(k8s.Client(), vm)
 			By("Simulating a migration success by manually adding /meta/migrated to the source PVC")
-			fakeMigrationSuccessInPVC(virtClient, pvc.Name, vm.Namespace)
+			fakeMigrationSuccessInPVC(k8s.Client(), pvc.Name, vm.Namespace)
 		}
 
 		By("Creating a migration policy for that VMI")
@@ -113,7 +114,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 		Expect(err).NotTo(HaveOccurred())
 
 		By("Killing the source pod")
-		err = virtClient.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, k8smeta.DeleteOptions{
+		err = k8s.Client().CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, k8smeta.DeleteOptions{
 			GracePeriodSeconds: pointer.P(int64(0)),
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -139,12 +140,12 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 
 		By("Expecting the right PVC to be removed")
 		Eventually(func() error {
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(migration.Namespace).Get(context.Background(), nukedPVC, k8smeta.GetOptions{})
+			_, err = k8s.Client().CoreV1().PersistentVolumeClaims(migration.Namespace).Get(context.Background(), nukedPVC, k8smeta.GetOptions{})
 			return err
 		}).WithTimeout(time.Minute).WithPolling(time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
 		By("Expecting the right PVC to be preserved")
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(migration.Namespace).Get(context.Background(), keptPVC, k8smeta.GetOptions{})
+		pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(migration.Namespace).Get(context.Background(), keptPVC, k8smeta.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(pvc.Labels).To(HaveKeyWithValue("persistent-state-for", vmi.Name))
 	},
@@ -155,7 +156,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 	)
 })
 
-func createPVCFor(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *k8score.PersistentVolumeClaim {
+func createPVCFor(k8sClient kubernetes.Interface, vm *v1.VirtualMachine) *k8score.PersistentVolumeClaim {
 	storageClass, exists := libstorage.GetRWOFileSystemStorageClass()
 	Expect(exists).To(BeTrue())
 	mode := k8score.PersistentVolumeFilesystem
@@ -179,13 +180,13 @@ func createPVCFor(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine) *k8s
 		},
 	}
 
-	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, k8smeta.CreateOptions{})
+	pvc, err := k8sClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, k8smeta.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	return pvc
 }
 
-func fakeMigrationSuccessInPVC(virtClient kubecli.KubevirtClient, pvcName, namespace string) {
+func fakeMigrationSuccessInPVC(k8sClient kubernetes.Interface, pvcName, namespace string) {
 	var err error
 
 	By("Creating a job")
@@ -240,7 +241,7 @@ func fakeMigrationSuccessInPVC(virtClient kubecli.KubevirtClient, pvcName, names
 		},
 	}
 
-	fakeSuccessJob, err = virtClient.BatchV1().Jobs(namespace).Create(context.Background(), fakeSuccessJob, k8smeta.CreateOptions{})
+	fakeSuccessJob, err = k8sClient.BatchV1().Jobs(namespace).Create(context.Background(), fakeSuccessJob, k8smeta.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	By("Waiting for the job to succeed")
@@ -249,7 +250,7 @@ func fakeMigrationSuccessInPVC(virtClient kubecli.KubevirtClient, pvcName, names
 
 	By("Removing the job")
 	// Job is auto-removed after 90 seconds, might already be gone, deleting anyway to free PVC
-	_ = virtClient.BatchV1().Jobs(namespace).Delete(context.Background(), fakeSuccessJob.Name, k8smeta.DeleteOptions{
+	_ = k8sClient.BatchV1().Jobs(namespace).Delete(context.Background(), fakeSuccessJob.Name, k8smeta.DeleteOptions{
 		PropagationPolicy: pointer.P(k8smeta.DeletePropagationBackground),
 	})
 }

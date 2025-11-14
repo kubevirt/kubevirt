@@ -32,8 +32,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	k8sfake "k8s.io/client-go/kubernetes/fake"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
@@ -56,10 +54,7 @@ var _ = Describe("Validating VM Admitter", func() {
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
-		k8sClient := k8sfake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-
-		virtClient.EXPECT().AuthorizationV1().Return(k8sClient.AuthorizationV1()).AnyTimes()
 	})
 
 	Context("Validate VM DataVolumeTemplate", func() {

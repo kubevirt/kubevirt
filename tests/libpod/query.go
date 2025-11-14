@@ -27,7 +27,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,8 +66,7 @@ func GetTargetPodForMigration(migration *v1.VirtualMachineInstanceMigration) (*k
 }
 
 func lookupPodBySelector(namespace, labelSelector, fieldSelector string) (*k8sv1.Pod, error) {
-	virtCli := kubevirt.Client()
-	pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(),
+	pods, err := k8s.Client().CoreV1().Pods(namespace).List(context.Background(),
 		metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
 	)
 	if err != nil {

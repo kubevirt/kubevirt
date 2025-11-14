@@ -235,7 +235,7 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		if shouldDeleteContent(vmSnapshot, content) {
 			log.Log.V(2).Infof("Deleting vmsnapshotcontent %s/%s", content.Namespace, content.Name)
 
-			err = ctrl.Client.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
+			err = ctrl.VirtClient.VirtualMachineSnapshotContent(vmSnapshot.Namespace).Delete(context.Background(), content.Name, metav1.DeleteOptions{})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return 0, err
 			}
@@ -300,7 +300,7 @@ func (ctrl *VMSnapshotController) addSnapshotFinalizer(snapshot *snapshotv1.Virt
 		return snapshot, err
 	}
 
-	return ctrl.Client.VirtualMachineSnapshot(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return ctrl.VirtClient.VirtualMachineSnapshot(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
 func (ctrl *VMSnapshotController) removeSnapshotFinalizer(snapshot *snapshotv1.VirtualMachineSnapshot) (*snapshotv1.VirtualMachineSnapshot, error) {
@@ -316,7 +316,7 @@ func (ctrl *VMSnapshotController) removeSnapshotFinalizer(snapshot *snapshotv1.V
 		return snapshot, err
 	}
 
-	return ctrl.Client.VirtualMachineSnapshot(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return ctrl.VirtClient.VirtualMachineSnapshot(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
 func (ctrl *VMSnapshotController) removeContentFinalizer(content *snapshotv1.VirtualMachineSnapshotContent) (*snapshotv1.VirtualMachineSnapshotContent, error) {
@@ -332,7 +332,7 @@ func (ctrl *VMSnapshotController) removeContentFinalizer(content *snapshotv1.Vir
 		return content, err
 	}
 
-	return ctrl.Client.VirtualMachineSnapshotContent(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+	return ctrl.VirtClient.VirtualMachineSnapshotContent(cpy.Namespace).Patch(context.Background(), cpy.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 }
 
 func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.VirtualMachineSnapshotContent) (time.Duration, error) {
@@ -511,7 +511,7 @@ func shouldUpdateError(contentCpy *snapshotv1.VirtualMachineSnapshotContent, err
 
 func (ctrl *VMSnapshotController) updateVmSnapshotContentStatus(oldContent, newContent *snapshotv1.VirtualMachineSnapshotContent) error {
 	if !equality.Semantic.DeepEqual(oldContent.Status, newContent.Status) {
-		if _, err := ctrl.Client.VirtualMachineSnapshotContent(newContent.Namespace).UpdateStatus(context.Background(), newContent, metav1.UpdateOptions{}); err != nil {
+		if _, err := ctrl.VirtClient.VirtualMachineSnapshotContent(newContent.Namespace).UpdateStatus(context.Background(), newContent, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -564,7 +564,7 @@ func (ctrl *VMSnapshotController) createVolumeSnapshot(
 		},
 	}
 
-	volumeSnapshot, err := ctrl.Client.KubernetesSnapshotClient().SnapshotV1().
+	volumeSnapshot, err := ctrl.VirtClient.KubernetesSnapshotClient().SnapshotV1().
 		VolumeSnapshots(content.Namespace).
 		Create(context.Background(), snapshot, metav1.CreateOptions{})
 	if err != nil {
@@ -660,7 +660,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 		},
 	}
 
-	_, err = ctrl.Client.VirtualMachineSnapshotContent(content.Namespace).Create(context.Background(), content, metav1.CreateOptions{})
+	_, err = ctrl.VirtClient.VirtualMachineSnapshotContent(content.Namespace).Create(context.Background(), content, metav1.CreateOptions{})
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
@@ -835,7 +835,7 @@ func (ctrl *VMSnapshotController) updateSnapshotStatus(vmSnapshot *snapshotv1.Vi
 	}
 
 	if !equality.Semantic.DeepEqual(vmSnapshot.Status, vmSnapshotCpy.Status) {
-		if _, err := ctrl.Client.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).UpdateStatus(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
+		if _, err := ctrl.VirtClient.VirtualMachineSnapshot(vmSnapshotCpy.Namespace).UpdateStatus(context.Background(), vmSnapshotCpy, metav1.UpdateOptions{}); err != nil {
 			return nil, err
 		}
 		return vmSnapshotCpy, nil
@@ -901,7 +901,7 @@ func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *sn
 	if vm == nil || vm.Spec.Template == nil {
 		return nil
 	}
-	volumes, err := storageutils.GetVolumes(vm, ctrl.Client, storageutils.WithAllVolumes)
+	volumes, err := storageutils.GetVolumes(vm, ctrl.K8sClient, storageutils.WithAllVolumes)
 	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
 		return err
 	}
@@ -931,7 +931,7 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 	log.Log.V(3).Infof("Update volume snapshot status for VM [%s/%s]", vm.Namespace, vm.Name)
 
 	vmCopy := vm.DeepCopy()
-	volumes, err := storageutils.GetVolumes(vmCopy, ctrl.Client, storageutils.WithAllVolumes)
+	volumes, err := storageutils.GetVolumes(vmCopy, ctrl.K8sClient, storageutils.WithAllVolumes)
 	if err != nil && !storageutils.IsErrNoBackendPVC(err) {
 		return err
 	}
@@ -947,7 +947,7 @@ func (ctrl *VMSnapshotController) updateVolumeSnapshotStatuses(vm *kubevirtv1.Vi
 	if equality.Semantic.DeepEqual(vmCopy.Status.VolumeSnapshotStatuses, vm.Status.VolumeSnapshotStatuses) {
 		return nil
 	}
-	_, err = ctrl.Client.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
+	_, err = ctrl.VirtClient.VirtualMachine(vmCopy.Namespace).UpdateStatus(context.Background(), vmCopy, metav1.UpdateOptions{})
 	return err
 }
 

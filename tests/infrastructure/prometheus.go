@@ -37,6 +37,8 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	netutils "k8s.io/utils/net"
 
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnode"
 
@@ -110,7 +112,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		startVMI(vmi)
 
 		By("finding virt-handler pod")
-		ops, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+		ops, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 			context.Background(),
 			metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
 		Expect(err).ToNot(HaveOccurred(), "failed to list virt-handlers")
@@ -167,7 +169,6 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 
 var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
 	var (
-		virtClient          kubecli.KubevirtClient
 		preparedVMIs        []*v1.VirtualMachineInstance
 		pod                 *k8sv1.Pod
 		handlerMetricIPs    []string
@@ -213,8 +214,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	}
 
 	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-
 		preparedVMIs = []*v1.VirtualMachineInstance{}
 		pod = nil
 		handlerMetricIPs = []string{}
@@ -222,7 +221,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		By("Finding the virt-controller prometheus endpoint")
 		virtControllerLeaderPodName := libinfra.GetLeader()
-		leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
+		leaderPod, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
 			context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
 
@@ -241,7 +240,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		prepareVMIForTests(nodeName)
 
 		By("Finding the virt-handler prometheus endpoint")
-		pod, err = libnode.GetVirtHandlerPod(virtClient, nodeName)
+		pod, err = libnode.GetVirtHandlerPod(k8s.Client(), nodeName)
 		Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
 		for _, ip := range pod.Status.PodIPs {
 			handlerMetricIPs = append(handlerMetricIPs, ip.IP)
@@ -267,7 +266,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	})
 
 	It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
-		epsList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+		epsList, err := k8s.Client().DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
 			context.Background(), metav1.ListOptions{
 				LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
 			})
@@ -278,7 +277,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		l, err := labels.Parse("prometheus.kubevirt.io=true")
 		Expect(err).ToNot(HaveOccurred())
-		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+		pods, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 			context.Background(), metav1.ListOptions{LabelSelector: l.String()})
 		Expect(err).ToNot(HaveOccurred())
 
@@ -306,7 +305,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		}
 	})
 	It("[test_id:4139]should return Prometheus metrics", func() {
-		endpointSliceList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+		endpointSliceList, err := k8s.Client().DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
 			context.Background(), metav1.ListOptions{
 				LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
 			})
@@ -654,11 +653,10 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 }))
 
 func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map[string]int, err error) {
-	virtClient := kubevirt.Client()
 	target := fmt.Sprintf("virt-%s", component)
 	leadingMetric := fmt.Sprintf("kubevirt_virt_%s_leading_status 1", component)
 	readyMetric := fmt.Sprintf("kubevirt_virt_%s_ready_status 1", component)
-	endpointSliceList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+	endpointSliceList, err := k8s.Client().DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
 		context.Background(), metav1.ListOptions{
 			LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
 		})
@@ -692,8 +690,6 @@ func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map
 }
 
 func generateTokenForPrometheusAPI(namespace string) (string, error) {
-	virtClient := kubevirt.Client()
-
 	// Define resource names
 	serviceAccountName := "prometheus-access-sa"
 	clusterRoleName := "prometheus-access-cluster-role"
@@ -706,7 +702,7 @@ func generateTokenForPrometheusAPI(namespace string) (string, error) {
 			Namespace: namespace,
 		},
 	}
-	_, err := virtClient.CoreV1().ServiceAccounts(namespace).Create(context.Background(), sa, metav1.CreateOptions{})
+	_, err := k8s.Client().CoreV1().ServiceAccounts(namespace).Create(context.Background(), sa, metav1.CreateOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to create ServiceAccount: %w", err)
 	}
@@ -724,7 +720,7 @@ func generateTokenForPrometheusAPI(namespace string) (string, error) {
 			},
 		},
 	}
-	_, err = virtClient.RbacV1().ClusterRoles().Create(context.Background(), clusterRole, metav1.CreateOptions{})
+	_, err = k8s.Client().RbacV1().ClusterRoles().Create(context.Background(), clusterRole, metav1.CreateOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to create ClusterRole: %w", err)
 	}
@@ -747,7 +743,7 @@ func generateTokenForPrometheusAPI(namespace string) (string, error) {
 			APIGroup: "rbac.authorization.k8s.io",
 		},
 	}
-	_, err = virtClient.RbacV1().ClusterRoleBindings().Create(context.Background(), clusterRoleBinding, metav1.CreateOptions{})
+	_, err = k8s.Client().RbacV1().ClusterRoleBindings().Create(context.Background(), clusterRoleBinding, metav1.CreateOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to create ClusterRoleBinding: %w", err)
 	}
@@ -756,7 +752,7 @@ func generateTokenForPrometheusAPI(namespace string) (string, error) {
 	tokenRequest := &authenticationv1.TokenRequest{
 		Spec: authenticationv1.TokenRequestSpec{},
 	}
-	token, err := virtClient.CoreV1().
+	token, err := k8s.Client().CoreV1().
 		ServiceAccounts(namespace).
 		CreateToken(
 			context.Background(),
@@ -773,15 +769,14 @@ func generateTokenForPrometheusAPI(namespace string) (string, error) {
 }
 
 func cleanupClusterRoleAndBinding(namespace string) {
-	virtClient := kubevirt.Client()
 	clusterRoleName := "prometheus-access-cluster-role-" + namespace
 	clusterRoleBindingName := "prometheus-access-cluster-rolebinding-" + namespace
 
 	// Delete ClusterRole
-	err := virtClient.RbacV1().ClusterRoles().Delete(context.Background(), clusterRoleName, metav1.DeleteOptions{})
+	err := k8s.Client().RbacV1().ClusterRoles().Delete(context.Background(), clusterRoleName, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred(), "Failed to delete ClusterRole: %s", clusterRoleName)
 
 	// Delete ClusterRoleBinding
-	err = virtClient.RbacV1().ClusterRoleBindings().Delete(context.Background(), clusterRoleBindingName, metav1.DeleteOptions{})
+	err = k8s.Client().RbacV1().ClusterRoleBindings().Delete(context.Background(), clusterRoleBindingName, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred(), "Failed to delete ClusterRoleBinding: %s", clusterRoleBindingName)
 }

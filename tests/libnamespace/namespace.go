@@ -9,11 +9,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
-
-	"kubevirt.io/client-go/kubecli"
+	"k8s.io/client-go/kubernetes"
 )
 
-func AddLabelToNamespace(client kubecli.KubevirtClient, namespace, key, value string) error {
+func AddLabelToNamespace(client kubernetes.Interface, namespace, key, value string) error {
 	return PatchNamespace(client, namespace, func(ns *v1.Namespace) {
 		if ns.Labels == nil {
 			ns.Labels = map[string]string{}
@@ -22,7 +21,7 @@ func AddLabelToNamespace(client kubecli.KubevirtClient, namespace, key, value st
 	})
 }
 
-func RemoveLabelFromNamespace(client kubecli.KubevirtClient, namespace, key string) error {
+func RemoveLabelFromNamespace(client kubernetes.Interface, namespace, key string) error {
 	return PatchNamespace(client, namespace, func(ns *v1.Namespace) {
 		if ns.Labels == nil {
 			return
@@ -31,7 +30,7 @@ func RemoveLabelFromNamespace(client kubecli.KubevirtClient, namespace, key stri
 	})
 }
 
-func PatchNamespace(client kubecli.KubevirtClient, namespace string, patchFunc func(*v1.Namespace)) error {
+func PatchNamespace(client kubernetes.Interface, namespace string, patchFunc func(*v1.Namespace)) error {
 	ns, err := client.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 	if err != nil {
 		return err

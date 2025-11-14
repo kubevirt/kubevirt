@@ -26,9 +26,9 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 )
@@ -55,7 +55,7 @@ type configImpl struct {
 
 // New creates a new labels config instance and, if a client is provided,
 // starts a watcher to keep it updated from the ConfigMap.
-func New(client kubecli.KubevirtClient) (Config, error) {
+func New(client kubernetes.Interface) (Config, error) {
 	cfg := &configImpl{
 		allowlist:  append([]string{}, defaultAllowlist...),
 		ignorelist: append([]string{}, defaultIgnorelist...),
@@ -68,7 +68,7 @@ func New(client kubecli.KubevirtClient) (Config, error) {
 	return cfg, nil
 }
 
-func (c *configImpl) startWatcherWithClient(client kubecli.KubevirtClient) error {
+func (c *configImpl) startWatcherWithClient(client kubernetes.Interface) error {
 	if client == nil {
 		return fmt.Errorf("nil kubevirt client")
 	}

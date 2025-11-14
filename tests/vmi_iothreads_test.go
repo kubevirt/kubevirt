@@ -37,6 +37,7 @@ import (
 
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -56,7 +57,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 		var availableCPUs int
 
 		BeforeEach(func() {
-			availableCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
+			availableCPUs = libnode.GetHighestCPUNumberAmongNodes(k8s.Client())
 		})
 
 		It("[test_id:4122]Should honor shared ioThreadsPolicy for single disk", func() {

@@ -74,8 +74,6 @@ var _ = Describe("Instance Type SpecFinder", func() {
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
 		fakeK8sClientSet = k8sfake.NewSimpleClientset()
-		virtClient.EXPECT().AppsV1().Return(fakeK8sClientSet.AppsV1()).AnyTimes()
-
 		fakeClientset = fake.NewSimpleClientset()
 
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(
@@ -101,6 +99,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			clusterInstancetypeInformerStore,
 			controllerRevisionInformerStore,
 			virtClient,
+			fakeK8sClientSet,
 		)
 	})
 
@@ -162,7 +161,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			cr, err := revision.CreateControllerRevision(vm, clusterInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+			_, err = fakeK8sClientSet.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			updateVM(vm, cr.Name)
@@ -245,7 +244,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 		})
 
 		It("returns expected instancetype using only the client", func() {
-			finder = find.NewSpecFinder(nil, nil, nil, virtClient)
+			finder = find.NewSpecFinder(nil, nil, nil, virtClient, fakeK8sClientSet)
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(instancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
@@ -275,7 +274,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+			_, err = fakeK8sClientSet.AppsV1().ControllerRevisions(vm.Namespace).Create(
 				context.Background(), controllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
@@ -339,7 +338,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			cr, err := revision.CreateControllerRevision(vm, fakeInstancetype)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
+			_, err = fakeK8sClientSet.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), cr, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			updateVM(vm, cr.Name)
@@ -414,7 +413,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 		})
 
 		It("returns expected instancetype using only the client", func() {
-			finder = find.NewSpecFinder(nil, nil, nil, virtClient)
+			finder = find.NewSpecFinder(nil, nil, nil, virtClient, fakeK8sClientSet)
 			instancetypeSpec, err := finder.Find(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(instancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
@@ -445,7 +444,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+			_, err = fakeK8sClientSet.AppsV1().ControllerRevisions(vm.Namespace).Create(
 				context.Background(), controllerRevision, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 

@@ -21,6 +21,7 @@ package api
 
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -28,8 +29,8 @@ import (
 )
 
 type LoadGenerator interface {
-	Run(kubecli.KubevirtClient, *config.Workload)
-	Delete(kubecli.KubevirtClient, *config.Workload)
+	Run(kubecli.KubevirtClient, kubernetes.Interface, *config.Workload)
+	Delete(kubecli.KubevirtClient, kubernetes.Interface, *config.Workload)
 }
 
 type Job interface {

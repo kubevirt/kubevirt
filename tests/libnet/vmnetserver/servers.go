@@ -74,7 +74,7 @@ datagramSocket = socket.socket(socket.AF_INET%s, socket.SOCK_DGRAM);
 datagramSocket.bind(("", %d));
 while(True):
     msg, srcAddress = datagramSocket.recvfrom(128);
-    datagramSocket.sendto("Hello Client".encode(), srcAddress);
+    datagramSocket.sendto("Hello VirtClient".encode(), srcAddress);
 EOL`, inetSuffix, port)
 	Expect(console.ExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: fmt.Sprintf("%s\n", serverCommand)},

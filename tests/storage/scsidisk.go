@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/libnode"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -145,12 +145,10 @@ func CreatePVwithSCSIDisk(storageClass, pvName, nodeName, devicePath string) (*c
 			},
 		},
 	}
-	return kubevirt.Client().CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
+	return k8s.Client().CoreV1().PersistentVolumes().Create(context.Background(), pv, metav1.CreateOptions{})
 }
 
 func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, pvName, pvcName string) (*corev1.PersistentVolume, *corev1.PersistentVolumeClaim, error) {
-	virtClient := kubevirt.Client()
-
 	pv, err := CreatePVwithSCSIDisk(storageClass, pvName, nodeName, devicePath)
 	if err != nil {
 		return nil, nil, err
@@ -170,7 +168,7 @@ func CreatePVandPVCwithSCSIDisk(nodeName, devicePath, namespace, storageClass, p
 		},
 	}
 
-	pvc, err = virtClient.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	pvc, err = k8s.Client().CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		return pv, nil, err
 	}

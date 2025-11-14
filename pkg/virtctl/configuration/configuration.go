@@ -30,7 +30,7 @@ func usage() string {
 }
 
 func run(cmd *cobra.Command, _ []string) error {
-	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}

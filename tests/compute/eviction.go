@@ -37,7 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -65,7 +65,7 @@ var _ = Describe(SIG("Eviction", func() {
 		errors := make(chan error, 5)
 
 		go func() {
-			virtClient := kubevirt.Client()
+			k8sClient := k8s.Client()
 
 			for {
 				select {
@@ -74,7 +74,7 @@ var _ = Describe(SIG("Eviction", func() {
 				case <-time.After(500 * time.Millisecond):
 				}
 
-				err := virtClient.CoreV1().Pods(pod.Namespace).EvictV1(ctx, &policy.Eviction{
+				err := k8sClient.CoreV1().Pods(pod.Namespace).EvictV1(ctx, &policy.Eviction{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      pod.Name,
 						Namespace: pod.Namespace,

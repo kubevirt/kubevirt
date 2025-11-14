@@ -14,5 +14,6 @@ go_library(
         "//pkg/virt-api/webhooks/validating-webhook/admitters:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
     ],
 )

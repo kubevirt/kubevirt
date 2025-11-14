@@ -41,7 +41,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 )
 
-var _ = Describe("Kubevirt VirtualMachineInstance Client", func() {
+var _ = Describe("Kubevirt VirtualMachineInstance VirtClient", func() {
 
 	var upgrader websocket.Upgrader
 	var server *ghttp.Server

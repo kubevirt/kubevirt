@@ -334,7 +334,7 @@ func (a *authorizor) Authorize(req *restful.Request) (bool, string, error) {
 		// only internal service errors are returned
 		// as an error.
 		// A failure to generate the access review request
-		// means the client did not properly format the request.
+		// means the virtClient did not properly format the request.
 		// Return that error as the "Reason" for the authorization failure.
 		return false, fmt.Sprintf("%v", err), nil
 	}

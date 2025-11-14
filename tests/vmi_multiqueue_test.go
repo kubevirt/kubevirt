@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -59,7 +60,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 		const numCpus int32 = 3
 
 		BeforeEach(func() {
-			availableCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
+			availableCPUs = libnode.GetHighestCPUNumberAmongNodes(k8s.Client())
 		})
 
 		DescribeTable("should be able to successfully boot fedora to the login prompt with multi-queue without being blocked by selinux", func(interfaceModel string, expectedQueueCount int32) {

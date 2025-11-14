@@ -20,7 +20,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//tests/console:go_default_library",
         "//tests/flags:go_default_library",
-        "//tests/framework/kubevirt:go_default_library",
+        "//tests/framework/k8s:go_default_library",
         "//tests/libkubevirt:go_default_library",
         "//tests/libkubevirt/config:go_default_library",
         "//tests/libnode:go_default_library",
@@ -30,5 +30,6 @@ go_library(
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/client-go/kubernetes:go_default_library",
     ],
 )

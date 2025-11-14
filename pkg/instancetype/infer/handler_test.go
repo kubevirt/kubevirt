@@ -50,6 +50,7 @@ var _ = Describe("InferFromVolume", func() {
 	var (
 		vm         *v1.VirtualMachine
 		virtClient *kubecli.MockKubevirtClient
+		k8sClient  *k8sfake.Clientset
 		handler    inferHandler
 
 		pvc             *k8sv1.PersistentVolumeClaim
@@ -86,8 +87,8 @@ var _ = Describe("InferFromVolume", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		k8sClient = k8sfake.NewSimpleClientset()
 
-		virtClient.EXPECT().CoreV1().Return(k8sfake.NewSimpleClientset().CoreV1()).AnyTimes()
 		virtClient.EXPECT().CdiClient().Return(cdifake.NewSimpleClientset()).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(
@@ -108,7 +109,7 @@ var _ = Describe("InferFromVolume", func() {
 			},
 		}
 		var err error
-		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, k8smetav1.CreateOptions{})
+		pvc, err = k8sClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(context.Background(), pvc, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		dvWithSourcePVC = &cdiv1.DataVolume{
@@ -171,7 +172,7 @@ var _ = Describe("InferFromVolume", func() {
 			context.Background(), dsWithLabels, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		handler = infer.New(virtClient)
+		handler = infer.New(virtClient, k8sClient)
 	})
 
 	DescribeTable("should infer defaults from VolumeSource and PersistentVolumeClaim",
@@ -1116,7 +1117,7 @@ var _ = Describe("InferFromVolume", func() {
 					Namespace: vm.Namespace,
 				},
 			}
-			_, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(
+			_, err := k8sClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Create(
 				context.Background(), pvcWithoutLabels, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vm.Spec.Template.Spec.Volumes = []v1.Volume{{

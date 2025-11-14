@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/guestfs"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -122,7 +122,7 @@ func getGuestfsPodName(pvc string) string {
 }
 
 func execCommandLibguestfsPod(podName, namespace string, args []string) (stdout, stderr string, err error) {
-	pod, err := kubevirt.Client().CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	pod, err := k8s.Client().CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return exec.ExecuteCommandOnPodWithResults(pod, "libguestfs", args)
 }
@@ -145,7 +145,7 @@ func runGuestfsOnPVC(done chan struct{}, pvcClaim, namespace string, setGroup bo
 	podName := getGuestfsPodName(pvcClaim)
 	// Waiting until the libguestfs pod is running
 	Eventually(func(g Gomega) {
-		pod, err := kubevirt.Client().CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+		pod, err := k8s.Client().CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(pod).To(matcher.HaveConditionTrue(corev1.ContainersReady))
 	}, 90*time.Second, 2*time.Second).Should(Succeed())

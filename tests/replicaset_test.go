@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -101,7 +102,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				MaxReplicas: max,
 			},
 		}
-		_, err := virtClient.AutoscalingV1().HorizontalPodAutoscalers(testsuite.GetTestNamespace(nil)).Create(context.Background(), hpa, metav1.CreateOptions{})
+		_, err := k8s.Client().AutoscalingV1().HorizontalPodAutoscalers(testsuite.GetTestNamespace(nil)).Create(context.Background(), hpa, metav1.CreateOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 		var s *autov1.Scale
@@ -115,7 +116,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ExpectWithOffset(1, libreplicaset.FilterNotDeletedVMIs(vmis)).To(HaveLen(int(min)))
-		err = virtClient.AutoscalingV1().HorizontalPodAutoscalers(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, metav1.DeleteOptions{})
+		err = k8s.Client().AutoscalingV1().HorizontalPodAutoscalers(testsuite.GetTestNamespace(nil)).Delete(context.Background(), name, metav1.DeleteOptions{})
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	}
 
@@ -388,7 +389,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Deleting one of the RS VMS pods")
-		err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(rs)).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+		err = k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(rs)).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking that the VM disappeared")
@@ -432,7 +433,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Deleting one of the RS VMS pods, which will take some time to really stop the VMI")
-		err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(rs)).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+		err = k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(rs)).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Checking that then number of VMIs increases to three")
@@ -460,7 +461,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Context("replicaset with topology spread constraints", decorators.WgS390x, func() {
 		It("Replicas should be spread across nodes", func() {
-			nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+			nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some schedulable nodes")
 			numNodes := len(nodes.Items)
 			if numNodes < 2 {

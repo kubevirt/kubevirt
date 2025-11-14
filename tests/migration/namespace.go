@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -676,7 +677,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			sourcePod, err := libpod.GetPodByVirtualMachineInstance(sourceVMI, sourceVMI.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sourcePod.Status.Phase).To(Equal(k8sv1.PodRunning))
-			Expect(virtClient.CoreV1().Pods(sourceVMI.Namespace).Delete(context.Background(), sourcePod.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.P(int64(0))})).To(Succeed())
+			Expect(k8s.Client().CoreV1().Pods(sourceVMI.Namespace).Delete(context.Background(), sourcePod.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.P(int64(0))})).To(Succeed())
 
 			By("waiting for the source migration to fail")
 			Eventually(func() virtv1.VirtualMachineInstanceMigrationPhase {

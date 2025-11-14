@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -399,7 +400,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 
 func assertSourcePodContainersTerminate(labelSelector, fieldSelector string, vmi *v1.VirtualMachineInstance) bool {
 	return Eventually(func() k8sv1.PodPhase {
-		pods, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(),
+		pods, err := k8s.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(),
 			metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector},
 		)
 		Expect(err).ToNot(HaveOccurred())
@@ -465,7 +466,7 @@ EOL`, inetSuffix, serverIP, serverPort)
 		&expect.BSnd{S: fmt.Sprintf("%s\n", createClientScript)},
 		&expect.BExp{R: console.PromptExpression},
 		&expect.BSnd{S: fmt.Sprintf("%s\n", runClient)},
-		&expect.BExp{R: console.RetValue("Hello Client")},
+		&expect.BExp{R: console.RetValue("Hello VirtClient")},
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.ShellSuccess},
 	}, 60*time.Second)

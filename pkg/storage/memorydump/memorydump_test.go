@@ -66,7 +66,6 @@ var _ = Describe("MemoryDump", func() {
 		).AnyTimes()
 
 		k8sClient = k8sfake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 	})
 
 	Context("UpdateRequest", func() {
@@ -190,7 +189,7 @@ var _ = Describe("MemoryDump", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(pvcStore.Add(pvc)).To(Succeed())
 
-		HandleRequest(virtClient, vm, vmi, pvcStore)
+		HandleRequest(virtClient, k8sClient, vm, vmi, pvcStore)
 
 		vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())

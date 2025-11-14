@@ -102,7 +102,7 @@ type processingCompleteFunc func(kubernetes.Interface, *cobra.Command, string, s
 // UploadProcessingCompleteFunc the function called while determining if post transfer processing is complete.
 var UploadProcessingCompleteFunc processingCompleteFunc = waitUploadProcessingComplete
 
-// GetHTTPClientFn allows overriding the default http client (useful for unit testing)
+// GetHTTPClientFn allows overriding the default http virtClient (useful for unit testing)
 var GetHTTPClientFn = GetHTTPClient
 
 // NewImageUploadCommand returns a cobra.Command for handling the uploading of VM images
@@ -114,13 +114,14 @@ func NewImageUploadCommand() *cobra.Command {
 		Example: usage(),
 		Args:    cobra.MaximumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+			virtClient, k8sClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 			if err != nil {
 				return err
 			}
 
 			c.cmd = cmd
-			c.client = client
+			c.virtClient = virtClient
+			c.k8sClient = k8sClient
 			c.namespace = namespace
 			return c.run(args)
 		},
@@ -178,7 +179,8 @@ func usage() string {
 
 type command struct {
 	cmd                     *cobra.Command
-	client                  kubecli.KubevirtClient
+	virtClient              kubecli.KubevirtClient
+	k8sClient               kubernetes.Interface
 	insecure                bool
 	uploadProxyURL          string
 	name                    string
@@ -377,7 +379,7 @@ func (c *command) run(args []string) error {
 	}
 
 	c.cmd.Println("Uploading data completed successfully, waiting for processing to complete, you can hit ctrl-c without interrupting the progress")
-	err = UploadProcessingCompleteFunc(c.client, c.cmd, c.namespace, c.name, processingWaitInterval, processingWaitTotal)
+	err = UploadProcessingCompleteFunc(c.k8sClient, c.cmd, c.namespace, c.name, processingWaitInterval, processingWaitTotal)
 	if err != nil {
 		c.cmd.Printf("Timed out waiting for post upload processing to complete, please check upload pod status for progress\n")
 	} else {
@@ -391,7 +393,7 @@ func GetHTTPClient(insecure bool) *http.Client {
 	client := &http.Client{}
 
 	if insecure {
-		// #nosec cause: InsecureSkipVerify: true resolution: this method explicitly ask for insecure http client
+		// #nosec cause: InsecureSkipVerify: true resolution: this method explicitly ask for insecure http virtClient
 		client.Transport = &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
@@ -517,7 +519,7 @@ func (c *command) getUploadToken() (string, error) {
 		},
 	}
 
-	response, err := c.client.CdiClient().UploadV1beta1().UploadTokenRequests(c.namespace).Create(context.Background(), request, metav1.CreateOptions{})
+	response, err := c.virtClient.CdiClient().UploadV1beta1().UploadTokenRequests(c.namespace).Create(context.Background(), request, metav1.CreateOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -529,7 +531,7 @@ func (c *command) waitDvUploadScheduled() error {
 	loggedStatus := false
 	//
 	err := virtwait.PollImmediately(uploadReadyWaitInterval, time.Duration(c.uploadPodWaitSecs)*time.Second, func(ctx context.Context) (bool, error) {
-		dv, err := c.client.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Get(ctx, c.name, metav1.GetOptions{})
+		dv, err := c.virtClient.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Get(ctx, c.name, metav1.GetOptions{})
 		if err != nil {
 			// DataVolume controller may not have created the DV yet ? TODO:
 			if k8serrors.IsNotFound(err) {
@@ -570,7 +572,7 @@ func (c *command) waitUploadServerReady() error {
 	loggedStatus := false
 
 	err := virtwait.PollImmediately(uploadReadyWaitInterval, time.Duration(c.uploadPodWaitSecs)*time.Second, func(ctx context.Context) (bool, error) {
-		pvc, err := c.client.CoreV1().PersistentVolumeClaims(c.namespace).Get(ctx, c.name, metav1.GetOptions{})
+		pvc, err := c.k8sClient.CoreV1().PersistentVolumeClaims(c.namespace).Get(ctx, c.name, metav1.GetOptions{})
 		if err != nil {
 			// DataVolume controller may not have created the PVC yet
 			if k8serrors.IsNotFound(err) {
@@ -651,7 +653,7 @@ func (c *command) createUploadDataVolume() (*cdiv1.DataVolume, error) {
 
 	// We check if the user-defined storageClass exists before attempting to create the dataVolume
 	if c.storageClass != "" {
-		_, err = c.client.StorageV1().StorageClasses().Get(context.Background(), c.storageClass, metav1.GetOptions{})
+		_, err = c.k8sClient.StorageV1().StorageClasses().Get(context.Background(), c.storageClass, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -683,7 +685,7 @@ func (c *command) createUploadDataVolume() (*cdiv1.DataVolume, error) {
 	}
 	c.setDefaultInstancetypeLabels(&dv.ObjectMeta)
 
-	dv, err = c.client.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Create(context.Background(), dv, metav1.CreateOptions{})
+	dv, err = c.virtClient.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Create(context.Background(), dv, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -735,7 +737,7 @@ func (c *command) createUploadPVC() (*v1.PersistentVolumeClaim, error) {
 
 	// We check if the user-defined storageClass exists before attempting to create the PVC
 	if c.storageClass != "" {
-		_, err := c.client.StorageV1().StorageClasses().Get(context.Background(), c.storageClass, metav1.GetOptions{})
+		_, err := c.k8sClient.StorageV1().StorageClasses().Get(context.Background(), c.storageClass, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -778,7 +780,7 @@ func (c *command) createUploadPVC() (*v1.PersistentVolumeClaim, error) {
 	pvc.ObjectMeta.Labels = labels
 	c.setDefaultInstancetypeLabels(&pvc.ObjectMeta)
 
-	pvc, err = c.client.CoreV1().PersistentVolumeClaims(c.namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	pvc, err = c.k8sClient.CoreV1().PersistentVolumeClaims(c.namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -795,7 +797,7 @@ func (c *command) ensurePVCSupportsUpload(pvc *v1.PersistentVolumeClaim) (*v1.Pe
 			pvc.SetAnnotations(make(map[string]string, 0))
 		}
 		pvc.Annotations[uploadRequestAnnotation] = ""
-		pvc, err = c.client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+		pvc, err = c.k8sClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -805,7 +807,7 @@ func (c *command) ensurePVCSupportsUpload(pvc *v1.PersistentVolumeClaim) (*v1.Pe
 }
 
 func (c *command) getAndValidateUploadPVC() (*v1.PersistentVolumeClaim, error) {
-	pvc, err := c.client.CoreV1().PersistentVolumeClaims(c.namespace).Get(context.Background(), c.name, metav1.GetOptions{})
+	pvc, err := c.k8sClient.CoreV1().PersistentVolumeClaims(c.namespace).Get(context.Background(), c.name, metav1.GetOptions{})
 	if err != nil {
 		c.cmd.Printf("PVC %s/%s not found \n", c.namespace, c.name)
 		return nil, err
@@ -847,7 +849,7 @@ func (c *command) getAndValidateUploadPVC() (*v1.PersistentVolumeClaim, error) {
 }
 
 func (c *command) validateUploadDataVolume(pvc *v1.PersistentVolumeClaim) (*v1.PersistentVolumeClaim, error) {
-	dv, err := c.client.CdiClient().CdiV1beta1().DataVolumes(pvc.Namespace).Get(context.Background(), c.name, metav1.GetOptions{})
+	dv, err := c.virtClient.CdiClient().CdiV1beta1().DataVolumes(pvc.Namespace).Get(context.Background(), c.name, metav1.GetOptions{})
 	if err != nil {
 		// When the PVC exists but the DV doesn't, there are two possible outcomes:
 		if k8serrors.IsNotFound(err) {
@@ -873,7 +875,7 @@ func (c *command) validateUploadDataVolume(pvc *v1.PersistentVolumeClaim) (*v1.P
 		if !ok {
 			return nil, fmt.Errorf("Unable to get PVC Prime name from PVC %s/%s", pvc.Namespace, c.name)
 		}
-		pvc, err = c.client.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), pvcPrimeName, metav1.GetOptions{})
+		pvc, err = c.k8sClient.CoreV1().PersistentVolumeClaims(dv.Namespace).Get(context.Background(), pvcPrimeName, metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("Unable to get PVC Prime %s/%s", dv.Namespace, c.name)
 		}
@@ -883,7 +885,7 @@ func (c *command) validateUploadDataVolume(pvc *v1.PersistentVolumeClaim) (*v1.P
 }
 
 func (c *command) getUploadProxyURL() (string, error) {
-	cdiConfig, err := c.client.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
+	cdiConfig, err := c.virtClient.CdiClient().CdiV1beta1().CDIConfigs().Get(context.Background(), configName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -901,13 +903,13 @@ func (c *command) handleEventErrors(pvcName, dvName string) error {
 	var pvcUID types.UID
 	var dvUID types.UID
 
-	eventList, err := c.client.CoreV1().Events(c.namespace).List(context.Background(), metav1.ListOptions{})
+	eventList, err := c.k8sClient.CoreV1().Events(c.namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
 
 	if pvcName != "" {
-		pvc, err := c.client.CoreV1().PersistentVolumeClaims(c.namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+		pvc, err := c.k8sClient.CoreV1().PersistentVolumeClaims(c.namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 		if !k8serrors.IsNotFound(err) {
 			if err != nil {
 				return err
@@ -917,7 +919,7 @@ func (c *command) handleEventErrors(pvcName, dvName string) error {
 	}
 
 	if dvName != "" {
-		dv, err := c.client.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Get(context.Background(), dvName, metav1.GetOptions{})
+		dv, err := c.virtClient.CdiClient().CdiV1beta1().DataVolumes(c.namespace).Get(context.Background(), dvName, metav1.GetOptions{})
 		if !k8serrors.IsNotFound(err) {
 			if err != nil {
 				return err
@@ -947,7 +949,7 @@ func (c *command) handleEventErrors(pvcName, dvName string) error {
 }
 
 func (c *command) handleDataSource() error {
-	ds, err := c.client.CdiClient().CdiV1beta1().DataSources(c.namespace).Get(context.Background(), c.name, metav1.GetOptions{})
+	ds, err := c.virtClient.CdiClient().CdiV1beta1().DataSources(c.namespace).Get(context.Background(), c.name, metav1.GetOptions{})
 	if err == nil {
 		return c.updateExistingDataSource(ds)
 	}
@@ -977,7 +979,7 @@ func (c *command) createNewDataSource() error {
 	}
 	c.setDefaultInstancetypeLabels(&ds.ObjectMeta)
 
-	_, err := c.client.CdiClient().CdiV1beta1().DataSources(c.namespace).Create(context.Background(), ds, metav1.CreateOptions{})
+	_, err := c.virtClient.CdiClient().CdiV1beta1().DataSources(c.namespace).Create(context.Background(), ds, metav1.CreateOptions{})
 	if err == nil {
 		c.cmd.Printf("Created a new DataSource %s/%s\n", c.namespace, c.name)
 	}
@@ -1006,7 +1008,7 @@ func (c *command) updateExistingDataSource(ds *cdiv1.DataSource) error {
 		return err
 	}
 
-	if _, err = c.client.CdiClient().CdiV1beta1().DataSources(ds.Namespace).Patch(context.Background(), ds.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err == nil {
+	if _, err = c.virtClient.CdiClient().CdiV1beta1().DataSources(ds.Namespace).Patch(context.Background(), ds.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err == nil {
 		c.cmd.Printf("Updated an existing DataSource %s/%s\n", ds.Namespace, ds.Name)
 	}
 	return err

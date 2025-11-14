@@ -75,10 +75,10 @@ var _ = Describe("Apply Prometheus", func() {
 		stores.ServiceMonitorCache.Add(sm)
 
 		r := &Reconciler{
-			kv:           kv,
-			stores:       stores,
-			clientset:    clientset,
-			expectations: expectations,
+			kv:            kv,
+			stores:        stores,
+			virtClientset: clientset,
+			expectations:  expectations,
 		}
 
 		Expect(r.createOrUpdateServiceMonitor(sm)).To(Succeed())
@@ -93,10 +93,10 @@ var _ = Describe("Apply Prometheus", func() {
 		stores.ServiceMonitorCache.Add(sm)
 
 		r := &Reconciler{
-			kv:           kv,
-			stores:       stores,
-			clientset:    clientset,
-			expectations: expectations,
+			kv:            kv,
+			stores:        stores,
+			virtClientset: clientset,
+			expectations:  expectations,
 		}
 
 		requiredSM := sm.DeepCopy()
@@ -143,10 +143,10 @@ var _ = Describe("Apply Prometheus", func() {
 		stores.PrometheusRuleCache.Add(pr)
 
 		r := &Reconciler{
-			kv:           kv,
-			stores:       stores,
-			clientset:    clientset,
-			expectations: expectations,
+			kv:            kv,
+			stores:        stores,
+			virtClientset: clientset,
+			expectations:  expectations,
 		}
 
 		Expect(r.createOrUpdatePrometheusRule(pr)).To(Succeed())
@@ -163,10 +163,10 @@ var _ = Describe("Apply Prometheus", func() {
 		stores.PrometheusRuleCache.Add(pr)
 
 		r := &Reconciler{
-			kv:           kv,
-			stores:       stores,
-			clientset:    clientset,
-			expectations: expectations,
+			kv:            kv,
+			stores:        stores,
+			virtClientset: clientset,
+			expectations:  expectations,
 		}
 
 		requiredPR := pr.DeepCopy()

@@ -165,7 +165,7 @@ func keepAliveClientStream(ctx context.Context, conn *websocket.Conn, cancel fun
 			return
 		case <-pingTicker.C:
 			if err := conn.WriteControl(websocket.PingMessage, []byte("keep alive"), time.Now().Add(keepAliveTimeout)); err != nil {
-				log.Log.Reason(err).Error("Failed to write control message to client websocket connection")
+				log.Log.Reason(err).Error("Failed to write control message to virtClient websocket connection")
 				cancel()
 				return
 			}

@@ -27,7 +27,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -51,7 +50,6 @@ var (
 var _ = Describe("CBT", func() {
 	var (
 		kv             *v1.KubeVirt
-		k8sClient      *k8sfake.Clientset
 		virtClient     *kubecli.MockKubevirtClient
 		virtFakeClient *fake.Clientset
 		config         *virtconfig.ClusterConfig
@@ -72,9 +70,6 @@ var _ = Describe("CBT", func() {
 		).AnyTimes()
 		namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
 		nsStore = namespaceInformer.GetStore()
-
-		k8sClient = k8sfake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 	})
 
 	updateKubeVirtWithLabelSelector := func(vmLabelSelector, nsLabelSelector *metav1.LabelSelector, enableFeatureGate bool) {

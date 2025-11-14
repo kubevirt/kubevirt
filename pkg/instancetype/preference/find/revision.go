@@ -16,16 +16,17 @@
  * Copyright The KubeVirt Authors.
  *
  */
+
 package find
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 )
@@ -38,9 +39,9 @@ type revisionFinder struct {
 	controllerRevisionFinder controllerRevisionFinder
 }
 
-func NewRevisionFinder(store cache.Store, virtClient kubecli.KubevirtClient) *revisionFinder {
+func NewRevisionFinder(store cache.Store, k8sClient kubernetes.Interface) *revisionFinder {
 	return &revisionFinder{
-		controllerRevisionFinder: find.NewControllerRevisionFinder(store, virtClient),
+		controllerRevisionFinder: find.NewControllerRevisionFinder(store, k8sClient),
 	}
 }
 

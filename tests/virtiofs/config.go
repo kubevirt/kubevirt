@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	expect "github.com/google/goexpect"
@@ -35,6 +34,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/pkg/config"
@@ -71,7 +71,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				"option3": "value3",
 			}
 			cm := libconfigmap.New(configMapName, data)
-			cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+			cm, err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -127,7 +127,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 			secretPath = config.GetSecretSourcePath(secretName)
 
 			secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "redhat"})
-			secret, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+			secret, err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
 			if !errors.IsAlreadyExists(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}

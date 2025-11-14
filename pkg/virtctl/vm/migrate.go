@@ -57,7 +57,7 @@ func NewMigrateCommand() *cobra.Command {
 func (c *migrateCommand) migrateRun(cmd *cobra.Command, args []string) error {
 	vmiName := args[0]
 
-	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

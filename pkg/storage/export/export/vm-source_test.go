@@ -131,12 +131,12 @@ var _ = Describe("PVC source", func() {
 		vmExportClient = kubevirtfake.NewSimpleClientset()
 		recorder = record.NewFakeRecorder(100)
 
-		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
 			Return(vmExportClient.ExportV1beta1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
-			Client:                      virtClient,
+			VirtClient:                  virtClient,
+			K8sClient:                   k8sClient,
 			Recorder:                    recorder,
 			PVCInformer:                 pvcInformer,
 			PodInformer:                 podInformer,
@@ -145,7 +145,7 @@ var _ = Describe("PVC source", func() {
 			ServiceInformer:             serviceInformer,
 			DataVolumeInformer:          dvInformer,
 			KubevirtNamespace:           "kubevirt",
-			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
+			ManifestRenderer:            services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, k8sClient, config, qemuGid, "g", rqInformer.GetStore(), nsInformer.GetStore()),
 			caCertManager:               fakeCertManager,
 			RouteCache:                  routeCache,
 			IngressCache:                ingressCache,

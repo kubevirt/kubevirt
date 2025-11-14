@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/client-go/version"
 )
 
-var _ = Describe("Kubevirt Version Client", func() {
+var _ = Describe("Kubevirt Version VirtClient", func() {
 	var server *ghttp.Server
 	proxyPath := "/proxy/path"
 

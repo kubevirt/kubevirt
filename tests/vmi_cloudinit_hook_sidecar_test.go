@@ -31,6 +31,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -38,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
@@ -55,13 +57,13 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 
 	var vmi *v1.VirtualMachineInstance
 
-	GetCloudInitHookSidecarLogs := func(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+	GetCloudInitHookSidecarLogs := func(k8sCli kubernetes.Interface, vmi *v1.VirtualMachineInstance) string {
 		namespace := vmi.GetObjectMeta().GetNamespace()
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).ToNot(HaveOccurred())
 
 		var tailLines int64 = 100
-		logsRaw, err := virtCli.CoreV1().
+		logsRaw, err := k8sCli.CoreV1().
 			Pods(namespace).
 			GetLogs(pod.Name, &k8sv1.PodLogOptions{
 				TailLines: &tailLines,
@@ -116,7 +118,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 				By("Getting hook-sidecar logs")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				logs := func() string { return GetCloudInitHookSidecarLogs(virtClient, vmi) }
+				logs := func() string { return GetCloudInitHookSidecarLogs(k8s.Client(), vmi) }
 				libwait.WaitForSuccessfulVMIStart(vmi)
 				Eventually(logs,
 					11*time.Second,

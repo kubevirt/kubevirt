@@ -12,6 +12,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	netutils "k8s.io/utils/net"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -40,9 +41,9 @@ const (
 	sevInjectLaunchSecretTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/injectlaunchsecret"
 )
 
-func NewVirtHandlerClient(virtCli KubevirtClient, httpCli *http.Client) VirtHandlerClient {
+func NewVirtHandlerClient(k8sCli kubernetes.Interface, httpCli *http.Client) VirtHandlerClient {
 	return &virtHandler{
-		virtCli:         virtCli,
+		k8sCli:          k8sCli,
 		httpCli:         httpCli,
 		virtHandlerPort: 0,
 		namespace:       "",
@@ -80,7 +81,7 @@ type VirtHandlerConn interface {
 }
 
 type virtHandler struct {
-	virtCli         KubevirtClient
+	k8sCli          kubernetes.Interface
 	httpCli         *http.Client
 	virtHandlerPort int
 	namespace       string
@@ -137,7 +138,7 @@ func (v *virtHandler) getVirtHandler(nodeName string, namespace string) (*v1.Pod
 		return nil, false, err
 	}
 
-	pods, err := v.virtCli.CoreV1().Pods(namespace).List(context.Background(),
+	pods, err := v.k8sCli.CoreV1().Pods(namespace).List(context.Background(),
 		k8smetav1.ListOptions{
 			FieldSelector: handlerNodeSelector.String(),
 			LabelSelector: labelSelector.String()})

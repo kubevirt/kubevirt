@@ -22,6 +22,7 @@ package validating_webhook
 import (
 	"net/http"
 
+	"k8s.io/client-go/kubernetes"
 	"kubevirt.io/client-go/kubecli"
 
 	preferencewebhooks "kubevirt.io/kubevirt/pkg/instancetype/preference/webhooks"
@@ -56,10 +57,11 @@ func ServeVMs(
 	req *http.Request,
 	clusterConfig *virtconfig.ClusterConfig,
 	virtCli kubecli.KubevirtClient,
+	k8sCli kubernetes.Interface,
 	informers *webhooks.Informers,
 	kubeVirtServiceAccounts map[string]struct{},
 ) {
-	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, kubeVirtServiceAccounts))
+	validating_webhooks.Serve(resp, req, admitters.NewVMsAdmitter(clusterConfig, virtCli, k8sCli, informers, kubeVirtServiceAccounts))
 }
 
 func ServeVMIRS(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
@@ -114,16 +116,17 @@ func ServeStatusValidation(resp http.ResponseWriter,
 	req *http.Request,
 	clusterConfig *virtconfig.ClusterConfig,
 	virtCli kubecli.KubevirtClient,
+	k8sCli kubernetes.Interface,
 	informers *webhooks.Informers,
 	kubeVirtServiceAccounts map[string]struct{},
 ) {
 	validating_webhooks.Serve(resp, req, &admitters.StatusAdmitter{
-		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, informers, kubeVirtServiceAccounts),
+		VmsAdmitter: admitters.NewVMsAdmitter(clusterConfig, virtCli, k8sCli, informers, kubeVirtServiceAccounts),
 	})
 }
 
-func ServePodEvictionInterceptor(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, admitters.NewPodEvictionAdmitter(clusterConfig, virtCli, virtCli.GeneratedKubeVirtClient()))
+func ServePodEvictionInterceptor(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, k8sCli kubernetes.Interface) {
+	validating_webhooks.Serve(resp, req, admitters.NewPodEvictionAdmitter(clusterConfig, k8sCli, virtCli.GeneratedKubeVirtClient()))
 }
 
 func ServeMigrationPolicies(resp http.ResponseWriter, req *http.Request) {

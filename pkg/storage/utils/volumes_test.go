@@ -25,8 +25,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -85,7 +85,7 @@ var _ = Describe("GetVolumes", func() {
 	DescribeTable("should handle volume exclusions based on flags",
 		func(hasEFI, hasTPM bool, expectedVolumes []string, opts ...VolumeOption) {
 			vmi := createVMI(hasEFI, hasTPM, "")
-			client := kubecli.NewMockKubevirtClient(nil) // Mock client for testing
+			client := fake.NewClientset()
 			volumes, _ := GetVolumes(vmi, client, opts...)
 
 			Expect(volumes).To(HaveLen(len(expectedVolumes)))
@@ -132,7 +132,7 @@ var _ = Describe("GetVolumes", func() {
 
 	It("should trim backend volume name", func() {
 		vmi := createVMI(true, true, strings.Repeat("a", 63))
-		client := kubecli.NewMockKubevirtClient(nil)
+		client := fake.NewClientset()
 		volumes, err := GetVolumes(vmi, client, WithBackendVolume)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(volumes).To(HaveLen(1))

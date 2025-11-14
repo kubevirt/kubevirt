@@ -9,6 +9,7 @@ import (
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
@@ -218,7 +219,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 	}
 
 	deleteWebhook := func(wh *admissionregistrationv1.ValidatingWebhookConfiguration) {
-		err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), wh.Name, metav1.DeleteOptions{})
+		err := k8s.Client().AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), wh.Name, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			err = nil
 		}
@@ -408,7 +409,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						},
 					},
 				}
-				wh, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
+				wh, err := k8s.Client().AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				webhook = wh
 
@@ -557,7 +558,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			BeforeEach(func() {
-				snapshotStorageClass, err := libstorage.GetSnapshotStorageClass(virtClient)
+				snapshotStorageClass, err := libstorage.GetSnapshotStorageClass(virtClient, k8s.Client())
 				Expect(err).ToNot(HaveOccurred())
 
 				if snapshotStorageClass == "" {
@@ -689,8 +690,8 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(restoreVM.Status.PreferenceRef.ControllerRevisionRef.Name).ToNot(Equal(sourceVM.Status.PreferenceRef.ControllerRevisionRef.Name))
 
 				By("Asserting that the source and target ControllerRevisions contain the same Object")
-				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.InstancetypeRef.ControllerRevisionRef.Name, restoreVM.Status.InstancetypeRef.ControllerRevisionRef.Name, virtClient)).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
-				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.PreferenceRef.ControllerRevisionRef.Name, restoreVM.Status.PreferenceRef.ControllerRevisionRef.Name, virtClient)).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
+				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.InstancetypeRef.ControllerRevisionRef.Name, restoreVM.Status.InstancetypeRef.ControllerRevisionRef.Name, k8s.Client())).To(BeTrue(), "source and target instance type controller revisions are expected to be equal")
+				Expect(libinstancetype.EnsureControllerRevisionObjectsEqual(sourceVM.Status.PreferenceRef.ControllerRevisionRef.Name, restoreVM.Status.PreferenceRef.ControllerRevisionRef.Name, k8s.Client())).To(BeTrue(), "source and target preference controller revisions are expected to be equal")
 			},
 				Entry("with a running VM", v1.RunStrategyAlways),
 				Entry("with a stopped VM", v1.RunStrategyHalted),
@@ -712,7 +713,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			)
 
 			BeforeEach(func() {
-				sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+				sc, err := libstorage.GetSnapshotStorageClass(virtClient, k8s.Client())
 				Expect(err).ToNot(HaveOccurred())
 
 				if sc == "" {
@@ -1092,7 +1093,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 				pvcName := restores[0].PersistentVolumeClaimName
 				Expect(pvcName).ToNot(BeEmpty())
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), pvcName, metav1.GetOptions{})
+				pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), pvcName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				dvName := restores[0].DataVolumeName
@@ -1204,7 +1205,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				vm, vmi = createAndStartVM(vm)
 				expectedCapacity, err := resource.ParseQuantity("2Gi")
 				Expect(err).ToNot(HaveOccurred())
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
+				pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vm.Spec.DataVolumeTemplates[0].Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pvc.Status.Capacity["storage"]).To(Equal(expectedCapacity))
 
@@ -1219,7 +1220,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(*vs.Status.RestoreSize).To(Equal(expectedCapacity))
 
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
+				pvc, err = k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pvc.Status.Capacity["storage"]).To(Equal(expectedCapacity))
 				Expect(pvc.Spec.Resources.Requests["storage"]).To(Equal(expectedCapacity))
@@ -1259,13 +1260,13 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 				_, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Get(context.Background(), dv.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+				_, err = k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				for _, v := range vm.Spec.Template.Spec.Volumes {
 					if v.PersistentVolumeClaim != nil {
 						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
-						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+						pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						verifyOwnerRef(pvc, v1.GroupVersion.String(), "VirtualMachine", vm.Name, vm.UID)
 					}
@@ -1295,7 +1296,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					libvmi.WithMemoryRequest(memory), libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
 				vm, vmi = createAndStartVM(libvmi.NewVirtualMachine(vmi))
 				By("Ensuring the PVC is owned by the VM")
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+				pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if ownedByVM {
 					pvc.OwnerReferences = []metav1.OwnerReference{
@@ -1309,7 +1310,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				} else {
 					pvc.OwnerReferences = nil
 				}
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+				_, err = k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
@@ -1318,7 +1319,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				}
 
 				Expect(restore.Status.DeletedDataVolumes).To(BeEmpty())
-				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+				_, err = k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				targetVM := getTargetVM(restoreToNewVM)
@@ -1328,7 +1329,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				for _, v := range targetVM.Spec.Template.Spec.Volumes {
 					if v.PersistentVolumeClaim != nil {
 						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
-						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+						pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						if ownedByVM {
 							Expect(pvc.OwnerReferences).ToNot(BeEmpty())
@@ -1390,7 +1391,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 				By("Expecting the creation of a backend storage PVC with the right storage class")
-				pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				pvcs, err := k8s.Client().CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 					LabelSelector: "persistent-state-for=" + vmi.Name,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1409,7 +1410,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 				By("Expect original backend PVC to be deleted")
 				Eventually(func() error {
-					_, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
+					_, err := k8s.Client().CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
 					return err
 				}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			},
@@ -1465,7 +1466,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						},
 					},
 				}
-				wh, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
+				wh, err := k8s.Client().AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				webhook = wh
 
@@ -1734,7 +1735,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(restoreVM.Spec.Template.Spec.Volumes[0].DataVolume.Name).To(Equal(newDiskName))
 
 				// Check the restored PVC has the info we want
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), newDiskName, metav1.GetOptions{})
+				pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), newDiskName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pvc.Labels["new-label"]).To(Equal("value"))
 				Expect(pvc.Annotations["new-annotation"]).To(Equal("value"))
@@ -1790,13 +1791,13 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					To(Equal(originalPvcName))
 
 				// Check the restored PVC exists
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPvcName, metav1.GetOptions{})
+				pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPvcName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pvc.Annotations["test"]).To(Equal("value")) // Ensure new annotation is present
 
 				// PVC should have owner reference back to the DV (which has same name as itself)
 				Eventually(func() string {
-					pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPvcName, metav1.GetOptions{})
+					pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPvcName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return pvc.OwnerReferences[0].Name
 				}, 60*time.Second, 1*time.Second).Should(Equal(originalPvcName))
@@ -1874,13 +1875,13 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					To(Equal(vm.Spec.Template.Spec.Volumes[0].DataVolume.Name)) // DV got converted to a PVC with the same name
 
 				// Check the restored PVC exists
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+				pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pvc.Annotations["test"]).To(Equal("value")) // Ensure new annotation is present
 
 				// PVC should have owner reference back to the DV (which has same name as itself)
 				Eventually(func() string {
-					pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+					pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					return pvc.OwnerReferences[0].Name
 				}, 60*time.Second, 1*time.Second).Should(Equal(originalPVCName))
@@ -1895,7 +1896,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			It("should restore with volume restore policy InPlace and PVC as disk", func() {
 				pvcName := "standalone-pvc"
 				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass, libstorage.WithStorageProfile())
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
+				pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vm = libvmi.NewVirtualMachine(
@@ -1945,7 +1946,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					To(Equal(pvcName)) // PVC name didn't change
 
 				// Check the restored PVC exists
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+				pvc, err = k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pvc.Annotations["test"]).To(Equal("value")) // Ensure new annotation is present
 
@@ -1958,7 +1959,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			It("standalone PVC should have no owner with volumeOwnershipPolicyNone", func() {
 				pvcName := "standalone-pvc"
 				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass)
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
+				pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vm = libvmi.NewVirtualMachine(
@@ -1994,7 +1995,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(restoredVolume).NotTo(BeNil())
 				restoredPvc := restoredVolume.PersistentVolumeClaimName
 
-				pvc, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restoredPvc, metav1.GetOptions{})
+				pvc, err = k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), restoredPvc, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pvc.OwnerReferences).To(BeNil())
 
@@ -2054,7 +2055,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					Expect(restore.Status.Restores).To(HaveLen(1))
 					Expect(restore.Status.Restores[0].VolumeName).ToNot(Equal(memoryDumpPVCName))
 
-					restorePVC, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
+					restorePVC, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Get(context.Background(), restore.Status.Restores[0].PersistentVolumeClaimName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					content, err := virtClient.VirtualMachineSnapshotContent(vm.Namespace).Get(context.Background(), *snapshot.Status.VirtualMachineSnapshotContentName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
@@ -2093,7 +2094,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				var forcedHostAssistedScName string
 
 				BeforeEach(func() {
-					sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), snapshotStorageClass, metav1.GetOptions{})
+					sc, err := k8s.Client().StorageV1().StorageClasses().Get(context.Background(), snapshotStorageClass, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					hostAssistedSc := sc.DeepCopy()
 					hostAssistedSc.ObjectMeta = metav1.ObjectMeta{
@@ -2105,7 +2106,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							"cdi.kubevirt.io/clone-strategy": string(cdiv1.CloneStrategyHostAssisted),
 						},
 					}
-					sc, err = virtClient.StorageV1().StorageClasses().Create(context.Background(), hostAssistedSc, metav1.CreateOptions{})
+					sc, err = k8s.Client().StorageV1().StorageClasses().Create(context.Background(), hostAssistedSc, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					forcedHostAssistedScName = sc.Name
 
@@ -2120,30 +2121,30 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					sourceDV = waitDVReady(sourceDV)
 
 					role, roleBinding := libstorage.GoldenImageRBAC(testsuite.NamespaceTestAlternative)
-					role, err = virtClient.RbacV1().Roles(role.Namespace).Create(context.TODO(), role, metav1.CreateOptions{})
+					role, err = k8s.Client().RbacV1().Roles(role.Namespace).Create(context.TODO(), role, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					cloneRole = role
-					roleBinding, err = virtClient.RbacV1().RoleBindings(roleBinding.Namespace).Create(context.TODO(), roleBinding, metav1.CreateOptions{})
+					roleBinding, err = k8s.Client().RbacV1().RoleBindings(roleBinding.Namespace).Create(context.TODO(), roleBinding, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					cloneRoleBinding = roleBinding
 				})
 
 				AfterEach(func() {
 					// Make sure we recreate the alternative namespace when completing the tests
-					_, err := virtClient.CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testsuite.NamespaceTestAlternative}}, metav1.CreateOptions{})
+					_, err := k8s.Client().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testsuite.NamespaceTestAlternative}}, metav1.CreateOptions{})
 					if err != nil && !errors.IsAlreadyExists(err) {
 						Expect(err).ToNot(HaveOccurred())
 					}
 					if cloneRole != nil {
-						err := virtClient.RbacV1().Roles(cloneRole.Namespace).Delete(context.TODO(), cloneRole.Name, metav1.DeleteOptions{})
+						err := k8s.Client().RbacV1().Roles(cloneRole.Namespace).Delete(context.TODO(), cloneRole.Name, metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
 					}
 					if cloneRoleBinding != nil {
-						err = virtClient.RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.TODO(), cloneRoleBinding.Name, metav1.DeleteOptions{})
+						err = k8s.Client().RbacV1().RoleBindings(cloneRoleBinding.Namespace).Delete(context.TODO(), cloneRoleBinding.Name, metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
 					}
 					if forcedHostAssistedScName != "" {
-						err := virtClient.StorageV1().StorageClasses().Delete(context.Background(), forcedHostAssistedScName, metav1.DeleteOptions{})
+						err := k8s.Client().StorageV1().StorageClasses().Delete(context.Background(), forcedHostAssistedScName, metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
 					}
 				})
@@ -2157,7 +2158,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							pvcName = n
 						}
 					}
-					pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
+					pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.TODO(), pvcName, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					if pvc.Spec.DataSourceRef != nil {
 						// These annotations only exist pre-k8s-populators flows
@@ -2187,10 +2188,10 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 					checkCloneAnnotations(vm, true)
 					if deleteSourceNamespace {
-						err = virtClient.CoreV1().Namespaces().Delete(context.Background(), testsuite.NamespaceTestAlternative, metav1.DeleteOptions{})
+						err = k8s.Client().CoreV1().Namespaces().Delete(context.Background(), testsuite.NamespaceTestAlternative, metav1.DeleteOptions{})
 						Expect(err).ToNot(HaveOccurred())
 						Eventually(func() error {
-							_, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.NamespaceTestAlternative, metav1.GetOptions{})
+							_, err := k8s.Client().CoreV1().Namespaces().Get(context.Background(), testsuite.NamespaceTestAlternative, metav1.GetOptions{})
 							return err
 						}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 

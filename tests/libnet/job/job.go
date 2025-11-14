@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 )
@@ -103,8 +103,6 @@ func NewHelloWorldJob(checkConnectivityCmd string) *batchv1.Job {
 }
 
 func WaitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
-	virtClient := kubevirt.Client()
-
 	jobFailedError := func(job *batchv1.Job) error {
 		if toSucceed {
 			return fmt.Errorf("job %s finished with failure, status: %+v", job.Name, job.Status)
@@ -120,7 +118,7 @@ func WaitForJob(job *batchv1.Job, toSucceed bool, timeout time.Duration) error {
 
 	const finish = true
 	poller := func(ctx context.Context) (done bool, err error) {
-		job, err = virtClient.BatchV1().Jobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
+		job, err = k8s.Client().BatchV1().Jobs(job.Namespace).Get(ctx, job.Name, metav1.GetOptions{})
 		if err != nil {
 			return finish, err
 		}

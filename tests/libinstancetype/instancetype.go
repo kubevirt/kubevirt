@@ -26,16 +26,15 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"kubevirt.io/client-go/kubecli"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-func EnsureControllerRevisionObjectsEqual(crNameA, crNameB string, virtClient kubecli.KubevirtClient) bool {
-	crA, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(nil)).Get(context.Background(), crNameA, metav1.GetOptions{})
+func EnsureControllerRevisionObjectsEqual(crNameA, crNameB string, k8sClient kubernetes.Interface) bool {
+	crA, err := k8sClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(nil)).Get(context.Background(), crNameA, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	crB, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(nil)).Get(context.Background(), crNameB, metav1.GetOptions{})
+	crB, err := k8sClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(nil)).Get(context.Background(), crNameB, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return equality.Semantic.DeepEqual(crA.Data.Object, crB.Data.Object)
 }

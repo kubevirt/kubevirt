@@ -22,21 +22,24 @@ package libstorage
 import (
 	"context"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 )
 
 var wffc = storagev1.VolumeBindingWaitForFirstConsumer
 
 func CreateStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
-	virtClient := kubevirt.Client()
+	k8sClient := k8s.Client()
 
 	sc := &storagev1.StorageClass{
 		ObjectMeta: metav1.ObjectMeta{
@@ -48,7 +51,7 @@ func CreateStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 		Provisioner:       "kubernetes.io/no-provisioner",
 		VolumeBindingMode: bindingMode,
 	}
-	_, err := virtClient.StorageV1().StorageClasses().Create(context.Background(), sc, metav1.CreateOptions{})
+	_, err := k8sClient.StorageV1().StorageClasses().Create(context.Background(), sc, metav1.CreateOptions{})
 	Expect(err).To(Or(
 		Not(HaveOccurred()),
 		MatchError(errors.IsAlreadyExists, "errors.IsAlreadyExists"),
@@ -56,18 +59,18 @@ func CreateStorageClass(name string, bindingMode *storagev1.VolumeBindingMode) {
 }
 
 func DeleteStorageClass(name string) {
-	virtClient := kubevirt.Client()
+	k8sClient := k8s.Client()
 
-	_, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), name, metav1.GetOptions{})
+	_, err := k8sClient.StorageV1().StorageClasses().Get(context.Background(), name, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return
 	}
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(virtClient.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})).To(Succeed())
+	Expect(k8sClient.StorageV1().StorageClasses().Delete(context.Background(), name, metav1.DeleteOptions{})).To(Succeed())
 }
 
-func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
+func GetSnapshotStorageClass(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) (string, error) {
 	var snapshotStorageClass string
 
 	if Config == nil || Config.StorageSnapshot == "" {
@@ -75,12 +78,12 @@ func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 	}
 	snapshotStorageClass = Config.StorageSnapshot
 
-	sc, err := client.StorageV1().StorageClasses().Get(context.Background(), snapshotStorageClass, metav1.GetOptions{})
+	sc, err := k8sClient.StorageV1().StorageClasses().Get(context.Background(), snapshotStorageClass, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
 
-	crd, err := client.
+	crd, err := virtClient.
 		ExtensionsClient().
 		ApiextensionsV1().
 		CustomResourceDefinitions().
@@ -104,7 +107,7 @@ func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 		return "", nil
 	}
 
-	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
+	volumeSnapshotClasses, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -127,8 +130,8 @@ func GetSnapshotStorageClass(client kubecli.KubevirtClient) (string, error) {
 	return snapshotStorageClass, nil
 }
 
-func GetSnapshotClass(scName string, client kubecli.KubevirtClient) (string, error) {
-	crd, err := client.
+func GetSnapshotClass(scName string, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) (string, error) {
+	crd, err := virtClient.
 		ExtensionsClient().
 		ApiextensionsV1().
 		CustomResourceDefinitions().
@@ -152,14 +155,14 @@ func GetSnapshotClass(scName string, client kubecli.KubevirtClient) (string, err
 		return "", nil
 	}
 
-	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
+	volumeSnapshotClasses, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
 	if len(volumeSnapshotClasses.Items) == 0 {
 		return "", nil
 	}
-	sc, err := client.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
+	sc, err := k8sClient.StorageV1().StorageClasses().Get(context.Background(), scName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -173,8 +176,8 @@ func GetSnapshotClass(scName string, client kubecli.KubevirtClient) (string, err
 	return "", nil
 }
 
-func GetWFFCStorageSnapshotClass(client kubecli.KubevirtClient) (string, error) {
-	crd, err := client.
+func GetWFFCStorageSnapshotClass(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) (string, error) {
+	crd, err := virtClient.
 		ExtensionsClient().
 		ApiextensionsV1().
 		CustomResourceDefinitions().
@@ -198,14 +201,14 @@ func GetWFFCStorageSnapshotClass(client kubecli.KubevirtClient) (string, error) 
 		return "", nil
 	}
 
-	volumeSnapshotClasses, err := client.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
+	volumeSnapshotClasses, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
 	if len(volumeSnapshotClasses.Items) == 0 {
 		return "", nil
 	}
-	storageClasses, err := client.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	storageClasses, err := k8sClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -293,7 +296,8 @@ func GetAvailableRWFileSystemStorageClass() (string, bool) {
 // ability it will be returned
 func GetNoVolumeSnapshotStorageClass(preference string) string {
 	virtClient := kubevirt.Client()
-	scs, err := virtClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
+	k8sClient := k8s.Client()
+	scs, err := k8sClient.StorageV1().StorageClasses().List(context.Background(), metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	vscs, err := virtClient.KubernetesSnapshotClient().SnapshotV1().VolumeSnapshotClasses().List(context.Background(), metav1.ListOptions{})
@@ -322,8 +326,8 @@ func GetNoVolumeSnapshotStorageClass(preference string) string {
 }
 
 func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
-	virtClient := kubevirt.Client()
-	storageClass, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
+	k8sClient := k8s.Client()
+	storageClass, err := k8sClient.StorageV1().StorageClasses().Get(context.Background(), sc, metav1.GetOptions{})
 	if err != nil {
 		return false
 	}
@@ -332,8 +336,8 @@ func IsStorageClassBindingModeWaitForFirstConsumer(sc string) bool {
 }
 
 func CheckNoProvisionerStorageClassPVs(storageClassName string, numExpectedPVs int) {
-	virtClient := kubevirt.Client()
-	sc, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
+	k8sClient := k8s.Client()
+	sc, err := k8sClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	if sc.Provisioner != "" && sc.Provisioner != "kubernetes.io/no-provisioner" {
@@ -341,7 +345,7 @@ func CheckNoProvisionerStorageClassPVs(storageClassName string, numExpectedPVs i
 	}
 
 	// Verify we have at least `numExpectedPVs` available file system PVs
-	pvList, err := virtClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
+	pvList, err := k8sClient.CoreV1().PersistentVolumes().List(context.TODO(), metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	if countLocalStoragePVAvailableForUse(pvList, storageClassName) < numExpectedPVs {

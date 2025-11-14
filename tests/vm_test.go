@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/json"
 	k8swatch "k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -54,6 +55,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -312,7 +314,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			// Delete the Pod
 			By("Deleting the VirtualMachineInstance's pod")
-			Expect(virtClient.CoreV1().Pods(vm.Namespace).Delete(context.Background(), firstPod.Name, metav1.DeleteOptions{})).Should(Succeed())
+			Expect(k8s.Client().CoreV1().Pods(vm.Namespace).Delete(context.Background(), firstPod.Name, metav1.DeleteOptions{})).Should(Succeed())
 
 			// Wait on the VMI controller to create a new VirtualMachineInstance
 			By("Waiting for a new VirtualMachineInstance to spawn")
@@ -416,7 +418,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 			oldVMRevisionName := expectedVMRevisionName
 
-			cr, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
+			cr, err := k8s.Client().AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cr.Revision).To(Equal(int64(2)))
 			vmRevision := &v1.VirtualMachine{}
@@ -452,10 +454,10 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			expectedVMRevisionName = fmt.Sprintf("revision-start-vm-%s-%d", vm.UID, vm.Generation)
 			Expect(vmi.Status.VirtualMachineRevisionName).To(Equal(expectedVMRevisionName))
 
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), oldVMRevisionName, metav1.GetOptions{})
+			_, err = k8s.Client().AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), oldVMRevisionName, metav1.GetOptions{})
 			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 
-			cr, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
+			cr, err = k8s.Client().AppsV1().ControllerRevisions(vm.Namespace).Get(context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(cr.Revision).To(Equal(int64(5)))
 			vmRevision = &v1.VirtualMachine{}
@@ -541,7 +543,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			By("Verifying that required StorageClass is configured")
 			storageClassName := libstorage.Config.StorageRWOFileSystem
 
-			_, err := virtClient.StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
+			_, err := k8s.Client().StorageV1().StorageClasses().Get(context.Background(), storageClassName, metav1.GetOptions{})
 			if errors.IsNotFound(err) {
 				Fail(fmt.Sprintf(`StorageClass "%s" is not configured`, storageClassName))
 			}
@@ -761,7 +763,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			It("[test_id:4119]should migrate a running VM", func() {
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 
 				Expect(len(nodes.Items)).To(BeNumerically(">", 1), "Migration tests require at least 2 nodes")
 
@@ -790,7 +792,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			})
 
 			It("[test_id:7743]should not migrate a running vm if dry-run option is passed", func() {
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 				if len(nodes.Items) < 2 {
 					Fail("Migration tests require at least 2 nodes")
 				}
@@ -858,7 +860,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Killing the VirtualMachineInstance")
-				Expect(pkillVMI(kubevirt.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
+				Expect(pkillVMI(k8s.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
 				// Wait for stop event of the VirtualMachineInstance
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
@@ -885,7 +887,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Killing the VirtualMachineInstance")
-				Expect(pkillVMI(kubevirt.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
+				Expect(pkillVMI(k8s.Client(), vmi)).To(Succeed(), "Should deploy helper pod to kill VMI")
 				// Wait for stop event of the VirtualMachineInstance
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
@@ -1163,7 +1165,7 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Expect(err).ToNot(HaveOccurred())
 
 			By(fmt.Sprintf("deleting the ControllerRevision associated with the VirtualMachine and VirtualMachineClusterInstancetype %s", vm.Status.InstancetypeRef.ControllerRevisionRef.Name))
-			err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.DeleteOptions{})
+			err = k8s.Client().AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("deleting the VirtualMachineClusterInstancetype")
@@ -1189,9 +1191,9 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		var nodeName string
 
 		AfterEach(func() {
-			libpod.DeleteKubernetesAPIBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
+			libpod.DeleteKubernetesAPIBlackhole(getHandlerNodePod(k8s.Client(), nodeName), componentName)
 			Eventually(func(g Gomega) {
-				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionTrue(k8sv1.PodReady))
+				g.Expect(getHandlerNodePod(k8s.Client(), nodeName).Items[0]).To(HaveConditionTrue(k8sv1.PodReady))
 			}, 120*time.Second, time.Second).Should(Succeed())
 
 			config.WaitForConfigToBePropagatedToComponent("kubevirt.io=virt-handler", libkubevirt.GetCurrentKv(virtClient).ResourceVersion,
@@ -1208,16 +1210,16 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			oldUID := vmi.UID
 
 			By("Blocking virt-handler from reconciling the VMI")
-			libpod.AddKubernetesAPIBlackhole(getHandlerNodePod(virtClient, nodeName), componentName)
+			libpod.AddKubernetesAPIBlackhole(getHandlerNodePod(k8s.Client(), nodeName), componentName)
 			Eventually(func(g Gomega) {
-				g.Expect(getHandlerNodePod(virtClient, nodeName).Items[0]).To(HaveConditionFalse(k8sv1.PodReady))
+				g.Expect(getHandlerNodePod(k8s.Client(), nodeName).Items[0]).To(HaveConditionFalse(k8sv1.PodReady))
 			}, 120*time.Second, time.Second).Should(Succeed())
 
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Simulating loss of the virt-launcher")
-			err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
+			err = k8s.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
 				GracePeriodSeconds: ptr.To(int64(0)),
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -1238,8 +1240,8 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 	})
 })
 
-func getHandlerNodePod(virtClient kubecli.KubevirtClient, nodeName string) *k8sv1.PodList {
-	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(),
+func getHandlerNodePod(k8sClient kubernetes.Interface, nodeName string) *k8sv1.PodList {
+	pods, err := k8sClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(),
 		metav1.ListOptions{
 			LabelSelector: "kubevirt.io=virt-handler",
 			FieldSelector: fmt.Sprintf("spec.nodeName=%s", nodeName),

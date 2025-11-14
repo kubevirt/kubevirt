@@ -116,7 +116,7 @@ func (app *SubresourceAPIApp) validateEvacuationNode(ctx context.Context, vmi *v
 		Effect: k8sv1.TaintEffectNoSchedule,
 	}
 
-	node, err := app.virtCli.CoreV1().Nodes().Get(ctx, evacuationNodeName, k8smetav1.GetOptions{})
+	node, err := app.k8sCli.CoreV1().Nodes().Get(ctx, evacuationNodeName, k8smetav1.GetOptions{})
 	if err != nil {
 		return errors.NewInternalError(err)
 	}

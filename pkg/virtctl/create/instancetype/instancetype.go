@@ -96,7 +96,7 @@ func NewCommand() *cobra.Command {
 }
 
 func (c *createInstancetype) setDefaults(cmd *cobra.Command) error {
-	_, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	_, _, namespace, overridden, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

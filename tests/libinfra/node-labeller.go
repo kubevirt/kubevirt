@@ -31,6 +31,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -54,7 +55,7 @@ func WakeNodeLabellerUp(virtClient kubecli.KubevirtClient) {
 	config.UpdateKubeVirtConfigValueAndWait(*kvConfig)
 }
 
-func ExpectStoppingNodeLabellerToSucceed(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {
+func ExpectStoppingNodeLabellerToSucceed(nodeName string, k8sClient kubernetes.Interface) *k8sv1.Node {
 	var err error
 	var node *k8sv1.Node
 
@@ -66,7 +67,7 @@ func ExpectStoppingNodeLabellerToSucceed(nodeName string, virtClient kubecli.Kub
 
 	By(fmt.Sprintf("Expecting node %s to include %s label", nodeName, v1.LabellerSkipNodeAnnotation))
 	Eventually(func() bool {
-		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		node, err = k8sClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		value, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]
@@ -76,11 +77,11 @@ func ExpectStoppingNodeLabellerToSucceed(nodeName string, virtClient kubecli.Kub
 	return node
 }
 
-func ExpectResumingNodeLabellerToSucceed(nodeName string, virtClient kubecli.KubevirtClient) *k8sv1.Node {
+func ExpectResumingNodeLabellerToSucceed(nodeName string, virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) *k8sv1.Node {
 	var err error
 	var node *k8sv1.Node
 
-	node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	node, err = k8sClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	if _, isNodeLabellerStopped := node.Annotations[v1.LabellerSkipNodeAnnotation]; !isNodeLabellerStopped {
@@ -105,7 +106,7 @@ func ExpectResumingNodeLabellerToSucceed(nodeName string, virtClient kubecli.Kub
 
 	By(fmt.Sprintf("Expecting node %s to not include %s annotation", nodeName, v1.LabellerSkipNodeAnnotation))
 	Eventually(func() error {
-		node, err = virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+		node, err = k8sClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
 
 		_, exists := node.Annotations[v1.LabellerSkipNodeAnnotation]

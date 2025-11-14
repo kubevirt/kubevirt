@@ -28,13 +28,11 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/leaderelectionconfig"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 )
 
 func GetLeader() string {
-	virtClient := kubevirt.Client()
-
-	controllerLease, err := virtClient.CoordinationV1().Leases(flags.KubeVirtInstallNamespace).Get(context.Background(), leaderelectionconfig.DefaultLeaseName, v1.GetOptions{})
+	controllerLease, err := k8s.Client().CoordinationV1().Leases(flags.KubeVirtInstallNamespace).Get(context.Background(), leaderelectionconfig.DefaultLeaseName, v1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	return *controllerLease.Spec.HolderIdentity

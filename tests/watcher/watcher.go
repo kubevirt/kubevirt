@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -40,6 +38,8 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 )
 
 type ProcessFunc func(event *v1.Event) (done bool)
@@ -121,8 +121,6 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	cli := kubevirt.Client()
-
 	f := processFunc
 
 	objectRefOption := func(obj *v1.ObjectReference) []interface{} {
@@ -176,7 +174,7 @@ func (w *ObjectEventWatcher) Watch(ctx context.Context, processFunc ProcessFunc,
 		selector = append(selector, fmt.Sprintf("involvedObject.uid=%v", uid))
 	}
 
-	eventWatcher, err := cli.CoreV1().Events(v1.NamespaceAll).
+	eventWatcher, err := k8s.Client().CoreV1().Events(v1.NamespaceAll).
 		Watch(context.Background(), metav1.ListOptions{
 			FieldSelector:   fields.ParseSelectorOrDie(strings.Join(selector, ",")).String(),
 			ResourceVersion: resourceVersion,

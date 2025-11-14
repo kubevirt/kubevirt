@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -92,9 +93,9 @@ var _ = Describe("MemoryDump", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
+		kubecli.GetK8sClientFromClientConfig = kubecli.GetMockK8sClientFromClientConfig
+		kubecli.MockK8sClientInstance = kubeClient
 		kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(kubeClient.StorageV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
@@ -348,7 +349,7 @@ var _ = Describe("MemoryDump", func() {
 				DeferCleanup(server.Close)
 				return server.Client()
 			}
-			vmexport.RunPortForwardFn = func(_ kubecli.KubevirtClient, _ k8sv1.Pod, _ string, _ []string, _, readyChan chan struct{}, portChan chan uint16) error {
+			vmexport.RunPortForwardFn = func(_ kubecli.KubevirtClient, _ kubernetes.Interface, _ k8sv1.Pod, _ string, _ []string, _, readyChan chan struct{}, portChan chan uint16) error {
 				readyChan <- struct{}{}
 				portChan <- localPort
 				return nil
@@ -493,7 +494,7 @@ var _ = Describe("MemoryDump", func() {
 		})
 
 		DescribeTable("should call download memory dump with port-forward", func(extraArgs ...string) {
-			vmexport.HandleHTTPGetRequestFn = func(client kubecli.KubevirtClient, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
+			vmexport.HandleHTTPGetRequestFn = func(_ kubernetes.Interface, vmexport *exportv1.VirtualMachineExport, downloadUrl string, insecure bool, exportURL string, headers map[string]string) (*http.Response, error) {
 				Expect(downloadUrl).To(Equal("https://127.0.0.1:" + localPortStr))
 				return &http.Response{
 					StatusCode: http.StatusOK,

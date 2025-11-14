@@ -30,9 +30,9 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	validation "k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/client-go/kubernetes"
 	v1 "kubevirt.io/api/core/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
-	"kubevirt.io/client-go/kubecli"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 )
@@ -51,7 +51,7 @@ const (
 var ErrNoBackendPVC = fmt.Errorf("no backend PVC when there should be one")
 
 // GetVolumes returns all volumes of the passed object, empty if it's an unsupported object
-func GetVolumes(obj interface{}, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
+func GetVolumes(obj interface{}, client kubernetes.Interface, opts ...VolumeOption) ([]v1.Volume, error) {
 	switch obj := obj.(type) {
 	case *v1.VirtualMachine:
 		return getVirtualMachineVolumes(obj, client, opts...)
@@ -65,12 +65,12 @@ func GetVolumes(obj interface{}, client kubecli.KubevirtClient, opts ...VolumeOp
 }
 
 // getVirtualMachineVolumes returns all volumes of a VM except the special ones based on volume options
-func getVirtualMachineVolumes(vm *v1.VirtualMachine, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
+func getVirtualMachineVolumes(vm *v1.VirtualMachine, client kubernetes.Interface, opts ...VolumeOption) ([]v1.Volume, error) {
 	return getVolumes(vm, vm.Spec.Template.Spec.Volumes, client, opts...)
 }
 
 // getSnapshotVirtualMachineVolumes returns all volumes of a Snapshot VM except the special ones based on volume options
-func getSnapshotVirtualMachineVolumes(vm *snapshotv1.VirtualMachine, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
+func getSnapshotVirtualMachineVolumes(vm *snapshotv1.VirtualMachine, client kubernetes.Interface, opts ...VolumeOption) ([]v1.Volume, error) {
 	return getVolumes(vm, vm.Spec.Template.Spec.Volumes, client, opts...)
 }
 
@@ -79,7 +79,7 @@ func getVirtualMachineInstanceVolumes(vmi *v1.VirtualMachineInstance, opts ...Vo
 	return getVolumes(vmi, vmi.Spec.Volumes, nil, opts...)
 }
 
-func getVolumes(obj metav1.Object, volumes []v1.Volume, client kubecli.KubevirtClient, opts ...VolumeOption) ([]v1.Volume, error) {
+func getVolumes(obj metav1.Object, volumes []v1.Volume, client kubernetes.Interface, opts ...VolumeOption) ([]v1.Volume, error) {
 	var enumeratedVolumes []v1.Volume
 
 	if needsRegularVolumes(opts) {
@@ -101,7 +101,7 @@ func getVolumes(obj metav1.Object, volumes []v1.Volume, client kubecli.KubevirtC
 	return enumeratedVolumes, nil
 }
 
-func getBackendPVCName(obj metav1.Object, client kubecli.KubevirtClient) (string, error) {
+func getBackendPVCName(obj metav1.Object, client kubernetes.Interface) (string, error) {
 	switch obj := obj.(type) {
 	case *v1.VirtualMachineInstance:
 		return backendstorage.CurrentPVCName(obj), nil

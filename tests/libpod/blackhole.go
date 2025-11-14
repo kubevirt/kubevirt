@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 )
 
 func AddKubernetesAPIBlackhole(pods *v1.PodList, containerName string) {
@@ -40,7 +40,7 @@ func getKubernetesAPIServiceIP() string {
 	const serviceName = "kubernetes"
 	const serviceNamespace = "default"
 
-	kubernetesService, err := kubevirt.Client().CoreV1().Services(serviceNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
+	kubernetesService, err := k8s.Client().CoreV1().Services(serviceNamespace).Get(context.Background(), serviceName, metav1.GetOptions{})
 	Expect(err).NotTo(HaveOccurred())
 
 	return kubernetesService.Spec.ClusterIP

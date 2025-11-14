@@ -37,18 +37,18 @@ func ExpectEvent(object k8sObject, eventType, reason string) {
 // DeleteEvents is safe to use in parallel as long as you are asserting namespaced object that is not shared between tests
 func DeleteEvents(object k8sObject, eventType, reason string) {
 	By("Expecting events to be removed")
-	virtClient, err := kubecli.GetKubevirtClient()
+	k8sClient, err := kubecli.GetK8sClient()
 	Expect(err).ToNot(HaveOccurred())
 
 	fieldSelector, namespace := constructFieldSelectorAndNamespace(object, eventType, reason)
 
-	events, err := virtClient.CoreV1().Events(namespace).List(context.Background(),
+	events, err := k8sClient.CoreV1().Events(namespace).List(context.Background(),
 		metav1.ListOptions{
 			FieldSelector: fieldSelector,
 		})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	for _, event := range events.Items {
-		err = virtClient.CoreV1().Events(event.Namespace).Delete(
+		err = k8sClient.CoreV1().Events(event.Namespace).Delete(
 			context.TODO(),
 			event.Name,
 			metav1.DeleteOptions{},
@@ -57,7 +57,7 @@ func DeleteEvents(object k8sObject, eventType, reason string) {
 	}
 
 	EventuallyWithOffset(1, func() []k8sv1.Event {
-		events, err := virtClient.CoreV1().Events(namespace).List(context.Background(),
+		events, err := k8sClient.CoreV1().Events(namespace).List(context.Background(),
 			metav1.ListOptions{
 				FieldSelector: fieldSelector,
 			})
@@ -68,13 +68,13 @@ func DeleteEvents(object k8sObject, eventType, reason string) {
 }
 
 func expectEvent(object k8sObject, eventType, reason string, matcher types.GomegaMatcher) {
-	virtClient, err := kubecli.GetKubevirtClient()
+	k8sClient, err := kubecli.GetK8sClient()
 	ExpectWithOffset(2, err).ToNot(HaveOccurred())
 
 	fieldSelector, namespace := constructFieldSelectorAndNamespace(object, eventType, reason)
 
 	EventuallyWithOffset(2, func() []k8sv1.Event {
-		events, err := virtClient.CoreV1().Events(namespace).List(
+		events, err := k8sClient.CoreV1().Events(namespace).List(
 			context.Background(),
 			metav1.ListOptions{
 				FieldSelector: fieldSelector,

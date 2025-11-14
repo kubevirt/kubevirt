@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -68,7 +69,7 @@ var _ = Describe(SIG("K8s IO events", Serial, func() {
 	AfterEach(func() {
 		removeFaultyDisk(nodeName, deviceName)
 
-		err := virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
+		err := k8s.Client().CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	})
 	It("[test_id:6225]Should catch the IO error event", func() {
@@ -113,8 +114,6 @@ func removeFaultyDisk(nodeName, deviceName string) {
 }
 
 func executeDeviceMapperOnNode(nodeName string, cmd []string) {
-	virtClient := kubevirt.Client()
-
 	// Image that happens to have dmsetup
 	image := fmt.Sprintf("%s/vm-killer:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag)
 	pod := &k8sv1.Pod{
@@ -139,7 +138,7 @@ func executeDeviceMapperOnNode(nodeName string, cmd []string) {
 			},
 		},
 	}
-	pod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err := k8s.Client().CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	Eventually(matcher.ThisPod(pod), 30).Should(matcher.HaveSucceeded())

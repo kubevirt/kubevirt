@@ -183,7 +183,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 	if !isTempPod(pod) && controller.IsPodReady(pod) {
 		newAnnotations := map[string]string{descheduler.EvictOnlyAnnotation: ""}
 		maps.Copy(newAnnotations, c.netAnnotationsGenerator.GenerateFromActivePod(vmi, pod))
-		patchedPod, err := controller.SyncPodAnnotations(c.clientset, pod, newAnnotations)
+		patchedPod, err := controller.SyncPodAnnotations(c.k8sClientset, pod, newAnnotations)
 		if err != nil {
 			return common.NewSyncError(err, controller.FailedPodPatchReason), pod
 		}
@@ -191,13 +191,13 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 
 		_, podIsMarkedForEviction := pod.GetAnnotations()[descheduler.EvictionInProgressAnnotation]
 		if vmi.IsMarkedForEviction() && !podIsMarkedForEviction {
-			patchedPod, err = descheduler.MarkEvictionInProgress(c.clientset, pod)
+			patchedPod, err = descheduler.MarkEvictionInProgress(c.k8sClientset, pod)
 			if err != nil {
 				return common.NewSyncError(err, controller.FailedPodPatchReason), pod
 			}
 		}
 		if !vmi.IsMarkedForEviction() && podIsMarkedForEviction {
-			patchedPod, err = descheduler.MarkEvictionCompleted(c.clientset, pod)
+			patchedPod, err = descheduler.MarkEvictionCompleted(c.k8sClientset, pod)
 			if err != nil {
 				return common.NewSyncError(err, controller.FailedPodPatchReason), pod
 			}
@@ -531,7 +531,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		}
 
 		log.Log.Object(vmi).V(5).Infof("patching VMI: %s", string(patchBytes))
-		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+		_, err = c.virtClientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 		// We could not retry if the "test" fails but we have no sane way to detect that right now: https://github.com/kubernetes/kubernetes/issues/68202 for details
 		// So just retry like with any other errors
 		if err != nil {
@@ -552,7 +552,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 	vmiChanged := !equality.Semantic.DeepEqual(vmi.Status, vmiCopy.Status) || !equality.Semantic.DeepEqual(vmi.Finalizers, vmiCopy.Finalizers) || !equality.Semantic.DeepEqual(vmi.Annotations, vmiCopy.Annotations) || !equality.Semantic.DeepEqual(vmi.Labels, vmiCopy.Labels)
 	if vmiChanged {
 		c.vmiExpectations.SetExpectations(key, 1, 0)
-		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmiCopy, v1.UpdateOptions{})
+		_, err = c.virtClientset.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmiCopy, v1.UpdateOptions{})
 		if err != nil {
 			c.vmiExpectations.SetExpectations(key, 0, 0)
 			return err
@@ -711,7 +711,7 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 		return pod, err
 	}
 
-	updatedPod, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(
+	updatedPod, err := c.k8sClientset.CoreV1().Pods(pod.Namespace).Patch(
 		context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{},
 	)
 	if err != nil {
@@ -843,7 +843,7 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 		return fmt.Errorf("error preparing pod patch: %v", err)
 	}
 	log.Log.V(3).Object(originalPod).Infof("Patching pod conditions")
-	_, err = c.clientset.CoreV1().Pods(originalPod.Namespace).Patch(context.TODO(), originalPod.Name, types.StrategicMergePatchType, patchBytes, v1.PatchOptions{}, "status")
+	_, err = c.k8sClientset.CoreV1().Pods(originalPod.Namespace).Patch(context.TODO(), originalPod.Name, types.StrategicMergePatchType, patchBytes, v1.PatchOptions{}, "status")
 	// We could not retry if the "test" fails but we have no sane way to detect that right now:
 	// https://github.com/kubernetes/kubernetes/issues/68202 for details
 	// So just retry like with any other errors
@@ -942,7 +942,7 @@ func (c *Controller) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, e
 
 func (c *Controller) deletePod(vmiKey string, pod *k8sv1.Pod, options v1.DeleteOptions) error {
 	c.podExpectations.ExpectDeletions(vmiKey, []string{controller.PodKey(pod)})
-	err := c.clientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, options)
+	err := c.k8sClientset.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, options)
 	if err != nil {
 		c.podExpectations.DeletionObserved(vmiKey, controller.PodKey(pod))
 		if k8serrors.IsNotFound(err) {
@@ -954,7 +954,7 @@ func (c *Controller) deletePod(vmiKey string, pod *k8sv1.Pod, options v1.DeleteO
 
 func (c *Controller) createPod(key, namespace string, pod *k8sv1.Pod) (*k8sv1.Pod, error) {
 	c.podExpectations.ExpectCreations(key, 1)
-	pod, err := c.clientset.CoreV1().Pods(namespace).Create(context.Background(), pod, v1.CreateOptions{})
+	pod, err := c.k8sClientset.CoreV1().Pods(namespace).Create(context.Background(), pod, v1.CreateOptions{})
 	if err != nil {
 		c.podExpectations.CreationObserved(key)
 	}

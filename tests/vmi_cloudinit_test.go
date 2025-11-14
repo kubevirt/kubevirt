@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -91,7 +92,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				// Store userdata as k8s secret
 				By("Creating a user-data secret")
 				secret := libsecret.New(secretID, libsecret.DataString{"userdata": userData})
-				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+				_, err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				runningVMI := libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
@@ -284,7 +285,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Creating a secret with network data")
 				secret := libsecret.New(secretID, libsecret.DataString{"networkdata": testNetworkData})
-				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+				_, err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
@@ -414,7 +415,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					"networkdata": testNetworkData,
 				})
 
-				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+				_, err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)
@@ -462,13 +463,13 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Creating a secret with userdata")
 				uSecret := libsecret.New(uSecretID, libsecret.DataString{userDataLabel: testUserData})
 
-				_, err := virtClient.CoreV1().Secrets(ns).Create(context.Background(), uSecret, metav1.CreateOptions{})
+				_, err := k8s.Client().CoreV1().Secrets(ns).Create(context.Background(), uSecret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Creating a secret with network data")
 				nSecret := libsecret.New(nSecretID, libsecret.DataString{networkDataLabel: testNetworkData})
 
-				_, err = virtClient.CoreV1().Secrets(ns).Create(context.Background(), nSecret, metav1.CreateOptions{})
+				_, err = k8s.Client().CoreV1().Secrets(ns).Create(context.Background(), nSecret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTime)

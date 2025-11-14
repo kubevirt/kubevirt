@@ -125,7 +125,7 @@ func DefaultSSHOptions() *SSHOptions {
 }
 
 func (o *ssh) run(cmd *cobra.Command, args []string) error {
-	_, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	_, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

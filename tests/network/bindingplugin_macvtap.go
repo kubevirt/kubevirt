@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -85,7 +86,7 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 			serverCIDR     = serverIPAddr + "/24"
 			clientCIDR     = "192.0.2.101/24"
 		)
-		nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
+		nodeList := libnode.GetAllSchedulableNodes(k8s.Client())
 		Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 		nodeName := nodeList.Items[0].Name
 
@@ -189,7 +190,7 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 }))
 
 func waitForPodCompleted(podNamespace, podName string) error {
-	pod, err := kubevirt.Client().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+	pod, err := k8s.Client().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/replicaset"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -104,7 +105,7 @@ var _ = Describe(SIGSerial("changes to the kubernetes client", func() {
 
 	It("on the virt handler rate limiter should lead to delayed VMI running states", func() {
 		By("first getting the basetime for a replicaset")
-		targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
+		targetNode := libnode.GetAllSchedulableNodes(k8s.Client()).Items[0]
 		vmi := libvmi.New(
 			libvmi.WithMemoryRequest("1Mi"),
 			libvmi.WithNodeSelectorFor(targetNode.Name),

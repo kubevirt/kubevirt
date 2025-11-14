@@ -32,7 +32,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -41,13 +40,12 @@ import (
 
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 )
 
 // GetCertsForPods returns the used certificates for all pods matching  the label selector
 func GetCertsForPods(labelSelector, namespace, port string) ([][]byte, error) {
-	cli := kubevirt.Client()
-	pods, err := cli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
+	pods, err := k8s.Client().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(pods.Items).ToNot(BeEmpty())
 
@@ -114,9 +112,7 @@ func ForwardPorts(pod *k8sv1.Pod, ports []string, stop chan struct{}, readyTimeo
 	errChan := make(chan error, 1)
 	readyChan := make(chan struct{})
 	go func() {
-		cli := kubevirt.Client()
-
-		req := cli.CoreV1().RESTClient().Post().
+		req := k8s.Client().CoreV1().RESTClient().Post().
 			Resource("pods").
 			Namespace(pod.Namespace).
 			Name(pod.Name).

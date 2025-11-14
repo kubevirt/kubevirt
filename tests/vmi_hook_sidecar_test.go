@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -44,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -150,7 +152,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				By("Getting hook-sidecar logs")
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				logs := func() string { return getHookSidecarLogs(virtClient, vmi) }
+				logs := func() string { return getHookSidecarLogs(k8s.Client(), vmi) }
 				libwait.WaitForSuccessfulVMIStart(vmi)
 				Eventually(logs,
 					11*time.Second,
@@ -197,7 +199,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					var tailLines int64 = 100
-					logsRaw, err := virtClient.CoreV1().
+					logsRaw, err := k8s.Client().CoreV1().
 						Pods(vmiPod.GetObjectMeta().GetNamespace()).
 						GetLogs(vmiPod.GetObjectMeta().GetName(), &k8sv1.PodLogOptions{
 							TailLines: &tailLines,
@@ -233,7 +235,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 				Expect(sourcePodUID).ToNot(Equal(targetPodUID))
 
 				Eventually(func(g Gomega) {
-					pods, err := virtClient.CoreV1().Pods("").List(
+					pods, err := k8s.Client().CoreV1().Pods("").List(
 						context.Background(),
 						metav1.ListOptions{
 							FieldSelector: fields.ParseSelectorOrDie("metadata.name=" + sourcePodName).String(),
@@ -264,7 +266,7 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 		Context("with ConfigMap in sidecar hook annotation", func() {
 
 			DescribeTable("should update domain XML with SM BIOS properties", func(withImage bool) {
-				cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), RenderConfigMap(), metav1.CreateOptions{})
+				cm, err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(vmi)).Create(context.TODO(), RenderConfigMap(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				if withImage {
 					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapPlusImage(hooksv1alpha2.Version, cm.Name)
@@ -298,13 +300,13 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 	})
 })
 
-func getHookSidecarLogs(virtCli kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) string {
+func getHookSidecarLogs(k8sCli kubernetes.Interface, vmi *v1.VirtualMachineInstance) string {
 	namespace := vmi.GetObjectMeta().GetNamespace()
 	pod, err := libpod.GetPodByVirtualMachineInstance(vmi, namespace)
 	Expect(err).ToNot(HaveOccurred())
 
 	var tailLines int64 = 100
-	logsRaw, err := virtCli.CoreV1().
+	logsRaw, err := k8sCli.CoreV1().
 		Pods(namespace).
 		GetLogs(pod.Name, &k8sv1.PodLogOptions{
 			TailLines: &tailLines,

@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -98,12 +98,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					"option3": "value3",
 				}
 				cm := libconfigmap.New(configMapName, data)
-				cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				cm, err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
 			AfterEach(func() {
-				if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapName, metav1.DeleteOptions{}); err != nil {
+				if err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapName, metav1.DeleteOptions{}); err != nil {
 					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 				}
 			})
@@ -157,7 +157,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				for i := 0; i < configMapsCnt; i++ {
 					name := "configmap-" + uuid.NewString()
 					cm := libconfigmap.New(name, map[string]string{"option": "value"})
-					cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+					cm, err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					configMaps = append(configMaps, name)
 				}
@@ -165,7 +165,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			AfterEach(func() {
 				for _, configMapIface := range configMaps {
-					if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapIface, metav1.DeleteOptions{}); err != nil {
+					if err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapIface, metav1.DeleteOptions{}); err != nil {
 						Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 					}
 				}
@@ -197,14 +197,14 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				secretPath = config.GetSecretSourcePath(secretName)
 
 				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "redhat"})
-				_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				_, err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
 				if !errors.IsAlreadyExists(err) {
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
 
 			AfterEach(func() {
-				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+				if err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
 					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 				}
 			})
@@ -256,7 +256,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				for i := 0; i < secretsCnt; i++ {
 					name := "secret-" + uuid.NewString()
 					secret := libsecret.New(name, libsecret.DataString{"option": "value"})
-					_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+					_, err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
 					if !errors.IsAlreadyExists(err) {
 						Expect(err).ToNot(HaveOccurred())
 					}
@@ -267,7 +267,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			AfterEach(func() {
 				for _, secret := range secrets {
-					if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secret, metav1.DeleteOptions{}); err != nil {
+					if err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secret, metav1.DeleteOptions{}); err != nil {
 						Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 					}
 				}
@@ -363,21 +363,21 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				}
 
 				cm := libconfigmap.New(configMapName, configData)
-				cm, err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+				cm, err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "redhat"})
-				_, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				_, err = k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
 				if !errors.IsAlreadyExists(err) {
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
 
 			AfterEach(func() {
-				if err := kubevirt.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapName, metav1.DeleteOptions{}); err != nil {
+				if err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Delete(context.Background(), configMapName, metav1.DeleteOptions{}); err != nil {
 					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 				}
-				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+				if err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
 					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 				}
 			})
@@ -492,14 +492,14 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				secretPath = config.GetSecretSourcePath(secretName)
 
 				secret := libsecret.New(secretName, libsecret.DataBytes{"ssh-privatekey": privateKeyBytes, "ssh-publickey": publicKeyBytes})
-				_, err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+				_, err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
 				if !errors.IsAlreadyExists(err) {
 					Expect(err).ToNot(HaveOccurred())
 				}
 			})
 
 			AfterEach(func() {
-				if err := kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
+				if err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Delete(context.Background(), secretName, metav1.DeleteOptions{}); err != nil {
 					Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 				}
 			})

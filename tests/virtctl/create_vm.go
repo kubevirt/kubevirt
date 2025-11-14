@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
@@ -529,7 +530,7 @@ chpasswd: { expire: False }`
 		)
 
 		cm := libconfigmap.New("cm-"+rand.String(randNameTail), map[string]string{"Autounattend.xml": "test"})
-		cm, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), cm, metav1.CreateOptions{})
+		cm, err := k8s.Client().CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), cm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		out, err := runCreateVMCmd(
@@ -652,7 +653,7 @@ chpasswd: { expire: False }`
 		sshKey := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(pub)))
 
 		secret := libsecret.New("my-keys-"+rand.String(randNameTail), libsecret.DataString{"key1": sshKey})
-		secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).
+		secret, err = k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).
 			Create(context.Background(), secret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 

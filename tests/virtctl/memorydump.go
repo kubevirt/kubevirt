@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -218,7 +219,7 @@ func waitForMemoryDumpCompletion(vmName, pvcName, previousOut string, shouldEqua
 			return false
 		}
 
-		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
+		pvc, err = k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
 			Get(context.Background(), pvcName, metav1.GetOptions{})
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(pvc.Annotations).To(HaveKeyWithValue(v1.PVCMemoryDumpAnnotation, *vm.Status.MemoryDumpRequest.FileName))
@@ -250,7 +251,7 @@ func waitForMemoryDumpDeletion(vmName, pvcName, previousOut string, shouldEqual 
 	}, 90*time.Second, 2*time.Second).Should(BeTrue())
 
 	// Expect PVC to still exist
-	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
+	pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).
 		Get(context.Background(), pvcName, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -258,8 +259,6 @@ func waitForMemoryDumpDeletion(vmName, pvcName, previousOut string, shouldEqual 
 }
 
 func verifyMemoryDumpPVC(pvc *k8sv1.PersistentVolumeClaim, previousOut string, shouldEqual bool) string {
-	virtClient := kubevirt.Client()
-
 	const randNameTail = 5
 	pod := libstorage.RenderPodWithPVC(
 		"pod-"+rand.String(randNameTail),
@@ -274,7 +273,7 @@ func verifyMemoryDumpPVC(pvc *k8sv1.PersistentVolumeClaim, previousOut string, s
 		},
 	}
 
-	pod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), pod, metav1.CreateOptions{})
+	pod, err := k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), pod, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(matcher.ThisPod(pod), 120*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(k8sv1.PodReady))
 
@@ -305,7 +304,7 @@ func verifyMemoryDumpPVC(pvc *k8sv1.PersistentVolumeClaim, previousOut string, s
 		Expect(lsOut).ToNot(Equal(previousOut))
 	}
 
-	err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+	err = k8s.Client().CoreV1().Pods(testsuite.GetTestNamespace(nil)).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	return lsOut

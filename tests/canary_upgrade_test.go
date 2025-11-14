@@ -42,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 )
@@ -68,12 +69,12 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 		stopCh = make(chan struct{})
 		lastObservedEvent = ""
 
-		informerFactory := informers.NewSharedInformerFactoryWithOptions(virtCli, 0, informers.WithNamespace(flags.KubeVirtInstallNamespace), informers.WithTweakListOptions(func(opts *metav1.ListOptions) {
+		informerFactory := informers.NewSharedInformerFactoryWithOptions(k8s.Client(), 0, informers.WithNamespace(flags.KubeVirtInstallNamespace), informers.WithTweakListOptions(func(opts *metav1.ListOptions) {
 			opts.LabelSelector = "kubevirt.io=virt-handler"
 		}))
 		dsInformer = informerFactory.Apps().V1().DaemonSets().Informer()
 
-		ds, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+		ds, err := k8s.Client().AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		nodesToUpdate := ds.Status.DesiredNumberScheduled
 		Expect(nodesToUpdate).To(BeNumerically(">", 0))
@@ -88,7 +89,7 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 		Expect(err).ToNot(HaveOccurred())
 
 		Eventually(func(g Gomega) {
-			ds, err := virtCli.AppsV1().DaemonSets(originalKV.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+			ds, err := k8s.Client().AppsV1().DaemonSets(originalKV.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(ds.Status.DesiredNumberScheduled).To(Equal(ds.Status.NumberReady))
 			g.Expect(ds.Spec.UpdateStrategy.RollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
@@ -185,12 +186,12 @@ var _ = Describe("[sig-operator]virt-handler canary upgrade", Serial, decorators
 		}, updateTimeout*time.Second, 1*time.Second).Should(Succeed(), fmt.Sprintf("events %v were expected but did not occur", expectedEvents))
 
 		Eventually(func(g Gomega) {
-			ds, err := virtCli.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+			ds, err := k8s.Client().AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(ds.Status.DesiredNumberScheduled).To(Equal(ds.Status.NumberReady))
 			g.Expect(ds.Spec.Template.Annotations).To(HaveKey(e2eCanaryTestAnnotation))
 
-			podList, err := virtCli.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
+			podList, err := k8s.Client().CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io=virt-handler"})
 			g.Expect(err).ToNot(HaveOccurred())
 
 			updatedPods := slices.DeleteFunc(podList.Items, func(pod corev1.Pod) bool {

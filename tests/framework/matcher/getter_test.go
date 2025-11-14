@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"k8s.io/client-go/kubernetes"
 
 	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -60,16 +61,17 @@ var _ = Describe("Getter Matchers", func() {
 		cdiClient = cdifake.NewSimpleClientset(cdiConfig)
 
 		// Set up the mock client expectations for each test
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(k8sv1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstances(k8sv1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachine(k8sv1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachines(k8sv1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
-		virtClient.EXPECT().AppsV1().Return(kubeClient.AppsV1()).AnyTimes()
 		virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 
 		// Override getClient to return the mock client
-		getClient = func() kubecli.KubevirtClient {
+		getVirtClient = func() kubecli.KubevirtClient {
 			return virtClient
+		}
+		getK8sClient = func() kubernetes.Interface {
+			return kubeClient
 		}
 	})
 

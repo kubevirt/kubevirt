@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/dns"
@@ -69,7 +70,7 @@ var _ = Describe(SIG("Subdomain", func() {
 		BeforeEach(func() {
 			serviceName := subdomain
 			service := netservice.BuildHeadlessSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
-			_, err := virtClient.CoreV1().Services(testsuite.NamespaceTestDefault).Create(context.Background(), service, k8smetav1.CreateOptions{})
+			_, err := k8s.Client().CoreV1().Services(testsuite.NamespaceTestDefault).Create(context.Background(), service, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 

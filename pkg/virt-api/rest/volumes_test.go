@@ -111,7 +111,7 @@ var _ = Describe("Add/Remove Volume Subresource api", func() {
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance("").Return(vmiClient).AnyTimes()
 
-		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(virtClient, nil, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	AfterEach(func() {

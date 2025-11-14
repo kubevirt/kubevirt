@@ -30,7 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 )
@@ -50,10 +50,9 @@ func CreateHostDisk(diskPath string) *k8sv1.Pod {
 }
 
 func RemoveHostDisk(diskPath string, nodeName string) error {
-	virtClient := kubevirt.Client()
 	procPath := filepath.Join("/proc/1/root", diskPath)
 
-	virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
+	virtHandlerPod, err := libnode.GetVirtHandlerPod(k8s.Client(), nodeName)
 	if err != nil {
 		return err
 	}

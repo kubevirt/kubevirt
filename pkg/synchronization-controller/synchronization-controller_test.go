@@ -33,7 +33,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
 	clientgoapi "kubevirt.io/client-go/api"
@@ -83,10 +82,8 @@ var _ = Describe("VMI status synchronization controller", func() {
 
 	BeforeEach(func() {
 		ctrl := gomock.NewController(GinkgoT())
-		k8sfakeClient := fake.NewSimpleClientset()
 		virtfakeClient = kubevirtfake.NewSimpleClientset()
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
-		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(targetNamespace).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(targetNamespace)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()

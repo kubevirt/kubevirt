@@ -26,8 +26,6 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sfake "k8s.io/client-go/kubernetes/fake"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubecli"
@@ -40,7 +38,6 @@ var _ = Describe("Evacuate cancel command", func() {
 		ctrl         *gomock.Controller
 		vmiInterface *kubecli.MockVirtualMachineInstanceInterface
 		vmInterface  *kubecli.MockVirtualMachineInterface
-		kubeClient   *k8sfake.Clientset
 		virtClient   *kubecli.MockKubevirtClient
 	)
 
@@ -58,12 +55,8 @@ var _ = Describe("Evacuate cancel command", func() {
 		vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
-		kubeClient = k8sfake.NewClientset()
-
 		virtClient.EXPECT().VirtualMachine(gomock.Any()).Return(vmInterface).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiInterface).AnyTimes()
-
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 	})
 
 	It("should fail with missing arguments", func() {

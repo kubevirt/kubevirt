@@ -139,7 +139,6 @@ var _ = Describe("Memory dump Subresource api", func() {
 		vmClient = kubecli.NewMockVirtualMachineInterface(ctrl)
 		vmiClient = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
 
-		virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachine(metav1.NamespaceDefault).Return(vmClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachine("").Return(vmClient).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(vmiClient).AnyTimes()
@@ -148,7 +147,7 @@ var _ = Describe("Memory dump Subresource api", func() {
 		cdiConfig := cdiConfigInit()
 		cdiClient = cdifake.NewSimpleClientset(cdiConfig)
 
-		app = NewSubresourceAPIApp(virtClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
+		app = NewSubresourceAPIApp(virtClient, kubeClient, backendPort, &tls.Config{InsecureSkipVerify: true}, config)
 	})
 
 	AfterEach(func() {

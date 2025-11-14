@@ -31,6 +31,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -41,6 +42,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libconfigmap"
 	"kubevirt.io/kubevirt/tests/libregistry"
@@ -244,18 +246,20 @@ const (
 
 var _ = Describe("[Sysprep][sig-compute]Syspreped VirtualMachineInstance", Serial, decorators.Sysprep, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
+	var k8sClient kubernetes.Interface
 
 	var windowsVMI *v1.VirtualMachineInstance
 
 	BeforeEach(func() {
 		const OSWindowsSysprep = "windows-sysprep"
 		virtClient = kubevirt.Client()
-		checks.RecycleImageOrFail(virtClient, diskWindowsSysprep)
+		k8sClient = k8s.Client()
+		checks.RecycleImageOrFail(k8sClient, diskWindowsSysprep)
 		libstorage.CreatePVC(OSWindowsSysprep, testsuite.GetTestNamespace(nil), "35Gi", libstorage.Config.StorageClassWindows, true)
 
 		// TODO: Figure out why we have both Autounattend and Unattend
 		cm := libconfigmap.New("sysprepautounattend", map[string]string{"Autounattend.xml": insertProductKeyToAnswerFileTemplate(answerFileTemplate), "Unattend.xml": insertProductKeyToAnswerFileTemplate(answerFileTemplate)})
-		_, err := virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), cm, metav1.CreateOptions{})
+		_, err := k8sClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(nil)).Create(context.Background(), cm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		windowsVMI = libvmi.New(libvmi.WithInterface(e1000DefaultInterface()),
@@ -302,7 +306,7 @@ var _ = Describe("[Sysprep][sig-compute]Syspreped VirtualMachineInstance", Seria
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
 			var err error
-			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winRMCliPod(), metav1.CreateOptions{})
+			winrmcliPod, err = k8sClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winRMCliPod(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the windows VirtualMachineInstance")

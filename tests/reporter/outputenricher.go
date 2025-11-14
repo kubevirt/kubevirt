@@ -7,16 +7,16 @@ import (
 	"sort"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/config"
 	"github.com/onsi/ginkgo/v2/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 )
 
 // NewCapturedOutputEnricher captures additional interesting cluster info and adds it to the captured output
@@ -80,17 +80,17 @@ func (j *capturedOutputEnricher) SuiteDidEnd(summary *types.SuiteSummary) {
 	}
 }
 func (j *capturedOutputEnricher) collect(duration time.Duration) string {
-	virtCli := kubevirt.Client()
+	k8sCli := k8s.Client()
 
 	duration += 5 * time.Second
 	since := time.Now().Add(-duration)
 
-	return j.getWarningEvents(virtCli, since)
+	return j.getWarningEvents(k8sCli, since)
 }
 
-func (j *capturedOutputEnricher) getWarningEvents(virtCli kubecli.KubevirtClient, since time.Time) string {
+func (j *capturedOutputEnricher) getWarningEvents(k8sCli kubernetes.Interface, since time.Time) string {
 
-	events, err := virtCli.CoreV1().Events(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	events, err := k8sCli.CoreV1().Events(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		log.DefaultLogger().Reason(err).Errorf("Failed to fetch events")
 		return ""

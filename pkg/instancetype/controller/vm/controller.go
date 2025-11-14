@@ -16,6 +16,7 @@
  * Copyright The KubeVirt Authors.
  *
  */
+
 package vm
 
 import (
@@ -27,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
@@ -81,25 +83,27 @@ type controller struct {
 	instancetypeFindHandler
 	preferenceFindHandler
 
-	clientset     kubecli.KubevirtClient
+	virtClientset kubecli.KubevirtClient
+	k8sClientset  kubernetes.Interface
 	clusterConfig *virtconfig.ClusterConfig
 	recorder      record.EventRecorder
 }
 
 func New(
 	instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, revisionStore cache.Store,
-	virtClient kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, recorder record.EventRecorder,
+	virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, clusterConfig *virtconfig.ClusterConfig, recorder record.EventRecorder,
 ) *controller {
-	finder := find.NewSpecFinder(instancetypeStore, clusterInstancetypeStore, revisionStore, virtClient)
-	prefFinder := preferencefind.NewSpecFinder(preferenceStore, clusterPreferenceStore, revisionStore, virtClient)
+	finder := find.NewSpecFinder(instancetypeStore, clusterInstancetypeStore, revisionStore, virtClient, k8sClient)
+	prefFinder := preferencefind.NewSpecFinder(preferenceStore, clusterPreferenceStore, revisionStore, virtClient, k8sClient)
 	return &controller{
 		instancetypeFindHandler: finder,
 		preferenceFindHandler:   prefFinder,
 		applyVMHandler:          apply.NewVMApplier(finder, prefFinder),
-		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
+		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient, k8sClient),
 		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
-		upgradeHandler:          upgrade.New(revisionStore, virtClient),
-		clientset:               virtClient,
+		upgradeHandler:          upgrade.New(revisionStore, virtClient, k8sClient),
+		virtClientset:           virtClient,
+		k8sClientset:            k8sClient,
 		clusterConfig:           clusterConfig,
 		recorder:                recorder,
 	}
@@ -179,20 +183,20 @@ func (c *controller) handleExpand(
 
 	// Only update the VM if we have changed something by applying an instance type and preference
 	if !equality.Semantic.DeepEqual(vm, expandVMCopy) {
-		updatedVM, err := c.clientset.VirtualMachine(expandVMCopy.Namespace).Update(
+		updatedVM, err := c.virtClientset.VirtualMachine(expandVMCopy.Namespace).Update(
 			context.Background(), expandVMCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return vm, fmt.Errorf("error encountered when trying to update expanded VirtualMachine: %v", err)
 		}
 		updatedVM.Status = expandVMCopy.Status
-		updatedVM, err = c.clientset.VirtualMachine(updatedVM.Namespace).UpdateStatus(
+		updatedVM, err = c.virtClientset.VirtualMachine(updatedVM.Namespace).UpdateStatus(
 			context.Background(), updatedVM, metav1.UpdateOptions{})
 		if err != nil {
 			return vm, fmt.Errorf("error encountered when trying to update expanded VirtualMachine Status: %v", err)
 		}
 		// We should clean up any instance type or preference controllerRevisions after successfully expanding the VM
 		if revision.HasControllerRevisionRef(vm.Status.InstancetypeRef) {
-			if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+			if err = c.k8sClientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
 				context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
 				return nil, common.NewSyncError(
 					fmt.Errorf(cleanControllerRevisionErrFmt, vm.Status.InstancetypeRef.ControllerRevisionRef.Name, vm.Name, err),
@@ -202,7 +206,7 @@ func (c *controller) handleExpand(
 		}
 
 		if revision.HasControllerRevisionRef(vm.Status.PreferenceRef) {
-			if err = c.clientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
+			if err = c.k8sClientset.AppsV1().ControllerRevisions(vm.Namespace).Delete(
 				context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.DeleteOptions{}); err != nil {
 				return nil, common.NewSyncError(
 					fmt.Errorf(cleanControllerRevisionErrFmt, vm.Status.PreferenceRef.ControllerRevisionRef.Name, vm.Name, err),

@@ -28,11 +28,12 @@ import (
 	"github.com/onsi/gomega"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
@@ -51,8 +52,7 @@ func ContainsCrt(bundle []byte, containedCrt []byte) bool {
 }
 
 func GetBundleFromConfigMap(ctx context.Context, configMapName string) ([]byte, []*x509.Certificate) {
-	virtClient := kubevirt.Client()
-	configMap, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(ctx, configMapName, v1.GetOptions{})
+	configMap, err := k8s.Client().CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(ctx, configMapName, v1.GetOptions{})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	if rawBundle, ok := configMap.Data[components.CABundleKey]; ok {
 		crts, err := cert.ParseCertsPEM([]byte(rawBundle))

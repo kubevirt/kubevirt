@@ -55,7 +55,7 @@ func usage(cmd string) string {
 func Run(cmd *cobra.Command, args []string) error {
 	vmi := args[0]
 
-	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

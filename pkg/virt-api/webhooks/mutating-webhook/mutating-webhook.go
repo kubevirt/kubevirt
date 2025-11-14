@@ -26,6 +26,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -75,8 +76,8 @@ func serve(resp http.ResponseWriter, req *http.Request, m mutator) {
 	}
 }
 
-func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	serve(resp, req, mutators.NewVMsMutator(clusterConfig, virtCli))
+func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, k8sCli kubernetes.Interface) {
+	serve(resp, req, mutators.NewVMsMutator(clusterConfig, virtCli, k8sCli))
 }
 
 func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) {

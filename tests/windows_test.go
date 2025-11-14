@@ -42,10 +42,12 @@ import (
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/network/dns"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -64,11 +66,13 @@ const (
 
 var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorators.Windows, decorators.SigCompute, func() {
 	var virtClient kubecli.KubevirtClient
+	var k8sClient kubernetes.Interface
 
 	BeforeEach(func() {
 		const OSWindows = "windows"
 		virtClient = kubevirt.Client()
-		checks.RecycleImageOrFail(virtClient, libvmifact.WindowsPVCName)
+		k8sClient = k8s.Client()
+		checks.RecycleImageOrFail(k8sClient, libvmifact.WindowsPVCName)
 		libstorage.CreatePVC(OSWindows, testsuite.GetTestNamespace(nil), "30Gi", libstorage.Config.StorageClassWindows, true)
 	})
 
@@ -79,7 +83,7 @@ var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorato
 		BeforeEach(func() {
 			By("Creating winrm-cli pod for the future use")
 			var err error
-			winrmcliPod, err = virtClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winRMCliPod(), metav1.CreateOptions{})
+			winrmcliPod, err = k8sClient.CoreV1().Pods(testsuite.NamespaceTestDefault).Create(context.Background(), winRMCliPod(), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -184,7 +188,7 @@ var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorato
 				Expect(err).NotTo(HaveOccurred())
 				nodeName := winVmiPod.Spec.NodeName
 
-				virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
+				virtHandlerPod, err := libnode.GetVirtHandlerPod(k8sClient, nodeName)
 				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get virt-handler pod on node %s", nodeName))
 
 				virtHandlerPodIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
@@ -266,8 +270,8 @@ func runCommandAndExpectOutput(winrmcliPod *k8sv1.Pod, cli []string, command, ex
 	}, time.Minute*1, time.Second*10).Should(MatchRegexp(expectedOutputRegex))
 }
 
-func isTSCFrequencyExposed(virtClient kubecli.KubevirtClient) bool {
-	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+func isTSCFrequencyExposed(k8sClient kubernetes.Interface) bool {
+	nodeList, err := k8sClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
 	for _, node := range nodeList.Items {

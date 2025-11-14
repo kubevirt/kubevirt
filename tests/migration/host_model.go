@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -50,7 +51,7 @@ import (
 var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
 	Context("with a host-model cpu", func() {
 		It("[test_id:6981]should migrate only to nodes supporting right cpu model", func() {
-			sourceNode, targetNode, err := libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(kubevirt.Client())
+			sourceNode, targetNode, err := libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(k8s.Client())
 			if err != nil {
 				Skip(err.Error())
 			}
@@ -74,7 +75,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			Expect(vmi.Spec.Domain.CPU.Model).To(Equal(v1.CPUModeHostModel))
 
 			By("Fetching original host CPU model & supported CPU features")
-			originalNode, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
+			originalNode, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			hostModel := getNodeHostModel(originalNode)
@@ -94,7 +95,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				"target pod is expected to have correct nodeSelector label defined")
 
 			By("Ensuring that target node has correct CPU mode & features")
-			newNode, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
+			newNode, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(isModelSupportedOnNode(newNode, hostModel)).To(BeTrue(), "original host model should be supported on new node")
 			expectFeatureToBeSupportedOnNode(newNode, requiredFeatures)
@@ -117,15 +118,15 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Saving the original node's state")
-				node, err = kubevirt.Client().CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
+				node, err = k8s.Client().CoreV1().Nodes().Get(context.Background(), vmi.Status.NodeName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				node = libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, kubevirt.Client())
+				node = libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, k8s.Client())
 			})
 
 			AfterEach(func() {
 				By("Resuming node labeller")
-				node = libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, kubevirt.Client())
+				node = libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, kubevirt.Client(), k8s.Client())
 				_, doesFakeHostLabelExists := node.Labels[fakeHostModelLabel]
 				Expect(doesFakeHostLabelExists).To(BeFalse(), fmt.Sprintf("label %s is expected to disappear from node %s", fakeHostModelLabel, node.Name))
 			})
@@ -142,7 +143,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				Eventually(func() bool {
 					var err error
-					node, err = kubevirt.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+					node, err = k8s.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 
 					labelValue, ok := node.Labels[v1.HostModelCPULabel+"fake-model"]
@@ -164,7 +165,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			)
 
 			BeforeEach(func() {
-				nodes = libnode.GetAllSchedulableNodes(kubevirt.Client()).Items
+				nodes = libnode.GetAllSchedulableNodes(k8s.Client()).Items
 				if len(nodes) == 1 || len(nodes) > 10 {
 					Skip("This test can't run with single node and it's too slow to run with more than 10 nodes")
 				}
@@ -177,7 +178,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				for index, node := range nodes {
-					patchedNode := libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, kubevirt.Client())
+					patchedNode := libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, k8s.Client())
 					Expect(patchedNode).ToNot(BeNil())
 					nodes[index] = *patchedNode
 				}
@@ -186,7 +187,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			AfterEach(func() {
 				By("Restore node to its original state")
 				for _, node := range nodes {
-					updatedNode := libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, kubevirt.Client())
+					updatedNode := libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, kubevirt.Client(), k8s.Client())
 
 					supportedHostModelLabelExists := false
 					for labelKey := range updatedNode.Labels {
@@ -203,7 +204,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				By("Changing node labels to support fake host model")
 				// Remove all supported host models
 				for _, node := range nodes {
-					currNode, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+					currNode, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
 					Expect(err).ShouldNot(HaveOccurred())
 					for key := range currNode.Labels {
 						if strings.HasPrefix(key, v1.SupportedHostModelMigrationCPU) {
@@ -233,16 +234,16 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		BeforeEach(func() {
 			var err error
-			sourceNode, targetNode, err = libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(kubevirt.Client())
+			sourceNode, targetNode, err = libmigration.GetValidSourceNodeAndTargetNodeForHostModelMigration(k8s.Client())
 			if err != nil {
 				Skip(err.Error())
 			}
-			targetNode = libinfra.ExpectStoppingNodeLabellerToSucceed(targetNode.Name, kubevirt.Client())
+			targetNode = libinfra.ExpectStoppingNodeLabellerToSucceed(targetNode.Name, k8s.Client())
 		})
 
 		AfterEach(func() {
 			By("Resuming node labeller")
-			targetNode = libinfra.ExpectResumingNodeLabellerToSucceed(targetNode.Name, kubevirt.Client())
+			targetNode = libinfra.ExpectResumingNodeLabellerToSucceed(targetNode.Name, kubevirt.Client(), k8s.Client())
 
 			By("Validating that fake labels are being removed")
 			for _, labelKey := range []string{fakeRequiredFeature, fakeHostModel} {
@@ -311,7 +312,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		It("vmi with host-model should be able to migrate to node that support the initial node's host-model even if this model isn't the target's host-model", func() {
 			var err error
-			targetNode, err = kubevirt.Client().CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
+			targetNode, err = k8s.Client().CoreV1().Nodes().Get(context.Background(), targetNode.Name, metav1.GetOptions{})
 			Expect(err).ShouldNot(HaveOccurred())
 
 			targetHostModel := libnode.GetNodeHostModel(targetNode)

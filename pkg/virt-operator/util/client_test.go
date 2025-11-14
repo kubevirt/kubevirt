@@ -30,7 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-var _ = Describe("Operator Client", func() {
+var _ = Describe("Operator VirtClient", func() {
 
 	Describe("Conditions and Finalizers", func() {
 		getKubeVirtWithCreatedConditionAndRandomFinalizer := func() *v1.KubeVirt {

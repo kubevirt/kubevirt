@@ -15,6 +15,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//tests/flags:go_default_library",
         "//tests/framework/checks:go_default_library",
+        "//tests/framework/k8s:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/libkubevirt:go_default_library",
         "//tests/libpod:go_default_library",

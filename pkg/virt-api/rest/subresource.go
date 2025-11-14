@@ -33,6 +33,7 @@ import (
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/kubernetes"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -67,6 +68,7 @@ type instancetypeVMExpander interface {
 
 type SubresourceAPIApp struct {
 	virtCli                 kubecli.KubevirtClient
+	k8sCli                  kubernetes.Interface
 	consoleServerPort       int
 	profilerComponentPort   int
 	handlerTLSConfiguration *tls.Config
@@ -75,15 +77,15 @@ type SubresourceAPIApp struct {
 	handlerHttpClient       *http.Client
 }
 
-func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
+func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, k8sCli kubernetes.Interface, consoleServerPort int, tlsConfiguration *tls.Config, clusterConfig *virtconfig.ClusterConfig) *SubresourceAPIApp {
 	// When this method is called from tools/openapispec.go when running 'make generate',
 	// the virtCli is nil, and accessing GeneratedKubeVirtClient() would cause nil dereference.
 	var instancetypeExpander instancetypeVMExpander
 	if virtCli != nil {
 		instancetypeExpander = expand.New(
 			clusterConfig,
-			find.NewSpecFinder(nil, nil, nil, virtCli),
-			preferenceFind.NewSpecFinder(nil, nil, nil, virtCli),
+			find.NewSpecFinder(nil, nil, nil, virtCli, k8sCli),
+			preferenceFind.NewSpecFinder(nil, nil, nil, virtCli, k8sCli),
 		)
 	}
 
@@ -96,6 +98,7 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 
 	return &SubresourceAPIApp{
 		virtCli:                 virtCli,
+		k8sCli:                  k8sCli,
 		consoleServerPort:       consoleServerPort,
 		profilerComponentPort:   defaultProfilerComponentPort,
 		handlerTLSConfiguration: tlsConfiguration,

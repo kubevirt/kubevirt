@@ -41,6 +41,8 @@ var _ = Describe("Expose", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		kubecli.GetKubevirtClientFromClientConfig = kubecli.GetMockKubevirtClientFromClientConfig
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
+		kubecli.GetK8sClientFromClientConfig = kubecli.GetMockK8sClientFromClientConfig
+		kubecli.MockK8sClientInstance = kubeClient
 
 		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).
 			Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
@@ -48,7 +50,6 @@ var _ = Describe("Expose", func() {
 			Return(virtClient.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().ReplicaSet(metav1.NamespaceDefault).
 			Return(virtClient.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault)).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 	})
 
 	Context("should fail", func() {
@@ -87,10 +88,10 @@ var _ = Describe("Expose", func() {
 			Entry("invalid ip family policy", "--ip-family-policy=madeup", "unknown IPFamilyPolicy/s: madeup"),
 		)
 
-		It("when client has an error", func() {
+		It("when virtClient has an error", func() {
 			kubecli.GetKubevirtClientFromClientConfig = kubecli.GetInvalidKubevirtClientFromClientConfig
 			err := runCommand("vmi", "my-vm", "--name", "my-service")
-			Expect(err).To(MatchError(ContainSubstring("cannot obtain KubeVirt client")))
+			Expect(err).To(MatchError(ContainSubstring("cannot obtain KubeVirt virtClient")))
 		})
 
 		DescribeTable("with missing resource", func(resource, errMsg string) {

@@ -66,6 +66,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -130,7 +131,7 @@ var _ = Describe(SIG("Export", func() {
 
 	AfterEach(func() {
 		if token != nil {
-			err := virtClient.CoreV1().Secrets(token.Namespace).Delete(context.Background(), token.Name, metav1.DeleteOptions{})
+			err := k8s.Client().CoreV1().Secrets(token.Namespace).Delete(context.Background(), token.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			token = nil
 		}
@@ -236,7 +237,7 @@ var _ = Describe(SIG("Export", func() {
 	createExportTokenSecret := func(name, namespace string) *k8sv1.Secret {
 		var err error
 		secret := libsecret.New(fmt.Sprintf("export-token-%s", name), libsecret.DataString{"token": name})
-		token, err = virtClient.CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		token, err = k8s.Client().CoreV1().Secrets(namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return token
 	}
@@ -252,12 +253,12 @@ var _ = Describe(SIG("Export", func() {
 			},
 		}
 
-		err = virtClient.CoreV1().ConfigMaps(dst.Namespace).Delete(context.TODO(), dst.Name, metav1.DeleteOptions{})
+		err = k8s.Client().CoreV1().ConfigMaps(dst.Namespace).Delete(context.TODO(), dst.Name, metav1.DeleteOptions{})
 		if err != nil && !errors.IsNotFound(err) {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		cm, err := virtClient.CoreV1().ConfigMaps(dst.Namespace).Create(context.TODO(), dst, metav1.CreateOptions{})
+		cm, err := k8s.Client().CoreV1().ConfigMaps(dst.Namespace).Create(context.TODO(), dst, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		return cm
@@ -268,7 +269,7 @@ var _ = Describe(SIG("Export", func() {
 	}
 
 	createCaConfigMapProxy := func(name, namespace string, _ *exportv1.VirtualMachineExport) *k8sv1.ConfigMap {
-		cm, err := virtClient.CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.TODO(), "kubevirt-ca", metav1.GetOptions{})
+		cm, err := k8s.Client().CoreV1().ConfigMaps(flags.KubeVirtInstallNamespace).Get(context.TODO(), "kubevirt-ca", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return createCaConfigMap(name, namespace, cm.Data["ca-bundle"])
 	}
@@ -293,7 +294,7 @@ var _ = Describe(SIG("Export", func() {
 
 		var pvc *k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
-			pvc, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			pvc, err = k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
 		}, 60*time.Second, 1*time.Second).Should(Succeed(), "persistent volume associated with DV should be created")
 
@@ -320,7 +321,7 @@ var _ = Describe(SIG("Export", func() {
 		md5sum := strings.Split(out, " ")[0]
 		Expect(md5sum).To(HaveLen(32))
 
-		err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
+		err = k8s.Client().CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{
 			GracePeriodSeconds: virtpointer.P(int64(0)),
 		})
 		Expect(err).ToNot(HaveOccurred())
@@ -338,7 +339,7 @@ var _ = Describe(SIG("Export", func() {
 		patchData, err := patchSet.GeneratePayload()
 		Expect(err).ToNot(HaveOccurred())
 
-		pvc, err = virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		pvc, err = k8s.Client().CoreV1().PersistentVolumeClaims(pvc.Namespace).Patch(context.Background(), pvc.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		return pvc, md5sum
@@ -407,7 +408,7 @@ var _ = Describe(SIG("Export", func() {
 		var pod *k8sv1.Pod
 		var err error
 		Eventually(func() error {
-			pod, err = virtClient.CoreV1().Pods(vmExport.Namespace).Get(context.TODO(), fmt.Sprintf("virt-export-%s", vmExport.Name), metav1.GetOptions{})
+			pod, err = k8s.Client().CoreV1().Pods(vmExport.Namespace).Get(context.TODO(), fmt.Sprintf("virt-export-%s", vmExport.Name), metav1.GetOptions{})
 			return err
 		}, 30*time.Second, 1*time.Second).Should(Succeed(), "unable to find pod %s", fmt.Sprintf("virt-export-%s", vmExport.Name))
 		return pod
@@ -417,7 +418,7 @@ var _ = Describe(SIG("Export", func() {
 		var service *k8sv1.Service
 		var err error
 		Eventually(func() error {
-			service, err = virtClient.CoreV1().Services(vmExport.Namespace).Get(context.TODO(), fmt.Sprintf("virt-export-%s", vmExport.Name), metav1.GetOptions{})
+			service, err = k8s.Client().CoreV1().Services(vmExport.Namespace).Get(context.TODO(), fmt.Sprintf("virt-export-%s", vmExport.Name), metav1.GetOptions{})
 			return err
 		}, 30*time.Second, 1*time.Second).Should(Succeed(), "unable to find service %s", fmt.Sprintf("virt-export-%s", vmExport.Name))
 		return service
@@ -546,7 +547,7 @@ var _ = Describe(SIG("Export", func() {
 			},
 		}
 		By("Creating target PVC, so we can inspect if the export worked")
-		targetPvc, err = virtClient.CoreV1().PersistentVolumeClaims(targetPvc.Namespace).Create(context.Background(), targetPvc, metav1.CreateOptions{})
+		targetPvc, err = k8s.Client().CoreV1().PersistentVolumeClaims(targetPvc.Namespace).Create(context.Background(), targetPvc, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		caConfigMap := caBundleGenerator("export-cacerts", targetPvc.Namespace, export)
@@ -627,7 +628,7 @@ var _ = Describe(SIG("Export", func() {
 		By("Waiting for backend PVC to be created")
 		var pvc k8sv1.PersistentVolumeClaim
 		Eventually(func() error {
-			backendPVC, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
+			backendPVC, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: "persistent-state-for=" + vm.Name,
 			})
 			if err != nil {
@@ -682,7 +683,7 @@ var _ = Describe(SIG("Export", func() {
 				VolumeMode:       pvc.Spec.VolumeMode,
 			},
 		}
-		targetPvc, err = virtClient.CoreV1().PersistentVolumeClaims(targetPvc.Namespace).Create(context.Background(), targetPvc, metav1.CreateOptions{})
+		targetPvc, err = k8s.Client().CoreV1().PersistentVolumeClaims(targetPvc.Namespace).Create(context.Background(), targetPvc, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		// Create CA config map and download pod
@@ -853,7 +854,7 @@ var _ = Describe(SIG("Export", func() {
 			}
 		}
 		Expect(exporterSecretName).ToNot(BeEmpty())
-		secret, err := virtClient.CoreV1().Secrets(vmExport.Namespace).Get(context.Background(), exporterSecretName, metav1.GetOptions{})
+		secret, err := k8s.Client().CoreV1().Secrets(vmExport.Namespace).Get(context.Background(), exporterSecretName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(secret).ToNot(BeNil())
 		podUID := exporterPod.GetUID()
@@ -890,7 +891,7 @@ var _ = Describe(SIG("Export", func() {
 		exporterPod := getExporterPod(vmExport)
 		Expect(exporterPod).ToNot(BeNil())
 		podUID := exporterPod.GetUID()
-		err := virtClient.CoreV1().Pods(exporterPod.Namespace).Delete(context.Background(), exporterPod.Name, metav1.DeleteOptions{})
+		err := k8s.Client().CoreV1().Pods(exporterPod.Namespace).Delete(context.Background(), exporterPod.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() types.UID {
 			exporterPod = getExporterPod(vmExport)
@@ -909,7 +910,7 @@ var _ = Describe(SIG("Export", func() {
 		exporterService := getExportService(vmExport)
 		Expect(exporterService).ToNot(BeNil())
 		serviceUID := exporterService.GetUID()
-		err := virtClient.CoreV1().Services(exporterService.Namespace).Delete(context.Background(), exporterService.Name, metav1.DeleteOptions{})
+		err := k8s.Client().CoreV1().Services(exporterService.Namespace).Delete(context.Background(), exporterService.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Eventually(func() types.UID {
 			exporterService = getExportService(vmExport)
@@ -949,7 +950,7 @@ var _ = Describe(SIG("Export", func() {
 
 		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 		Eventually(func() error {
-			_, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
+			_, err = k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dv)).Get(context.Background(), dv.Name, metav1.GetOptions{})
 			return err
 		}, 60*time.Second, 1*time.Second).Should(Succeed(), "persistent volume associated with DV should be created")
 
@@ -986,14 +987,14 @@ var _ = Describe(SIG("Export", func() {
 				break
 			}
 		}
-		newExportPod, err := virtClient.CoreV1().Pods(newExportPod.Namespace).Create(context.TODO(), newExportPod, metav1.CreateOptions{})
+		newExportPod, err := k8s.Client().CoreV1().Pods(newExportPod.Namespace).Create(context.TODO(), newExportPod, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		defer func() {
-			err = virtClient.CoreV1().Pods(newExportPod.Namespace).Delete(context.Background(), newExportPod.Name, metav1.DeleteOptions{})
+			err = k8s.Client().CoreV1().Pods(newExportPod.Namespace).Delete(context.Background(), newExportPod.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		}()
 		Eventually(func() bool {
-			p, err := virtClient.CoreV1().Pods(exporterPod.Namespace).Get(context.TODO(), newExportPod.Name, metav1.GetOptions{})
+			p, err := k8s.Client().CoreV1().Pods(exporterPod.Namespace).Get(context.TODO(), newExportPod.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return p.Status.Phase == k8sv1.PodSucceeded
 		}, 90*time.Second, 1*time.Second).Should(BeTrue())
@@ -1015,7 +1016,7 @@ var _ = Describe(SIG("Export", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(export.Status.TokenSecretRef).ToNot(BeNil())
 
-		token, err = virtClient.CoreV1().Secrets(export.Namespace).Get(context.Background(), *export.Status.TokenSecretRef, metav1.GetOptions{})
+		token, err = k8s.Client().CoreV1().Secrets(export.Namespace).Get(context.Background(), *export.Status.TokenSecretRef, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(token.Name).To(Equal(*export.Status.TokenSecretRef))
 		Expect(*export.Status.TokenSecretRef).ToNot(BeEmpty())
@@ -1069,11 +1070,11 @@ var _ = Describe(SIG("Export", func() {
 		)
 
 		AfterEach(func() {
-			err := virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Delete(context.Background(), tlsSecretName, metav1.DeleteOptions{})
+			err := k8s.Client().CoreV1().Secrets(flags.KubeVirtInstallNamespace).Delete(context.Background(), tlsSecretName, metav1.DeleteOptions{})
 			if !errors.IsNotFound(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}
-			err = virtClient.NetworkingV1().Ingresses(flags.KubeVirtInstallNamespace).Delete(context.Background(), "export-proxy-ingress", metav1.DeleteOptions{})
+			err = k8s.Client().NetworkingV1().Ingresses(flags.KubeVirtInstallNamespace).Delete(context.Background(), "export-proxy-ingress", metav1.DeleteOptions{})
 			if !errors.IsNotFound(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}
@@ -1105,7 +1106,7 @@ var _ = Describe(SIG("Export", func() {
 				return "", err
 			}
 			secret := libsecret.New(name, libsecret.DataString{tlsKey: testKey, tlsCert: testCert})
-			_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
+			_, err = k8s.Client().CoreV1().Secrets(flags.KubeVirtInstallNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
 			if err != nil {
 				return "", err
 			}
@@ -1162,7 +1163,7 @@ var _ = Describe(SIG("Export", func() {
 					},
 				},
 			}
-			ingress, err := virtClient.NetworkingV1().Ingresses(flags.KubeVirtInstallNamespace).Create(context.Background(), ingress, metav1.CreateOptions{})
+			ingress, err := k8s.Client().NetworkingV1().Ingresses(flags.KubeVirtInstallNamespace).Create(context.Background(), ingress, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return ingress
 		}
@@ -1379,7 +1380,7 @@ var _ = Describe(SIG("Export", func() {
 	}
 
 	It("should create export from VMSnapshot", decorators.RequiresSnapshotStorageClass, func() {
-		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+		sc, err := libstorage.GetSnapshotStorageClass(virtClient, k8s.Client())
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
 			Fail("Fail test when storage with snapshot is not present")
@@ -1449,7 +1450,7 @@ var _ = Describe(SIG("Export", func() {
 	}
 
 	It("should create export from VMSnapshot with multiple volumes", decorators.RequiresSnapshotStorageClass, func() {
-		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+		sc, err := libstorage.GetSnapshotStorageClass(virtClient, k8s.Client())
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
 			Fail("Fail test when storage with snapshot is not present")
@@ -1614,18 +1615,18 @@ var _ = Describe(SIG("Export", func() {
 					},
 				},
 			}
-			lr, err = virtClient.CoreV1().LimitRanges(namespace).Create(context.Background(), lr, metav1.CreateOptions{})
+			lr, err = k8s.Client().CoreV1().LimitRanges(namespace).Create(context.Background(), lr, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			By("Ensuring LimitRange exists")
 			Eventually(func() error {
-				lr, err = virtClient.CoreV1().LimitRanges(namespace).Get(context.Background(), lr.Name, metav1.GetOptions{})
+				lr, err = k8s.Client().CoreV1().LimitRanges(namespace).Get(context.Background(), lr.Name, metav1.GetOptions{})
 				return err
 			}, 30*time.Second, 1*time.Second).Should(Succeed())
 		}
 
 		removeLimitRangeFromNamespace := func() {
 			if lr != nil {
-				err = virtClient.CoreV1().LimitRanges(lr.Namespace).Delete(context.Background(), lr.Name, metav1.DeleteOptions{})
+				err = k8s.Client().CoreV1().LimitRanges(lr.Namespace).Delete(context.Background(), lr.Name, metav1.DeleteOptions{})
 				if !errors.IsNotFound(err) {
 					Expect(err).ToNot(HaveOccurred())
 				}
@@ -1771,10 +1772,10 @@ var _ = Describe(SIG("Export", func() {
 		resSecret := &k8sv1.Secret{}
 		err = yaml.Unmarshal([]byte(split[0]), resSecret)
 		Expect(err).ToNot(HaveOccurred())
-		resSecret, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), resSecret, metav1.CreateOptions{})
+		resSecret, err = k8s.Client().CoreV1().Secrets(vm.Namespace).Create(context.Background(), resSecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resSecret).ToNot(BeNil())
-		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
+		resCM, err = k8s.Client().CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
 		resVM.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
@@ -1834,10 +1835,10 @@ var _ = Describe(SIG("Export", func() {
 		Expect(err).ToNot(HaveOccurred())
 		resSecret.Name = fmt.Sprintf("%s-clone-json", resSecret.Name)
 		resVM.Spec.DataVolumeTemplates[0].Spec.Source.HTTP.SecretExtraHeaders = []string{resSecret.Name}
-		resSecret, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), resSecret, metav1.CreateOptions{})
+		resSecret, err = k8s.Client().CoreV1().Secrets(vm.Namespace).Create(context.Background(), resSecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resSecret).ToNot(BeNil())
-		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
+		resCM, err = k8s.Client().CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
 		resVM.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
@@ -1894,7 +1895,7 @@ var _ = Describe(SIG("Export", func() {
 	It("should generate updated DataVolumeTemplates on http endpoint when exporting snapshot", decorators.RequiresSnapshotStorageClass, func() {
 		virtClient, err := kubecli.GetKubevirtClient()
 		Expect(err).ToNot(HaveOccurred())
-		sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+		sc, err := libstorage.GetSnapshotStorageClass(virtClient, k8s.Client())
 		Expect(err).ToNot(HaveOccurred())
 		if sc == "" {
 			Fail("Fail test when storage with snapshot is not present")
@@ -2062,7 +2063,7 @@ var _ = Describe(SIG("Export", func() {
 		Expect(err).ToNot(HaveOccurred())
 		diskDV.Name = fmt.Sprintf("%s-clone", diskDV.Name)
 		diskDV.Spec.Storage.StorageClassName = &sc
-		diskPVC, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dataVolume)).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
+		diskPVC, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(dataVolume)).Get(context.Background(), dataVolume.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(diskDV.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(diskPVC.Spec.Resources.Requests[k8sv1.ResourceStorage]))
 		blankDiskDV := &cdiv1.DataVolume{}
@@ -2070,7 +2071,7 @@ var _ = Describe(SIG("Export", func() {
 		Expect(err).ToNot(HaveOccurred())
 		blankDiskDV.Name = fmt.Sprintf("%s-clone", blankDv.Name)
 		blankDiskDV.Spec.Storage.StorageClassName = &sc
-		blankPVC, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(blankDv)).Get(context.Background(), blankDv.Name, metav1.GetOptions{})
+		blankPVC, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(blankDv)).Get(context.Background(), blankDv.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(blankDiskDV.Spec.Storage.Resources.Requests[k8sv1.ResourceStorage]).To(BeEquivalentTo(blankPVC.Spec.Resources.Requests[k8sv1.ResourceStorage]))
 
@@ -2091,14 +2092,14 @@ var _ = Describe(SIG("Export", func() {
 		resSecret := &k8sv1.Secret{}
 		err = yaml.Unmarshal([]byte(split[0]), resSecret)
 		Expect(err).ToNot(HaveOccurred())
-		resSecret, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), resSecret, metav1.CreateOptions{})
+		resSecret, err = k8s.Client().CoreV1().Secrets(vm.Namespace).Create(context.Background(), resSecret, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resSecret).ToNot(BeNil())
 		diskDV = createDataVolume(diskDV)
 		Expect(diskDV).ToNot(BeNil())
 		blankDiskDV = createDataVolume(blankDiskDV)
 		Expect(blankDiskDV).ToNot(BeNil())
-		resCM, err = virtClient.CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
+		resCM, err = k8s.Client().CoreV1().ConfigMaps(vm.Namespace).Create(context.Background(), resCM, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(resCM).ToNot(BeNil())
 		resVM.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)

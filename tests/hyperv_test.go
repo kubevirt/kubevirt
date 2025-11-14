@@ -20,6 +20,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -56,7 +57,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 
 		When("TSC frequency is exposed on the cluster", decorators.Invtsc, func() {
 			BeforeEach(func() {
-				if !isTSCFrequencyExposed(virtClient) {
+				if !isTSCFrequencyExposed(k8s.Client()) {
 					Fail("TSC frequency is not exposed on the cluster")
 				}
 			})
@@ -80,17 +81,17 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 		When(" TSC frequency is not exposed on the cluster", Serial, decorators.Reenlightenment, decorators.TscFrequencies, func() {
 
 			BeforeEach(func() {
-				if isTSCFrequencyExposed(virtClient) {
-					for _, node := range libnode.GetAllSchedulableNodes(virtClient).Items {
-						libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, virtClient)
+				if isTSCFrequencyExposed(k8s.Client()) {
+					for _, node := range libnode.GetAllSchedulableNodes(k8s.Client()).Items {
+						libinfra.ExpectStoppingNodeLabellerToSucceed(node.Name, k8s.Client())
 						removeTSCFrequencyFromNode(node)
 					}
 				}
 			})
 
 			AfterEach(func() {
-				for _, node := range libnode.GetAllSchedulableNodes(virtClient).Items {
-					_ = libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, virtClient)
+				for _, node := range libnode.GetAllSchedulableNodes(k8s.Client()).Items {
+					_ = libinfra.ExpectResumingNodeLabellerToSucceed(node.Name, virtClient, k8s.Client())
 				}
 			})
 
@@ -139,7 +140,7 @@ var _ = Describe("[sig-compute] Hyper-V enlightenments", decorators.SigCompute, 
 				return features
 			}
 			var supportedKVMInfoFeature []string
-			nodes := libnode.GetAllSchedulableNodes(virtClient)
+			nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 			node := &nodes.Items[0]
 			supportedCPUs := libnode.GetSupportedCPUModels(*nodes)

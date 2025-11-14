@@ -26,6 +26,7 @@ import (
 	k8score "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -56,7 +57,7 @@ func RemoveMemoryDumpVolumeFromVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, c
 	return vmiSpec
 }
 
-func HandleRequest(client kubecli.KubevirtClient, vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, pvcStore cache.Store) error {
+func HandleRequest(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface, vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, pvcStore cache.Store) error {
 	if vm.Status.MemoryDumpRequest == nil {
 		return nil
 	}
@@ -79,12 +80,12 @@ func HandleRequest(client kubecli.KubevirtClient, vm *v1.VirtualMachine, vmi *v1
 		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; exists {
 			return nil
 		}
-		if err := generateVMIMemoryDumpVolumePatch(client, vmi, vm.Status.MemoryDumpRequest, true); err != nil {
+		if err := generateVMIMemoryDumpVolumePatch(virtClient, vmi, vm.Status.MemoryDumpRequest, true); err != nil {
 			log.Log.Object(vmi).Errorf("unable to patch vmi to add memory dump volume: %v", err)
 			return err
 		}
 	case v1.MemoryDumpUnmounting, v1.MemoryDumpFailed:
-		if err := patchMemoryDumpPVCAnnotation(client, vm, pvcStore); err != nil {
+		if err := patchMemoryDumpPVCAnnotation(k8sClient, vm, pvcStore); err != nil {
 			return err
 		}
 		// Check if the memory dump is in the vmi list of volumes,
@@ -93,7 +94,7 @@ func HandleRequest(client kubecli.KubevirtClient, vm *v1.VirtualMachine, vmi *v1
 			return nil
 		}
 
-		if err := generateVMIMemoryDumpVolumePatch(client, vmi, vm.Status.MemoryDumpRequest, false); err != nil {
+		if err := generateVMIMemoryDumpVolumePatch(virtClient, vmi, vm.Status.MemoryDumpRequest, false); err != nil {
 			log.Log.Object(vmi).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
 			return err
 		}
@@ -101,7 +102,7 @@ func HandleRequest(client kubecli.KubevirtClient, vm *v1.VirtualMachine, vmi *v1
 		// Check if the memory dump is in the vmi list of volumes,
 		// if it still there remove it to make it unmount from virt launcher
 		if _, exists := vmiVolumeMap[vm.Status.MemoryDumpRequest.ClaimName]; exists {
-			if err := generateVMIMemoryDumpVolumePatch(client, vmi, vm.Status.MemoryDumpRequest, false); err != nil {
+			if err := generateVMIMemoryDumpVolumePatch(virtClient, vmi, vm.Status.MemoryDumpRequest, false); err != nil {
 				log.Log.Object(vmi).Errorf("unable to patch vmi to remove memory dump volume: %v", err)
 				return err
 			}
@@ -261,7 +262,7 @@ func applyMemoryDumpVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpe
 	return vmiSpec
 }
 
-func patchMemoryDumpPVCAnnotation(client kubecli.KubevirtClient, vm *v1.VirtualMachine, pvcStore cache.Store) error {
+func patchMemoryDumpPVCAnnotation(client kubernetes.Interface, vm *v1.VirtualMachine, pvcStore cache.Store) error {
 	request := vm.Status.MemoryDumpRequest
 	pvc, err := storagetypes.GetPersistentVolumeClaimFromCache(vm.Namespace, request.ClaimName, pvcStore)
 	if err != nil {

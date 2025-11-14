@@ -7,7 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//tests/flags:go_default_library",
-        "//tests/framework/kubevirt:go_default_library",
+        "//tests/framework/k8s:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )

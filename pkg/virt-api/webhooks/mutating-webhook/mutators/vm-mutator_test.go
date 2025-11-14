@@ -160,11 +160,10 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeClusterPreferenceClient).AnyTimes()
 
 		k8sClient = k8sfake.NewSimpleClientset()
-		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		cdiClient = cdifake.NewSimpleClientset()
 		virtClient.EXPECT().CdiClient().Return(cdiClient).AnyTimes()
 
-		mutator.instancetypeMutator = instancetypeVMWebhooks.NewMutator(virtClient)
+		mutator.instancetypeMutator = instancetypeVMWebhooks.NewMutator(virtClient, k8sClient)
 	})
 
 	It("should allow VM being deleted without applying mutations", func() {
@@ -476,7 +475,6 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	Context("on update", func() {
 		var oldVM, newVM *v1.VirtualMachine
 		BeforeEach(func() {
-			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 			oldVM = &v1.VirtualMachine{
 				Spec: v1.VirtualMachineSpec{
 					Template: &v1.VirtualMachineInstanceTemplateSpec{

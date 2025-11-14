@@ -29,13 +29,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -350,8 +347,7 @@ var _ = Describe("HostDisk", func() {
 	Describe("VMI with PVC volume", func() {
 
 		var (
-			virtClient *kubecli.MockKubevirtClient
-			vmi        *v1.VirtualMachineInstance
+			vmi *v1.VirtualMachineInstance
 		)
 
 		const (
@@ -360,11 +356,6 @@ var _ = Describe("HostDisk", func() {
 		)
 
 		BeforeEach(func() {
-			ctrl := gomock.NewController(GinkgoT())
-			virtClient = kubecli.NewMockKubevirtClient(ctrl)
-			kubeClient := fake.NewSimpleClientset()
-			virtClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
-
 			By("Creating a VMI with PVC volume")
 			vmi = libvmi.New(
 				libvmi.WithPersistentVolumeClaim(volumeName, pvcName),

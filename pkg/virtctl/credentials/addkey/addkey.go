@@ -9,6 +9,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -81,7 +82,7 @@ func (a *addSSHKeyFlags) AddToCommand(cmd *cobra.Command) {
 func (a *addSSHKeyFlags) runAddKeyCommand(cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
-	cli, vmNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtCli, k8sCli, vmNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return fmt.Errorf("error getting kubevirt client or namespace: %w", err)
 	}
@@ -92,20 +93,21 @@ func (a *addSSHKeyFlags) runAddKeyCommand(cmd *cobra.Command, args []string) err
 		return fmt.Errorf("error getting ssh key: %w", err)
 	}
 
-	vm, err := cli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
+	vm, err := virtCli.VirtualMachine(vmNamespace).Get(cmd.Context(), vmName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error getting virtual machine: %w", err)
 	}
 
 	if a.shouldCreateNewSecret(vm) {
-		return a.addSecretWithSSHKey(cmd, cli, vm, sshKey)
+		return a.addSecretWithSSHKey(cmd, virtCli, k8sCli, vm, sshKey)
 	}
-	return a.updateSecretWithSSHKey(cmd, cli, vm, sshKey)
+	return a.updateSecretWithSSHKey(cmd, k8sCli, vm, sshKey)
 }
 
 func (a *addSSHKeyFlags) addSecretWithSSHKey(
 	cmd *cobra.Command,
 	cli kubecli.KubevirtClient,
+	k8sCli kubernetes.Interface,
 	vm *v1.VirtualMachine,
 	sshKey string,
 ) error {
@@ -123,7 +125,7 @@ func (a *addSSHKeyFlags) addSecretWithSSHKey(
 	}
 
 	secret := newSecretWithKey(vm, sshKey)
-	secret, err := cli.CoreV1().Secrets(vm.Namespace).Create(cmd.Context(), secret, metav1.CreateOptions{})
+	secret, err := k8sCli.CoreV1().Secrets(vm.Namespace).Create(cmd.Context(), secret, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("error creating secret: %w", err)
 	}
@@ -164,7 +166,7 @@ func (a *addSSHKeyFlags) addSecretWithSSHKey(
 
 func (a *addSSHKeyFlags) updateSecretWithSSHKey(
 	cmd *cobra.Command,
-	cli kubecli.KubevirtClient,
+	k8sCli kubernetes.Interface,
 	vm *v1.VirtualMachine,
 	sshKey string,
 ) error {
@@ -178,7 +180,7 @@ func (a *addSSHKeyFlags) updateSecretWithSSHKey(
 		return err
 	}
 
-	secret, err := cli.CoreV1().Secrets(vm.Namespace).Get(cmd.Context(), secretName, metav1.GetOptions{})
+	secret, err := k8sCli.CoreV1().Secrets(vm.Namespace).Get(cmd.Context(), secretName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("error getting secret \"%s\": %w", secretName, err)
 	}
@@ -200,7 +202,7 @@ func (a *addSSHKeyFlags) updateSecretWithSSHKey(
 		return err
 	}
 	// First, try patch to add a new key
-	_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(
+	_, err = k8sCli.CoreV1().Secrets(vm.Namespace).Patch(
 		cmd.Context(),
 		secretName,
 		types.JSONPatchType,
@@ -216,7 +218,7 @@ func (a *addSSHKeyFlags) updateSecretWithSSHKey(
 		if err != nil {
 			return err
 		}
-		_, err = cli.CoreV1().Secrets(vm.Namespace).Patch(cmd.Context(), secretName, types.JSONPatchType, fullPatch, metav1.PatchOptions{})
+		_, err = k8sCli.CoreV1().Secrets(vm.Namespace).Patch(cmd.Context(), secretName, types.JSONPatchType, fullPatch, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("error patching secret \"%s\": %w", secretName, err)
 		}

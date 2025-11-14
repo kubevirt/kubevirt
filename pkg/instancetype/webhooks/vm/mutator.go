@@ -16,6 +16,7 @@
  * Copyright The KubeVirt Authors.
  *
  */
+
 //nolint:dupl
 package vm
 
@@ -27,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
@@ -53,11 +55,11 @@ type mutator struct {
 	findPreferenceSpecHandler
 }
 
-func NewMutator(virtClient kubecli.KubevirtClient) *mutator {
+func NewMutator(virtClient kubecli.KubevirtClient, k8sClient kubernetes.Interface) *mutator {
 	return &mutator{
-		inferHandler: infer.New(virtClient),
+		inferHandler: infer.New(virtClient, k8sClient),
 		// TODO(lyarwood): Wire up informers for use here to speed up lookups
-		findPreferenceSpecHandler: preferenceFind.NewSpecFinder(nil, nil, nil, virtClient),
+		findPreferenceSpecHandler: preferenceFind.NewSpecFinder(nil, nil, nil, virtClient, k8sClient),
 	}
 }
 

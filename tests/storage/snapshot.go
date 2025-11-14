@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
+
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/watcher"
@@ -80,7 +83,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 	}
 
 	deleteWebhook := func() {
-		err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, metav1.DeleteOptions{})
+		err := k8s.Client().AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, metav1.DeleteOptions{})
 		if errors.IsNotFound(err) {
 			err = nil
 		}
@@ -92,7 +95,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 		libstorage.EventuallyDVWith(namespace, name, 180, matcher.HaveSucceeded())
 		// THIS SHOULD NOT BE NECESSARY - but in DV/Populator integration
 		Eventually(func() string {
-			pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
+			pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			return pvc.Spec.VolumeName
 		}, 180*time.Second, time.Second).ShouldNot(BeEmpty())
@@ -230,7 +233,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 		)
 
 		BeforeEach(func() {
-			sc, err := libstorage.GetSnapshotStorageClass(virtClient)
+			sc, err := libstorage.GetSnapshotStorageClass(virtClient, k8s.Client())
 			Expect(err).ToNot(HaveOccurred())
 
 			if sc == "" {
@@ -444,7 +447,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
+				webhook = createDenyVolumeSnapshotCreateWebhook(k8s.Client(), vm.Name)
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -471,7 +474,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-				webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
+				webhook = createDenyVolumeSnapshotCreateWebhook(k8s.Client(), vm.Name)
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: 40 * time.Second}
 
@@ -628,7 +631,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 							found = true
 							Expect(vol.Name).To(Equal(vb.VolumeName))
 
-							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.DataVolume.Name, metav1.GetOptions{})
+							pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.DataVolume.Name, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
 							Expect(pvc.Spec).To(Equal(vb.PersistentVolumeClaim.Spec))
 
@@ -800,7 +803,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 								found = true
 								Expect(vol.Name).To(Equal(vb.VolumeName))
 
-								pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.MemoryDump.ClaimName, metav1.GetOptions{})
+								pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.MemoryDump.ClaimName, metav1.GetOptions{})
 								Expect(err).ToNot(HaveOccurred())
 								Expect(pvc.Spec).To(Equal(vb.PersistentVolumeClaim.Spec))
 
@@ -872,7 +875,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 							found = true
 							Expect(vol.Name).To(Equal(vb.VolumeName))
 
-							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.DataVolume.Name, metav1.GetOptions{})
+							pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), vol.DataVolume.Name, metav1.GetOptions{})
 							Expect(err).ToNot(HaveOccurred())
 							Expect(pvc.Spec).To(Equal(vb.PersistentVolumeClaim.Spec))
 
@@ -1050,7 +1053,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			})
 
 			It("[test_id:6838]snapshot should fail when deadline exceeded due to volume snapshots failure", func() {
-				webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
+				webhook = createDenyVolumeSnapshotCreateWebhook(k8s.Client(), vm.Name)
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 				snapshot.Spec.FailureDeadline = &metav1.Duration{Duration: 40 * time.Second}
 
@@ -1115,7 +1118,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Delete(context.Background(), volumeName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() *metav1.Time {
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), volumeName, metav1.GetOptions{})
+				pvc, err := k8s.Client().CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), volumeName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				return pvc.DeletionTimestamp
 			}, 30*time.Second, time.Second).ShouldNot(BeNil())
@@ -1182,7 +1185,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			)
 
 			By("Create Snapshot before source VM")
-			webhook = createDenyVolumeSnapshotCreateWebhook(virtClient, vm.Name)
+			webhook = createDenyVolumeSnapshotCreateWebhook(k8s.Client(), vm.Name)
 			snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 
 			snapshot, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -1417,7 +1420,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
 				By("Expecting the creation of a backend storage PVC with the right storage class")
-				pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				pvcs, err := k8s.Client().CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 					LabelSelector: "persistent-state-for=" + vmi.Name,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -1561,7 +1564,7 @@ func clearConditionsTimestamps(conditions []snapshotv1.Condition) {
 	}
 }
 
-func createDenyVolumeSnapshotCreateWebhook(virtClient kubecli.KubevirtClient, vmName string) *admissionregistrationv1.ValidatingWebhookConfiguration {
+func createDenyVolumeSnapshotCreateWebhook(k8sClient kubernetes.Interface, vmName string) *admissionregistrationv1.ValidatingWebhookConfiguration {
 	fp := admissionregistrationv1.Fail
 	sideEffectNone := admissionregistrationv1.SideEffectClassNone
 	whPath := "/foobar"
@@ -1601,7 +1604,7 @@ func createDenyVolumeSnapshotCreateWebhook(virtClient kubecli.KubevirtClient, vm
 			},
 		},
 	}
-	wh, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
+	wh, err := k8sClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), wh, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	return wh
 }

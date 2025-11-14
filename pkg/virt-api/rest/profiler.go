@@ -54,7 +54,7 @@ func (app *SubresourceAPIApp) getAllComponentPods() ([]k8sv1.Pod, error) {
 		return nil, err
 	}
 
-	podList, err := app.virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
+	podList, err := app.k8sCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io"})
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func (app *SubresourceAPIApp) getPodsNextPage(cpRequest *v1.ClusterProfilerReque
 		return nil, "", err
 	}
 
-	if podList, err = app.virtCli.CoreV1().Pods(namespace).List(context.Background(), listOptions); err != nil {
+	if podList, err = app.k8sCli.CoreV1().Pods(namespace).List(context.Background(), listOptions); err != nil {
 		return nil, "", err
 	}
 

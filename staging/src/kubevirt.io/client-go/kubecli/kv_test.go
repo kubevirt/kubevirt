@@ -35,7 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-var _ = Describe("Kubevirt Client", func() {
+var _ = Describe("Kubevirt VirtClient", func() {
 	var server *ghttp.Server
 	basePath := "/apis/kubevirt.io/v1/namespaces/default/kubevirts"
 	kubevirtPath := path.Join(basePath, "testkubevirt")

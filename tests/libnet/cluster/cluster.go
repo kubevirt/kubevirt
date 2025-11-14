@@ -68,13 +68,13 @@ func clusterAnswersIPCondition(ipCondition func(ip string) bool) (bool, error) {
 }
 
 func getPodByKubeVirtRole(kubevirtPodRole string) (*k8sv1.Pod, error) {
-	virtClient, err := kubecli.GetKubevirtClient()
+	k8sClient, err := kubecli.GetK8sClient()
 	if err != nil {
 		panic(err)
 	}
 
 	labelSelectorValue := fmt.Sprintf("%s = %s", v1.AppLabel, kubevirtPodRole)
-	pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
+	pods, err := k8sClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 		context.Background(),
 		metav1.ListOptions{LabelSelector: labelSelectorValue},
 	)

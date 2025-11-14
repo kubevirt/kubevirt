@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -228,7 +229,7 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 			Expect(vmi.Status.SelinuxContext).To(Equal(seContext))
 
 			By("Fetching virt-launcher Pod")
-			pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), vmi.Status.MigrationState.TargetPod, metav1.GetOptions{})
+			pod, err := k8s.Client().CoreV1().Pods(vmi.Namespace).Get(context.Background(), vmi.Status.MigrationState.TargetPod, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring the right SELinux context is set on the target pod")

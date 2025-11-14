@@ -47,6 +47,7 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
@@ -77,7 +78,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", 5)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_number_of_vms", 5)
 		})
 	})
 
@@ -90,7 +91,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 				labels := map[string]string{"le": strconv.FormatFloat(bucket, 'f', -1, 64)}
 
 				GinkgoLogr.Info("Checking bucket", "labels", labels)
-				libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_phase_transition_time_seconds_bucket", labels, 0, ">=", 0)
+				libmonitoring.WaitForMetricValueWithLabelsToBe(k8s.Client(), "kubevirt_vmi_phase_transition_time_seconds_bucket", labels, 0, ">=", 0)
 			}
 		})
 
@@ -99,7 +100,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			labels := map[string]string{"resource": "virtualmachineinstances"}
-			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_rest_client_requests_total", labels, 0, ">", 0)
+			libmonitoring.WaitForMetricValueWithLabelsToBe(k8s.Client(), "kubevirt_rest_client_requests_total", labels, 0, ">", 0)
 		})
 	})
 
@@ -112,7 +113,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 		checkMetricTo := func(metric string, labels map[string]string, matcher types.GomegaMatcher, description string) {
 			EventuallyWithOffset(1, func() float64 {
-				i, err := libmonitoring.GetMetricValueWithLabels(virtClient, metric, labels)
+				i, err := libmonitoring.GetMetricValueWithLabels(k8s.Client(), metric, labels)
 				if err != nil {
 					return -1
 				}
@@ -176,7 +177,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 		BeforeEach(func() {
 			Eventually(func() []corev1.Node {
-				nodes = libnode.GetAllSchedulableNodes(virtClient)
+				nodes = libnode.GetAllSchedulableNodes(k8s.Client())
 				return nodes.Items
 			}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
 		})
@@ -190,16 +191,16 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
 			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_pending_phase", 0)
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_unset_phase", 0)
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_running_phase", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_vmi_migrations_in_pending_phase", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_vmi_migrations_in_scheduling_phase", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_vmi_migrations_in_unset_phase", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_vmi_migrations_in_running_phase", 0)
 
 			labels := map[string]string{
 				"vmi":       vmi.Name,
 				"namespace": vmi.Namespace,
 			}
-			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(k8s.Client(), "kubevirt_vmi_migration_succeeded", 1, labels, 1)
 
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
@@ -226,9 +227,9 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 			Eventually(matcher.ThisMigration(migration)).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
 
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_unset_phase", 0)
-			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_failed", 1, labels, 1)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_vmi_migrations_in_scheduling_phase", 0)
+			libmonitoring.WaitForMetricValue(k8s.Client(), "kubevirt_vmi_migrations_in_unset_phase", 0)
+			libmonitoring.WaitForMetricValueWithLabels(k8s.Client(), "kubevirt_vmi_migration_failed", 1, labels, 1)
 
 			By("Deleting the VMI")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
@@ -240,7 +241,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		quantity, _ := resource.ParseQuantity("500Mi")
 
 		createSimplePVCWithRestoreLabels := func(name string) {
-			_, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
+			_, err := k8s.Client().CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: name,
 					Labels: map[string]string{
@@ -269,8 +270,8 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 				// Create dummy PVC that is labelled as "restored" from VM snapshot
 				createSimplePVCWithRestoreLabels(fmt.Sprintf("vmsnapshot-restored-pvc-%f", i))
 				// Metric values increases per restored disk
-				libmonitoring.WaitForMetricValue(virtClient, totalMetric, i)
-				libmonitoring.WaitForMetricValue(virtClient, bytesMetric, float64(quantity.Value())*i)
+				libmonitoring.WaitForMetricValue(k8s.Client(), totalMetric, i)
+				libmonitoring.WaitForMetricValue(k8s.Client(), bytesMetric, float64(quantity.Value())*i)
 			}
 		})
 
@@ -296,7 +297,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 				"snapshot_name": snapshot.Name,
 				"namespace":     snapshot.Namespace,
 			}
-			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmsnapshot_succeeded_timestamp_seconds", labels, 0, ">", 0)
+			libmonitoring.WaitForMetricValueWithLabelsToBe(k8s.Client(), "kubevirt_vmsnapshot_succeeded_timestamp_seconds", labels, 0, ">", 0)
 		})
 	})
 
@@ -317,7 +318,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 				"guest_os_version_id":     agentVMI.Status.GuestOSInfo.VersionID,
 			}
 
-			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
+			libmonitoring.WaitForMetricValueWithLabels(k8s.Client(), "kubevirt_vmi_info", 1, labels, 1)
 		})
 	})
 
@@ -353,7 +354,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		var scales *libmonitoring.Scaling
 
 		BeforeEach(func() {
-			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
+			scales = libmonitoring.NewScaling(k8s.Client(), []string{virtOperator.deploymentName})
 			scales.UpdateScale(virtOperator.deploymentName, int32(0))
 
 			libmonitoring.ReduceAlertPendingTime(virtClient)
@@ -369,11 +370,11 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			By("delete virt-handler daemonset")
-			err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{})
+			err = k8s.Client().AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for OrphanedVirtualMachineInstances alert")
-			libmonitoring.VerifyAlertExist(virtClient, "OrphanedVirtualMachineInstances")
+			libmonitoring.VerifyAlertExist(k8s.Client(), "OrphanedVirtualMachineInstances")
 		})
 
 		It("should fire VMCannotBeEvicted alert", func() {
@@ -391,7 +392,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			}, 5*time.Minute, 30*time.Second).Should(Equal(v1.Running))
 
 			By("waiting for VMCannotBeEvicted alert")
-			libmonitoring.VerifyAlertExist(virtClient, "VMCannotBeEvicted")
+			libmonitoring.VerifyAlertExist(k8s.Client(), "VMCannotBeEvicted")
 		})
 	})
 })
@@ -411,7 +412,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 			var metricValue float64
 			EventuallyWithOffset(1, func() (err error) {
-				metricValue, err = libmonitoring.GetMetricValueWithLabels(virtClient, dirtyRateMetric, metricLabels)
+				metricValue, err = libmonitoring.GetMetricValueWithLabels(k8s.Client(), dirtyRateMetric, metricLabels)
 				return err
 			}, 3*time.Minute, 20*time.Second).ShouldNot(HaveOccurred(), "error getting metric value")
 
@@ -498,11 +499,10 @@ func createAgentVMI() *v1.VirtualMachineInstance {
 func validateLastConnectionMetricValue(vmi *v1.VirtualMachineInstance, formerValue float64) float64 {
 	var err error
 	var metricValue float64
-	virtClient := kubevirt.Client()
 	labels := map[string]string{"vmi": vmi.Name, "namespace": vmi.Namespace}
 
 	EventuallyWithOffset(1, func() float64 {
-		metricValue, err = libmonitoring.GetMetricValueWithLabels(virtClient, "kubevirt_vmi_last_api_connection_timestamp_seconds", labels)
+		metricValue, err = libmonitoring.GetMetricValueWithLabels(k8s.Client(), "kubevirt_vmi_last_api_connection_timestamp_seconds", labels)
 		if err != nil {
 			return -1
 		}

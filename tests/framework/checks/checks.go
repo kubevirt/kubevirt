@@ -14,6 +14,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util/cluster"
 
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -86,10 +87,10 @@ func IsS390X(arch string) bool {
 
 func HasAtLeastTwoNodes() bool {
 	var nodes *k8sv1.NodeList
-	virtClient := kubevirt.Client()
+	k8sCli := k8s.Client()
 
 	gomega.Eventually(func() []k8sv1.Node {
-		nodes = libnode.GetAllSchedulableNodes(virtClient)
+		nodes = libnode.GetAllSchedulableNodes(k8sCli)
 		return nodes.Items
 	}, 60*time.Second, time.Second).ShouldNot(gomega.BeEmpty(), "There should be some compute node")
 

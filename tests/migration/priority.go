@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -135,7 +136,7 @@ var _ = Describe(SIG("Live Migrations with priority", decorators.RequiresTwoSche
 		// - evict the launcher pod of the vmis[4]
 		for _, pod := range podsToEvict {
 			By("calling evict on VMI's pod")
-			err = kubevirt.Client().CoreV1().Pods(pod.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+			err = k8s.Client().CoreV1().Pods(pod.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 			// The "too many requests" err is what get's returned when an
 			// eviction would invalidate a pdb. This is what we want to see here.
 			Expect(err).To(MatchError(errors.IsTooManyRequests, "too many requests should be returned as way of blocking eviction"))

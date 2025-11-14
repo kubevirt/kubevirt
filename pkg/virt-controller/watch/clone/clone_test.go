@@ -244,7 +244,6 @@ var _ = Describe("Clone", func() {
 			Expect(action).To(BeNil())
 			return true, nil, nil
 		})
-		virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 	})
 
 	sanityExecute := func() {

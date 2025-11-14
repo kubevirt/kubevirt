@@ -59,6 +59,7 @@ import (
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
@@ -182,7 +183,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			var availableNumberOfCPUs int
 
 			BeforeEach(func() {
-				availableNumberOfCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
+				availableNumberOfCPUs = libnode.GetHighestCPUNumberAmongNodes(k8s.Client())
 
 				requiredNumberOfCpus := 3
 				Expect(availableNumberOfCPUs).ToNot(BeNumerically("<", requiredNumberOfCpus),
@@ -429,7 +430,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				By("Creating a secret with the binary ACPI SLIC table")
 				secret := libsecret.New(secretWithSlicName, libsecret.DataBytes{"slic.bin": slicTable})
-				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+				_, err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Configuring the volume with the secret")
@@ -473,7 +474,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				By("Creating a secret with the binary ACPI msdm table")
 				secret := libsecret.New(secretWithMsdmName, libsecret.DataBytes{"msdm.bin": msdmTable})
-				_, err := virtClient.CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
+				_, err := k8s.Client().CoreV1().Secrets(testsuite.GetTestNamespace(vmi)).Create(context.Background(), secret, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Configuring the volume with the secret")
@@ -724,7 +725,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						},
 					},
 				}
-				_, err := virtClient.CoreV1().LimitRanges(testsuite.GetTestNamespace(nil)).Create(context.Background(), &limitRangeObj, metav1.CreateOptions{})
+				_, err := k8s.Client().CoreV1().LimitRanges(testsuite.GetTestNamespace(nil)).Create(context.Background(), &limitRangeObj, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi := libvmifact.NewAlpine()
@@ -1138,7 +1139,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				return false
 			}
 			It("[test_id:6843]should set a TSC frequency and have the CPU flag available in the guest", decorators.Invtsc, decorators.TscFrequencies, func() {
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 				Expect(featureSupportedInAtLeastOneNode(nodes, "invtsc")).To(BeTrue(), "To run this test at least one node should support invtsc feature")
 				vmi := libvmifact.NewCirros()
 				vmi.Spec.Domain.CPU = &v1.CPU{
@@ -1357,7 +1358,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		}
 
 		BeforeEach(func() {
-			nodes = libnode.GetAllSchedulableNodes(virtClient)
+			nodes = libnode.GetAllSchedulableNodes(k8s.Client())
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 		})
 
@@ -1587,11 +1588,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi := libvmifact.NewGuestless()
 
 			By("Adding the right label to VMI namespace")
-			namespace, err := virtClient.CoreV1().Namespaces().Get(context.Background(), testsuite.GetTestNamespace(vmi), metav1.GetOptions{})
+			namespace, err := k8s.Client().CoreV1().Namespaces().Get(context.Background(), testsuite.GetTestNamespace(vmi), metav1.GetOptions{})
 			Expect(err).NotTo(HaveOccurred())
 
 			patchData := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "true"}}}`, autoCPULimitLabel))
-			_, err = virtClient.CoreV1().Namespaces().Patch(context.Background(), namespace.Name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
+			_, err = k8s.Client().CoreV1().Namespaces().Patch(context.Background(), namespace.Name, types.StrategicMergePatchType, patchData, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the VMI")
@@ -1658,7 +1659,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						},
 					},
 				}
-				_, err := virtClient.CoreV1().ResourceQuotas(testsuite.GetTestNamespace(nil)).Create(context.Background(), rq, metav1.CreateOptions{})
+				_, err := k8s.Client().CoreV1().ResourceQuotas(testsuite.GetTestNamespace(nil)).Create(context.Background(), rq, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Starting the VMI")
@@ -1761,7 +1762,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 	Describe("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]VirtualMachineInstance with CPU pinning", decorators.WgArm64, decorators.RequiresTwoWorkerNodesWithCPUManager, func() {
 		isNodeHasCPUManagerLabel := func(nodeName string) bool {
 
-			nodeObject, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+			nodeObject, err := k8s.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			nodeHaveCpuManagerLabel := false
 			nodeLabels := nodeObject.GetLabels()
@@ -1776,7 +1777,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		}
 
 		BeforeEach(func() {
-			nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+			nodes, err := k8s.Client().CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			if len(nodes.Items) == 1 {
 				Fail(`CPU pinning test that requires multiple nodes when only one node is present. You can filter by "requires-two-worker-nodes-with-cpu-manager" label`)
@@ -1786,7 +1787,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		Context("with cpu pinning enabled", Serial, func() {
 			It("[test_id:1685]non master node should have a cpumanager label", func() {
 				cpuManagerEnabled := false
-				nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+				nodes, err := k8s.Client().CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for idx := 1; idx < len(nodes.Items); idx++ {
 					labels := nodes.Items[idx].GetLabels()
@@ -2143,7 +2144,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			BeforeEach(func() {
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
+				nodes := libnode.GetAllSchedulableNodes(k8s.Client())
 				Expect(nodes.Items).ToNot(BeEmpty(), "There should be some nodes")
 				node = nodes.Items[1].Name
 			})
@@ -2386,7 +2387,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Running ps in virt-launcher")
-			pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+			pods, err := k8s.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
 				LabelSelector: v1.CreatedByLabel + "=" + string(vmi.GetUID()),
 			})
 			Expect(err).ToNot(HaveOccurred(), "Should list pods successfully")
@@ -2440,9 +2441,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 })
 
 func createRuntimeClass(name, handler string) error {
-	virtCli := kubevirt.Client()
-
-	_, err := virtCli.NodeV1().RuntimeClasses().Create(
+	_, err := k8s.Client().NodeV1().RuntimeClasses().Create(
 		context.Background(),
 		&nodev1.RuntimeClass{
 			ObjectMeta: metav1.ObjectMeta{Name: name},
@@ -2454,9 +2453,7 @@ func createRuntimeClass(name, handler string) error {
 }
 
 func deleteRuntimeClass(name string) error {
-	virtCli := kubevirt.Client()
-
-	return virtCli.NodeV1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
+	return k8s.Client().NodeV1().RuntimeClasses().Delete(context.Background(), name, metav1.DeleteOptions{})
 }
 
 func withNoRng() libvmi.Option {

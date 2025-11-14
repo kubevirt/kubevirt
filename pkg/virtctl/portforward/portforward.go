@@ -85,7 +85,7 @@ type PortForward struct {
 func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 	setOutput(cmd)
 
-	client, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	client, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

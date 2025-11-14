@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -92,7 +93,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 				Expect(err).NotTo(HaveOccurred())
 
 				By("Evicting the VMI")
-				err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+				err = k8s.Client().CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 				Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 
 				By("Ensuring the VMI has migrated and lives on another node")
@@ -120,7 +121,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 				)
 
 				By("Adding a fake old virt-controller PDB")
-				pdb, err := virtClient.PolicyV1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), &policyv1.PodDisruptionBudget{
+				pdb, err := k8s.Client().PolicyV1().PodDisruptionBudgets(vmi.Namespace).Create(context.Background(), &policyv1.PodDisruptionBudget{
 					ObjectMeta: metav1.ObjectMeta{
 						OwnerReferences: []metav1.OwnerReference{
 							*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind),
@@ -140,7 +141,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 				By("checking that the PDB disappeared")
 				Eventually(func() error {
-					_, err := virtClient.PolicyV1().PodDisruptionBudgets(vmi.Namespace).Get(context.Background(), pdb.Name, metav1.GetOptions{})
+					_, err := k8s.Client().PolicyV1().PodDisruptionBudgets(vmi.Namespace).Get(context.Background(), pdb.Name, metav1.GetOptions{})
 					return err
 				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
 			})
@@ -167,14 +168,14 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 				Eventually(func() []k8sv1.Pod {
 					labelSelector := fmt.Sprintf("%s=%s", v1.CreatedByLabel, vmi.GetUID())
 					fieldSelector := fmt.Sprintf("status.phase==%s", k8sv1.PodRunning)
-					pods, err = virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector})
+					pods, err = k8s.Client().CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector})
 					Expect(err).ToNot(HaveOccurred())
 					return pods.Items
 				}, 90*time.Second, 500*time.Millisecond).Should(HaveLen(2))
 
 				By("Verifying at least once that both pods are protected")
 				for _, pod := range pods.Items {
-					err := virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err := k8s.Client().CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(errors.IsTooManyRequests(err)).To(BeTrue(), "expected TooManyRequests error, got: %v", err)
 				}
 				By("Verifying that both pods are protected by the PodDisruptionBudget for the whole migration")
@@ -184,14 +185,14 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					Expect(err).ToNot(HaveOccurred())
 					Expect(currentMigration.Status.Phase).NotTo(Equal(v1.MigrationFailed))
 					for _, p := range pods.Items {
-						pod, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), p.Name, getOptions)
+						pod, err := k8s.Client().CoreV1().Pods(vmi.Namespace).Get(context.Background(), p.Name, getOptions)
 						if err != nil || pod.Status.Phase != k8sv1.PodRunning {
 							continue
 						}
 
 						deleteOptions := &metav1.DeleteOptions{Preconditions: &metav1.Preconditions{ResourceVersion: &pod.ResourceVersion}}
 						eviction := &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}, DeleteOptions: deleteOptions}
-						err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), eviction)
+						err = k8s.Client().CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), eviction)
 						Expect(errors.IsTooManyRequests(err)).To(BeTrue(), "expected TooManyRequests error, got: %v", err)
 					}
 					return currentMigration.Status.Phase
@@ -233,7 +234,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 						config.UpdateKubeVirtConfigValueAndWait(cfg)
 					}
 
-					controlPlaneNodes := libnode.GetControlPlaneNodes(virtClient)
+					controlPlaneNodes := libnode.GetControlPlaneNodes(k8s.Client())
 
 					// This nodeAffinity will make sure the vmi, initially, will not be scheduled in the control-plane node in those clusters where there is only one.
 					// This is mandatory, since later the tests will drain the node where the vmi will be scheduled.
@@ -430,7 +431,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 				}
 
 				By("selecting a node as the source")
-				sourceNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
+				sourceNode := libnode.GetAllSchedulableNodes(k8s.Client()).Items[0]
 				libnode.AddLabelToNode(sourceNode.Name, cleanup.TestLabelForNamespace(vmis[0].Namespace), "target")
 
 				By("starting four VMIs on that node")
@@ -447,7 +448,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 				}
 
 				By("selecting a node as the target")
-				targetNode := libnode.GetAllSchedulableNodes(virtClient).Items[1]
+				targetNode := libnode.GetAllSchedulableNodes(k8s.Client()).Items[1]
 				libnode.AddLabelToNode(targetNode.Name, cleanup.TestLabelForNamespace(vmis[0].Namespace), "target")
 
 				By("tainting the source node as non-schedulabele")
@@ -528,7 +529,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					vmiNodeOrig := vmi.Status.NodeName
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
-					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err = k8s.Client().CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(errors.IsTooManyRequests(err)).To(BeTrue())
 
 					By("Ensuring the VMI has migrated and lives on another node")
@@ -568,7 +569,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 					pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
-					err = virtClient.CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
+					err = k8s.Client().CoreV1().Pods(vmi.Namespace).EvictV1(context.Background(), &policyv1.Eviction{ObjectMeta: metav1.ObjectMeta{Name: pod.Name}})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(matcher.ThisVMI(vmi)()).To(evacuationIsClear())
 				})

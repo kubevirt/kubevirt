@@ -81,7 +81,7 @@ func usageObjectGraph() string {
 func (c *command) objectGraphRun(cmd *cobra.Command, args []string) error {
 	vmName := args[0]
 
-	virtClient, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	virtClient, _, namespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}

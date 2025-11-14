@@ -26,6 +26,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -49,10 +50,10 @@ type VMsMutator struct {
 	virtClient          kubecli.KubevirtClient
 }
 
-func NewVMsMutator(clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) *VMsMutator {
+func NewVMsMutator(clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, k8sCli kubernetes.Interface) *VMsMutator {
 	return &VMsMutator{
 		ClusterConfig:       clusterConfig,
-		instancetypeMutator: instancetypeVMWebhooks.NewMutator(virtCli),
+		instancetypeMutator: instancetypeVMWebhooks.NewMutator(virtCli, k8sCli),
 		virtClient:          virtCli,
 	}
 }

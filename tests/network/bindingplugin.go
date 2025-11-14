@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -187,7 +188,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				serverCIDR     = serverIPAddr + "/24"
 				clientCIDR     = "10.1.1.101/24"
 			)
-			nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
+			nodeList := libnode.GetAllSchedulableNodes(k8s.Client())
 			Expect(nodeList.Items).NotTo(BeEmpty(), "schedulable kubernetes nodes must be present")
 			nodeName := nodeList.Items[0].Name
 

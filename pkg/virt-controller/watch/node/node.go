@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
@@ -33,7 +34,8 @@ const (
 
 // Controller is the main Controller struct.
 type Controller struct {
-	clientset        kubecli.KubevirtClient
+	virtClientset    kubecli.KubevirtClient
+	k8sClientset     kubernetes.Interface
 	Queue            workqueue.TypedRateLimitingInterface[string]
 	nodeStore        cache.Store
 	vmiStore         cache.Store
@@ -44,9 +46,10 @@ type Controller struct {
 }
 
 // NewController creates a new instance of the NodeController struct.
-func NewController(clientset kubecli.KubevirtClient, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*Controller, error) {
+func NewController(virtClientset kubecli.KubevirtClient, k8sClientset kubernetes.Interface, nodeInformer cache.SharedIndexInformer, vmiInformer cache.SharedIndexInformer, recorder record.EventRecorder) (*Controller, error) {
 	c := &Controller{
-		clientset: clientset,
+		virtClientset: virtClientset,
+		k8sClientset:  k8sClientset,
 		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-node"},
@@ -224,7 +227,7 @@ func nodeIsSchedulable(node *v1.Node) bool {
 }
 
 func (c *Controller) checkNodeForOrphanedAndErroredVMIs(nodeName string, node *v1.Node, logger *log.FilteredLogger) error {
-	vmis, err := lookup.ActiveVirtualMachinesOnNode(c.clientset, nodeName)
+	vmis, err := lookup.ActiveVirtualMachinesOnNode(c.virtClientset, nodeName)
 	if err != nil {
 		logger.Reason(err).Error("Failed fetching vmis for node")
 		return err
@@ -282,7 +285,7 @@ func (c *Controller) createAndApplyFailedVMINodeUnresponsivePatch(vmi *virtv1.Vi
 	if err != nil {
 		return err
 	}
-	_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = c.virtClientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Errorf("Failed to move vmi %s in namespace %s to final state", vmi.Name, vmi.Namespace)
 		return err
@@ -304,7 +307,7 @@ func (c *Controller) markNodeAsUnresponsive(node *v1.Node, logger *log.FilteredL
 	logger.V(4).Infof("Marking node %s as unresponsive", node.Name)
 
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, virtv1.NodeSchedulable))
-	_, err := c.clientset.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+	_, err := c.k8sClientset.CoreV1().Nodes().Patch(context.Background(), node.Name, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Error("Failed to mark node as unschedulable")
 		return fmt.Errorf("failed to mark node %s as unschedulable: %v", node.Name, err)
@@ -322,7 +325,7 @@ func (c *Controller) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []*vir
 	// query for a virt-handler pod on the node
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName())
 	virtHandlerSelector := fields.ParseSelectorOrDie("kubevirt.io=virt-handler")
-	pods, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
+	pods, err := c.k8sClientset.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		FieldSelector: handlerNodeSelector.String(),
 		LabelSelector: virtHandlerSelector.String(),
 	})
@@ -336,7 +339,7 @@ func (c *Controller) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []*vir
 		return nil
 	}
 
-	running, err := checkDaemonSetStatus(c.clientset, virtHandlerSelector)
+	running, err := checkDaemonSetStatus(c.k8sClientset, virtHandlerSelector)
 	if err != nil {
 		return err
 	}
@@ -353,7 +356,7 @@ func (c *Controller) createEventIfNodeHasOrphanedVMIs(node *v1.Node, vmis []*vir
 	return nil
 }
 
-func checkDaemonSetStatus(clientset kubecli.KubevirtClient, selector fields.Selector) (bool, error) {
+func checkDaemonSetStatus(clientset kubernetes.Interface, selector fields.Selector) (bool, error) {
 	dss, err := clientset.AppsV1().DaemonSets(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
@@ -377,7 +380,7 @@ func checkDaemonSetStatus(clientset kubecli.KubevirtClient, selector fields.Sele
 
 func (c *Controller) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
 	handlerNodeSelector := fields.ParseSelectorOrDie("spec.nodeName=" + nodeName)
-	list, err := c.clientset.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
+	list, err := c.k8sClientset.CoreV1().Pods(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{
 		FieldSelector: handlerNodeSelector.String(),
 	})
 	if err != nil {

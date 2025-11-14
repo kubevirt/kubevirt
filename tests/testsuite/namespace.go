@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -44,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -81,19 +83,21 @@ func CleanNamespaces() {
 
 	virtCli, err := kubecli.GetKubevirtClientFromRESTConfig(restConfig)
 	Expect(err).ToNot(HaveOccurred())
+	k8sCli, err := kubecli.GetK8sClientFromRESTConfig(restConfig)
+	Expect(err).ToNot(HaveOccurred())
 
 	for _, namespace := range TestNamespaces {
 		listOptions := metav1.ListOptions{
 			LabelSelector: cleanup.TestLabelForNamespace(namespace),
 		}
 
-		_, err := virtCli.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+		_, err := k8sCli.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 		if err != nil {
 			continue
 		}
 
 		// Clean namespace labels
-		Expect(resetNamespaceLabelsToDefault(virtCli, namespace)).To(Succeed())
+		Expect(resetNamespaceLabelsToDefault(k8sCli, namespace)).To(Succeed())
 
 		clusterinstancetypes, err := virtCli.VirtualMachineClusterInstancetype().List(context.Background(), listOptions)
 		Expect(err).ToNot(HaveOccurred())
@@ -122,9 +126,9 @@ func CleanNamespaces() {
 		//Remove all Jobs
 		jobDeleteStrategy := metav1.DeletePropagationOrphan
 		jobDeleteOptions := metav1.DeleteOptions{PropagationPolicy: &jobDeleteStrategy}
-		Expect(virtCli.BatchV1().RESTClient().Delete().Namespace(namespace).Resource("jobs").Body(&jobDeleteOptions).Do(context.Background()).Error()).To(Succeed())
+		Expect(k8sCli.BatchV1().RESTClient().Delete().Namespace(namespace).Resource("jobs").Body(&jobDeleteOptions).Do(context.Background()).Error()).To(Succeed())
 		//Remove all HPA
-		Expect(virtCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do(context.Background()).Error()).To(Succeed())
+		Expect(k8sCli.AutoscalingV1().RESTClient().Delete().Namespace(namespace).Resource("horizontalpodautoscalers").Do(context.Background()).Error()).To(Succeed())
 
 		// Remove all VirtualMachinePools
 		Expect(virtCli.VirtualMachinePool(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
@@ -150,11 +154,11 @@ func CleanNamespaces() {
 		}
 
 		// Remove all Pods
-		podList, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
+		podList, err := k8sCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		var gracePeriod int64 = 0
 		for _, pod := range podList.Items {
-			err := virtCli.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
+			err := k8sCli.CoreV1().Pods(namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{GracePeriodSeconds: &gracePeriod})
 			if errors.IsNotFound(err) {
 				continue
 			}
@@ -162,10 +166,10 @@ func CleanNamespaces() {
 		}
 
 		// Remove all Services
-		svcList, err := virtCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
+		svcList, err := k8sCli.CoreV1().Services(namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, svc := range svcList.Items {
-			err := virtCli.CoreV1().Services(namespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
+			err := k8sCli.CoreV1().Services(namespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{})
 			if errors.IsNotFound(err) {
 				continue
 			}
@@ -173,10 +177,10 @@ func CleanNamespaces() {
 		}
 
 		// Remove all ResourceQuota
-		rqList, err := virtCli.CoreV1().ResourceQuotas(namespace).List(context.Background(), metav1.ListOptions{})
+		rqList, err := k8sCli.CoreV1().ResourceQuotas(namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		for _, rq := range rqList.Items {
-			err := virtCli.CoreV1().ResourceQuotas(namespace).Delete(context.Background(), rq.Name, metav1.DeleteOptions{})
+			err := k8sCli.CoreV1().ResourceQuotas(namespace).Delete(context.Background(), rq.Name, metav1.DeleteOptions{})
 			if errors.IsNotFound(err) {
 				continue
 			}
@@ -184,19 +188,19 @@ func CleanNamespaces() {
 		}
 
 		// Remove PVCs
-		Expect(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("persistentvolumeclaims").Do(context.Background()).Error()).To(Succeed())
+		Expect(k8sCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("persistentvolumeclaims").Do(context.Background()).Error()).To(Succeed())
 		if libstorage.HasCDI() {
 			// Remove DataVolumes
 			Expect(virtCli.CdiClient().CdiV1beta1().RESTClient().Delete().Namespace(namespace).Resource("datavolumes").Do(context.Background()).Error()).To(Succeed())
 		}
 		// Remove PVs
-		pvs, err := virtCli.CoreV1().PersistentVolumes().List(context.Background(), listOptions)
+		pvs, err := k8sCli.CoreV1().PersistentVolumes().List(context.Background(), listOptions)
 		Expect(err).ToNot(HaveOccurred())
 		for _, pv := range pvs.Items {
 			if pv.Spec.ClaimRef == nil || pv.Spec.ClaimRef.Namespace != namespace {
 				continue
 			}
-			err := virtCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
+			err := k8sCli.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})
 			Expect(err).To(Or(
 				Not(HaveOccurred()),
 				MatchError(errors.IsNotFound, "errors.IsNotFound"),
@@ -206,7 +210,7 @@ func CleanNamespaces() {
 		// Remove all VirtualMachineInstance Secrets
 		labelSelector := libsecret.TestsSecretLabel
 		Expect(
-			virtCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
+			k8sCli.CoreV1().Secrets(namespace).DeleteCollection(context.Background(),
 				metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: labelSelector},
 			),
 		).To(Succeed())
@@ -214,7 +218,7 @@ func CleanNamespaces() {
 		// Remove all VirtualMachineInstance Presets
 		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do(context.Background()).Error()).To(Succeed())
 		// Remove all limit ranges
-		Expect(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do(context.Background()).Error()).To(Succeed())
+		Expect(k8sCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do(context.Background()).Error()).To(Succeed())
 
 		// Remove all Migration Objects
 		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancemigrations").Do(context.Background()).Error()).To(Succeed())
@@ -268,7 +272,7 @@ func CleanNamespaces() {
 		Expect(virtCli.VirtualMachineRestore(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
 		// Remove events
-		Expect(virtCli.CoreV1().Events(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
+		Expect(k8sCli.CoreV1().Events(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
 		// Remove vmexports
 		vmexportList, err := virtCli.VirtualMachineExport(namespace).List(context.Background(), metav1.ListOptions{})
@@ -281,11 +285,11 @@ func CleanNamespaces() {
 }
 
 func removeNamespaces() {
-	virtCli := kubevirt.Client()
+	k8sCli := k8s.Client()
 
 	// First send an initial delete to every namespace
 	for _, namespace := range TestNamespaces {
-		err := virtCli.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
+		err := k8sCli.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 		Expect(err).To(Or(
 			Not(HaveOccurred()),
 			MatchError(errors.IsNotFound, "errors.IsNotFound"),
@@ -297,7 +301,7 @@ func removeNamespaces() {
 	for _, namespace := range TestNamespaces {
 		fmt.Printf("Waiting for namespace %s to be removed, this can take a while ...\n", namespace)
 		EventuallyWithOffset(1, func() error {
-			return virtCli.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
+			return k8sCli.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
 		}, 240*time.Second, 1*time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())), fmt.Sprintf("should successfully delete namespace '%s'", namespace))
 	}
 }
@@ -343,7 +347,7 @@ func GetLabelsForNamespace(namespace string) map[string]string {
 	return labels
 }
 
-func resetNamespaceLabelsToDefault(client kubecli.KubevirtClient, namespace string) error {
+func resetNamespaceLabelsToDefault(client kubernetes.Interface, namespace string) error {
 	return libnamespace.PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
 		if ns.Labels == nil {
 			return
@@ -353,7 +357,7 @@ func resetNamespaceLabelsToDefault(client kubecli.KubevirtClient, namespace stri
 }
 
 func createNamespaces() {
-	virtCli := kubevirt.Client()
+	k8sCli := k8s.Client()
 
 	// Create a Test Namespaces
 	for _, namespace := range TestNamespaces {
@@ -364,7 +368,7 @@ func createNamespaces() {
 			},
 		}
 
-		_, err := virtCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
+		_, err := k8sCli.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 }

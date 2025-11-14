@@ -7,10 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-
-	"kubevirt.io/kubevirt/tests/framework/checks"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -25,6 +21,9 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/vmnetserver"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -317,11 +316,11 @@ func createNetworkPolicy(namespace, name string, labelSelector metav1.LabelSelec
 		},
 	}
 
-	virtClient := kubevirt.Client()
+	k8sClient := k8s.Client()
 
 	By(fmt.Sprintf("Create networkpolicy %s/%s", policy.Namespace, policy.Name))
 	var err error
-	policy, err = virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Create(context.Background(), policy, metav1.CreateOptions{})
+	policy, err = k8sClient.NetworkingV1().NetworkPolicies(policy.Namespace).Create(context.Background(), policy, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("should succeed creating network policy %s/%s", policy.Namespace, policy.Name))
 	return policy
 }
@@ -331,11 +330,11 @@ func waitForNetworkPolicyDeletion(policy *networkv1.NetworkPolicy) {
 		return
 	}
 
-	virtClient := kubevirt.Client()
+	k8sClient := k8s.Client()
 
-	ExpectWithOffset(1, virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Delete(context.Background(), policy.Name, metav1.DeleteOptions{})).To(Succeed())
+	ExpectWithOffset(1, k8sClient.NetworkingV1().NetworkPolicies(policy.Namespace).Delete(context.Background(), policy.Name, metav1.DeleteOptions{})).To(Succeed())
 	EventuallyWithOffset(1, func() error {
-		_, err := virtClient.NetworkingV1().NetworkPolicies(policy.Namespace).Get(context.Background(), policy.Name, metav1.GetOptions{})
+		_, err := k8sClient.NetworkingV1().NetworkPolicies(policy.Namespace).Get(context.Background(), policy.Name, metav1.GetOptions{})
 		return err
 	}, 10*time.Second, time.Second).Should(SatisfyAll(HaveOccurred(), WithTransform(errors.IsNotFound, BeTrue())))
 }

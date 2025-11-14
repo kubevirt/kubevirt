@@ -78,6 +78,7 @@ var _ = Describe("Template", func() {
 
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
+	var k8sClient *k8sfake.Clientset
 	var config *virtconfig.ClusterConfig
 	var kvStore cache.Store
 	var nonRootUser int64
@@ -116,6 +117,7 @@ var _ = Describe("Template", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		k8sClient = k8sfake.NewSimpleClientset()
 	})
 
 	BeforeEach(func() {
@@ -131,6 +133,7 @@ var _ = Describe("Template", func() {
 				"pull-secret-1",
 				pvcCache,
 				virtClient,
+				k8sClient,
 				config,
 				qemuGid,
 				"kubevirt/vmexport",
@@ -145,8 +148,6 @@ var _ = Describe("Template", func() {
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
 			virtClient.EXPECT().NetworkClient().Return(networkClient).AnyTimes()
-			k8sClient := k8sfake.NewSimpleClientset()
-			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			// Sadly, we cannot pass desired attachment objects into
 			// Clientset constructor because UnsafeGuessKindToResource
 			// calculates incorrect object kind (without dashes). Instead
@@ -3036,6 +3037,7 @@ var _ = Describe("Template", func() {
 				"pull-secret-1",
 				pvcCache,
 				virtClient,
+				k8sClient,
 				config,
 				qemuGid,
 				"kubevirt/vmexport",
@@ -4842,7 +4844,6 @@ var _ = Describe("Template", func() {
 			})
 			When("ConfigMap exists on the cluster", func() {
 				BeforeEach(func() {
-					k8sClient := k8sfake.NewSimpleClientset()
 					k8sClient.Fake.PrependReactor("get", "configmaps", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 						cm := k8sv1.ConfigMap{
 							ObjectMeta: metav1.ObjectMeta{
@@ -4852,7 +4853,6 @@ var _ = Describe("Template", func() {
 						}
 						return true, &cm, nil
 					})
-					virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 				})
 				It("should add ConfigMap as volume to Pod and mount in sidecar", func() {
 					config, kvStore, svc = configFactory(defaultArch)
@@ -4912,7 +4912,6 @@ var _ = Describe("Template", func() {
 						}
 						return true, &pvc, nil
 					})
-					virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 				})
 				It("should add the pvc to Pod and mount in sidecar", func() {
 					config, kvStore, svc = configFactory(defaultArch)
@@ -4987,7 +4986,6 @@ var _ = Describe("Template", func() {
 				k8sClient.Fake.PrependReactor("get", "pvcs", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
 					return true, pvc, nil
 				})
-				virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 			})
 
 			It("should add the pvc to Pod of a new VMI", func() {
@@ -5735,6 +5733,7 @@ var _ = Describe("Template", func() {
 				"pull-secret-1",
 				pvcCache,
 				virtClient,
+				k8sClient,
 				config,
 				qemuGid,
 				"kubevirt/vmexport",
@@ -5805,6 +5804,7 @@ var _ = Describe("Template", func() {
 				"pull-secret-1",
 				pvcCache,
 				virtClient,
+				k8sClient,
 				config,
 				qemuGid,
 				"kubevirt/vmexport",
@@ -5834,6 +5834,7 @@ var _ = Describe("Template", func() {
 				"pull-secret-1",
 				pvcCache,
 				virtClient,
+				k8sClient,
 				config,
 				qemuGid,
 				"kubevirt/vmexport",
@@ -5894,6 +5895,7 @@ var _ = Describe("Template", func() {
 				"pull-secret-1",
 				pvcCache,
 				virtClient,
+				k8sClient,
 				config,
 				qemuGid,
 				"kubevirt/vmexport",
@@ -5935,6 +5937,7 @@ var _ = Describe("Template", func() {
 				"pull-secret-1",
 				pvcCache,
 				virtClient,
+				k8sClient,
 				config,
 				qemuGid,
 				"kubevirt/vmexport",
@@ -5973,6 +5976,7 @@ var _ = Describe("Template", func() {
 				"pull-secret-1",
 				pvcCache,
 				virtClient,
+				k8sClient,
 				config,
 				qemuGid,
 				"kubevirt/vmexport",

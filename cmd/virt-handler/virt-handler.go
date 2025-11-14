@@ -40,6 +40,7 @@ import (
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -145,6 +146,7 @@ type virtHandlerApp struct {
 	externallyManaged  bool
 
 	virtCli   kubecli.KubevirtClient
+	k8sCli    kubernetes.Interface
 	namespace string
 
 	serverTLSConfig       *tls.Config
@@ -172,7 +174,7 @@ func (app *virtHandlerApp) prepareCertManager() (err error) {
 
 func (app *virtHandlerApp) markNodeAsUnschedulable(logger *log.FilteredLogger) {
 	data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "false"}}}`, v1.NodeSchedulable))
-	_, err := app.virtCli.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+	_, err := app.k8sCli.CoreV1().Nodes().Patch(context.Background(), app.HostOverride, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 	if err != nil {
 		logger.Reason(err).Error("Unable to mark node as unschedulable")
 	}
@@ -207,6 +209,10 @@ func (app *virtHandlerApp) Run() {
 	if err != nil {
 		panic(err)
 	}
+	app.k8sCli, err = kubecli.GetK8sClientFromRESTConfig(clientConfig)
+	if err != nil {
+		panic(err)
+	}
 
 	app.markNodeAsUnschedulable(logger)
 
@@ -229,12 +235,12 @@ func (app *virtHandlerApp) Run() {
 
 	// Create event recorder
 	broadcaster := record.NewBroadcaster()
-	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.virtCli.CoreV1().Events(k8sv1.NamespaceAll)})
+	broadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.k8sCli.CoreV1().Events(k8sv1.NamespaceAll)})
 	// Scheme is used to create an ObjectReference from an Object (e.g. VirtualMachineInstance) during Event creation
 	recorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "virt-handler", Host: app.HostOverride})
 
 	// Wire VirtualMachineInstance controller
-	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, nil, app.namespace)
+	factory := controller.NewKubeInformerFactory(app.virtCli.RestClient(), app.virtCli, app.k8sCli, nil, app.namespace)
 
 	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
@@ -274,8 +280,8 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
 	go func() {
-		forceUpdateKSM := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, true) }
-		handleKSMUpdate := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, false) }
+		forceUpdateKSM := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.k8sCli.CoreV1(), app.clusterConfig, true) }
+		handleKSMUpdate := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.k8sCli.CoreV1(), app.clusterConfig, false) }
 
 		forceUpdateKSM()
 		app.clusterConfig.SetConfigModifiedCallback(handleKSMUpdate)
@@ -317,7 +323,7 @@ func (app *virtHandlerApp) Run() {
 
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
-		app.virtCli.CoreV1().Nodes(),
+		app.k8sCli.CoreV1().Nodes(),
 		app.HostOverride,
 		nodeLabellerrecorder,
 		capabilities.Host.CPU.Counter,
@@ -392,6 +398,7 @@ func (app *virtHandlerApp) Run() {
 	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,
 		app.virtCli,
+		app.k8sCli,
 		app.HostOverride,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
@@ -647,7 +654,7 @@ func (app *virtHandlerApp) AddFlags() {
 		"The name of configmap containing CA certificates to authenticate requests presenting client certificates with matching CommonName")
 
 	flag.StringVar(&app.clientCertFilePath, "client-cert-file", defaultClientCertFilePath,
-		"Client certificate used to prove the identity of the virt-handler when it must call out during a request")
+		"VirtClient certificate used to prove the identity of the virt-handler when it must call out during a request")
 
 	flag.StringVar(&app.clientKeyFilePath, "client-key-file", defaultClientKeyFilePath,
 		"Private key for the client certificate used to prove the identity of the virt-handler when it must call out during a request")

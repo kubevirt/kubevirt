@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/k8s"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/job"
@@ -88,10 +89,9 @@ var _ = Describe(SIG("Services", func() {
 			const serviceName = "myservice"
 
 			BeforeEach(func() {
-				virtClient := kubevirt.Client()
 				service := netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				var err error
-				service, err = virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
+				service, err = k8s.Client().CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -116,8 +116,7 @@ var _ = Describe(SIG("Services", func() {
 				namespace, name := inboundVMI.Namespace, inboundVMI.Spec.Subdomain
 				service := netservice.BuildHeadlessSpec(name, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				var err error
-				virtClient := kubevirt.Client()
-				service, err = virtClient.CoreV1().Services(namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
+				service, err = k8s.Client().CoreV1().Services(namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			})
 
@@ -172,9 +171,8 @@ var _ = Describe(SIG("Services", func() {
 					service = netservice.BuildSpec(serviceName, servicePort, servicePort, selectorLabelKey, selectorLabelValue)
 				}
 
-				virtClient := kubevirt.Client()
 				var err error
-				service, err = virtClient.CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
+				service, err = k8s.Client().CoreV1().Services(inboundVMI.Namespace).Create(context.Background(), service, k8smetav1.CreateOptions{})
 				Expect(err).NotTo(HaveOccurred(), "the k8sv1.Service entity should have been created.")
 
 				By("checking connectivity the exposed service")
@@ -206,5 +204,5 @@ func createServiceConnectivityJob(serviceName, namespace string, servicePort int
 	By(fmt.Sprintf("starting a job which tries to reach the vmi via service %s, on port %d", serviceFQDN, servicePort))
 	tcpJob := job.NewHelloWorldJobTCP(serviceFQDN, strconv.Itoa(servicePort))
 	tcpJob.Spec.BackoffLimit = &retries
-	return kubevirt.Client().BatchV1().Jobs(namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
+	return k8s.Client().BatchV1().Jobs(namespace).Create(context.Background(), tcpJob, k8smetav1.CreateOptions{})
 }
