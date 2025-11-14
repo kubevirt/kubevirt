@@ -15,7 +15,7 @@ import (
 )
 
 func (r *Reconciler) createOrUpdateSCC() error {
-	sec := r.clientset.SecClient()
+	sec := r.virtClientset.SecClient()
 
 	if !r.config.IsOnOpenshift {
 		return nil
@@ -93,7 +93,7 @@ func (r *Reconciler) removeKvServiceAccountsFromDefaultSCC(targetNamespace strin
 			return err
 		}
 
-		_, err = r.clientset.SecClient().SecurityContextConstraints().Patch(context.Background(), "privileged", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		_, err = r.virtClientset.SecClient().SecurityContextConstraints().Patch(context.Background(), "privileged", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to patch scc: %v", err)
 		}
