@@ -38,7 +38,7 @@ func (c *KubeVirtController) deleteAllInstallStrategy() error {
 	for _, obj := range c.stores.InstallStrategyConfigMapCache.List() {
 		configMap, ok := obj.(*k8sv1.ConfigMap)
 		if ok && configMap.DeletionTimestamp == nil {
-			err := c.clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{})
+			err := c.k8sClientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{})
 			if err != nil {
 				log.Log.Errorf("Failed to delete configmap %+v: %v", configMap, err)
 				return err
@@ -56,7 +56,7 @@ func (c *KubeVirtController) deleteAllOldInstallStrategies(kvVersion string) err
 		configMap := obj.(*k8sv1.ConfigMap)
 		version, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
 		if ok && configMap.DeletionTimestamp == nil && version != kvVersion {
-			err := c.clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{})
+			err := c.k8sClientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{})
 			if err != nil {
 				log.Log.Errorf("Failed to delete configmap %+v: %v", configMap, err)
 				return err

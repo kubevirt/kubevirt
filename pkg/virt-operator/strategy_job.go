@@ -135,7 +135,7 @@ func (c *KubeVirtController) getInstallStrategyJob(config *operatorutil.KubeVirt
 }
 
 func (c *KubeVirtController) garbageCollectInstallStrategyJobs() error {
-	batch := c.clientset.BatchV1()
+	batch := c.k8sClientset.BatchV1()
 	jobs := c.stores.InstallStrategyJobCache.List()
 
 	for _, obj := range jobs {

@@ -51,7 +51,7 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 
 	if !exists {
 		r.expectations.Route.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.RouteClient().Routes(route.Namespace).Create(context.Background(), route, metav1.CreateOptions{})
+		_, err := r.virtClientset.RouteClient().Routes(route.Namespace).Create(context.Background(), route, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Route.LowerExpectations(r.kvKey, 1, 0)
 			log.Log.V(2).Infof("failed to create route %s: %+v", route.Name, route)
@@ -79,7 +79,7 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 		return err
 	}
 
-	_, err = r.clientset.RouteClient().Routes(route.Namespace).Patch(context.Background(), route.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = r.virtClientset.RouteClient().Routes(route.Namespace).Patch(context.Background(), route.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		log.Log.V(2).Infof("failed to patch route %s: %+v", route.Name, route)
 		return fmt.Errorf("unable to patch route %s: %v", route.Name, err)
@@ -104,7 +104,7 @@ func (r *Reconciler) deleteRoute(route *routev1.Route) error {
 		return err
 	}
 	r.expectations.Route.AddExpectedDeletion(r.kvKey, key)
-	if err := r.clientset.RouteClient().Routes(route.Namespace).Delete(context.Background(), route.Name, metav1.DeleteOptions{}); err != nil {
+	if err := r.virtClientset.RouteClient().Routes(route.Namespace).Delete(context.Background(), route.Name, metav1.DeleteOptions{}); err != nil {
 		r.expectations.Route.DeletionObserved(r.kvKey, key)
 		return err
 	}

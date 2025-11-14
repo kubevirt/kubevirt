@@ -41,8 +41,8 @@ var _ = Describe("Apply Instancetypes", func() {
 		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 
 		reconciler = &Reconciler{
-			kv:        &v1.KubeVirt{},
-			clientset: virtClient,
+			kv:            &v1.KubeVirt{},
+			virtClientset: virtClient,
 			stores: util.Stores{
 				ClusterInstancetype: clusterInstancetypeInformer.GetStore(),
 				ClusterPreference:   clusterPreferenceInformer.GetStore(),
