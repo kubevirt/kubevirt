@@ -48,7 +48,7 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 	injectOperatorMetadata(r.kv, &instancetype.ObjectMeta, imageTag, imageRegistry, id, true)
 
 	if errors.IsNotFound(err) {
-		if _, err := r.clientset.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{}); err != nil {
+		if _, err := r.virtClientset.VirtualMachineClusterInstancetype().Create(context.Background(), instancetype, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to create instancetype %+v: %v", instancetype, err)
 		}
 		log.Log.V(2).Infof("instancetype %v created", instancetype.GetName())
@@ -63,7 +63,7 @@ func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta
 	}
 
 	instancetype.ResourceVersion = foundObj.ResourceVersion
-	if _, err := r.clientset.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{}); err != nil {
+	if _, err := r.virtClientset.VirtualMachineClusterInstancetype().Update(context.Background(), instancetype, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("unable to update instancetype %+v: %v", instancetype, err)
 	}
 	log.Log.V(2).Infof("instancetype %v updated", instancetype.GetName())
@@ -91,7 +91,7 @@ func (r *Reconciler) deleteInstancetypes() error {
 		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
 	}
 
-	if err := r.clientset.VirtualMachineClusterInstancetype().DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+	if err := r.virtClientset.VirtualMachineClusterInstancetype().DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
 		LabelSelector: ls.String(),
 	}); err != nil {
 		return fmt.Errorf("unable to delete preferences: %v", err)
@@ -135,7 +135,7 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 	injectOperatorMetadata(r.kv, &preference.ObjectMeta, imageTag, imageRegistry, id, true)
 
 	if errors.IsNotFound(err) {
-		if _, err := r.clientset.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{}); err != nil {
+		if _, err := r.virtClientset.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{}); err != nil {
 			return fmt.Errorf("unable to create preference %+v: %v", preference, err)
 		}
 		log.Log.V(2).Infof("preference %v created", preference.GetName())
@@ -150,7 +150,7 @@ func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.Vi
 	}
 
 	preference.ResourceVersion = foundObj.ResourceVersion
-	if _, err := r.clientset.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{}); err != nil {
+	if _, err := r.virtClientset.VirtualMachineClusterPreference().Update(context.Background(), preference, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("unable to update preference %+v: %v", preference, err)
 	}
 	log.Log.V(2).Infof("preference %v updated", preference.GetName())
@@ -178,7 +178,7 @@ func (r *Reconciler) deletePreferences() error {
 		v1.ManagedByLabel:    v1.ManagedByLabelOperatorValue,
 	}
 
-	if err := r.clientset.VirtualMachineClusterPreference().DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+	if err := r.virtClientset.VirtualMachineClusterPreference().DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
 		LabelSelector: ls.String(),
 	}); err != nil {
 		return fmt.Errorf("unable to delete preferences: %v", err)

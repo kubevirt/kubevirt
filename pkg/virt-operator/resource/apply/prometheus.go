@@ -31,7 +31,7 @@ func (r *Reconciler) createOrUpdateServiceMonitors() error {
 }
 
 func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.ServiceMonitor) error {
-	prometheusClient := r.clientset.PrometheusClient()
+	prometheusClient := r.virtClientset.PrometheusClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	obj, exists, _ := r.stores.ServiceMonitorCache.Get(serviceMonitor)
@@ -106,7 +106,7 @@ func (r *Reconciler) createOrUpdatePrometheusRules() error {
 }
 
 func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.PrometheusRule) error {
-	prometheusClient := r.clientset.PrometheusClient()
+	prometheusClient := r.virtClientset.PrometheusClient()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	obj, exists, _ := r.stores.PrometheusRuleCache.Get(prometheusRule)

@@ -36,6 +36,7 @@ import (
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
@@ -302,7 +303,7 @@ func (r *Reconciler) createDummyWebhookValidator() error {
 	injectOperatorMetadata(r.kv, &validationWebhook.ObjectMeta, version, imageRegistry, id, true)
 
 	r.expectations.ValidationWebhook.RaiseExpectations(r.kvKey, 1, 0)
-	_, err := r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), validationWebhook, metav1.CreateOptions{})
+	_, err := r.k8sClientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), validationWebhook, metav1.CreateOptions{})
 	if err != nil {
 		r.expectations.ValidationWebhook.LowerExpectations(r.kvKey, 1, 0)
 		return fmt.Errorf("unable to create validation webhook: %v", err)
@@ -335,13 +336,14 @@ type Reconciler struct {
 	targetStrategy   install.StrategyInterface
 	stores           util.Stores
 	config           util.OperatorConfig
-	clientset        kubecli.KubevirtClient
+	virtClientset    kubecli.KubevirtClient
+	k8sClientset     kubernetes.Interface
 	aggregatorclient install.APIServiceInterface
 	expectations     *util.Expectations
 	recorder         record.EventRecorder
 }
 
-func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, stores util.Stores, config util.OperatorConfig, clientset kubecli.KubevirtClient, aggregatorclient install.APIServiceInterface, expectations *util.Expectations, recorder record.EventRecorder) (*Reconciler, error) {
+func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, stores util.Stores, config util.OperatorConfig, virtClientset kubecli.KubevirtClient, k8sClientset kubernetes.Interface, aggregatorclient install.APIServiceInterface, expectations *util.Expectations, recorder record.EventRecorder) (*Reconciler, error) {
 	kvKey, err := controller.KeyFunc(kv)
 	if err != nil {
 		return nil, err
@@ -363,7 +365,8 @@ func NewReconciler(kv *v1.KubeVirt, targetStrategy install.StrategyInterface, st
 		targetStrategy:   targetStrategy,
 		stores:           stores,
 		config:           config,
-		clientset:        clientset,
+		virtClientset:    virtClientset,
+		k8sClientset:     k8sClientset,
 		aggregatorclient: aggregatorclient,
 		expectations:     expectations,
 		recorder:         recorder,
@@ -421,7 +424,7 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 			return false, err
 		}
 	} else {
-		err := deleteDummyWebhookValidators(r.kv, r.clientset, r.stores, r.expectations)
+		err := deleteDummyWebhookValidators(r.kv, r.k8sClientset, r.stores, r.expectations)
 		if err != nil {
 			return false, err
 		}
@@ -664,7 +667,7 @@ func (r *Reconciler) deleteDeployment(deployment *appsv1.Deployment) error {
 		return err
 	}
 	r.expectations.Deployment.AddExpectedDeletion(r.kvKey, key)
-	if err := r.clientset.AppsV1().Deployments(deployment.Namespace).Delete(context.Background(), deployment.Name, metav1.DeleteOptions{}); err != nil {
+	if err := r.k8sClientset.AppsV1().Deployments(deployment.Namespace).Delete(context.Background(), deployment.Name, metav1.DeleteOptions{}); err != nil {
 		r.expectations.Deployment.DeletionObserved(r.kvKey, key)
 		return err
 	}
@@ -678,7 +681,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 		GracePeriodSeconds: &gracePeriod,
 	}
 
-	client := r.clientset.ExtensionsClient()
+	client := r.virtClientset.ExtensionsClient()
 	// -------- CLEAN UP OLD UNUSED OBJECTS --------
 	// outdated webhooks can potentially block deletes of other objects during the cleanup and need to be removed first
 
@@ -701,7 +704,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(webhook); err == nil {
 					r.expectations.ValidationWebhook.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
+					err := r.k8sClientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ValidationWebhook.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
@@ -726,7 +729,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(webhook); err == nil {
 					r.expectations.MutatingWebhook.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
+					err := r.k8sClientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(context.Background(), webhook.Name, deleteOptions)
 					if err != nil {
 						r.expectations.MutatingWebhook.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete webhook %+v: %v", webhook, err)
@@ -776,7 +779,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(secret); err == nil {
 					r.expectations.Secrets.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.CoreV1().Secrets(secret.Namespace).Delete(context.Background(), secret.Name, deleteOptions)
+					err := r.k8sClientset.CoreV1().Secrets(secret.Namespace).Delete(context.Background(), secret.Name, deleteOptions)
 					if err != nil {
 						r.expectations.Secrets.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete secret %+v: %v", secret, err)
@@ -801,7 +804,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(configMap); err == nil {
 					r.expectations.ConfigMap.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, deleteOptions)
+					err := r.k8sClientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ConfigMap.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete configmap %+v: %v", configMap, err)
@@ -826,7 +829,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(validatingAdmissionPolicyBinding); err == nil {
 					r.expectations.ValidatingAdmissionPolicyBinding.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(context.Background(), validatingAdmissionPolicyBinding.Name, deleteOptions)
+					err := r.k8sClientset.AdmissionregistrationV1().ValidatingAdmissionPolicyBindings().Delete(context.Background(), validatingAdmissionPolicyBinding.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ValidatingAdmissionPolicyBinding.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete validatingAdmissionPolicyBinding %+v: %v", validatingAdmissionPolicyBinding, err)
@@ -851,7 +854,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(validatingAdmissionPolicy); err == nil {
 					r.expectations.ValidatingAdmissionPolicy.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), validatingAdmissionPolicy.Name, deleteOptions)
+					err := r.k8sClientset.AdmissionregistrationV1().ValidatingAdmissionPolicies().Delete(context.Background(), validatingAdmissionPolicy.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ValidatingAdmissionPolicy.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete validatingAdmissionPolicy %+v: %v", validatingAdmissionPolicy, err)
@@ -901,7 +904,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(ds); err == nil {
 					r.expectations.DaemonSet.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AppsV1().DaemonSets(ds.Namespace).Delete(context.Background(), ds.Name, deleteOptions)
+					err := r.k8sClientset.AppsV1().DaemonSets(ds.Namespace).Delete(context.Background(), ds.Name, deleteOptions)
 					if err != nil {
 						r.expectations.DaemonSet.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete daemonset: %v", err)
@@ -926,7 +929,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(deployment); err == nil {
 					r.expectations.Deployment.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.AppsV1().Deployments(deployment.Namespace).Delete(context.Background(), deployment.Name, deleteOptions)
+					err := r.k8sClientset.AppsV1().Deployments(deployment.Namespace).Delete(context.Background(), deployment.Name, deleteOptions)
 					if err != nil {
 						r.expectations.Deployment.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete deployment: %v", err)
@@ -951,7 +954,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(svc); err == nil {
 					r.expectations.Service.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.CoreV1().Services(svc.Namespace).Delete(context.Background(), svc.Name, deleteOptions)
+					err := r.k8sClientset.CoreV1().Services(svc.Namespace).Delete(context.Background(), svc.Name, deleteOptions)
 					if err != nil {
 						r.expectations.Service.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete service %+v: %v", svc, err)
@@ -976,7 +979,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(crb); err == nil {
 					r.expectations.ClusterRoleBinding.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, deleteOptions)
+					err := r.k8sClientset.RbacV1().ClusterRoleBindings().Delete(context.Background(), crb.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ClusterRoleBinding.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete crb %+v: %v", crb, err)
@@ -1001,7 +1004,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(cr); err == nil {
 					r.expectations.ClusterRole.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.RbacV1().ClusterRoles().Delete(context.Background(), cr.Name, deleteOptions)
+					err := r.k8sClientset.RbacV1().ClusterRoles().Delete(context.Background(), cr.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ClusterRole.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete cr %+v: %v", cr, err)
@@ -1026,7 +1029,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(rb); err == nil {
 					r.expectations.RoleBinding.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.RbacV1().RoleBindings(rb.Namespace).Delete(context.Background(), rb.Name, deleteOptions)
+					err := r.k8sClientset.RbacV1().RoleBindings(rb.Namespace).Delete(context.Background(), rb.Name, deleteOptions)
 					if err != nil {
 						r.expectations.RoleBinding.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete rb %+v: %v", rb, err)
@@ -1051,7 +1054,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(role); err == nil {
 					r.expectations.Role.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.RbacV1().Roles(role.Namespace).Delete(context.Background(), role.Name, deleteOptions)
+					err := r.k8sClientset.RbacV1().Roles(role.Namespace).Delete(context.Background(), role.Name, deleteOptions)
 					if err != nil {
 						r.expectations.Role.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete role %+v: %v", role, err)
@@ -1076,7 +1079,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(sa); err == nil {
 					r.expectations.ServiceAccount.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.CoreV1().ServiceAccounts(sa.Namespace).Delete(context.Background(), sa.Name, deleteOptions)
+					err := r.k8sClientset.CoreV1().ServiceAccounts(sa.Namespace).Delete(context.Background(), sa.Name, deleteOptions)
 					if err != nil {
 						r.expectations.ServiceAccount.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete serviceaccount %+v: %v", sa, err)
@@ -1107,7 +1110,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(scc); err == nil {
 					r.expectations.SCC.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.SecClient().SecurityContextConstraints().Delete(context.Background(), scc.Name, deleteOptions)
+					err := r.virtClientset.SecClient().SecurityContextConstraints().Delete(context.Background(), scc.Name, deleteOptions)
 					if err != nil {
 						r.expectations.SCC.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete SecurityContextConstraints %+v: %v", scc, err)
@@ -1132,7 +1135,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(cachePromRule); err == nil {
 					r.expectations.PrometheusRule.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.PrometheusClient().
+					err := r.virtClientset.PrometheusClient().
 						MonitoringV1().
 						PrometheusRules(cachePromRule.Namespace).
 						Delete(context.Background(), cachePromRule.Name, deleteOptions)
@@ -1160,7 +1163,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 			if !found {
 				if key, err := controller.KeyFunc(cacheServiceMonitor); err == nil {
 					r.expectations.ServiceMonitor.AddExpectedDeletion(r.kvKey, key)
-					err := r.clientset.PrometheusClient().
+					err := r.virtClientset.PrometheusClient().
 						MonitoringV1().
 						ServiceMonitors(cacheServiceMonitor.Namespace).
 						Delete(context.Background(), cacheServiceMonitor.Name, deleteOptions)
@@ -1180,7 +1183,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	}
 
 	// remove unused instancetype objects
-	instancetypes, err := r.clientset.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
+	instancetypes, err := r.virtClientset.VirtualMachineClusterInstancetype().List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
 	if err != nil {
 		log.Log.Errorf("Failed to get instancetypes: %v", err)
 	}
@@ -1194,7 +1197,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 				}
 			}
 			if !found {
-				if err := r.clientset.VirtualMachineClusterInstancetype().Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{}); err != nil {
+				if err := r.virtClientset.VirtualMachineClusterInstancetype().Delete(context.Background(), instancetype.Name, metav1.DeleteOptions{}); err != nil {
 					log.Log.Errorf("Failed to delete instancetype %+v: %v", instancetype, err)
 					return err
 				}
@@ -1203,7 +1206,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	}
 
 	// remove unused preference objects
-	preferences, err := r.clientset.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
+	preferences, err := r.virtClientset.VirtualMachineClusterPreference().List(context.Background(), metav1.ListOptions{LabelSelector: managedByVirtOperatorLabelSet.String()})
 	if err != nil {
 		log.Log.Errorf("Failed to get preferences: %v", err)
 	}
@@ -1217,7 +1220,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 				}
 			}
 			if !found {
-				if err := r.clientset.VirtualMachineClusterPreference().Delete(context.Background(), preference.Name, metav1.DeleteOptions{}); err != nil {
+				if err := r.virtClientset.VirtualMachineClusterPreference().Delete(context.Background(), preference.Name, metav1.DeleteOptions{}); err != nil {
 					log.Log.Errorf("Failed to delete preference %+v: %v", preference, err)
 					return err
 				}
