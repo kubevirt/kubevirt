@@ -550,6 +550,23 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 					})
 			}
 		}
+		if requestedHookSidecar.HostPath != nil {
+			hostPathType := k8sv1.HostPathDirectory
+			if requestedHookSidecar.HostPath.Type != "" {
+				hostPathType = k8sv1.HostPathType(requestedHookSidecar.HostPath.Type)
+			}
+			volumeSource := k8sv1.VolumeSource{
+				HostPath: &k8sv1.HostPathVolumeSource{
+					Path: requestedHookSidecar.HostPath.Path,
+					Type: &hostPathType,
+				},
+			}
+			vol := k8sv1.Volume{
+				Name:         "hostpath-" + sanitizeVolumeName(requestedHookSidecar.HostPath.Path),
+				VolumeSource: volumeSource,
+			}
+			sidecarVolumes = append(sidecarVolumes, vol)
+		}
 		containers = append(containers, sidecarContainer)
 	}
 
@@ -737,6 +754,9 @@ func newSidecarContainerRenderer(sidecarName string, vmiSpec *v1.VirtualMachineI
 	if requestedHookSidecar.PVC != nil {
 		mounts = append(mounts, pvcVolumeMount(*requestedHookSidecar.PVC))
 	}
+	if requestedHookSidecar.HostPath != nil {
+		mounts = append(mounts, hostPathVolumeMount(*requestedHookSidecar.HostPath))
+	}
 	sidecarOpts = append(sidecarOpts, WithVolumeMounts(mounts...))
 
 	if util.IsNonRootVMI(vmiSpec) {
@@ -882,6 +902,23 @@ func pvcVolumeMount(v hooks.PVC) k8sv1.VolumeMount {
 		Name:      v.Name,
 		MountPath: v.VolumePath,
 	}
+}
+
+func hostPathVolumeMount(v hooks.HostPath) k8sv1.VolumeMount {
+	return k8sv1.VolumeMount{
+		Name:      "hostpath-" + sanitizeVolumeName(v.Path),
+		MountPath: v.VolumePath,
+	}
+}
+
+func sanitizeVolumeName(path string) string {
+	name := strings.ReplaceAll(path, "/", "-")
+	name = strings.ReplaceAll(name, "_", "-")
+	name = strings.Trim(name, "-")
+	if len(name) > 63 {
+		name = name[:63]
+	}
+	return name
 }
 
 func gracePeriodInSeconds(vmi *v1.VirtualMachineInstance) int64 {

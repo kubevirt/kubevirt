@@ -1,0 +1,45 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachineInstance
+metadata:
+  name: vmi-with-sidecar-hostpath
+  annotations:
+    hooks.kubevirt.io/hookSidecars: '[
+      {
+        "image": "registry.example.com/my-qemu-img-sidecar:latest",
+        "imagePullPolicy": "IfNotPresent",
+        "args": ["--version", "v1alpha2"],
+        "command": ["/usr/bin/create-cow-image.sh"],
+        "hostPath": {
+          "path": "/var/lib/kubevirt/images",
+          "volumePath": "/host-images",
+          "type": "Directory"
+        }
+      }
+    ]'
+spec:
+  domain:
+    devices:
+      disks:
+      - disk:
+          bus: virtio
+        name: containerdisk
+      - disk:
+          bus: virtio
+        name: cloudinitdisk
+    machine:
+      type: ""
+    resources:
+      requests:
+        memory: 1024M
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: containerdisk
+    containerDisk:
+      image: quay.io/kubevirt/cirros-container-disk-demo:latest
+  - cloudInitNoCloud:
+      userData: |-
+        #cloud-config
+        password: fedora
+        chpasswd: { expire: False }
+    name: cloudinitdisk
+

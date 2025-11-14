@@ -44,6 +44,12 @@ type PVC struct {
 	SharedComputePath string `json:"sharedComputePath"`
 }
 
+type HostPath struct {
+	Path       string `json:"path"`
+	VolumePath string `json:"volumePath"`
+	Type       string `json:"type,omitempty"`
+}
+
 type HookSidecar struct {
 	Image           string                           `json:"image,omitempty"`
 	ImagePullPolicy k8sv1.PullPolicy                 `json:"imagePullPolicy"`
@@ -51,6 +57,7 @@ type HookSidecar struct {
 	Args            []string                         `json:"args,omitempty"`
 	ConfigMap       *ConfigMap                       `json:"configMap,omitempty"`
 	PVC             *PVC                             `json:"pvc,omitempty"`
+	HostPath        *HostPath                        `json:"hostPath,omitempty"`
 	DownwardAPI     v1.NetworkBindingDownwardAPIType `json:"-"`
 }
 
