@@ -1056,3 +1056,103 @@ tests:
               namespace: "test-ns"
               status: "terminating"
               node: "worker-node-4"
+
+  # GuestFilesystemAlmostOutOfSpace - Warning (85% usage)
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="test-vm", namespace="test-ns", disk_name="vda", mount_point="/", file_system_type="ext4"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="test-vm", namespace="test-ns", disk_name="vda", mount_point="/", file_system_type="ext4"}'
+        values: "80 80 85 85 85 86 86 86 86 86 86 86 86 75 75"
+
+    alert_rule_test:
+      # at 1m: usage = 80% -> no alert
+      - eval_time: 1m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+      # at 7m: usage = 86% -> no alert (below 10m threshold)
+      - eval_time: 7m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+      # at 12m: usage = 86% for 5+ minutes -> warning alert fires
+      - eval_time: 12m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts:
+          - exp_annotations:
+              summary: "Guest filesystem is running out of space"
+              description: "VirtualMachineInstance test-vm in namespace test-ns has filesystem vda (/) usage above 85% (current: 86%)."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/GuestFilesystemAlmostOutOfSpace"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "test-vm"
+              namespace: "test-ns"
+              disk_name: "vda"
+              mount_point: "/"
+              file_system_type: "ext4"
+
+      # at 13m: usage drops to 75% -> alert clears
+      - eval_time: 13m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+  # GuestFilesystemAlmostOutOfSpace - Critical (95% usage)
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="test-vm", namespace="test-ns", disk_name="vda", mount_point="/", file_system_type="ext4"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="test-vm", namespace="test-ns", disk_name="vda", mount_point="/", file_system_type="ext4"}'
+        values: "90 90 95 95 95 96 96 96 85 85"
+
+    alert_rule_test:
+      # at 1m: usage = 90% -> no alert
+      - eval_time: 1m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+      # at 3m: usage = 95% -> alert (no threshold)
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts:
+          - exp_annotations:
+              summary: "Guest filesystem is critically low on space"
+              description: "VirtualMachineInstance test-vm in namespace test-ns has filesystem vda (/) usage above 95% (current: 95%)."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/GuestFilesystemAlmostOutOfSpace"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "test-vm"
+              namespace: "test-ns"
+              disk_name: "vda"
+              mount_point: "/"
+              file_system_type: "ext4"
+
+      # at 7m: usage = 96% for 5+ minutes -> alert still fires
+      - eval_time: 7m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts:
+          - exp_annotations:
+              summary: "Guest filesystem is critically low on space"
+              description: "VirtualMachineInstance test-vm in namespace test-ns has filesystem vda (/) usage above 95% (current: 96%)."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/GuestFilesystemAlmostOutOfSpace"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "test-vm"
+              namespace: "test-ns"
+              disk_name: "vda"
+              mount_point: "/"
+              file_system_type: "ext4"
+
+      # at 8m: usage drops to 85% -> alert clears
+      - eval_time: 8m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
