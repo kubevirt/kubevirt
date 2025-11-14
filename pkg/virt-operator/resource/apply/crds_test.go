@@ -103,7 +103,7 @@ var _ = Describe("Apply CRDs", func() {
 			kv:             kv,
 			targetStrategy: targetStrategy,
 			stores:         stores,
-			clientset:      clientset,
+			virtClientset:  clientset,
 			expectations:   expectations,
 		}
 
@@ -158,7 +158,7 @@ var _ = Describe("Apply CRDs", func() {
 			kv:             kv,
 			targetStrategy: targetStrategy,
 			stores:         stores,
-			clientset:      clientset,
+			virtClientset:  clientset,
 			expectations:   expectations,
 		}
 
