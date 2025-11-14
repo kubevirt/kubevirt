@@ -13,9 +13,9 @@ ENV GOLANGCI_LINT_VERSION=v2.2.2
 ENV KUBEVIRT_CREATE_BAZELRCS=false
 
 # Install packages
-RUN dnf install -y dnf-plugins-core && \
+RUN dnf install -y --nodocs dnf-plugins-core && \
     dnf config-manager --enable crb && \
-    dnf install -y --setopt=install_weak_deps=False \
+    dnf install -y --nodocs --setopt=install_weak_deps=False \
         java-11-openjdk-devel \
         libvirt-devel \
         cpio \
