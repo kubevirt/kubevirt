@@ -1567,6 +1567,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},
+		compute.NewLaunchSecurityDomainConfigurator(c.Architecture),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1621,10 +1622,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
-	}
-
-	if util.UseLaunchSecurity(vmi) {
-		domain.Spec.LaunchSecurity = c.Architecture.LaunchSecurity(vmi)
 	}
 
 	if c.SMBios != nil {
