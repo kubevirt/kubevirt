@@ -30082,7 +30082,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_ClockPreferences(ref common.Refe
 					},
 					"preferredTimer": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Timer specifies whih timers are attached to the vmi.",
+							Description: "Timer specifies which timers are attached to the vmi.",
 							Ref:         ref("kubevirt.io/api/core/v1.Timer"),
 						},
 					},
@@ -30346,7 +30346,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_FirmwarePreferences(ref common.R
 					},
 					"preferredUseBiosSerial": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PreferredUseBiosSerial optionally transmitts BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.",
+							Description: "PreferredUseBiosSerial optionally transmits BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -31069,7 +31069,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachinePreferenceSpec(ref
 					},
 					"volumes": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec",
+							Description: "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstance DomainSpec",
 							Ref:         ref("kubevirt.io/api/instancetype/v1beta1.VolumePreferences"),
 						},
 					},
@@ -31089,7 +31089,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachinePreferenceSpec(ref
 					},
 					"requirements": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Requirements defines the minium amount of instance type defined resources required by a set of preferences",
+							Description: "Requirements defines the minimum amount of instance type defined resources required by a set of preferences",
 							Ref:         ref("kubevirt.io/api/instancetype/v1beta1.PreferenceRequirements"),
 						},
 					},
@@ -31118,7 +31118,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_VirtualMachinePreferenceSpec(ref
 					},
 					"preferredArchitecture": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine",
+							Description: "PreferredArchitecture defines a preferred architecture for the VirtualMachine",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -31139,7 +31139,7 @@ func schema_kubevirtio_api_instancetype_v1beta1_VolumePreferences(ref common.Ref
 				Properties: map[string]spec.Schema{
 					"preferredStorageClassName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "PreffereedStorageClassName optionally defines the preferred storageClass",
+							Description: "PreferredStorageClassName optionally defines the preferred storageClass",
 							Type:        []string{"string"},
 							Format:      "",
 						},

@@ -19207,7 +19207,7 @@
       "$ref": "#/definitions/v1.ClockOffset"
      },
      "preferredTimer": {
-      "description": "Timer specifies whih timers are attached to the vmi.",
+      "description": "Timer specifies which timers are attached to the vmi.",
       "$ref": "#/definitions/v1.Timer"
      }
     }
@@ -19753,7 +19753,7 @@
       "type": "boolean"
      },
      "preferredUseBiosSerial": {
-      "description": "PreferredUseBiosSerial optionally transmitts BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.",
+      "description": "PreferredUseBiosSerial optionally transmits BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.",
       "type": "boolean"
      },
      "preferredUseEfi": {
@@ -21021,7 +21021,7 @@
       "format": "int64"
      },
      "preferredArchitecture": {
-      "description": "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine",
+      "description": "PreferredArchitecture defines a preferred architecture for the VirtualMachine",
       "type": "string"
      },
      "preferredSubdomain": {
@@ -21034,11 +21034,11 @@
       "format": "int64"
      },
      "requirements": {
-      "description": "Requirements defines the minium amount of instance type defined resources required by a set of preferences",
+      "description": "Requirements defines the minimum amount of instance type defined resources required by a set of preferences",
       "$ref": "#/definitions/v1beta1.PreferenceRequirements"
      },
      "volumes": {
-      "description": "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec",
+      "description": "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1beta1.VolumePreferences"
      }
     }
@@ -21457,7 +21457,7 @@
     "type": "object",
     "properties": {
      "preferredStorageClassName": {
-      "description": "PreffereedStorageClassName optionally defines the preferred storageClass",
+      "description": "PreferredStorageClassName optionally defines the preferred storageClass",
       "type": "string"
      }
     }

@@ -273,7 +273,7 @@ type VirtualMachinePreferenceSpec struct {
 	//+optional
 	Machine *MachinePreferences `json:"machine,omitempty"`
 
-	// Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec
+	// Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstance DomainSpec
 	//
 	//+optional
 	Volumes *VolumePreferences `json:"volumes,omitempty"`
@@ -288,7 +288,7 @@ type VirtualMachinePreferenceSpec struct {
 	//+optional
 	PreferredTerminationGracePeriodSeconds *int64 `json:"preferredTerminationGracePeriodSeconds,omitempty"`
 
-	// Requirements defines the minium amount of instance type defined resources required by a set of preferences
+	// Requirements defines the minimum amount of instance type defined resources required by a set of preferences
 	//
 	//+optional
 	Requirements *PreferenceRequirements `json:"requirements,omitempty"`
@@ -303,7 +303,7 @@ type VirtualMachinePreferenceSpec struct {
 	//+optional
 	PreferSpreadSocketToCoreRatio uint32 `json:"preferSpreadSocketToCoreRatio,omitempty"`
 
-	// PreferredArchitecture defines a prefeerred architecture for the VirtualMachine
+	// PreferredArchitecture defines a preferred architecture for the VirtualMachine
 	//
 	//+optional
 	PreferredArchitecture *string `json:"preferredArchitecture,omitempty"`
@@ -311,7 +311,7 @@ type VirtualMachinePreferenceSpec struct {
 
 type VolumePreferences struct {
 
-	// PreffereedStorageClassName optionally defines the preferred storageClass
+	// PreferredStorageClassName optionally defines the preferred storageClass
 	//
 	//+optional
 	PreferredStorageClassName string `json:"preferredStorageClassName,omitempty"`
@@ -577,7 +577,7 @@ type FirmwarePreferences struct {
 	// +optional
 	PreferredUseBios *bool `json:"preferredUseBios,omitempty"`
 
-	// PreferredUseBiosSerial optionally transmitts BIOS output over the serial.
+	// PreferredUseBiosSerial optionally transmits BIOS output over the serial.
 	//
 	// Requires PreferredUseBios to be enabled.
 	//
@@ -621,7 +621,7 @@ type ClockPreferences struct {
 	// +optional
 	PreferredClockOffset *v1.ClockOffset `json:"preferredClockOffset,omitempty"`
 
-	// Timer specifies whih timers are attached to the vmi.
+	// Timer specifies which timers are attached to the vmi.
 	//
 	// +optional
 	PreferredTimer *v1.Timer `json:"preferredTimer,omitempty"`
