@@ -29,7 +29,7 @@ var _ = Describe("Node Selector Renderer", func() {
 				})
 
 				It("must be scheduled on nodes featuring the `cpumanager` label", func() {
-					Expect(nsr.Render()).To(HaveLabel("cpumanager"))
+					Expect(nsr.Render()).To(HaveLabel("kubevirt.io/cpumanager"))
 				})
 			})
 
