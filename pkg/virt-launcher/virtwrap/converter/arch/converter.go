@@ -46,7 +46,6 @@ type Converter interface {
 	ShouldVerboseLogsBeEnabled() bool
 	ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error
 	SupportPCIHole64Disabling() bool
-	LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity
 }
 
 func NewConverter(arch string) Converter {

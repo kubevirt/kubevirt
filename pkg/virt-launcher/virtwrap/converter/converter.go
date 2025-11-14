@@ -1567,7 +1567,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},
-		compute.NewLaunchSecurityDomainConfigurator(c.Architecture),
+		compute.NewLaunchSecurityDomainConfigurator(c.Architecture.GetArchitecture()),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
