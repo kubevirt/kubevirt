@@ -47,13 +47,13 @@ func (VirtualMachineInstancetypeSpec) SwaggerDoc() map[string]string {
 func (CPUInstancetype) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "CPUInstancetype contains the CPU related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the number of vCPUs to be exposed to the guest by the instancetype.",
-		"guest":                 "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.",
+		"guest":                 "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.\n+kubebuilder:validation:Minimum=1",
 		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
 		"dedicatedCPUPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
 		"numa":                  "NUMA allows specifying settings for the guest NUMA topology\n+optional",
 		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
 		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads\n+optional",
-		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can be hotplugged\n+optional",
+		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can be hotplugged\n+kubebuilder:validation:Minimum=1\n+optional",
 	}
 }
 
@@ -123,7 +123,7 @@ func (VolumePreferences) SwaggerDoc() map[string]string {
 func (CPUPreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "CPUPreferences contains various optional CPU preferences.",
-		"preferredCPUTopology": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.\n\n+optional",
+		"preferredCPUTopology": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.\n\n+optional\n+kubebuilder:validation:Enum=preferCores;preferSockets;preferThreads;preferSpread;preferAny;cores;sockets;threads;spread;any",
 		"spreadOptions":        "+optional",
 		"preferredCPUFeatures": "PreferredCPUFeatures optionally defines a slice of preferred CPU features.\n\n+optional",
 	}
@@ -131,8 +131,8 @@ func (CPUPreferences) SwaggerDoc() map[string]string {
 
 func (SpreadOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"across": "Across optionally defines how to spread vCPUs across the guest visible topology.\nDefault: SocketsCores\n\n+optional",
-		"ratio":  "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.\nSocketsCores        - 1:N   - Controls the ratio of socket to cores.\nSocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2\n\n+optional",
+		"across": "Across optionally defines how to spread vCPUs across the guest visible topology.\nDefault: SocketsCores\n\n+optional\n+kubebuilder:validation:Enum=SocketsCoresThreads;SocketsCores;CoresThreads",
+		"ratio":  "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.\nSocketsCores        - 1:N   - Controls the ratio of socket to cores.\nSocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2\n\n+optional\n+kubebuilder:validation:Minimum=1",
 	}
 }
 
