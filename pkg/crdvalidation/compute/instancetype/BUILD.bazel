@@ -9,6 +9,7 @@ go_test(
     race = "on",
     deps = [
         "//pkg/crdvalidation:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

@@ -9441,6 +9441,7 @@ var CRDsValidation map[string]string = map[string]string{
 
                 The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.
               format: int32
+              minimum: 1
               type: integer
             isolateEmulatorThread:
               description: |-
@@ -9451,6 +9452,7 @@ var CRDsValidation map[string]string = map[string]string{
               description: MaxSockets specifies the maximum amount of sockets that
                 can be hotplugged
               format: int32
+              minimum: 1
               type: integer
             model:
               description: |-
@@ -9833,6 +9835,17 @@ var CRDsValidation map[string]string = map[string]string{
             preferredCPUTopology:
               description: PreferredCPUTopology optionally defines the preferred guest
                 visible CPU topology, defaults to PreferSockets.
+              enum:
+              - preferCores
+              - preferSockets
+              - preferThreads
+              - preferSpread
+              - preferAny
+              - cores
+              - sockets
+              - threads
+              - spread
+              - any
               type: string
             spreadOptions:
               properties:
@@ -9840,6 +9853,10 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     Across optionally defines how to spread vCPUs across the guest visible topology.
                     Default: SocketsCores
+                  enum:
+                  - SocketsCoresThreads
+                  - SocketsCores
+                  - CoresThreads
                   type: string
                 ratio:
                   description: |-
@@ -9851,6 +9868,7 @@ var CRDsValidation map[string]string = map[string]string{
 
                     Default: 2
                   format: int32
+                  minimum: 1
                   type: integer
               type: object
           type: object
@@ -20598,6 +20616,7 @@ var CRDsValidation map[string]string = map[string]string{
 
                 The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.
               format: int32
+              minimum: 1
               type: integer
             isolateEmulatorThread:
               description: |-
@@ -20608,6 +20627,7 @@ var CRDsValidation map[string]string = map[string]string{
               description: MaxSockets specifies the maximum amount of sockets that
                 can be hotplugged
               format: int32
+              minimum: 1
               type: integer
             model:
               description: |-
@@ -25761,6 +25781,17 @@ var CRDsValidation map[string]string = map[string]string{
             preferredCPUTopology:
               description: PreferredCPUTopology optionally defines the preferred guest
                 visible CPU topology, defaults to PreferSockets.
+              enum:
+              - preferCores
+              - preferSockets
+              - preferThreads
+              - preferSpread
+              - preferAny
+              - cores
+              - sockets
+              - threads
+              - spread
+              - any
               type: string
             spreadOptions:
               properties:
@@ -25768,6 +25799,10 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     Across optionally defines how to spread vCPUs across the guest visible topology.
                     Default: SocketsCores
+                  enum:
+                  - SocketsCoresThreads
+                  - SocketsCores
+                  - CoresThreads
                   type: string
                 ratio:
                   description: |-
@@ -25779,6 +25814,7 @@ var CRDsValidation map[string]string = map[string]string{
 
                     Default: 2
                   format: int32
+                  minimum: 1
                   type: integer
               type: object
           type: object
