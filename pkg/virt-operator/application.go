@@ -218,7 +218,7 @@ func Execute() {
 
 	app.config = util.OperatorConfig{}
 
-	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.aggregatorClient, app.operatorNamespace)
+	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.clientSet, app.clientSet, app.aggregatorClient, app.operatorNamespace)
 	app.informers = util.Informers{
 		KubeVirt:                 app.informerFactory.KubeVirt(),
 		CRD:                      app.informerFactory.CRD(),
