@@ -101,6 +101,7 @@ func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, 
 	processedSockets := make(map[string]bool)
 
 	timeoutCh := time.After(timeout)
+	ticker := time.NewTicker(300 * time.Millisecond)
 
 	for uint(len(processedSockets)) < numberOfRequestedHookSidecars {
 		entries, err := os.ReadDir(m.hookSocketSharedDirectory)
@@ -143,10 +144,8 @@ func (m *hookManager) collectSideCarSockets(numberOfRequestedHookSidecars uint, 
 		select {
 		case <-timeoutCh:
 			return nil, fmt.Errorf("Failed to collect all expected sidecar hook sockets within given timeout")
-		default:
+		case <-ticker.C:
 		}
-
-		time.Sleep(time.Second)
 	}
 
 	return callbacksPerHookPoint, nil
