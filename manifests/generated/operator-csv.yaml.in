@@ -1491,6 +1491,7 @@ spec:
           - kubevirt-virt-handler-certs
           - kubevirt-virt-handler-server-certs
           - kubevirt-virt-handler-migration-client-certs
+          - kubevirt-virt-handler-vsock-client-certs
           - kubevirt-operator-certs
           - kubevirt-virt-api-certs
           - kubevirt-controller-certs

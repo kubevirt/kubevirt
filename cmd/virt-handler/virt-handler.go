@@ -118,12 +118,14 @@ const (
 	defaultCAConfigMapName = "kubevirt-ca"
 
 	// Default certificate and key paths
-	defaultClientCertFilePath    = "/etc/virt-handler/clientcertificates/tls.crt"
-	defaultClientKeyFilePath     = "/etc/virt-handler/clientcertificates/tls.key"
-	defaultTlsCertFilePath       = "/etc/virt-handler/servercertificates/tls.crt"
-	defaultTlsKeyFilePath        = "/etc/virt-handler/servercertificates/tls.key"
-	defaultMigrationCertFilePath = "/etc/virt-handler/migrationservercertificates/tls.crt"
-	defaultMigrationKeyFilePath  = "/etc/virt-handler/migrationservercertificates/tls.key"
+	defaultClientCertFilePath      = "/etc/virt-handler/clientcertificates/tls.crt"
+	defaultClientKeyFilePath       = "/etc/virt-handler/clientcertificates/tls.key"
+	defaultVsockClientCertFilePath = "/etc/virt-handler/vsockclientcertificates/tls.crt"
+	defaultVsockClientKeyFilePath  = "/etc/virt-handler/vsockclientcertificates/tls.key"
+	defaultTlsCertFilePath         = "/etc/virt-handler/servercertificates/tls.crt"
+	defaultTlsKeyFilePath          = "/etc/virt-handler/servercertificates/tls.key"
+	defaultMigrationCertFilePath   = "/etc/virt-handler/migrationservercertificates/tls.crt"
+	defaultMigrationKeyFilePath    = "/etc/virt-handler/migrationservercertificates/tls.key"
 )
 
 var (
@@ -145,14 +147,16 @@ type virtHandlerApp struct {
 	gracefulShutdownSeconds   int
 	migrationCNTypes          []string
 
-	caConfigMapName       string
-	clientCertFilePath    string
-	clientKeyFilePath     string
-	serverCertFilePath    string
-	serverKeyFilePath     string
-	migrationCertFilePath string
-	migrationKeyFilePath  string
-	externallyManaged     bool
+	caConfigMapName         string
+	clientCertFilePath      string
+	clientKeyFilePath       string
+	vsockClientCertFilePath string
+	vsockClientKeyFilePath  string
+	serverCertFilePath      string
+	serverKeyFilePath       string
+	migrationCertFilePath   string
+	migrationKeyFilePath    string
+	externallyManaged       bool
 
 	virtCli   kubecli.KubevirtClient
 	namespace string
@@ -163,6 +167,7 @@ type virtHandlerApp struct {
 	migrationClientTLSConfig    *tls.Config
 	consoleServerPort           int
 	clientcertmanager           certificate.Manager
+	vsockClientCertManager      certificate.Manager
 	servercertmanager           certificate.Manager
 	migrationCertManager        certificate.Manager
 	promTLSConfig               *tls.Config
@@ -179,6 +184,7 @@ var (
 
 func (app *virtHandlerApp) prepareCertManager() (err error) {
 	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
+	app.vsockClientCertManager = bootstrap.NewFileCertificateManager(app.vsockClientCertFilePath, app.vsockClientKeyFilePath)
 	app.servercertmanager = bootstrap.NewFileCertificateManager(app.serverCertFilePath, app.serverKeyFilePath)
 	app.migrationCertManager = bootstrap.NewFileCertificateManager(app.migrationCertFilePath, app.migrationKeyFilePath)
 	return
@@ -436,6 +442,7 @@ func (app *virtHandlerApp) Run() {
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()
 	go app.migrationCertManager.Start()
+	go app.vsockClientCertManager.Start()
 
 	// Bootstrapping. From here on the startup order matters
 
@@ -491,7 +498,7 @@ func (app *virtHandlerApp) Run() {
 	consoleHandler := rest.NewConsoleHandler(
 		podIsolationDetector,
 		vmiSourceInformer.GetStore(),
-		app.clientcertmanager,
+		app.vsockClientCertManager,
 	)
 
 	errCh := make(chan error)
@@ -703,6 +710,12 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.BoolVar(&app.enableNodeLabeller, "enable-node-labeller", true,
 		"Enable Node Labeller controller.")
 	flag.StringArrayVar(&app.migrationCNTypes, "migration-cn-types", defaultCNTypes, "The Common Name types that should be asserted for migration connections")
+
+	flag.StringVar(&app.vsockClientCertFilePath, "vsock-client-cert-file", defaultVsockClientCertFilePath,
+		"Client certificate used to prove the identity of the virt-handler to in-guest vsock agent")
+
+	flag.StringVar(&app.vsockClientKeyFilePath, "vsock-client-key-file", defaultVsockClientKeyFilePath,
+		"Private key for the client certificate used to prove the identity of the virt-handler to in-guest vsock agent")
 }
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {
