@@ -97,6 +97,23 @@ var _ = Describe("Node-labeller config", func() {
 		Expect(cpuFeatures).To(HaveLen(4), "number of features doesn't match")
 	})
 
+	It("should mark all CPU models from domCapabilities as known, regardless of usability", func() {
+		nlController.domCapabilitiesFileName = "virsh_domcapabilities.xml"
+
+		err := nlController.loadDomCapabilities()
+		Expect(err).ToNot(HaveOccurred())
+
+		knownCpuModels := nlController.getKnownCpuModels(nlController.clusterConfig.GetObsoleteCPUModels())
+
+		Expect(knownCpuModels).To(ConsistOf(
+			"EPYC-IBPB",
+			"Penryn",
+			"IvyBridge",
+			"Haswell",
+			"Skylake-Client-IBRS",
+		), "expected all CPU models from domCapabilities to be marked as known")
+	})
+
 	It("Should return the cpu features on s390x even without policy='require' property", func() {
 		nlController.arch = newArchLabeller(s390x)
 		nlController.volumePath = "testdata/s390x"
