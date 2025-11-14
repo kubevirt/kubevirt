@@ -75,7 +75,7 @@ func (r *Reconciler) syncKubevirtNamespaceLabels() error {
 	}
 
 	log.Log.Infof("Patching namespace %s with %s", targetNamespace, labelsPatch)
-	_, err = r.clientset.CoreV1().Namespaces().Patch(context.Background(),
+	_, err = r.k8sClientset.CoreV1().Namespaces().Patch(context.Background(),
 		targetNamespace,
 		types.MergePatchType,
 		[]byte(fmt.Sprintf(`{"metadata":{"labels": %s}}`, labelsPatch)),
@@ -102,7 +102,7 @@ func (r *Reconciler) createOrUpdateServices() (bool, error) {
 }
 
 func (r *Reconciler) createOrUpdateService(service *corev1.Service) (bool, error) {
-	core := r.clientset.CoreV1()
+	core := r.k8sClientset.CoreV1()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	injectOperatorMetadata(r.kv, &service.ObjectMeta, version, imageRegistry, id, true)
@@ -158,7 +158,7 @@ func (r *Reconciler) getSecret(secret *corev1.Secret) (*corev1.Secret, bool, err
 		return obj.(*corev1.Secret), exists, nil
 	}
 
-	cachedSecret, err := r.clientset.CoreV1().Secrets(secret.Namespace).Get(context.Background(), secret.Name, metav1.GetOptions{})
+	cachedSecret, err := r.k8sClientset.CoreV1().Secrets(secret.Namespace).Get(context.Background(), secret.Name, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, false, nil
@@ -257,7 +257,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 
 	if !exists {
 		r.expectations.Secrets.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.CoreV1().Secrets(secret.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
+		_, err := r.k8sClientset.CoreV1().Secrets(secret.Namespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.Secrets.LowerExpectations(r.kvKey, 1, 0)
 			return nil, fmt.Errorf("unable to create secret %+v: %v", secret, err)
@@ -279,7 +279,7 @@ func (r *Reconciler) createOrUpdateCertificateSecret(queue workqueue.TypedRateLi
 		return nil, err
 	}
 
-	_, err = r.clientset.CoreV1().Secrets(secret.Namespace).Patch(context.Background(), secret.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = r.k8sClientset.CoreV1().Secrets(secret.Namespace).Patch(context.Background(), secret.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to patch secret %+v: %v", secret, err)
 	}
@@ -375,12 +375,12 @@ func (r *Reconciler) cleanupExternalCACerts(configMap *corev1.ConfigMap) error {
 	configMap.Data = map[string]string{components.CABundleKey: ""}
 	_, exists, _ := r.stores.ConfigMapCache.Get(configMap)
 	if !exists {
-		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
+		_, err := r.k8sClientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
 		}
 	} else {
-		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
+		_, err := r.k8sClientset.CoreV1().ConfigMaps(configMap.Namespace).Update(context.Background(), configMap, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to update configMap %+v: %v", configMap, err)
 		}
@@ -522,7 +522,7 @@ func generateServicePatch(
 }
 
 func (r *Reconciler) createOrUpdateServiceAccount(sa *corev1.ServiceAccount) error {
-	core := r.clientset.CoreV1()
+	core := r.k8sClientset.CoreV1()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 	injectOperatorMetadata(r.kv, &sa.ObjectMeta, version, imageRegistry, id, true)
 
@@ -681,7 +681,7 @@ func (r *Reconciler) createExternalKubeVirtCAConfigMap(configMap *corev1.ConfigM
 		injectOperatorMetadata(r.kv, &configMap.ObjectMeta, version, imageRegistry, id, true)
 
 		configMap.Data = map[string]string{components.CABundleKey: ""}
-		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
+		_, err := r.k8sClientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
 		}
@@ -708,7 +708,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 		data = data + string(cert.EncodeCertPEM(caCert.Leaf))
 		configMap.Data = map[string]string{components.CABundleKey: data}
 		r.expectations.ConfigMap.RaiseExpectations(r.kvKey, 1, 0)
-		_, err := r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
+		_, err := r.k8sClientset.CoreV1().ConfigMaps(configMap.Namespace).Create(context.Background(), configMap, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.ConfigMap.LowerExpectations(r.kvKey, 1, 0)
 			return nil, fmt.Errorf("unable to create configMap %+v: %v", configMap, err)
@@ -741,7 +741,7 @@ func (r *Reconciler) createOrUpdateKubeVirtCAConfigMap(queue workqueue.TypedRate
 		return nil, err
 	}
 
-	_, err = r.clientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(context.Background(), configMap.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = r.k8sClientset.CoreV1().ConfigMaps(configMap.Namespace).Patch(context.Background(), configMap.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("unable to patch configMap %+v: %v", configMap, err)
 	}
@@ -780,7 +780,7 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 		return nil
 	}
 	// Find the lease associated with the virt-synchronization controller
-	lease, err := r.clientset.CoordinationV1().Leases(r.kv.Namespace).Get(context.Background(), components.VirtSynchronizationControllerName, metav1.GetOptions{})
+	lease, err := r.k8sClientset.CoordinationV1().Leases(r.kv.Namespace).Get(context.Background(), components.VirtSynchronizationControllerName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
@@ -794,7 +794,7 @@ func (r *Reconciler) updateSynchronizationAddress() (err error) {
 	if podName == "" {
 		return nil
 	}
-	pod, err := r.clientset.CoreV1().Pods(r.kv.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	pod, err := r.k8sClientset.CoreV1().Pods(r.kv.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil
