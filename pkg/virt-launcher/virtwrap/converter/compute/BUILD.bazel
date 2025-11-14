@@ -22,6 +22,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "compute_suite_test.go",
+        "launch_security_test.go",
         "tpm_test.go",
         "vsock_test.go",
     ],
