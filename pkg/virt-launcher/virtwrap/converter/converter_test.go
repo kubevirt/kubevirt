@@ -3519,11 +3519,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should set IOMMU attribute of the RngDriver", func() {
-			rng := &api.Rng{}
-			Expect(Convert_v1_Rng_To_api_Rng(&v1.Rng{}, rng, c)).To(Succeed())
-			Expect(rng.Driver).ToNot(BeNil())
-			Expect(rng.Driver.IOMMU).To(Equal("on"))
-
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Rng).ToNot(BeNil())
@@ -3618,11 +3613,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should set IOMMU attribute of the RngDriver", func() {
-			rng := &api.Rng{}
-			Expect(Convert_v1_Rng_To_api_Rng(&v1.Rng{}, rng, c)).To(Succeed())
-			Expect(rng.Driver).ToNot(BeNil())
-			Expect(rng.Driver.IOMMU).To(Equal("on"))
-
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Rng).ToNot(BeNil())
