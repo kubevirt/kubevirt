@@ -176,6 +176,10 @@ func admitHotplug(
 		return response
 	}
 
+	if response := storageadmitters.AdmitUtilityVolumes(&newVMI.Spec, &oldVMI.Spec, oldVMI.Status.VolumeStatus, clusterConfig); response != nil {
+		return response
+	}
+
 	return storageadmitters.AdmitHotplugStorage(
 		newVMI.Spec.Volumes,
 		oldVMI.Spec.Volumes,

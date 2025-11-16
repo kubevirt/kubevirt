@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-var _ = Describe("PVC utils test", func() {
+var _ = Describe("PVC type test", func() {
 
 	namespace := "testns"
 	file1Name := "file1"

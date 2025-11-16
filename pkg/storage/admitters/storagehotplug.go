@@ -25,6 +25,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -315,4 +316,136 @@ func getMigratedVolumeMaps(migratedDisks []v1.StorageMigratedVolumeInfo) map[str
 		volumes[v.VolumeName] = true
 	}
 	return volumes
+}
+
+func validateUtilityVolumes(field *field.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if len(spec.UtilityVolumes) > 0 && !config.UtilityVolumesEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "UtilityVolumes feature gate is not enabled",
+			Field:   field.Child("utilityVolumes").String(),
+		})
+		return causes
+	}
+
+	volumeNameMap := make(map[string]int)
+	for idx, volume := range spec.Volumes {
+		volumeNameMap[volume.Name] = idx
+	}
+
+	utilityVolumeNameMap := make(map[string]int)
+	for idx, utilityVolume := range spec.UtilityVolumes {
+
+		if utilityVolume.Name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "UtilityVolume 'name' must be set",
+				Field:   field.Child("utilityVolumes").Index(idx).Child("name").String(),
+			})
+		}
+
+		if otherIdx, exists := utilityVolumeNameMap[utilityVolume.Name]; exists {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("%s and %s must not have the same Name.", field.Child("utilityVolumes").Index(idx).String(), field.Child("utilityVolumes").Index(otherIdx).String()),
+				Field:   field.Child("utilityVolumes").Index(idx).Child("name").String(),
+			})
+		} else {
+			utilityVolumeNameMap[utilityVolume.Name] = idx
+		}
+
+		// Check for conflicts with regular volume names
+		if regularVolumeIdx, exists := volumeNameMap[utilityVolume.Name]; exists {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("%s conflicts with %s. UtilityVolume names must be unique across both volumes and utilityVolumes.", field.Child("utilityVolumes").Index(idx).String(), field.Child("volumes").Index(regularVolumeIdx).String()),
+				Field:   field.Child("utilityVolumes").Index(idx).Child("name").String(),
+			})
+		}
+
+		// Validate PVC claim name is set
+		if utilityVolume.PersistentVolumeClaimVolumeSource.ClaimName == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "UtilityVolume PVC 'claimName' must be set",
+				Field:   field.Child("utilityVolumes").Index(idx).Child("claimName").String(),
+			})
+		}
+	}
+
+	return causes
+}
+
+func AdmitUtilityVolumes(newSpec, oldSpec *v1.VirtualMachineInstanceSpec, volumeStatuses []v1.VolumeStatus, config *virtconfig.ClusterConfig) *admissionv1.AdmissionResponse {
+	if causes := validateUtilityVolumes(field.NewPath("spec"), newSpec, config); len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	if oldSpec == nil {
+		return nil
+	}
+
+	// Ensure utility volumes are never treated as permanent volumes
+	// They should always be hotplug volumes
+	permanentVolumesFromStatus := make(map[string]bool)
+	for _, volumeStatus := range volumeStatuses {
+		if volumeStatus.HotplugVolume == nil {
+			permanentVolumesFromStatus[volumeStatus.Name] = true
+		}
+	}
+
+	// Check that no utility volumes are marked as permanent
+	for _, utilityVolume := range newSpec.UtilityVolumes {
+		if permanentVolumesFromStatus[utilityVolume.Name] {
+			return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("utility volume %s cannot be a permanent volume, utility volumes must always be hotplug", utilityVolume.Name),
+				},
+			})
+		}
+	}
+
+	newUtilityVolumeMap := getUtilityVolumeMap(newSpec.UtilityVolumes)
+	oldUtilityVolumeMap := getUtilityVolumeMap(oldSpec.UtilityVolumes)
+
+	for name, newVolume := range newUtilityVolumeMap {
+		if oldVolume, exists := oldUtilityVolumeMap[name]; exists {
+			// Existing utility volume, ensure it hasn't changed
+			if !equality.Semantic.DeepEqual(newVolume, oldVolume) {
+				return webhookutils.ToAdmissionResponse([]metav1.StatusCause{
+					{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("utility volume %s has changed", name),
+					},
+				})
+			}
+		}
+	}
+
+	return nil
+}
+
+func getUtilityVolumeMap(utilityVolumes []v1.UtilityVolume) map[string]v1.UtilityVolume {
+	utilityVolumeMap := make(map[string]v1.UtilityVolume)
+	for _, volume := range utilityVolumes {
+		utilityVolumeMap[volume.Name] = volume
+	}
+	return utilityVolumeMap
+}
+
+func ValidateUtilityVolumesNotPresentOnCreation(field *field.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.UtilityVolumes != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "cannot create VMI with utility volumes in spec, utility volumes can only be added via hotplug",
+			Field:   field.Child("utilityVolumes").String(),
+		})
+	}
+
+	return causes
 }

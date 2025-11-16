@@ -3052,7 +3052,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
 			virtlauncherPod.Spec.Volumes = virtlauncherVolumes
-			res := kvcontroller.GetHotplugVolumes(vmi, virtlauncherPod)
+			res := storagetypes.GetHotplugVolumes(vmi, virtlauncherPod)
 			Expect(res).To(HaveLen(len(expectedIndexes)))
 			for _, index := range expectedIndexes {
 				found := false
@@ -3339,6 +3339,313 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			Entry("should return global fs overhead if the storageClassName is invalid", k8sv1.PersistentVolumeFilesystem, "nonValid", virtv1.Percent("0.5")),
 			Entry("should return the appropiate overhead when using a valid storageClassName", k8sv1.PersistentVolumeFilesystem, "default", virtv1.Percent("0.8")),
 		)
+
+		It("Should set error for utility volume with block mode PVC", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
+				{
+					Name: "utility-vol",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "block-pvc",
+					},
+				},
+			}
+
+			blockMode := k8sv1.PersistentVolumeBlock
+			blockPVC := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "block-pvc",
+					Namespace: k8sv1.NamespaceDefault,
+				},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					VolumeMode: &blockMode,
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{
+						k8sv1.ReadWriteOnce,
+					},
+				},
+				Status: k8sv1.PersistentVolumeClaimStatus{
+					Phase: k8sv1.ClaimBound,
+				},
+			}
+
+			Expect(controller.pvcIndexer.Add(blockPVC)).To(Succeed())
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			err := controller.updateVolumeStatus(vmi, virtlauncherPod)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmi.Status.VolumeStatus).To(HaveLen(1))
+			volumeStatus := vmi.Status.VolumeStatus[0]
+			Expect(volumeStatus.Name).To(Equal("utility-vol"))
+			Expect(volumeStatus.Phase).To(Equal(virtv1.VolumePending))
+			Expect(volumeStatus.Reason).To(Equal(kvcontroller.PVCNotReadyReason))
+			Expect(volumeStatus.Message).To(ContainSubstring("must be filesystem mode, not block mode"))
+		})
+
+		It("Should accept utility volume with filesystem mode PVC", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
+				{
+					Name: "utility-vol",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "filesystem-pvc",
+					},
+				},
+			}
+
+			filesystemPVC := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "filesystem-pvc",
+					Namespace: k8sv1.NamespaceDefault,
+				},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{
+						k8sv1.ReadWriteOnce,
+					},
+				},
+				Status: k8sv1.PersistentVolumeClaimStatus{
+					Phase: k8sv1.ClaimBound,
+				},
+			}
+
+			Expect(controller.pvcIndexer.Add(filesystemPVC)).To(Succeed())
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			err := controller.updateVolumeStatus(vmi, virtlauncherPod)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vmi.Status.VolumeStatus).To(HaveLen(1))
+			volumeStatus := vmi.Status.VolumeStatus[0]
+			Expect(volumeStatus.Name).To(Equal("utility-vol"))
+			Expect(volumeStatus.Phase).To(Equal(virtv1.VolumeBound))
+			Expect(volumeStatus.Reason).To(Equal(kvcontroller.PVCNotReadyReason))
+			Expect(volumeStatus.Message).To(Equal("PVC is in phase Bound"))
+			Expect(volumeStatus.HotplugVolume).ToNot(BeNil())
+			Expect(volumeStatus.PersistentVolumeClaimInfo).ToNot(BeNil())
+			Expect(volumeStatus.PersistentVolumeClaimInfo.ClaimName).To(Equal("filesystem-pvc"))
+		})
+
+		Context("isUtilityVolumeWithBlockPVC", func() {
+			It("should return true for a utility volume with block mode PVC", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
+					{
+						Name: "utility-vol",
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "block-pvc",
+						},
+					},
+				}
+
+				blockMode := k8sv1.PersistentVolumeBlock
+				blockPVC := &k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "block-pvc",
+						Namespace: k8sv1.NamespaceDefault,
+					},
+					Spec: k8sv1.PersistentVolumeClaimSpec{
+						VolumeMode: &blockMode,
+						AccessModes: []k8sv1.PersistentVolumeAccessMode{
+							k8sv1.ReadWriteOnce,
+						},
+					},
+					Status: k8sv1.PersistentVolumeClaimStatus{
+						Phase: k8sv1.ClaimBound,
+					},
+				}
+
+				Expect(controller.pvcIndexer.Add(blockPVC)).To(Succeed())
+
+				utilityVolume := &virtv1.Volume{
+					Name: "utility-vol",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "block-pvc",
+							},
+							Hotpluggable: true,
+						},
+					},
+				}
+
+				isBlock, err := controller.isUtilityVolumeWithBlockPVC(vmi, utilityVolume)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(isBlock).To(BeTrue())
+			})
+
+			It("should return false for a non-utility volume with block mode PVC", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
+					{
+						Name: "utility-vol",
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "block-pvc",
+						},
+					},
+				}
+
+				blockMode := k8sv1.PersistentVolumeBlock
+				blockPVC := &k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "block-pvc",
+						Namespace: k8sv1.NamespaceDefault,
+					},
+					Spec: k8sv1.PersistentVolumeClaimSpec{
+						VolumeMode: &blockMode,
+						AccessModes: []k8sv1.PersistentVolumeAccessMode{
+							k8sv1.ReadWriteOnce,
+						},
+					},
+					Status: k8sv1.PersistentVolumeClaimStatus{
+						Phase: k8sv1.ClaimBound,
+					},
+				}
+
+				Expect(controller.pvcIndexer.Add(blockPVC)).To(Succeed())
+
+				nonUtilityVolume := &virtv1.Volume{
+					Name: "non-utility-vol",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "block-pvc",
+							},
+							Hotpluggable: true,
+						},
+					},
+				}
+
+				isBlock, err := controller.isUtilityVolumeWithBlockPVC(vmi, nonUtilityVolume)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(isBlock).To(BeFalse())
+			})
+
+			It("should return an error when PVC does not exist", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
+					{
+						Name: "utility-vol",
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "missing-pvc",
+						},
+					},
+				}
+
+				missingPVCVolume := &virtv1.Volume{
+					Name: "utility-vol",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "missing-pvc",
+							},
+							Hotpluggable: true,
+						},
+					},
+				}
+
+				_, err := controller.isUtilityVolumeWithBlockPVC(vmi, missingPVCVolume)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("does not exist"))
+			})
+
+			It("should return false for a utility volume with filesystem PVC", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
+					{
+						Name: "utility-vol",
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "filesystem-pvc",
+						},
+					},
+				}
+
+				filesystemPVC := &k8sv1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "filesystem-pvc",
+						Namespace: k8sv1.NamespaceDefault,
+					},
+					Spec: k8sv1.PersistentVolumeClaimSpec{
+						AccessModes: []k8sv1.PersistentVolumeAccessMode{
+							k8sv1.ReadWriteOnce,
+						},
+					},
+					Status: k8sv1.PersistentVolumeClaimStatus{
+						Phase: k8sv1.ClaimBound,
+					},
+				}
+
+				Expect(controller.pvcIndexer.Add(filesystemPVC)).To(Succeed())
+
+				filesystemVolume := &virtv1.Volume{
+					Name: "utility-vol",
+					VolumeSource: virtv1.VolumeSource{
+						PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+							PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "filesystem-pvc",
+							},
+							Hotpluggable: true,
+						},
+					},
+				}
+
+				isBlock, err := controller.isUtilityVolumeWithBlockPVC(vmi, filesystemVolume)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(isBlock).To(BeFalse())
+			})
+		})
+
+		It("Should not create attachment pod for utility volume with block mode PVC", func() {
+			vmi := newPendingVirtualMachine("testvmi")
+			setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodConditionMissingReason)
+			vmi.Spec.UtilityVolumes = []virtv1.UtilityVolume{
+				{
+					Name: "utility-vol",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "block-pvc",
+					},
+				},
+			}
+			vmi.Status.Phase = virtv1.Running
+			addActivePods(vmi, "virt-launch-uid", "")
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+
+			blockMode := k8sv1.PersistentVolumeBlock
+			blockPVC := &k8sv1.PersistentVolumeClaim{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "PersistentVolumeClaim",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vmi.Namespace,
+					Name:      "block-pvc",
+				},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					VolumeMode: &blockMode,
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{
+						k8sv1.ReadWriteOnce,
+					},
+				},
+				Status: k8sv1.PersistentVolumeClaimStatus{
+					Phase: k8sv1.ClaimBound,
+				},
+			}
+			addDataVolumePVC(blockPVC)
+			addVirtualMachine(vmi)
+			addPod(virtlauncherPod)
+
+			sanityExecute()
+
+			podList, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			attachmentPodCount := 0
+			for _, pod := range podList.Items {
+				if strings.HasPrefix(pod.Name, "hp-volume-") {
+					attachmentPodCount++
+				}
+			}
+			Expect(attachmentPodCount).To(Equal(0))
+		})
 
 		It("Should properly create attachmentpod, if correct volume and disk are added", func() {
 			vmi := newPendingVirtualMachine("testvmi")

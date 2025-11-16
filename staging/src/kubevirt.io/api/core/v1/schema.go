@@ -995,6 +995,28 @@ type ContainerDiskSource struct {
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
+type UtilityVolumeType string
+
+const (
+	// MemoryDump represents a utility volume which will be used to collect memory dump
+	MemoryDump UtilityVolumeType = "MemoryDump"
+
+	// Backup represents a utility volume which will be used to collect backup output
+	Backup UtilityVolumeType = "Backup"
+)
+
+type UtilityVolume struct {
+	// UtilityVolume's name.
+	// Must be unique within the vmi, including regular Volumes.
+	Name string `json:"name"`
+	// PersistentVolumeClaimVolumeSource defines the PVC
+	// that is hotplugged to virt-launcher
+	v1.PersistentVolumeClaimVolumeSource `json:",inline"`
+	// Type represents the type of the utility volume.
+	// +optional
+	Type *UtilityVolumeType `json:"type,omitempty"`
+}
+
 // Exactly one of its members must be set.
 type ClockOffset struct {
 	// UTC sets the guest clock to UTC on each boot. If an offset is specified,

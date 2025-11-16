@@ -1101,6 +1101,103 @@ var _ = Describe("Migration watcher", func() {
 		)
 	})
 
+	Context("Migration with utility volumes", func() {
+		It("should remain in pending while utility volumes present, then transition when removed", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "test-utility-volume",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-pvc",
+					},
+				},
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			// Should remain in pending state while utility volumes are present
+			sanityExecute()
+			expectMigrationPendingState(migration.Namespace, migration.Name)
+			expectMigrationCondition(migration.Namespace, migration.Name, v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes)
+			testutils.ExpectEvent(recorder, virtcontroller.UtilityVolumeMigrationPendingReason)
+
+			vmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi.Spec.UtilityVolumes = nil
+			Expect(controller.vmiStore.Update(vmi)).To(Succeed())
+			migrationKey, err := virtcontroller.KeyFunc(migration)
+			Expect(err).ToNot(HaveOccurred())
+			controller.Queue.Add(migrationKey)
+
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
+			targetPod.Spec.NodeName = "node01"
+			addPod(targetPod)
+
+			// Should now transition to scheduling
+			sanityExecute()
+			expectMigrationSchedulingState(migration.Namespace, migration.Name)
+			updatedMigration, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify condition is removed
+			for _, cond := range updatedMigration.Status.Conditions {
+				Expect(cond.Type).ToNot(Equal(v1.VirtualMachineInstanceMigrationBlockedByUtilityVolumes), "Condition should be removed after utility volumes detached")
+			}
+		})
+
+		It("should fail migration when utility volumes timeout is exceeded", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "test-utility-volume",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-pvc",
+					},
+				},
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.CreationTimestamp = metav1.NewTime(metav1.Now().Time.Add(-151 * time.Second))
+
+			addMigration(migration)
+
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			sanityExecute()
+
+			// Should fail the migration
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+			expectMigrationFailedState(migration.Namespace, migration.Name)
+		})
+
+		It("should respect custom utility volumes timeout annotation", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "test-utility-volume",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-pvc",
+					},
+				},
+			}
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+			migration.Annotations[v1.MigrationUtilityVolumesTimeoutSecondsAnnotation] = "60"
+			migration.CreationTimestamp = metav1.NewTime(metav1.Now().Time.Add(-65 * time.Second))
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+
+			sanityExecute()
+
+			expectMigrationFailedState(migration.Namespace, migration.Name)
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+		})
+	})
+
 	Context("Migration garbage collection", func() {
 		DescribeTable("should garbage old finalized migration objects", func(phase v1.VirtualMachineInstanceMigrationPhase) {
 			vmi := newVirtualMachine("testvmi", v1.Running)

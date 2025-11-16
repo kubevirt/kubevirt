@@ -522,6 +522,11 @@ spec:
     nodeTaintsPolicy: nodeTaintsPolicyValue
     topologyKey: topologyKeyValue
     whenUnsatisfiable: whenUnsatisfiableValue
+  utilityVolumes:
+  - claimName: claimNameValue
+    name: nameValue
+    readOnly: true
+    type: typeValue
   volumes:
   - cloudInitConfigDrive:
       networkData: networkDataValue
@@ -711,6 +716,7 @@ status:
       parallelOutboundMigrationsPerNode: 4294967263
       progressTimeout: -15
       unsafeMigrationOverride: true
+      utilityVolumesTimeout: -21
     migrationNetworkType: migrationNetworkTypeValue
     migrationPolicyName: migrationPolicyNameValue
     migrationUid: migrationUidValue

@@ -2117,6 +2117,24 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(BeEmpty())
 		})
 
+		It("should reject VMI creation with utility volumes in spec", func() {
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "test-utility-volume",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-pvc",
+					},
+				},
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			response := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Message).To(ContainSubstring("cannot create VMI with utility volumes in spec"))
+		})
+
 		It("should accept sysprep volumes", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
