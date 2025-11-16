@@ -6,5 +6,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/applyconfigurations/internal",
     importpath = "k8s.io/client-go/applyconfigurations/internal",
     visibility = ["//vendor/k8s.io/client-go/applyconfigurations:__subpackages__"],
-    deps = ["//vendor/sigs.k8s.io/structured-merge-diff/v4/typed:go_default_library"],
+    deps = ["//vendor/sigs.k8s.io/structured-merge-diff/v6/typed:go_default_library"],
 )

@@ -2,12 +2,15 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["diff.go"],
+    srcs = [
+        "diff.go",
+        "legacy_diff.go",
+    ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apimachinery/pkg/util/diff",
     importpath = "k8s.io/apimachinery/pkg/util/diff",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/google/go-cmp/cmp:go_default_library",
+        "//vendor/github.com/pmezard/go-difflib/difflib:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/dump:go_default_library",
     ],
 )

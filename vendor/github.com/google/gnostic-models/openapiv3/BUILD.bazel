@@ -13,10 +13,10 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/google/gnostic-models/compiler:go_default_library",
+        "//vendor/go.yaml.in/yaml/v3:go_default_library",
         "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
         "//vendor/google.golang.org/protobuf/runtime/protoimpl:go_default_library",
         "//vendor/google.golang.org/protobuf/types/descriptorpb:go_default_library",
         "//vendor/google.golang.org/protobuf/types/known/anypb:go_default_library",
-        "//vendor/gopkg.in/yaml.v3:go_default_library",
     ],
 )

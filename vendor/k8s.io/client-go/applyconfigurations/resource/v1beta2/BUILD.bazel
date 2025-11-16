@@ -5,6 +5,9 @@ go_library(
     srcs = [
         "allocateddevicestatus.go",
         "allocationresult.go",
+        "capacityrequestpolicy.go",
+        "capacityrequestpolicyrange.go",
+        "capacityrequirements.go",
         "celdeviceselector.go",
         "counter.go",
         "counterset.go",

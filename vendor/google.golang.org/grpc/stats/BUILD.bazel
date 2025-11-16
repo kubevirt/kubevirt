@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "handlers.go",
+        "metrics.go",
         "stats.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/stats",

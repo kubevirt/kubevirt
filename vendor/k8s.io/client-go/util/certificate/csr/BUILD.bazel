@@ -21,6 +21,6 @@ go_library(
         "//vendor/k8s.io/client-go/tools/watch:go_default_library",
         "//vendor/k8s.io/client-go/util/cert:go_default_library",
         "//vendor/k8s.io/klog/v2:go_default_library",
-        "//vendor/k8s.io/utils/pointer:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )

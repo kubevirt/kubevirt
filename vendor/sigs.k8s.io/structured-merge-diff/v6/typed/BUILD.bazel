@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "compare.go",
+        "doc.go",
+        "helpers.go",
+        "merge.go",
+        "parser.go",
+        "reconcile_schema.go",
+        "remove.go",
+        "tofieldset.go",
+        "typed.go",
+        "validate.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/structured-merge-diff/v6/typed",
+    importpath = "sigs.k8s.io/structured-merge-diff/v6/typed",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/go.yaml.in/yaml/v2:go_default_library",
+        "//vendor/sigs.k8s.io/structured-merge-diff/v6/fieldpath:go_default_library",
+        "//vendor/sigs.k8s.io/structured-merge-diff/v6/schema:go_default_library",
+        "//vendor/sigs.k8s.io/structured-merge-diff/v6/value:go_default_library",
+    ],
+)
