@@ -46,44 +46,26 @@ func NewRNGDomainConfigurator(options ...rngOption) RNGDomainConfigurator {
 }
 
 func (r RNGDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Devices.Rng != nil {
-		newRng := &api.Rng{}
-		err := convert_v1_Rng_To_api_Rng(
-			vmi.Spec.Domain.Devices.Rng,
-			newRng,
-			r.architecture,
-			r.useVirtioTransitional,
-			r.useLaunchSecuritySEV,
-			r.useLaunchSecurityPV,
-		)
-		if err != nil {
-			return err
-		}
-		domain.Spec.Devices.Rng = newRng
+	if vmi.Spec.Domain.Devices.Rng == nil {
+		return nil
 	}
 
-	return nil
-}
-
-func convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, architecture string, useVirtioTransitional, useLaunchSecuritySEV, useLaunchSecurityPV bool) error {
-
-	// default rng model for KVM/QEMU virtualization
-	rng.Model = virtio.InterpretTransitionalModelType(&useVirtioTransitional, architecture)
-
-	// default backend model, random
-	rng.Backend = &api.RngBackend{
-		Model: "random",
+	newRng := &api.Rng{
+		// default rng model for KVM/QEMU virtualization
+		Model: virtio.InterpretTransitionalModelType(&r.useVirtioTransitional, r.architecture),
+		Backend: &api.RngBackend{
+			Model:  "random",       // default backend model, random
+			Source: "/dev/urandom", // the default source for rng is dev urandom
+		},
 	}
 
-	// the default source for rng is dev urandom
-	rng.Backend.Source = "/dev/urandom"
-
-	if useLaunchSecuritySEV || useLaunchSecurityPV {
-		rng.Driver = &api.RngDriver{
+	if r.useLaunchSecuritySEV || r.useLaunchSecurityPV {
+		newRng.Driver = &api.RngDriver{
 			IOMMU: "on",
 		}
 	}
 
+	domain.Spec.Devices.Rng = newRng
 	return nil
 }
 
