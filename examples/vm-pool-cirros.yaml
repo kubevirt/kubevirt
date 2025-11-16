@@ -10,14 +10,12 @@ spec:
       kubevirt.io/vmpool: vm-pool-cirros
   virtualMachineTemplate:
     metadata:
-      creationTimestamp: null
       labels:
         kubevirt.io/vmpool: vm-pool-cirros
     spec:
       runStrategy: Always
       template:
         metadata:
-          creationTimestamp: null
           labels:
             kubevirt.io/vmpool: vm-pool-cirros
         spec:

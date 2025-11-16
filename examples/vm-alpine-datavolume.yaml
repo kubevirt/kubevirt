@@ -8,7 +8,6 @@ metadata:
 spec:
   dataVolumeTemplates:
   - metadata:
-      creationTimestamp: null
       name: alpine-dv
     spec:
       pvc:
