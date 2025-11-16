@@ -141,6 +141,44 @@ var _ = Describe("getOptimalBlockIO", func() {
 	})
 })
 
+var _ = Describe("domain emulation selection", func() {
+	It("fails when emulation is disallowed and kvm is absent", func() {
+		domainType, err := decideDomainType(false, func() error { return os.ErrNotExist })
+		Expect(domainType).To(BeEmpty())
+		Expect(err).To(MatchError(ContainSubstring("hardware emulation device")))
+	})
+
+	It("propagates unexpected probe errors and emulation is disallowed", func() {
+		domainType, err := decideDomainType(false, func() error { return fmt.Errorf("some err") })
+		Expect(domainType).To(BeEmpty())
+		Expect(errors.Is(err, errKVM)).To(BeTrue())
+	})
+
+	It("propagates unexpected probe errors", func() {
+		domainType, err := decideDomainType(true, func() error { return fmt.Errorf("some err") })
+		Expect(domainType).To(BeEmpty())
+		Expect(errors.Is(err, errKVM)).To(BeTrue())
+	})
+
+	It("uses kvm when available and emulation is disallowed", func() {
+		domainType, err := decideDomainType(false, func() error { return nil })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainType).To(Equal("kvm"))
+	})
+
+	It("falls back to qemu when allowed and kvm is absent", func() {
+		domainType, err := decideDomainType(true, func() error { return os.ErrNotExist })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainType).To(Equal("qemu"))
+	})
+
+	It("keeps using kvm when allowed and kvm is present", func() {
+		domainType, err := decideDomainType(true, func() error { return nil })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainType).To(Equal("kvm"))
+	})
+})
+
 var _ = Describe("Converter", func() {
 
 	TestSmbios := &cmdv1.SMBios{}
