@@ -73,6 +73,12 @@ const (
 	defaultIOThread            = uint(1)
 	bootMenuTimeoutMS          = uint(10000)
 	QEMUSeaBiosDebugPipe       = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
+	kvmPath                    = "/dev/kvm"
+)
+
+var (
+	errKVM   = errors.New("unable to use kvm device")
+	probeKVM = probeKVMDevice
 )
 
 type deviceNamer struct {
@@ -1468,18 +1474,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domainVCPUTopologyForHotplug(vmi, domain)
 	}
 
-	kvmPath := "/dev/kvm"
-	if _, err := os.Stat(kvmPath); errors.Is(err, os.ErrNotExist) {
-		if c.AllowEmulation {
-			logger := log.DefaultLogger()
-			logger.Infof("Hardware emulation device '%s' not present. Using software emulation.", kvmPath)
-			domain.Spec.Type = "qemu"
-		} else {
-			return fmt.Errorf("hardware emulation device '%s' not present", kvmPath)
-		}
-	} else if err != nil {
+	domainType, err := decideDomainType(c.AllowEmulation, probeKVM)
+	if err != nil {
 		return err
 	}
+	domain.Spec.Type = domainType
 
 	domain.Spec.SysInfo = &api.SysInfo{}
 
@@ -1863,6 +1862,31 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	setIOThreads(vmi, domain, vcpus)
 
 	return nil
+}
+
+func decideDomainType(allowEmulation bool, probe func() error) (string, error) {
+	probeErr := probe()
+	if probeErr == nil {
+		return "kvm", nil
+	}
+
+	if errors.Is(probeErr, os.ErrNotExist) {
+		if allowEmulation {
+			log.DefaultLogger().Infof(
+				"Hardware emulation device '%s' not present. Using software emulation.",
+				kvmPath,
+			)
+			return "qemu", nil
+		}
+		return "", fmt.Errorf("hardware emulation device '%s' not present", kvmPath)
+	}
+
+	return "", fmt.Errorf("%w: %v", errKVM, probeErr)
+}
+
+func probeKVMDevice() error {
+	_, err := os.Stat(kvmPath)
+	return err
 }
 
 func boolToOnOff(value *bool, defaultOn bool) string {
