@@ -24,13 +24,26 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type GraphicsDomainConfigurator struct{}
+const (
+	graphicsDeviceDefaultHeads uint = 1
+	graphicsDeviceDefaultVRAM  uint = 16384
+)
 
-func NewGraphicsDomainConfigurator() GraphicsDomainConfigurator {
-	return GraphicsDomainConfigurator{}
+type GraphicsDomainConfigurator struct {
+	architecture      string
+	bochsForEFIGuests bool
+}
+
+func NewGraphicsDomainConfigurator(architecture string, bochsForEFIGuests bool) GraphicsDomainConfigurator {
+	return GraphicsDomainConfigurator{
+		architecture:      architecture,
+		bochsForEFIGuests: bochsForEFIGuests,
+	}
 }
 
 func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -40,6 +53,10 @@ func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 	}
 
 	g.configureVNCSocket(vmi, domain)
+
+	if err := g.configureVideoDevice(vmi, domain); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -53,5 +70,39 @@ func (g GraphicsDomainConfigurator) configureVNCSocket(vmi *v1.VirtualMachineIns
 			},
 			Type: "vnc",
 		},
+	}
+}
+
+func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	switch g.architecture {
+	case "amd64":
+		g.configureAMD64VideoDevice(vmi, domain)
+	default:
+		return fmt.Errorf("unsupported architecture: %s", g.architecture)
+	}
+	return nil
+}
+
+func (g GraphicsDomainConfigurator) configureAMD64VideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	// For AMD64 + EFI, use bochs. For BIOS, use VGA
+	if vmi.IsBootloaderEFI() && g.bochsForEFIGuests {
+		domain.Spec.Devices.Video = []api.Video{
+			{
+				Model: api.VideoModel{
+					Type:  "bochs",
+					Heads: pointer.P(graphicsDeviceDefaultHeads),
+				},
+			},
+		}
+	} else {
+		domain.Spec.Devices.Video = []api.Video{
+			{
+				Model: api.VideoModel{
+					Type:  "vga",
+					Heads: pointer.P(graphicsDeviceDefaultHeads),
+					VRam:  pointer.P(graphicsDeviceDefaultVRAM),
+				},
+			},
+		}
 	}
 }
