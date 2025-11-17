@@ -70,6 +70,8 @@ func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineI
 	switch g.architecture {
 	case "amd64":
 		g.configureAMD64VideoDevice(vmi, domain)
+	case "arm64":
+		g.configureARM64VideoDevice(domain)
 	}
 }
 
@@ -94,5 +96,17 @@ func (g GraphicsDomainConfigurator) configureAMD64VideoDevice(vmi *v1.VirtualMac
 				},
 			},
 		}
+	}
+}
+
+func (g GraphicsDomainConfigurator) configureARM64VideoDevice(domain *api.Domain) {
+	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
+	domain.Spec.Devices.Video = []api.Video{
+		{
+			Model: api.VideoModel{
+				Type:  v1.VirtIO,
+				Heads: pointer.P(graphicsDeviceDefaultHeads),
+			},
+		},
 	}
 }
