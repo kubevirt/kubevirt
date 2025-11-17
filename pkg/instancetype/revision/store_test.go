@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"go.uber.org/mock/gomock"
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -67,6 +68,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		clusterInstancetypeInformerStore cache.Store
 		preferenceInformerStore          cache.Store
 		clusterPreferenceInformerStore   cache.Store
+		revisionInformerStore            cache.Store
 	)
 
 	BeforeEach(func() {
@@ -102,11 +104,15 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 		clusterPreferenceInformerStore = clusterPreferenceInformer.GetStore()
 
+		revisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+		revisionInformerStore = revisionInformer.GetStore()
+
 		storeHandler = revision.New(
 			instancetypeInformerStore,
 			clusterInstancetypeInformerStore,
 			preferenceInformerStore,
 			clusterInstancetypeInformerStore,
+			revisionInformerStore,
 			virtClient)
 
 		vm = kubecli.NewMinimalVM("testvm")
@@ -185,6 +191,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(vm.Status.InstancetypeRef.Name).To(Equal(vm.Spec.Instancetype.Name))
 				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(vm.Spec.Instancetype.Kind))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(clusterInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(clusterInstancetype.Spec.Memory.Guest))
 
 				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -193,6 +202,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(vm.Spec.Instancetype.Name))
 				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(vm.Spec.Instancetype.Kind))
 				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
+				Expect(updatedVM.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+				Expect(updatedVM.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(clusterInstancetype.Spec.CPU.Guest))
+				Expect(updatedVM.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(clusterInstancetype.Spec.Memory.Guest))
 
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 					context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
@@ -236,6 +248,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(vm.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
 				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(clusterInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(clusterInstancetype.Spec.Memory.Guest))
 
 				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -244,6 +259,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
 				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
 				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
+				Expect(updatedVM.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+				Expect(updatedVM.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(clusterInstancetype.Spec.CPU.Guest))
+				Expect(updatedVM.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(clusterInstancetype.Spec.Memory.Guest))
 			})
 
 			It("store does not create a new ControllerRevision when RevisionName is provided", func() {
@@ -293,6 +311,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(vm.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
 				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(clusterInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(clusterInstancetype.Spec.Memory.Guest))
 
 				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -301,6 +322,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
 				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
 				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
+				Expect(updatedVM.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+				Expect(updatedVM.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(clusterInstancetype.Spec.CPU.Guest))
+				Expect(updatedVM.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(clusterInstancetype.Spec.Memory.Guest))
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
@@ -388,6 +412,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(fakeInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(fakeInstancetype.Spec.Memory.Guest))
 
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 					context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
@@ -418,6 +445,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(storeHandler.Store(vm)).To(Succeed())
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(instancetypeControllerRevision.Name))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(fakeInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(fakeInstancetype.Spec.Memory.Guest))
 			})
 
 			It("store does not create a new ControllerRevision when RevisionName is provided", func() {
@@ -455,6 +485,9 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(fakeInstancetype.Spec.CPU.Guest))
+				Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(fakeInstancetype.Spec.Memory.Guest))
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {

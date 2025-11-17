@@ -35,9 +35,7 @@ import (
 )
 
 var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators.SigCompute, decorators.SigComputeInstancetype, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, Serial, func() {
-	var (
-		virtClient kubecli.KubevirtClient
-	)
+	var virtClient kubecli.KubevirtClient
 
 	const (
 		originalSockets = uint32(1)
@@ -123,6 +121,16 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 		Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 		libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
+		By("Verifying InstancetypeStatusResources reflects the original instance type")
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+		Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+		Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(originalSockets))
+		Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Cores).To(Equal(uint32(1)))
+		Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Threads).To(Equal(uint32(1)))
+		Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(originalGuest))
+
 		By("Switching to the max instance type")
 		patches := patch.New(
 			patch.WithTest("/spec/instancetype/name", originalInstancetype.Name),
@@ -183,6 +191,16 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Eventually(ThisVM(vm), 4*time.Minute, 2*time.Second).Should(HaveConditionMissingOrFalse(virtv1.VirtualMachineRestartRequired))
+
+		By("Verifying InstancetypeStatusResources has been updated to reflect the new instance type")
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+		Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+		Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(maxSockets))
+		Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Cores).To(Equal(uint32(1)))
+		Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Threads).To(Equal(uint32(1)))
+		Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(maxGuest))
 	},
 		Entry("with maxGuest and maxSockets defined", true),
 		Entry("without maxGuest and maxSockets defined", false),
