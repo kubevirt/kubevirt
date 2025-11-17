@@ -25,16 +25,13 @@ import (
 )
 
 const (
-	graphicsDeviceDefaultHeads uint = 1
-	graphicsDeviceDefaultVRAM  uint = 16384
-	amd64                           = "amd64"
-	arm64                           = "arm64"
-	s390x                           = "s390x"
+	amd64 = "amd64"
+	arm64 = "arm64"
+	s390x = "s390x"
 )
 
 type Converter interface {
 	GetArchitecture() string
-	AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool)
 	ScsiController(model string, driver *api.ControllerDriver) api.Controller
 	IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	SupportCPUHotplug() bool
