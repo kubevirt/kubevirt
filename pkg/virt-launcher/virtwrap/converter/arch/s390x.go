@@ -21,7 +21,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -35,14 +34,7 @@ func (converterS390X) GetArchitecture() string {
 }
 
 func (converterS390X) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
-	domain.Spec.Devices.Video = []api.Video{
-		{
-			Model: api.VideoModel{
-				Type:  v1.VirtIO,
-				Heads: pointer.P(graphicsDeviceDefaultHeads),
-			},
-		},
-	}
+
 }
 
 func (converterS390X) ScsiController(_ string, driver *api.ControllerDriver) api.Controller {
