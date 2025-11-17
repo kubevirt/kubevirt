@@ -79,6 +79,8 @@ func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineI
 		g.configureAMD64VideoDevice(vmi, domain)
 	case "arm64":
 		g.configureARM64VideoDevice(vmi, domain)
+	case "s390x":
+		g.configureS390XVideoDevice(domain)
 	default:
 		return fmt.Errorf("unsupported architecture: %s", g.architecture)
 	}
@@ -119,4 +121,13 @@ func (g GraphicsDomainConfigurator) configureARM64VideoDevice(vmi *v1.VirtualMac
 			},
 		},
 	}
+}
+
+func (g GraphicsDomainConfigurator) configureS390XVideoDevice(domain *api.Domain) {
+	domain.Spec.Devices.Video = []api.Video{{
+		Model: api.VideoModel{
+			Type:  v1.VirtIO,
+			Heads: pointer.P(graphicsDeviceDefaultHeads),
+		},
+	}}
 }
