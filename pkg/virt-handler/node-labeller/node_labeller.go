@@ -116,7 +116,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 }
 
 // Run runs node-labeller
-func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
+func (n *NodeLabeller) Run(stop chan struct{}) {
 	defer n.queue.ShutDown()
 
 	n.logger.Infof("node-labeller is running")
@@ -131,10 +131,8 @@ func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 
 	interval := 3 * time.Minute
 	go wait.JitterUntil(func() { n.queue.Add(n.host) }, interval, 1.2, true, stop)
+	go n.runWorker()
 
-	for i := 0; i < threadiness; i++ {
-		go wait.Until(n.runWorker, time.Second, stop)
-	}
 	<-stop
 }
 
