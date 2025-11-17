@@ -28,6 +28,7 @@ go_test(
     srcs = [
         "channels_test.go",
         "compute_suite_test.go",
+        "graphics_test.go",
         "input_device_test.go",
         "launch_security_test.go",
         "tpm_test.go",
