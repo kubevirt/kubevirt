@@ -8392,6 +8392,46 @@ var CRDsValidation map[string]string = map[string]string{
             name:
               description: Name is the name of resource
               type: string
+            resources:
+              description: |-
+                InstancetypeStatusResources provides a way for users to see which resources
+                are provided by the referenced instance type without the need to run the
+                VM, fetch the instance type or call expand-spec
+              properties:
+                cpu:
+                  description: |-
+                    CPUTopology allows specifying the amount of cores, sockets
+                    and threads.
+                  properties:
+                    cores:
+                      description: |-
+                        Cores specifies the number of cores inside the vmi.
+                        Must be a value greater or equal 1.
+                      format: int32
+                      type: integer
+                    sockets:
+                      description: |-
+                        Sockets specifies the number of sockets inside the vmi.
+                        Must be a value greater or equal 1.
+                      format: int32
+                      type: integer
+                    threads:
+                      description: |-
+                        Threads specifies the number of threads inside the vmi.
+                        Must be a value greater or equal 1.
+                      format: int32
+                      type: integer
+                  type: object
+                memory:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+              required:
+              - cpu
+              - memory
+              type: object
           type: object
         memoryDumpRequest:
           description: |-
@@ -8462,6 +8502,46 @@ var CRDsValidation map[string]string = map[string]string{
             name:
               description: Name is the name of resource
               type: string
+            resources:
+              description: |-
+                InstancetypeStatusResources provides a way for users to see which resources
+                are provided by the referenced instance type without the need to run the
+                VM, fetch the instance type or call expand-spec
+              properties:
+                cpu:
+                  description: |-
+                    CPUTopology allows specifying the amount of cores, sockets
+                    and threads.
+                  properties:
+                    cores:
+                      description: |-
+                        Cores specifies the number of cores inside the vmi.
+                        Must be a value greater or equal 1.
+                      format: int32
+                      type: integer
+                    sockets:
+                      description: |-
+                        Sockets specifies the number of sockets inside the vmi.
+                        Must be a value greater or equal 1.
+                      format: int32
+                      type: integer
+                    threads:
+                      description: |-
+                        Threads specifies the number of threads inside the vmi.
+                        Must be a value greater or equal 1.
+                      format: int32
+                      type: integer
+                  type: object
+                memory:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+              required:
+              - cpu
+              - memory
+              type: object
           type: object
         printableStatus:
           default: Stopped
@@ -30643,6 +30723,46 @@ var CRDsValidation map[string]string = map[string]string{
                         name:
                           description: Name is the name of resource
                           type: string
+                        resources:
+                          description: |-
+                            InstancetypeStatusResources provides a way for users to see which resources
+                            are provided by the referenced instance type without the need to run the
+                            VM, fetch the instance type or call expand-spec
+                          properties:
+                            cpu:
+                              description: |-
+                                CPUTopology allows specifying the amount of cores, sockets
+                                and threads.
+                              properties:
+                                cores:
+                                  description: |-
+                                    Cores specifies the number of cores inside the vmi.
+                                    Must be a value greater or equal 1.
+                                  format: int32
+                                  type: integer
+                                sockets:
+                                  description: |-
+                                    Sockets specifies the number of sockets inside the vmi.
+                                    Must be a value greater or equal 1.
+                                  format: int32
+                                  type: integer
+                                threads:
+                                  description: |-
+                                    Threads specifies the number of threads inside the vmi.
+                                    Must be a value greater or equal 1.
+                                  format: int32
+                                  type: integer
+                              type: object
+                            memory:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                          required:
+                          - cpu
+                          - memory
+                          type: object
                       type: object
                     memoryDumpRequest:
                       description: |-
@@ -30716,6 +30836,46 @@ var CRDsValidation map[string]string = map[string]string{
                         name:
                           description: Name is the name of resource
                           type: string
+                        resources:
+                          description: |-
+                            InstancetypeStatusResources provides a way for users to see which resources
+                            are provided by the referenced instance type without the need to run the
+                            VM, fetch the instance type or call expand-spec
+                          properties:
+                            cpu:
+                              description: |-
+                                CPUTopology allows specifying the amount of cores, sockets
+                                and threads.
+                              properties:
+                                cores:
+                                  description: |-
+                                    Cores specifies the number of cores inside the vmi.
+                                    Must be a value greater or equal 1.
+                                  format: int32
+                                  type: integer
+                                sockets:
+                                  description: |-
+                                    Sockets specifies the number of sockets inside the vmi.
+                                    Must be a value greater or equal 1.
+                                  format: int32
+                                  type: integer
+                                threads:
+                                  description: |-
+                                    Threads specifies the number of threads inside the vmi.
+                                    Must be a value greater or equal 1.
+                                  format: int32
+                                  type: integer
+                              type: object
+                            memory:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                          required:
+                          - cpu
+                          - memory
+                          type: object
                       type: object
                     printableStatus:
                       default: Stopped

@@ -818,6 +818,12 @@ status:
     inferFromVolumeFailurePolicy: inferFromVolumeFailurePolicyValue
     kind: kindValue
     name: nameValue
+    resources:
+      cpu:
+        cores: 4294967291
+        sockets: 4294967289
+        threads: 4294967289
+      memory: "0"
   memoryDumpRequest:
     claimName: claimNameValue
     endTimestamp: "1988-01-01T01:01:01Z"
@@ -834,6 +840,12 @@ status:
     inferFromVolumeFailurePolicy: inferFromVolumeFailurePolicyValue
     kind: kindValue
     name: nameValue
+    resources:
+      cpu:
+        cores: 4294967291
+        sockets: 4294967289
+        threads: 4294967289
+      memory: "0"
   printableStatus: printableStatusValue
   ready: true
   restoreInProgress: restoreInProgressValue

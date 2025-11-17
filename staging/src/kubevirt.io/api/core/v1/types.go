@@ -2134,6 +2134,11 @@ type ControllerRevisionRef struct {
 	Name string `json:"name,omitempty"`
 }
 
+type InstancetypeStatusResources struct {
+	CPU    CPUTopology       `json:"cpu"`
+	Memory resource.Quantity `json:"memory"`
+}
+
 type InstancetypeStatusRef struct {
 	// Name is the name of resource
 	Name string `json:"name,omitempty"`
@@ -2154,6 +2159,13 @@ type InstancetypeStatusRef struct {
 	//
 	// +optional
 	InferFromVolumeFailurePolicy *InferFromVolumeFailurePolicy `json:"inferFromVolumeFailurePolicy,omitempty"`
+
+	// InstancetypeStatusResources provides a way for users to see which resources
+	// are provided by the referenced instance type without the need to run the
+	// VM, fetch the instance type or call expand-spec
+	//
+	// +optional
+	InstancetypeStatusResources *InstancetypeStatusResources `json:"resources,omitempty"`
 }
 
 type ChangedBlockTrackingState string

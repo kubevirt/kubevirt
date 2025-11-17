@@ -511,6 +511,10 @@ func (ControllerRevisionRef) SwaggerDoc() map[string]string {
 	}
 }
 
+func (InstancetypeStatusResources) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (InstancetypeStatusRef) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":                         "Name is the name of resource",
@@ -518,6 +522,7 @@ func (InstancetypeStatusRef) SwaggerDoc() map[string]string {
 		"controllerRevisionRef":        "ControllerRef specifies the ControllerRevision storing a copy of the object captured\nwhen it is first seen by the VirtualMachine controller",
 		"inferFromVolume":              "InferFromVolume lists the name of a volume that should be used to infer or discover the resource\n\n+optional",
 		"inferFromVolumeFailurePolicy": "InferFromVolumeFailurePolicy controls what should happen on failure when inferring the resource\n\n+optional",
+		"resources":                    "InstancetypeStatusResources provides a way for users to see which resources\nare provided by the referenced instance type without the need to run the\nVM, fetch the instance type or call expand-spec\n\n+optional",
 	}
 }
 
