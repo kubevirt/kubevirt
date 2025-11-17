@@ -330,7 +330,7 @@ func (app *virtHandlerApp) Run() {
 	hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
 
 	if app.enableNodeLabeller {
-		go nodeLabellerController.Run(10, stop)
+		go nodeLabellerController.Run(stop)
 	}
 
 	migrationIpAddress := app.PodIpAddress
