@@ -74,6 +74,18 @@ func (g GraphicsDomainConfigurator) configureVNCSocket(vmi *v1.VirtualMachineIns
 }
 
 func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if vmi.Spec.Domain.Devices.Video != nil {
+		video := api.Video{
+			Model: api.VideoModel{
+				Type:  vmi.Spec.Domain.Devices.Video.Type,
+				VRam:  pointer.P(uint(16384)),
+				Heads: pointer.P(uint(1)),
+			},
+		}
+		domain.Spec.Devices.Video = []api.Video{video}
+		return nil
+	}
+
 	switch g.architecture {
 	case "amd64":
 		g.configureAMD64VideoDevice(vmi, domain)
