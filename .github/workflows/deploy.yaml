@@ -11,21 +11,31 @@ on:
         description: 'The image tag to deploy'
         required: true
         type: string
+      kubevirt_provider:
+        description: 'The KubeVirt provider to use'
+        required: true
+        type: string
+      runner_tags:
+        description: 'The runner tags to use'
+        required: false
+        type: string
+        default: '["self-hosted"]'
 
 env:
   DOCKER_PREFIX: ghcr.io/${{ github.repository }}
   DOCKER_TAG: ${{ inputs.image_tag }}
-  KUBEVIRT_PROVIDER: external
+  KUBEVIRT_PROVIDER: ${{ inputs.kubevirt_provider }}
   KUBECONFIG: ${{ github.workspace }}/kube-config
   KUBEVIRT_WITH_ETC_IN_MEMORY: "true"
   JUNIT_REPORT_FILE: _out/artifacts/junit.functest.xml
   KUBEVIRT_E2E_PARALLEL: "true"
-
+  KUBEVIRT_NUM_NODES: 2
+  KUBEVIRT_MEMORY_SIZE: 11264M
   
 jobs:
   Deploy_and_Test:
     environment: ${{ inputs.environment }}
-    runs-on: self-hosted
+    runs-on: ${{ fromJSON(inputs.runner_tags) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -43,6 +53,7 @@ jobs:
           path: ${{ github.workspace }}/_out/manifests
 
       - name: Configure kubeconfig
+        if: ${{ inputs.kubevirt_provider == 'external' }}
         run: |
           echo "$KUBE_CONFIG_CONTENT" > $KUBECONFIG          
         env:
@@ -50,6 +61,9 @@ jobs:
 
       - name: Deploy
         run: |
+          # First tear down any existing cluster
+          make cluster-down
+          # Then bring up and deploy the cluster
           make cluster-up
           make cluster-deploy
 
@@ -65,7 +79,6 @@ jobs:
       - name: Test
         run: |
           rm -f $JUNIT_REPORT_FILE
-          make cluster-up
           hack/retry-functests.sh
         env:          
           TEST_FOCUS: ${{ vars.TEST_FOCUS }}

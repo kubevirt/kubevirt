@@ -62,6 +62,7 @@ jobs:
     with:
       environment: dev
       image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+      kubevirt_provider: external
     secrets: inherit
     needs: [Build_Push_Images]
 
@@ -70,21 +71,16 @@ jobs:
     with:
       environment: test-kvm
       image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
-    secrets: inherit
-    needs: [dev]
-
-  test-emulation:
-    uses: ./.github/workflows/deploy.yaml
-    with:
-      environment: test-emulation
-      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+      kubevirt_provider: k8s-1.32
+      runner_tags: '["self-hosted", "large"]'
     secrets: inherit
     needs: [dev]
 
   test-mshv:
-    uses: ./.github/workflows/deploy.yaml
-    with:
-      environment: test-mshv
-      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
-    secrets: inherit
-    needs: [dev]
+   uses: ./.github/workflows/deploy.yaml
+   with:
+     environment: test-mshv
+     image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+     kubevirt_provider: external
+   secrets: inherit
+   needs: [dev]
