@@ -20,6 +20,8 @@
 package compute
 
 import (
+	"fmt"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -33,5 +35,23 @@ func NewGraphicsDomainConfigurator() GraphicsDomainConfigurator {
 
 func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 
+	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
+		return nil
+	}
+
+	g.configureVNCSocket(vmi, domain)
+
 	return nil
+}
+
+func (g GraphicsDomainConfigurator) configureVNCSocket(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	domain.Spec.Devices.Graphics = []api.Graphics{
+		{
+			Listen: &api.GraphicsListen{
+				Type:   "socket",
+				Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-vnc", vmi.ObjectMeta.UID),
+			},
+			Type: "vnc",
+		},
+	}
 }
