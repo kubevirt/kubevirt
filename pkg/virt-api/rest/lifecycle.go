@@ -180,6 +180,11 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		}
 	}
 
+	if bodyStruct.GracePeriod != nil && *bodyStruct.GracePeriod != 0 {
+		writeError(errors.NewBadRequest(fmt.Sprintf("non-zero grace period is not supported for stop API. Only grace-period=0 is supported, got %d", *bodyStruct.GracePeriod)), response)
+		return
+	}
+
 	vm, statusErr := app.fetchVirtualMachine(name, namespace)
 	if statusErr != nil {
 		writeError(statusErr, response)

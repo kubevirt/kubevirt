@@ -529,6 +529,28 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				status := ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 				Expect(status.Error()).To(ContainSubstring("cannot stop a paused VirtualMachineInstance; it must be unpaused first"))
 			})
+
+			It("should reject non-zero grace period", func() {
+				request.PathParameters()["name"] = testVMName
+				request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
+
+				nonZeroGracePeriod := pointer.P(int64(30))
+				stopOptions := &v1.StopOptions{GracePeriod: nonZeroGracePeriod}
+
+				bytesRepresentation, err := json.Marshal(stopOptions)
+				Expect(err).ToNot(HaveOccurred())
+				request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
+
+				vm := newVirtualMachineWithRunning(pointer.P(Running))
+
+				vmClient.EXPECT().Get(context.Background(), vm.Name, k8smetav1.GetOptions{}).Return(vm, nil)
+
+				app.StopVMRequestHandler(request, response)
+
+				status := ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+				Expect(status.Error()).To(ContainSubstring("non-zero grace period is not supported for stop API"))
+				Expect(status.Error()).To(ContainSubstring("Only grace-period=0 is supported"))
+			})
 		})
 	})
 
