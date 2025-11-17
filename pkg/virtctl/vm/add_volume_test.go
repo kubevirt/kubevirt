@@ -111,30 +111,6 @@ var _ = Describe("Add volume command", func() {
 	)
 
 	Context("addvolume cmd", func() {
-		expectVMIEndpointAddVolume := func(verifyFns ...verifyFn) {
-			kubecli.MockKubevirtClientInstance.
-				EXPECT().
-				VirtualMachineInstance(metav1.NamespaceDefault).
-				Return(virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).
-				Times(1)
-			virtClient.PrependReactor("put", "virtualmachineinstances/addvolume", func(action k8stesting.Action) (handled bool, ret runtime.Object, err error) {
-				switch action := action.(type) {
-				case kvtesting.PutAction[*v1.AddVolumeOptions]:
-					volumeOptions := action.GetOptions()
-					Expect(volumeOptions).ToNot(BeNil())
-					Expect(volumeOptions.Name).To(Equal(volumeName))
-					Expect(volumeOptions.VolumeSource).ToNot(BeNil())
-					for _, verifyFn := range verifyFns {
-						verifyFn(volumeOptions)
-					}
-					return true, nil, nil
-				default:
-					Fail("unexpected action type on addvolume")
-					return false, nil, nil
-				}
-			})
-		}
-
 		expectVMEndpointAddVolumeErrorFunc := func(errFunc func() error, verifyFns ...verifyFn) {
 			kubecli.MockKubevirtClientInstance.
 				EXPECT().
@@ -166,11 +142,8 @@ var _ = Describe("Add volume command", func() {
 			expectVMEndpointAddVolumeErrorFunc(nil, verifyFns...)
 		}
 
-		runCmd := func(persist bool, extraArg string) error {
+		runCmd := func(extraArg string) error {
 			args := []string{"addvolume", vmiName, "--volume-name=" + volumeName}
-			if persist {
-				args = append(args, "--persist")
-			}
 			args = append(args, strings.Fields(extraArg)...)
 			cmd := testing.NewRepeatableVirtctlCommand(args...)
 			return cmd()
@@ -190,27 +163,10 @@ var _ = Describe("Add volume command", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			DescribeTable("should call VMI endpoint without persist and with", func(arg string, verifyFns ...verifyFn) {
-				verifyFns = append(verifyFns, verifyDVVolumeSource)
-				expectVMIEndpointAddVolume(verifyFns...)
-				Expect(runCmd(false, arg)).To(Succeed())
-				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachineinstances", "addvolume")).To(HaveLen(1))
-			},
-				Entry("no args", "", verifyDiskSerial(volumeName)),
-				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
-				Entry("disk-type disk", "--disk-type=disk", verifyDiskSerial(volumeName), verifyDiskTypeDisk),
-				Entry("disk-type lun", "--disk-type=lun", verifyDiskSerial(volumeName), verifyDiskTypeLun),
-				Entry("serial", "--serial=test", verifyDiskSerial("test")),
-				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
-				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
-				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
-				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
-			)
-
-			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
+			DescribeTable("should call VM endpoint and", func(arg string, verifyFns ...verifyFn) {
 				verifyFns = append(verifyFns, verifyDVVolumeSource)
 				expectVMEndpointAddVolume(verifyFns...)
-				Expect(runCmd(true, arg)).To(Succeed())
+				Expect(runCmd(arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
@@ -226,7 +182,7 @@ var _ = Describe("Add volume command", func() {
 
 			It("should fail immediately on non concurrent error", func() {
 				expectVMEndpointAddVolumeErrorFunc(func() error { return fmt.Errorf("fatal error") }, verifyDVVolumeSource)
-				Expect(runCmd(true, "")).To(MatchError(ContainSubstring("fatal error")))
+				Expect(runCmd("")).To(MatchError(ContainSubstring("fatal error")))
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			})
 
@@ -240,7 +196,7 @@ var _ = Describe("Add volume command", func() {
 						return nil
 					}
 				}, verifyDVVolumeSource)
-				Expect(runCmd(true, "")).To(Succeed())
+				Expect(runCmd("")).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(2))
 			})
 
@@ -248,17 +204,14 @@ var _ = Describe("Add volume command", func() {
 				expectVMEndpointAddVolumeErrorFunc(func() error {
 					return errors.New(concurrentErrorAdd)
 				}, verifyDVVolumeSource)
-				Expect(runCmd(true, "")).To(MatchError(ContainSubstring("error adding volume after 15 retries")))
+				Expect(runCmd("")).To(MatchError(ContainSubstring("error adding volume after 15 retries")))
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(15))
 			})
 
-			DescribeTable("should fail addvolume with LUN and virtio bus", func(persist bool) {
-				Expect(runCmd(persist, "--disk-type=lun --bus=virtio")).To(
+			It("should fail addvolume with LUN and virtio bus", func() {
+				Expect(runCmd("--disk-type=lun --bus=virtio")).To(
 					MatchError(ContainSubstring("Invalid bus type 'virtio' for LUN disk. Only 'scsi' bus is supported.")))
-			},
-				Entry("without persist", false),
-				Entry("with persist", true),
-			)
+			})
 		})
 
 		Context("with PVC", func() {
@@ -276,27 +229,10 @@ var _ = Describe("Add volume command", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			DescribeTable("should call VMI endpoint without persist and with", func(arg string, verifyFns ...verifyFn) {
-				verifyFns = append(verifyFns, verifyPVCVolumeSource)
-				expectVMIEndpointAddVolume(verifyFns...)
-				Expect(runCmd(false, arg)).To(Succeed())
-				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachineinstances", "addvolume")).To(HaveLen(1))
-			},
-				Entry("no args", "", verifyDiskSerial(volumeName)),
-				Entry("dry-run", "--dry-run", verifyDiskSerial(volumeName), verifyDryRun),
-				Entry("disk-type disk", "--disk-type=disk", verifyDiskSerial(volumeName), verifyDiskTypeDisk),
-				Entry("disk-type lun", "--disk-type=lun", verifyDiskSerial(volumeName), verifyDiskTypeLun),
-				Entry("serial", "--serial=test", verifyDiskSerial("test")),
-				Entry("cache none", "--cache=none", verifyDiskSerial(volumeName), verifyCache(v1.CacheNone)),
-				Entry("cache writethrough", "--cache=writethrough", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteThrough)),
-				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
-				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
-			)
-
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
 				verifyFns = append(verifyFns, verifyPVCVolumeSource)
 				expectVMEndpointAddVolume(verifyFns...)
-				Expect(runCmd(true, arg)).To(Succeed())
+				Expect(runCmd(arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
