@@ -246,6 +246,34 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
 			})
 
+			It("store does not create a new ControllerRevision when RevisionName is provided", func() {
+				clusterInstancetypeControllerRevision, err := revision.CreateControllerRevision(vm, clusterInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+
+				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), clusterInstancetypeControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+					Name:         clusterInstancetype.Name,
+					Kind:         clusterInstancetype.Kind,
+					RevisionName: clusterInstancetypeControllerRevision.Name,
+				}
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
+				// Verify that only one ControllerRevision exists in the namespace
+				crList, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).List(
+					context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(crList.Items).To(HaveLen(1))
+				Expect(crList.Items[0].Name).To(Equal(clusterInstancetypeControllerRevision.Name))
+				Expect(crList.Items[0].UID).To(Equal(createdCR.UID))
+			})
+
 			It("store fails when instancetype does not exist", func() {
 				vm.Spec.Instancetype.Name = nonExistingResourceName
 				Expect(storeHandler.Store(vm)).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
@@ -392,6 +420,31 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
 			})
 
+			It("store does not create a new ControllerRevision when RevisionName is provided", func() {
+				instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
+				Expect(err).ToNot(HaveOccurred())
+
+				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), instancetypeControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+					Name:         fakeInstancetype.Name,
+					RevisionName: instancetypeControllerRevision.Name,
+					Kind:         apiinstancetype.SingularResourceName,
+				}
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
+				// Verify that only one ControllerRevision exists in the namespace
+				crList, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).List(
+					context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(crList.Items).To(HaveLen(1))
+				Expect(crList.Items[0].Name).To(Equal(instancetypeControllerRevision.Name))
+				Expect(crList.Items[0].UID).To(Equal(createdCR.UID))
+			})
+
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
 				instancetypeControllerRevision, err := revision.CreateControllerRevision(vm, fakeInstancetype)
 				Expect(err).ToNot(HaveOccurred())
@@ -534,6 +587,34 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(clusterPreferenceControllerRevision.Name))
 			})
 
+			It("store does not create a new ControllerRevision when RevisionName is provided", func() {
+				clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
+				Expect(err).ToNot(HaveOccurred())
+
+				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), clusterPreferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Preference = &virtv1.PreferenceMatcher{
+					Name:         clusterPreference.Name,
+					Kind:         clusterPreference.Kind,
+					RevisionName: clusterPreferenceControllerRevision.Name,
+				}
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
+				// Verify that only one ControllerRevision exists in the namespace
+				crList, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).List(
+					context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(crList.Items).To(HaveLen(1))
+				Expect(crList.Items[0].Name).To(Equal(clusterPreferenceControllerRevision.Name))
+				Expect(crList.Items[0].UID).To(Equal(createdCR.UID))
+			})
+
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
 				clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 				Expect(err).ToNot(HaveOccurred())
@@ -647,6 +728,34 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(storeHandler.Store(vm)).To(Succeed())
 				Expect(vm.Spec.Preference.RevisionName).To(Equal(preferenceControllerRevision.Name))
 				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(preferenceControllerRevision.Name))
+			})
+
+			It("store does not create a new ControllerRevision when RevisionName is provided", func() {
+				preferenceControllerRevision, err := revision.CreateControllerRevision(vm, preference)
+				Expect(err).ToNot(HaveOccurred())
+
+				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
+					context.Background(), preferenceControllerRevision, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				vm.Spec.Preference = &virtv1.PreferenceMatcher{
+					Name:         preference.Name,
+					RevisionName: preferenceControllerRevision.Name,
+					Kind:         apiinstancetype.SingularPreferenceResourceName,
+				}
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
+				// Verify that only one ControllerRevision exists in the namespace
+				crList, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).List(
+					context.Background(), metav1.ListOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(crList.Items).To(HaveLen(1))
+				Expect(crList.Items[0].Name).To(Equal(preferenceControllerRevision.Name))
+				Expect(crList.Items[0].UID).To(Equal(createdCR.UID))
 			})
 
 			It("store ControllerRevision succeeds if a revision exists with expected data", func() {
