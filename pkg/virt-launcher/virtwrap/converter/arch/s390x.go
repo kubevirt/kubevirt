@@ -33,10 +33,6 @@ func (converterS390X) GetArchitecture() string {
 	return s390x
 }
 
-func (converterS390X) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
-
-}
-
 func (converterS390X) ScsiController(_ string, driver *api.ControllerDriver) api.Controller {
 	return api.Controller{
 		Type:   "scsi",

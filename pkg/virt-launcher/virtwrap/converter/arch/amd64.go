@@ -34,10 +34,6 @@ func (converterAMD64) GetArchitecture() string {
 	return amd64
 }
 
-func (converterAMD64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool) {
-
-}
-
 func (converterAMD64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
 	return defaultSCSIController(model, driver)
 }
