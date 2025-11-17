@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "channels.go",
         "clock.go",
+        "input_device.go",
         "launch_security.go",
         "rng.go",
         "tpm.go",
