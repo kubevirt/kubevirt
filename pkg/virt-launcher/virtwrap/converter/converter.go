@@ -1138,24 +1138,6 @@ func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
 	return result
 }
 
-func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *ConverterContext) {
-	if source != nil && source.AutoattachMemBalloon != nil && !*source.AutoattachMemBalloon {
-		ballooning.Model = "none"
-		ballooning.Stats = nil
-	} else {
-		ballooning.Model = virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
-		if c.MemBalloonStatsPeriod != 0 {
-			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
-		}
-		if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
-			ballooning.Driver = &api.MemBalloonDriver{
-				IOMMU: "on",
-			}
-		}
-		ballooning.FreePageReporting = boolToOnOff(&c.FreePageReporting, false)
-	}
-}
-
 func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 	if domain.Spec.QEMUCmd == nil {
 		domain.Spec.QEMUCmd = &api.Commandline{}
@@ -1493,6 +1475,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.RNGWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 		),
+		compute.NewBalloonDomainConfigurator(
+			compute.BalloonWithArchitecture(architecture),
+			compute.BalloonWithUseVirtioTransitional(c.UseVirtioTransitional),
+			compute.BalloonWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
+			compute.BalloonWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+			compute.BalloonWithFreePageReporting(c.FreePageReporting),
+			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
+		),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1727,9 +1717,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 		domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, *newWatchdog)
 	}
-
-	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
-	ConvertV1ToAPIBalloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
 
 	if vmi.Spec.Domain.Devices.Inputs != nil {
 		inputDevices := make([]api.Input, 0)

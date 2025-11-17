@@ -3527,11 +3527,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should set IOMMU attribute of the MemBalloonDriver", func() {
-			memBaloon := &api.MemBalloon{}
-			ConvertV1ToAPIBalloning(&v1.Devices{}, memBaloon, c)
-			Expect(memBaloon.Driver).ToNot(BeNil())
-			Expect(memBaloon.Driver.IOMMU).To(Equal("on"))
-
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
@@ -3621,11 +3616,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should set IOMMU attribute of the MemBalloonDriver", func() {
-			memBaloon := &api.MemBalloon{}
-			ConvertV1ToAPIBalloning(&v1.Devices{}, memBaloon, c)
-			Expect(memBaloon.Driver).ToNot(BeNil())
-			Expect(memBaloon.Driver.IOMMU).To(Equal("on"))
-
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
