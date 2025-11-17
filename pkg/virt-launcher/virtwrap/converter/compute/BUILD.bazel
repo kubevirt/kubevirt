@@ -35,6 +35,7 @@ go_test(
         "channels_test.go",
         "clock_test.go",
         "compute_suite_test.go",
+        "graphics_test.go",
         "input_device_test.go",
         "launch_security_test.go",
         "rng_test.go",
