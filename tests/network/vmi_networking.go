@@ -762,8 +762,8 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		})
 	})
 
-	Context("VirtualMachineInstance with TX offload disabled", func() {
-		It("[test_id:1781]should have tx checksumming disabled on interface serving dhcp", func() {
+	Context("VirtualMachineInstance with TX offload enabled", func() {
+		It("[test_id:1781]should have tx checksumming enabled on interface serving dhcp", func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
 				context.Background(),
 				libvmifact.NewAlpine(libvmi.WithMemoryRequest("1024M")),
@@ -775,7 +775,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmi,
 				[]string{"/bin/bash", "-c", "/usr/sbin/ethtool -k k6t-eth0|grep tx-checksumming|awk '{ printf $2 }'"},
 			)
-			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("off"))
+			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("on"))
 		})
 	})
 }))
