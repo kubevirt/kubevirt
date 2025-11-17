@@ -67,6 +67,18 @@ func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 }
 
 func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if vmi.Spec.Domain.Devices.Video != nil {
+		video := api.Video{
+			Model: api.VideoModel{
+				Type:  vmi.Spec.Domain.Devices.Video.Type,
+				VRam:  pointer.P(graphicsDeviceDefaultVRAM),
+				Heads: pointer.P(graphicsDeviceDefaultHeads),
+			},
+		}
+		domain.Spec.Devices.Video = []api.Video{video}
+		return
+	}
+
 	switch g.architecture {
 	case "amd64":
 		g.configureAMD64VideoDevice(vmi, domain)
