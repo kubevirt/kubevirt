@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "channels.go",
         "launch_security.go",
         "tpm.go",
         "vsock.go",
@@ -10,6 +11,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/tpm:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
@@ -21,6 +23,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "channels_test.go",
         "compute_suite_test.go",
         "launch_security_test.go",
         "tpm_test.go",
@@ -29,6 +32,7 @@ go_test(
     race = "on",
     deps = [
         ":go_default_library",
+        "//pkg/downwardmetrics:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/status:go_default_library",
         "//pkg/pointer:go_default_library",

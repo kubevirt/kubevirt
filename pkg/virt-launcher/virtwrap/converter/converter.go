@@ -46,7 +46,6 @@ import (
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
-	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -595,19 +594,6 @@ func toApiReadOnly(src bool) *api.ReadOnly {
 		return &api.ReadOnly{}
 	}
 	return nil
-}
-
-// Add_Agent_To_api_Channel creates the channel for guest agent communication
-func Add_Agent_To_api_Channel() (channel api.Channel) {
-	channel.Type = "unix"
-	// let libvirt decide which path to use
-	channel.Source = nil
-	channel.Target = &api.ChannelTarget{
-		Name: "org.qemu.guest_agent.0",
-		Type: v1.VirtIO,
-	}
-
-	return
 }
 
 func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *ConverterContext, diskIndex int) error {
@@ -1568,6 +1554,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},
 		compute.NewLaunchSecurityDomainConfigurator(c.Architecture.GetArchitecture()),
+		compute.ChannelsDomainConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1601,14 +1588,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	} else if err != nil {
 		return err
-	}
-
-	newChannel := Add_Agent_To_api_Channel()
-	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newChannel)
-
-	if downwardmetrics.HasDevice(&vmi.Spec) {
-		// Handle downwardMetrics
-		domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, convertDownwardMetricsChannel())
 	}
 
 	domain.Spec.SysInfo = &api.SysInfo{}

@@ -1,5 +1,5 @@
 /*
- * This file is part of the kubevirt project
+ * This file is part of the KubeVirt project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@
  *
  */
 
-package converter
+package compute
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -26,7 +26,30 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-func convertDownwardMetricsChannel() api.Channel {
+type ChannelsDomainConfigurator struct{}
+
+func (c ChannelsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newGuestAgentChannel())
+
+	if downwardmetrics.HasDevice(&vmi.Spec) {
+		domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newDownwardMetricsChannel())
+	}
+
+	return nil
+}
+
+func newGuestAgentChannel() api.Channel {
+	return api.Channel{
+		Type:   "unix",
+		Source: nil, // let libvirt decide which path to use
+		Target: &api.ChannelTarget{
+			Name: "org.qemu.guest_agent.0",
+			Type: v1.VirtIO,
+		},
+	}
+}
+
+func newDownwardMetricsChannel() api.Channel {
 	return api.Channel{
 		Type: "unix",
 		Source: &api.ChannelSource{
