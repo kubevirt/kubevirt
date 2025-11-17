@@ -24,10 +24,27 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type GraphicsDomainConfigurator struct{}
+const (
+	graphicsDeviceDefaultHeads uint = 1
+	graphicsDeviceDefaultVRAM  uint = 16384
+)
+
+type GraphicsDomainConfigurator struct {
+	architecture         string
+	useBochsForEFIGuests bool
+}
+
+func NewGraphicsDomainConfigurator(architecture string, useBochsForEFIGuests bool) GraphicsDomainConfigurator {
+	return GraphicsDomainConfigurator{
+		architecture:         architecture,
+		useBochsForEFIGuests: useBochsForEFIGuests,
+	}
+}
 
 func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
@@ -44,5 +61,38 @@ func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 		},
 	}
 
+	g.configureVideoDevice(vmi, domain)
+
 	return nil
+}
+
+func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	switch g.architecture {
+	case "amd64":
+		g.configureAMD64VideoDevice(vmi, domain)
+	}
+}
+
+func (g GraphicsDomainConfigurator) configureAMD64VideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	// For AMD64 + EFI, use bochs. For BIOS, use VGA
+	if g.useBochsForEFIGuests && vmi.IsBootloaderEFI() {
+		domain.Spec.Devices.Video = []api.Video{
+			{
+				Model: api.VideoModel{
+					Type:  "bochs",
+					Heads: pointer.P(graphicsDeviceDefaultHeads),
+				},
+			},
+		}
+	} else {
+		domain.Spec.Devices.Video = []api.Video{
+			{
+				Model: api.VideoModel{
+					Type:  "vga",
+					Heads: pointer.P(graphicsDeviceDefaultHeads),
+					VRam:  pointer.P(graphicsDeviceDefaultVRAM),
+				},
+			},
+		}
+	}
 }

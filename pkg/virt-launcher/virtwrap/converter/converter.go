@@ -1460,7 +1460,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.BalloonWithFreePageReporting(c.FreePageReporting),
 			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
 		),
-		compute.GraphicsDomainConfigurator{},
+		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
