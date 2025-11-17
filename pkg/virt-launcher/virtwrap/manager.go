@@ -1596,6 +1596,9 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 		if !isHotplugDisk(oldDisk) {
 			continue
 		}
+		if oldDisk.Target.Bus != "" && oldDisk.Target.Bus != v1.DiskBusVirtio && oldDisk.Target.Bus != v1.DiskBusSCSI {
+			continue
+		}
 		if _, ok := newDiskMap[oldDisk.Target.Device]; !ok {
 			// This disk got detached, add it to the list
 			res = append(res, oldDisk)
@@ -1614,6 +1617,10 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 		if !isHotplugDisk(newDisk) {
 			continue
 		}
+
+		if newDisk.Target.Bus != "" && newDisk.Target.Bus != v1.DiskBusVirtio && newDisk.Target.Bus != v1.DiskBusSCSI {
+			continue
+		}
 		if _, ok := oldDiskMap[newDisk.Target.Device]; !ok {
 			// This disk got attached, add it to the list
 			res = append(res, newDisk)
@@ -1627,22 +1634,23 @@ func isHotPlugDiskOrEmpty(disk api.Disk) bool {
 }
 
 func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
-	oldDiskMap := make(map[string]api.Disk)
-	for _, disk := range oldDisks {
-		oldDiskMap[disk.Target.Device] = disk
+	newDiskMap := make(map[string]api.Disk)
+	for _, disk := range newDisks {
+		newDiskMap[disk.Target.Device] = disk
 	}
 	var res []api.Disk
-	for _, newDisk := range newDisks {
-		oldDisk, ok := oldDiskMap[newDisk.Target.Device]
-		if !ok {
-			continue
-		}
+	for _, oldDisk := range oldDisks {
+		newDisk, newDiskExists := newDiskMap[oldDisk.Target.Device]
 		// only support cd-rom for now
-		if oldDisk.Device != "cdrom" || newDisk.Device != "cdrom" {
+		if oldDisk.Device != "cdrom" || (newDiskExists && newDisk.Device != "cdrom") {
 			continue
 		}
-		if !isHotPlugDiskOrEmpty(newDisk) || !isHotPlugDiskOrEmpty(oldDisk) {
+		if !isHotPlugDiskOrEmpty(oldDisk) || (newDiskExists && !isHotPlugDiskOrEmpty(newDisk)) {
 			continue
+		}
+		if !newDiskExists {
+			newDisk = *oldDisk.DeepCopy()
+			newDisk.Source = api.DiskSource{}
 		}
 		if equality.Semantic.DeepEqual(oldDisk.Source, newDisk.Source) {
 			continue
