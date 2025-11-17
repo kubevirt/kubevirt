@@ -226,7 +226,7 @@ func (hdc *DiskImgCreator) setlessPVCSpaceToleration(toleration int) {
 	hdc.lessPVCSpaceToleration = toleration
 }
 
-func (hdc DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
+func (hdc *DiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if hostDisk := volume.VolumeSource.HostDisk; shouldMountHostDisk(hostDisk) {
 			if err := hdc.mountHostDiskAndSetOwnership(vmi, volume.Name, hostDisk); err != nil {
@@ -249,12 +249,12 @@ func (hdc *DiskImgCreator) mountHostDiskAndSetOwnership(vmi *v1.VirtualMachineIn
 		return err
 	}
 	if !fileExists {
-		if err := hdc.handleRequestedSizeAndCreateSparseRaw(vmi, diskDir, diskPath, hostDisk); err != nil {
+		if err = hdc.handleRequestedSizeAndCreateSparseRaw(vmi, diskDir, diskPath, hostDisk); err != nil {
 			return err
 		}
 	}
 	// Change file ownership to the qemu user.
-	if err := ephemeraldiskutils.DefaultOwnershipManager.UnsafeSetFileOwnership(diskPath); err != nil {
+	if err = ephemeraldiskutils.DefaultOwnershipManager.SetFileOwnership(diskPath); err != nil {
 		log.Log.Reason(err).Errorf("Couldn't set Ownership on %s: %v", diskPath, err)
 		return err
 	}
