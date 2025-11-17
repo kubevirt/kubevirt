@@ -48,24 +48,27 @@ func NewBalloonDomainConfigurator(options ...balloonOption) BalloonDomainConfigu
 }
 
 func (b BalloonDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
-	source := &vmi.Spec.Domain.Devices
-	if source != nil && source.AutoattachMemBalloon != nil && !*source.AutoattachMemBalloon {
-		domain.Spec.Devices.Ballooning.Model = "none"
-		domain.Spec.Devices.Ballooning.Stats = nil
-	} else {
-		domain.Spec.Devices.Ballooning.Model = virtio.InterpretTransitionalModelType(&b.useVirtioTransitional, b.architecture)
-		if b.memBalloonStatsPeriod != 0 {
-			domain.Spec.Devices.Ballooning.Stats = &api.Stats{Period: b.memBalloonStatsPeriod}
-		}
-		if b.useLaunchSecuritySEV || b.useLaunchSecurityPV {
-			domain.Spec.Devices.Ballooning.Driver = &api.MemBalloonDriver{
-				IOMMU: "on",
-			}
-		}
-		domain.Spec.Devices.Ballooning.FreePageReporting = boolToOnOff(&b.freePageReporting, false)
+	newBalloon := &api.MemBalloon{}
+	domain.Spec.Devices.Ballooning = newBalloon
+
+	if vmi.Spec.Domain.Devices.AutoattachMemBalloon != nil && !*vmi.Spec.Domain.Devices.AutoattachMemBalloon {
+		newBalloon.Model = "none"
+		return nil
 	}
 
+	newBalloon.Model = virtio.InterpretTransitionalModelType(&b.useVirtioTransitional, b.architecture)
+
+	if b.memBalloonStatsPeriod != 0 {
+		newBalloon.Stats = &api.Stats{Period: b.memBalloonStatsPeriod}
+	}
+
+	if b.useLaunchSecuritySEV || b.useLaunchSecurityPV {
+		newBalloon.Driver = &api.MemBalloonDriver{
+			IOMMU: "on",
+		}
+	}
+
+	newBalloon.FreePageReporting = boolToOnOff(&b.freePageReporting, false)
 	return nil
 }
 
