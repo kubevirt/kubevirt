@@ -7,7 +7,6 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/watcher"
 
@@ -30,7 +29,6 @@ import (
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -568,12 +566,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				checkOnlineSnapshotExpectedContentSource(vm, contentName, true)
 			})
 
-			DescribeTable("should succeed online snapshot with hot plug disk", func(withEphemeralHotplug bool) {
-				if withEphemeralHotplug {
-					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
-					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
-				}
-
+			It("should succeed online snapshot with hot plug disk", func() {
 				var vmi *v1.VirtualMachineInstance
 				vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 				vm, vmi = createAndStartVM(vm)
@@ -581,12 +574,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
-				var tempVolName string
-				if withEphemeralHotplug {
-					By("Add temporary hotplug disk")
-					tempVolName = AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
-				}
+				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm)
 				By("Create Snapshot")
 				snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
 				_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
@@ -604,16 +592,12 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				contentVMTemplate := content.Spec.Source.VirtualMachine.Spec.Template
 				Expect(contentVMTemplate.Spec.Volumes).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
 				foundHotPlug := false
-				foundTempHotPlug := false
 				for _, volume := range contentVMTemplate.Spec.Volumes {
 					if volume.Name == persistVolName {
 						foundHotPlug = true
-					} else if volume.Name == tempVolName {
-						foundTempHotPlug = true
 					}
 				}
 				Expect(foundHotPlug).To(BeTrue())
-				Expect(foundTempHotPlug).To(BeFalse())
 
 				Expect(content.Spec.VolumeBackups).Should(HaveLen(len(updatedVM.Spec.Template.Spec.Volumes)))
 				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(len(content.Spec.VolumeBackups)))
@@ -646,10 +630,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					}
 					Expect(found).To(BeTrue())
 				}
-			},
-				Entry("[test_id:7472] with ephemeral hotplug disk", Serial, true),
-				Entry("without ephemeral hotplug disk", false),
-			)
+			})
 
 			It("should report appropriate event when freeze fails", func() {
 				// Activate SELinux and reboot machine so we can force fsfreeze failure
@@ -1505,7 +1486,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 	})
 }))
 
-func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine, addVMIOnly bool) string {
+func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, vm *v1.VirtualMachine) string {
 	dv := libdv.NewDataVolume(
 		libdv.WithBlankImageSource(),
 		libdv.WithStorage(libdv.StorageWithStorageClass(storageClass), libdv.StorageWithVolumeSize(cd.BlankVolumeSize)),
@@ -1534,16 +1515,10 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 		VolumeSource: volumeSource,
 	}
 
-	if addVMIOnly {
-		Eventually(func() error {
-			return virtClient.VirtualMachineInstance(vm.Namespace).AddVolume(context.Background(), vm.Name, addVolumeOptions)
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-	} else {
-		Eventually(func() error {
-			return virtClient.VirtualMachine(vm.Namespace).AddVolume(context.Background(), vm.Name, addVolumeOptions)
-		}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-		verifyVolumeAndDiskVMAdded(virtClient, vm, addVolumeName)
-	}
+	Eventually(func() error {
+		return virtClient.VirtualMachine(vm.Namespace).AddVolume(context.Background(), vm.Name, addVolumeOptions)
+	}, 3*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	verifyVolumeAndDiskVMAdded(virtClient, vm, addVolumeName)
 
 	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
