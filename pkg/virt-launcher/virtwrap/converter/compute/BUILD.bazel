@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "balloon.go",
         "channels.go",
         "clock.go",
         "input_device.go",
@@ -28,6 +29,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "ballon_test.go",
         "channels_test.go",
         "clock_test.go",
         "compute_suite_test.go",
