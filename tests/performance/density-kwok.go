@@ -38,17 +38,21 @@ import (
 )
 
 const (
-	vmBatchStartupLimit = 5 * time.Minute
-	defaultVMCount      = 1000
+	defaultVMBatchStartupLimit = 15 * time.Minute
+	defaultPollingInterval     = 10 * time.Second
+	defaultVMCount             = 8000
+	deleteBatchSize            = int64(500)
+	throughputControlInterval  = 100 * time.Millisecond
 )
 
 var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", func() {
 	var (
-		virtClient  kubecli.KubevirtClient
-		startTime   time.Time
-		primed      bool
-		vmCount     = getVMCount()
-		metricsPath = filepath.Join(os.Getenv("ARTIFACTS"), "VMI-kwok-perf-audit-results.json")
+		virtClient          kubecli.KubevirtClient
+		startTime           time.Time
+		primed              bool
+		vmCount             = getVMCount()
+		vmBatchStartupLimit = getVMBatchStartupLimit()
+		metricsPath         = filepath.Join(os.Getenv("ARTIFACTS"), "VMI-kwok-perf-audit-results.json")
 	)
 
 	BeforeEach(func() {
@@ -60,7 +64,9 @@ var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", fu
 
 		if !primed {
 			By("Create primer VMI")
-			createFakeVMIBatchWithKWOK(virtClient, 1)
+			vmi := newFakeVMISpecWithResources()
+			_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for primer VMI to be Running")
 			waitRunningVMI(virtClient, 1, 1*time.Minute)
@@ -88,7 +94,7 @@ var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", fu
 				By("Waiting for a batch of VMIs")
 				waitRunningVMI(virtClient, vmCount+1, vmBatchStartupLimit)
 
-				By("Deleting fake VMIs")
+				By(fmt.Sprintf("Deleting fake VMIs in batches of %d", deleteBatchSize))
 				deleteAndVerifyFakeVMIBatch(virtClient, vmBatchStartupLimit)
 
 				By("Collecting metrics")
@@ -104,7 +110,7 @@ var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", fu
 				By("Waiting for a batch of VMs")
 				waitRunningVMI(virtClient, vmCount, vmBatchStartupLimit)
 
-				By("Deleting fake VMs")
+				By(fmt.Sprintf("Deleting fake VMs in batches of %d", deleteBatchSize))
 				deleteAndVerifyFakeVMBatch(virtClient, vmBatchStartupLimit)
 
 				By("Collecting metrics")
@@ -117,43 +123,83 @@ var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", fu
 func createFakeVMIBatchWithKWOK(virtClient kubecli.KubevirtClient, vmCount int) {
 	for i := 1; i <= vmCount; i++ {
 		vmi := newFakeVMISpecWithResources()
+		vmi.Name = fmt.Sprintf("testvmi-%d", i)
 
 		_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
+
+		// interval for throughput control
+		time.Sleep(throughputControlInterval)
 	}
 }
 
 func deleteAndVerifyFakeVMIBatch(virtClient kubecli.KubevirtClient, timeout time.Duration) {
-	err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	ctx, cancel := getContextWithTimeout(timeout)
+	defer cancel()
 
-	Eventually(func() []v1.VirtualMachineInstance {
-		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
+	By("Deleting batches of VMIs and verifying all VMIs are deleted")
+	Eventually(func() bool {
+		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(ctx, metav1.ListOptions{Limit: deleteBatchSize})
 		Expect(err).ToNot(HaveOccurred())
 
-		return vmis.Items
-	}, timeout, 10*time.Second).Should(BeEmpty())
+		if len(vmis.Items) == 0 {
+			return true
+		}
+
+		err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).DeleteCollection(
+			ctx,
+			metav1.DeleteOptions{},
+			metav1.ListOptions{Limit: deleteBatchSize},
+		)
+		Expect(err).To(Succeed())
+
+		return false
+	}, timeout, defaultPollingInterval).Should(BeTrue())
 }
 
 func deleteAndVerifyFakeVMBatch(virtClient kubecli.KubevirtClient, timeout time.Duration) {
-	err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})
-	Expect(err).NotTo(HaveOccurred())
+	ctx, cancel := getContextWithTimeout(timeout)
+	defer cancel()
 
+	By("Deleting batches of VMs")
+	Eventually(func() bool {
+		list, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).List(ctx, metav1.ListOptions{Limit: 1})
+		Expect(err).ToNot(HaveOccurred())
+
+		if len(list.Items) == 0 {
+			return true
+		}
+
+		err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).DeleteCollection(
+			ctx,
+			metav1.DeleteOptions{},
+			metav1.ListOptions{Limit: deleteBatchSize},
+		)
+		Expect(err).To(Succeed())
+
+		return false
+	}, timeout, defaultPollingInterval).Should(BeTrue())
+
+	By("Verifying all VMIs are deleted")
 	Eventually(func() []v1.VirtualMachineInstance {
-		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(context.Background(), metav1.ListOptions{})
+		vmis, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).List(ctx, metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
 		return vmis.Items
-	}, timeout, 10*time.Second).Should(BeEmpty())
+	}, timeout, defaultPollingInterval).Should(BeEmpty())
 }
 
 func createFakeBatchRunningVMWithKWOK(virtClient kubecli.KubevirtClient, vmCount int) {
 	for i := 1; i <= vmCount; i++ {
 		vmi := newFakeVMISpecWithResources()
+		vmi.Name = fmt.Sprintf("testvm-%d", i)
 		vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 		_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
+
+		// interval for throughput control
+		time.Sleep(throughputControlInterval)
 	}
 }
 
@@ -175,6 +221,11 @@ func newFakeVMISpecWithResources() *v1.VirtualMachineInstance {
 			Effect:   k8sv1.TaintEffectNoSchedule,
 			Operator: k8sv1.TolerationOpExists,
 		}),
+		libvmi.WithToleration(k8sv1.Toleration{
+			Key:      "kwok.x-k8s.io/node",
+			Effect:   k8sv1.TaintEffectNoExecute,
+			Operator: k8sv1.TolerationOpExists,
+		}),
 	)
 }
 
@@ -190,4 +241,21 @@ func getVMCount() int {
 	}
 
 	return vmCount
+}
+
+func getVMBatchStartupLimit() time.Duration {
+	batchStartupLimitString := os.Getenv("VM_BATCH_STARTUP_LIMIT")
+	if batchStartupLimitString == "" {
+		return defaultVMBatchStartupLimit
+	}
+
+	batchStartupLimit, err := time.ParseDuration(batchStartupLimitString)
+	if err != nil {
+		return defaultVMBatchStartupLimit
+	}
+	return batchStartupLimit
+}
+
+func getContextWithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), timeout)
 }
