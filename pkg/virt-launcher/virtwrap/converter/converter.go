@@ -1036,29 +1036,6 @@ func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices
 	domainDevices.SoundCards = soundCards
 }
 
-func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input) error {
-	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB && input.Bus != "" {
-		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
-	}
-
-	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB {
-		input.Bus = v1.InputBusUSB
-	}
-
-	if input.Type != v1.InputTypeTablet {
-		return fmt.Errorf("input contains unsupported type %s", input.Type)
-	}
-
-	inputDevice.Bus = input.Bus
-	inputDevice.Type = input.Type
-	inputDevice.Alias = api.NewUserDefinedAlias(input.Name)
-
-	if input.Bus == v1.InputBusVirtio {
-		inputDevice.Model = v1.VirtIO
-	}
-	return nil
-}
-
 func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
@@ -1544,6 +1521,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
 
+	architecture := c.Architecture.GetArchitecture()
+
 	builder := NewDomainBuilder(
 		metadata.DomainConfigurator{},
 		network.NewDomainConfigurator(
@@ -1553,8 +1532,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},
-		compute.NewLaunchSecurityDomainConfigurator(c.Architecture.GetArchitecture()),
+		compute.NewLaunchSecurityDomainConfigurator(architecture),
 		compute.ChannelsDomainConfigurator{},
+		compute.NewInputDeviceDomainConfigurator(architecture),
+		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1802,19 +1783,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
 	ConvertV1ToAPIBalloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
 
-	if vmi.Spec.Domain.Devices.Inputs != nil {
-		inputDevices := make([]api.Input, 0)
-		for i := range vmi.Spec.Domain.Devices.Inputs {
-			inputDevice := api.Input{}
-			err := Convert_v1_Input_To_api_InputDevice(&vmi.Spec.Domain.Devices.Inputs[i], &inputDevice)
-			if err != nil {
-				return err
-			}
-			inputDevices = append(inputDevices, inputDevice)
-		}
-		domain.Spec.Devices.Inputs = inputDevices
-	}
-
 	err = Convert_v1_Usbredir_To_api_Usbredir(vmi, &domain.Spec.Devices, c)
 	if err != nil {
 		return err
@@ -1990,29 +1958,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			}
 		}
 
-	}
-
-	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
-		c.Architecture.AddGraphicsDevice(vmi, domain, c.BochsForEFIGuests && vmi.IsBootloaderEFI())
-		if vmi.Spec.Domain.Devices.Video != nil {
-			video := api.Video{
-				Model: api.VideoModel{
-					Type:  vmi.Spec.Domain.Devices.Video.Type,
-					VRam:  pointer.P(uint(16384)),
-					Heads: pointer.P(uint(1)),
-				},
-			}
-			domain.Spec.Devices.Video = []api.Video{video}
-		}
-		domain.Spec.Devices.Graphics = []api.Graphics{
-			{
-				Listen: &api.GraphicsListen{
-					Type:   "socket",
-					Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-vnc", vmi.ObjectMeta.UID),
-				},
-				Type: "vnc",
-			},
-		}
 	}
 
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.SRIOVDevices...)
