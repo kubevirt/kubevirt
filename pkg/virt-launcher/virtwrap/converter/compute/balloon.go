@@ -49,16 +49,22 @@ func NewBalloonDomainConfigurator(options ...balloonOption) BalloonDomainConfigu
 
 func (b BalloonDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
-	convertV1ToAPIBalloning(
-		&vmi.Spec.Domain.Devices,
-		domain.Spec.Devices.Ballooning,
-		b.architecture,
-		b.useVirtioTransitional,
-		b.useLaunchSecuritySEV,
-		b.useLaunchSecurityPV,
-		b.freePageReporting,
-		b.memBalloonStatsPeriod,
-	)
+	source := &vmi.Spec.Domain.Devices
+	if source != nil && source.AutoattachMemBalloon != nil && !*source.AutoattachMemBalloon {
+		domain.Spec.Devices.Ballooning.Model = "none"
+		domain.Spec.Devices.Ballooning.Stats = nil
+	} else {
+		domain.Spec.Devices.Ballooning.Model = virtio.InterpretTransitionalModelType(&b.useVirtioTransitional, b.architecture)
+		if b.memBalloonStatsPeriod != 0 {
+			domain.Spec.Devices.Ballooning.Stats = &api.Stats{Period: b.memBalloonStatsPeriod}
+		}
+		if b.useLaunchSecuritySEV || b.useLaunchSecurityPV {
+			domain.Spec.Devices.Ballooning.Driver = &api.MemBalloonDriver{
+				IOMMU: "on",
+			}
+		}
+		domain.Spec.Devices.Ballooning.FreePageReporting = boolToOnOff(&b.freePageReporting, false)
+	}
 
 	return nil
 }
@@ -96,33 +102,6 @@ func BalloonWithFreePageReporting(freePageReporting bool) balloonOption {
 func BalloonWithMemBalloonStatsPeriod(memBalloonStatsPeriod uint) balloonOption {
 	return func(b *BalloonDomainConfigurator) {
 		b.memBalloonStatsPeriod = memBalloonStatsPeriod
-	}
-}
-
-func convertV1ToAPIBalloning(
-	source *v1.Devices,
-	ballooning *api.MemBalloon,
-	architecture string,
-	useVirtioTransitional,
-	useLaunchSecuritySEV,
-	useLaunchSecurityPV,
-	freePageReporting bool,
-	memBalloonStatsPeriod uint,
-) {
-	if source != nil && source.AutoattachMemBalloon != nil && !*source.AutoattachMemBalloon {
-		ballooning.Model = "none"
-		ballooning.Stats = nil
-	} else {
-		ballooning.Model = virtio.InterpretTransitionalModelType(&useVirtioTransitional, architecture)
-		if memBalloonStatsPeriod != 0 {
-			ballooning.Stats = &api.Stats{Period: memBalloonStatsPeriod}
-		}
-		if useLaunchSecuritySEV || useLaunchSecurityPV {
-			ballooning.Driver = &api.MemBalloonDriver{
-				IOMMU: "on",
-			}
-		}
-		ballooning.FreePageReporting = boolToOnOff(&freePageReporting, false)
 	}
 }
 
