@@ -118,7 +118,6 @@ func (dpi *GenericDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watc
 }
 
 func (dpi *GenericDevicePlugin) GetIDDeviceNameFunc(_ string) string {
-	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 	// don't worry about the device id here, since its the same underlying device
-	return fmt.Sprintf("generic device (%s)", devicePath)
+	return fmt.Sprintf("generic device (%s)", dpi.devicePath)
 }

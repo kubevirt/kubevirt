@@ -197,26 +197,8 @@ func (dpi *MediatedDevicePlugin) GetIDDeviceNameFunc(monDevId string) string {
 	return fmt.Sprintf("mediated device (mdev=%s, id=%s)", mdev, monDevId)
 }
 
-// TODO:
-// Watch the directory, not individual files. When files are deleted, inotify automatically
-// removes watches on them, so we wouldn't get CREATE events when they're recreated.
-// By watching only the directory, we get all file events within it.
 func (dpi *MediatedDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
-	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
-	deviceDirPath := filepath.Dir(devicePath)
-	if err := watcher.Add(deviceDirPath); err != nil {
-		return fmt.Errorf("failed to add the device path to the watcher: %v", err)
-	}
-	// probe all devices
-	for _, dev := range dpi.devs {
-		vfioDevice := filepath.Join(devicePath, dev.ID)
-		err := watcher.Add(vfioDevice)
-		if err != nil {
-			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
-		}
-		monitoredDevices[vfioDevice] = dev.ID
-	}
-	return nil
+	return setupVFIOMonitoredDevices(dpi.deviceRoot, dpi.devicePath, dpi.devs, watcher, monitoredDevices)
 }
 
 func getMdevTypeName(mdevUUID string) (string, error) {

@@ -80,8 +80,7 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 	dpi.done = make(chan struct{})
 	dpi.deregistered = make(chan struct{})
 
-	err = dpi.cleanup()
-	if err != nil {
+	if err := dpi.cleanup(); err != nil {
 		return err
 	}
 
@@ -181,13 +180,12 @@ func (dpi *DevicePluginBase) healthCheck() error {
 
 	// Set up monitored device paths
 	// Should watch before stat'ing the device path to avoid race conditions
-	if dpi.SetupMonitoredDevices != nil {
-		err = dpi.SetupMonitoredDevices(watcher, monitoredDevices)
-		if err != nil {
-			return err
-		}
-	} else {
+	if dpi.SetupMonitoredDevices == nil {
 		return fmt.Errorf("SetupMonitoredDevices is not implemented")
+	}
+	err = dpi.SetupMonitoredDevices(watcher, monitoredDevices)
+	if err != nil {
+		return err
 	}
 
 	// Check the device plugin socket to ensure we can communicate with it
@@ -280,20 +278,20 @@ func (dpi *DevicePluginBase) healthCheck() error {
 				// Health in this case is if the device path actually exists
 				switch event.Op {
 				case fsnotify.Create:
-					logger.Infof("monitored device \"%s\" for resource %s appeared", friendlyName, dpi.resourceName)
+					logger.Infof("monitored device \"%s\" with resource %s appeared", friendlyName, dpi.resourceName)
 					// Try to configure permissions before marking the device as healthy.
 					isHealthy := configurePermissionsAndReportHealth(event.Name)
 					if isHealthy {
-						logger.Infof("monitored device \"%s\" for resource %s is healthy", friendlyName, dpi.resourceName)
+						logger.Infof("monitored device \"%s\" with resource %s is healthy", friendlyName, dpi.resourceName)
 					} else {
-						logger.Warningf("monitored device \"%s\" for resource %s permissions could not be configured, marking as unhealthy", friendlyName, dpi.resourceName)
+						logger.Warningf("monitored device \"%s\" with resource %s permissions could not be configured, marking as unhealthy", friendlyName, dpi.resourceName)
 					}
 					reportHealth(monDevId, isHealthy)
 				case fsnotify.Remove:
-					logger.Infof("monitored device \"%s\" for resource %s was deleted, marking device as unhealthy", friendlyName, dpi.resourceName)
+					logger.Infof("monitored device \"%s\" with resource %s was deleted, marking device as unhealthy", friendlyName, dpi.resourceName)
 					reportHealth(monDevId, false)
 				case fsnotify.Rename:
-					logger.Infof("monitored device \"%s\" for resource %s was renamed, marking device as unhealthy", friendlyName, dpi.resourceName)
+					logger.Infof("monitored device \"%s\" with resource %s was renamed, marking device as unhealthy", friendlyName, dpi.resourceName)
 					reportHealth(monDevId, false)
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {

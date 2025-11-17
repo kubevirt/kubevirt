@@ -92,12 +92,8 @@ var _ = Describe("Socket device", func() {
 		By("Confirming that the device begins as unhealthy")
 		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Unhealthy))
 
-		errChan := make(chan error, 1)
-		go func() {
-			errChan <- dpi.healthCheck()
-		}()
-
 		By("waiting for initial healthcheck to send Healthy message")
+		go dpi.healthCheck()
 		Eventually(func() string {
 			return (<-dpi.health).Health
 		}, 5*time.Second).Should(Equal(pluginapi.Healthy))

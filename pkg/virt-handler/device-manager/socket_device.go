@@ -119,10 +119,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 				return err
 			}
 			// Then set socket permissions
-			if err := dpi.setSocketPermissions(); err != nil {
-				return err
-			}
-			return nil
+			return dpi.setSocketPermissions()
 		}
 	}
 	return dpi, nil
@@ -147,13 +144,16 @@ func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.Alloca
 }
 
 func (dpi *SocketDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+	logger := log.DefaultLogger()
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 	deviceDirPath := filepath.Dir(devicePath)
 	if err := watcher.Add(deviceDirPath); err != nil {
-		parentDir := filepath.Dir(deviceDirPath)
-		if err = watcher.Add(parentDir); err != nil {
-			return fmt.Errorf("failed to add the device parent directory to the watcher: %v", err)
-		}
+		logger.Warningf("failed to add the device directory %s to the watcher: %v", deviceDirPath, err)
+	}
+	parentDir := filepath.Dir(deviceDirPath)
+	if err := watcher.Add(parentDir); err != nil {
+		// unrecoverable error
+		return fmt.Errorf("failed to add the device parent directory to the watcher: %v", err)
 	}
 	monitoredDevices[devicePath] = ""
 	return nil

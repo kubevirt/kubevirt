@@ -91,8 +91,8 @@ var _ = Describe("Generic Device", func() {
 		By("Confirming that the device begins as unhealthy")
 		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Unhealthy))
 
-
 		By("waiting for initial healthcheck to send Healthy message")
+		go dpi.healthCheck()
 		Eventually(func() string {
 			return (<-dpi.health).Health
 		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
