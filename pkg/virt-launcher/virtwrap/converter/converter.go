@@ -1535,6 +1535,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewLaunchSecurityDomainConfigurator(architecture),
 		compute.ChannelsDomainConfigurator{},
 		compute.NewInputDeviceDomainConfigurator(architecture),
+		compute.NewGraphicsDomainConfigurator(),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err

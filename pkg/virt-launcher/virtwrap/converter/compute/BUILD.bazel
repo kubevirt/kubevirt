@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "channels.go",
+        "graphics.go",
         "input_device.go",
         "launch_security.go",
         "tpm.go",
