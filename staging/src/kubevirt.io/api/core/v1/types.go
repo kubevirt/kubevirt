@@ -79,7 +79,6 @@ const (
 
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
 type VirtualMachineInstanceSpec struct {
-
 	// If specified, indicates the pod's priority.
 	// If not specified, the pod priority will be default or zero if there is no
 	// default.
@@ -290,7 +289,7 @@ type VirtualMachineInstanceStatus struct {
 	// +optional
 	TopologyHints *TopologyHints `json:"topologyHints,omitempty"`
 
-	//VirtualMachineRevisionName is used to get the vm revision of the vmi when doing
+	// VirtualMachineRevisionName is used to get the vm revision of the vmi when doing
 	// an online vm snapshot
 	// +optional
 	VirtualMachineRevisionName string `json:"virtualMachineRevisionName,omitempty"`
@@ -377,7 +376,7 @@ type DeviceAttribute struct {
 	// PCIAddress is the PCIe bus address of the allocated device
 	// +optional
 	PCIAddress *string `json:"pciAddress,omitempty"`
-	//MDevUUID is the mediated device uuid of the allocated device
+	// MDevUUID is the mediated device uuid of the allocated device
 	// +optional
 	MDevUUID *string `json:"mDevUUID,omitempty"`
 }
@@ -657,7 +656,6 @@ func (v *VirtualMachineInstance) IsMigrationCompleted() bool {
 // happen when both sides have synchronized at least once. For 'local' migrations this returns true if the
 // migration state is not nil. Essentially this happens after the migration resource is created.
 func (v *VirtualMachineInstance) IsMigrationSynchronized(migration *VirtualMachineInstanceMigration) bool {
-
 	if migration.IsDecentralized() {
 		return v.Status.MigrationState != nil && v.Status.MigrationState.SourceState != nil &&
 			v.Status.MigrationState.TargetState != nil &&
@@ -1085,7 +1083,7 @@ type VirtualMachineInstancePhase string
 
 // These are the valid statuses of pods.
 const (
-	//When a VirtualMachineInstance Object is first initialized and no phase, or Pending is present.
+	// When a VirtualMachineInstance Object is first initialized and no phase, or Pending is present.
 	VmPhaseUnset VirtualMachineInstancePhase = ""
 	// Pending means the VirtualMachineInstance has been accepted by the system.
 	Pending VirtualMachineInstancePhase = "Pending"
@@ -1113,6 +1111,7 @@ const (
 	// VGADisplayForEFIGuestsX86Annotation when set, x86 EFI guests will be started with VGA display instead of Bochs
 	VGADisplayForEFIGuestsX86Annotation string = "kubevirt.io/vga-display-efi-x86"
 )
+
 const (
 	// AppLabel and AppName labels marks resources that belong to KubeVirt. An optional value
 	// may indicate which specific KubeVirt component a resource belongs to.
@@ -2972,14 +2971,14 @@ type RateLimiter struct {
 
 // RESTClientConfiguration allows configuring certain aspects of the k8s rest client.
 type RESTClientConfiguration struct {
-	//RateLimiter allows selecting and configuring different rate limiters for the k8s client.
+	// RateLimiter allows selecting and configuring different rate limiters for the k8s client.
 	RateLimiter *RateLimiter `json:"rateLimiter,omitempty"`
 }
 
 // ReloadableComponentConfiguration holds all generic k8s configuration options which can
 // be reloaded by components without requiring a restart.
 type ReloadableComponentConfiguration struct {
-	//RestClient can be used to tune certain aspects of the k8s client in use.
+	// RestClient can be used to tune certain aspects of the k8s client in use.
 	RestClient *RESTClientConfiguration `json:"restClient,omitempty"`
 }
 
@@ -3521,8 +3520,7 @@ const (
 )
 
 // GuestAgentPing configures the guest-agent based ping probe
-type GuestAgentPing struct {
-}
+type GuestAgentPing struct{}
 
 type ProfilerResult struct {
 	PprofData map[string][]byte `json:"pprofData,omitempty"`
