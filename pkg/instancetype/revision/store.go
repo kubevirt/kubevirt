@@ -16,7 +16,6 @@
  * Copyright The KubeVirt Authors.
  *
  */
-//nolint:dupl
 package revision
 
 import (
@@ -90,6 +89,7 @@ func syncStatusWithMatcher(
 	// from the matcher or to store a copy of the new resource the matcher is pointing at.
 	if clearControllerRevisionRef {
 		statusRef.ControllerRevisionRef = nil
+		statusRef.Resources = nil
 	}
 
 	syncInferFromVolumeFailurePolicy(matcher, statusRef)
@@ -140,12 +140,51 @@ func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (
 		return nil, err
 	}
 
+	// Populate InstancetypeStatusResources if not already set
+	if statusRef.Resources == nil {
+		if err := h.populateInstancetypeStatusResources(vm, statusRef); err != nil {
+			return nil, err
+		}
+	}
+
 	if equality.Semantic.DeepEqual(vm.Status.InstancetypeRef, statusRef) {
 		return nil, nil
 	}
 
 	vm.Status.InstancetypeRef = statusRef
 	return vm.Status.InstancetypeRef, nil
+}
+
+func (h *revisionHandler) populateInstancetypeStatusResources(
+	vm *virtv1.VirtualMachine,
+	statusRef *virtv1.InstancetypeStatusRef,
+) error {
+	vmApplier := apply.NewVMApplier(
+		find.NewSpecFinder(h.instancetypeStore, h.clusterInstancetypeStore, h.revisionStore, h.virtClient),
+		preferenceFind.NewSpecFinder(h.preferenceStore, h.clusterPreferenceStore, h.revisionStore, h.virtClient),
+	)
+	vmCopy := vm.DeepCopy()
+	if err := vmApplier.ApplyToVM(vmCopy); err != nil {
+		return err
+	}
+
+	domain := vmCopy.Spec.Template.Spec.Domain
+	if domain.CPU == nil {
+		return fmt.Errorf("cpu not defined after applying instancetype to VirtualMachine")
+	}
+	if domain.Memory == nil || domain.Memory.Guest == nil {
+		return fmt.Errorf("memory not defined after applying instancetype to VirtualMachine")
+	}
+
+	statusRef.Resources = &virtv1.InstancetypeStatusResources{
+		CPU: virtv1.CPUTopology{
+			Cores:   domain.CPU.Cores,
+			Sockets: domain.CPU.Sockets,
+			Threads: domain.CPU.Threads,
+		},
+		Memory: domain.Memory.Guest.DeepCopy(),
+	}
+	return nil
 }
 
 func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
