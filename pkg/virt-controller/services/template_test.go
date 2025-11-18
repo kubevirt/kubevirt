@@ -2176,7 +2176,7 @@ var _ = Describe("Template", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("3"))
 			})
-			It("should allocate proportinal amount of cpus to vmipod as vcpus with allocation_ratio set to 10", func() {
+			It("should allocate proportional amount of cpus to vmipod as vcpus with allocation_ratio set to 10", func() {
 				vmi := v1.VirtualMachineInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "testvmi",
@@ -2227,6 +2227,106 @@ var _ = Describe("Template", func() {
 				pod, err := svc.RenderLaunchManifest(&vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Cpu().String()).To(Equal("150m"))
+			})
+
+			Context("memory overcommit", func() {
+				type memorySetterFunc func(vmi *v1.VirtualMachineInstance)
+				type overcommitExpectation bool
+				const expectOvercommit, notExpectOvercommit overcommitExpectation = true, false
+
+				setMemoryRequests := func(vmi *v1.VirtualMachineInstance) {
+					By("Setting memory requests")
+					vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("1Gi")}
+				}
+				setMemoryLimits := func(vmi *v1.VirtualMachineInstance) {
+					By("Setting memory limits")
+					vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{k8sv1.ResourceMemory: resource.MustParse("1Gi")}
+				}
+				setGuestMemory := func(vmi *v1.VirtualMachineInstance) {
+					By("Setting guest memory")
+					vmi.Spec.Domain.Memory = &v1.Memory{Guest: pointer.P(resource.MustParse("1Gi"))}
+				}
+				setHugePagesMemory := func(vmi *v1.VirtualMachineInstance) {
+					By("Setting huge page memory")
+					vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{PageSize: "1Gi"}}
+				}
+
+				DescribeTable("should honor memoryOvercommit when set in the CR", func(expectOvercommit overcommitExpectation, memorySetters ...memorySetterFunc) {
+					config, kvStore, svc = configFactory(defaultArch)
+
+					By("Creating a VMI")
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "testvmi",
+							Namespace: "default",
+							UID:       "1234",
+						},
+					}
+
+					for _, memorySetter := range memorySetters {
+						memorySetter(&vmi)
+					}
+
+					By("Checking how much memory the pod requests by default")
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					mem100 := pod.Spec.Containers[0].Resources.Requests.Memory()
+
+					By("Setting a memory overcommit of 110% in the CR")
+					kvConfig := kv.DeepCopy()
+					kvConfig.Spec.Configuration.DeveloperConfiguration.MemoryOvercommit = 110
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+
+					By("Checking how much memory the pod requests now")
+					pod, err = svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred())
+					mem110 := pod.Spec.Containers[0].Resources.Requests.Memory()
+
+					By("Ensuring the memory was overcommitted as expected")
+					if expectOvercommit {
+						vmiCPUArch := vmi.Spec.Architecture
+						if vmiCPUArch == "" {
+							vmiCPUArch = config.GetClusterCPUArch()
+						}
+						overhead := GetMemoryOverhead(&vmi, vmiCPUArch, config.GetConfig().AdditionalGuestMemoryOverheadRatio)
+
+						mem100.Sub(overhead)
+						mem110.Sub(overhead)
+						mem100int, res := mem100.AsInt64()
+						Expect(res).To(BeTrue())
+						mem110int, res := mem110.AsInt64()
+						Expect(res).To(BeTrue())
+						Expect(mem100int * 100 / 110).To(Equal(mem110int))
+					} else {
+						Expect(mem100.Equal(*mem110)).To(BeTrue(), "memory overcommitted is not expected")
+					}
+				},
+					// No memory setters
+					Entry("no memory setters - not expect overcommit", notExpectOvercommit),
+
+					// Single memory setters
+					Entry("memory requests only - not expect overcommit", notExpectOvercommit, setMemoryRequests),
+					Entry("memory limits only - not expect overcommit", notExpectOvercommit, setMemoryLimits),
+					Entry("guest memory only - expect overcommit", expectOvercommit, setGuestMemory),
+					Entry("hugepages memory only - expect overcommit", expectOvercommit, setHugePagesMemory),
+
+					// Pairs of memory setters
+					Entry("memory requests and limits - not expect overcommit", notExpectOvercommit, setMemoryRequests, setMemoryLimits),
+					Entry("memory requests and guest memory - not expect overcommit", notExpectOvercommit, setMemoryRequests, setGuestMemory),
+					Entry("memory requests and hugepages - not expect overcommit", notExpectOvercommit, setMemoryRequests, setHugePagesMemory),
+					Entry("memory limits and guest memory - not expect overcommit", notExpectOvercommit, setMemoryLimits, setGuestMemory),
+					Entry("memory limits and hugepages - not expect overcommit", notExpectOvercommit, setMemoryLimits, setHugePagesMemory),
+					Entry("guest memory and hugepages - expect overcommit", expectOvercommit, setGuestMemory, setHugePagesMemory),
+
+					// Triplets of memory setters
+					Entry("memory requests, limits and guest memory - not expect overcommit", notExpectOvercommit, setMemoryRequests, setMemoryLimits, setGuestMemory),
+					Entry("memory requests, limits and hugepages - not expect overcommit", notExpectOvercommit, setMemoryRequests, setMemoryLimits, setHugePagesMemory),
+					Entry("memory requests, guest memory and hugepages - not expect overcommit", notExpectOvercommit, setMemoryRequests, setGuestMemory, setHugePagesMemory),
+					Entry("memory limits, guest memory and hugepages - not expect overcommit", notExpectOvercommit, setMemoryLimits, setGuestMemory, setHugePagesMemory),
+
+					// All four memory setters
+					Entry("all memory setters - not expect overcommit", notExpectOvercommit, setMemoryRequests, setMemoryLimits, setGuestMemory, setHugePagesMemory),
+				)
 			})
 		})
 

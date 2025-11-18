@@ -567,12 +567,15 @@ func (v *VirtualMachineInstance) IsBootloaderEFI() bool {
 		v.Spec.Domain.Firmware.Bootloader.EFI != nil
 }
 
-// WantsToHaveQOSGuaranteed checks if cpu and memoyr limits and requests are identical on the VMI.
+// WantsToHaveQOSGuaranteed checks if cpu and memory limits and requests are identical on the VMI.
 // This is the indicator that people want a VMI with QOS of guaranteed
+// If memory limit is set but not its corresponding request, we will eventually set request=limit
 func (v *VirtualMachineInstance) WantsToHaveQOSGuaranteed() bool {
 	resources := v.Spec.Domain.Resources
-	return !resources.Requests.Memory().IsZero() && resources.Requests.Memory().Cmp(*resources.Limits.Memory()) == 0 &&
-		!resources.Requests.Cpu().IsZero() && resources.Requests.Cpu().Cmp(*resources.Limits.Cpu()) == 0
+	memoryWantsIt := (resources.Requests.Memory().IsZero() && !resources.Limits.Memory().IsZero()) ||
+		(!resources.Requests.Memory().IsZero() && resources.Requests.Memory().Cmp(*resources.Limits.Memory()) == 0)
+	cpuWantsIt := !resources.Requests.Cpu().IsZero() && resources.Requests.Cpu().Cmp(*resources.Limits.Cpu()) == 0
+	return memoryWantsIt && cpuWantsIt
 }
 
 // ShouldStartPaused returns true if VMI should be started in paused state
@@ -3124,6 +3127,7 @@ type DeveloperConfiguration struct {
 	// "see" 2% more memory than its parent pod. Values under 100 are effectively "undercommits".
 	// Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.
 	// Defaults to 100
+	// +kubebuilder:validation:Minimum:=10
 	MemoryOvercommit int `json:"memoryOvercommit,omitempty"`
 	// NodeSelectors allows restricting VMI creation to nodes that match a set of labels.
 	// Defaults to none

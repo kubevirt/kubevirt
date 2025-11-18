@@ -3377,25 +3377,31 @@ func (c *Controller) handleMemoryHotplugRequest(vm *virtv1.VirtualMachine, vmi *
 
 	memoryDelta := resource.NewQuantity(vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Value()-vmi.Status.Memory.GuestCurrent.Value(), resource.BinarySI)
 
-	newMemoryReq := vmi.Spec.Domain.Resources.Requests.Memory().DeepCopy()
-	newMemoryReq.Add(*memoryDelta)
-
-	// checking if the new memory req are at least equal to the memory being requested in the handleMemoryHotplugRequest
-	// this is necessary as weirdness can arise after hot-unplugs as not all memory is guaranteed to be released when doing hot-unplug.
-	if newMemoryReq.Cmp(*vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest) == -1 {
-		newMemoryReq = *vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest
-		// adjusting memoryDelta too for the new limits computation (if required)
-		memoryDelta = resource.NewQuantity(vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Value()-newMemoryReq.Value(), resource.BinarySI)
-	}
-
 	patchSet := patch.New(
 		patch.WithTest("/spec/domain/memory/guest", vmi.Spec.Domain.Memory.Guest.String()),
 		patch.WithReplace("/spec/domain/memory/guest", vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.String()),
-		patch.WithTest("/spec/domain/resources/requests/memory", vmi.Spec.Domain.Resources.Requests.Memory().String()),
-		patch.WithReplace("/spec/domain/resources/requests/memory", newMemoryReq.String()),
 	)
 
-	logMsg := fmt.Sprintf("hotplugging memory to %s, setting requests to %s", vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.String(), newMemoryReq.String())
+	logMsg := fmt.Sprintf("hotplugging memory to %s", vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.String())
+
+	if !vmi.Spec.Domain.Resources.Requests.Memory().IsZero() {
+		newMemoryReq := vmi.Spec.Domain.Resources.Requests.Memory().DeepCopy()
+		newMemoryReq.Add(*memoryDelta)
+
+		// checking if the new memory req are at least equal to the memory being requested in the handleMemoryHotplugRequest
+		// this is necessary as weirdness can arise after hot-unplugs as not all memory is guaranteed to be released when doing hot-unplug.
+		if newMemoryReq.Cmp(*vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest) == -1 {
+			newMemoryReq = *vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest
+			// adjusting memoryDelta too for the new limits computation (if required)
+			memoryDelta = resource.NewQuantity(vmCopyWithInstancetype.Spec.Template.Spec.Domain.Memory.Guest.Value()-newMemoryReq.Value(), resource.BinarySI)
+		}
+
+		patchSet.AddOption(
+			patch.WithTest("/spec/domain/resources/requests/memory", vmi.Spec.Domain.Resources.Requests.Memory().String()),
+			patch.WithReplace("/spec/domain/resources/requests/memory", newMemoryReq.String()),
+		)
+		logMsg = fmt.Sprintf("%s, setting requests to %s", logMsg, newMemoryReq.String())
+	}
 
 	if !vmCopyWithInstancetype.Spec.Template.Spec.Domain.Resources.Limits.Memory().IsZero() {
 		newMemoryLimit := vmi.Spec.Domain.Resources.Limits.Memory().DeepCopy()

@@ -180,13 +180,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}
 				return *vmi.Status.QOSClass
 			}, 10*time.Second, 1*time.Second).Should(Equal(k8sv1.PodQOSGuaranteed))
-
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vmi.Spec.Domain.Resources.Requests.Cpu().Cmp(*vmi.Spec.Domain.Resources.Limits.Cpu())).To(BeZero(), "Requests and Limits for CPU on VMI should match")
-			Expect(vmi.Spec.Domain.Resources.Requests.Memory().Cmp(*vmi.Spec.Domain.Resources.Limits.Memory())).To(BeZero(), "Requests and Limits for memory on VMI should match")
 		})
-
 	})
 
 	Describe("VirtualMachineInstance definition", func() {
@@ -463,26 +457,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Starting a VirtualMachineInstance")
 				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).To(HaveOccurred())
-			})
-		})
-
-		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]with cluster memory overcommit being applied", Serial, func() {
-			BeforeEach(func() {
-				kv := libkubevirt.GetCurrentKv(virtClient)
-
-				config := kv.Spec.Configuration
-				config.DeveloperConfiguration.MemoryOvercommit = 200
-				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-			})
-
-			It("[test_id:3114]should set requested amount of memory according to the specified virtual memory", func() {
-				vmi := libvmi.New()
-				guestMemory := resource.MustParse("4096M")
-				vmi.Spec.Domain.Memory = &v1.Memory{Guest: &guestMemory}
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{}
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(vmi.Spec.Domain.Resources.Requests.Memory().String()).To(Equal("2048M"))
 			})
 		})
 
