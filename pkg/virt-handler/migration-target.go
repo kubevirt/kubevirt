@@ -191,6 +191,10 @@ func domainIsActiveOnTarget(domain *api.Domain) bool {
 }
 
 func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	// as fallback set the target migration start timestamp
+	if vmi.Status.MigrationState.StartTimestamp == nil && domain.Spec.Metadata.KubeVirt.Migration.StartTimestamp != nil {
+		vmi.Status.MigrationState.StartTimestamp = domain.Spec.Metadata.KubeVirt.Migration.StartTimestamp
+	}
 	vmi.Status.MigrationState.EndTimestamp = domain.Spec.Metadata.KubeVirt.Migration.EndTimestamp
 	vmi.Labels[v1.NodeNameLabel] = c.host
 	if _, exists := vmi.GetAnnotations()[v1.EvictionSourceAnnotation]; exists {
