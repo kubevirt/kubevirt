@@ -58,6 +58,9 @@ type Notifier struct {
 	intervalTimeout time.Duration
 	sendTimeout     time.Duration
 	totalTimeout    time.Duration
+
+	firstAdd    *sync.Once
+	firstDelete *sync.Once
 }
 
 type libvirtEvent struct {
@@ -73,6 +76,8 @@ func NewNotifier(virtShareDir string) *Notifier {
 		intervalTimeout:  defaultIntervalTimeout,
 		sendTimeout:      defaultSendTimeout,
 		totalTimeout:     defaultTotalTimeout,
+		firstAdd:         &sync.Once{},
+		firstDelete:      &sync.Once{},
 	}
 }
 
@@ -235,6 +240,14 @@ func (n *Notifier) SendDomainEvent(event watch.Event) error {
 	return nil
 }
 
+func (n *Notifier) updateEvents(event watch.Event, domain *api.Domain, events chan watch.Event) {
+	if event.Type == watch.Added {
+		n.firstAdd.Do(func() { events <- event })
+	} else if event.Type == watch.Modified && domain.ObjectMeta.DeletionTimestamp != nil {
+		n.firstDelete.Do(func() { events <- event })
+	}
+}
+
 func newWatchEventError(err error) watch.Event {
 	return watch.Event{Type: watch.Error, Object: &metav1.Status{Status: metav1.StatusFailure, Message: err.Error()}}
 }
@@ -269,7 +282,7 @@ func (e eventNotifier) SendEvent(event watch.Event) error {
 }
 
 func (e eventNotifier) UpdateEvents(event watch.Event) {
-	updateEvents(event, e.domain, e.events)
+	e.client.updateEvents(event, e.domain, e.events)
 }
 
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
@@ -327,7 +340,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 		domain.ObjectMeta.DeletionTimestamp = &now
 		watchEvent := watch.Event{Type: watch.Modified, Object: domain}
 		client.SendDomainEvent(watchEvent)
-		updateEvents(watchEvent, domain, events)
+		client.updateEvents(watchEvent, domain, events)
 	case api.ReasonPausedIOError:
 		domainDisksWithErrors, err := d.GetDiskErrors(0)
 		if err != nil {
@@ -350,18 +363,18 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 			}
 			event := watch.Event{Type: watch.Modified, Object: domain}
 			client.SendDomainEvent(event)
-			updateEvents(event, domain, events)
+			client.updateEvents(event, domain, events)
 		}
 	default:
 		if libvirtEvent.Event != nil {
 			if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_DEFINED && libvirt.DomainEventDefinedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_DEFINED_ADDED {
 				event := watch.Event{Type: watch.Added, Object: domain}
 				client.SendDomainEvent(event)
-				updateEvents(event, domain, events)
+				client.updateEvents(event, domain, events)
 			} else if libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_STARTED && libvirt.DomainEventStartedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_STARTED_MIGRATED {
 				event := watch.Event{Type: watch.Added, Object: domain}
 				client.SendDomainEvent(event)
-				updateEvents(event, domain, events)
+				client.updateEvents(event, domain, events)
 			} else if (libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_RESUMED && libvirt.DomainEventResumedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_RESUMED_MIGRATED) ||
 				(libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirt.DomainEventSuspendedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_SUSPENDED_PAUSED) {
 				// This is a libvirt event that only the target can see, and it means that the migration has completed
@@ -392,23 +405,6 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
 		if err != nil {
 			log.Log.Reason(err).Error("Could not send domain notify event.")
-		}
-	}
-}
-
-var updateEvents = updateEventsClosure()
-
-func updateEventsClosure() func(event watch.Event, domain *api.Domain, events chan watch.Event) {
-	firstAddEvent := true
-	firstDeleteEvent := true
-
-	return func(event watch.Event, domain *api.Domain, events chan watch.Event) {
-		if event.Type == watch.Added && firstAddEvent {
-			firstAddEvent = false
-			events <- event
-		} else if event.Type == watch.Modified && domain.ObjectMeta.DeletionTimestamp != nil && firstDeleteEvent {
-			firstDeleteEvent = false
-			events <- event
 		}
 	}
 }
