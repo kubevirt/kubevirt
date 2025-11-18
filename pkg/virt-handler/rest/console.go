@@ -248,7 +248,11 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 			InsecureSkipVerify: true,
 			MinVersion:         tls.VersionTLS13,
 			GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				return t.vsockCertManager.Current(), nil
+				certificate := t.vsockCertManager.Current()
+				if certificate == nil {
+					return nil, fmt.Errorf("missing VSOCK certificate")
+				}
+				return certificate, nil
 			},
 		})
 		if err := tlsConn.Handshake(); err != nil {
