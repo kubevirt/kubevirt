@@ -1122,11 +1122,11 @@ func (a *YesNoAttr) MarshalXMLAttr(name xml.Name) (xml.Attr, error) {
 }
 
 type Timer struct {
-	Name       string `xml:"name,attr"`
-	TickPolicy string `xml:"tickpolicy,attr,omitempty"`
-	Present    string `xml:"present,attr,omitempty"`
-	Track      string `xml:"track,attr,omitempty"`
-	Frequency  string `xml:"frequency,attr,omitempty"`
+	Name       string     `xml:"name,attr"`
+	TickPolicy string     `xml:"tickpolicy,attr,omitempty"`
+	Present    *YesNoAttr `xml:"present,attr,omitempty"`
+	Track      string     `xml:"track,attr,omitempty"`
+	Frequency  string     `xml:"frequency,attr,omitempty"`
 }
 
 //END Clock --------------------

@@ -22,6 +22,7 @@ package compute
 import (
 	"strconv"
 
+	"k8s.io/utils/ptr"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -73,29 +74,29 @@ func convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
 			newTimer := api.Timer{Name: "rtc"}
 			newTimer.Track = string(source.Timer.RTC.Track)
 			newTimer.TickPolicy = string(source.Timer.RTC.TickPolicy)
-			newTimer.Present = boolToYesNo(source.Timer.RTC.Enabled, true)
+			setPresentField(&newTimer, source.Timer.RTC.Enabled, true)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.PIT != nil {
 			newTimer := api.Timer{Name: "pit"}
-			newTimer.Present = boolToYesNo(source.Timer.PIT.Enabled, true)
+			setPresentField(&newTimer, source.Timer.PIT.Enabled, true)
 			newTimer.TickPolicy = string(source.Timer.PIT.TickPolicy)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.KVM != nil {
 			newTimer := api.Timer{Name: "kvmclock"}
-			newTimer.Present = boolToYesNo(source.Timer.KVM.Enabled, true)
+			setPresentField(&newTimer, source.Timer.KVM.Enabled, true)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.HPET != nil {
 			newTimer := api.Timer{Name: "hpet"}
-			newTimer.Present = boolToYesNo(source.Timer.HPET.Enabled, true)
+			setPresentField(&newTimer, source.Timer.HPET.Enabled, true)
 			newTimer.TickPolicy = string(source.Timer.HPET.TickPolicy)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 		if source.Timer.Hyperv != nil {
 			newTimer := api.Timer{Name: "hypervclock"}
-			newTimer.Present = boolToYesNo(source.Timer.Hyperv.Enabled, true)
+			setPresentField(&newTimer, source.Timer.Hyperv.Enabled, true)
 			clock.Timer = append(clock.Timer, newTimer)
 		}
 	}
@@ -119,4 +120,9 @@ func boolToString(value *bool, defaultPositive bool, positive string, negative s
 		return toString(defaultPositive)
 	}
 	return toString(*value)
+}
+
+func setPresentField(timer *api.Timer, value *bool, defVal bool) {
+	present := api.YesNoAttr(ptr.Deref(value, defVal))
+	timer.Present = ptr.To(present)
 }
