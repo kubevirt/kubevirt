@@ -198,7 +198,9 @@ func (c *MigrationSourceController) setMigrationProgressStatus(vmi *v1.VirtualMa
 	if migrationMetadata.UID != vmi.Status.MigrationState.MigrationUID {
 		return
 	}
-	vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
+	if migrationMetadata.StartTimestamp != nil {
+		vmi.Status.MigrationState.StartTimestamp = migrationMetadata.StartTimestamp
+	}
 
 	vmi.Status.MigrationState.Failed = migrationMetadata.Failed
 
