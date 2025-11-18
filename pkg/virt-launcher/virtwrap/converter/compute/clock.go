@@ -35,7 +35,7 @@ func (c ClockDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domai
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &api.Clock{}
-		err := convert_v1_Clock_To_api_Clock(clock, newClock)
+		err := convertV1ClockToAPIClock(clock, newClock)
 		if err != nil {
 			return err
 		}
@@ -56,7 +56,7 @@ func (c ClockDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domai
 	return nil
 }
 
-func convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
+func convertV1ClockToAPIClock(source *v1.Clock, clock *api.Clock) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
 		if source.UTC.OffsetSeconds != nil {
