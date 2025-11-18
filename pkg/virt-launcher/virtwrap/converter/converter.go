@@ -954,28 +954,6 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	return nil
 }
 
-func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
-
-	// default rng model for KVM/QEMU virtualization
-	rng.Model = virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
-
-	// default backend model, random
-	rng.Backend = &api.RngBackend{
-		Model: "random",
-	}
-
-	// the default source for rng is dev urandom
-	rng.Backend.Source = "/dev/urandom"
-
-	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
-		rng.Driver = &api.RngDriver{
-			IOMMU: "on",
-		}
-	}
-
-	return nil
-}
-
 func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) error {
 	clientDevices := vmi.Spec.Domain.Devices.ClientPassthrough
 
@@ -1495,6 +1473,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
 
+	architecture := c.Architecture.GetArchitecture()
+
 	builder := NewDomainBuilder(
 		metadata.DomainConfigurator{},
 		network.NewDomainConfigurator(
@@ -1504,9 +1484,15 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},
-		compute.NewLaunchSecurityDomainConfigurator(c.Architecture.GetArchitecture()),
+		compute.NewLaunchSecurityDomainConfigurator(architecture),
 		compute.ChannelsDomainConfigurator{},
 		compute.ClockDomainConfigurator{},
+		compute.NewRNGDomainConfigurator(
+			compute.RNGWithArchitecture(architecture),
+			compute.RNGWithUseVirtioTransitional(c.UseVirtioTransitional),
+			compute.RNGWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
+			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+		),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1740,15 +1726,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			return err
 		}
 		domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, *newWatchdog)
-	}
-
-	if vmi.Spec.Domain.Devices.Rng != nil {
-		newRng := &api.Rng{}
-		err := Convert_v1_Rng_To_api_Rng(vmi.Spec.Domain.Devices.Rng, newRng, c)
-		if err != nil {
-			return err
-		}
-		domain.Spec.Devices.Rng = newRng
 	}
 
 	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
