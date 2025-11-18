@@ -52,12 +52,12 @@ static void *socket_check(int fd, void *arg) {
      *
      * First, if the socket file still exists. We use it as an indicator to
      * shut down the container, in case that we don't receive a signal from
-     * kuberenetes. We had issues with receiving the signal in time on
+     * kubernetes. We had issues with receiving the signal in time on
      * different container runtime implementations over time and therefore use
      * this as a precaution.
      *
      * Second accept socket connections to avoid filling up the SYN queue. If
-     * ther is a connection, we close it immediatley and immediately try to
+     * ther is a connection, we close it immediately and immediately try to
      * read the next connection until there are no more connections in the
      * queue. Once the queue is empty, we fall back to sleep for a second.
      *
