@@ -29,6 +29,7 @@ import (
 
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -531,6 +532,114 @@ var _ = ginkgo.Describe("LaunchSecurity SEV-SNP", func() {
 			var parsed DomainSpec
 			Expect(xml.Unmarshal(xmlBytes, &parsed)).To(Succeed())
 			Expect(parsed.LaunchSecurity).To(BeNil())
+		})
+	})
+})
+
+var _ = ginkgo.Describe("YesNoAttr", func() {
+	ginkgo.Describe("not nilable", func() {
+		type TestSpec struct {
+			XMLName       xml.Name  `xml:"test"`
+			AttrUnderTest YesNoAttr `xml:"attr_under_test,attr"`
+		}
+
+		ginkgo.DescribeTable("should marshal YesNoAttr", func(xmlContentStr string, expected bool) {
+			xmlContent := []byte(xmlContentStr)
+
+			test := &TestSpec{}
+			Expect(xml.Unmarshal(xmlContent, test)).To(Succeed())
+
+			Expect(test.AttrUnderTest).To(Equal(YesNoAttr(expected)))
+		},
+			ginkgo.Entry("when attr=yes, should be true", `<test attr_under_test="yes" />`, true),
+			ginkgo.Entry("when attr=no, should be false", `<test attr_under_test="no" />`, false),
+			ginkgo.Entry("when attr is missing, should be false", `<test></test>`, false),
+			ginkgo.Entry("when attr is missing, should be false (empty tag)", `<test />`, false),
+		)
+
+		ginkgo.It("should return error for unknown value", func() {
+			xmlContent := []byte(`<test attr_under_test="wrong" />`)
+
+			test := &TestSpec{}
+			Expect(xml.Unmarshal(xmlContent, test)).ToNot(Succeed())
+			Expect(bool(test.AttrUnderTest)).To(BeFalse())
+		})
+
+		ginkgo.DescribeTable("should unmarshal YesNoAttr", func(attrVal bool, expectedXML string) {
+			test := &TestSpec{
+				XMLName:       xml.Name{Local: "test"},
+				AttrUnderTest: YesNoAttr(attrVal),
+			}
+
+			xmlOutput, err := xml.Marshal(test)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(xmlOutput)).To(Equal(expectedXML))
+		},
+			ginkgo.Entry(`should marshal true to "yes"`, true, `<test attr_under_test="yes"></test>`),
+			ginkgo.Entry(`should marshal false to "no"`, false, `<test attr_under_test="no"></test>`),
+		)
+	})
+
+	ginkgo.Describe("nilable", func() {
+		type TestSpec struct {
+			XMLName       xml.Name   `xml:"test"`
+			AttrUnderTest *YesNoAttr `xml:"attr_under_test,attr,omitempty"`
+		}
+
+		ginkgo.DescribeTable("should marshal YesNoAttr", func(xmlContentStr string, expected bool) {
+			xmlContent := []byte(xmlContentStr)
+
+			test := &TestSpec{}
+			Expect(xml.Unmarshal(xmlContent, test)).To(Succeed())
+
+			Expect(test.AttrUnderTest).To(HaveValue(Equal(YesNoAttr(expected))))
+		},
+			ginkgo.Entry("when attr=yes, should be true", `<test attr_under_test="yes" />`, true),
+			ginkgo.Entry("when attr=no, should be false", `<test attr_under_test="no" />`, false),
+		)
+
+		ginkgo.DescribeTable("should marshal missing YesNoAttr", func(xmlContentStr string) {
+			xmlContent := []byte(xmlContentStr)
+
+			test := &TestSpec{}
+			Expect(xml.Unmarshal(xmlContent, test)).To(Succeed())
+
+			Expect(test.AttrUnderTest).To(BeNil())
+		},
+			ginkgo.Entry("when attr is missing, should be nil", `<test></test>`),
+			ginkgo.Entry("when attr is missing, should be nil (empty tag)", `<test />`),
+		)
+
+		ginkgo.It("should return error for unknown value", func() {
+			xmlContent := []byte(`<test attr_under_test="wrong" />`)
+
+			test := &TestSpec{}
+			Expect(xml.Unmarshal(xmlContent, test)).ToNot(Succeed())
+			Expect(test.AttrUnderTest).To(HaveValue(Equal(YesNoAttr(false))))
+		})
+
+		ginkgo.DescribeTable("should unmarshal YesNoAttr", func(attrVal bool, expectedXML string) {
+			test := &TestSpec{
+				XMLName:       xml.Name{Local: "test"},
+				AttrUnderTest: ptr.To(YesNoAttr(attrVal)),
+			}
+
+			xmlOutput, err := xml.Marshal(test)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(xmlOutput)).To(Equal(expectedXML))
+		},
+			ginkgo.Entry(`should marshal true to "yes"`, true, `<test attr_under_test="yes"></test>`),
+			ginkgo.Entry(`should marshal false to "no"`, false, `<test attr_under_test="no"></test>`),
+		)
+
+		ginkgo.It("should omit if not set", func() {
+			test := &TestSpec{
+				XMLName: xml.Name{Local: "test"},
+			}
+
+			xmlOutput, err := xml.Marshal(test)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(xmlOutput)).To(Equal(`<test></test>`))
 		})
 	})
 })

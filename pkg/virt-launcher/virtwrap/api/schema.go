@@ -1087,6 +1087,40 @@ type Clock struct {
 	Timer      []Timer `xml:"timer,omitempty"`
 }
 
+type YesNoAttr bool
+
+const (
+	YesNoAttrTrue  = "yes"
+	YesNoAttrFalse = "no"
+)
+
+func (a *YesNoAttr) UnmarshalXMLAttr(attr xml.Attr) error {
+	switch attr.Value {
+	case YesNoAttrTrue:
+		*a = true
+	case YesNoAttrFalse:
+		*a = false
+
+	default:
+		return xml.UnmarshalError(fmt.Sprintf(`the %q attribute is with unknown value of %q; use "yes" or "no"`, attr.Name, attr.Value))
+	}
+
+	return nil
+}
+
+func (a *YesNoAttr) MarshalXMLAttr(name xml.Name) (xml.Attr, error) {
+	attr := xml.Attr{
+		Name:  name,
+		Value: YesNoAttrFalse,
+	}
+
+	if a != nil && *a {
+		attr.Value = YesNoAttrTrue
+	}
+
+	return attr, nil
+}
+
 type Timer struct {
 	Name       string `xml:"name,attr"`
 	TickPolicy string `xml:"tickpolicy,attr,omitempty"`
