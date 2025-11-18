@@ -60,7 +60,6 @@ var _ = Describe("Socket device", func() {
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
 		createFile(dpi.socketPath)
-		dpi.done = make(chan struct{})
 		stop = make(chan struct{})
 		dpi.stop = stop
 	})
@@ -117,6 +116,11 @@ var _ = Describe("Socket device", func() {
 })
 
 func createFile(path string) {
+	// create parent director(y,ies) if it doesn't exist
+	dir := filepath.Dir(path)
+	err := os.MkdirAll(dir, 0755)
+	Expect(err).ToNot(HaveOccurred())
+	// create file
 	fileObj, err := os.Create(path)
 	Expect(err).ToNot(HaveOccurred())
 	fileObj.Close()

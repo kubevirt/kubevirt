@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
@@ -245,7 +246,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	}
 
 	for resourceName, pluginDevices := range discoverAllowedUSBDevices(hostDevs.USB) {
-		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, pluginDevices, NewPermissionManager()))
+		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, util.HostRootMount, pluginDevices, NewPermissionManager()))
 	}
 
 	return permittedDevices

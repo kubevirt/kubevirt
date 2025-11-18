@@ -21,11 +21,17 @@ package device_manager
 
 import (
 	"fmt"
+	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
 var _ = Describe("USB Device", func() {
@@ -68,6 +74,50 @@ var _ = Describe("USB Device", func() {
 
 	const resourceName1 = "testing.usb/usecase"
 	const resourceName2 = "testing.usb/another"
+
+	var dpi *USBDevicePlugin
+	var stop chan struct{}
+	var workDir string
+
+	BeforeEach(func() {
+		var err error
+		workDir = GinkgoT().TempDir()
+		Expect(err).ToNot(HaveOccurred())
+		ctrl := gomock.NewController(GinkgoT())
+		permissionManager := NewMockPermissionManager(ctrl)
+		permissionManager.EXPECT().ChownAtNoFollow(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		devices := []*PluginDevices{
+			newPluginDevices(resourceName1, 0, []*USBDevice{usbs[0], usbs[1]}),
+			newPluginDevices(resourceName2, 1, []*USBDevice{usbs[2]}),
+		}
+		// create dummy devices in the workDir
+		for _, device := range devices {
+			for _, usb := range device.Devices {
+				createFile(filepath.Join(workDir, usb.DevicePath))
+			}
+		}
+		dpi = NewUSBDevicePlugin(resourceName1, workDir, devices, permissionManager)
+		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
+		createFile(dpi.socketPath)
+		stop = make(chan struct{})
+		dpi.stop = stop
+	})
+
+	AfterEach(func() {
+		close(stop)
+	})
+
+	It("Should monitor health of device node", func() {
+		By("Confirming that the device begins as unhealthy")
+		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Unhealthy))
+
+		By("waiting for initial healthcheck to send Healthy message")
+		go dpi.healthCheck()
+		Eventually(func() string {
+			return (<-dpi.health).Health
+		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
+	})
 
 	DescribeTable("with USBHostDevice configuration", func(hostDeviceConfig []v1.USBHostDevice, result map[string][]*PluginDevices) {
 		discoverLocalUSBDevicesFunc = findAll

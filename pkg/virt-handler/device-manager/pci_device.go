@@ -85,7 +85,7 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 		iommuToPCIMap[pciDevice.iommuGroup] = pciDevice.pciAddress
 		dpiDev := &pluginapi.Device{
 			ID:     pciDevice.iommuGroup,
-			Health: pluginapi.Healthy,
+			Health: pluginapi.Unhealthy, // set to unhealthy by default
 		}
 		if pciDevice.numaNode >= 0 {
 			numaInfo := &pluginapi.NUMANode{
@@ -160,9 +160,9 @@ func (dpi *PCIDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watcher,
 
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {
 	pciDevicesMap := make(map[string][]*PCIDevice)
-	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
 		if info.IsDir() {
 			return nil

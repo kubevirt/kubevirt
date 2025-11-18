@@ -86,7 +86,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 		iommuToMDEVMap[mdev.iommuGroup] = mdev.UUID
 		dpiDev := &pluginapi.Device{
 			ID:     mdev.iommuGroup,
-			Health: pluginapi.Healthy,
+			Health: pluginapi.Unhealthy, // set to unhealthy by default
 		}
 		if mdev.numaNode >= 0 {
 			numaInfo := &pluginapi.NUMANode{
@@ -120,7 +120,7 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 				allocatedDevices = append(allocatedDevices, mdevUUID)
 
 				// Perform check that node didn't disappear
-				_, err := os.Stat(filepath.Join(util.HostRootMount, vfioDevicePath, devID))
+				_, err := os.Stat(filepath.Join(dpi.deviceRoot, vfioDevicePath, devID))
 				if err != nil {
 					if errors.Is(err, os.ErrNotExist) {
 						log.DefaultLogger().Errorf("Mediated device %s with id %s for resource %s disappeared", mdevUUID, devID, dpi.resourceName)

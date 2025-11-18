@@ -113,7 +113,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 	dpi.GetIDDeviceName = dpi.GetIDDeviceNameFunc
 	// If permission manager and executor are not provided, we assume that device doesn't need any permissions configured.
 	if p != nil && executor != nil {
-		dpi.ConfigurePermissions = func(_ string) error {
+		dpi.ConfigurePermissions = func(_ *safepath.Path) error {
 			// Set directory permissions first
 			if err := dpi.setSocketDirectoryPermissions(); err != nil {
 				return err

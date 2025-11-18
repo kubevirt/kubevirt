@@ -79,11 +79,10 @@ func (dpi *GenericDevicePlugin) SetupDevicePluginFunc() error {
 	if dpi.preOpen {
 		devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 		devnode, err := os.Open(devicePath)
-		if err == nil {
-			devnode.Close()
-		} else {
+		if err != nil {
 			return fmt.Errorf("error opening the device node %s: %v", devicePath, err)
 		}
+		defer devnode.Close()
 	}
 	return nil
 }
