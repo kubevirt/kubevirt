@@ -71,40 +71,74 @@ func convertV1ClockToAPIClock(source *v1.Clock, clock *api.Clock) error {
 
 	if source.Timer != nil {
 		if source.Timer.RTC != nil {
-			newTimer := api.Timer{Name: "rtc"}
-			newTimer.Track = string(source.Timer.RTC.Track)
-			newTimer.TickPolicy = string(source.Timer.RTC.TickPolicy)
-			setPresentField(&newTimer, source.Timer.RTC.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
+			clock.Timer = append(clock.Timer, rtcToTimer(source.Timer.RTC))
 		}
 		if source.Timer.PIT != nil {
-			newTimer := api.Timer{Name: "pit"}
-			setPresentField(&newTimer, source.Timer.PIT.Enabled, true)
-			newTimer.TickPolicy = string(source.Timer.PIT.TickPolicy)
-			clock.Timer = append(clock.Timer, newTimer)
+			clock.Timer = append(clock.Timer, pitToTimer(source.Timer.PIT))
 		}
 		if source.Timer.KVM != nil {
-			newTimer := api.Timer{Name: "kvmclock"}
-			setPresentField(&newTimer, source.Timer.KVM.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
+			clock.Timer = append(clock.Timer, kvmToTimer(source.Timer.KVM))
 		}
 		if source.Timer.HPET != nil {
-			newTimer := api.Timer{Name: "hpet"}
-			setPresentField(&newTimer, source.Timer.HPET.Enabled, true)
-			newTimer.TickPolicy = string(source.Timer.HPET.TickPolicy)
-			clock.Timer = append(clock.Timer, newTimer)
+			clock.Timer = append(clock.Timer, hpetToTimer(source.Timer.HPET))
 		}
 		if source.Timer.Hyperv != nil {
-			newTimer := api.Timer{Name: "hypervclock"}
-			setPresentField(&newTimer, source.Timer.Hyperv.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
+			clock.Timer = append(clock.Timer, hypervToTimer(source.Timer.Hyperv))
 		}
 	}
 
 	return nil
 }
 
-func setPresentField(timer *api.Timer, value *bool, defVal bool) {
-	present := api.YesNoAttr(ptr.Deref(value, defVal))
-	timer.Present = ptr.To(present)
+func hypervToTimer(source *v1.HypervTimer) api.Timer {
+	newTimer := api.Timer{
+		Name:    "hypervclock",
+		Present: setPresentField(source.Enabled, true),
+	}
+
+	return newTimer
+}
+
+func hpetToTimer(source *v1.HPETTimer) api.Timer {
+	newTimer := api.Timer{
+		Name:    "hpet",
+		Present: setPresentField(source.Enabled, true),
+	}
+
+	newTimer.TickPolicy = string(source.TickPolicy)
+	return newTimer
+}
+
+func kvmToTimer(source *v1.KVMTimer) api.Timer {
+	newTimer := api.Timer{
+		Name:    "kvmclock",
+		Present: setPresentField(source.Enabled, true),
+	}
+
+	return newTimer
+}
+
+func pitToTimer(source *v1.PITTimer) api.Timer {
+	newTimer := api.Timer{
+		Name:    "pit",
+		Present: setPresentField(source.Enabled, true),
+	}
+
+	newTimer.TickPolicy = string(source.TickPolicy)
+	return newTimer
+}
+
+func rtcToTimer(source *v1.RTCTimer) api.Timer {
+	newTimer := api.Timer{
+		Name:    "rtc",
+		Present: setPresentField(source.Enabled, true),
+	}
+	newTimer.Track = string(source.Track)
+	newTimer.TickPolicy = string(source.TickPolicy)
+
+	return newTimer
+}
+
+func setPresentField(value *bool, defVal bool) *api.YesNoAttr {
+	return ptr.To(api.YesNoAttr(ptr.Deref(value, defVal)))
 }
