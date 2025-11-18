@@ -153,8 +153,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	It("should allow Clock without Timer", func() {
 		const offsetSeconds = 5
-		vmi := newBaseVmi(withDomainClock(
-			&v1.Clock{
+		vmi := newBaseVmi(libvmi.WithClock(
+			v1.Clock{
 				ClockOffset: v1.ClockOffset{
 					UTC: &v1.ClockOffsetUTC{
 						OffsetSeconds: pointer.P(offsetSeconds),
@@ -4186,12 +4186,6 @@ func newAdmissionReviewForVMICreation(vmi *v1.VirtualMachineInstance) (*admissio
 			Operation: admissionv1.Create,
 		},
 	}, err
-}
-
-func withDomainClock(clock *v1.Clock) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Clock = clock
-	}
 }
 
 func withReadinessProbe(probe *v1.Probe) libvmi.Option {
