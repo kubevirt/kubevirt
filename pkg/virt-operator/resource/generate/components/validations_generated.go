@@ -14583,6 +14583,15 @@ var CRDsValidation map[string]string = map[string]string{
           description: SELinuxContext is the actual SELinux context of the virt-launcher
             pod
           type: string
+        serviceStatus:
+          description: ServiceStatus shows information about exposed QEMU features
+            we use as services
+          nullable: true
+          properties:
+            vncSessions:
+              description: Number of VNC connections
+              type: integer
+          type: object
         topologyHints:
           properties:
             tscFrequency:

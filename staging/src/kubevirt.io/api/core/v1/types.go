@@ -335,6 +335,19 @@ type VirtualMachineInstanceStatus struct {
 	// +nullable
 	// +optional
 	ChangedBlockTracking *ChangedBlockTrackingStatus `json:"changedBlockTracking,omitempty" optional:"true"`
+
+	// ServiceStatus shows information about exposed QEMU features we use as services
+	// +nullable
+	// +optional
+	ServiceStatus *ServiceStatus `json:"serviceStatus,omitempty"`
+}
+
+// ServiceStatus has the information of hypervisor endpoints that we expose
+// +k8s:openapi-gen=true
+type ServiceStatus struct {
+	// Number of VNC connections
+	// +optional
+	VNCSessions uint `json:"vncSessions,omitempty"`
 }
 
 // DeviceStatus has the information of all devices allocated spec.domain.devices

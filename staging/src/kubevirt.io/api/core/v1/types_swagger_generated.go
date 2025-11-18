@@ -87,6 +87,14 @@ func (VirtualMachineInstanceStatus) SwaggerDoc() map[string]string {
 		"migratedVolumes":               "MigratedVolumes lists the source and destination volumes during the volume migration\n+listType=atomic\n+optional",
 		"deviceStatus":                  "DeviceStatus reflects the state of devices requested in spec.domain.devices. This is an optional field available\nonly when DRA feature gate is enabled\nThis field will only be populated if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.\nThis feature is in alpha.\n+optional",
 		"changedBlockTracking":          "ChangedBlockTracking represents the status of the changedBlockTracking\n+nullable\n+optional",
+		"serviceStatus":                 "ServiceStatus shows information about exposed QEMU features we use as services\n+nullable\n+optional",
+	}
+}
+
+func (ServiceStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "ServiceStatus has the information of hypervisor endpoints that we expose\n+k8s:openapi-gen=true",
+		"vncSessions": "Number of VNC connections\n+optional",
 	}
 }
 

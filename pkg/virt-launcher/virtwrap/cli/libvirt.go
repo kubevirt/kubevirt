@@ -51,6 +51,7 @@ type Connection interface {
 	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
 	DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error
 	DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error
+	DomainEventGraphicsRegister(callback libvirt.DomainEventGraphicsCallback) error
 	AgentEventLifecycleRegister(callback libvirt.DomainEventAgentLifecycleCallback) error
 	VolatileDomainEventDeviceRemovedRegister(domain VirDomain, callback libvirt.DomainEventDeviceRemovedCallback) (int, error)
 	DomainEventMemoryDeviceSizeChangeRegister(callback libvirt.DomainEventMemoryDeviceSizeChangeCallback) error
@@ -90,6 +91,7 @@ type LibvirtConnection struct {
 	reconnectLock *sync.Mutex
 
 	domainEventCallbacks                        []libvirt.DomainEventLifecycleCallback
+	domainGraphicksCallbacks                    []libvirt.DomainEventGraphicsCallback
 	domainDeviceAddedEventCallbacks             []libvirt.DomainEventDeviceAddedCallback
 	domainDeviceRemovedEventCallbacks           []libvirt.DomainEventDeviceRemovedCallback
 	domainEventMigrationIterationCallbacks      []libvirt.DomainEventMigrationIterationCallback
@@ -155,6 +157,17 @@ func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.Domain
 
 	l.domainEventCallbacks = append(l.domainEventCallbacks, callback)
 	_, err = l.Connect.DomainEventLifecycleRegister(nil, callback)
+	l.checkConnectionLost(err)
+	return
+}
+
+func (l *LibvirtConnection) DomainEventGraphicsRegister(callback libvirt.DomainEventGraphicsCallback) (err error) {
+	if err = l.reconnectIfNecessary(); err != nil {
+		return
+	}
+
+	l.domainGraphicksCallbacks = append(l.domainGraphicksCallbacks, callback)
+	_, err = l.Connect.DomainEventGraphicsRegister(nil, callback)
 	l.checkConnectionLost(err)
 	return
 }
@@ -570,6 +583,12 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 		log.Log.Infof("Re-registered domain memory device size change callback: %p", callback)
 		if _, err = l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, callback); err != nil {
 			return err
+		}
+	}
+	for _, callback := range l.domainGraphicksCallbacks {
+		log.Log.Infof("Re-registered domain graphics change callback: %p", callback)
+		if _, err = l.Connect.DomainEventGraphicsRegister(nil, callback); err != nil {
+			return
 		}
 	}
 
