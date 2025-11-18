@@ -33,7 +33,6 @@ import (
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -97,10 +96,12 @@ func NewHandler(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig
 		nodeName:       nodeName,
 		client:         client,
 		extChangesChan: make(chan struct{}),
+		loopChan:       make(chan struct{}),
 	}
 }
 
 func (k *Handler) Run(stopCh chan struct{}) {
+	defer close(k.loopChan)
 	// Create a ListWatch filtered to only the local node
 	listWatch := cache.NewListWatchFromClient(
 		k.client.RESTClient(),
@@ -113,69 +114,16 @@ func (k *Handler) Run(stopCh chan struct{}) {
 	go nodeInformer.Run(stopCh)
 	cache.WaitForCacheSync(stopCh, nodeInformer.HasSynced)
 
-	if _, err := nodeInformer.AddEventHandler(
-		cache.ResourceEventHandlerFuncs{
-			UpdateFunc: k.handleNodeUpdate,
-		}); err != nil {
-		panic(err)
-	}
 	k.nodeStore = nodeInformer.GetStore()
 	go k.Start()
 	<-stopCh
 }
 
-func (k *Handler) handleNodeUpdate(oldObj, newObj interface{}) {
-	oldNode := oldObj.(*k8sv1.Node)
-	newNode := newObj.(*k8sv1.Node)
-	if !equality.Semantic.DeepEqual(oldNode.Labels, newNode.Labels) {
-		k.extChangesChan <- struct{}{}
-		return
-	}
-	if !equality.Semantic.DeepEqual(oldNode.Annotations, newNode.Annotations) {
-		k.extChangesChan <- struct{}{}
-		return
-	}
-}
-
 func (k *Handler) Start() {
-	// Perform the initial node patch
-	if ksmEligible := k.spin(); ksmEligible {
-		k.isLoopRunning = true
-		k.loopChan = make(chan struct{})
-		go k.loop()
-	}
-
-	k.clusterConfig.SetConfigModifiedCallback(k.configCallback)
-}
-
-func (k *Handler) configCallback() {
-	k.lock.Lock()
-	defer k.lock.Unlock()
-	ksmEligible, curState := k.isKSMEligible()
-	if !ksmEligible {
-		// stop the loop if running
-		if k.isLoopRunning {
-			k.isLoopRunning = false
-			// Stop the ksm loop
-			close(k.loopChan)
-		}
-		if curState {
-			k.disableKSM()
-		}
-
-		k.patchKSM(ksmEligible, false)
-		return
-	}
-
-	// loop already running, trigger another spin
-	if k.isLoopRunning {
-		k.extChangesChan <- struct{}{}
-		return
-	}
-
-	k.isLoopRunning = true
-	k.loopChan = make(chan struct{})
 	go k.loop()
+	k.clusterConfig.SetConfigModifiedCallback(func() {
+		k.extChangesChan <- struct{}{}
+	})
 }
 
 func (k *Handler) loop() {
