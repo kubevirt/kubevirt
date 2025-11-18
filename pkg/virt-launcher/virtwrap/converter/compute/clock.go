@@ -104,24 +104,6 @@ func convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
 	return nil
 }
 
-func boolToYesNo(value *bool, defaultYes bool) string {
-	return boolToString(value, defaultYes, "yes", "no")
-}
-
-func boolToString(value *bool, defaultPositive bool, positive string, negative string) string {
-	toString := func(value bool) string {
-		if value {
-			return positive
-		}
-		return negative
-	}
-
-	if value == nil {
-		return toString(defaultPositive)
-	}
-	return toString(*value)
-}
-
 func setPresentField(timer *api.Timer, value *bool, defVal bool) {
 	present := api.YesNoAttr(ptr.Deref(value, defVal))
 	timer.Present = ptr.To(present)
