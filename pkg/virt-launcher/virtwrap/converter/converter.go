@@ -1470,7 +1470,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.RNGWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 		),
-		compute.NewInputDeviceDomainConfigurator(),
+		compute.NewInputDeviceDomainConfigurator(architecture),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err

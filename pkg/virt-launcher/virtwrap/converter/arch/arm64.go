@@ -34,9 +34,8 @@ func (converterARM64) GetArchitecture() string {
 	return arm64
 }
 
-func (converterARM64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
+func (converterARM64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
 	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
-	// tablet and keyboard devices are necessary for control the VM via vnc connection
 	domain.Spec.Devices.Video = []api.Video{
 		{
 			Model: api.VideoModel{
@@ -45,22 +44,6 @@ func (converterARM64) AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *
 			},
 		},
 	}
-
-	if !hasTabletDevice(vmi) {
-		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-			api.Input{
-				Bus:  "usb",
-				Type: "tablet",
-			},
-		)
-	}
-
-	domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-		api.Input{
-			Bus:  "usb",
-			Type: "keyboard",
-		},
-	)
 }
 
 func (converterARM64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
@@ -98,17 +81,6 @@ func (converterARM64) ShouldVerboseLogsBeEnabled() bool {
 }
 
 func (converterARM64) HasVMPort() bool {
-	return false
-}
-
-func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.Inputs != nil {
-		for _, device := range vmi.Spec.Domain.Devices.Inputs {
-			if device.Type == "tablet" {
-				return true
-			}
-		}
-	}
 	return false
 }
 

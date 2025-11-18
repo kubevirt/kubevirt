@@ -27,10 +27,14 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type InputDeviceDomainConfigurator struct{}
+type InputDeviceDomainConfigurator struct {
+	architecture string
+}
 
-func NewInputDeviceDomainConfigurator() InputDeviceDomainConfigurator {
-	return InputDeviceDomainConfigurator{}
+func NewInputDeviceDomainConfigurator(architecture string) InputDeviceDomainConfigurator {
+	return InputDeviceDomainConfigurator{
+		architecture: architecture,
+	}
 }
 
 func (i InputDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -45,6 +49,12 @@ func (i InputDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 			inputDevices = append(inputDevices, inputDevice)
 		}
 		domain.Spec.Devices.Inputs = inputDevices
+	}
+
+	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
+		if err := i.addArchitectureSpecificInputDevices(vmi, domain); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -71,4 +81,45 @@ func convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input
 		inputDevice.Model = v1.VirtIO
 	}
 	return nil
+}
+
+func (i InputDeviceDomainConfigurator) addArchitectureSpecificInputDevices(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	switch i.architecture {
+	case "amd64":
+		// No architecture-specific input devices required
+	case "arm64":
+		if !hasTabletDevice(vmi) {
+			domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
+				api.Input{
+					Bus:  "usb",
+					Type: "tablet",
+				},
+			)
+		}
+		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
+			api.Input{
+				Bus:  "usb",
+				Type: "keyboard",
+			},
+		)
+	case "s390x":
+		domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
+			api.Input{
+				Bus:  "virtio",
+				Type: "keyboard",
+			},
+		)
+	}
+	return nil
+}
+
+func hasTabletDevice(vmi *v1.VirtualMachineInstance) bool {
+	if vmi.Spec.Domain.Devices.Inputs != nil {
+		for _, device := range vmi.Spec.Domain.Devices.Inputs {
+			if device.Type == "tablet" {
+				return true
+			}
+		}
+	}
+	return false
 }
