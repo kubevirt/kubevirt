@@ -25,6 +25,8 @@ const (
 	runtimesPath                   = "/var/run/kubevirt-libvirt-runtimes"
 	PrHelperName                   = "pr-helper"
 	prVolumeName                   = "pr-helper-socket-vol"
+	qgsVolumeName                  = "qgs-socket-vol"
+	qgsSocketDir                   = "/var/run/tdx-qgs"
 	devDirVol                      = "dev-dir"
 	SidecarShimName                = "sidecar-shim"
 	etcMultipath                   = "etc-multipath"
@@ -66,7 +68,7 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 	}
 }
 
-func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool) *appsv1.DaemonSet {
+func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool, enableQgs bool) *appsv1.DaemonSet {
 
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -298,6 +300,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
 		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
+		{"qgs-socket-vol", qgsSocketDir, qgsSocketDir, nil},
 	}
 
 	for _, volume := range volumes {
@@ -352,6 +355,20 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	}
 	if sidecarShimImage == "" {
 		sidecarShimImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, SidecarShimName, AddVersionSeparatorPrefix(sidecarShimVersion))
+	}
+	if enableQgs {
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      qgsVolumeName,
+			MountPath: qgsSocketDir,
+		})
+		pod.Volumes = append(pod.Volumes, corev1.Volume{
+			Name: qgsVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: qgsSocketDir,
+				},
+			},
+		})
 	}
 
 	if enablePrHelper {
