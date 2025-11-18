@@ -158,6 +158,20 @@ func (mr *MockConnectionMockRecorder) DomainEventMemoryDeviceSizeChangeRegister(
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventMemoryDeviceSizeChangeRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventMemoryDeviceSizeChangeRegister), callback)
 }
 
+// DomainQemuMonitorEventRegister mocks base method.
+func (m *MockConnection) DomainQemuMonitorEventRegister(event string, callback libvirt.DomainQemuMonitorEventCallback) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DomainQemuMonitorEventRegister", event, callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DomainQemuMonitorEventRegister indicates an expected call of DomainQemuMonitorEventRegister.
+func (mr *MockConnectionMockRecorder) DomainQemuMonitorEventRegister(event, callback any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainQemuMonitorEventRegister", reflect.TypeOf((*MockConnection)(nil).DomainQemuMonitorEventRegister), event, callback)
+}
+
 // GetAllDomainStats mocks base method.
 func (m *MockConnection) GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error) {
 	m.ctrl.T.Helper()
@@ -276,6 +290,21 @@ func (m *MockConnection) QemuAgentCommand(command, domainName string) (string, e
 func (mr *MockConnectionMockRecorder) QemuAgentCommand(command, domainName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QemuAgentCommand", reflect.TypeOf((*MockConnection)(nil).QemuAgentCommand), command, domainName)
+}
+
+// QemuMonitorCommand mocks base method.
+func (m *MockConnection) QemuMonitorCommand(command, domainName string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "QemuMonitorCommand", command, domainName)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// QemuMonitorCommand indicates an expected call of QemuMonitorCommand.
+func (mr *MockConnectionMockRecorder) QemuMonitorCommand(command, domainName any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QemuMonitorCommand", reflect.TypeOf((*MockConnection)(nil).QemuMonitorCommand), command, domainName)
 }
 
 // SetReconnectChan mocks base method.

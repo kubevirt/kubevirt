@@ -44,7 +44,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
-  "github.com/gorilla/websocket"
+	"github.com/gorilla/websocket"
 )
 
 type ConsoleHandler struct {

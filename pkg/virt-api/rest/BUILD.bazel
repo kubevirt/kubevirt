@@ -6,6 +6,7 @@ go_library(
         "authorizer.go",
         "console.go",
         "dialers.go",
+        "evacuate-cancel.go",
         "expand.go",
         "generated_mock_authorizer.go",
         "lifecycle.go",

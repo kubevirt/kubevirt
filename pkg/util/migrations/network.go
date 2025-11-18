@@ -20,11 +20,11 @@ type NetworkPriority = string
 
 const (
 	NetworkPriorityTheHighest NetworkPriority = "0"
-	NetworkPriorityDecreased NetworkPriority = "1"
-	NetworkPriorityDeferred NetworkPriority = "2"
+	NetworkPriorityDecreased  NetworkPriority = "1"
+	NetworkPriorityDeferred   NetworkPriority = "2"
 )
 
-func NewNetworkAccessibilityManager(virtClient kubecli.KubevirtClient) *NetworkAccessibilityManager  {
+func NewNetworkAccessibilityManager(virtClient kubecli.KubevirtClient) *NetworkAccessibilityManager {
 	return &NetworkAccessibilityManager{
 		virtClient: virtClient,
 	}

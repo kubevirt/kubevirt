@@ -804,6 +804,7 @@ rules:
   - update
   - list
   - watch
+  - patch
 - apiGroups:
   - ""
   resources:
@@ -852,6 +853,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - patch
 - apiGroups:
   - export.kubevirt.io
   resources:

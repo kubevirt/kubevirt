@@ -16,6 +16,7 @@ go_library(
         "//pkg/defaults:go_default_library",
         "//pkg/instancetype/webhooks/vm:go_default_library",
         "//pkg/pointer:go_default_library",
+        "//pkg/util/hardware:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",

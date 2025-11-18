@@ -141,6 +141,26 @@ func (mr *MockCmdClientMockRecorder) FreezeVirtualMachine(ctx, in any, opts ...a
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreezeVirtualMachine", reflect.TypeOf((*MockCmdClient)(nil).FreezeVirtualMachine), varargs...)
 }
 
+// GetAppliedVMIChecksum mocks base method.
+func (m *MockCmdClient) GetAppliedVMIChecksum(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*VMIChecksumResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetAppliedVMIChecksum", varargs...)
+	ret0, _ := ret[0].(*VMIChecksumResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAppliedVMIChecksum indicates an expected call of GetAppliedVMIChecksum.
+func (mr *MockCmdClientMockRecorder) GetAppliedVMIChecksum(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedVMIChecksum", reflect.TypeOf((*MockCmdClient)(nil).GetAppliedVMIChecksum), varargs...)
+}
+
 // GetDomain mocks base method.
 func (m *MockCmdClient) GetDomain(ctx context.Context, in *EmptyRequest, opts ...grpc.CallOption) (*DomainResponse, error) {
 	m.ctrl.T.Helper()
@@ -419,6 +439,26 @@ func (mr *MockCmdClientMockRecorder) MigrateVirtualMachine(ctx, in any, opts ...
 	mr.mock.ctrl.T.Helper()
 	varargs := append([]any{ctx, in}, opts...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateVirtualMachine", reflect.TypeOf((*MockCmdClient)(nil).MigrateVirtualMachine), varargs...)
+}
+
+// MigrationProxy mocks base method.
+func (m *MockCmdClient) MigrationProxy(ctx context.Context, in *MigrationProxyRequest, opts ...grpc.CallOption) (*Response, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "MigrationProxy", varargs...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MigrationProxy indicates an expected call of MigrationProxy.
+func (mr *MockCmdClientMockRecorder) MigrationProxy(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrationProxy", reflect.TypeOf((*MockCmdClient)(nil).MigrationProxy), varargs...)
 }
 
 // PauseVirtualMachine mocks base method.
@@ -780,6 +820,21 @@ func (mr *MockCmdServerMockRecorder) FreezeVirtualMachine(arg0, arg1 any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreezeVirtualMachine", reflect.TypeOf((*MockCmdServer)(nil).FreezeVirtualMachine), arg0, arg1)
 }
 
+// GetAppliedVMIChecksum mocks base method.
+func (m *MockCmdServer) GetAppliedVMIChecksum(arg0 context.Context, arg1 *EmptyRequest) (*VMIChecksumResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAppliedVMIChecksum", arg0, arg1)
+	ret0, _ := ret[0].(*VMIChecksumResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAppliedVMIChecksum indicates an expected call of GetAppliedVMIChecksum.
+func (mr *MockCmdServerMockRecorder) GetAppliedVMIChecksum(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedVMIChecksum", reflect.TypeOf((*MockCmdServer)(nil).GetAppliedVMIChecksum), arg0, arg1)
+}
+
 // GetDomain mocks base method.
 func (m *MockCmdServer) GetDomain(arg0 context.Context, arg1 *EmptyRequest) (*DomainResponse, error) {
 	m.ctrl.T.Helper()
@@ -988,6 +1043,21 @@ func (m *MockCmdServer) MigrateVirtualMachine(arg0 context.Context, arg1 *Migrat
 func (mr *MockCmdServerMockRecorder) MigrateVirtualMachine(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateVirtualMachine", reflect.TypeOf((*MockCmdServer)(nil).MigrateVirtualMachine), arg0, arg1)
+}
+
+// MigrationProxy mocks base method.
+func (m *MockCmdServer) MigrationProxy(arg0 context.Context, arg1 *MigrationProxyRequest) (*Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MigrationProxy", arg0, arg1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MigrationProxy indicates an expected call of MigrationProxy.
+func (mr *MockCmdServerMockRecorder) MigrationProxy(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrationProxy", reflect.TypeOf((*MockCmdServer)(nil).MigrationProxy), arg0, arg1)
 }
 
 // PauseVirtualMachine mocks base method.

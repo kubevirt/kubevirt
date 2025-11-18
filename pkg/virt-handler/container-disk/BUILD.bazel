@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "generated_mock_mount.go",
+        "hotplug.go",
         "mount.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/container-disk",
@@ -12,6 +13,8 @@ go_library(
         "//pkg/checkpoint:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",
+        "//pkg/hotplug-disk:go_default_library",
+        "//pkg/os/disk:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//pkg/util:go_default_library",

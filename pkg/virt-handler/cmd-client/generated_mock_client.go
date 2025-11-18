@@ -128,6 +128,21 @@ func (mr *MockLauncherClientMockRecorder) FreezeVirtualMachine(vmi, unfreezeTime
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FreezeVirtualMachine", reflect.TypeOf((*MockLauncherClient)(nil).FreezeVirtualMachine), vmi, unfreezeTimeoutSeconds)
 }
 
+// GetAppliedVMIChecksum mocks base method.
+func (m *MockLauncherClient) GetAppliedVMIChecksum() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAppliedVMIChecksum")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAppliedVMIChecksum indicates an expected call of GetAppliedVMIChecksum.
+func (mr *MockLauncherClientMockRecorder) GetAppliedVMIChecksum() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAppliedVMIChecksum", reflect.TypeOf((*MockLauncherClient)(nil).GetAppliedVMIChecksum))
+}
+
 // GetDomain mocks base method.
 func (m *MockLauncherClient) GetDomain() (*api.Domain, bool, error) {
 	m.ctrl.T.Helper()
@@ -333,6 +348,20 @@ func (m *MockLauncherClient) MigrateVirtualMachine(vmi *v1.VirtualMachineInstanc
 func (mr *MockLauncherClientMockRecorder) MigrateVirtualMachine(vmi, options any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateVirtualMachine", reflect.TypeOf((*MockLauncherClient)(nil).MigrateVirtualMachine), vmi, options)
+}
+
+// MigrationProxy mocks base method.
+func (m *MockLauncherClient) MigrationProxy(action MigrationProxyAction) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MigrationProxy", action)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MigrationProxy indicates an expected call of MigrationProxy.
+func (mr *MockLauncherClientMockRecorder) MigrationProxy(action any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrationProxy", reflect.TypeOf((*MockLauncherClient)(nil).MigrationProxy), action)
 }
 
 // PauseVirtualMachine mocks base method.

@@ -39,9 +39,9 @@ type Service interface {
 }
 
 type ServiceListen struct {
-	Name        string
-	BindAddress string
-	Port        int
+	Name               string
+	BindAddress        string
+	Port               int
 	MetricsBindAddress string
 	MetricsPort        int
 }

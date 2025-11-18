@@ -575,8 +575,8 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 	log.Log.V(1).Infof("metrics: max concurrent requests=%d", app.MaxRequestsInFlight)
 	mux.Handle("/metrics", metricshandler.Handler(app.MaxRequestsInFlight))
 	server := http.Server{
-		Addr:      app.ServiceListen.MetricsAddress(),
-		Handler:   mux,
+		Addr:    app.ServiceListen.MetricsAddress(),
+		Handler: mux,
 	}
 	errCh <- server.ListenAndServe()
 }

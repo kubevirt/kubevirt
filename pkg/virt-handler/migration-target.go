@@ -47,6 +47,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	checksum_controller "kubevirt.io/kubevirt/pkg/virt-handler/checksum-controller"
 

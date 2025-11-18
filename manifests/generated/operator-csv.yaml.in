@@ -778,6 +778,7 @@ spec:
           - update
           - list
           - watch
+          - patch
         - apiGroups:
           - ""
           resources:
@@ -826,6 +827,12 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - patch
         - apiGroups:
           - export.kubevirt.io
           resources:
@@ -1450,6 +1457,7 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                  readOnlyRootFilesystem: true
                   seccompProfile:
                     type: RuntimeDefault
                 terminationMessagePolicy: FallbackToLogsOnError

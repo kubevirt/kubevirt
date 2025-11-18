@@ -8,7 +8,6 @@ go_library(
     ],
     importpath = "kubevirt.io/kubevirt/pkg/os/disk",
     visibility = ["//visibility:public"],
-    deps = ["//staging/src/kubevirt.io/client-go/log:go_default_library"],
 )
 
 go_test(

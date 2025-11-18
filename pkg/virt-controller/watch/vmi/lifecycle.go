@@ -44,6 +44,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	virtv1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/util/affinity"
 
 	"k8s.io/apimachinery/pkg/api/equality"
