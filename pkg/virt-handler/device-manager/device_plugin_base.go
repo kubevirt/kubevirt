@@ -63,12 +63,13 @@ type DevicePluginBase struct {
 	initialized           bool
 	lock                  *sync.Mutex
 	deregistered          chan struct{}
-	deviceRoot            string                                           // Root directory where the device is located
-	devicePath            string                                           // Relative path to the device from the device root
-	SetupDevicePlugin     func() error                                     // Optional function to perform additional setup steps that are not covered by the default implementation
-	SetupMonitoredDevices func(*fsnotify.Watcher, map[string]string) error // REQUIRED function to set up the devices that are being monitored and update map such that key contains absolute paths to watch, and value contains the device id.
-	GetIDDeviceName       func(string) string                              // Optional function to convert device id to a human readable name for logging
-	ConfigurePermissions  func(*safepath.Path) error                       // Optional function to configure permissions for the device if needed. When present, device being marked healthy is contingent on the hook exiting with out error.
+	deviceRoot            string                                                                       // Root directory where the device is located
+	devicePath            string                                                                       // Relative path to the device from the device root
+	SetupMonitoredDevices func(*fsnotify.Watcher, map[string]string) error                             // REQUIRED function to set up the devices that are being monitored and update map such that key contains absolute paths to watch, and value contains the device id.
+	SetupDevicePlugin     func() error                                                                 // Optional function to perform additional setup steps that are not covered by the default implementation
+	GetIDDeviceName       func(string) string                                                          // Optional function to convert device id to a human readable name for logging
+	ConfigurePermissions  func(*safepath.Path) error                                                   // Optional function to configure permissions for the device if needed. When present, device being marked healthy is contingent on the hook exiting with out error.
+	CustomReportHealth    func(deviceID string, absoluteDevicePath string, healthy bool) (bool, error) // Optional function for plugin devices that require custom logic to handle health reports.
 }
 
 func (dpi *DevicePluginBase) GetResourceName() string {
@@ -168,6 +169,8 @@ func (dpi *DevicePluginBase) healthCheck() error {
 	// Used to track the devices that are being monitored
 	// When a corresponding device ID is empty it means this device path represents ALL device IDs
 	monitoredDevices := make(map[string]string)
+	// key: device path, value: last known health
+	lastKnownHealth := make(map[string]string)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -224,14 +227,26 @@ func (dpi *DevicePluginBase) healthCheck() error {
 		return success
 	}
 	//  - reportHealth: reports the health of a device
-	reportHealth := func(deviceID string, healthy bool) {
-		healthStatus := pluginapi.Unhealthy
-		if healthy {
-			healthStatus = pluginapi.Healthy
+	reportHealth := func(deviceID string, absoluteDevicePath string, healthy bool) {
+		if dpi.CustomReportHealth != nil {
+			var err error
+			healthy, err = dpi.CustomReportHealth(deviceID, absoluteDevicePath, healthy)
+			if err != nil {
+				logger.Reason(err).Warningf("failed to report health for device %s", absoluteDevicePath)
+				healthy = false
+			}
 		}
-		dpi.health <- deviceHealth{
-			DevId:  deviceID,
-			Health: healthStatus,
+		newHealthStatus := pluginapi.Unhealthy
+		if healthy {
+			newHealthStatus = pluginapi.Healthy
+		}
+		// only update the health if it is different from the current health or if this a new report
+		if oldHealthStatus, exists := lastKnownHealth[absoluteDevicePath]; !exists || newHealthStatus != oldHealthStatus {
+			lastKnownHealth[absoluteDevicePath] = newHealthStatus
+			dpi.health <- deviceHealth{
+				DevId:  deviceID,
+				Health: newHealthStatus,
+			}
 		}
 	}
 
@@ -243,7 +258,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				logger.Warningf("device %s is not present, waiting for it to be created", idDevicePath)
-				reportHealth(deviceID, false)
+				reportHealth(deviceID, idDevicePath, false)
 				continue
 			} else {
 				return fmt.Errorf("could not stat the device: %v", err)
@@ -257,7 +272,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 		} else {
 			logger.Warningf("device %s is present but permissions could not be configured, marking device as unhealthy", idDevicePath)
 		}
-		reportHealth(deviceID, isHealthy)
+		reportHealth(deviceID, idDevicePath, isHealthy)
 	}
 
 	// Loop and watch for device changes
@@ -298,13 +313,13 @@ func (dpi *DevicePluginBase) healthCheck() error {
 					} else {
 						logger.Warningf("failed to configure permissions for monitored device \"%s\" with resource %s, marking as unhealthy", friendlyName, dpi.resourceName)
 					}
-					reportHealth(monDevId, isHealthy)
+					reportHealth(monDevId, event.Name, isHealthy)
 				case fsnotify.Remove:
 					logger.Infof("monitored device \"%s\" with resource %s was deleted, marking device as unhealthy", friendlyName, dpi.resourceName)
-					reportHealth(monDevId, false)
+					reportHealth(monDevId, event.Name, false)
 				case fsnotify.Rename:
 					logger.Infof("monitored device \"%s\" with resource %s was renamed, marking device as unhealthy", friendlyName, dpi.resourceName)
-					reportHealth(monDevId, false)
+					reportHealth(monDevId, event.Name, false)
 				case fsnotify.Chmod:
 					logger.Infof("monitored device \"%s\" with resource %s had its permissions modified", friendlyName, dpi.resourceName)
 				}

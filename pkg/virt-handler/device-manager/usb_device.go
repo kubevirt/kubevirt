@@ -56,6 +56,7 @@ type USBDevice struct {
 	DeviceNumber int
 	Serial       string
 	DevicePath   string
+	Healthy      bool
 }
 
 // The uniqueness in the system comes from bus and device number but having the vendor:product
@@ -126,6 +127,27 @@ func (plugin *USBDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watch
 		}
 	}
 	return nil
+}
+
+func (plugin *USBDevicePlugin) HandleReportHealthFunc(deviceID string, devicePath string, healthy bool) (bool, error) {
+	// a device is healthy when all devices in the usb device group are healthy
+	pluginDevices := plugin.FindDevice(deviceID)
+	if pluginDevices == nil {
+		return false, nil
+	}
+	for _, usbDev := range pluginDevices.Devices {
+		expectedUsbDevicePath := filepath.Join(plugin.deviceRoot, usbDev.DevicePath)
+		if devicePath == expectedUsbDevicePath {
+			usbDev.Healthy = healthy
+		}
+	}
+	// if any of the devices in the usb device group is unhealthy, the usb device group is unhealthy
+	for _, usbDev := range pluginDevices.Devices {
+		if !usbDev.Healthy {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // Interface to allocate requested Device, exported by ListAndWatch
@@ -392,6 +414,7 @@ func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []
 	}
 	usb.SetupMonitoredDevices = usb.SetupMonitoredDevicesFunc
 	usb.GetIDDeviceName = usb.GetIDDeviceNameFunc
+	usb.CustomReportHealth = usb.HandleReportHealthFunc
 	// If permission manager is not provided, we assume that device doesn't need any permissions configured.
 	if p != nil {
 		usb.ConfigurePermissions = func(dp *safepath.Path) error {
