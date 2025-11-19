@@ -136,8 +136,7 @@ var _ = Describe("KSM", func() {
 			fakeClient := fake.NewSimpleClientset(node)
 			fakeNodeStore.Add(node)
 			clusterConfig := generateClusterConfig(featuregate.CPUManager)
-			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
-			handler.nodeStore = fakeNodeStore
+			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
 
 			createCustomMemInfo(false)
@@ -201,8 +200,7 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			fakeNodeStore.Add(node)
-			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
-			handler.nodeStore = fakeNodeStore
+			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
 
 			node, err := fakeClient.CoreV1().Nodes().Get(context.TODO(), testNodeName, metav1.GetOptions{})
@@ -230,8 +228,7 @@ var _ = Describe("KSM", func() {
 			fakeNodeStore.Add(node)
 			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0644)
 			Expect(err).ToNot(HaveOccurred())
-			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
-			handler.nodeStore = fakeNodeStore
+			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
 
 			createCustomMemInfo(true)
@@ -284,8 +281,7 @@ var _ = Describe("KSM", func() {
 			fakeClient := fake.NewSimpleClientset(node)
 			fakeNodeStore.Add(node)
 			createCustomMemInfo(false)
-			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
-			handler.nodeStore = fakeNodeStore
+			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
 
 			By("running a first HandleKSMUpdate and expecting no change")
@@ -353,8 +349,7 @@ var _ = Describe("KSM", func() {
 			fakeClient := fake.NewSimpleClientset(node)
 			fakeNodeStore.Add(node)
 			createCustomMemInfo(false)
-			handler := NewHandler(testNodeName, fakeClient.CoreV1(), clusterConfig)
-			handler.nodeStore = fakeNodeStore
+			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
 
 			By("running a first HandleKSMUpdate and expecting the right values")

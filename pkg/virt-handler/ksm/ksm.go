@@ -34,7 +34,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	k8scorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -43,7 +42,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/controller"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -89,12 +87,13 @@ type Handler struct {
 	loopChan       chan struct{}
 }
 
-func NewHandler(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig *virtconfig.ClusterConfig) *Handler {
+func NewHandler(nodeName string, client k8scorev1.CoreV1Interface, nodeStore cache.Store, clusterConfig *virtconfig.ClusterConfig) *Handler {
 	return &Handler{
 		isLoopRunning:  false,
 		clusterConfig:  clusterConfig,
 		nodeName:       nodeName,
 		client:         client,
+		nodeStore:      nodeStore,
 		extChangesChan: make(chan struct{}),
 		loopChan:       make(chan struct{}),
 	}
@@ -102,19 +101,6 @@ func NewHandler(nodeName string, client k8scorev1.CoreV1Interface, clusterConfig
 
 func (k *Handler) Run(stopCh chan struct{}) {
 	defer close(k.loopChan)
-	// Create a ListWatch filtered to only the local node
-	listWatch := cache.NewListWatchFromClient(
-		k.client.RESTClient(),
-		"nodes",
-		metav1.NamespaceAll,
-		fields.OneTermEqualSelector("metadata.name", k.nodeName),
-	)
-
-	nodeInformer := cache.NewSharedIndexInformer(listWatch, &k8sv1.Node{}, controller.ResyncPeriod(12*time.Hour), cache.Indexers{})
-	go nodeInformer.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, nodeInformer.HasSynced)
-
-	k.nodeStore = nodeInformer.GetStore()
 	go k.Start()
 	<-stopCh
 }
@@ -264,7 +250,7 @@ func (k *Handler) disableKSM() {
 func (k *Handler) getNode() (*k8sv1.Node, error) {
 	nodeObj, exists, err := k.nodeStore.GetByKey(k.nodeName)
 	if err != nil {
-		log.DefaultLogger().Errorf("Unable to get not: %s", err.Error())
+		log.DefaultLogger().Errorf("Unable to get node: %s", err.Error())
 		return nil, err
 	}
 	if !exists {
