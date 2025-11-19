@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "memlock.go",
         "memory.go",
         "netbinding.go",
     ],
@@ -19,6 +20,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "memlock_test.go",
         "memory_test.go",
         "netbinding_suite_test.go",
         "netbinding_test.go",
