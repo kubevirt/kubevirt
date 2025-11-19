@@ -28,24 +28,21 @@ import (
 type SoundDomainConfigurator struct{}
 
 func (s SoundDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	sound := vmi.Spec.Domain.Devices.Sound
-
-	// Default is to not have any Sound device
-	if sound == nil {
+	vmiSoundDevice := vmi.Spec.Domain.Devices.Sound
+	if vmiSoundDevice == nil {
 		return nil
 	}
 
-	model := "ich9"
-	if sound.Model == "ac97" {
-		model = "ac97"
+	const defaultModel = "ich9"
+	newSoundCard := api.SoundCard{
+		Alias: api.NewUserDefinedAlias(vmiSoundDevice.Name),
+		Model: defaultModel,
 	}
 
-	soundCards := make([]api.SoundCard, 1)
-	soundCards[0] = api.SoundCard{
-		Alias: api.NewUserDefinedAlias(sound.Name),
-		Model: model,
+	if vmiSoundDevice.Model == "ac97" {
+		newSoundCard.Model = "ac97"
 	}
 
-	domain.Spec.Devices.SoundCards = soundCards
+	domain.Spec.Devices.SoundCards = []api.SoundCard{newSoundCard}
 	return nil
 }
