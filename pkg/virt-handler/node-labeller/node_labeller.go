@@ -190,20 +190,18 @@ func (n *NodeLabeller) run() error {
 		return err
 	}
 
-	node := originalNode.DeepCopy()
-
-	if !skipNodeLabelling(node) {
-		//prepare new labels
-		newLabels := n.prepareLabels(node)
-		//remove old labeller labels
-		n.removeLabellerLabels(node)
-		//add new labels
-		n.addLabellerLabels(node, newLabels)
+	if skipNodeLabelling(originalNode) {
+		return nil
 	}
 
-	err = n.patchNode(originalNode, node)
-
-	return err
+	node := originalNode.DeepCopy()
+	//prepare new labels
+	newLabels := n.prepareLabels(node)
+	//remove old labeller labels
+	n.removeLabellerLabels(node)
+	//add new labels
+	n.addLabellerLabels(node, newLabels)
+	return n.patchNode(originalNode, node)
 }
 
 func skipNodeLabelling(node *v1.Node) bool {
