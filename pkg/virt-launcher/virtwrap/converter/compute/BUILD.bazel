@@ -33,6 +33,7 @@ go_test(
         "compute_suite_test.go",
         "launch_security_test.go",
         "rng_test.go",
+        "sound_test.go",
         "tpm_test.go",
         "vsock_test.go",
     ],
