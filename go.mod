@@ -54,7 +54,6 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/vishvananda/netlink v1.3.0
-	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
 	go.uber.org/mock v0.5.1
 	golang.org/x/crypto v0.36.0
 	golang.org/x/net v0.38.0
@@ -78,7 +77,6 @@ require (
 	kubevirt.io/qe-tools v0.1.8
 	libvirt.org/go/libvirt v1.11005.0
 	libvirt.org/go/libvirtxml v1.11000.1
-	mvdan.cc/sh/v3 v3.8.0
 	sigs.k8s.io/controller-runtime v0.20.2
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.4.0
@@ -139,6 +137,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/u-root/uio v0.0.0-20230220225925-ffce2a382923 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
+	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
@@ -156,6 +155,7 @@ require (
 	k8s.io/klog/v2 v2.130.1 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
 	mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2 // indirect
+	mvdan.cc/sh/v3 v3.8.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
@@ -199,4 +199,10 @@ replace (
 
 	kubevirt.io/api => ./staging/src/kubevirt.io/api
 	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
+)
+
+tool (
+	github.com/onsi/ginkgo/v2/ginkgo
+	github.com/wadey/gocovmerge
+	mvdan.cc/sh/v3/cmd/shfmt
 )
