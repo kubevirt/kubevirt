@@ -21,7 +21,6 @@ package featuregate
 
 const (
 	ExpandDisksGate       = "ExpandDisks"
-	CPUManager            = "CPUManager"
 	IgnitionGate          = "ExperimentalIgnitionSupport"
 	HypervStrictCheckGate = "HypervStrictCheck"
 	SidecarGate           = "Sidecar"
@@ -157,7 +156,6 @@ const (
 func init() {
 	RegisterFeatureGate(FeatureGate{Name: ImageVolume, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IgnitionGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HypervStrictCheckGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SidecarGate, State: Alpha})

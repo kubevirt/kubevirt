@@ -27,8 +27,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "k8s.io/api/core/v1"
@@ -129,7 +127,7 @@ var _ = Describe("KSM", func() {
 				},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
-			clusterConfig := generateClusterConfig(featuregate.CPUManager)
+			clusterConfig := generateClusterConfig()
 			HandleKSMUpdate(testNodeName, fakeClient.CoreV1(), clusterConfig, true)
 			createCustomMemInfo(false)
 

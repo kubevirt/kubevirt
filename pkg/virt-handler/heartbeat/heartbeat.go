@@ -104,7 +104,7 @@ func (h *HeartBeat) labelNodeUnschedulable() {
 			return err
 		}
 
-		cpuManagerEnabled := h.clusterConfig.CPUManagerEnabled() && h.isCPUManagerEnabled(h.cpuManagerPaths)
+		cpuManagerEnabled := h.isCPUManagerEnabled(h.cpuManagerPaths)
 		data := []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"}, "annotations": {"%s": %s}}}`,
 			v1.NodeSchedulable, "false",
 			v1.DeprecatedCPUManager, cpuManagerEnabled,
@@ -152,10 +152,7 @@ func (h *HeartBeat) do() {
 	var data []byte
 	// Label the node if cpu manager is running on it
 	// This is a temporary workaround until k8s bug #66525 is resolved
-	cpuManagerEnabled := false
-	if h.clusterConfig.CPUManagerEnabled() {
-		cpuManagerEnabled = h.isCPUManagerEnabled(h.cpuManagerPaths)
-	}
+	cpuManagerEnabled := h.isCPUManagerEnabled(h.cpuManagerPaths)
 
 	data = []byte(fmt.Sprintf(`{"metadata": { "labels": {"%s": "%s", "%s": "%t", "%s": "%t"}, "annotations": {"%s": %s}}}`,
 		v1.NodeSchedulable, kubevirtSchedulable,

@@ -32,7 +32,6 @@ go_test(
     deps = [
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",
-        "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-handler/device-manager:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",

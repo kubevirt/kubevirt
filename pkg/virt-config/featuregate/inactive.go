@@ -103,10 +103,14 @@ const (
 	//
 	// MultiArchitecture allows VM/VMIs to request and schedule to an architecture other than that of control plane
 	MultiArchitecture = "MultiArchitecture"
+
+	// Deprecated: v1.9.0
+	CPUManager = "CPUManager"
 )
 
 func init() {
 	RegisterFeatureGate(FeatureGate{Name: LiveMigrationGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: SRIOVLiveMigrationGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: NonRoot, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: PSA, State: GA})

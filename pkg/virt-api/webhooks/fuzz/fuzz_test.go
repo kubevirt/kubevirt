@@ -203,7 +203,6 @@ func fuzzKubeVirtConfig(seed int64) *virtconfig.ClusterConfig {
 			c.FillNoCustom(dc)
 			featureGates := []string{
 				featuregate.ExpandDisksGate,
-				featuregate.CPUManager,
 				featuregate.NUMAFeatureGate,
 				featuregate.IgnitionGate,
 				featuregate.LiveMigrationGate,
