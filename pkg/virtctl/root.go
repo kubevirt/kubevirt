@@ -61,82 +61,106 @@ func GetProgramName(binary string) string {
 	return "virtctl"
 }
 
-func NewVirtctlCommandFn() *cobra.Command {
-	// used in cobra templates to display either `kubectl virt` or `virtctl`
-	cobra.AddTemplateFunc(
-		"ProgramName", func() string {
-			return programName
-		},
-	)
-
-	// used to enable replacement of `ProgramName` placeholder for cobra.Example, which has no template support
-	cobra.AddTemplateFunc(
-		"prepare", func(s string) string {
-			return strings.Replace(s, "{{ProgramName}}", programName, -1)
-		},
-	)
-
-	optionsCmd := &cobra.Command{
+func NewOptionsCmd() *cobra.Command {
+	cmd := &cobra.Command{
 		Use:    "options",
 		Hidden: true,
 		Run: func(cmd *cobra.Command, _ []string) {
-			cmd.Printf("%s", cmd.UsageString())
+			cmd.Usage()
 		},
 	}
-	optionsCmd.SetUsageTemplate(templates.OptionsUsageTemplate())
+	templates.UseOptionsTemplates(cmd)
+	return cmd
+}
 
+func NewVirtctlCommandFn() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:           programName,
 		Short:         programName + " controls virtual machine related operations on your kubernetes cluster.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, _ []string) {
-			cmd.Printf("%s", cmd.UsageString())
+			cmd.Help()
 		},
 	}
 	addVerbosityFlag(rootCmd.PersistentFlags())
-	rootCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	rootCmd.SetOut(os.Stdout)
 	rootCmd.SetContext(clientconfig.NewContext(
 		context.Background(), kubecli.DefaultClientConfig(rootCmd.PersistentFlags()),
 	))
 
-	rootCmd.AddCommand(
-		configuration.NewListPermittedDevices(),
-		console.NewCommand(),
-		usbredir.NewCommand(),
-		vnc.NewCommand(),
-		scp.NewCommand(),
-		ssh.NewCommand(),
-		portforward.NewCommand(),
-		vm.NewStartCommand(),
-		vm.NewStopCommand(),
-		vm.NewRestartCommand(),
-		vm.NewMigrateCommand(),
-		vm.NewMigrateCancelCommand(),
-		vm.NewGuestOsInfoCommand(),
-		vm.NewUserListCommand(),
-		vm.NewFSListCommand(),
-		vm.NewAddVolumeCommand(),
-		vm.NewRemoveVolumeCommand(),
-		vm.NewExpandCommand(),
-		vm.NewEvacuateCancelCommand(),
-		memorydump.NewMemoryDumpCommand(),
-		pause.NewCommand(),
-		unpause.NewCommand(),
-		softreboot.NewSoftRebootCommand(),
-		reset.NewResetCommand(),
-		expose.NewCommand(),
-		version.VersionCommand(),
-		imageupload.NewImageUploadCommand(),
-		guestfs.NewGuestfsShellCommand(),
-		vmexport.NewVirtualMachineExportCommand(),
-		create.NewCommand(),
-		credentials.NewCommand(),
-		adm.NewCommand(),
-		objectgraph.NewCommand(),
-		optionsCmd,
-	)
+	groups := templates.CommandGroups{
+		{
+			Message: "Virtual Machine Lifecycle Commands:",
+			Commands: []*cobra.Command{
+				vm.NewStartCommand(),
+				vm.NewStopCommand(),
+				vm.NewRestartCommand(),
+				pause.NewCommand(),
+				unpause.NewCommand(),
+				softreboot.NewSoftRebootCommand(),
+				reset.NewResetCommand(),
+			},
+		},
+		{
+			Message: "Virtual Machine Connectivity Commands:",
+			Commands: []*cobra.Command{
+				expose.NewCommand(),
+				ssh.NewCommand(),
+				scp.NewCommand(),
+				portforward.NewCommand(),
+				console.NewCommand(),
+				vnc.NewCommand(),
+			},
+		},
+		{
+			Message: "Virtual Machine Volume Commands:",
+			Commands: []*cobra.Command{
+				vm.NewAddVolumeCommand(),
+				vm.NewRemoveVolumeCommand(),
+				imageupload.NewImageUploadCommand(),
+			},
+		},
+		{
+			Message: "Virtual Machine Migration Commands:",
+			Commands: []*cobra.Command{
+				vm.NewMigrateCommand(),
+				vm.NewMigrateCancelCommand(),
+				vm.NewEvacuateCancelCommand(),
+			},
+		},
+		{
+			Message: "Virtual Machine Guest Commands:",
+			Commands: []*cobra.Command{
+				vm.NewGuestOsInfoCommand(),
+				vm.NewUserListCommand(),
+				vm.NewFSListCommand(),
+				credentials.NewCommand(),
+			},
+		},
+		{
+			Message: "Utility Commands:",
+			Commands: []*cobra.Command{
+				configuration.NewListPermittedDevices(),
+				usbredir.NewCommand(),
+				guestfs.NewGuestfsShellCommand(),
+				vm.NewExpandCommand(),
+				memorydump.NewMemoryDumpCommand(),
+				vmexport.NewVirtualMachineExportCommand(),
+				objectgraph.NewCommand(),
+				create.NewCommand(),
+				adm.NewCommand(),
+			},
+		},
+	}
+
+	groups.Add(rootCmd)
+	filters := []string{"options"}
+
+	templates.ActsAsRootCommand(rootCmd, filters, programName, groups...)
+
+	rootCmd.AddCommand(NewOptionsCmd())
+	rootCmd.AddCommand(version.VersionCommand())
 
 	return rootCmd
 }
