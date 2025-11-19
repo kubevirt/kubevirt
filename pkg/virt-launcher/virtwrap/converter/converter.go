@@ -1007,39 +1007,6 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	return nil
 }
 
-func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Memory == nil ||
-		vmi.Spec.Domain.Memory.MaxGuest == nil ||
-		vmi.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.MaxGuest) {
-		var err error
-
-		domain.Spec.Memory, err = vcpu.QuantityToByte(*vcpu.GetVirtualMemory(vmi))
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	maxMemory, err := vcpu.QuantityToByte(*vmi.Spec.Domain.Memory.MaxGuest)
-	if err != nil {
-		return err
-	}
-
-	domain.Spec.MaxMemory = &api.MaxMemory{
-		Unit:  maxMemory.Unit,
-		Value: maxMemory.Value,
-	}
-
-	currentMemory, err := vcpu.QuantityToByte(*vmi.Spec.Domain.Memory.Guest)
-	if err != nil {
-		return err
-	}
-
-	domain.Spec.Memory = currentMemory
-
-	return nil
-}
-
 func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint) (uint, uint) {
 	if apiDisk.Target.Bus == v1.DiskBusVirtio {
 		if supplementalIOThreads != nil {
@@ -1137,12 +1104,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
 		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation()),
 		compute.NewIOThreadsDomainConfigurator(uint(ioThreadCount)),
+		compute.MemoryConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
-		return err
-	}
-
-	if err = setupDomainMemory(vmi, domain); err != nil {
 		return err
 	}
 
