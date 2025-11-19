@@ -201,8 +201,8 @@ func (dpi *DevicePluginBase) healthCheck() error {
 	}
 
 	// Define helper functions for health checks
-	//  - configurePermissionsAndReportHealth: configures permissions for a device and reports success
-	configurePermissionsAndReportHealth := func(devicePath string) bool {
+	//  - configurePermissionsAndReportSuccess: configures permissions for a device and reports success
+	configurePermissionsAndReportSuccess := func(devicePath string) bool {
 		success := true
 		// If the ConfigurePermissions hook is not implemented, we consider the operation successful
 		if dpi.ConfigurePermissions != nil {
@@ -266,7 +266,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 		}
 
 		// Device exists, try to configure permissions before marking as healthy
-		isHealthy := configurePermissionsAndReportHealth(idDevicePath)
+		isHealthy := configurePermissionsAndReportSuccess(idDevicePath)
 		if isHealthy {
 			logger.Infof("device %s is present, marking device as healthy", idDevicePath)
 		} else {
@@ -307,7 +307,7 @@ func (dpi *DevicePluginBase) healthCheck() error {
 				case fsnotify.Create:
 					logger.Infof("monitored device \"%s\" with resource %s appeared", friendlyName, dpi.resourceName)
 					// Try to configure permissions before marking the device as healthy.
-					isHealthy := configurePermissionsAndReportHealth(event.Name)
+					isHealthy := configurePermissionsAndReportSuccess(event.Name)
 					if isHealthy {
 						logger.Infof("monitored device \"%s\" with resource %s is healthy", friendlyName, dpi.resourceName)
 					} else {

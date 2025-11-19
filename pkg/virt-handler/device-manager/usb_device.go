@@ -200,7 +200,7 @@ func parseSysUeventFile(path string) *USBDevice {
 	}
 	defer file.Close()
 
-	u := USBDevice{}
+	u := USBDevice{Healthy: false}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()

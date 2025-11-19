@@ -356,7 +356,7 @@ var _ = Describe("USB Device", func() {
 	})
 
 	It("Should return error if device parent directory does not exist", func() {
-		badDevices := []*PluginDevices{{ID: "bad", Devices: []*USBDevice{{DevicePath: "missing/device"}}}}
+		badDevices := []*PluginDevices{{ID: "bad", Devices: []*USBDevice{{DevicePath: "/missing/device"}}}}
 		badPlugin := NewUSBDevicePlugin(resourceName1, workDir, badDevices, nil)
 
 		watcher, _ := fsnotify.NewWatcher()

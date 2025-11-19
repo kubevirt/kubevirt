@@ -290,7 +290,7 @@ var _ = Describe("Mediated Device Health check validation", func() {
 		dpi.socketPath = filepath.Join(workDir, "test.sock")
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.deviceRoot = workDir
-		dpi.devicePath = "dev/vfio"
+		dpi.devicePath = "/dev/vfio"
 		stop = make(chan struct{})
 		dpi.stop = stop
 	})
@@ -357,7 +357,7 @@ var _ = Describe("Mediated Device Health check validation", func() {
 
 		dpi := NewMediatedDevicePlugin([]*MDEV{{iommuGroup: "0"}}, fakeMdevResourceName)
 		dpi.deviceRoot = workDir
-		dpi.devicePath = "dev/vfio"
+		dpi.devicePath = "/dev/vfio"
 
 		watcher, _ := fsnotify.NewWatcher()
 		defer watcher.Close()
@@ -371,7 +371,7 @@ var _ = Describe("Mediated Device Health check validation", func() {
 	It("Should return error if parent directory cannot be watched", func() {
 		dpi := NewMediatedDevicePlugin([]*MDEV{{iommuGroup: "0"}}, fakeMdevResourceName)
 		dpi.deviceRoot = "/nonexistent"
-		dpi.devicePath = "dev/vfio"
+		dpi.devicePath = "/dev/vfio"
 
 		watcher, _ := fsnotify.NewWatcher()
 		defer watcher.Close()
