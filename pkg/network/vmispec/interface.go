@@ -23,6 +23,8 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
 )
 
 func FilterSRIOVInterfaces(ifaces []v1.Interface) []v1.Interface {
@@ -198,6 +200,23 @@ func hasVirtioIface(vmi *v1.VirtualMachineInstance) bool {
 		if iface.Model == "" || iface.Model == v1.VirtIO {
 			return true
 		}
+	}
+	return false
+}
+
+func BindingPluginNetworkNeedsMemLockLimitConfig(ifaces []v1.Interface, bindingPlugins map[string]v1.InterfaceBindingPlugin) bool {
+	for _, iface := range ifaces {
+		if hasBindingPluginWithMemLockRequirement(iface, bindingPlugins) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasBindingPluginWithMemLockRequirement(iface v1.Interface, bindingPlugins map[string]v1.InterfaceBindingPlugin) bool {
+	if iface.Binding != nil {
+		binding, exist := bindingPlugins[iface.Binding.Name]
+		return exist && netbinding.NetBindingHasMemoryLockRequirements(&binding)
 	}
 	return false
 }
