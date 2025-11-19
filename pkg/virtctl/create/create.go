@@ -26,7 +26,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/create/instancetype"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/preference"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/vm"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -46,7 +45,6 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(preference.NewCommand())
 	cmd.AddCommand(instancetype.NewCommand())
 	cmd.AddCommand(clone.NewCommand())
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
 }

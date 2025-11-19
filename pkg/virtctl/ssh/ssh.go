@@ -34,7 +34,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/portforward"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -82,7 +81,6 @@ func NewCommand() *cobra.Command {
 	AddCommandlineArgs(cmd.Flags(), c.options)
 	cmd.Flags().StringVarP(&c.command, commandToExecute, commandToExecuteShort, c.command,
 		fmt.Sprintf(`--%s='ls /': Specify a command to execute in the VM`, commandToExecute))
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

@@ -16,7 +16,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -77,8 +76,6 @@ virtualmachineinstance (vmi), virtualmachine (vm), virtualmachineinstancereplica
 	cmd.Flags().StringVar(&c.portName, "port-name", "", "Name of the port. Optional.")
 	cmd.Flags().StringVar(&c.strIPFamily, "ip-family", "", "IP family over which the service will be exposed. Valid values are 'IPv4', 'IPv6', 'IPv4,IPv6' or 'IPv6,IPv4'")
 	cmd.Flags().StringVar(&c.strIPFamilyPolicy, "ip-family-policy", "", "IP family policy defines whether the service can use IPv4, IPv6, or both. Valid values are 'SingleStack', 'PreferDualStack' or 'RequireDualStack'")
-
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
 }

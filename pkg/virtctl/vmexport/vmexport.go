@@ -54,7 +54,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -261,7 +260,6 @@ func NewVirtualMachineExportCommand() *cobra.Command {
 	cmd.Flags().StringSliceVar(&resourceLabels, "labels", nil, "Specify custom labels to VM export object and its associated pod")
 	cmd.Flags().StringSliceVar(&resourceAnnotations, "annotations", nil, "Specify custom annotations to VM export object and its associated pod")
 	cmd.Flags().StringVar(&readinessTimeout, "readiness-timeout", "", "Specify maximum wait for VM export object to be ready")
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
 }

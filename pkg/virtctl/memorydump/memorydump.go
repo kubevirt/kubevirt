@@ -38,7 +38,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
 )
 
@@ -108,7 +107,6 @@ func NewMemoryDumpCommand() *cobra.Command {
 		Args:    cobra.ExactArgs(2),
 		RunE:    c.run,
 	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&claimName, ClaimNameFlag, "", "pvc name to contain the memory dump")
 	cmd.Flags().BoolVar(&createClaim, CreateClaimFlag, false, "Create the pvc that will conatin the memory dump")
 	cmd.Flags().BoolVar(&portForward, PortForwardFlag, false, "Configure and set port-forward in a random port to download the memory dump")

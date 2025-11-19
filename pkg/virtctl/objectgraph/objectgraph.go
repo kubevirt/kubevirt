@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 type command struct {
@@ -53,7 +52,6 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().BoolVar(&c.shouldExclude, "exclude-optional", false, "Exclude optional nodes from the object graph.")
 	cmd.Flags().StringToStringVar(&c.labelSelectors, "selector", map[string]string{}, "Label selectors to filter the object graph (multiple labels can be specified).")
 	cmd.Flags().StringVarP(&c.outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
 }

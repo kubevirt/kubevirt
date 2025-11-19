@@ -17,7 +17,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 func NewCommand() *cobra.Command {
@@ -31,7 +30,6 @@ func NewCommand() *cobra.Command {
 	}
 	cmdFlags.AddToCommand(cmd)
 
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

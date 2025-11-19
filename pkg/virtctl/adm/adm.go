@@ -4,7 +4,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/adm/logverbosity"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -20,6 +19,5 @@ func NewCommand() *cobra.Command {
 		},
 	}
 	cmd.AddCommand(logverbosity.NewCommand())
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }

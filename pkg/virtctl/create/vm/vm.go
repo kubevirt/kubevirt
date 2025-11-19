@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -305,7 +304,6 @@ func NewCommand() *cobra.Command {
 			"DEPRECATED: Use --volume-import with type:blank and same params instead.")
 
 	cmd.Flags().SortFlags = false
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
 }

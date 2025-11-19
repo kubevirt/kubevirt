@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -60,7 +59,6 @@ func NewAddVolumeCommand() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE:    addVolumeRun,
 	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
 	cmd.MarkFlagRequired(volumeNameArg)
 	cmd.Flags().StringVar(&serial, serialArg, "", "serial number you want to assign to the disk")

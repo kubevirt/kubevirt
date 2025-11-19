@@ -27,7 +27,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -43,7 +42,6 @@ func NewSoftRebootCommand() *cobra.Command {
 		Example: usage(COMMAND_SOFT_REBOOT),
 		RunE:    Run,
 	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

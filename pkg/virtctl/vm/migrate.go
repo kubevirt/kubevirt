@@ -28,7 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const COMMAND_MIGRATE = "migrate"
@@ -50,7 +49,6 @@ func NewMigrateCommand() *cobra.Command {
 
 	cmd.Flags().StringToStringVar(&c.addedNodeSelector, "addedNodeSelector", nil, "--addedNodeSelector=key=value1,key2=value2: configure an additional node selector for the one-off migration attempt. AddedNodeSelector can only restrict constraints already set on the VM. By default the scheduler is responsible for finding the best Node, which is the recommended way of migrating VMs.")
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

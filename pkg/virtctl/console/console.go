@@ -34,7 +34,6 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const defaultTimeoutMinutes = 5
@@ -54,7 +53,6 @@ func NewCommand() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&c.timeout, "timeout", defaultTimeoutMinutes,
 		"The number of minutes to wait for the virtual machine instance to be ready.")
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

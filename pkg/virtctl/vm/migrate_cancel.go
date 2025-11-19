@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const COMMAND_MIGRATE_CANCEL = "migrate-cancel"
@@ -44,7 +43,6 @@ func NewMigrateCancelCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

@@ -53,7 +53,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -145,7 +144,6 @@ func NewImageUploadCommand() *cobra.Command {
 	cmd.Flags().StringVar(&c.defaultInstancetypeKind, "default-instancetype-kind", "", "The default instance type kind to associate with the image.")
 	cmd.Flags().StringVar(&c.defaultPreference, "default-preference", "", "The default preference to associate with the image.")
 	cmd.Flags().StringVar(&c.defaultPreferenceKind, "default-preference-kind", "", "The default preference kind to associate with the image.")
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().MarkDeprecated("pvc-name", "specify the name as the second argument instead.")
 	cmd.Flags().MarkDeprecated("pvc-size", "use --size instead.")
 	cmd.Flags().MarkDeprecated("block-volume", "specify volume mode (filesystem/block) with --volume-mode instead.")
