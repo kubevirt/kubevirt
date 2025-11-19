@@ -401,6 +401,7 @@ func (app *virtHandlerApp) Run() {
 	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,
 		app.virtCli,
+		nodeInformer.GetStore(),
 		app.HostOverride,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
