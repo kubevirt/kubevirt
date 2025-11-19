@@ -6,6 +6,7 @@ go_library(
         "channels.go",
         "clock.go",
         "launch_security.go",
+        "memory.go",
         "rng.go",
         "tpm.go",
         "vsock.go",
