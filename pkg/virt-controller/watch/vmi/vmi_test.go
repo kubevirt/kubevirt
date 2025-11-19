@@ -2676,6 +2676,14 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			return makePodWithVirtlauncher(virtlauncherPod, indexes...)
 		}
 
+		makePodsWithDeletion := func(indexes ...int) []*k8sv1.Pod {
+			attachmentPods := makePods(indexes...)
+			for _, pod := range attachmentPods {
+				pod.DeletionTimestamp = pointer.P(metav1.Now())
+			}
+			return attachmentPods
+		}
+
 		makeVolumes := func(indexes ...int) []*virtv1.Volume {
 			res := make([]*virtv1.Volume, 0)
 			for _, index := range indexes {
@@ -2939,7 +2947,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}
 
 		makeVolumeStatusesForUpdateWithMemoryDump := func(dumpIndex int, indexes ...int) []virtv1.VolumeStatus {
-			res := makeVolumeStatusesForUpdateWithMessage("test-pod", "abcd", virtv1.HotplugVolumeAttachedToNode, "Created hotplug attachment pod test-pod, for volume volume%d", kvcontroller.SuccessfulCreatePodReason, indexes...)
+			res := makeVolumeStatusesForUpdateWithMessage("", "", virtv1.VolumeBound, "PVC is in phase Bound", kvcontroller.PVCNotReadyReason, indexes...)
 			res[dumpIndex].MemoryDumpVolume = &virtv1.DomainMemoryDumpInfo{
 				ClaimName: fmt.Sprintf("volume%d", dumpIndex),
 			}
@@ -2987,8 +2995,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				makeVolumes(0),
 				[]int{0},
 				[]int{0},
-				makeVolumeStatusesForUpdate(0),
-				[]string{kvcontroller.SuccessfulCreatePodReason}),
+				makeVolumeStatusesForUpdateWithMessage("", "", virtv1.VolumeBound, "PVC is in phase Bound", kvcontroller.PVCNotReadyReason, 0),
+				[]string{}),
 			Entry("should update volume status, if a new volume is added, and pod does not exist",
 				makeVolumeStatusesForUpdate(),
 				makeVolumes(0),
@@ -3037,7 +3045,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				[]int{0},
 				[]int{0},
 				makeVolumeStatusesForUpdateWithMemoryDump(0, 0),
-				[]string{kvcontroller.SuccessfulCreatePodReason}),
+				[]string{}),
 		)
 
 		DescribeTable("Should properly calculate if it needs to handle hotplug volumes", func(hotplugVolumes []*virtv1.Volume, attachmentPods []*k8sv1.Pod, match gomegaTypes.GomegaMatcher) {
@@ -3080,6 +3088,11 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Name: "volume0",
 				},
 			}, makePods(0), makePods(0)[0], []*k8sv1.Pod{}),
+			Entry("matching volume, nil attachmentPods since marked for deletion", []*virtv1.Volume{
+				{
+					Name: "volume0",
+				},
+			}, makePodsWithDeletion(0), nil, []*k8sv1.Pod{}),
 			Entry("matching volume, multiple attachmentPods, first pod matches", []*virtv1.Volume{
 				{
 					Name: "volume0",
