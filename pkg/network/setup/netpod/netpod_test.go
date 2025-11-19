@@ -242,7 +242,6 @@ var _ = Describe("netpod", func() {
 						State:      nmstate.IfaceStateUp,
 						MacAddress: "02:00:00:00:00:00",
 						MTU:        1500,
-						Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 						IPv4: nmstate.IP{
 							Enabled: pointer.P(true),
 							Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
@@ -359,7 +358,6 @@ var _ = Describe("netpod", func() {
 						Name:     "k6t-eth0",
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateUp,
-						Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 						IPv4: nmstate.IP{
 							Enabled: pointer.P(true),
 							Address: []nmstate.IPAddress{{IP: "169.254.75.10", PrefixLen: 32}},
@@ -473,7 +471,6 @@ var _ = Describe("netpod", func() {
 						Name:     "k6t-eth0",
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateUp,
-						Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: defaultPodNetworkName},
 					},
 					{
@@ -628,7 +625,6 @@ var _ = Describe("netpod", func() {
 					State:      nmstate.IfaceStateUp,
 					MacAddress: "02:00:00:00:00:00",
 					MTU:        1500,
-					Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 					IPv4: nmstate.IP{
 						Enabled: pointer.P(true),
 						Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
@@ -682,7 +678,6 @@ var _ = Describe("netpod", func() {
 							Name:     "k6t-914f438d88d",
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateUp,
-							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 						{
@@ -758,7 +753,6 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateUp,
 							MacAddress: "02:00:00:00:00:00",
 							MTU:        1500,
-							Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							IPv4: nmstate.IP{
 								Enabled: pointer.P(true),
 								Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
@@ -784,7 +778,6 @@ var _ = Describe("netpod", func() {
 							Name:     "k6t-914f438d88d",
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateAbsent,
-							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 						{
@@ -839,7 +832,6 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateUp,
 							MacAddress: "02:00:00:00:00:00",
 							MTU:        1500,
-							Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							IPv4: nmstate.IP{
 								Enabled: pointer.P(true),
 								Address: []nmstate.IPAddress{{IP: "10.0.2.1", PrefixLen: 24}},
@@ -865,7 +857,6 @@ var _ = Describe("netpod", func() {
 							Name:     "k6t-net1",
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateUp,
-							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: secondaryNetworkName},
 						},
 						{
@@ -1101,7 +1092,6 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateUp,
 							MacAddress: "02:00:00:00:00:00",
 							MTU:        1500,
-							Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 							LinuxStack: nmstate.LinuxIfaceStack{},
@@ -1121,7 +1111,6 @@ var _ = Describe("netpod", func() {
 							Name:     "k6t-7087ef4cd1f",
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateAbsent,
-							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
@@ -1146,7 +1135,6 @@ var _ = Describe("netpod", func() {
 							Name:     "k6t-bc6cc93fa1e",
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateUp,
-							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
@@ -1216,7 +1204,6 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateUp,
 							MacAddress: "02:00:00:00:00:00",
 							MTU:        1500,
-							Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 							LinuxStack: nmstate.LinuxIfaceStack{},
@@ -1236,7 +1223,6 @@ var _ = Describe("netpod", func() {
 							Name:     "k6t-7087ef4cd1f",
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateAbsent,
-							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
@@ -1261,7 +1247,6 @@ var _ = Describe("netpod", func() {
 							Name:     "k6t-bc6cc93fa1e",
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateAbsent,
-							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
@@ -1330,7 +1315,6 @@ var _ = Describe("netpod", func() {
 							State:      nmstate.IfaceStateUp,
 							MacAddress: "02:00:00:00:00:00",
 							MTU:        1500,
-							Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 							IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 							LinuxStack: nmstate.LinuxIfaceStack{},
@@ -1350,7 +1334,6 @@ var _ = Describe("netpod", func() {
 							Name:     "k6t-7087ef4cd1f",
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateUp,
-							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 						},
 						{
@@ -1384,7 +1367,6 @@ var _ = Describe("netpod", func() {
 							Name:     "k6t-bc6cc93fa1e",
 							TypeName: nmstate.TypeBridge,
 							State:    nmstate.IfaceStateAbsent,
-							Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 							Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 						},
 						{
@@ -1529,7 +1511,6 @@ var _ = Describe("netpod", func() {
 						State:      nmstate.IfaceStateUp,
 						MacAddress: "02:00:00:00:00:00",
 						MTU:        1500,
-						Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 						IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 						IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 						LinuxStack: nmstate.LinuxIfaceStack{},
@@ -1549,7 +1530,6 @@ var _ = Describe("netpod", func() {
 						Name:     "k6t-7087ef4cd1f",
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateUp,
-						Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet1},
 					},
 					{
@@ -1583,7 +1563,6 @@ var _ = Describe("netpod", func() {
 						Name:     "k6t-bc6cc93fa1e",
 						TypeName: nmstate.TypeBridge,
 						State:    nmstate.IfaceStateAbsent,
-						Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 						Metadata: &nmstate.IfaceMetadata{Pid: 0, NetworkName: testNet2},
 					},
 					{
