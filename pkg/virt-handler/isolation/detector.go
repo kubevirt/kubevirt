@@ -108,6 +108,18 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 		return fmt.Errorf("failed to get all processes: %v", err)
 	}
 
+	// make the best estimate for memory required by libvirt
+	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
+	// Add base memory requested for the VM
+	var vmiBaseMemory *resource.Quantity
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
+	} else {
+		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
+	}
+
+	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
+
 	for _, process := range processes {
 		// consider all processes that are virt-launcher children
 		if process.PPid() != launcherPid {
@@ -118,18 +130,6 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 		if process.Executable() != "virtqemud" {
 			continue
 		}
-
-		// make the best estimate for memory required by libvirt
-		memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-		// Add base memory requested for the VM
-		var vmiBaseMemory *resource.Quantity
-		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-			vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-		} else {
-			vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-		}
-
-		memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
 
 		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize.Value())
 		if err != nil {
