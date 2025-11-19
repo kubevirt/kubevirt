@@ -131,7 +131,7 @@ func (n *NodeLabeller) Run(stop chan struct{}) {
 
 	interval := 3 * time.Minute
 	go wait.JitterUntil(func() { n.queue.Add(n.host) }, interval, 1.2, true, stop)
-	go n.runWorker()
+	go wait.Until(n.runWorker, time.Second, stop)
 
 	<-stop
 }
