@@ -198,6 +198,9 @@ spec:
               requestsKey: "0"
           domainAttachmentType: domainAttachmentTypeValue
           downwardAPI: downwardAPIValue
+          memoryLockLimits:
+            lockGuestMemory: true
+            offset: "0"
           migration:
             method: methodValue
           networkAttachmentDefinition: networkAttachmentDefinitionValue

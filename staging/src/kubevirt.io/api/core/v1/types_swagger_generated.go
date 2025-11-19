@@ -1112,6 +1112,7 @@ func (InterfaceBindingPlugin) SwaggerDoc() map[string]string {
 		"migration":                   "Migration means the VM using the plugin can be safely migrated\nversion: 1alphav1",
 		"downwardAPI":                 "DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar.\nSupported values: \"device-info\"\nversion: v1alphav1\n+optional",
 		"computeResourceOverhead":     "ComputeResourceOverhead specifies the resource overhead that should be added to the compute container when using the binding.\nversion: v1alphav1\n+optional",
+		"memoryLockLimits":            "MemLockLimitRequirements specifies network binding plugin's memory\nlock rlimit requirements by means of a boolean flag and an offset.\nThe LockGuestMemory boolean flag specifies that the entire guest\nmemory has to be taken into account when updating process memory\nlock rlimits per each network binding plugin interface.\nOffset specifies the amount of extra memory to expect in the\nmemory lock rlimits per each network binding plugin type\nattached to the VMI.\nversion: v1alphav1\n+optional",
 	}
 }
 
@@ -1120,6 +1121,14 @@ func (ResourceRequirementsWithoutClaims) SwaggerDoc() map[string]string {
 		"":         "ResourceRequirementsWithoutClaims describes the compute resource requirements.\nThis struct was taken from the k8s.ResourceRequirements and cleaned up the `Claims` field.",
 		"limits":   "Limits describes the maximum amount of compute resources allowed.\nMore info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/\n+optional",
 		"requests": "Requests describes the minimum amount of compute resources required.\nIf Requests is omitted for a container, it defaults to Limits if that is explicitly specified,\notherwise to an implementation-defined value. Requests cannot exceed Limits.\nMore info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/\n+optional",
+	}
+}
+
+func (MemoryLockLimitRequirements) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                "MemoryLockLimitRequirements describes network binding plugin memory\nlock rlimit configuration requirements",
+		"lockGuestMemory": "LockGuestMemory describes if the network binding plugin expects\nto take the VMI memory into account for the memlock rlimit.\nThe guest memory will be applied to the memory lock rlimit per each\ninterface of a network binding plugin kind attached to the VMI.\n+optional",
+		"offset":          "Offset describes how much extra memory has to be taken into account\nin the memlock rlimit. The offset will be applied once per each\nnetwork binding plugin type attached to a VMI.\n+optional",
 	}
 }
 

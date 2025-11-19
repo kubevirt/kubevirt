@@ -462,6 +462,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.MediatedHostDevice":                                                      schema_kubevirtio_api_core_v1_MediatedHostDevice(ref),
 		"kubevirt.io/api/core/v1.Memory":                                                                  schema_kubevirtio_api_core_v1_Memory(ref),
 		"kubevirt.io/api/core/v1.MemoryDumpVolumeSource":                                                  schema_kubevirtio_api_core_v1_MemoryDumpVolumeSource(ref),
+		"kubevirt.io/api/core/v1.MemoryLockLimitRequirements":                                             schema_kubevirtio_api_core_v1_MemoryLockLimitRequirements(ref),
 		"kubevirt.io/api/core/v1.MemoryStatus":                                                            schema_kubevirtio_api_core_v1_MemoryStatus(ref),
 		"kubevirt.io/api/core/v1.MigrateOptions":                                                          schema_kubevirtio_api_core_v1_MigrateOptions(ref),
 		"kubevirt.io/api/core/v1.MigrationConfiguration":                                                  schema_kubevirtio_api_core_v1_MigrationConfiguration(ref),
@@ -21409,11 +21410,17 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref common.ReferenceCa
 							Ref:         ref("kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims"),
 						},
 					},
+					"memoryLockLimits": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MemLockLimitRequirements specifies network binding plugin's memory lock rlimit requirements by means of a boolean flag and an offset. The LockGuestMemory boolean flag specifies that the entire guest memory has to be taken into account when updating process memory lock rlimits per each network binding plugin interface. Offset specifies the amount of extra memory to expect in the memory lock rlimits per each network binding plugin type attached to the VMI. version: v1alphav1",
+							Ref:         ref("kubevirt.io/api/core/v1.MemoryLockLimitRequirements"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.InterfaceBindingMigration", "kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims"},
+			"kubevirt.io/api/core/v1.InterfaceBindingMigration", "kubevirt.io/api/core/v1.MemoryLockLimitRequirements", "kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims"},
 	}
 }
 
@@ -22803,6 +22810,34 @@ func schema_kubevirtio_api_core_v1_MemoryDumpVolumeSource(ref common.ReferenceCa
 				Required: []string{"claimName"},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_MemoryLockLimitRequirements(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MemoryLockLimitRequirements describes network binding plugin memory lock rlimit configuration requirements",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"lockGuestMemory": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LockGuestMemory describes if the network binding plugin expects to take the VMI memory into account for the memlock rlimit. The guest memory will be applied to the memory lock rlimit per each interface of a network binding plugin kind attached to the VMI.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Offset describes how much extra memory has to be taken into account in the memlock rlimit. The offset will be applied once per each network binding plugin type attached to a VMI.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

@@ -155,6 +155,10 @@
               "requests": {
                 "requestsKey": "0"
               }
+            },
+            "memoryLockLimits": {
+              "lockGuestMemory": true,
+              "offset": "0"
             }
           }
         }
