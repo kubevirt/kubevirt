@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"libvirt.org/go/libvirtxml"
 
@@ -66,6 +67,7 @@ var nodeLabellerLabels = []string{
 type NodeLabeller struct {
 	recorder                record.EventRecorder
 	nodeClient              k8scli.NodeInterface
+	nodeStore               cache.Store
 	host                    string
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
@@ -85,14 +87,15 @@ type NodeLabeller struct {
 	arch                    archLabeller
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter, supportedMachines)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, nodeStore cache.Store, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, nodeStore, host, NodeLabellerVolumePath, recorder, cpuCounter, supportedMachines)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, nodeStore cache.Store, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:      recorder,
 		nodeClient:    nodeClient,
+		nodeStore:     nodeStore,
 		host:          host,
 		logger:        log.DefaultLogger(),
 		clusterConfig: clusterConfig,
@@ -182,7 +185,7 @@ func (n *NodeLabeller) loadAll() error {
 }
 
 func (n *NodeLabeller) run() error {
-	originalNode, err := n.nodeClient.Get(context.Background(), n.host, metav1.GetOptions{})
+	originalNode, err := n.getNode()
 	if err != nil {
 		return err
 	}
@@ -312,6 +315,23 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	}
 
 	return newLabels
+}
+
+func (n *NodeLabeller) getNode() (*v1.Node, error) {
+	nodeObj, exists, err := n.nodeStore.GetByKey(n.host)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("node %s does not exist", n.host)
+	}
+
+	node, ok := nodeObj.(*v1.Node)
+	if !ok {
+		return nil, fmt.Errorf("unknown object type found in node informer")
+	}
+
+	return node, nil
 }
 
 // addNodeLabels adds labels to node.
