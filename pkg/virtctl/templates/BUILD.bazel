@@ -2,13 +2,19 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["templates.go"],
+    srcs = [
+        "command_groups.go",
+        "templater.go",
+        "templates.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/templates",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/controller:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
+        "//vendor/github.com/spf13/cobra:go_default_library",
+        "//vendor/github.com/spf13/pflag:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
     ],
 )
