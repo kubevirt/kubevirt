@@ -20,11 +20,14 @@
 package device_manager
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -40,6 +43,9 @@ var _ = Describe("Socket device", func() {
 	var stop chan struct{}
 	var sockDevPath string
 	const socket = "fake-test.sock"
+	var mockExec *selinux.MockExecutor
+	var mockPermManager *MockPermissionManager
+	var mockSelinux *selinux.MockSELinux
 
 	BeforeEach(func() {
 		var err error
@@ -49,12 +55,15 @@ var _ = Describe("Socket device", func() {
 		createFile(sockDevPath)
 
 		ctrl := gomock.NewController(GinkgoT())
-		mockExec := selinux.NewMockExecutor(ctrl)
-		mockPermManager := NewMockPermissionManager(ctrl)
-		mockSelinux := selinux.NewMockSELinux(ctrl)
+		mockExec = selinux.NewMockExecutor(ctrl)
+		mockPermManager = NewMockPermissionManager(ctrl)
+		mockSelinux = selinux.NewMockSELinux(ctrl)
+
+		// Default mocks
 		mockExec.EXPECT().NewSELinux().Return(mockSelinux, true, nil).AnyTimes()
 		mockSelinux.EXPECT().IsPermissive().Return(true).AnyTimes()
 		mockPermManager.EXPECT().ChownAtNoFollow(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+
 		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, mockPermManager)
 		Expect(err).ToNot(HaveOccurred())
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
@@ -69,18 +78,14 @@ var _ = Describe("Socket device", func() {
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
+
 		errChan := make(chan error, 1)
 		go func(errChan chan error) {
 			errChan <- dpi.healthCheck()
 		}(errChan)
 
-		By("Confirming that the device begins as unhealthy")
-		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Unhealthy))
-
 		By("waiting for initial healthcheck to send Healthy message")
-		Eventually(func() string {
-			return (<-dpi.health).Health
-		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
@@ -89,29 +94,91 @@ var _ = Describe("Socket device", func() {
 
 	It("Should monitor health of device node", func() {
 		By("Confirming that the device begins as unhealthy")
-		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Unhealthy))
+		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
 
 		By("waiting for initial healthcheck to send Healthy message")
 		go dpi.healthCheck()
-		Eventually(func() string {
-			return (<-dpi.health).Health
-		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 
 		By("Removing a (fake) device node")
 		os.Remove(sockDevPath)
 
 		By("waiting for healthcheck to send Unhealthy message")
-		Eventually(func() string {
-			return (<-dpi.health).Health
-		}, 5*time.Second).Should(Equal(pluginapi.Unhealthy))
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Unhealthy))))
 
 		By("Creating a new (fake) device node")
 		createFile(sockDevPath)
 
 		By("waiting for healthcheck to send Healthy message")
-		Eventually(func() string {
-			return (<-dpi.health).Health
-		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
+	})
+
+	It("Should mark device unhealthy on SELinux failure", func() {
+		// Create a new DPI with a failing executor
+		ctrl := gomock.NewController(GinkgoT())
+		failingMockExec := selinux.NewMockExecutor(ctrl)
+		// mock NewSELinux to return error
+		failingMockExec.EXPECT().NewSELinux().Return(nil, false, fmt.Errorf("selinux error")).AnyTimes()
+
+		// Re-create dpi with failing executor
+		var err error
+		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, failingMockExec, mockPermManager)
+		Expect(err).ToNot(HaveOccurred())
+		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
+		dpi.stop = stop
+
+		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+
+		go dpi.healthCheck()
+
+		By("Confirming that the device reports unhealthy due to SELinux failure")
+		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Unhealthy))))
+	})
+
+	It("Should setup watcher for socket device", func() {
+		watcher, err := fsnotify.NewWatcher()
+		Expect(err).ToNot(HaveOccurred())
+		defer watcher.Close()
+
+		monitoredDevices := make(map[string]string)
+		err = dpi.SetupMonitoredDevicesFunc(watcher, monitoredDevices)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(monitoredDevices).To(HaveLen(1))
+		Expect(watcher.WatchList()).To(ContainElement(workDir))
+	})
+
+	It("Should return error if parent directory cannot be watched", func() {
+		ctrl := gomock.NewController(GinkgoT())
+		mockExec := selinux.NewMockExecutor(ctrl)
+
+		badDpi, _ := NewSocketDevicePlugin("test", "/nonexistent/dir", "test.sock", 1, mockExec, nil)
+		badDpi.deviceRoot = "/nonexistent/dir"
+
+		watcher, _ := fsnotify.NewWatcher()
+		defer watcher.Close()
+
+		err := badDpi.SetupMonitoredDevicesFunc(watcher, make(map[string]string))
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("Should allocate the device", func() {
+		allocateRequest := &pluginapi.AllocateRequest{
+			ContainerRequests: []*pluginapi.ContainerAllocateRequest{
+				{
+					DevicesIDs: []string{dpi.devs[0].ID},
+				},
+			},
+		}
+
+		allocateResponse, err := dpi.Allocate(context.Background(), allocateRequest)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(allocateResponse.ContainerResponses).To(HaveLen(1))
+		Expect(allocateResponse.ContainerResponses[0].Mounts).To(HaveLen(1))
+		Expect(allocateResponse.ContainerResponses[0].Mounts[0].HostPath).To(Equal(dpi.deviceRoot))
+		Expect(allocateResponse.ContainerResponses[0].Mounts[0].ContainerPath).To(Equal(dpi.deviceRoot))
+		Expect(allocateResponse.ContainerResponses[0].Mounts[0].ReadOnly).To(BeFalse())
 	})
 })
 
@@ -124,4 +191,10 @@ func createFile(path string) {
 	fileObj, err := os.Create(path)
 	Expect(err).ToNot(HaveOccurred())
 	fileObj.Close()
+}
+
+func expectAllDevHealthIs(devs []*pluginapi.Device, expectedHealth string) {
+	for _, dev := range devs {
+		Expect(dev.Health).To(Equal(expectedHealth))
+	}
 }
