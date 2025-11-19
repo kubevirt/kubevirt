@@ -52,6 +52,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -4055,6 +4056,64 @@ var _ = Describe("SetDriverCacheMode", func() {
 		Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckFalse),
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
 	)
+
+	It("[test_id:1681] should set appropriate cache modes for multiple disks", func() {
+		vmi := libvmi.New(
+			libvmi.WithMemoryRequest("128Mi"),
+			libvmi.WithContainerDisk("ephemeral-disk1", "test-image"),
+			libvmi.WithContainerDisk("ephemeral-disk2", "test-image"),
+			libvmi.WithContainerDisk("ephemeral-disk5", "test-image"),
+			libvmi.WithContainerDisk("ephemeral-disk3", "test-image"),
+			libvmi.WithCloudInitNoCloud(cloudinit.WithNoCloudUserData("#!/bin/bash\necho 'hello'\n")),
+		)
+
+		By("setting disk caches")
+		// ephemeral-disk1
+		vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
+		// ephemeral-disk2
+		vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
+		// ephemeral-disk5
+		vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
+
+		c := &ConverterContext{
+			Architecture:          archconverter.NewConverter(runtime.GOARCH),
+			VirtualMachine:        vmi,
+			UseVirtioTransitional: false,
+			EphemeraldiskCreator:  &fake.MockEphemeralDiskImageCreator{},
+			DisksInfo:             make(map[string]*disk.DiskInfo),
+		}
+
+		for _, diskDev := range vmi.Spec.Domain.Devices.Disks {
+			c.DisksInfo[diskDev.Name] = &disk.DiskInfo{
+				Format:      "qcow2",
+				BackingFile: "",
+			}
+		}
+
+		domain := vmiToDomain(vmi, c)
+		By("checking if number of attached disks is equal to real disks number")
+		Expect(domain.Spec.Devices.Disks).To(HaveLen(5))
+
+		By("checking if requested cache 'none' has been set")
+		Expect(domain.Spec.Devices.Disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
+		Expect(domain.Spec.Devices.Disks[0].Driver.Cache).To(Equal(string(v1.CacheNone)))
+
+		By("checking if requested cache 'writethrough' has been set")
+		Expect(domain.Spec.Devices.Disks[1].Alias.GetName()).To(Equal("ephemeral-disk2"))
+		Expect(domain.Spec.Devices.Disks[1].Driver.Cache).To(Equal(string(v1.CacheWriteThrough)))
+
+		By("checking if requested cache 'writeback' has been set")
+		Expect(domain.Spec.Devices.Disks[2].Alias.GetName()).To(Equal("ephemeral-disk5"))
+		Expect(domain.Spec.Devices.Disks[2].Driver.Cache).To(Equal(string(v1.CacheWriteBack)))
+
+		By("checking if default cache 'none' has been set to ephemeral disk")
+		Expect(domain.Spec.Devices.Disks[3].Alias.GetName()).To(Equal("ephemeral-disk3"))
+		Expect(domain.Spec.Devices.Disks[3].Driver.Cache).To(Equal(""))
+
+		By("checking if default cache 'none' has been set to cloud-init disk")
+		Expect(domain.Spec.Devices.Disks[4].Alias.GetName()).To(Equal(libvmi.CloudInitDiskName))
+		Expect(domain.Spec.Devices.Disks[4].Driver.Cache).To(Equal(""))
+	})
 })
 
 func diskToDiskXML(arch string, disk *v1.Disk) string {
