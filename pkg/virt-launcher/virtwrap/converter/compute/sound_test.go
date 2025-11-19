@@ -65,15 +65,19 @@ var _ = Describe("Sound Domain Configurator", func() {
 			v1.SoundDevice{Name: deviceName, Model: "ich9"},
 			api.SoundCard{Alias: api.NewUserDefinedAlias(deviceName), Model: "ich9"},
 		),
-		Entry("when name and arbitrary model are specified",
-			v1.SoundDevice{Name: deviceName, Model: "arbitraryModelName"},
-			api.SoundCard{Alias: api.NewUserDefinedAlias(deviceName), Model: "ich9"},
-		),
 		Entry("when name and ac97 model are specified",
 			v1.SoundDevice{Name: deviceName, Model: "ac97"},
 			api.SoundCard{Alias: api.NewUserDefinedAlias(deviceName), Model: "ac97"},
 		),
 	)
+
+	It("should fail when an invalid model is specified", func() {
+		vmi := libvmi.New(withSound(v1.SoundDevice{Name: deviceName, Model: "invalid-model"}))
+		var domain api.Domain
+
+		Expect(compute.SoundDomainConfigurator{}.Configure(vmi, &domain)).
+			To(MatchError("invalid model: invalid-model"))
+	})
 })
 
 func withSound(sound v1.SoundDevice) libvmi.Option {
