@@ -308,7 +308,6 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 		Name:     link.GenerateBridgeName(podIfaceName),
 		TypeName: nmstate.TypeBridge,
 		State:    nmstate.IfaceStateUp,
-		Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
@@ -393,7 +392,6 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 		State:      nmstate.IfaceStateUp,
 		MacAddress: link.StaticMasqueradeBridgeMAC,
 		MTU:        podIface.MTU,
-		Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 		IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 		IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetwork.Name},
