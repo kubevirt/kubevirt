@@ -15,6 +15,7 @@ go_library(
         "hypervisor_features.go",
         "input_device.go",
         "launch_security.go",
+        "memory.go",
         "os.go",
         "panic_devices.go",
         "qemu_cmd.go",
