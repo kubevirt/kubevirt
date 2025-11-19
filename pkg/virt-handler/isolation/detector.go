@@ -36,6 +36,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -52,7 +54,7 @@ type PodIsolationDetector interface {
 	DetectForSocket(socket string) (IsolationResult, error)
 
 	// Adjust system resources to run the passed VM
-	AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error
+	AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string, networkBindings map[string]v1.InterfaceBindingPlugin) error
 }
 
 const isolationDialTimeout = 5
@@ -90,9 +92,9 @@ func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (Isolation
 	return NewIsolationResult(pid, ppid), nil
 }
 
-func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
+func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string, networkBindings map[string]v1.InterfaceBindingPlugin) error {
 	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
+	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !vmispec.BindingPluginNetworkNeedsMemLockLimitConfig(vmi.Spec.Domain.Devices.Interfaces, networkBindings) {
 		return nil
 	}
 
@@ -118,7 +120,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
 	}
 
-	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
+	memlockSize.Add(*netbinding.ApplyNetBindingMemlockRequirements(vmiBaseMemory, vmi, networkBindings))
 
 	for _, process := range processes {
 		// consider all processes that are virt-launcher children

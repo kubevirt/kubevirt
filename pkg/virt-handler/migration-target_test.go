@@ -192,7 +192,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
-		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
 
