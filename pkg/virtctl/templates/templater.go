@@ -30,8 +30,8 @@ func ActsAsRootCommand(cmd *cobra.Command, filters []string, programName string,
 	}
 	t := &templater{
 		RootCmd:       cmd,
-		UsageTemplate: MainUsageTemplate(),
-		HelpTemplate:  MainHelpTemplate(),
+		UsageTemplate: MainUsageTemplate,
+		HelpTemplate:  MainHelpTemplate,
 		CommandGroups: groups,
 		Filtered:      filters,
 		ProgramName:   programName,
@@ -43,8 +43,8 @@ func ActsAsRootCommand(cmd *cobra.Command, filters []string, programName string,
 
 func UseOptionsTemplates(cmd *cobra.Command) {
 	t := &templater{
-		UsageTemplate: OptionsUsageTemplate(),
-		HelpTemplate:  OptionsHelpTemplate(),
+		UsageTemplate: OptionsUsageTemplate,
+		HelpTemplate:  "",
 	}
 	cmd.SetUsageFunc(t.UsageFunc())
 	cmd.SetHelpFunc(t.HelpFunc())

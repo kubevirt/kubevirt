@@ -13,45 +13,64 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 )
 
-// UsageTemplate returns the usage template for all subcommands
-func UsageTemplate() string {
-	return `Usage:{{if .Runnable}}
-  {{prepare .UseLine}}{{end}}{{if .HasAvailableSubCommands}}
-  {{prepare .CommandPath}} [command]{{end}}{{if gt (len .Aliases) 0}}
+const (
+	// SectionVars is the help template section that declares variables to be used in the template.
+	SectionVars = `{{$rootCmd := rootCmd .}}` +
+		`{{$visibleFlags := visibleFlags (flagsNotIntersected .LocalFlags .PersistentFlags)}}` +
+		`{{$optionsCmdFor := optionsCmdFor .}}` +
+		`{{$usageLine := usageLine .}}` +
+		`{{$reverseParentsNames := reverseParentsNames .}}`
 
-Aliases:
-  {{.NameAndAliases}}{{end}}{{if .HasExample}}
+	// SectionUsage is the help template section that displays the command's usage.
+	SectionUsage = `{{if and .Runnable (ne .UseLine "") (ne .UseLine $rootCmd)}}Usage:
+  {{trimRight $usageLine}}
 
-Examples:
-{{prepare .Example}}{{end}}{{if .HasAvailableSubCommands}}
+{{end}}`
 
-Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
-  {{rpad .Name .NamePadding }} {{prepare .Short}}{{end}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
+	// SectionExamples is the help template section that displays command examples.
+	SectionExamples = `{{if .HasExample}}Examples:
+{{prepare (trimRight .Example)}}
 
-Flags:
-{{.LocalFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}{{if .HasAvailableInheritedFlags}}
+{{end}}`
 
-Use "{{ProgramName}} options" for a list of global command-line options (applies to all commands).{{end}}
-`
-}
+	// SectionsFlags is the help template section that displays command flags.
+	SectionFlags = `{{ if $visibleFlags.HasFlags }}Flags:
+{{ trimRight (flagsUsages $visibleFlags) }}
 
-// MainUsageTemplate returns the usage template for the root command
-func MainUsageTemplate() string {
-	return `Available Commands:{{range .Commands}}{{if (or .IsAvailableCommand (eq .Name "help"))}}
-  {{rpad .Name .NamePadding }} {{prepare .Short}}{{end}}{{end}}
+{{ end }}`
 
-Use "{{ProgramName}} <command> --help" for more information about a given command.
-Use "{{ProgramName}} options" for a list of global command-line options (applies to all commands).
-`
-}
+	// SectionSubcommands is the help template section that displays the command's subcommands.
+	SectionSubcommands = `{{if .HasAvailableSubCommands}}{{cmdGroupsString .}}
 
-// OptionsUsageTemplate returns a template which prints all global available commands
-func OptionsUsageTemplate() string {
-	return `The following options can be passed to any command:{{if .HasAvailableInheritedFlags}}
+{{end}}`
 
-{{.InheritedFlags.FlagUsages | trimTrailingWhitespaces}}{{end}}
-`
-}
+	// SectionTipsHelp is the help template section that displays the '--help' hint.
+	SectionTipsHelp = `{{if .HasSubCommands}}Use "{{range $reverseParentsNames}}{{.}} {{end}}<command> --help" for more information about a given command.
+{{end}}`
+
+	// SectionTipsGlobalOptions is the help template section that displays the 'options' hint for displaying global flags.
+	SectionTipsGlobalOptions = `{{if $optionsCmdFor}}Use "{{$optionsCmdFor}}" for a list of global command-line options (applies to all commands).
+{{end}}`
+
+	// MainUsageTemplate is the usage template for the root command.
+	MainUsageTemplate = "\n\n" +
+		SectionVars +
+		SectionExamples +
+		SectionSubcommands +
+		SectionFlags +
+		SectionUsage +
+		SectionTipsHelp +
+		SectionTipsGlobalOptions
+
+	// MainHelpTemplate is the help template for the root command.
+	MainHelpTemplate = `{{with or .Long .Short }}{{. | trim}}{{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}`
+
+	// OptionsUsageTemplate is the usage template for the options command.
+	OptionsUsageTemplate = `{{ if .HasInheritedFlags}}The following options can be passed to any command:
+{{flagsUsages .InheritedFlags}}
+
+{{end}}`
+)
 
 // PrintWarningForPausedVMI prints warning message if VMI is paused
 func PrintWarningForPausedVMI(virtCli kubecli.KubevirtClient, vmiName string, namespace string) {
