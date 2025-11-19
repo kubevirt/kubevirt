@@ -40,6 +40,7 @@ go_test(
         "input_device_test.go",
         "launch_security_test.go",
         "rng_test.go",
+        "sound_test.go",
         "tpm_test.go",
         "vsock_test.go",
     ],
