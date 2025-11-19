@@ -243,6 +243,7 @@ spec:
       disks:
       - blockSize:
           custom:
+            discardGranularity: 18446744073709551598
             logical: 18446744073709551609
             physical: 18446744073709551608
           matchVolume:
@@ -253,6 +254,7 @@ spec:
           bus: busValue
           readonly: true
           tray: trayValue
+        changedBlockTracking: true
         dedicatedIOThread: true
         disk:
           bus: busValue
@@ -419,6 +421,8 @@ spec:
         policy:
           encryptedState: true
         session: sessionValue
+      snp: {}
+      tdx: {}
     machine:
       type: typeValue
     memory:
@@ -597,6 +601,8 @@ status:
   VSOCKCID: 4294967288
   activePods:
     activePodsKey: activePodsValue
+  changedBlockTracking:
+    state: stateValue
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"
     lastTransitionTime: "1982-01-01T01:01:01Z"

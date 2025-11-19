@@ -190,6 +190,13 @@
           ],
           "machineType": "machineTypeValue"
         },
+        "s390x": {
+          "ovmfPath": "ovmfPathValue",
+          "emulatedMachines": [
+            "emulatedMachinesValue"
+          ],
+          "machineType": "machineTypeValue"
+        },
         "defaultArchitecture": "defaultArchitectureValue"
       },
       "evictionStrategy": "evictionStrategyValue",
@@ -365,6 +372,36 @@
       },
       "instancetype": {
         "referencePolicy": "referencePolicyValue"
+      },
+      "changedBlockTrackingLabelSelectors": {
+        "namespaceLabelSelector": {
+          "matchLabels": {
+            "matchLabelsKey": "matchLabelsValue"
+          },
+          "matchExpressions": [
+            {
+              "key": "keyValue",
+              "operator": "operatorValue",
+              "values": [
+                "valuesValue"
+              ]
+            }
+          ]
+        },
+        "virtualMachineLabelSelector": {
+          "matchLabels": {
+            "matchLabelsKey": "matchLabelsValue"
+          },
+          "matchExpressions": [
+            {
+              "key": "keyValue",
+              "operator": "operatorValue",
+              "values": [
+                "valuesValue"
+              ]
+            }
+          ]
+        }
       }
     },
     "infra": {
