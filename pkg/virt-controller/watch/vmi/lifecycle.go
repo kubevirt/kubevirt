@@ -620,6 +620,17 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 		}
 	}
 
+	if !equality.Semantic.DeepEqual(oldVMI.Annotations, newVMI.Annotations) {
+		if oldVMI.Annotations == nil {
+			patchSet.AddOption(patch.WithAdd("/metadata/annotations", newVMI.Annotations))
+		} else {
+			patchSet.AddOption(
+				patch.WithTest("/metadata/annotations", oldVMI.Annotations),
+				patch.WithReplace("/metadata/annotations", newVMI.Annotations),
+			)
+		}
+	}
+
 	// Sort network interfaces by name to ensure that the order does not affect the equality check.
 	// Prior to this an API patch flood would occur - see: https://github.com/kubevirt/kubevirt/issues/14442
 	cmpFunc := func(a, b virtv1.VirtualMachineInstanceNetworkInterface) int {
