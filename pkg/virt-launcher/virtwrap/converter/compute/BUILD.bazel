@@ -9,6 +9,7 @@ go_library(
         "rng.go",
         "tpm.go",
         "vsock.go",
+        "watchdog.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute",
     visibility = ["//visibility:public"],
