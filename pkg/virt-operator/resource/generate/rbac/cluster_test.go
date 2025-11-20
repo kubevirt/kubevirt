@@ -24,6 +24,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"kubevirt.io/api/backup"
 	"kubevirt.io/api/clone"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/export"
@@ -142,6 +143,8 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 
 				Entry(fmt.Sprintf("get, list, watch %s/%s", migrations.GroupName, migrations.ResourceMigrationPolicies), migrations.GroupName, migrations.ResourceMigrationPolicies, "get", "list", "watch"),
 				Entry(fmt.Sprintf("get, list, watch %s/%s", GroupName, apiVMIMigrations), GroupName, apiVMIMigrations, "get", "list", "watch"),
+
+				Entry(fmt.Sprintf("do all operations to %s/%s", backup.GroupName, apiVMBackups), backup.GroupName, apiVMBackups, "get", "delete", "create", "update", "patch", "list", "watch", "deletecollection"),
 			)
 		})
 
@@ -211,6 +214,8 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 
 				Entry(fmt.Sprintf("get, list, watch %s/%s", migrations.GroupName, migrations.ResourceMigrationPolicies), migrations.GroupName, migrations.ResourceMigrationPolicies, "get", "list", "watch"),
 				Entry(fmt.Sprintf("get, list, watch %s/%s", GroupName, apiVMIMigrations), GroupName, apiVMIMigrations, "get", "list", "watch"),
+
+				Entry(fmt.Sprintf("get, delete, create, update, patch, list, watch %s/%s", backup.GroupName, apiVMBackups), backup.GroupName, apiVMBackups, "get", "delete", "create", "update", "patch", "list", "watch"),
 			)
 		})
 
@@ -266,6 +271,8 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 				Entry(fmt.Sprintf("get, list, watch %s/%s", pool.GroupName, apiVMPools), pool.GroupName, apiVMPools, "get", "list", "watch"),
 
 				Entry(fmt.Sprintf("get, list, watch %s/%s", migrations.GroupName, migrations.ResourceMigrationPolicies), migrations.GroupName, migrations.ResourceMigrationPolicies, "get", "list", "watch"),
+
+				Entry(fmt.Sprintf("get, list, watch %s/%s", backup.GroupName, apiVMBackups), backup.GroupName, apiVMBackups, "get", "list", "watch"),
 			)
 		})
 

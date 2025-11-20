@@ -449,6 +449,14 @@ rules:
   - list
   - watch
 - apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - cdi.kubevirt.io
   resources:
   - datasources
@@ -638,6 +646,20 @@ rules:
   - delete
   - patch
 - apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  - virtualmachinebackups/status
+  - virtualmachinebackups/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+- apiGroups:
   - pool.kubevirt.io
   resources:
   - virtualmachinepools
@@ -671,6 +693,7 @@ rules:
   - virtualmachines/stop
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
+  - virtualmachineinstances/backup
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/reset
@@ -1022,6 +1045,19 @@ rules:
   - watch
   - deletecollection
 - apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
+- apiGroups:
   - export.kubevirt.io
   resources:
   - virtualmachineexports
@@ -1180,6 +1216,18 @@ rules:
   - list
   - watch
 - apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+- apiGroups:
   - export.kubevirt.io
   resources:
   - virtualmachineexports
@@ -1289,6 +1337,14 @@ rules:
   - virtualmachinesnapshots
   - virtualmachinesnapshotcontents
   - virtualmachinerestores
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
   verbs:
   - get
   - list

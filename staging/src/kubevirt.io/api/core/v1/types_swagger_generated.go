@@ -521,10 +521,20 @@ func (InstancetypeStatusRef) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceBackupStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "VirtualMachineInstanceBackupStatus tracks the information of the executed backup\n+k8s:openapi-gen=true",
+		"backupName": "BackupName is the name of the executed backup",
+		"completed":  "Completed indicates the backup completed",
+		"backupMsg":  "BackupMsg resturns any relevant information like failure reason\nunfreeze failed etc...\n+optional",
+	}
+}
+
 func (ChangedBlockTrackingStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM\n+k8s:openapi-gen=true",
-		"state": "State represents the current CBT state",
+		"":             "ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM\n+k8s:openapi-gen=true",
+		"state":        "State represents the current CBT state",
+		"backupStatus": "BackupStatus represents the status of vmi backup\n+nullable\n+optional",
 	}
 }
 

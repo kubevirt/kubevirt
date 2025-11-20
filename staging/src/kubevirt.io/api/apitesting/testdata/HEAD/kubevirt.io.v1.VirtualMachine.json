@@ -1327,7 +1327,12 @@
       }
     },
     "changedBlockTracking": {
-      "state": "stateValue"
+      "state": "stateValue",
+      "backupStatus": {
+        "backupName": "backupNameValue",
+        "completed": true,
+        "backupMsg": "backupMsgValue"
+      }
     },
     "instancetypeRef": {
       "name": "nameValue",
