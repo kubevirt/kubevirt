@@ -30,15 +30,14 @@ import (
 	"syscall"
 	"time"
 
-	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
-	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
-	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
-	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
-
 	"github.com/emicklei/go-restful/v3"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
+	"libvirt.org/go/libvirtxml"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -46,7 +45,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
-	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 
@@ -56,13 +54,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/healthz"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -75,16 +72,20 @@ import (
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	dmetricsmanager "kubevirt.io/kubevirt/pkg/virt-handler/dmetrics-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
+	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 )
 
 const (
@@ -273,13 +274,6 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
-	go func() {
-		forceUpdateKSM := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, true) }
-		handleKSMUpdate := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, false) }
-
-		forceUpdateKSM()
-		app.clusterConfig.SetConfigModifiedCallback(handleKSMUpdate)
-	}()
 
 	if err := app.setupTLS(factory); err != nil {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
@@ -301,6 +295,10 @@ func (app *virtHandlerApp) Run() {
 
 	stop := make(chan struct{})
 	defer close(stop)
+
+	ksmHandler := ksm.NewHandler(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig)
+	go ksmHandler.Run(stop)
+
 	var capabilities libvirtxml.Caps
 	var hostCpuModel string
 
