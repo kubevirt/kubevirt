@@ -118,10 +118,18 @@ const (
 	defaultCAConfigMapName = "kubevirt-ca"
 
 	// Default certificate and key paths
-	defaultClientCertFilePath = "/etc/virt-handler/clientcertificates/tls.crt"
-	defaultClientKeyFilePath  = "/etc/virt-handler/clientcertificates/tls.key"
-	defaultTlsCertFilePath    = "/etc/virt-handler/servercertificates/tls.crt"
-	defaultTlsKeyFilePath     = "/etc/virt-handler/servercertificates/tls.key"
+	defaultClientCertFilePath      = "/etc/virt-handler/clientcertificates/tls.crt"
+	defaultClientKeyFilePath       = "/etc/virt-handler/clientcertificates/tls.key"
+	defaultVsockClientCertFilePath = "/etc/virt-handler/vsockclientcertificates/tls.crt"
+	defaultVsockClientKeyFilePath  = "/etc/virt-handler/vsockclientcertificates/tls.key"
+	defaultTlsCertFilePath         = "/etc/virt-handler/servercertificates/tls.crt"
+	defaultTlsKeyFilePath          = "/etc/virt-handler/servercertificates/tls.key"
+	defaultMigrationCertFilePath   = "/etc/virt-handler/migrationservercertificates/tls.crt"
+	defaultMigrationKeyFilePath    = "/etc/virt-handler/migrationservercertificates/tls.key"
+)
+
+var (
+	defaultCNTypes = []string{"virt-handler", "migration"}
 )
 
 type virtHandlerApp struct {
@@ -137,27 +145,36 @@ type virtHandlerApp struct {
 	MaxRequestsInFlight       int
 	domainResyncPeriodSeconds int
 	gracefulShutdownSeconds   int
+	migrationCNTypes          []string
 
-	caConfigMapName    string
-	clientCertFilePath string
-	clientKeyFilePath  string
-	serverCertFilePath string
-	serverKeyFilePath  string
-	externallyManaged  bool
+	caConfigMapName         string
+	clientCertFilePath      string
+	clientKeyFilePath       string
+	vsockClientCertFilePath string
+	vsockClientKeyFilePath  string
+	serverCertFilePath      string
+	serverKeyFilePath       string
+	migrationCertFilePath   string
+	migrationKeyFilePath    string
+	externallyManaged       bool
 
 	virtCli   kubecli.KubevirtClient
 	namespace string
 
-	serverTLSConfig       *tls.Config
-	clientTLSConfig       *tls.Config
-	consoleServerPort     int
-	clientcertmanager     certificate.Manager
-	servercertmanager     certificate.Manager
-	promTLSConfig         *tls.Config
-	clusterConfig         *virtconfig.ClusterConfig
-	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
-	caManager             kvtls.ClientCAManager
-	enableNodeLabeller    bool
+	migrationServerTLSConfig    *tls.Config
+	serverTLSConfig             *tls.Config
+	migrationOldClientTLSConfig *tls.Config
+	migrationClientTLSConfig    *tls.Config
+	consoleServerPort           int
+	clientcertmanager           certificate.Manager
+	vsockClientCertManager      certificate.Manager
+	servercertmanager           certificate.Manager
+	migrationCertManager        certificate.Manager
+	promTLSConfig               *tls.Config
+	clusterConfig               *virtconfig.ClusterConfig
+	reloadableRateLimiter       *ratelimiter.ReloadableRateLimiter
+	caManager                   kvtls.ClientCAManager
+	enableNodeLabeller          bool
 }
 
 var (
@@ -167,7 +184,9 @@ var (
 
 func (app *virtHandlerApp) prepareCertManager() (err error) {
 	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
+	app.vsockClientCertManager = bootstrap.NewFileCertificateManager(app.vsockClientCertFilePath, app.vsockClientKeyFilePath)
 	app.servercertmanager = bootstrap.NewFileCertificateManager(app.serverCertFilePath, app.serverKeyFilePath)
+	app.migrationCertManager = bootstrap.NewFileCertificateManager(app.migrationCertFilePath, app.migrationKeyFilePath)
 	return
 }
 
@@ -291,7 +310,7 @@ func (app *virtHandlerApp) Run() {
 
 	app.clusterConfig.SetConfigModifiedCallback(vsockConfigCallback)
 
-	migrationProxy := migrationproxy.NewMigrationProxyManager(app.serverTLSConfig, app.clientTLSConfig, app.clusterConfig)
+	migrationProxy := migrationproxy.NewMigrationProxyManager(app.migrationServerTLSConfig, app.migrationOldClientTLSConfig, app.migrationClientTLSConfig, app.clusterConfig)
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -422,6 +441,8 @@ func (app *virtHandlerApp) Run() {
 
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()
+	go app.migrationCertManager.Start()
+	go app.vsockClientCertManager.Start()
 
 	// Bootstrapping. From here on the startup order matters
 
@@ -477,7 +498,7 @@ func (app *virtHandlerApp) Run() {
 	consoleHandler := rest.NewConsoleHandler(
 		podIsolationDetector,
 		vmiSourceInformer.GetStore(),
-		app.clientcertmanager,
+		app.vsockClientCertManager,
 	)
 
 	errCh := make(chan error)
@@ -650,6 +671,12 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.StringVar(&app.clientKeyFilePath, "client-key-file", defaultClientKeyFilePath,
 		"Private key for the client certificate used to prove the identity of the virt-handler when it must call out during a request")
 
+	flag.StringVar(&app.migrationCertFilePath, "migration-client-cert-file", defaultMigrationCertFilePath,
+		"Client certificate used to prove the identity of the virt-handler when it must call out during a request")
+
+	flag.StringVar(&app.migrationKeyFilePath, "migration-client-key-file", defaultMigrationKeyFilePath,
+		"Private key for the client certificate used to prove the identity of the virt-handler when it must call out during a request")
+
 	flag.StringVar(&app.serverCertFilePath, "tls-cert-file", defaultTlsCertFilePath,
 		"File containing the default x509 Certificate for HTTPS")
 
@@ -682,6 +709,13 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.BoolVar(&app.enableNodeLabeller, "enable-node-labeller", true,
 		"Enable Node Labeller controller.")
+	flag.StringArrayVar(&app.migrationCNTypes, "migration-cn-types", defaultCNTypes, "The Common Name types that should be asserted for migration connections")
+
+	flag.StringVar(&app.vsockClientCertFilePath, "vsock-client-cert-file", defaultVsockClientCertFilePath,
+		"Client certificate used to prove the identity of the virt-handler to in-guest vsock agent")
+
+	flag.StringVar(&app.vsockClientKeyFilePath, "vsock-client-key-file", defaultVsockClientKeyFilePath,
+		"Private key for the client certificate used to prove the identity of the virt-handler to in-guest vsock agent")
 }
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {
@@ -693,8 +727,10 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 	app.caManager = kvtls.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 
 	app.promTLSConfig = kvtls.SetupPromTLS(app.servercertmanager, app.clusterConfig)
-	app.serverTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
-	app.clientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
+	app.serverTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, []string{"virt-handler"})
+	app.migrationServerTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, app.migrationCNTypes)
+	app.migrationOldClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
+	app.migrationClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.migrationCertManager, app.externallyManaged)
 
 	return nil
 }
