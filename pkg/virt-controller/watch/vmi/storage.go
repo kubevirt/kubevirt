@@ -20,6 +20,7 @@
 package vmi
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -329,27 +330,34 @@ func (c *Controller) checkEphemeralHotplugVolumes(vmi *virtv1.VirtualMachineInst
 		vmVolumeMap[volume.Name] = struct{}{}
 	}
 
-	labels := vmi.Labels
-	if labels == nil {
-		labels = make(map[string]string)
+	annotations := vmi.Annotations
+	if annotations == nil {
+		annotations = make(map[string]string)
 	}
+	var ephemeralVols []string
 	// check if the vmi has any volumes that are not in the vm spec
 	for _, volume := range vmi.Spec.Volumes {
 		if !storagetypes.IsHotplugVolume(&volume) {
 			continue
 		}
 		if _, exists := vmVolumeMap[volume.Name]; !exists {
-			if _, ok := labels[virtv1.EphemeralHotplugLabel]; !ok {
-				// will be patched at the end of updateStatus
-				labels[virtv1.EphemeralHotplugLabel] = "true"
-				vmi.Labels = labels
-				return
-			}
+			ephemeralVols = append(ephemeralVols, volume.Name)
 		}
 	}
 
-	// no ephemeral hotplugs were found, remove label if it exists
-	delete(vmi.Labels, virtv1.EphemeralHotplugLabel)
+	if len(ephemeralVols) == 0 {
+		// no ephemeral hotplugs were found, remove label if it exists
+		delete(vmi.Annotations, virtv1.EphemeralHotplugAnnotation)
+	} else {
+		formattedVols, err := json.Marshal(ephemeralVols)
+		if err != nil {
+			log.Log.Reason(err).Error("could not serialize ephemeral volume list")
+			return
+		}
+		annotations[virtv1.EphemeralHotplugAnnotation] = string(formattedVols)
+		// will be patched at the end of updateStatus
+		vmi.Annotations = annotations
+	}
 }
 
 func phaseForUnpluggedVolume(phase virtv1.VolumePhase) virtv1.VolumePhase {

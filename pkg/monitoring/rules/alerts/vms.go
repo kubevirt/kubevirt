@@ -153,5 +153,17 @@ var (
 				operatorHealthImpactLabelKey: "none",
 			},
 		},
+		{
+			Alert: "VirtualMachineInstanceHasEphemeralHotplugVolume",
+			Expr:  intstr.FromString("kubevirt_vmi_ephemeral_hotplug_volume == 1"),
+			Annotations: map[string]string{
+				"summary":     "Virtual Machine Instance has an ephemeral hotplug volume",
+				"description": "Virtual Machine Instance {{ $labels.name }} in namespace {{ $labels.namespace }} has ephemeral hotplug volume(s) {{ $labels.volume_name }}. The HotplugVolumes feature will be deprecated in a future release and will be replaced by DeclarativeHotplugVolumes. Once deprecated, any ephemeral hotplug volumes will be automatically unplugged",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
 	}
 )
