@@ -93,9 +93,11 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 		return nil, err
 	}
 
-	err = virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
-	if err != nil {
-		return nil, err
+	if vmi.DeletionTimestamp == nil {
+		err = virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	client, err := cmdclient.NewClient(socketFile)
