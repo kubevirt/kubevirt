@@ -43,7 +43,7 @@ func (w WatchdogDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 		return nil
 	}
 
-	newWatchdog := api.Watchdog{}
+	var newWatchdogDevice api.Watchdog
 
 	switch w.architecture {
 	case "amd64":
@@ -51,9 +51,11 @@ func (w WatchdogDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 			return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", vmiWatchdog.Name)
 		}
 
-		newWatchdog.Alias = api.NewUserDefinedAlias(vmiWatchdog.Name)
-		newWatchdog.Model = "i6300esb"
-		newWatchdog.Action = string(vmiWatchdog.I6300ESB.Action)
+		newWatchdogDevice = newWatchdog(
+			vmiWatchdog.Name,
+			"i6300esb",
+			string(vmiWatchdog.I6300ESB.Action),
+		)
 	case "arm64":
 		return fmt.Errorf("watchdog is not supported on architecture ARM64")
 	case "s390x":
@@ -61,12 +63,22 @@ func (w WatchdogDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 			return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", vmiWatchdog.Name)
 		}
 
-		newWatchdog.Alias = api.NewUserDefinedAlias(vmiWatchdog.Name)
-		newWatchdog.Model = "diag288"
-		newWatchdog.Action = string(vmiWatchdog.Diag288.Action)
+		newWatchdogDevice = newWatchdog(
+			vmiWatchdog.Name,
+			"diag288",
+			string(vmiWatchdog.Diag288.Action),
+		)
 	}
 
-	domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, newWatchdog)
+	domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, newWatchdogDevice)
 
 	return nil
+}
+
+func newWatchdog(name, model, action string) api.Watchdog {
+	return api.Watchdog{
+		Alias:  api.NewUserDefinedAlias(name),
+		Model:  model,
+		Action: action,
+	}
 }
