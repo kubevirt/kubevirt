@@ -1461,6 +1461,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
 		),
 		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
+		compute.NewWatchdogDomainConfigurator(c.Architecture),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1686,15 +1687,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	domain.Spec.Devices.PanicDevices = append(domain.Spec.Devices.PanicDevices, convertPanicDevices(vmi.Spec.Domain.Devices.PanicDevices)...)
 
 	Convert_v1_Sound_To_api_Sound(vmi, &domain.Spec.Devices, c)
-
-	if vmi.Spec.Domain.Devices.Watchdog != nil {
-		newWatchdog := &api.Watchdog{}
-		err := c.Architecture.ConvertWatchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog)
-		if err != nil {
-			return err
-		}
-		domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, *newWatchdog)
-	}
 
 	err = Convert_v1_Usbredir_To_api_Usbredir(vmi, &domain.Spec.Devices, c)
 	if err != nil {
