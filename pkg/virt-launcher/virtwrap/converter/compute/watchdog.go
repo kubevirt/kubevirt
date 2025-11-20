@@ -40,14 +40,16 @@ func NewWatchdogDomainConfigurator(watchdogConverter watchdogConverter) Watchdog
 }
 
 func (w WatchdogDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Devices.Watchdog != nil {
-		newWatchdog := &api.Watchdog{}
-		err := w.watchdogConverter.ConvertWatchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog)
-		if err != nil {
-			return err
-		}
-		domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, *newWatchdog)
+	if vmi.Spec.Domain.Devices.Watchdog == nil {
+		return nil
 	}
+
+	newWatchdog := &api.Watchdog{}
+	err := w.watchdogConverter.ConvertWatchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog)
+	if err != nil {
+		return err
+	}
+	domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, *newWatchdog)
 
 	return nil
 }
