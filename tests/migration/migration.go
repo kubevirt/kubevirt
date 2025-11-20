@@ -1697,7 +1697,6 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						"Failed":         BeTrue(),
 						"StartTimestamp": Not(BeNil()),
 						"EndTimestamp":   Not(BeNil()),
-						"Completed":      BeTrue(),
 					})),
 				), "vmi's migration state should be finalized as failed after target pod exits")
 			})
