@@ -17,8 +17,6 @@
 package arch
 
 import (
-	"fmt"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -90,16 +88,6 @@ func (converterAMD64) ShouldVerboseLogsBeEnabled() bool {
 
 func (converterAMD64) HasVMPort() bool {
 	return true
-}
-
-func (converterAMD64) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error {
-	watchdog.Alias = api.NewUserDefinedAlias(source.Name)
-	if source.I6300ESB != nil {
-		watchdog.Model = "i6300esb"
-		watchdog.Action = string(source.I6300ESB.Action)
-		return nil
-	}
-	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
 }
 
 func (converterAMD64) SupportPCIHole64Disabling() bool {

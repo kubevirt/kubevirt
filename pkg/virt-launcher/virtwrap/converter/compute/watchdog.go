@@ -20,36 +20,53 @@
 package compute
 
 import (
+	"fmt"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type watchdogConverter interface {
-	ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error
-}
-
 type WatchdogDomainConfigurator struct {
-	watchdogConverter watchdogConverter
+	architecture string
 }
 
-func NewWatchdogDomainConfigurator(watchdogConverter watchdogConverter) WatchdogDomainConfigurator {
+func NewWatchdogDomainConfigurator(architecture string) WatchdogDomainConfigurator {
 	return WatchdogDomainConfigurator{
-		watchdogConverter: watchdogConverter,
+		architecture: architecture,
 	}
 }
 
 func (w WatchdogDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Devices.Watchdog == nil {
+	vmiWatchdog := vmi.Spec.Domain.Devices.Watchdog
+	if vmiWatchdog == nil {
 		return nil
 	}
 
-	newWatchdog := &api.Watchdog{}
-	err := w.watchdogConverter.ConvertWatchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog)
-	if err != nil {
-		return err
+	newWatchdog := api.Watchdog{}
+
+	switch w.architecture {
+	case "amd64":
+		if vmiWatchdog.I6300ESB == nil {
+			return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", vmiWatchdog.Name)
+		}
+
+		newWatchdog.Alias = api.NewUserDefinedAlias(vmiWatchdog.Name)
+		newWatchdog.Model = "i6300esb"
+		newWatchdog.Action = string(vmiWatchdog.I6300ESB.Action)
+	case "arm64":
+		return fmt.Errorf("watchdog is not supported on architecture ARM64")
+	case "s390x":
+		if vmiWatchdog.Diag288 == nil {
+			return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", vmiWatchdog.Name)
+		}
+
+		newWatchdog.Alias = api.NewUserDefinedAlias(vmiWatchdog.Name)
+		newWatchdog.Model = "diag288"
+		newWatchdog.Action = string(vmiWatchdog.Diag288.Action)
 	}
-	domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, *newWatchdog)
+
+	domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, newWatchdog)
 
 	return nil
 }

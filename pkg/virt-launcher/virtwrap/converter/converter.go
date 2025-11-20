@@ -1445,7 +1445,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			c.GPUHostDevices,
 			c.SRIOVDevices,
 		),
-		compute.NewWatchdogDomainConfigurator(c.Architecture),
+		compute.NewWatchdogDomainConfigurator(architecture),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
