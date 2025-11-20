@@ -133,7 +133,7 @@ var (
 			Name: "kubevirt_vmi_contains_ephemeral_hotplug_volume",
 			Help: "Reported only for VMIs that contain an ephemeral hotplug volume.",
 		},
-		[]string{"namespace", "name"},
+		[]string{"namespace", "name", "volume_name"},
 	)
 )
 
@@ -477,11 +477,11 @@ func CollectVmisVnicInfo(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.Co
 func collectVMIEphemeralHotplug(vmi *k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
 	results := []operatormetrics.CollectorResult{}
 
-	labels := vmi.GetLabels()
-	if _, exists := labels[k6tv1.EphemeralHotplugLabel]; exists {
+	annotations := vmi.GetAnnotations()
+	if volumeName, exists := annotations[k6tv1.EphemeralHotplugAnnotation]; exists {
 		results = append(results, operatormetrics.CollectorResult{
 			Metric: vmiEphemeralHotplugVolume,
-			Labels: []string{vmi.Namespace, vmi.Name},
+			Labels: []string{vmi.Namespace, vmi.Name, volumeName},
 			Value:  float64(1),
 		})
 	}
