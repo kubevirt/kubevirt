@@ -27,7 +27,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
@@ -36,9 +35,7 @@ var _ = Describe("Watchdog Domain Configurator", func() {
 		vmi := libvmi.New()
 		var domain api.Domain
 
-		configurator := compute.NewWatchdogDomainConfigurator(
-			arch.NewConverter(architecture),
-		)
+		configurator := compute.NewWatchdogDomainConfigurator(architecture)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 		Expect(domain).To(Equal(api.Domain{}))
 	},
@@ -52,9 +49,7 @@ var _ = Describe("Watchdog Domain Configurator", func() {
 			vmi := libvmi.New(withWatchdog(input))
 			var domain api.Domain
 
-			configurator := compute.NewWatchdogDomainConfigurator(
-				arch.NewConverter(architecture),
-			)
+			configurator := compute.NewWatchdogDomainConfigurator(architecture)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 			expectedDomain := api.Domain{
@@ -107,9 +102,7 @@ var _ = Describe("Watchdog Domain Configurator", func() {
 			vmi := libvmi.New(withWatchdog(input))
 			var domain api.Domain
 
-			configurator := compute.NewWatchdogDomainConfigurator(
-				arch.NewConverter(architecture),
-			)
+			configurator := compute.NewWatchdogDomainConfigurator(architecture)
 			err := configurator.Configure(vmi, &domain)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring(expectedErrMsg))
