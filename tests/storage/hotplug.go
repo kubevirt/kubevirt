@@ -809,6 +809,9 @@ var _ = SIGDescribe("Hotplug", func() {
 
 				By("Expecting metric to have decremented")
 				libmonitoring.WaitForMetricValue(virtClient, "sum(kubevirt_vmi_contains_ephemeral_hotplug_volume)", ephemeralCount)
+
+				By("Checking Alert is fired")
+				libmonitoring.VerifyAlertExist(virtClient, "VirtualMachineInstanceHasEphemeralHotplugVolume")
 			})
 		})
 
