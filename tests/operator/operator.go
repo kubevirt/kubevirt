@@ -744,6 +744,15 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			// over the internet related to the latest kubevirt release
 			By("Waiting for KV to stabilize")
 			testsuite.EnsureKubevirtReadyWithTimeout(kv, 420*time.Second)
+			//previousImageTag
+			// TODO: find way to verify strategy job version as well
+			pods, err := kubevirt.Client().CoreV1().Pods(kv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io,app.kubernetes.io/managed-by=virt-operator"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).ToNot(BeEmpty())
+			for _, pod := range pods.Items {
+				Expect(pod.Spec.Containers[0].Image).To(ContainSubstring(previousImageTag))
+				fmt.Println(pod.Spec.Containers[0].Image)
+			}
 
 			By("Verifying infrastructure is Ready")
 			allKvInfraPodsAreReady(kv)
@@ -803,7 +812,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			netAttachDef := libnet.NewBridgeNetAttachDef(secondaryNetworkName, secondaryNetworkName)
-			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(migratableVMIs[0]), netAttachDef)
+			_, err = libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(migratableVMIs[0]), netAttachDef)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Starting multiple migratable VMIs before performing update")
