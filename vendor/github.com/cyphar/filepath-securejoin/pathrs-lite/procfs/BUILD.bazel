@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["procfs_linux.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/cyphar/filepath-securejoin/pathrs-lite/procfs",
+    importpath = "github.com/cyphar/filepath-securejoin/pathrs-lite/procfs",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite/internal/procfs:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite/internal/procfs:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
+)
