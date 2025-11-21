@@ -11,7 +11,6 @@ go_library(
         "dir_plan9.go",
         "env_plan9.go",
         "errors_plan9.go",
-        "pwd_go15_plan9.go",
         "pwd_plan9.go",
         "race.go",
         "race0.go",

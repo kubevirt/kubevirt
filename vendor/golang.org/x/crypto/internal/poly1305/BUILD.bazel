@@ -5,10 +5,10 @@ go_library(
     srcs = [
         "mac_noasm.go",
         "poly1305.go",
-        "sum_amd64.go",
         "sum_amd64.s",
+        "sum_asm.go",
         "sum_generic.go",
-        "sum_ppc64x.go",
+        "sum_loong64.s",
         "sum_ppc64x.s",
         "sum_s390x.go",
         "sum_s390x.s",
