@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "mkdir.go",
+        "mkdir_libpathrs.go",
+        "mkdir_purego.go",
+        "open.go",
+        "open_libpathrs.go",
+        "open_purego.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/cyphar/filepath-securejoin/pathrs-lite",
+    importpath = "github.com/cyphar/filepath-securejoin/pathrs-lite",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/cyphar.com/go-pathrs:go_default_library",
+        "//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite/internal/gopathrs:go_default_library",
+        "//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite/internal/procfs:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
+    ],
+)
