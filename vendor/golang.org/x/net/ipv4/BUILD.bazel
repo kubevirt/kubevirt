@@ -57,6 +57,7 @@ go_library(
         "zsys_linux_amd64.go",
         "zsys_linux_arm.go",
         "zsys_linux_arm64.go",
+        "zsys_linux_loong64.go",
         "zsys_linux_mips.go",
         "zsys_linux_mips64.go",
         "zsys_linux_mips64le.go",
