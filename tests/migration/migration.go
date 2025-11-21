@@ -1699,6 +1699,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						"EndTimestamp":   Not(BeNil()),
 					})),
 				), "vmi's migration state should be finalized as failed after target pod exits")
+				Fail("EHEH")
 			})
 			It("Migration should generate empty isos of the right size on the target", func() {
 				By("Creating a VMI with cloud-init and config maps")
