@@ -181,6 +181,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		Path      string
 		IsAllowed func() bool
 	}{
+		{"iommufd", "/dev/iommu", c.virtConfig.IOMMUFDEnabled},
 		{"sev", "/dev/sev", c.virtConfig.WorkloadEncryptionSEVEnabled},
 		{"vhost-vsock", "/dev/vhost-vsock", c.virtConfig.VSOCKEnabled},
 	}

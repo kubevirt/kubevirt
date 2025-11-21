@@ -224,3 +224,7 @@ func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 func (config *ClusterConfig) MigrationPriorityQueueEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MigrationPriorityQueue)
 }
+
+func (config *ClusterConfig) IOMMUFDEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.IOMMUFDGate)
+}
