@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["constraints.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/exp/constraints",
+    importpath = "golang.org/x/exp/constraints",
+    visibility = ["//visibility:public"],
+)
