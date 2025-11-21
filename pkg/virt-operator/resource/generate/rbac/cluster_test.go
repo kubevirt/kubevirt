@@ -154,7 +154,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 			},
 				Entry(fmt.Sprintf("get %s/%s", virtv1.SubresourceGroupName, apiVMInstancesConsole), virtv1.SubresourceGroupName, apiVMInstancesConsole, "get"),
 				Entry(fmt.Sprintf("get %s/%s", virtv1.SubresourceGroupName, apiVMInstancesVNC), virtv1.SubresourceGroupName, apiVMInstancesVNC, "get"),
-				Entry(fmt.Sprintf("get %s/%s", virtv1.SubresourceGroupName, apiVMInstancesVNCScreenshot), virtv1.SubresourceGroupName, apiVMInstancesVNCScreenshot, "get"),
 				Entry(fmt.Sprintf("get %s/%s", virtv1.SubresourceGroupName, apiVMInstancesPortForward), virtv1.SubresourceGroupName, apiVMInstancesPortForward, "get"),
 				Entry(fmt.Sprintf("get %s/%s", virtv1.SubresourceGroupName, apiVMInstancesGuestOSInfo), virtv1.SubresourceGroupName, apiVMInstancesGuestOSInfo, "get"),
 				Entry(fmt.Sprintf("get %s/%s", virtv1.SubresourceGroupName, apiVMInstancesFileSysList), virtv1.SubresourceGroupName, apiVMInstancesFileSysList, "get"),
