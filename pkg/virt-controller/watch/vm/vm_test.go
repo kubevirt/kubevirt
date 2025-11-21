@@ -4782,12 +4782,11 @@ var _ = Describe("VirtualMachine", func() {
 				addVirtualMachine(vm)
 				sanityExecute(vm)
 
-				//FIXME(lyarwood): status.{InstancetypeRef,PreferenceRef} should also be removed
-				// vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
-				// Expect(err).ToNot(HaveOccurred())
-				//
-				// Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).To(BeFalse())
-				// Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeFalse())
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).To(BeFalse())
+				Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeFalse())
 
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
