@@ -9,6 +9,7 @@ go_library(
         "entity.go",
         "escape.go",
         "foreign.go",
+        "iter.go",
         "node.go",
         "parse.go",
         "render.go",
