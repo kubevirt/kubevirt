@@ -3,10 +3,23 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "deprecated_linux.go",
+        "doc.go",
         "join.go",
         "vfs.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/cyphar/filepath-securejoin",
     importpath = "github.com/cyphar/filepath-securejoin",
     visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/cyphar/filepath-securejoin/internal/consts:go_default_library",
+    ] + select({
+        "@io_bazel_rules_go//go/platform:android": [
+            "//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:linux": [
+            "//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite:go_default_library",
+        ],
+        "//conditions:default": [],
+    }),
 )
