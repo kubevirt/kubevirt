@@ -11,8 +11,5 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/crypto/ssh/agent",
     importpath = "golang.org/x/crypto/ssh/agent",
     visibility = ["//visibility:public"],
-    deps = [
-        "//vendor/golang.org/x/crypto/ed25519:go_default_library",
-        "//vendor/golang.org/x/crypto/ssh:go_default_library",
-    ],
+    deps = ["//vendor/golang.org/x/crypto/ssh:go_default_library"],
 )
