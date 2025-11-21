@@ -9,6 +9,7 @@ go_library(
         "iexport.go",
         "iimport.go",
         "predeclared.go",
+        "support.go",
         "ureader_yes.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/internal/gcimporter",
