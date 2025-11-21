@@ -9,8 +9,10 @@ go_library(
         "core.go",
         "doc.go",
         "ext_info.go",
+        "feature.go",
         "format.go",
         "handle.go",
+        "kernel.go",
         "marshal.go",
         "strings.go",
         "traversal.go",
@@ -23,9 +25,8 @@ go_library(
     deps = [
         "//vendor/github.com/cilium/ebpf/asm:go_default_library",
         "//vendor/github.com/cilium/ebpf/internal:go_default_library",
+        "//vendor/github.com/cilium/ebpf/internal/kallsyms:go_default_library",
         "//vendor/github.com/cilium/ebpf/internal/sys:go_default_library",
         "//vendor/github.com/cilium/ebpf/internal/unix:go_default_library",
-        "//vendor/golang.org/x/exp/maps:go_default_library",
-        "//vendor/golang.org/x/exp/slices:go_default_library",
     ],
 )
