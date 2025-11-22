@@ -3804,6 +3804,38 @@ var _ = Describe("Converter", func() {
 		)
 	})
 
+	Context("MemBalloon defaults", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("128Mi"),
+			}
+		})
+
+		It("Should be present in domain", func() {
+			c = &ConverterContext{
+				Architecture:          archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation:        true,
+				MemBalloonStatsPeriod: 10,
+				FreePageReporting:     true,
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil(), "There should be default memballoon device")
+			Expect(domain.Spec.Devices.Ballooning.Model).To(Equal("virtio-non-transitional"), "Should use virtio-non-transitional model")
+			Expect(domain.Spec.Devices.Ballooning.Stats).ToNot(BeNil(), "Stats should be present")
+			Expect(domain.Spec.Devices.Ballooning.Stats.Period).To(Equal(uint(10)), "Stats period should be 10 seconds")
+			Expect(domain.Spec.Devices.Ballooning.FreePageReporting).To(Equal("on"), "FreePageReporting should be on")
+		})
+	})
+
 	Context("with Paused strategy", func() {
 		var (
 			vmi *v1.VirtualMachineInstance
