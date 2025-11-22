@@ -3470,6 +3470,18 @@ type InterfaceBindingPlugin struct {
 	// version: v1alphav1
 	// +optional
 	ComputeResourceOverhead *ResourceRequirementsWithoutClaims `json:"computeResourceOverhead,omitempty"`
+
+	// MemLockLimitRequirements specifies network binding plugin's memory
+	// lock rlimit requirements by means of a boolean flag and an offset.
+	// The LockGuestMemory boolean flag specifies that the entire guest
+	// memory has to be taken into account when updating process memory
+	// lock rlimits per each network binding plugin interface.
+	// Offset specifies the amount of extra memory to expect in the
+	// memory lock rlimits per each network binding plugin type
+	// attached to the VMI.
+	// version: v1alphav1
+	// +optional
+	MemoryLockLimits *MemoryLockLimitRequirements `json:"memoryLockLimits,omitempty"`
 }
 
 // ResourceRequirementsWithoutClaims describes the compute resource requirements.
@@ -3485,6 +3497,22 @@ type ResourceRequirementsWithoutClaims struct {
 	// More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
 	// +optional
 	Requests k8sv1.ResourceList `json:"requests,omitempty" protobuf:"bytes,2,rep,name=requests,casttype=ResourceList,castkey=ResourceName"`
+}
+
+// MemoryLockLimitRequirements describes network binding plugin memory
+// lock rlimit configuration requirements
+type MemoryLockLimitRequirements struct {
+	// LockGuestMemory describes if the network binding plugin expects
+	// to take the VMI memory into account for the memlock rlimit.
+	// The guest memory will be applied to the memory lock rlimit per each
+	// interface of a network binding plugin kind attached to the VMI.
+	// +optional
+	LockGuestMemory bool `json:"lockGuestMemory,omitempty"`
+	// Offset describes how much extra memory has to be taken into account
+	// in the memlock rlimit. The offset will be applied once per each
+	// network binding plugin type attached to a VMI.
+	// +optional
+	Offset *resource.Quantity `json:"offset,omitempty"`
 }
 
 type DomainAttachmentType string
