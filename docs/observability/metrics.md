@@ -208,6 +208,9 @@ The total Guest OS data processed and migrated to the new VM. Type: Gauge.
 The remaining guest OS data to be migrated to the new VM. Type: Gauge.
 
 ### kubevirt_vmi_migration_data_total_bytes
+[Deprecated] Replaced by kubevirt_vmi_migration_data_bytes_total. Type: Counter.
+
+### kubevirt_vmi_migration_data_total_bytes
 The total Guest OS data to be migrated to the new VM. Type: Counter.
 
 ### kubevirt_vmi_migration_dirty_memory_rate_bytes
