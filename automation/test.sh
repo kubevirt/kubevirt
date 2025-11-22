@@ -522,9 +522,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     if [[ $TARGET =~ sig-operator-upgrade ]]; then
       label_filter='(Upgrade)'
     elif [[ $TARGET =~ sig-operator-configuration ]]; then
-      label_filter='(sig-operator && !(Upgrade))'
+      label_filter='(sig-operator && !(Upgrade,sig-monitoring))'
     else
-      label_filter='(sig-operator)'
+      label_filter='(sig-operator && !sig-monitoring)'
     fi
   elif [[ $TARGET =~ sriov.* ]]; then
     label_filter='(SRIOV)'
@@ -602,6 +602,9 @@ fi
 if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
   add_to_label_filter '(!SwapTest)' '&&'
 fi
+
+# Ensure OpenShift tests are filtered out for all lanes
+add_to_label_filter '(!OpenShift)' '&&'
 
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
