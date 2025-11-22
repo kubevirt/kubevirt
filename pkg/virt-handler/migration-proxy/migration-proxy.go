@@ -60,11 +60,12 @@ type ProxyManager interface {
 }
 
 type migrationProxyManager struct {
-	sourceProxies   map[string][]*migrationProxy
-	targetProxies   map[string][]*migrationProxy
-	managerLock     sync.Mutex
-	serverTLSConfig *tls.Config
-	clientTLSConfig *tls.Config
+	sourceProxies      map[string][]*migrationProxy
+	targetProxies      map[string][]*migrationProxy
+	managerLock        sync.Mutex
+	serverTLSConfig    *tls.Config
+	clientTLSConfig    *tls.Config
+	migrationTLSConfig *tls.Config
 
 	isShuttingDown bool
 	config         *virtconfig.ClusterConfig
@@ -85,9 +86,10 @@ type migrationProxy struct {
 	listenErrChan  chan error
 	fdChan         chan net.Conn
 
-	listener        net.Listener
-	serverTLSConfig *tls.Config
-	clientTLSConfig *tls.Config
+	listener           net.Listener
+	serverTLSConfig    *tls.Config
+	clientTLSConfig    *tls.Config
+	migrationTLSConfig *tls.Config
 
 	logger *log.FilteredLogger
 }
@@ -114,13 +116,14 @@ func GetMigrationPortsList(isBlockMigration bool) (ports []int) {
 	return
 }
 
-func NewMigrationProxyManager(serverTLSConfig *tls.Config, clientTLSConfig *tls.Config, config *virtconfig.ClusterConfig) ProxyManager {
+func NewMigrationProxyManager(serverTLSConfig *tls.Config, clientTLSConfig, migrationTLSConfig *tls.Config, config *virtconfig.ClusterConfig) ProxyManager {
 	return &migrationProxyManager{
-		sourceProxies:   make(map[string][]*migrationProxy),
-		targetProxies:   make(map[string][]*migrationProxy),
-		serverTLSConfig: serverTLSConfig,
-		clientTLSConfig: clientTLSConfig,
-		config:          config,
+		sourceProxies:      make(map[string][]*migrationProxy),
+		targetProxies:      make(map[string][]*migrationProxy),
+		serverTLSConfig:    serverTLSConfig,
+		clientTLSConfig:    clientTLSConfig,
+		migrationTLSConfig: migrationTLSConfig,
+		config:             config,
 	}
 }
 
@@ -170,14 +173,12 @@ func (m *migrationProxyManager) StartTargetListener(key string, targetUnixFiles 
 	zeroAddress := ip.GetIPZeroAddress()
 	proxiesList := []*migrationProxy{}
 	serverTLSConfig := m.serverTLSConfig
-	clientTLSConfig := m.clientTLSConfig
 	if m.config.GetMigrationConfiguration().DisableTLS != nil && *m.config.GetMigrationConfiguration().DisableTLS {
 		serverTLSConfig = nil
-		clientTLSConfig = nil
 	}
 	for _, targetUnixFile := range targetUnixFiles {
 		// 0 means random port is used
-		proxy := NewTargetProxy(zeroAddress, 0, serverTLSConfig, clientTLSConfig, targetUnixFile, key)
+		proxy := NewTargetProxy(zeroAddress, 0, serverTLSConfig, targetUnixFile, key)
 
 		err := proxy.Start()
 		if err != nil {
@@ -296,11 +297,11 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 			}
 		}
 	}
-	serverTLSConfig := m.serverTLSConfig
 	clientTLSConfig := m.clientTLSConfig
+	migrationTLSConfig := m.migrationTLSConfig
 	if m.config.GetMigrationConfiguration().DisableTLS != nil && *m.config.GetMigrationConfiguration().DisableTLS {
-		serverTLSConfig = nil
 		clientTLSConfig = nil
+		migrationTLSConfig = nil
 	}
 	proxiesList := []*migrationProxy{}
 	for destPort, srcPort := range destSrcPortMap {
@@ -310,7 +311,7 @@ func (m *migrationProxyManager) StartSourceListener(key string, targetAddress st
 
 		os.RemoveAll(filePath)
 
-		proxy := NewSourceProxy(filePath, targetFullAddr, serverTLSConfig, clientTLSConfig, key)
+		proxy := NewSourceProxy(filePath, targetFullAddr, clientTLSConfig, migrationTLSConfig, key)
 
 		err := proxy.Start()
 		if err != nil {
@@ -346,22 +347,22 @@ func (m *migrationProxyManager) StopSourceListener(key string) {
 // SRC POD ENV(migration unix socket) <-> HOST ENV (tcp client) <-----> HOST ENV (tcp server) <-> TARGET POD ENV (virtqemud unix socket)
 
 // Source proxy exposes a unix socket server and pipes to an outbound TCP connection.
-func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, serverTLSConfig *tls.Config, clientTLSConfig *tls.Config, vmiUID string) *migrationProxy {
+func NewSourceProxy(unixSocketPath string, tcpTargetAddress string, clientTLSConfig, migrationTLSConfig *tls.Config, vmiUID string) *migrationProxy {
 	return &migrationProxy{
-		unixSocketPath:  unixSocketPath,
-		targetAddress:   tcpTargetAddress,
-		targetProtocol:  "tcp",
-		stopChan:        make(chan struct{}),
-		fdChan:          make(chan net.Conn, 1),
-		listenErrChan:   make(chan error, 1),
-		serverTLSConfig: serverTLSConfig,
-		clientTLSConfig: clientTLSConfig,
-		logger:          log.Log.With("uid", vmiUID).With("listening", filepath.Base(unixSocketPath)).With("outbound", tcpTargetAddress),
+		unixSocketPath:     unixSocketPath,
+		targetAddress:      tcpTargetAddress,
+		targetProtocol:     "tcp",
+		stopChan:           make(chan struct{}),
+		fdChan:             make(chan net.Conn, 1),
+		listenErrChan:      make(chan error, 1),
+		clientTLSConfig:    clientTLSConfig,
+		migrationTLSConfig: migrationTLSConfig,
+		logger:             log.Log.With("uid", vmiUID).With("listening", filepath.Base(unixSocketPath)).With("outbound", tcpTargetAddress),
 	}
 }
 
 // Target proxy listens on a tcp socket and pipes to a virtqemud unix socket
-func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls.Config, clientTLSConfig *tls.Config, virtqemudSocketPath string, vmiUID string) *migrationProxy {
+func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls.Config, virtqemudSocketPath string, vmiUID string) *migrationProxy {
 	return &migrationProxy{
 		tcpBindAddress:  tcpBindAddress,
 		tcpBindPort:     tcpBindPort,
@@ -371,7 +372,6 @@ func NewTargetProxy(tcpBindAddress string, tcpBindPort int, serverTLSConfig *tls
 		fdChan:          make(chan net.Conn, 1),
 		listenErrChan:   make(chan error, 1),
 		serverTLSConfig: serverTLSConfig,
-		clientTLSConfig: clientTLSConfig,
 		logger:          log.Log.With("uid", vmiUID).With("outbound", filepath.Base(virtqemudSocketPath)),
 	}
 
@@ -445,7 +445,15 @@ func (m *migrationProxy) handleConnection(fd net.Conn) {
 	var conn net.Conn
 	var err error
 	if m.targetProtocol == "tcp" && m.clientTLSConfig != nil {
-		conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.clientTLSConfig)
+		conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.migrationTLSConfig)
+		// Check for specific error (CN missmatch), fallback to old client TLS
+		if err != nil {
+			m.logger.Reason(err).Info("fallback to old tls config")
+			conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.clientTLSConfig)
+		} else if tlsErr := conn.(*tls.Conn).Handshake(); tlsErr != nil {
+			m.logger.Reason(err).Info("handshake failed, fallback to old tls config")
+			conn, err = tls.Dial(m.targetProtocol, m.targetAddress, m.clientTLSConfig)
+		}
 	} else {
 		conn, err = net.Dial(m.targetProtocol, m.targetAddress)
 	}
