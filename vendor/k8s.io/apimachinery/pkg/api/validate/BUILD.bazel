@@ -1,0 +1,31 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "common.go",
+        "doc.go",
+        "each.go",
+        "enum.go",
+        "equality.go",
+        "immutable.go",
+        "item.go",
+        "limits.go",
+        "required.go",
+        "subfield.go",
+        "testing.go",
+        "union.go",
+        "zeroorone.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/apimachinery/pkg/api/validate",
+    importpath = "k8s.io/apimachinery/pkg/api/validate",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/operation:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/validate/constraints:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/validate/content:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/sets:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
+    ],
+)

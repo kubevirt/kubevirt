@@ -237,15 +237,13 @@ var CRDsValidation map[string]string = map[string]string{
                 volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                 If specified, the CSI driver will create or update the volume with the attributes defined
                 in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                will be set by the persistentvolume controller if it exists.
+                it can be changed after the claim is created. An empty string or nil value indicates that no
+                VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                this field can be reset to its previous value (including nil) to cancel the modification.
                 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                 exists.
                 More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
               type: string
             volumeMode:
               description: |-
@@ -2411,8 +2409,8 @@ var CRDsValidation map[string]string = map[string]string{
                             most preferred is the one with the greatest sum of weights, i.e.
                             for each node that meets all of the scheduling requirements (resource
                             request, requiredDuringScheduling anti-affinity expressions, etc.),
-                            compute a sum by iterating through the elements of this field and adding
-                            "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                            compute a sum by iterating through the elements of this field and subtracting
+                            "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                             node(s) with the highest sum are the most preferred.
                           items:
                             description: The weights of all of the matched WeightedPodAffinityTerm
@@ -3477,8 +3475,8 @@ var CRDsValidation map[string]string = map[string]string{
                             most preferred is the one with the greatest sum of weights, i.e.
                             for each node that meets all of the scheduling requirements (resource
                             request, requiredDuringScheduling anti-affinity expressions, etc.),
-                            compute a sum by iterating through the elements of this field and adding
-                            "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                            compute a sum by iterating through the elements of this field and subtracting
+                            "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                             node(s) with the highest sum are the most preferred.
                           items:
                             description: The weights of all of the matched WeightedPodAffinityTerm
@@ -4317,15 +4315,13 @@ var CRDsValidation map[string]string = map[string]string{
                           volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                           If specified, the CSI driver will create or update the volume with the attributes defined
                           in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                          it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                          will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                          If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                          will be set by the persistentvolume controller if it exists.
+                          it can be changed after the claim is created. An empty string or nil value indicates that no
+                          VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                          this field can be reset to its previous value (including nil) to cancel the modification.
                           If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                           set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                           exists.
                           More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                          (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                         type: string
                       volumeMode:
                         description: |-
@@ -5484,8 +5480,8 @@ var CRDsValidation map[string]string = map[string]string{
                             most preferred is the one with the greatest sum of weights, i.e.
                             for each node that meets all of the scheduling requirements (resource
                             request, requiredDuringScheduling anti-affinity expressions, etc.),
-                            compute a sum by iterating through the elements of this field and adding
-                            "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                            compute a sum by iterating through the elements of this field and subtracting
+                            "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                             node(s) with the highest sum are the most preferred.
                           items:
                             description: The weights of all of the matched WeightedPodAffinityTerm
@@ -11020,8 +11016,8 @@ var CRDsValidation map[string]string = map[string]string{
                     most preferred is the one with the greatest sum of weights, i.e.
                     for each node that meets all of the scheduling requirements (resource
                     request, requiredDuringScheduling anti-affinity expressions, etc.),
-                    compute a sum by iterating through the elements of this field and adding
-                    "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                    compute a sum by iterating through the elements of this field and subtracting
+                    "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                     node(s) with the highest sum are the most preferred.
                   items:
                     description: The weights of all of the matched WeightedPodAffinityTerm
@@ -17262,8 +17258,8 @@ var CRDsValidation map[string]string = map[string]string{
                             most preferred is the one with the greatest sum of weights, i.e.
                             for each node that meets all of the scheduling requirements (resource
                             request, requiredDuringScheduling anti-affinity expressions, etc.),
-                            compute a sum by iterating through the elements of this field and adding
-                            "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                            compute a sum by iterating through the elements of this field and subtracting
+                            "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                             node(s) with the highest sum are the most preferred.
                           items:
                             description: The weights of all of the matched WeightedPodAffinityTerm
@@ -21046,15 +21042,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                                   If specified, the CSI driver will create or update the volume with the attributes defined
                                   in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                                  it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                                  will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                                  If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                                  will be set by the persistentvolume controller if it exists.
+                                  it can be changed after the claim is created. An empty string or nil value indicates that no
+                                  VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                                  this field can be reset to its previous value (including nil) to cancel the modification.
                                   If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                                   set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                   exists.
                                   More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                  (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                                 type: string
                               volumeMode:
                                 description: |-
@@ -22236,8 +22230,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     most preferred is the one with the greatest sum of weights, i.e.
                                     for each node that meets all of the scheduling requirements (resource
                                     request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                    compute a sum by iterating through the elements of this field and adding
-                                    "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                    compute a sum by iterating through the elements of this field and subtracting
+                                    "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                     node(s) with the highest sum are the most preferred.
                                   items:
                                     description: The weights of all of the matched
@@ -26448,15 +26442,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                                       If specified, the CSI driver will create or update the volume with the attributes defined
                                       in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                                      it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                                      will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                                      If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                                      will be set by the persistentvolume controller if it exists.
+                                      it can be changed after the claim is created. An empty string or nil value indicates that no
+                                      VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                                      this field can be reset to its previous value (including nil) to cancel the modification.
                                       If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                                       set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                       exists.
                                       More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                      (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                                     type: string
                                   volumeMode:
                                     description: |-
@@ -27659,8 +27651,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         most preferred is the one with the greatest sum of weights, i.e.
                                         for each node that meets all of the scheduling requirements (resource
                                         request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                        compute a sum by iterating through the elements of this field and adding
-                                        "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                        compute a sum by iterating through the elements of this field and subtracting
+                                        "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                         node(s) with the highest sum are the most preferred.
                                       items:
                                         description: The weights of all of the matched
@@ -31380,15 +31372,13 @@ var CRDsValidation map[string]string = map[string]string{
                           volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                           If specified, the CSI driver will create or update the volume with the attributes defined
                           in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                          it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                          will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                          If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                          will be set by the persistentvolume controller if it exists.
+                          it can be changed after the claim is created. An empty string or nil value indicates that no
+                          VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                          this field can be reset to its previous value (including nil) to cancel the modification.
                           If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                           set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                           exists.
                           More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                          (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                         type: string
                       volumeMode:
                         description: |-
