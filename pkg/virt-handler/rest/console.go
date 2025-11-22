@@ -54,7 +54,7 @@ type ConsoleHandler struct {
 	vmiStore             cache.Store
 	usbredir             map[types.UID]UsbredirHandlerVMI
 	usbredirLock         *sync.Mutex
-	certManager          certificate.Manager
+	vsockCertManager     certificate.Manager
 }
 
 type UsbredirHandlerVMI struct {
@@ -71,7 +71,7 @@ func NewConsoleHandler(podIsolationDetector isolation.PodIsolationDetector, vmiS
 		usbredirLock:         &sync.Mutex{},
 		vmiStore:             vmiStore,
 		usbredir:             make(map[types.UID]UsbredirHandlerVMI),
-		certManager:          certManager,
+		vsockCertManager:     certManager,
 	}
 }
 
@@ -248,7 +248,11 @@ func (t *ConsoleHandler) VSOCKHandler(request *restful.Request, response *restfu
 			InsecureSkipVerify: true,
 			MinVersion:         tls.VersionTLS13,
 			GetClientCertificate: func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				return t.certManager.Current(), nil
+				certificate := t.vsockCertManager.Current()
+				if certificate == nil {
+					return nil, fmt.Errorf("missing VSOCK certificate")
+				}
+				return certificate, nil
 			},
 		})
 		if err := tlsConn.Handshake(); err != nil {
