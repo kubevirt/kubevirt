@@ -658,8 +658,9 @@ func (m *migrationMonitor) startMonitor() {
 
 	for {
 		err = nil
+		var ok bool
 		select {
-		case err = <-m.migrationErr:
+		case err, ok = <-m.migrationErr:
 		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
 		}
 
@@ -681,6 +682,10 @@ func (m *migrationMonitor) startMonitor() {
 				return
 			}
 			m.l.setMigrationResult(true, fmt.Sprintf("Live migration failed %v", m.migrationFailedWithError), abortStatus)
+			return
+		}
+		if !ok {
+			logger.V(4).Info("Migration error channel closed, stopping monitor")
 			return
 		}
 
