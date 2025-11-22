@@ -32,7 +32,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 type virtCommand struct {
@@ -54,7 +53,6 @@ Second argument is the name of the resource.`,
 
 	cmd.Flags().BoolVar(&c.dryRun, "dry-run", false, "--dry-run=false: Flag used to set whether to perform a dry run or not. If true the command will be executed without performing any changes.")
 
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

@@ -43,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/console"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -101,7 +100,6 @@ func NewGuestfsShellCommand() *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&c.root, "root", false, "Set uid 0 for the libguestfs-tool container")
 	cmd.PersistentFlags().StringVar(&c.uid, "uid", "", "Set uid for the libguestfs-tool container. It doesn't work with root")
 	cmd.PersistentFlags().StringVar(&c.gid, "gid", "", "Set gid for the libguestfs-tool container. This works only combined when the uid is manually set")
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.PersistentFlags().StringVar(&c.fsGroup, "fsGroup", "", "Set the fsgroup for the libguestfs-tool container")
 	cmd.PersistentFlags().StringVar(&c.vm, "vm", "", "Provide a VM to apply its scheduling constraints to the libguestfs-tool pod")
 

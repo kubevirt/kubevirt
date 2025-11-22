@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/virtctl/clientconfig:go_default_library",
-        "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/client-go/version:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
     ],

@@ -18,7 +18,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 type Command struct{}
@@ -120,7 +119,6 @@ func NewCommand() *cobra.Command {
 	// cannot specify "reset" and "all" flag at the same time
 	cmd.MarkFlagsMutuallyExclusive("reset", allComponents)
 
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

@@ -9,7 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 func NewListPermittedDevices() *cobra.Command {
@@ -21,7 +20,6 @@ func NewListPermittedDevices() *cobra.Command {
 		RunE:    run,
 	}
 
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

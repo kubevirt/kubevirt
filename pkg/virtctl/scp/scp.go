@@ -28,7 +28,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/ssh"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -80,7 +79,6 @@ func NewCommand() *cobra.Command {
 		"Recursively copy entire directories")
 	cmd.Flags().BoolVar(&c.preserve, preserveFlag, c.preserve,
 		"Preserves modification times, access times, and modes from the original file.")
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

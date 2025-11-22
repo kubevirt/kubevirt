@@ -27,7 +27,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const COMMAND_FSLIST = "fslist"
@@ -40,7 +39,6 @@ func NewFSListCommand() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE:    fsListRun,
 	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

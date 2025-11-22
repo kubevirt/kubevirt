@@ -12,7 +12,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/common"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 func SetPasswordCommand() *cobra.Command {
@@ -26,7 +25,6 @@ func SetPasswordCommand() *cobra.Command {
 	}
 	cmdFlags.AddToCommand(cmd)
 
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

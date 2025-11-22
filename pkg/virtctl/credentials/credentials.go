@@ -6,7 +6,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/addkey"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/password"
 	"kubevirt.io/kubevirt/pkg/virtctl/credentials/removekey"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 func NewCommand() *cobra.Command {
@@ -24,6 +23,5 @@ func NewCommand() *cobra.Command {
 		password.SetPasswordCommand(),
 	)
 
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }

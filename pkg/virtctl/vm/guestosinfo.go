@@ -27,7 +27,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const COMMAND_GUESTOSINFO = "guestosinfo"
@@ -40,7 +39,6 @@ func NewGuestOsInfoCommand() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE:    guestOsInfoRun,
 	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

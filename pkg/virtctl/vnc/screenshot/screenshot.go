@@ -10,7 +10,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 func NewScreenshotCommand() *cobra.Command {
@@ -28,7 +27,6 @@ func NewScreenshotCommand() *cobra.Command {
 	if err != nil {
 		panic(err)
 	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

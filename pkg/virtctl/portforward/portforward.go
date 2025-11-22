@@ -33,7 +33,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -73,7 +72,6 @@ func NewCommand() *cobra.Command {
 		fmt.Sprintf("--%s=true: Set this to true to forward the tunnel to stdout/stdin; Only works with a single port", forwardToStdioFlag))
 	cmd.Flags().StringVar(&address, addressFlag, address,
 		fmt.Sprintf("--%s=: Set this to the address the local ports should be opened on", addressFlag))
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

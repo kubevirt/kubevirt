@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 func NewEvacuateCancelCommand() *cobra.Command {
@@ -44,8 +43,6 @@ func NewEvacuateCancelCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
-
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
 }

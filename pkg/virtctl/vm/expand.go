@@ -34,7 +34,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -65,7 +64,6 @@ func NewExpandCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&filePath, filePathArg, filePathArgShort, "", "If present, the Virtual Machine spec in provided file will be expanded. Mutually exclusive with \"--vm\" flag.")
 	cmd.Flags().StringVarP(&outputFormat, outputFormatArg, outputFormatArgShort, YAML, "Specify a format that will be used to display output.")
 	cmd.MarkFlagsMutuallyExclusive(filePathArg, vmArg)
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 

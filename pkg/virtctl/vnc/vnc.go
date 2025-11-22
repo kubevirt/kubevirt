@@ -90,7 +90,6 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().StringVar(&vncType, "vnc-type", "", "--vnc-type=tiger: Specify the type of VNC viewer to use (tiger, chicken, real, remote-viewer). Must provide --vnc-path")
 	cmd.Flags().StringVar(&vncPath, "vnc-path", "", "--vnc-path=/path/to/vnc: Specify the path to the VNC viewer executable. Must provide --vnc-type")
 	cmd.MarkFlagsRequiredTogether("vnc-type", "vnc-path")
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.AddCommand(screenshot.NewScreenshotCommand())
 	return cmd
 }

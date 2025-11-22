@@ -30,7 +30,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 func NewRemoveVolumeCommand() *cobra.Command {
@@ -42,7 +41,6 @@ func NewRemoveVolumeCommand() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE:    c.removeVolumeRun,
 	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
 	cmd.MarkFlagRequired(volumeNameArg)
 	cmd.Flags().BoolVar(&persist, persistArg, false, "if set, the added volume will be persisted in the VM spec (if it exists)")

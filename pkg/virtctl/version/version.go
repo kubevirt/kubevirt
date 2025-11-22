@@ -8,7 +8,6 @@ import (
 	client_version "kubevirt.io/client-go/version"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 type version struct {
@@ -25,7 +24,6 @@ func VersionCommand() *cobra.Command {
 		RunE:    v.Run,
 	}
 	cmd.Flags().BoolVarP(&v.clientOnly, "client", "c", v.clientOnly, "Client version only (no server required).")
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 
 	return cmd
 }

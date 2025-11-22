@@ -21,8 +21,6 @@ package usbredir
 
 import (
 	"github.com/spf13/cobra"
-
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
 
 const (
@@ -39,7 +37,6 @@ func NewCommand() *cobra.Command {
 		Args:    cobra.RangeArgs(1, 2),
 		RunE:    Run,
 	}
-	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().Bool(optDisableClientLaunch, false, "If set, you should launch the usbredir client yourself")
 	return cmd
 }

@@ -11,7 +11,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/usbredir",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/virtctl/templates:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
     ] + select({
         "@io_bazel_rules_go//go/platform:386": [
