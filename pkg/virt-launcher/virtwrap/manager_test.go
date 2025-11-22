@@ -2454,6 +2454,28 @@ var _ = Describe("Manager", func() {
 		})
 	})
 
+	Context("on failed GetAllDomainStats", func() {
+		It("should return err if domainStats are nil", func() {
+			const (
+				domainStats = libvirt.DOMAIN_STATS_BALLOON |
+					libvirt.DOMAIN_STATS_CPU_TOTAL |
+					libvirt.DOMAIN_STATS_VCPU |
+					libvirt.DOMAIN_STATS_INTERFACE |
+					libvirt.DOMAIN_STATS_BLOCK |
+					libvirt.DOMAIN_STATS_DIRTYRATE
+				flags = libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
+			)
+			fakeDomainStats := []*stats.DomainStats{}
+
+			mockLibvirt.ConnectionEXPECT().GetDomainStats(domainStats, gomock.Any(), flags).Return(fakeDomainStats, nil)
+			manager, _ := newLibvirtDomainManagerDefault()
+			domStats, err := manager.GetDomainStats()
+
+			Expect(domStats).To(BeNil())
+			Expect(err).To(MatchError("empty DomainStats"))
+		})
+	})
+
 	Context("on failed GetDomainSpecWithRuntimeInfo", func() {
 		It("should fall back to returning domain spec without runtime info", func() {
 			manager, _ := newLibvirtDomainManagerDefault()
