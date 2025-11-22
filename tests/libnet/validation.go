@@ -22,6 +22,7 @@ package libnet
 import (
 	"fmt"
 
+	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -34,9 +35,16 @@ func ValidateVMIandPodIPMatch(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod)
 			vmi.Status.Interfaces[0].IP, vmiPod.Status.PodIP)
 	}
 
-	if len(vmi.Status.Interfaces[0].IPs) != len(vmiPod.Status.PodIPs) {
-		return fmt.Errorf("VMI Status.Interfaces[0].IPs %s len does not equal pod's Status.PodIPs %s len",
-			vmi.Status.Interfaces[0].IPs, vmiPod.Status.PodIPs)
+	vmiIPs := vmi.Status.Interfaces[0].IPs
+	podIPs := []string{}
+	for _, ip := range vmiPod.Status.PodIPs {
+		podIPs = append(podIPs, ip.IP)
+	}
+
+	// check that each PodIP exists in VMI IPs
+	for _, podIP := range podIPs {
+		Expect(vmiIPs).To(ContainElement(podIP),
+			fmt.Sprintf("Expected Pod IP %s to be present in VMI IPs %v", podIP, vmiIPs))
 	}
 
 	if len(vmi.Status.Interfaces[0].IPs) == 0 {
