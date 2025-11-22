@@ -36,8 +36,8 @@ const (
 	NetworkInfoVolumePath = "network-info"
 )
 
-func CreateNetworkInfoAnnotationValue(networkDeviceInfoMap map[string]*networkv1.DeviceInfo) string {
-	networkInfo := generateNetworkInfo(networkDeviceInfoMap)
+func CreateNetworkInfoAnnotationValue(networkDeviceInfoMap map[string]*networkv1.DeviceInfo, networkDeviceMacAddressMap map[string]string) string {
+	networkInfo := generateNetworkInfo(networkDeviceInfoMap, networkDeviceMacAddressMap)
 	networkInfoBytes, err := json.Marshal(networkInfo)
 	if err != nil {
 		log.Log.Warningf("failed to marshal network-info: %v", err)
@@ -47,14 +47,18 @@ func CreateNetworkInfoAnnotationValue(networkDeviceInfoMap map[string]*networkv1
 	return string(networkInfoBytes)
 }
 
-func generateNetworkInfo(networkDeviceInfoMap map[string]*networkv1.DeviceInfo) NetworkInfo {
+func generateNetworkInfo(networkDeviceInfoMap map[string]*networkv1.DeviceInfo, networkDeviceMacAddressMap map[string]string) NetworkInfo {
 	var downwardAPIInterfaces []Interface
 
-	// Sort keys of the map with to get deterministic order
-	sortedNetNames := slices.Sorted(maps.Keys(networkDeviceInfoMap))
+	// Sort keys of both maps to get deterministic order
+	allKeys := slices.Concat(slices.Collect(maps.Keys(networkDeviceInfoMap)), slices.Collect(maps.Keys(networkDeviceMacAddressMap)))
+	sortedNetNames := slices.Compact(slices.Sorted(slices.Values(allKeys)))
 	for _, networkName := range sortedNetNames {
 		deviceInfo := networkDeviceInfoMap[networkName]
-		downwardAPIInterfaces = append(downwardAPIInterfaces, Interface{Network: networkName, DeviceInfo: deviceInfo})
+		mac := networkDeviceMacAddressMap[networkName]
+
+		downwardAPIInterfaces = append(downwardAPIInterfaces,
+			Interface{Network: networkName, DeviceInfo: deviceInfo, Mac: mac})
 	}
 	networkInfo := NetworkInfo{Interfaces: downwardAPIInterfaces}
 	return networkInfo
