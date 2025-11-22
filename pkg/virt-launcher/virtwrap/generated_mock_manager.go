@@ -264,17 +264,17 @@ func (mr *MockDomainManagerMockRecorder) GetUsers() *gomock.Call {
 }
 
 // GuestPing mocks base method.
-func (m *MockDomainManager) GuestPing(arg0 string) error {
+func (m *MockDomainManager) GuestPing() error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GuestPing", arg0)
+	ret := m.ctrl.Call(m, "GuestPing")
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // GuestPing indicates an expected call of GuestPing.
-func (mr *MockDomainManagerMockRecorder) GuestPing(arg0 any) *gomock.Call {
+func (mr *MockDomainManagerMockRecorder) GuestPing() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GuestPing", reflect.TypeOf((*MockDomainManager)(nil).GuestPing), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GuestPing", reflect.TypeOf((*MockDomainManager)(nil).GuestPing))
 }
 
 // HotplugHostDevices mocks base method.
