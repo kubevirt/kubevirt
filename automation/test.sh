@@ -506,7 +506,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
   elif [[ $TARGET =~ sig-compute-realtime ]]; then
     label_filter='(sig-compute-realtime) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-migrations ]]; then
-    label_filter='(sig-compute-migrations && !(GPU,VGPU)) && !(SEV, SEVES, secure-execution)'
+    label_filter='(sig-compute-migrations && !(GPU,VGPU,sig-monitoring)) && !(SEV, SEVES, secure-execution)'
   elif [[ $TARGET =~ sig-compute-serial ]]; then
     export KUBEVIRT_E2E_PARALLEL=false
     label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
