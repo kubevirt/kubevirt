@@ -1036,7 +1036,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	config.SetTargetDeploymentConfig(kv)
 
 	// Set the default architecture
-	config.SetDefaultArchitecture(kv)
+	operatorutil.SetDefaultArchitecture(kv)
 
 	if kv.Status.Phase == "" {
 		kv.Status.Phase = v1.KubeVirtPhaseDeploying
