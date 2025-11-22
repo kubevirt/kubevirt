@@ -87,7 +87,7 @@ func rbacCreateOrUpdate(r *Reconciler, required runtime.Object, imageTag, imageR
 
 func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func() error) {
 
-	rbacObj := r.clientset.RbacV1()
+	rbacObj := r.k8sClientset.RbacV1()
 	namespace := r.kv.Namespace
 
 	raiseExpectation := func(exp *controller.UIDTrackingControllerExpectations) {
@@ -142,7 +142,7 @@ func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func()
 }
 
 func getRbacUpdateFunction(r *Reconciler, obj runtime.Object) (updateFunc func() (err error)) {
-	rbacObj := r.clientset.RbacV1()
+	rbacObj := r.k8sClientset.RbacV1()
 	namespace := r.kv.Namespace
 
 	switch obj.(type) {

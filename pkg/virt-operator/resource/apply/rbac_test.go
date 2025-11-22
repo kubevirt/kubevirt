@@ -46,7 +46,7 @@ var _ = Describe("RBAC test", func() {
 	var (
 		clientset                  *kubecli.MockKubevirtClient
 		ctrl                       *gomock.Controller
-		rbacClient                 *fake.Clientset
+		k8sClient                  *fake.Clientset
 		kv                         *kubevirtv1.KubeVirt
 		stores                     util.Stores
 		expectations               *util.Expectations
@@ -97,7 +97,7 @@ var _ = Describe("RBAC test", func() {
 		}
 	}
 	expectRbacUpdate := func(object runtime.Object) {
-		rbacClient.Fake.PrependReactor("update", getTypeName(object), func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+		k8sClient.Fake.PrependReactor("update", getTypeName(object), func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 			update, ok := action.(testing.UpdateActionImpl)
 			Expect(ok).To(BeTrue())
 
@@ -210,9 +210,9 @@ var _ = Describe("RBAC test", func() {
 
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
-		rbacClient = fake.NewSimpleClientset()
+		k8sClient = fake.NewSimpleClientset()
 
-		rbacClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+		k8sClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 			Expect(action).To(BeNil(), "expect no updates by default")
 			return true, nil, nil
 		})
@@ -231,7 +231,6 @@ var _ = Describe("RBAC test", func() {
 		expectations.ClusterRoleBinding = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("ClusterRoleBinding"))
 
 		clientset = kubecli.NewMockKubevirtClient(ctrl)
-		clientset.EXPECT().RbacV1().Return(rbacClient.RbacV1()).AnyTimes()
 
 		version, imageRegistry, id = getTargetVersionRegistryID(kv)
 	})
@@ -274,7 +273,8 @@ var _ = Describe("RBAC test", func() {
 				kv:             kv,
 				targetStrategy: nil,
 				stores:         stores,
-				clientset:      clientset,
+				virtClientset:  clientset,
+				k8sClientset:   k8sClient,
 				expectations:   expectations,
 			}
 		})
