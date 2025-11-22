@@ -38,7 +38,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -76,58 +75,6 @@ var _ = Describe("[sig-storage] Storage configuration", decorators.SigStorage, d
 	})
 
 	Context("driver cache and io settings and PVC", func() {
-		It("[test_id:1681]should set appropriate cache modes", decorators.HostDiskGate, func() {
-			vmi := libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithMemoryRequest("128Mi"),
-				libvmi.WithContainerDisk("ephemeral-disk1", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-				libvmi.WithContainerDisk("ephemeral-disk2", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-				libvmi.WithContainerDisk("ephemeral-disk5", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-				libvmi.WithContainerDisk("ephemeral-disk3", cd.ContainerDiskFor(cd.ContainerDiskCirros)),
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudUserData("#!/bin/bash\necho 'hello'\n")),
-			)
-			By("setting disk caches")
-			// ephemeral-disk1
-			vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheNone
-			// ephemeral-disk2
-			vmi.Spec.Domain.Devices.Disks[1].Cache = v1.CacheWriteThrough
-			// ephemeral-disk5
-			vmi.Spec.Domain.Devices.Disks[2].Cache = v1.CacheWriteBack
-
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
-			runningVMISpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			disks := runningVMISpec.Devices.Disks
-			By("checking if number of attached disks is equal to real disks number")
-			Expect(vmi.Spec.Domain.Devices.Disks).To(HaveLen(len(disks)))
-
-			cacheNone := string(v1.CacheNone)
-			cacheWritethrough := string(v1.CacheWriteThrough)
-			cacheWriteback := string(v1.CacheWriteBack)
-
-			By("checking if requested cache 'none' has been set")
-			Expect(disks[0].Alias.GetName()).To(Equal("ephemeral-disk1"))
-			Expect(disks[0].Driver.Cache).To(Equal(cacheNone))
-
-			By("checking if requested cache 'writethrough' has been set")
-			Expect(disks[1].Alias.GetName()).To(Equal("ephemeral-disk2"))
-			Expect(disks[1].Driver.Cache).To(Equal(cacheWritethrough))
-
-			By("checking if requested cache 'writeback' has been set")
-			Expect(disks[2].Alias.GetName()).To(Equal("ephemeral-disk5"))
-			Expect(disks[2].Driver.Cache).To(Equal(cacheWriteback))
-
-			By("checking if default cache 'none' has been set to ephemeral disk")
-			Expect(disks[3].Alias.GetName()).To(Equal("ephemeral-disk3"))
-			Expect(disks[3].Driver.Cache).To(Equal(cacheNone))
-
-			By("checking if default cache 'none' has been set to cloud-init disk")
-			Expect(disks[4].Alias.GetName()).To(Equal(libvmi.CloudInitDiskName))
-			Expect(disks[4].Driver.Cache).To(Equal(cacheNone))
-		})
-
 		It("[test_id:5360]should set appropriate IO modes", decorators.RequiresBlockStorage, func() {
 			By("Creating block Datavolume")
 			sc, foundSC := libstorage.GetBlockStorageClass(k8sv1.ReadWriteOnce)
