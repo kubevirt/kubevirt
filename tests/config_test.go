@@ -112,7 +112,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedOutput := "value1value2value3"
 
 				By("Running VMI")
-				vmi := libvmifact.NewAlpine(libvmi.WithConfigMapDisk(configMapName, configMapName))
+				vmi := libvmifact.NewAlpineWithTestTooling(libvmi.WithConfigMapDisk(configMapName, configMapName))
+				for i := range vmi.Spec.Domain.Devices.Disks {
+					if strings.HasPrefix(vmi.Spec.Domain.Devices.Disks[i].Name, "configmap-") {
+						vmi.Spec.Domain.Devices.Disks[i].Serial = "configmap-disk"
+					}
+				}
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -137,7 +142,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Checking mounted iso image")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount iso ConfigMap image
-					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+					&expect.BSnd{S: "mount $(find /dev/disk/by-id/ -name '*configmap-disk') /mnt\n"},
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
@@ -213,7 +218,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedOutput := "adminredhat"
 
 				By("Running VMI")
-				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
+				vmi := libvmifact.NewAlpineWithTestTooling(libvmi.WithSecretDisk(secretName, secretName))
+				for i := range vmi.Spec.Domain.Devices.Disks {
+					if strings.HasPrefix(vmi.Spec.Domain.Devices.Disks[i].Name, "secret-") {
+						vmi.Spec.Domain.Devices.Disks[i].Serial = "secret-disk"
+					}
+				}
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -236,7 +246,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				By("Checking mounted iso image")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount iso Secret image
-					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+					&expect.BSnd{S: "mount $(find /dev/disk/by-id/ -name '*secret-disk') /mnt\n"},
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
@@ -293,7 +303,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
-			vmi := libvmifact.NewAlpine(libvmi.WithServiceAccountDisk("default"))
+			vmi := libvmifact.NewAlpineWithTestTooling(libvmi.WithServiceAccountDisk("default"))
+			for i := range vmi.Spec.Domain.Devices.Disks {
+				if vmi.Spec.Domain.Devices.Disks[i].Name == "default-disk" {
+					vmi.Spec.Domain.Devices.Disks[i].Serial = "sa-disk"
+				}
+			}
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -327,7 +342,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			By("Checking mounted iso image")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 				// mount service account iso image
-				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+				&expect.BSnd{S: "mount $(find /dev/disk/by-id/ -name '*sa-disk') /mnt\n"},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
@@ -337,7 +352,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BExp{R: token},
 			}, 200)).To(Succeed())
 		})
-
 	})
 
 	Context("With a Secret and a ConfigMap defined", func() {
@@ -509,7 +523,12 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedPublicKey := string(publicKeyBytes)
 
 				By("Running VMI")
-				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
+				vmi := libvmifact.NewAlpineWithTestTooling(libvmi.WithSecretDisk(secretName, secretName))
+				for i := range vmi.Spec.Domain.Devices.Disks {
+					if strings.HasPrefix(vmi.Spec.Domain.Devices.Disks[i].Name, "secret-") {
+						vmi.Spec.Domain.Devices.Disks[i].Serial = "secret-disk"
+					}
+				}
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -544,7 +563,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					// mount iso Secret image
 					&expect.BSnd{S: "sudo su -\n"},
 					&expect.BExp{R: ""},
-					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+					&expect.BSnd{S: "mount $(find /dev/disk/by-id/ -name '*secret-disk') /mnt\n"},
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
@@ -568,9 +587,14 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 		It("[test_id:790]Should be the namespace and token the same for a pod and vmi", func() {
 			By("Running VMI")
-			vmi := libvmifact.NewAlpine(
+			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithLabel(testLabelKey, testLabelVal),
 				libvmi.WithDownwardAPIDisk(downwardAPIName))
+			for i := range vmi.Spec.Domain.Devices.Disks {
+				if strings.HasPrefix(vmi.Spec.Domain.Devices.Disks[i].Name, "downwardapi-") {
+					vmi.Spec.Domain.Devices.Disks[i].Serial = "downwardapi-disk"
+				}
+			}
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -593,7 +617,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			By("Checking mounted iso image")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
 				// mount iso DownwardAPI image
-				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+				&expect.BSnd{S: "mount $(find /dev/disk/by-id/ -name '*downwardapi-disk') /mnt\n"},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep " + testLabelKey + " /mnt/labels\n"},
