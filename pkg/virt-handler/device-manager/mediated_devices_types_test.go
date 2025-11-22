@@ -30,13 +30,10 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	"k8s.io/apimachinery/pkg/util/uuid"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
 
 	kubev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/testing"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -53,7 +50,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 	var fakeMdevBasePath string
 	var fakeMdevDevicesPath string
 	var configuredMdevTypesOnCards map[string]map[string]struct{}
-	var clientTest *fake.Clientset
+	var fakeNodeStore cache.Store
 	var mdevTypesDetailsMap = map[string]mdevTypesDetails{
 		"nvidia-222": {
 			name:               "GRID T4-1B",
@@ -153,7 +150,8 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 	BeforeEach(func() {
 		By("mocking MDEV functions to simulate an mdev creation and removal")
 		ctrl = gomock.NewController(GinkgoT())
-		clientTest = fake.NewSimpleClientset()
+		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&kubev1.Node{})
+		fakeNodeStore = fakeNodeInformer.GetStore()
 		mockMDEV = NewMockDeviceHandler(ctrl)
 		handler = mockMDEV
 		configuredMdevTypesOnCards = make(map[string]map[string]struct{})
@@ -353,7 +351,6 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		)
 		DescribeTable("should create and remove relevant mdev types matching a specific node", func(scenario func() *scenarioValues, late bool) {
 			sc := scenario()
-			clientTest = fake.NewSimpleClientset()
 			if !late {
 				By("creating the sysfs structure")
 				createTempMDEVSysfsStructure(sc.pciMDEVDevicesMap)
@@ -413,7 +410,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
 			node := &kubev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "testNode",
+					Name: "master",
 				},
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Node",
@@ -422,11 +419,11 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			}
 			node.Status.Phase = kubev1.NodeRunning
 			node.ObjectMeta.Labels = sc.nodeLabels
-			addNode(clientTest, node)
+			fakeNodeStore.Add(node)
 
 			By("creating an empty device controller")
 			var noDevices []Device
-			deviceController := NewDeviceController("master", 100, "rw", noDevices, fakeClusterConfig, clientTest.CoreV1())
+			deviceController := NewDeviceController("master", 100, "rw", noDevices, fakeClusterConfig, fakeNodeStore)
 
 			if late {
 				By("refreshing the mediated devices types with no sysfs structure")
@@ -482,9 +479,3 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		)
 	})
 })
-
-func addNode(client *fake.Clientset, node *kubev1.Node) {
-	client.Fake.PrependReactor("get", "nodes", func(action testing.Action) (handled bool, obj k8sruntime.Object, err error) {
-		return true, node, nil
-	})
-}

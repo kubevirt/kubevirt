@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"libvirt.org/go/libvirtxml"
 
@@ -47,6 +48,7 @@ const nodeName = "testNode"
 var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
 	var kubeClient *fake.Clientset
+	var fakeNodeStore cache.Store
 	var cpuCounter *libvirtxml.CapsHostCPUCounter
 	var supportedMachines []libvirtxml.CapsGuestMachine
 
@@ -56,7 +58,7 @@ var _ = Describe("Node-labeller ", func() {
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, supportedMachines)
+		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), fakeNodeStore, nodeName, "testdata", recorder, cpuCounter, supportedMachines)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -71,6 +73,9 @@ var _ = Describe("Node-labeller ", func() {
 
 		node := newNode(nodeName)
 		kubeClient = fake.NewSimpleClientset(node)
+		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
+		fakeNodeStore = fakeNodeInformer.GetStore()
+		fakeNodeStore.Add(node)
 		initNodeLabeller(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -287,6 +292,7 @@ var _ = Describe("Node-labeller ", func() {
 			HaveKey(v1.CPUModelLabel+"Cascadelake-Server"),
 			HaveKey(v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"),
 		))
+		fakeNodeStore.Update(node)
 
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
@@ -315,6 +321,7 @@ var _ = Describe("Node-labeller ", func() {
 			HaveKey(v1.CPUModelLabel+"Cascadelake-Server"),
 			HaveKey(v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"),
 		))
+		fakeNodeStore.Update(node)
 
 		res := nlController.execute()
 		Expect(res).To(BeTrue())

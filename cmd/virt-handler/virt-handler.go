@@ -33,6 +33,7 @@ import (
 	"github.com/emicklei/go-restful/v3"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
@@ -315,8 +316,17 @@ func (app *virtHandlerApp) Run() {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	ksmHandler := ksm.NewHandler(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig)
-	go ksmHandler.Run(stop)
+	// Create a ListWatch filtered to only the local node
+	listWatch := cache.NewListWatchFromClient(
+		app.virtCli.CoreV1().RESTClient(),
+		"nodes",
+		metav1.NamespaceAll,
+		fields.OneTermEqualSelector("metadata.name", app.HostOverride),
+	)
+
+	nodeInformer := cache.NewSharedInformer(listWatch, &k8sv1.Node{}, controller.ResyncPeriod(12*time.Hour))
+
+	ksmHandler := ksm.NewHandler(app.HostOverride, app.virtCli.CoreV1(), nodeInformer.GetStore(), app.clusterConfig)
 
 	var capabilities libvirtxml.Caps
 	var hostCpuModel string
@@ -335,6 +345,7 @@ func (app *virtHandlerApp) Run() {
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
 		app.virtCli.CoreV1().Nodes(),
+		nodeInformer.GetStore(),
 		app.HostOverride,
 		nodeLabellerrecorder,
 		capabilities.Host.CPU.Counter,
@@ -409,6 +420,7 @@ func (app *virtHandlerApp) Run() {
 	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,
 		app.virtCli,
+		nodeInformer.GetStore(),
 		app.HostOverride,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
@@ -448,6 +460,7 @@ func (app *virtHandlerApp) Run() {
 
 	factory.Start(stop)
 	go domainSharedInformer.Run(stop)
+	go nodeInformer.Run(stop)
 
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
@@ -478,6 +491,7 @@ func (app *virtHandlerApp) Run() {
 		domainSharedInformer.HasSynced,
 		factory.CRD().HasSynced,
 		factory.KubeVirt().HasSynced,
+		nodeInformer.HasSynced,
 	)
 
 	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
@@ -491,6 +505,7 @@ func (app *virtHandlerApp) Run() {
 	go migrationSourceController.Run(5, stop)
 	go migrationTargetController.Run(5, stop)
 	go vmController.Run(10, stop)
+	go ksmHandler.Run(stop)
 
 	doneCh := make(chan string)
 	defer close(doneCh)

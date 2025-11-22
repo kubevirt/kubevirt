@@ -175,9 +175,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
 			Initialized: true,
 		}
+		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
+		fakeNodeStore := fakeNodeInformer.GetStore()
 		controller, _ = NewVirtualMachineController(
 			recorder,
 			virtClient,
+			fakeNodeStore,
 			host,
 			privateDir,
 			podsDir,

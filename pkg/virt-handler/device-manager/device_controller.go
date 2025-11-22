@@ -20,15 +20,15 @@
 package device_manager
 
 import (
-	"context"
+	"fmt"
 	"math"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8scli "k8s.io/client-go/kubernetes/typed/core/v1"
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"kubevirt.io/client-go/log"
 
@@ -133,7 +133,7 @@ type DeviceController struct {
 	virtConfig          *virtconfig.ClusterConfig
 	stop                chan struct{}
 	mdevTypesManager    *MDEVTypesManager
-	clientset           k8scli.CoreV1Interface
+	nodeStore           cache.Store
 	mdevRefreshWG       *sync.WaitGroup
 }
 
@@ -143,7 +143,7 @@ func NewDeviceController(
 	permissions string,
 	permanentPlugins []Device,
 	clusterConfig *virtconfig.ClusterConfig,
-	clientset k8scli.CoreV1Interface,
+	nodeStore cache.Store,
 ) *DeviceController {
 	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
 	for i := range permanentPlugins {
@@ -159,7 +159,7 @@ func NewDeviceController(
 		backoff:          defaultBackoffTime,
 		virtConfig:       clusterConfig,
 		mdevTypesManager: NewMDEVTypesManager(),
-		clientset:        clientset,
+		nodeStore:        nodeStore,
 		mdevRefreshWG:    &sync.WaitGroup{},
 	}
 
@@ -310,7 +310,7 @@ func (c *DeviceController) refreshMediatedDeviceTypes() bool {
 		return false
 	}
 
-	node, err := c.clientset.Nodes().Get(context.Background(), c.host, metav1.GetOptions{})
+	node, err := c.getNode()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
 		return false
@@ -323,6 +323,25 @@ func (c *DeviceController) refreshMediatedDeviceTypes() bool {
 		log.Log.Reason(err).Errorf("failed to configure the desired mdev types: %s", strings.Join(nodeDesiredMdevTypesList, ", "))
 	}
 	return requiresDevicePluginsUpdate
+}
+
+func (c *DeviceController) getNode() (*k8sv1.Node, error) {
+	nodeObj, exists, err := c.nodeStore.GetByKey(c.host)
+	if err != nil {
+		log.DefaultLogger().Errorf("Unable to get node: %s", err.Error())
+		return nil, err
+	}
+	if !exists {
+		log.DefaultLogger().Errorf("node %s does not exist", c.host)
+		return nil, fmt.Errorf("node %s does not exist", c.host)
+	}
+
+	node, ok := nodeObj.(*k8sv1.Node)
+	if !ok {
+		return nil, fmt.Errorf("unknown object type found in node informer")
+	}
+
+	return node, nil
 }
 
 func (c *DeviceController) refreshPermittedDevices() {
