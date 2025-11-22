@@ -249,6 +249,7 @@ func newInterfacePlaceholder(index int, modelType string) api.Interface {
 	return api.Interface{
 		Type:  "ethernet",
 		Model: &api.Model{Type: modelType},
+		Alias: api.NewNonUserDefinedAlias(fmt.Sprintf("placeholder-%d", index)),
 		Target: &api.InterfaceTarget{
 			Device:  fmt.Sprintf("placeholder-%d", index),
 			Managed: "no",
