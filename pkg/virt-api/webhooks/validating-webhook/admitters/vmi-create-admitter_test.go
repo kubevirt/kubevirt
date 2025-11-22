@@ -1162,6 +1162,25 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal("the number of iothreads needs to be set and positive for the dedicated policy"))
 		})
 
+		It("should reject multiple IOThreads when isolateEmulatorThread is set", func() {
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.IOThreadsPolicy = pointer.P(v1.IOThreadsPolicySupplementalPool)
+			vmi.Spec.Domain.IOThreads = &v1.DiskIOThreads{
+				SupplementalPoolThreadCount: pointer.P(uint32(2)),
+			}
+
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				IsolateEmulatorThread: true,
+				DedicatedCPUPlacement: true,
+				Cores:                 2,
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("spec.domain.cpu.isolateEmulatorThread"))
+			Expect(causes[0].Message).To(Equal("IsolateEmulatorThread cannot be set when using mutliple IOThreads"))
+		})
+
 		It("should reject invalid ioThreadsPolicy to supplementalPool and unsetted number of IOthreads", func() {
 			vmi := api.NewMinimalVMI("testvm")
 			vmi.Spec.Domain.IOThreadsPolicy = pointer.P(v1.IOThreadsPolicySupplementalPool)
