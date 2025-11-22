@@ -41,6 +41,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
 func (app *SubresourceAPIApp) StartVMRequestHandler(request *restful.Request, response *restful.Response) {
@@ -343,6 +344,10 @@ func (app *SubresourceAPIApp) UnpauseVMIRequestHandler(request *restful.Request,
 		if vmi.Status.Phase != v1.Running {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
 		}
+		// Check if VM is currently being migrated
+		if migrations.IsMigrating(vmi) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Cannot unpause VM '%s' because it is currently being migrated", vmi.Name))
+		}
 		condManager := controller.NewVirtualMachineInstanceConditionManager()
 		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
 			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotPaused))
@@ -401,6 +406,21 @@ func (app *SubresourceAPIApp) UnfreezeVMIRequestHandler(request *restful.Request
 
 func (app *SubresourceAPIApp) ResetVMIRequestHandler(request *restful.Request, response *restful.Response) {
 
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Cannot reset VM '%s' because it is not currently running", vmi.Name))
+		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if condManager.HasConditionWithStatus(vmi, v1.VirtualMachineInstancePaused, k8sv1.ConditionTrue) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is paused"))
+		}
+		// Check if VM is currently being migrated
+		if migrations.IsMigrating(vmi) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("Cannot reset VM '%s' because it is currently being migrated", vmi.Name))
+		}
+		return nil
+	}
+
 	// Post process any error responses in order to append human
 	// readable explanation for why the reset may have failed.
 	errorPostProcessing := func(vmi *v1.VirtualMachineInstance, err error) error {
@@ -416,7 +436,7 @@ func (app *SubresourceAPIApp) ResetVMIRequestHandler(request *restful.Request, r
 		return conn.ResetURI(vmi)
 	}
 
-	app.putRequestHandlerWithErrorPostProcessing(request, response, nil, errorPostProcessing, getURL, false)
+	app.putRequestHandlerWithErrorPostProcessing(request, response, validate, errorPostProcessing, getURL, false)
 }
 
 func (app *SubresourceAPIApp) RestartVMRequestHandler(request *restful.Request, response *restful.Response) {
