@@ -1166,39 +1166,6 @@ func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 	}
 }
 
-func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Memory == nil ||
-		vmi.Spec.Domain.Memory.MaxGuest == nil ||
-		vmi.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.MaxGuest) {
-		var err error
-
-		domain.Spec.Memory, err = vcpu.QuantityToByte(*vcpu.GetVirtualMemory(vmi))
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	maxMemory, err := vcpu.QuantityToByte(*vmi.Spec.Domain.Memory.MaxGuest)
-	if err != nil {
-		return err
-	}
-
-	domain.Spec.MaxMemory = &api.MaxMemory{
-		Unit:  maxMemory.Unit,
-		Value: maxMemory.Value,
-	}
-
-	currentMemory, err := vcpu.QuantityToByte(*vmi.Spec.Domain.Memory.Guest)
-	if err != nil {
-		return err
-	}
-
-	domain.Spec.Memory = currentMemory
-
-	return nil
-}
-
 func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) error {
 	firmware := vmi.Spec.Domain.Firmware
 	if firmware == nil {
@@ -1493,6 +1460,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.RNGWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 		),
+		compute.MemoryConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1596,10 +1564,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				Value: vmi.Spec.Domain.Chassis.Sku,
 			},
 		}
-	}
-
-	if err = setupDomainMemory(vmi, domain); err != nil {
-		return err
 	}
 
 	var isMemfdRequired = false
