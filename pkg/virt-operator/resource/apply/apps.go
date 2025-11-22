@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
@@ -19,6 +18,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/resourcemerge"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/placement"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -86,14 +86,13 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	}
 
 	cachedDeployment := obj.(*appsv1.Deployment)
-	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDeployment.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(deployment, kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, deployment.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existingCopy.ObjectMeta, deployment.ObjectMeta)
 
 	// there was no change to metadata, the generation matched
-	if !*modified &&
+	if !modified &&
 		*existingCopy.Spec.Replicas == *deployment.Spec.Replicas &&
 		existingCopy.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("deployment %v is up-to-date", deployment.GetName())
@@ -385,13 +384,12 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	}
 
 	cachedDaemonSet = obj.(*appsv1.DaemonSet)
-	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedDaemonSet.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(daemonSet, kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existingCopy.ObjectMeta, daemonSet.ObjectMeta)
 	// there was no change to metadata, the generation was right
-	if !*modified && existingCopy.GetGeneration() == expectedGeneration {
+	if !modified && existingCopy.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
 		return true, nil
 	}
@@ -404,7 +402,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	// start the rollout of the new virt-handler again
 	// wait for all nodes to complete the rollout
 	// set maxUnavailable back to 1
-	done, err, _ := r.processCanaryUpgrade(cachedDaemonSet, daemonSet, *modified)
+	done, err, _ := r.processCanaryUpgrade(cachedDaemonSet, daemonSet, modified)
 	return done, err
 }
 
@@ -452,13 +450,12 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	}
 
 	cachedPodDisruptionBudget = obj.(*policyv1.PodDisruptionBudget)
-	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedPodDisruptionBudget.DeepCopy()
 	expectedGeneration := GetExpectedGeneration(podDisruptionBudget, kv.Status.Generations)
 
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, podDisruptionBudget.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existingCopy.ObjectMeta, podDisruptionBudget.ObjectMeta)
 	// there was no change to metadata or minAvailable, the generation was right
-	if !*modified &&
+	if !modified &&
 		existingCopy.Spec.MinAvailable.IntValue() == podDisruptionBudget.Spec.MinAvailable.IntValue() &&
 		existingCopy.ObjectMeta.Generation == expectedGeneration {
 		log.Log.V(4).Infof("poddisruptionbudget %v is up-to-date", cachedPodDisruptionBudget.GetName())
