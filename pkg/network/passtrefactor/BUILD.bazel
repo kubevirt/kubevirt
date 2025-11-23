@@ -3,8 +3,8 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "controller.go",
-        "handler.go",
+        "passt_repair_executor.go",
+        "passt_repair_migration.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/passtrefactor",
     visibility = ["//visibility:public"],
