@@ -6,7 +6,7 @@ go_library(
         "controller.go",
         "handler.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/network/passtrefactor",
+    importpath = "kubevirt.io/kubevirt/pkg/network/passt",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/network/vmispec:go_default_library",

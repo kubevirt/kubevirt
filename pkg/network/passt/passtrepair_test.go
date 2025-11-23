@@ -18,7 +18,7 @@
  *
  */
 
-package passtrefactor_test
+package passt_test
 
 import (
 	"errors"
@@ -28,7 +28,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/pkg/network/passtrefactor"
+	"kubevirt.io/kubevirt/pkg/network/passt"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -110,7 +110,7 @@ var _ = Describe("Passt Repair Handler", func() {
 			},
 		}
 		handler := newRepairHandlerStub()
-		repairController := passtrefactor.NewPasstRepairControllerWithOptions(
+		repairController := passt.NewPasstRepairControllerWithOptions(
 			handler,
 			clusterConfigMultiPlugin,
 		)
@@ -158,7 +158,7 @@ var _ = Describe("Passt Repair Handler", func() {
 	DescribeTable("Should run passt repair on migration target", func(vmi *v1.VirtualMachineInstance) {
 
 		handler := newRepairHandlerStub()
-		repairController := passtrefactor.NewPasstRepairControllerWithOptions(
+		repairController := passt.NewPasstRepairControllerWithOptions(
 			handler,
 			clusterConfigPasst,
 		)
@@ -200,7 +200,7 @@ var _ = Describe("Passt Repair Handler", func() {
 		}
 
 		handler := newRepairHandlerStub()
-		repairController := passtrefactor.NewPasstRepairControllerWithOptions(
+		repairController := passt.NewPasstRepairControllerWithOptions(
 			handler,
 			clusterConfigPasst,
 		)
@@ -214,7 +214,7 @@ var _ = Describe("Passt Repair Handler", func() {
 		handler := newRepairHandlerStub()
 		expectedError := errors.New("findSocket error")
 		handler.findSocketError = expectedError
-		repairController := passtrefactor.NewPasstRepairControllerWithOptions(
+		repairController := passt.NewPasstRepairControllerWithOptions(
 			handler,
 			clusterConfigPasst,
 		)
@@ -225,7 +225,7 @@ var _ = Describe("Passt Repair Handler", func() {
 
 	It("Should not run command because it is already running", func() {
 		handler := newBlockingRepairHandlerStub()
-		repairController := passtrefactor.NewPasstRepairControllerWithOptions(
+		repairController := passt.NewPasstRepairControllerWithOptions(
 			handler,
 			clusterConfigPasst,
 		)
