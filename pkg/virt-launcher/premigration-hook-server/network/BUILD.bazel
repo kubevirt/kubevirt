@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["network.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/network",
+    visibility = ["//visibility:public"],
+    deps = ["//pkg/virt-launcher/premigration-hook-server/types:go_default_library"],
+)
