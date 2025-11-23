@@ -18,7 +18,7 @@
  *
  */
 
-package passtrefactor
+package passt
 
 import (
 	"context"
