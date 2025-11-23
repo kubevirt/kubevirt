@@ -6,7 +6,7 @@ go_library(
         "passt_repair_executor.go",
         "passt_repair_migration.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/network/passtrefactor",
+    importpath = "kubevirt.io/kubevirt/pkg/network/passt",
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/network/vmispec:go_default_library",
@@ -18,17 +18,7 @@ go_library(
 
 go_test(
     name = "go_default_test",
-    srcs = [
-        "passt_suite_test.go",
-        "passtrepair_test.go",
-    ],
+    srcs = ["passt_suite_test.go"],
     race = "on",
-    deps = [
-        ":go_default_library",
-        "//pkg/libvmi:go_default_library",
-        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
-        "//vendor/github.com/onsi/gomega:go_default_library",
-    ],
+    deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
 )

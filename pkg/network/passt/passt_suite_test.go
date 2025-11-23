@@ -17,7 +17,7 @@
  *
  */
 
-package passtrefactor_test
+package passt_test
 
 import (
 	"testing"
