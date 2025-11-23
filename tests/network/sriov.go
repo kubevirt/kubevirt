@@ -763,13 +763,11 @@ func waitVMI(vmi *v1.VirtualMachineInstance) (*v1.VirtualMachineInstance, error)
 		"failed to create SR-IOV hostdevices: failed to create PCI address pool with network status from file: context deadline exceeded: file is not populated with network-info",
 	}
 
-	libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithWarningsIgnoreList(warningsIgnoreList))
-
-	virtClient := kubevirt.Client()
-
 	Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
-	return virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+	libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithWarningsIgnoreList(warningsIgnoreList))
+
+	return kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 }
 
 // deleteVMI deletes the specified VMI and waits for its absence.
