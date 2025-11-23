@@ -21,6 +21,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
+// TODO Add this function to the arch defaults
+func setDefaultFeatures(spec *v1.VirtualMachineInstanceSpec) {
+	if IsS390X(spec) {
+		setS390xDefaultFeatures(spec)
+	}
+}
+
 func setDefaultS390xDisksBus(spec *v1.VirtualMachineInstanceSpec) {
 	bus := v1.DiskBusVirtio
 

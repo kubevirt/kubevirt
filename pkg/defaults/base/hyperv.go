@@ -16,7 +16,7 @@
  * Copyright The KubeVirt Authors.
  *
  */
-package defaults
+package base_defaults
 
 import (
 	"fmt"

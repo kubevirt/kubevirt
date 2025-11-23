@@ -30,6 +30,7 @@ go_test(
         "recordingrules_suite_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
