@@ -13,10 +13,11 @@
  * Copyright 2021
  *
  */
-package defaults
+package arch_defaults
 
 import (
 	v1 "kubevirt.io/api/core/v1"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _false bool = false
@@ -26,6 +27,7 @@ const (
 )
 
 // setDefaultArm64CPUModel set default cpu model to host-passthrough
+// TODO This is extra beyond the base default
 func setDefaultArm64CPUModel(spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Domain.CPU == nil {
 		spec.Domain.CPU = &v1.CPU{}
@@ -79,4 +81,23 @@ func SetArm64Defaults(spec *v1.VirtualMachineInstanceSpec) {
 
 func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 	return vmiSpec.Architecture == "arm64"
+}
+
+type Arm64Defaults struct {
+	BaseArchDefaults
+}
+
+func NewArm64ArchDefaults() ArchDefaults {
+	baseArchDefaults := NewBaseArchDefaults()
+	// Override hotplug setter to empty function since arm64 does not support cpu hotplug
+	baseArchDefaults.hotplugSetter = func(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {}
+	baseArchDefaults.defaultBootloaderSetter = setDefaultArm64Bootloader
+	baseArchDefaults.defaultCPUModelSetter = setDefaultArm64CPUModel
+	baseArchDefaults.defaultDisksBusSetter = setDefaultArm64DisksBus
+
+	arm64Defaults := Arm64Defaults{
+		BaseArchDefaults: *baseArchDefaults,
+	}
+
+	return &arm64Defaults
 }

@@ -13,7 +13,7 @@
  * Copyright 2021
  *
  */
-package defaults
+package arch_defaults
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -55,4 +55,19 @@ func SetAmd64Watchdog(spec *v1.VirtualMachineInstanceSpec) {
 			spec.Domain.Devices.Watchdog.I6300ESB.Action = v1.WatchdogActionReset
 		}
 	}
+}
+
+type AmdDefaults struct {
+	BaseArchDefaults
+}
+
+func NewAmd64ArchDefaults() ArchDefaults {
+	baseArchDefaults := NewBaseArchDefaults()
+	baseArchDefaults.defaultDisksBusSetter = setDefaultAmd64DisksBus
+	baseArchDefaults.defaultWatchdogSetter = SetAmd64Watchdog
+	amd64Defaults := AmdDefaults{
+		BaseArchDefaults: *baseArchDefaults,
+	}
+
+	return &amd64Defaults
 }

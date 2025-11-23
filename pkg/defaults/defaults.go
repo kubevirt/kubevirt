@@ -20,96 +20,40 @@
 package defaults
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	arch_defaults "kubevirt.io/kubevirt/pkg/defaults/arch"
+	base_defaults "kubevirt.io/kubevirt/pkg/defaults/base"
+	kvm_defaults "kubevirt.io/kubevirt/pkg/defaults/kvm"
+	mshv_defaults "kubevirt.io/kubevirt/pkg/defaults/mshv"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 type Defaults interface {
-	SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) error
+	SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient)
 	SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) error
 	SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) error
 }
 
-func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) {
-	setDefaultArchitectureFromDataSource(clusterConfig, vm, virtClient)
-	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)
-	setVMDefaultMachineType(vm, clusterConfig)
-
-	vmispec.SetDefaultNetworkInterface(clusterConfig, &vm.Spec.Template.Spec)
-
-}
-
-func setupHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
-	if !clusterConfig.IsVMRolloutStrategyLiveUpdate() {
-		return
-	}
-	setupCPUHotplug(clusterConfig, vmi)
-	setupMemoryHotplug(clusterConfig, vmi)
-}
-
-func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		maxSockets := clusterConfig.GetMaximumCpuSockets()
-		if vmi.Spec.Domain.CPU.Sockets > maxSockets && maxSockets != 0 {
-			maxSockets = vmi.Spec.Domain.CPU.Sockets
+func NewDefault(clusterConfig *virtconfig.ClusterConfig) Defaults {
+	switch clusterConfig.GetHypervisor().Name {
+	case v1.HyperVLayeredHypervisorName:
+		mshvDefaults := mshv_defaults.MSHVDefaults{
+			BaseDefaults: *base_defaults.NewBaseDefaults(
+				arch_defaults.NewAmd64ArchDefaults(),
+				arch_defaults.NewArm64ArchDefaults(),
+				arch_defaults.NewS390xArchDefaults(),
+			),
 		}
-		vmi.Spec.Domain.CPU.MaxSockets = maxSockets
-	}
-
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		// Each machine type will have different maximum for vcpus,
-		// lets choose 512 as upper bound
-		const maxVCPUs = 512
-
-		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * clusterConfig.GetMaxHotplugRatio()
-		totalVCPUs := vmi.Spec.Domain.CPU.MaxSockets * vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads
-		if totalVCPUs > maxVCPUs {
-			adjustedSockets := maxVCPUs / (vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads)
-			vmi.Spec.Domain.CPU.MaxSockets = max(adjustedSockets, vmi.Spec.Domain.CPU.Sockets)
-		}
-	}
-}
-
-func setupMemoryHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.Memory.MaxGuest != nil {
-		return
-	}
-
-	var maxGuest *resource.Quantity
-	switch {
-	case clusterConfig.GetMaximumGuestMemory() != nil:
-		maxGuest = clusterConfig.GetMaximumGuestMemory()
-	case vmi.Spec.Domain.Memory.Guest != nil:
-		maxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(clusterConfig.GetMaxHotplugRatio()), resource.BinarySI)
-	}
-
-	if err := memory.ValidateLiveUpdateMemory(&vmi.Spec, maxGuest); err != nil {
-		// memory hotplug is not compatible with this VM configuration
-		log.Log.V(2).Object(vmi).Infof("memory-hotplug disabled: %s", err)
-		return
-	}
-
-	vmi.Spec.Domain.Memory.MaxGuest = maxGuest
-}
-
-func setDefaultCPUArch(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
-	// Do some CPU arch specific setting.
-	switch {
-	case IsARM64(spec):
-		log.Log.V(4).Info("Apply Arm64 specific setting")
-		SetArm64Defaults(spec)
-	case IsS390X(spec):
-		log.Log.V(4).Info("Apply s390x specific setting")
-		SetS390xDefaults(spec)
+		return &mshvDefaults
 	default:
-		SetAmd64Defaults(spec)
+		return &kvm_defaults.KVMDefaults{
+			BaseDefaults: *base_defaults.NewBaseDefaults(
+				arch_defaults.NewAmd64ArchDefaults(),
+				arch_defaults.NewArm64ArchDefaults(),
+				arch_defaults.NewS390xArchDefaults(),
+			),
+		}
 	}
-	setDefaultCPUModel(clusterConfig, spec)
 }

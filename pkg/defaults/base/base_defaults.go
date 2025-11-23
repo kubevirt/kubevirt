@@ -12,6 +12,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	arch_defaults "kubevirt.io/kubevirt/pkg/defaults/arch"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -20,6 +21,10 @@ import (
 // TODO: Should we make the function signatures of these setters more uniform by passing
 // the clusterConfig as parameter to all of them? Order of parameters could be always (clusterConfig, vm/vmi/spec).
 type BaseDefaults struct {
+	amd64DefaultsSetter   arch_defaults.ArchDefaults
+	arm64DefaultsSetter   arch_defaults.ArchDefaults
+	s390x64DefaultsSetter arch_defaults.ArchDefaults
+
 	defaultVMMachineTypeSetter                func(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig)
 	defaultVMIMachineTypeSetter               func(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstanceSpec)
 	currentCPUTopologyStatusSetter            func(vmi *v1.VirtualMachineInstance)
@@ -37,8 +42,13 @@ type BaseDefaults struct {
 	defaultVolumeDiskSetter                   func(spec *v1.VirtualMachineInstanceSpec)
 }
 
-func NewBaseDefaults() *BaseDefaults {
+func NewBaseDefaults(amd64DefaultsSetter arch_defaults.ArchDefaults,
+	arm64DefaultsSetter arch_defaults.ArchDefaults,
+	s390x64DefaultsSetter arch_defaults.ArchDefaults) *BaseDefaults {
 	return &BaseDefaults{
+		amd64DefaultsSetter:                       amd64DefaultsSetter,
+		arm64DefaultsSetter:                       arm64DefaultsSetter,
+		s390x64DefaultsSetter:                     s390x64DefaultsSetter,
 		defaultVMMachineTypeSetter:                setVMDefaultMachineType,
 		defaultVMIMachineTypeSetter:               setDefaultMachineType,
 		currentCPUTopologyStatusSetter:            setCurrentCPUTopologyStatus,
@@ -67,19 +77,19 @@ func (b *BaseDefaults) SetDefaultVirtualMachineInstance(clusterConfig *virtconfi
 	if err := b.SetDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec); err != nil {
 		return err
 	}
-	// TODO setDefaultFeatures(&vmi.Spec) // TODO This is an architecture specific function
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	b.defaultHypervFeatureDependenciesSetter(&vmi.Spec)
 	b.defaultCPUModelSetter(clusterConfig, &vmi.Spec)
 	b.guestMemoryStatusSetter(vmi)
 	b.currentCPUTopologyStatusSetter(vmi)
 
-	// TODO Call the per-architecture defaulters here
-
-	// Hotplug needs to be enabled on ARM yet
-	// TODO Move this to architecture specific defaults
-	if !IsARM64(&vmi.Spec) {
-		setupHotplug(clusterConfig, vmi)
+	switch vmi.Spec.Architecture {
+	case "arm64":
+		b.arm64DefaultsSetter.SetArchDefaults(clusterConfig, vmi)
+	case "s390x":
+		b.s390x64DefaultsSetter.SetArchDefaults(clusterConfig, vmi)
+	default:
+		b.amd64DefaultsSetter.SetArchDefaults(clusterConfig, vmi)
 	}
 
 	return nil
