@@ -266,7 +266,8 @@
               "mediatedDeviceTypesValue"
             ]
           }
-        ]
+        ],
+        "disableHandling": true
       },
       "minCPUModel": "minCPUModelValue",
       "obsoleteCPUModels": {

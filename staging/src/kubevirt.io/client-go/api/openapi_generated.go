@@ -23538,6 +23538,13 @@ func schema_kubevirtio_api_core_v1_MediatedDevicesConfiguration(ref common.Refer
 							},
 						},
 					},
+					"disableHandling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Disable the creation and removal of mediated devices by virt-handler Replaces the deprecated DisableMDEVConfiguration feature gate",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
