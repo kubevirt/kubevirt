@@ -28322,7 +28322,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 					},
 					"runStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running",
+							Description: "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running Following are allowed values: - \"Always\": VMI should always be running. - \"Halted\": VMI should never be running. - \"Manual\": VMI can be started/stopped using API endpoints. - \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion. - \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

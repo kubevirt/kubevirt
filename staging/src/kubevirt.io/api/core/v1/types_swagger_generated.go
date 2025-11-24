@@ -466,7 +466,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
 		"running":               "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy\nDeprecated: VirtualMachineInstance field \"Running\" is now deprecated, please use RunStrategy instead.",
-		"runStrategy":           "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
+		"runStrategy":           "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running\nFollowing are allowed values:\n- \"Always\": VMI should always be running.\n- \"Halted\": VMI should never be running.\n- \"Manual\": VMI can be started/stopped using API endpoints.\n- \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.\n- \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
 		"instancetype":          "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
 		"preference":            "PreferenceMatcher references a set of preference that is used to fill fields in Template",
 		"template":              "Template is the direct specification of VirtualMachineInstance",
