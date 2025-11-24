@@ -19,9 +19,110 @@
 package compute
 
 import (
+	"encoding/json"
+	"encoding/xml"
+
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
+	"libvirt.org/go/libvirtxml"
+
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/types"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	convxml "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
 )
 
 func GetComputeHooks() []types.HookFunc {
-	return []types.HookFunc{}
+	return []types.HookFunc{
+		CPUDedicatedHook,
+	}
+}
+
+func CPUDedicatedHook(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) {
+	if !vmi.IsCPUDedicated() {
+		return
+	}
+	// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
+	// assigned in the source node with the new CPUs assigned in the target node
+	xmlstr, err := domain.Marshal()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to marshal domain to XML")
+		return
+	}
+
+	// First, unmarshal the XML into api.Domain to populate most fields automatically
+	var apiDomainSpec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &apiDomainSpec)
+	if err != nil {
+		log.Log.Errorf("Failed to unmarshal XML to api.Domain: %v", err.Error())
+		return
+	}
+
+	processedDomain, err := generateDomainForTargetCPUSetAndTopology(vmi, &apiDomainSpec)
+	if err != nil {
+		log.Log.Errorf("Failed to generate domain for target CPU set and topology: %v", err.Error())
+		return
+	}
+
+	if err = convertCPUDedicatedFields(processedDomain, domain); err != nil {
+		log.Log.Errorf("Failed to convert CPU dedicated fields: %v", err.Error())
+		return
+	}
+
+	log.Log.Object(vmi).Info("CPUDedicatedHook: CPU dedicated processing completed")
+}
+
+func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
+	var targetTopology cmdv1.Topology
+
+	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
+	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetNodeTopology), &targetTopology)
+	if err != nil {
+		return nil, err
+	}
+
+	useIOThreads := false
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
+			useIOThreads = true
+			break
+		}
+	}
+
+	domain := api.NewMinimalDomain(vmi.Name)
+	domain.Spec = *domSpec
+	cpuTopology := vcpu.GetCPUTopology(vmi)
+	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
+
+	// update cpu count to maximum hot plugable CPUs
+	vmiCPU := vmi.Spec.Domain.CPU
+	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
+		cpuTopology.Sockets = vmiCPU.MaxSockets
+		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
+	}
+	domain.Spec.CPU.Topology = cpuTopology
+	domain.Spec.VCPU = &api.VCPU{
+		Placement: "static",
+		CPUs:      cpuCount,
+	}
+	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet, useIOThreads)
+	if err != nil {
+		return nil, err
+	}
+
+	return domain, err
+}
+
+func convertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) error {
+	if domcfg.CPU == nil {
+		domcfg.CPU = &libvirtxml.DomainCPU{}
+	}
+	domcfg.CPU.Topology = convxml.ConvertKubeVirtCPUTopologyToDomainCPUTopology(domain.Spec.CPU.Topology)
+	domcfg.VCPU = convxml.ConvertKubeVirtVCPUToDomainVCPU(domain.Spec.VCPU)
+	domcfg.CPUTune = convxml.ConvertKubeVirtCPUTuneToDomainCPUTune(domain.Spec.CPUTune)
+	domcfg.NUMATune = convxml.ConvertKubeVirtNUMATuneToDomainNUMATune(domain.Spec.NUMATune)
+	domcfg.Features = convxml.ConvertKubeVirtFeaturesToDomainFeatureList(domain.Spec.Features)
+
+	return nil
 }
