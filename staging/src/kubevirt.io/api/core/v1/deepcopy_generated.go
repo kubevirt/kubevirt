@@ -3319,6 +3319,11 @@ func (in *MediatedDevicesConfiguration) DeepCopyInto(out *MediatedDevicesConfigu
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.Enabled != nil {
+		in, out := &in.Enabled, &out.Enabled
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

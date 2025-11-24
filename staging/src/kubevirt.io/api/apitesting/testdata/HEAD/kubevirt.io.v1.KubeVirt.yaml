@@ -160,6 +160,7 @@ spec:
       maxHotplugRatio: 4294967281
     machineType: machineTypeValue
     mediatedDevicesConfiguration:
+      enabled: true
       mediatedDeviceTypes:
       - mediatedDeviceTypesValue
       mediatedDevicesTypes:
