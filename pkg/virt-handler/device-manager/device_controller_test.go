@@ -28,12 +28,14 @@ import (
 	"sync/atomic"
 	"time"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
-	"k8s.io/client-go/kubernetes/fake"
+
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
+
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -89,7 +91,7 @@ var _ = Describe("Device Controller", func() {
 	var fakeConfigMap *virtconfig.ClusterConfig
 	var mockPCI *MockDeviceHandler
 	var ctrl *gomock.Controller
-	var clientTest *fake.Clientset
+	var fakeNodeStore cache.Store
 	var wg *sync.WaitGroup
 
 	runDeviceController := func(deviceController *DeviceController) {
@@ -102,7 +104,8 @@ var _ = Describe("Device Controller", func() {
 	}
 
 	BeforeEach(func() {
-		clientTest = fake.NewSimpleClientset()
+		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
+		fakeNodeStore = fakeNodeInformer.GetStore()
 		ctrl = gomock.NewController(GinkgoT())
 		mockPCI = NewMockDeviceHandler(ctrl)
 		mockPCI.EXPECT().GetDevicePCIID(gomock.Any(), gomock.Any()).Return("1234:5678", nil).AnyTimes()
@@ -147,7 +150,7 @@ var _ = Describe("Device Controller", func() {
 	Context("Basic Tests", func() {
 		It("Should indicate if node has device", func() {
 			var noDevices []Device
-			deviceController := NewDeviceController(host, maxDevices, permissions, noDevices, fakeConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, noDevices, fakeConfigMap, fakeNodeStore)
 			devicePath := path.Join(workDir, "fake-device")
 			res := deviceController.NodeHasDevice(devicePath)
 			Expect(res).To(BeFalse())
@@ -186,7 +189,7 @@ var _ = Describe("Device Controller", func() {
 
 		It("should start the device plugin immediately without delays", func() {
 			initialDevices := []Device{plugin2}
-			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, fakeNodeStore)
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 10 * time.Second}
 
 			runDeviceController(deviceController)
@@ -202,7 +205,7 @@ var _ = Describe("Device Controller", func() {
 			plugin2.Error = fmt.Errorf("failing")
 			initialDevices := []Device{plugin2}
 
-			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, fakeNodeStore)
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 300 * time.Millisecond}
 
 			runDeviceController(deviceController)
@@ -215,7 +218,7 @@ var _ = Describe("Device Controller", func() {
 
 		It("Should not block on other plugins", func() {
 			initialDevices := []Device{plugin1, plugin2}
-			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, fakeNodeStore)
 
 			runDeviceController(deviceController)
 
@@ -235,7 +238,7 @@ var _ = Describe("Device Controller", func() {
 			emptyConfigMap, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			Expect(emptyConfigMap.GetPermittedHostDevices()).To(BeNil())
 
-			deviceController := NewDeviceController(host, maxDevices, permissions, []Device{}, emptyConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, []Device{}, emptyConfigMap, fakeNodeStore)
 
 			deviceController.startDevice(deviceName1, plugin1)
 			deviceController.startDevice(deviceName2, plugin2)
@@ -256,7 +259,7 @@ var _ = Describe("Device Controller", func() {
 			Expect(emptyConfigMap.GetPermittedHostDevices()).To(BeNil())
 
 			permanentPlugins := []Device{plugin1, plugin2}
-			deviceController := NewDeviceController(host, maxDevices, permissions, permanentPlugins, emptyConfigMap, clientTest.CoreV1())
+			deviceController := NewDeviceController(host, maxDevices, permissions, permanentPlugins, emptyConfigMap, fakeNodeStore)
 
 			runDeviceController(deviceController)
 

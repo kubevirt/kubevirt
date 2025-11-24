@@ -122,6 +122,7 @@ var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup
 func NewVirtualMachineController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
+	nodeStore cache.Store,
 	host string,
 	virtPrivateDir string,
 	kubeletPodsDir string,
@@ -228,7 +229,7 @@ func NewVirtualMachineController(
 		permissions,
 		deviceManager.PermanentHostDevicePlugins(maxDevices, permissions),
 		clusterConfig,
-		clientset.CoreV1())
+		nodeStore)
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
 	return c, nil
