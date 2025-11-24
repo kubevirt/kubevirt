@@ -35,9 +35,8 @@ type BaseDefaults struct {
 	guestMemorySetter                         func(spec *v1.VirtualMachineInstanceSpec)
 	defaultResourceRequestsSetter             func(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec)
 	defaultGuestCPUTopologySetter             func(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec)
-	defaultCPUModelSetter                     func(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec)
 	defaultArchitectureSetter                 func(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec)
-	defaultNetworkInterfaceSetter             func(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) error
+	defaultNetworkInterfaceSetter             func(config vmispec.NetClusterConfigurer, spec *v1.VirtualMachineInstanceSpec) error
 	defaultArchitectureFromDataSourceSetter   func(clusterConfig *virtconfig.ClusterConfig, vm *v1.VirtualMachine, virtClient kubecli.KubevirtClient)
 	defaultVolumeDiskSetter                   func(spec *v1.VirtualMachineInstanceSpec)
 }
@@ -59,7 +58,6 @@ func NewBaseDefaults(amd64DefaultsSetter arch_defaults.ArchDefaults,
 		guestMemorySetter:                         setGuestMemory,
 		defaultResourceRequestsSetter:             setDefaultResourceRequests,
 		defaultGuestCPUTopologySetter:             SetDefaultGuestCPUTopology,
-		defaultCPUModelSetter:                     setDefaultCPUModel,
 		defaultArchitectureSetter:                 setDefaultArchitecture,
 		defaultArchitectureFromDataSourceSetter:   setDefaultArchitectureFromDataSource,
 		defaultNetworkInterfaceSetter:             vmispec.SetDefaultNetworkInterface,
@@ -79,7 +77,6 @@ func (b *BaseDefaults) SetDefaultVirtualMachineInstance(clusterConfig *virtconfi
 	}
 	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 	b.defaultHypervFeatureDependenciesSetter(&vmi.Spec)
-	b.defaultCPUModelSetter(clusterConfig, &vmi.Spec)
 	b.guestMemoryStatusSetter(vmi)
 	b.currentCPUTopologyStatusSetter(vmi)
 
@@ -289,23 +286,6 @@ func SetDefaultGuestCPUTopology(clusterConfig *virtconfig.ClusterConfig, spec *v
 		spec.Domain.CPU.Sockets = sockets
 		spec.Domain.CPU.Cores = cores
 		spec.Domain.CPU.Threads = threads
-	}
-}
-
-func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
-	// create cpu topology struct
-	if spec.Domain.CPU == nil {
-		spec.Domain.CPU = &v1.CPU{}
-	}
-
-	// if vmi doesn't have cpu model set
-	if spec.Domain.CPU.Model == "" {
-		if clusterConfigCPUModel := clusterConfig.GetCPUModel(); clusterConfigCPUModel != "" {
-			//set is as vmi cpu model
-			spec.Domain.CPU.Model = clusterConfigCPUModel
-		} else {
-			spec.Domain.CPU.Model = v1.DefaultCPUModel
-		}
 	}
 }
 

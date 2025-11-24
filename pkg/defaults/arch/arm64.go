@@ -17,6 +17,7 @@ package arch_defaults
 
 import (
 	v1 "kubevirt.io/api/core/v1"
+
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -28,7 +29,7 @@ const (
 
 // setDefaultArm64CPUModel set default cpu model to host-passthrough
 // TODO This is extra beyond the base default
-func setDefaultArm64CPUModel(spec *v1.VirtualMachineInstanceSpec) {
+func setDefaultArm64CPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Domain.CPU == nil {
 		spec.Domain.CPU = &v1.CPU{}
 	}
@@ -72,12 +73,13 @@ func setDefaultArm64DisksBus(spec *v1.VirtualMachineInstanceSpec) {
 
 }
 
+/*
 // SetArm64Defaults is mutating function for mutating-webhook
 func SetArm64Defaults(spec *v1.VirtualMachineInstanceSpec) {
 	setDefaultArm64CPUModel(spec)
 	setDefaultArm64Bootloader(spec)
 	setDefaultArm64DisksBus(spec)
-}
+}*/
 
 func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
 	return vmiSpec.Architecture == "arm64"

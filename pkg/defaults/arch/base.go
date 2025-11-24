@@ -4,6 +4,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -16,7 +17,7 @@ type BaseArchDefaults struct {
 	hotplugSetter           func(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance)
 	defaultFeaturesSetter   func(spec *v1.VirtualMachineInstanceSpec)
 	defaultDisksBusSetter   func(spec *v1.VirtualMachineInstanceSpec)
-	defaultCPUModelSetter   func(spec *v1.VirtualMachineInstanceSpec)
+	defaultCPUModelSetter   func(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec)
 	defaultBootloaderSetter func(spec *v1.VirtualMachineInstanceSpec)
 	defaultWatchdogSetter   func(spec *v1.VirtualMachineInstanceSpec)
 }
@@ -25,7 +26,7 @@ func (b *BaseArchDefaults) SetArchDefaults(clusterConfig *virtconfig.ClusterConf
 	b.hotplugSetter(clusterConfig, vmi)
 	b.defaultFeaturesSetter(&vmi.Spec)
 	b.defaultDisksBusSetter(&vmi.Spec)
-	b.defaultCPUModelSetter(&vmi.Spec)
+	b.defaultCPUModelSetter(clusterConfig, &vmi.Spec)
 	b.defaultBootloaderSetter(&vmi.Spec)
 	b.defaultWatchdogSetter(&vmi.Spec)
 }
@@ -35,7 +36,7 @@ func NewBaseArchDefaults() *BaseArchDefaults {
 		hotplugSetter:           setupHotplug,
 		defaultFeaturesSetter:   func(spec *v1.VirtualMachineInstanceSpec) {},
 		defaultDisksBusSetter:   func(spec *v1.VirtualMachineInstanceSpec) {},
-		defaultCPUModelSetter:   func(spec *v1.VirtualMachineInstanceSpec) {},
+		defaultCPUModelSetter:   setDefaultCPUModel,
 		defaultBootloaderSetter: func(spec *v1.VirtualMachineInstanceSpec) {},
 		defaultWatchdogSetter:   func(spec *v1.VirtualMachineInstanceSpec) {},
 	}
@@ -50,6 +51,10 @@ func setupHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachin
 }
 
 func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
+	if vmi.Spec.Domain.CPU == nil {
+		return
+	}
+
 	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
 		maxSockets := clusterConfig.GetMaximumCpuSockets()
 		if vmi.Spec.Domain.CPU.Sockets > maxSockets && maxSockets != 0 {
@@ -73,7 +78,7 @@ func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMac
 }
 
 func setupMemoryHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.Memory.MaxGuest != nil {
+	if vmi.Spec.Domain.Memory == nil || vmi.Spec.Domain.Memory.MaxGuest != nil {
 		return
 	}
 
@@ -92,4 +97,21 @@ func setupMemoryHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.Virtual
 	}
 
 	vmi.Spec.Domain.Memory.MaxGuest = maxGuest
+}
+
+func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
+	// create cpu topology struct
+	if spec.Domain.CPU == nil {
+		spec.Domain.CPU = &v1.CPU{}
+	}
+
+	// if vmi doesn't have cpu model set
+	if spec.Domain.CPU.Model == "" {
+		if clusterConfigCPUModel := clusterConfig.GetCPUModel(); clusterConfigCPUModel != "" {
+			//set is as vmi cpu model
+			spec.Domain.CPU.Model = clusterConfigCPUModel
+		} else {
+			spec.Domain.CPU.Model = v1.DefaultCPUModel
+		}
+	}
 }

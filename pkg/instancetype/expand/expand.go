@@ -107,7 +107,7 @@ func (e *expander) Expand(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine, er
 	}
 
 	// Apply defaults to VM.Spec.Template.Spec after applying instance types to ensure we don't conflict
-	if err := defaults.SetDefaultVirtualMachineInstanceSpec(e.clusterConfig, &expandedVM.Spec.Template.Spec); err != nil {
+	if err := defaults.NewDefault(e.clusterConfig).SetDefaultVirtualMachineInstanceSpec(e.clusterConfig, &expandedVM.Spec.Template.Spec); err != nil {
 		return nil, err
 	}
 

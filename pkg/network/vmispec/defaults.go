@@ -25,12 +25,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-type netClusterConfigurer interface {
+type NetClusterConfigurer interface {
 	GetDefaultNetworkInterface() string
 	IsBridgeInterfaceOnPodNetworkEnabled() bool
 }
 
-func SetDefaultNetworkInterface(config netClusterConfigurer, spec *v1.VirtualMachineInstanceSpec) error {
+func SetDefaultNetworkInterface(config NetClusterConfigurer, spec *v1.VirtualMachineInstanceSpec) error {
 	if autoAttach := spec.Domain.Devices.AutoattachPodInterface; autoAttach != nil && !*autoAttach {
 		return nil
 	}

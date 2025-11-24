@@ -47,7 +47,7 @@ import (
 	kvapi "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/config"
-	"kubevirt.io/kubevirt/pkg/defaults"
+	arch_defaults "kubevirt.io/kubevirt/pkg/defaults/arch"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
@@ -381,6 +382,7 @@ var _ = Describe("Converter", func() {
 	Context("with v1.VirtualMachineInstance", func() {
 
 		var vmi *v1.VirtualMachineInstance
+		var clusterConfig *virtconfig.ClusterConfig
 		domainType := "kvm"
 		if _, err := os.Stat("/dev/kvm"); errors.Is(err, os.ErrNotExist) {
 			domainType = "qemu"
@@ -388,12 +390,15 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 
+			clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
 					Name:      "testvmi",
 					Namespace: "mynamespace",
 				},
 			}
+
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Clock = &v1.Clock{
 				ClockOffset: v1.ClockOffset{
@@ -783,7 +788,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.Architecture = archconverter.NewConverter(arch)
-			vmiArchMutate(arch, vmi, c)
+			vmiArchMutate(clusterConfig, arch, vmi, c)
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
 			Entry("for amd64", amd64, convertedDomain),
@@ -795,7 +800,7 @@ var _ = Describe("Converter", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			c.Architecture = archconverter.NewConverter(arch)
-			vmiArchMutate(arch, vmi, c)
+			vmiArchMutate(clusterConfig, arch, vmi, c)
 			c.MemBalloonStatsPeriod = period
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
@@ -812,7 +817,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
 			c.Architecture = archconverter.NewConverter(arch)
-			vmiArchMutate(arch, vmi, c)
+			vmiArchMutate(clusterConfig, arch, vmi, c)
 			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
 		},
 			Entry("when Autoattach memballoon device is false for amd64", amd64, convertedDomainWithFalseAutoattach),
@@ -830,7 +835,7 @@ var _ = Describe("Converter", func() {
 				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 				vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
 				c.Architecture = archconverter.NewConverter(amd64)
-				vmiArchMutate(amd64, vmi, c)
+				vmiArchMutate(clusterConfig, amd64, vmi, c)
 				spec := vmiToDomain(vmi, c).Spec.DeepCopy()
 				Expect(PlacePCIDevicesOnRootComplex(spec)).To(Succeed())
 				data, err := xml.MarshalIndent(spec, "", "  ")
@@ -4232,94 +4237,20 @@ func vmiToDomainXMLToDomainSpec(vmi *v1.VirtualMachineInstance, c *ConverterCont
 
 // As the arch specific default disk is set in the mutating webhook, so in some tests,
 // it needs to run the mutate function before verifying converter
-func vmiArchMutate(arch string, vmi *v1.VirtualMachineInstance, c *ConverterContext) {
+func vmiArchMutate(clusterConfig *virtconfig.ClusterConfig, arch string, vmi *v1.VirtualMachineInstance, c *ConverterContext) {
+	var archDefaults arch_defaults.ArchDefaults
 	switch arch {
 	case arm64:
-		defaults.SetArm64Defaults(&vmi.Spec)
+		archDefaults = arch_defaults.NewArm64ArchDefaults()
 		// bootloader has been initialized in webhooks.SetArm64Defaults,
 		// c.EFIConfiguration.SecureLoader is needed in the converter.Convert_v1_VirtualMachineInstance_To_api_Domain.
 		c.EFIConfiguration = &EFIConfiguration{
 			SecureLoader: false,
 		}
 	case amd64:
-		defaults.SetAmd64Defaults(&vmi.Spec)
+		archDefaults = arch_defaults.NewAmd64ArchDefaults()
 	case s390x:
-		defaults.SetS390xDefaults(&vmi.Spec)
+		archDefaults = arch_defaults.NewS390xArchDefaults()
 	}
+	archDefaults.SetArchDefaults(clusterConfig, vmi)
 }
-
-var _ = Describe("Defaults", func() {
-	It("should set the default watchdog and the default watchdog action for amd64", func() {
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						Watchdog: &v1.Watchdog{
-							WatchdogDevice: v1.WatchdogDevice{
-								I6300ESB: &v1.I6300ESBWatchdog{},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		defaults.SetAmd64Watchdog(&vmi.Spec)
-		Expect(vmi.Spec.Domain.Devices.Watchdog.I6300ESB.Action).To(Equal(v1.WatchdogActionReset))
-
-		vmi.Spec.Domain.Devices.Watchdog.I6300ESB = nil
-		defaults.SetAmd64Watchdog(&vmi.Spec)
-		Expect(vmi.Spec.Domain.Devices.Watchdog.I6300ESB).ToNot(BeNil())
-		Expect(vmi.Spec.Domain.Devices.Watchdog.I6300ESB.Action).To(Equal(v1.WatchdogActionReset))
-	})
-
-	It("should not set a watchdog if none is defined on amd64", func() {
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{},
-				},
-			},
-		}
-
-		defaults.SetAmd64Watchdog(&vmi.Spec)
-		Expect(vmi.Spec.Domain.Devices.Watchdog).To(BeNil())
-	})
-
-	It("should set the default watchdog and the default watchdog action for s390x", func() {
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{
-						Watchdog: &v1.Watchdog{
-							WatchdogDevice: v1.WatchdogDevice{
-								Diag288: &v1.Diag288Watchdog{},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		defaults.SetS390xWatchdog(&vmi.Spec)
-		Expect(vmi.Spec.Domain.Devices.Watchdog.Diag288.Action).To(Equal(v1.WatchdogActionReset))
-
-		vmi.Spec.Domain.Devices.Watchdog.Diag288 = nil
-		defaults.SetS390xWatchdog(&vmi.Spec)
-		Expect(vmi.Spec.Domain.Devices.Watchdog.Diag288).ToNot(BeNil())
-		Expect(vmi.Spec.Domain.Devices.Watchdog.Diag288.Action).To(Equal(v1.WatchdogActionReset))
-	})
-
-	It("should not set a watchdog if none is defined on s390x", func() {
-		vmi := &v1.VirtualMachineInstance{
-			Spec: v1.VirtualMachineInstanceSpec{
-				Domain: v1.DomainSpec{
-					Devices: v1.Devices{},
-				},
-			},
-		}
-
-		defaults.SetS390xWatchdog(&vmi.Spec)
-		Expect(vmi.Spec.Domain.Devices.Watchdog).To(BeNil())
-	})
-})

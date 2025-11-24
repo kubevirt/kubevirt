@@ -40,12 +40,6 @@ func setDefaultAmd64DisksBus(spec *v1.VirtualMachineInstanceSpec) {
 	}
 }
 
-// SetAmd64Defaults is mutating function for mutating-webhook
-func SetAmd64Defaults(spec *v1.VirtualMachineInstanceSpec) {
-	setDefaultAmd64DisksBus(spec)
-	SetAmd64Watchdog(spec)
-}
-
 func SetAmd64Watchdog(spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Domain.Devices.Watchdog != nil {
 		if spec.Domain.Devices.Watchdog.I6300ESB == nil {
@@ -57,7 +51,7 @@ func SetAmd64Watchdog(spec *v1.VirtualMachineInstanceSpec) {
 	}
 }
 
-type AmdDefaults struct {
+type Amd64Defaults struct {
 	BaseArchDefaults
 }
 
@@ -65,7 +59,7 @@ func NewAmd64ArchDefaults() ArchDefaults {
 	baseArchDefaults := NewBaseArchDefaults()
 	baseArchDefaults.defaultDisksBusSetter = setDefaultAmd64DisksBus
 	baseArchDefaults.defaultWatchdogSetter = SetAmd64Watchdog
-	amd64Defaults := AmdDefaults{
+	amd64Defaults := Amd64Defaults{
 		BaseArchDefaults: *baseArchDefaults,
 	}
 
