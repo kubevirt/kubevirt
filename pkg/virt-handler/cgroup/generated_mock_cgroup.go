@@ -113,21 +113,6 @@ func (mr *MockManagerMockRecorder) GetCgroupVersion() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCgroupVersion", reflect.TypeOf((*MockManager)(nil).GetCgroupVersion))
 }
 
-// GetCpuSet mocks base method.
-func (m *MockManager) GetCpuSet() (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetCpuSet")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetCpuSet indicates an expected call of GetCpuSet.
-func (mr *MockManagerMockRecorder) GetCpuSet() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCpuSet", reflect.TypeOf((*MockManager)(nil).GetCpuSet))
-}
-
 // Set mocks base method.
 func (m *MockManager) Set(r *configs.Resources) error {
 	m.ctrl.T.Helper()

@@ -17801,7 +17801,7 @@
       "type": "string"
      },
      "targetCPUSet": {
-      "description": "If the VMI requires dedicated CPUs, this field will hold the dedicated CPU set on the target node",
+      "description": "If the VMI requires dedicated CPUs, this field will hold the dedicated CPU set on the target node Deprecated: The VirtualMachineInstance field \"TargetCPUSet\" is deprecated and will no longer be populated starting from version 1.8.",
       "type": "array",
       "items": {
        "type": "integer",

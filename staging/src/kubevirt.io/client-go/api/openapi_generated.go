@@ -26822,7 +26822,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationState(ref comm
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "If the VMI requires dedicated CPUs, this field will hold the dedicated CPU set on the target node",
+							Description: "If the VMI requires dedicated CPUs, this field will hold the dedicated CPU set on the target node Deprecated: The VirtualMachineInstance field \"TargetCPUSet\" is deprecated and will no longer be populated starting from version 1.8.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

@@ -91,7 +91,6 @@ var _ = Describe("Compute Hooks", func() {
 
 			By("saving that topology in the migration state of the VMI")
 			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
-				TargetCPUSet:       []int{6, 7},
 				TargetNodeTopology: string(targetNodeTopology),
 			}
 
@@ -101,7 +100,8 @@ var _ = Describe("Compute Hooks", func() {
 			Expect(err).NotTo(HaveOccurred(), "failed to parse input domain XML")
 
 			By("running the CPU dedicated hook")
-			compute.CPUDedicatedHook(vmi, &domain)
+			hook := compute.NewCPUDedicatedHook(func() ([]int, error) { return []int{6, 7}, nil })
+			hook(vmi, &domain)
 
 			By("marshaling the modified domain back to XML")
 			newXML, err := domain.Marshal()

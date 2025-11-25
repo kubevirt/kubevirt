@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"libvirt.org/go/libvirtxml"
@@ -35,11 +37,18 @@ import (
 
 func GetComputeHooks() []types.HookFunc {
 	return []types.HookFunc{
-		CPUDedicatedHook,
+		NewCPUDedicatedHook(util.GetPodCPUSet),
 	}
 }
 
-func CPUDedicatedHook(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) {
+// NewCPUDedicatedHook creates a CPU dedicated hook with the provided cpuSetGetter function
+func NewCPUDedicatedHook(cpuSetGetter func() ([]int, error)) types.HookFunc {
+	return func(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) {
+		cpuDedicatedHook(vmi, domain, cpuSetGetter)
+	}
+}
+
+func cpuDedicatedHook(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain, cpuSetGetter func() ([]int, error)) {
 	if !vmi.IsCPUDedicated() {
 		return
 	}
@@ -58,8 +67,13 @@ func CPUDedicatedHook(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain)
 		log.Log.Errorf("Failed to unmarshal XML to api.Domain: %v", err.Error())
 		return
 	}
-
-	processedDomain, err := generateDomainForTargetCPUSetAndTopology(vmi, &apiDomainSpec)
+	cpuSet, err := cpuSetGetter()
+	if err != nil {
+		log.Log.Errorf("Failed to get cpuSet: %v", err.Error())
+		return
+	}
+	log.Log.Infof("wallak shuuu %v", cpuSet)
+	processedDomain, err := generateDomainForTargetCPUSetAndTopology(vmi, &apiDomainSpec, cpuSet)
 	if err != nil {
 		log.Log.Errorf("Failed to generate domain for target CPU set and topology: %v", err.Error())
 		return
@@ -73,10 +87,8 @@ func CPUDedicatedHook(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain)
 	log.Log.Object(vmi).Info("CPUDedicatedHook: CPU dedicated processing completed")
 }
 
-func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
+func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec, cpuSet []int) (*api.Domain, error) {
 	var targetTopology cmdv1.Topology
-
-	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
 	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetNodeTopology), &targetTopology)
 	if err != nil {
 		return nil, err
@@ -106,7 +118,7 @@ func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, do
 		Placement: "static",
 		CPUs:      cpuCount,
 	}
-	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet, useIOThreads)
+	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, cpuSet, useIOThreads)
 	if err != nil {
 		return nil, err
 	}
