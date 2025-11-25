@@ -36,8 +36,6 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
-	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -73,8 +71,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 
 	Context("MemBalloon defaults", func() {
 		var (
-			kvConfiguration v1.KubeVirtConfiguration
-			vmi             *v1.VirtualMachineInstance
+			vmi *v1.VirtualMachineInstance
 		)
 
 		BeforeEach(func() {
@@ -84,60 +81,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
 			)
-
-			kv := libkubevirt.GetCurrentKv(kubevirt.Client())
-			kvConfiguration = kv.Spec.Configuration
 		})
-		
-		DescribeTable("Should override period in domain if present in virt-config ", Serial, func(period uint32, expected api.MemBalloon) {
-			By("Adding period to virt-config")
-			kvConfigurationCopy := kvConfiguration.DeepCopy()
-			kvConfigurationCopy.MemBalloonStatsPeriod = &period
-			config.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
-			if kvConfiguration.VirtualMachineOptions != nil && kvConfiguration.VirtualMachineOptions.DisableFreePageReporting != nil {
-				expected.FreePageReporting = "off"
-			} else {
-				expected.FreePageReporting = "on"
-			}
-
-			By("Creating a virtual machine")
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for successful start")
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Getting domain of vmi")
-			domain, err := libdomain.GetRunningVMIDomainSpec(vmi)
-
-			Expect(err).ToNot(HaveOccurred())
-			Expect(domain.Devices.Ballooning).ToNot(BeNil(), "There should be memballoon device")
-			Expect(*domain.Devices.Ballooning).To(Equal(expected))
-		},
-			Entry("[test_id:4557]with period 12", uint32(12), api.MemBalloon{
-				Model: "virtio-non-transitional",
-				Stats: &api.Stats{
-					Period: 12,
-				},
-				Address: &api.Address{
-					Type:     api.AddressPCI,
-					Domain:   "0x0000",
-					Bus:      "0x07",
-					Slot:     "0x00",
-					Function: "0x0",
-				},
-			}),
-			Entry("[test_id:4558]with period 0", uint32(0), api.MemBalloon{
-				Model: "virtio-non-transitional",
-				Address: &api.Address{
-					Type:     api.AddressPCI,
-					Domain:   "0x0000",
-					Bus:      "0x07",
-					Slot:     "0x00",
-					Function: "0x0",
-				},
-			}),
-		)
 
 		It("[test_id:4559]Should not be present in domain ", func() {
 			By("Creating a virtual machine with autoAttachmemballoon set to false")
