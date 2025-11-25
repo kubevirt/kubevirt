@@ -1098,6 +1098,17 @@ var CRDsValidation map[string]string = map[string]string{
                     allowed to be compared to the requested size (to account for various overheads).
                     Defaults to 10
                   type: integer
+                qgs:
+                  description: TDX configuration
+                  properties:
+                    enabled:
+                      description: Indicates whether TDX VM should require QGS in
+                        order to be scheduled, defaults to true
+                      type: boolean
+                    qgsSocketPath:
+                      description: QGS socket path, defaults to /var/run/tdx-qgs/qgs.socket
+                      type: string
+                  type: object
                 useEmulation:
                   description: |-
                     UseEmulation can be set to true to allow fallback to software emulation

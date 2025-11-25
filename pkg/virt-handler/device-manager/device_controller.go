@@ -23,6 +23,7 @@ import (
 	"context"
 	"math"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -187,7 +188,9 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 
 	// Add QGS device plugin for TDX workloads
 	if c.virtConfig.WorkloadEncryptionTDXEnabled() {
-		qgsPlugin, err := NewSocketDevicePlugin("qgs", "/var/run/tdx-qgs", "qgs.socket", c.maxDevices, selinux.SELinuxExecutor{}, NewPermissionManager())
+		socketDir := path.Dir(c.virtConfig.GetQGSSocketPath())
+		socketName := path.Base(c.virtConfig.GetQGSSocketPath())
+		qgsPlugin, err := NewSocketDevicePlugin("qgs", socketDir, socketName, c.maxDevices, selinux.SELinuxExecutor{}, NewPermissionManager())
 		if err != nil {
 			log.DefaultLogger().Reason(err).Errorf("Failed to create QGS device plugin")
 		} else {

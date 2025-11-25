@@ -112,7 +112,11 @@
             "nodeVerbosityKey": 18446744073709551603
           }
         },
-        "clusterProfiler": true
+        "clusterProfiler": true,
+        "qgs": {
+          "enabled": true,
+          "qgsSocketPath": "qgsSocketPathValue"
+        }
       },
       "emulatedMachines": [
         "emulatedMachinesValue"

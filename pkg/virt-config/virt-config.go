@@ -76,6 +76,7 @@ const (
 	DefaultVirtHandlerLogVerbosity                  = 2
 	DefaultVirtLauncherLogVerbosity                 = 2
 	DefaultVirtOperatorLogVerbosity                 = 2
+	DefaultQGSSocketPath                            = "/var/run/tdx-qgs/qgs.socket"
 
 	// Default REST configuration settings
 	DefaultVirtHandlerQPS         float32 = 50
@@ -101,6 +102,26 @@ func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
 
 func (c *ClusterConfig) AllowEmulation() bool {
 	return c.GetConfig().DeveloperConfiguration.UseEmulation
+}
+
+func (config *ClusterConfig) RequireQGS() bool {
+	if !config.WorkloadEncryptionTDXEnabled() {
+		return false
+	}
+	qgs := config.GetConfig().DeveloperConfiguration.QGS
+	// When QGS or QGS.Enabled is not set, we default to true.
+	if qgs == nil || qgs.Enabled == nil {
+		return true
+	}
+	return *qgs.Enabled
+}
+
+func (c *ClusterConfig) GetQGSSocketPath() string {
+	qgs := c.GetConfig().DeveloperConfiguration.QGS
+	if qgs == nil || qgs.QgsSocketPath == nil {
+		return DefaultQGSSocketPath
+	}
+	return *qgs.QgsSocketPath
 }
 
 func (c *ClusterConfig) GetMigrationConfiguration() *v1.MigrationConfiguration {

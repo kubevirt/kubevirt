@@ -132,6 +132,9 @@ spec:
       nodeSelectors:
         nodeSelectorsKey: nodeSelectorsValue
       pvcTolerateLessSpaceUpToPercent: -31
+      qgs:
+        enabled: true
+        qgsSocketPath: qgsSocketPathValue
       useEmulation: true
     emulatedMachines:
     - emulatedMachinesValue

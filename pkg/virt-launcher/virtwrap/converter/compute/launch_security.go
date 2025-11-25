@@ -83,9 +83,11 @@ func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 		}
 		return domain
 	} else if launchSec.TDX != nil {
+		// Get QGS socket path from annotation or use default
+		qgsSocketPath := vmi.Annotations[v1.QGSSocketPathAnnotation]
 		return &api.LaunchSecurity{
 			Type:                   "tdx",
-			QuoteGenerationService: &api.QGS{Path: "/var/run/tdx-qgs/qgs.socket"},
+			QuoteGenerationService: &api.QGS{Path: qgsSocketPath},
 		}
 	}
 
