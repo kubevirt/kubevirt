@@ -152,6 +152,8 @@ func (store *GhostRecordStore) Exists(namespace string, name string) bool {
 	return ok
 }
 
+const maxGhostRecordRetries = 3
+
 func (store *GhostRecordStore) Add(namespace string, name string, socketFile string, uid types.UID) (err error) {
 	store.Lock()
 	defer store.Unlock()
@@ -166,39 +168,67 @@ func (store *GhostRecordStore) Add(namespace string, name string, socketFile str
 	}
 
 	key := namespace + "/" + name
-	record, ok := store.cache[key]
-	if !ok {
-		// record doesn't exist, so add new one.
-		record := ghostRecord{
-			Name:       name,
-			Namespace:  namespace,
-			SocketFile: socketFile,
-			UID:        uid,
+
+	var lastErr error
+	for attempt := 0; attempt < maxGhostRecordRetries; attempt++ {
+		record, ok := store.cache[key]
+
+		// This protects us from stomping on a previous ghost record
+		// that was not cleaned up properly. A ghost record that was
+		// not deleted indicates that the VMI shutdown process did not
+		// properly handle cleanup of local data.
+		// If conflict detected, delete the old record and retry.
+		if ok && record.UID != uid {
+			log.Log.Warningf("Ghost record conflict detected for key %s: existing UID %s differs from new UID %s, attempt %d/%d - deleting and retrying",
+				key, record.UID, uid, attempt+1, maxGhostRecordRetries)
+			if err := store.deleteUnlocked(namespace, name); err != nil {
+				lastErr = fmt.Errorf("failed to delete conflicting ghost record on attempt %d: %w", attempt+1, err)
+				continue
+			}
+			ok = false
 		}
-		if err := store.checkpointManager.Store(string(uid), &record); err != nil {
-			return fmt.Errorf("failed to checkpoint %s, %w", uid, err)
+
+		if ok && filepath.Clean(record.SocketFile) != socketFile {
+			log.Log.Warningf("Ghost record conflict detected for key %s: existing socket %s differs from new socket %s, attempt %d/%d - deleting and retrying",
+				key, record.SocketFile, socketFile, attempt+1, maxGhostRecordRetries)
+			if err := store.deleteUnlocked(namespace, name); err != nil {
+				lastErr = fmt.Errorf("failed to delete conflicting ghost record on attempt %d: %w", attempt+1, err)
+				continue
+			}
+			ok = false
 		}
-		store.cache[key] = record
+
+		if !ok {
+			// record doesn't exist, so add new one.
+			newRecord := ghostRecord{
+				Name:       name,
+				Namespace:  namespace,
+				SocketFile: socketFile,
+				UID:        uid,
+			}
+			if err := store.checkpointManager.Store(string(uid), &newRecord); err != nil {
+				lastErr = fmt.Errorf("failed to checkpoint %s on attempt %d: %w", uid, attempt+1, err)
+				continue
+			}
+			store.cache[key] = newRecord
+		}
+
+		// Success
+		return nil
 	}
 
-	// This protects us from stomping on a previous ghost record
-	// that was not cleaned up properly. A ghost record that was
-	// not deleted indicates that the VMI shutdown process did not
-	// properly handle cleanup of local data.
-	if ok && record.UID != uid {
-		return fmt.Errorf("can not add ghost record when entry already exists with differing UID")
-	}
-
-	if ok && filepath.Clean(record.SocketFile) != socketFile {
-		return fmt.Errorf("can not add ghost record when entry already exists with differing socket file location")
-	}
-
-	return nil
+	return fmt.Errorf("failed to add ghost record after %d attempts: %w", maxGhostRecordRetries, lastErr)
 }
 
 func (store *GhostRecordStore) Delete(namespace string, name string) error {
 	store.Lock()
 	defer store.Unlock()
+	return store.deleteUnlocked(namespace, name)
+}
+
+// deleteUnlocked removes a ghost record without acquiring the lock.
+// Caller must hold the store lock.
+func (store *GhostRecordStore) deleteUnlocked(namespace string, name string) error {
 	key := namespace + "/" + name
 	record, ok := store.cache[key]
 	if !ok {
