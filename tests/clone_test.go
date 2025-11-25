@@ -185,7 +185,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 		Context("[sig-compute]simple VM and cloning operations", decorators.SigCompute, func() {
 
 			expectVMRunnable := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
-				return expectVMRunnable(vm, console.LoginToCirros)
+				return expectVMRunnable(vm, console.LoginToAlpine)
 			}
 
 			It("simple default clone", func() {
@@ -711,7 +711,7 @@ func withFirmware(firmware *virtv1.Firmware) libvmi.Option {
 }
 
 func createSourceVM(options ...libvmi.Option) (*virtv1.VirtualMachine, error) {
-	vmi := libvmifact.NewCirros(options...)
+	vmi := libvmifact.NewAlpine(options...)
 	vmi.Namespace = testsuite.GetTestNamespace(nil)
 	vm := libvmi.NewVirtualMachine(vmi,
 		libvmi.WithAnnotations(vmi.Annotations),

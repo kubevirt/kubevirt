@@ -45,7 +45,7 @@ var _ = Describe("[sig-compute]VM Rollout Strategy", decorators.SigCompute, Seri
 
 		It("[test_id:11207]should set RestartRequired when changing any spec field", func() {
 			By("Creating a VM with CPU topology")
-			vmi := libvmifact.NewCirros()
+			vmi := libvmifact.NewAlpine()
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{
 				Sockets:    1,
@@ -60,7 +60,7 @@ var _ = Describe("[sig-compute]VM Rollout Strategy", decorators.SigCompute, Seri
 				vmi, err = kubevirt.Client().VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				return err
 			}, 120*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 			By("Updating CPU sockets to a value that would be valid in LiveUpdate")
 			patchData, err := patch.GenerateTestReplacePatch("/spec/template/spec/domain/cpu/sockets", 1, 2)
