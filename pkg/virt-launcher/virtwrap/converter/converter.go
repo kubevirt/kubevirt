@@ -1012,29 +1012,6 @@ func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices
 	domainDevices.SoundCards = soundCards
 }
 
-func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input) error {
-	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB && input.Bus != "" {
-		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
-	}
-
-	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB {
-		input.Bus = v1.InputBusUSB
-	}
-
-	if input.Type != v1.InputTypeTablet {
-		return fmt.Errorf("input contains unsupported type %s", input.Type)
-	}
-
-	inputDevice.Bus = input.Bus
-	inputDevice.Type = input.Type
-	inputDevice.Alias = api.NewUserDefinedAlias(input.Name)
-
-	if input.Bus == v1.InputBusVirtio {
-		inputDevice.Model = v1.VirtIO
-	}
-	return nil
-}
-
 func convertFeatureState(source *v1.FeatureState) *api.FeatureState {
 	if source != nil {
 		return &api.FeatureState{
@@ -1492,6 +1469,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.RNGWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 		),
+		compute.NewInputDeviceDomainConfigurator(architecture),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1729,19 +1707,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
 	ConvertV1ToAPIBalloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
-
-	if vmi.Spec.Domain.Devices.Inputs != nil {
-		inputDevices := make([]api.Input, 0)
-		for i := range vmi.Spec.Domain.Devices.Inputs {
-			inputDevice := api.Input{}
-			err := Convert_v1_Input_To_api_InputDevice(&vmi.Spec.Domain.Devices.Inputs[i], &inputDevice)
-			if err != nil {
-				return err
-			}
-			inputDevices = append(inputDevices, inputDevice)
-		}
-		domain.Spec.Devices.Inputs = inputDevices
-	}
 
 	err = Convert_v1_Usbredir_To_api_Usbredir(vmi, &domain.Spec.Devices, c)
 	if err != nil {
