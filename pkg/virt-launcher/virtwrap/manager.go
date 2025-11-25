@@ -855,7 +855,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		if err != nil {
 			return domain, err
 		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
+		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated)
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
@@ -1388,10 +1388,7 @@ func (l *LibvirtDomainManager) syncDisks(
 		if err != nil {
 			return err
 		}
-		err = converter.SetOptimalIOMode(&attachDisk)
-		if err != nil {
-			return err
-		}
+		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated)
 
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {

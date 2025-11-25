@@ -112,35 +112,6 @@ func memBalloonWithModelAndPeriod(model string, period int) string {
 
 }
 
-var _ = Describe("getOptimalBlockIO", func() {
-
-	It("Should detect disk block sizes for a file DiskSource", func() {
-		disk := &api.Disk{
-			Source: api.DiskSource{
-				File: "/",
-			},
-		}
-		blockIO, err := getOptimalBlockIO(disk)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(blockIO.LogicalBlockSize).To(Equal(blockIO.PhysicalBlockSize))
-		// The default for most filesystems nowadays is 4096 but it can be changed.
-		// As such, relying on a specific value is flakey unless
-		// we create a disk image and filesystem just for this test.
-		// For now, as long as we have a value, the exact value doesn't matter.
-		Expect(blockIO.LogicalBlockSize).ToNot(BeZero())
-		Expect(blockIO.DiscardGranularity).ToNot(BeNil())
-		Expect(*blockIO.DiscardGranularity).To(Equal(blockIO.LogicalBlockSize))
-	})
-
-	It("Should fail for non-file or non-block devices", func() {
-		disk := &api.Disk{
-			Source: api.DiskSource{},
-		}
-		_, err := getOptimalBlockIO(disk)
-		Expect(err).To(HaveOccurred())
-	})
-})
-
 var _ = Describe("Converter", func() {
 
 	TestSmbios := &cmdv1.SMBios{}
@@ -1792,6 +1763,41 @@ var _ = Describe("Converter", func() {
 		},
 			MultiArchEntry(""),
 		)
+
+		Context("BlockIO", func() {
+			It("Should detect disk block sizes for a file DiskSource", func() {
+				v1Disk := v1.Disk{
+					Name: "test",
+					BlockSize: &v1.BlockSize{
+						MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
+					},
+				}
+				apiDisk := api.Disk{Source: api.DiskSource{File: "/"}}
+				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk)).To(Succeed())
+
+				blockIO := apiDisk.BlockIO
+				Expect(blockIO.LogicalBlockSize).To(Equal(blockIO.PhysicalBlockSize))
+				// The default for most filesystems nowadays is 4096 but it can be changed.
+				// As such, relying on a specific value is flakey unless
+				// we create a disk image and filesystem just for this test.
+				// For now, as long as we have a value, the exact value doesn't matter.
+				Expect(blockIO.LogicalBlockSize).ToNot(BeZero())
+				Expect(blockIO.DiscardGranularity).ToNot(BeNil())
+				Expect(*blockIO.DiscardGranularity).To(Equal(blockIO.LogicalBlockSize))
+			})
+
+			It("Should fail for non-file or non-block devices", func() {
+				const blockIoConfigErrorMessage = "failed to configure disk with block size detection enabled"
+				v1Disk := v1.Disk{
+					Name: "test",
+					BlockSize: &v1.BlockSize{
+						MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
+					},
+				}
+				apiDisk := api.Disk{Source: api.DiskSource{}}
+				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
+			})
+		})
 	})
 	Context("Network convert", func() {
 		var vmi *v1.VirtualMachineInstance
@@ -3992,7 +3998,7 @@ var _ = Describe("direct IO checker", func() {
 	})
 })
 
-var _ = Describe("SetDriverCacheMode", func() {
+var _ = Describe("Driver Cache and IO Settings", func() {
 	var ctrl *gomock.Controller
 	var mockDirectIOChecker *MockDirectIOChecker
 
@@ -4044,6 +4050,17 @@ var _ = Describe("SetDriverCacheMode", func() {
 		Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckTrue),
 		Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckFalse),
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
+	)
+
+	DescribeTable("should set appropriate IO modes", func(disk *api.Disk, expectedIO v1.DriverIO, isPreAllocated bool) {
+		SetOptimalIOMode(disk, func(path string) bool { return isPreAllocated })
+		Expect(disk.Driver.IO).To(Equal(expectedIO))
+	},
+		Entry("user-specified IO", &api.Disk{Driver: &api.DiskDriver{IO: v1.IOThreads}}, v1.IOThreads, false),
+		Entry("sparse image", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{}}, v1.DriverIO(""), false),
+		Entry("pre-allocated image with O_DIRECT", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}}, v1.IONative, true),
+		Entry("pre-allocated image without O_DIRECT", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheWriteThrough)}}, v1.DriverIO(""), true),
+		Entry("block device with O_DIRECT", &api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}}, v1.IONative, true),
 	)
 })
 
