@@ -1512,7 +1512,6 @@ func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient,
 		{command: networkPrefix + bridgeJVlanShow, fileNameSuffix: "brvlan"},
 		{command: networkPrefix + bridgeFdb, fileNameSuffix: "brfdb"},
 		{command: networkPrefix + "nft list ruleset", fileNameSuffix: "nftlist"},
-		{command: "lsfd --summary", fileNameSuffix: "lsfd-summary"},
 		{command: "ulimit -a", fileNameSuffix: "ulimit-a"},
 	}
 
