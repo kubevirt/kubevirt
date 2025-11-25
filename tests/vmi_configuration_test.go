@@ -50,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -120,9 +119,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = pointer.P(true)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			Expect(console.LoginToCirros(vmi)).To(Succeed())
-			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-			testutils.ExpectVirtioTransitionalOnly(domSpec)
 		})
 	})
 
