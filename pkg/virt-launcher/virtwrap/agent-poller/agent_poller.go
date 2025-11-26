@@ -279,13 +279,12 @@ func incrementPollInterval(interval, maxInterval time.Duration) time.Duration {
 }
 
 type AgentPoller struct {
-	Connection     cli.Connection
-	VmiUID         types.UID
-	domainName     string
-	agentDone      chan struct{}
-	agentConnected bool
-	workers        []PollerWorker
-	agentStore     *AsyncAgentStore
+	Connection cli.Connection
+	VmiUID     types.UID
+	domainName string
+	agentDone  chan struct{}
+	workers    []PollerWorker
+	agentStore *AsyncAgentStore
 }
 
 // CreatePoller creates the new structure that holds guest agent pollers
@@ -301,11 +300,10 @@ func CreatePoller(
 	qemuAgentFSFreezeStatusInterval time.Duration,
 ) *AgentPoller {
 	return &AgentPoller{
-		Connection:     connection,
-		VmiUID:         vmiUID,
-		domainName:     domainName,
-		agentConnected: false,
-		agentStore:     store,
+		Connection: connection,
+		VmiUID:     vmiUID,
+		domainName: domainName,
+		agentStore: store,
 		workers: []PollerWorker{
 			// Polling for QEMU agent commands
 			{
@@ -384,7 +382,7 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 		if domainEvent.Event == libvirt.DOMAIN_EVENT_RESUMED {
 			// Only start poller on domain resume if agent is still connected
 			// This prevents starting the poller before agent is ready
-			if p.agentConnected {
+			if p.agentStore.IsAgentConnected() {
 				log.Log.Infof("Starting agent poller for %s due to domain resume (agent connected)", p.domainName)
 				p.Start()
 			}
@@ -393,14 +391,12 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 	case agentEvent != nil:
 		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED {
 			log.Log.Infof("Stopping agent poller for %s due to agent disconnect", p.domainName)
-			p.agentConnected = false
 			p.agentStore.Store(agentConnected, false)
 			p.Stop()
 			return
 		}
 		if agentEvent.State == libvirt.CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_CONNECTED {
 			log.Log.Infof("Starting agent poller for %s due to agent connect", p.domainName)
-			p.agentConnected = true
 			p.agentStore.Store(agentConnected, true)
 			p.Start()
 			return
