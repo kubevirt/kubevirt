@@ -19,17 +19,32 @@
 package util
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
 func TestMarshallObject(t *testing.T) {
 	var imagePullSecret []v1.LocalObjectReference
-	handler := components.NewHandlerDaemonSet("{{.Namespace}}", "", "{{.DockerPrefix}}", "{{.DockerTag}}", "", "", "", "", "", "", "", "", "", "", v1.PullIfNotPresent, imagePullSecret, nil, "2", nil, false)
+	imagePullSecretsJSON, _ := json.Marshal(imagePullSecret)
+
+	config := &operatorutil.KubeVirtDeploymentConfig{
+		Namespace:       "{{.Namespace}}",
+		Registry:        "",
+		ImagePrefix:     "{{.DockerPrefix}}",
+		KubeVirtVersion: "{{.DockerTag}}",
+		AdditionalProperties: map[string]string{
+			operatorutil.AdditionalPropertiesNamePullPolicy: string(v1.PullIfNotPresent),
+			operatorutil.AdditionalPropertiesPullSecrets:    string(imagePullSecretsJSON),
+		},
+	}
+
+	handler := components.NewHandlerDaemonSet(config, "", "", "")
 	writer := strings.Builder{}
 
 	MarshallObject(handler, &writer)
