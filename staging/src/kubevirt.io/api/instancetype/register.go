@@ -19,12 +19,17 @@
 
 package instancetype
 
+import (
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
+
 const (
 	// GroupName is the group name used in this package
 	GroupName = "instancetype.kubevirt.io"
 
 	// Used to determine the version to upgrade ControllerRevision stashed objects to
-	LatestVersion = "v1beta1"
+	LatestVersion = "v1"
 
 	SingularResourceName = "virtualmachineinstancetype"
 	PluralResourceName   = SingularResourceName + "s"
@@ -38,6 +43,41 @@ const (
 	ClusterSingularPreferenceResourceName = "virtualmachineclusterpreference"
 	ClusterPluralPreferenceResourceName   = ClusterSingularPreferenceResourceName + "s"
 )
+
+// SchemeGroupVersion is group version used to register these objects
+var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: runtime.APIVersionInternal}
+
+// Kind takes an unqualified kind and returns back a Group qualified GroupKind
+func Kind(kind string) schema.GroupKind {
+	return SchemeGroupVersion.WithKind(kind).GroupKind()
+}
+
+// Resource takes an unqualified resource and returns a Group qualified GroupResource
+func Resource(resource string) schema.GroupResource {
+	return SchemeGroupVersion.WithResource(resource).GroupResource()
+}
+
+var (
+	// SchemeBuilder initializes a scheme builder
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
+	// AddToScheme is a global function that registers this API group & version to a scheme
+	AddToScheme = SchemeBuilder.AddToScheme
+)
+
+// Adds the list of known types to Scheme.
+func addKnownTypes(scheme *runtime.Scheme) error {
+	scheme.AddKnownTypes(SchemeGroupVersion,
+		&VirtualMachineInstancetype{},
+		&VirtualMachineInstancetypeList{},
+		&VirtualMachineClusterInstancetype{},
+		&VirtualMachineClusterInstancetypeList{},
+		&VirtualMachinePreference{},
+		&VirtualMachinePreferenceList{},
+		&VirtualMachineClusterPreference{},
+		&VirtualMachineClusterPreferenceList{},
+	)
+	return nil
+}
 
 const (
 	DefaultInstancetypeLabel     = "instancetype.kubevirt.io/default-instancetype"

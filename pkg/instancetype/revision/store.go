@@ -34,11 +34,12 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	api "kubevirt.io/api/instancetype"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -186,7 +187,7 @@ func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) 
 }
 
 func (h *revisionHandler) checkForInstancetypeConflicts(
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 	vmiMetadata *metav1.ObjectMeta,
 ) error {
@@ -245,7 +246,13 @@ func GenerateName(vmName, resourceName, resourceVersion string, resourceUID type
 }
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
-	obj, err := util.GenerateKubeVirtGroupVersionKind(object)
+	// Convert v1beta1 objects to v1 before creating the ControllerRevision
+	convertedObj, err := compatibility.ConvertToV1(object)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert object to v1: %w", err)
+	}
+
+	obj, err := util.GenerateKubeVirtGroupVersionKind(convertedObj)
 	if err != nil {
 		return nil, err
 	}

@@ -13,13 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright 2023 Red Hat, Inc.
+ * Copyright The KubeVirt Authors.
  *
  */
 
 // +k8s:deepcopy-gen=package
-// +k8s:conversion-gen=kubevirt.io/api/instancetype
 // +groupName=instancetype.kubevirt.io
-// +k8s:openapi-gen=true
 
-package v1beta1
+package instancetype
