@@ -78,7 +78,6 @@ var _ = Describe("NMState Status interfaces", func() {
 				MTU:        defaultMTU,
 				IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 				IPv6:       nmstate.IP{Enabled: pointer.P(false)},
-				Ethtool:    defaultEthtool(),
 				LinuxStack: nmstate.LinuxIfaceStack{
 					IP4RouteLocalNet: pointer.P(false),
 					PortLearning:     pointer.P(false),
@@ -93,7 +92,6 @@ var _ = Describe("NMState Status interfaces", func() {
 				MTU:        defaultMTU,
 				IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 				IPv6:       nmstate.IP{Enabled: pointer.P(false)},
-				Ethtool:    defaultEthtool(),
 				LinuxStack: nmstate.LinuxIfaceStack{
 					IP4RouteLocalNet: pointer.P(false),
 					PortLearning:     pointer.P(false),
@@ -124,7 +122,6 @@ var _ = Describe("NMState Status interfaces", func() {
 				Controller: bridgeName,
 				IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 				IPv6:       nmstate.IP{Enabled: pointer.P(false)},
-				Ethtool:    defaultEthtool(),
 				LinuxStack: nmstate.LinuxIfaceStack{
 					IP4RouteLocalNet: pointer.P(false),
 					PortLearning:     pointer.P(false),
@@ -139,7 +136,6 @@ var _ = Describe("NMState Status interfaces", func() {
 				MTU:        defaultMTU,
 				IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 				IPv6:       nmstate.IP{Enabled: pointer.P(false)},
-				Ethtool:    defaultEthtool(),
 				LinuxStack: nmstate.LinuxIfaceStack{
 					IP4RouteLocalNet: pointer.P(false),
 					PortLearning:     pointer.P(false),
@@ -173,7 +169,6 @@ var _ = Describe("NMState Status interfaces", func() {
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{{IP: ip6, PrefixLen: prefix6}},
 				},
-				Ethtool: defaultEthtool(),
 				LinuxStack: nmstate.LinuxIfaceStack{
 					IP4RouteLocalNet: pointer.P(false),
 					PortLearning:     pointer.P(false),
@@ -188,37 +183,10 @@ var _ = Describe("NMState Status interfaces", func() {
 				MTU:        defaultMTU,
 				IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 				IPv6:       nmstate.IP{Enabled: pointer.P(false)},
-				Ethtool:    defaultEthtool(),
 				LinuxStack: nmstate.LinuxIfaceStack{
 					IP4RouteLocalNet: pointer.P(false),
 					PortLearning:     pointer.P(false),
 				},
-			},
-		}))
-	})
-
-	It("report interface with tx checksum off", func() {
-		Expect(driversAdapter.TXChecksumOff(vethName)).To(Succeed())
-
-		status, err := nmState.Read()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(status.Interfaces[0]).To(Equal(nmstate.Interface{
-			Name:       vethName,
-			Index:      1,
-			TypeName:   nmstate.TypeVETH,
-			State:      nmstate.IfaceStateUp,
-			MacAddress: macAddress0,
-			MTU:        defaultMTU,
-			IPv4:       nmstate.IP{Enabled: pointer.P(false)},
-			IPv6:       nmstate.IP{Enabled: pointer.P(false)},
-			Ethtool: nmstate.Ethtool{
-				Feature: nmstate.Feature{
-					TxChecksum: pointer.P(false),
-				},
-			},
-			LinuxStack: nmstate.LinuxIfaceStack{
-				IP4RouteLocalNet: pointer.P(false),
-				PortLearning:     pointer.P(false),
 			},
 		}))
 	})
@@ -244,7 +212,6 @@ var _ = Describe("NMState Status interfaces", func() {
 			MTU:        defaultMTU,
 			IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 			IPv6:       nmstate.IP{Enabled: pointer.P(false)},
-			Ethtool:    defaultEthtool(),
 			LinuxStack: nmstate.LinuxIfaceStack{
 				IP4RouteLocalNet: pointer.P(true),
 				PortLearning:     pointer.P(true),
