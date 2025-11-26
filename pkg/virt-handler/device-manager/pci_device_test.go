@@ -49,10 +49,7 @@ const (
 )
 
 var _ = Describe("PCI Device", func() {
-	var mockPCI *MockDeviceHandler
-	var fakePermittedHostDevicesConfig string
 	var fakePermittedHostDevices v1.PermittedHostDevices
-	var ctrl *gomock.Controller
 	var fakeNodeStore cache.Store
 
 	BeforeEach(func() {
@@ -65,8 +62,7 @@ var _ = Describe("PCI Device", func() {
 		}
 
 		By("mocking PCI functions to simulate a vfio-pci device at " + fakeAddress)
-		ctrl = gomock.NewController(GinkgoT())
-		mockPCI = NewMockDeviceHandler(ctrl)
+		mockPCI := NewMockDeviceHandler(gomock.NewController(GinkgoT()))
 		handler = mockPCI
 		// Force pre-defined returned values and ensure the function only get called exacly once each on 0000:00:00.0
 		mockPCI.EXPECT().GetDeviceIOMMUGroup(pciBasePath, fakeAddress).Return(fakeIommuGroup, nil).Times(1)
@@ -81,7 +77,7 @@ var _ = Describe("PCI Device", func() {
 		mockPCI.EXPECT().GetDevicePCIID(pciBasePath, gomock.Any()).AnyTimes()
 
 		By("creating a list of fake device using the yaml decoder")
-		fakePermittedHostDevicesConfig = `
+		fakePermittedHostDevicesConfig := `
 pciHostDevices:
 - pciVendorSelector: "` + fakeID + `"
   resourceName: "` + fakeName + `"
