@@ -1483,10 +1483,7 @@ rpm(
 rpm(
     name = "edk2-ovmf-0__20241117-2.el9.x86_64",
     sha256 = "a64ed00fed189c823f533a013ce8f044a439066524fbb628b266fd898fe23172",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/edk2-ovmf-20241117-2.el9.noarch.rpm",
-        "https://storage.googleapis.com/builddeps/a64ed00fed189c823f533a013ce8f044a439066524fbb628b266fd898fe23172",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/a64ed00fed189c823f533a013ce8f044a439066524fbb628b266fd898fe23172"],
 )
 
 rpm(
@@ -2047,28 +2044,19 @@ rpm(
 rpm(
     name = "glibc-0__2.34-232.el9.aarch64",
     sha256 = "7d9aee5e4366a3292614e36f67978d874e71d09ea9772a6ff165a173d2341f23",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-2.34-232.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/7d9aee5e4366a3292614e36f67978d874e71d09ea9772a6ff165a173d2341f23",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/7d9aee5e4366a3292614e36f67978d874e71d09ea9772a6ff165a173d2341f23"],
 )
 
 rpm(
     name = "glibc-0__2.34-232.el9.s390x",
     sha256 = "d5b2164551c29776f5587f20333602dfe4898c4624e64cbcdb806dec87996cb8",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-2.34-232.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/d5b2164551c29776f5587f20333602dfe4898c4624e64cbcdb806dec87996cb8",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/d5b2164551c29776f5587f20333602dfe4898c4624e64cbcdb806dec87996cb8"],
 )
 
 rpm(
     name = "glibc-0__2.34-232.el9.x86_64",
     sha256 = "c53b60cac3a94588f6cb22ed53e786474304c40f378e5bd474f435e6b9814ae2",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-2.34-232.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/c53b60cac3a94588f6cb22ed53e786474304c40f378e5bd474f435e6b9814ae2",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/c53b60cac3a94588f6cb22ed53e786474304c40f378e5bd474f435e6b9814ae2"],
 )
 
 rpm(
@@ -2098,28 +2086,19 @@ rpm(
 rpm(
     name = "glibc-common-0__2.34-232.el9.aarch64",
     sha256 = "e9a480fc146dc98495d753d57f7466c9732b01c0fd627650ad0e007896b56d13",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-common-2.34-232.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/e9a480fc146dc98495d753d57f7466c9732b01c0fd627650ad0e007896b56d13",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/e9a480fc146dc98495d753d57f7466c9732b01c0fd627650ad0e007896b56d13"],
 )
 
 rpm(
     name = "glibc-common-0__2.34-232.el9.s390x",
     sha256 = "fe27caf0453fc36207051570a47c9c8aba0101241a368aafb020fa9bf04cd57f",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-common-2.34-232.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/fe27caf0453fc36207051570a47c9c8aba0101241a368aafb020fa9bf04cd57f",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/fe27caf0453fc36207051570a47c9c8aba0101241a368aafb020fa9bf04cd57f"],
 )
 
 rpm(
     name = "glibc-common-0__2.34-232.el9.x86_64",
     sha256 = "d73a83b08e7f58d9e69ba23500c595b43dc4c3dea1a39ba78690715a3b9f8a05",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-common-2.34-232.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/d73a83b08e7f58d9e69ba23500c595b43dc4c3dea1a39ba78690715a3b9f8a05",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/d73a83b08e7f58d9e69ba23500c595b43dc4c3dea1a39ba78690715a3b9f8a05"],
 )
 
 rpm(
@@ -2155,28 +2134,19 @@ rpm(
 rpm(
     name = "glibc-langpack-dz-0__2.34-232.el9.aarch64",
     sha256 = "65b32cd679cd0d2727b8777d44f9eeeb1da3a2a8e33f0bf84c171d46ced35ec7",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/glibc-langpack-dz-2.34-232.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/65b32cd679cd0d2727b8777d44f9eeeb1da3a2a8e33f0bf84c171d46ced35ec7",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/65b32cd679cd0d2727b8777d44f9eeeb1da3a2a8e33f0bf84c171d46ced35ec7"],
 )
 
 rpm(
     name = "glibc-langpack-dz-0__2.34-232.el9.s390x",
     sha256 = "ce69d9a42ea3b8bb39ee36220e31793d1e7529d4ae9c8212de365fa4956c99c0",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/glibc-langpack-dz-2.34-232.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/ce69d9a42ea3b8bb39ee36220e31793d1e7529d4ae9c8212de365fa4956c99c0",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/ce69d9a42ea3b8bb39ee36220e31793d1e7529d4ae9c8212de365fa4956c99c0"],
 )
 
 rpm(
     name = "glibc-langpack-en-0__2.34-232.el9.x86_64",
     sha256 = "17bbe58f642abff1f0be28b3755234ac200005153572f830f115343559aac644",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/glibc-langpack-en-2.34-232.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/17bbe58f642abff1f0be28b3755234ac200005153572f830f115343559aac644",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/17bbe58f642abff1f0be28b3755234ac200005153572f830f115343559aac644"],
 )
 
 rpm(
@@ -6985,19 +6955,13 @@ rpm(
 rpm(
     name = "qemu-pr-helper-17__9.1.0-26.el9.aarch64",
     sha256 = "fb9b6ea6fd9bc0dd23b68dbf796353f6df6077c510d18511b730d58994e4b777",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/aarch64/os/Packages/qemu-pr-helper-9.1.0-26.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/fb9b6ea6fd9bc0dd23b68dbf796353f6df6077c510d18511b730d58994e4b777",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/fb9b6ea6fd9bc0dd23b68dbf796353f6df6077c510d18511b730d58994e4b777"],
 )
 
 rpm(
     name = "qemu-pr-helper-17__9.1.0-26.el9.x86_64",
     sha256 = "5f59ff0dd548a84f167a6542a91a0dbd4376489401fa467583e9f586e9130ef4",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/qemu-pr-helper-9.1.0-26.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/5f59ff0dd548a84f167a6542a91a0dbd4376489401fa467583e9f586e9130ef4",
-    ],
+    urls = ["https://storage.googleapis.com/builddeps/5f59ff0dd548a84f167a6542a91a0dbd4376489401fa467583e9f586e9130ef4"],
 )
 
 rpm(
