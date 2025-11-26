@@ -121,20 +121,9 @@ var _ = Describe("Apply Apps", func() {
 			virtApiConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
 				KubeVirtVersion: Version,
+				Namespace:       Namespace,
 			}
-			deployment = components.NewApiServerDeployment(
-				Namespace,
-				virtApiConfig.GetImageRegistry(),
-				virtApiConfig.GetImagePrefix(),
-				virtApiConfig.GetApiVersion(),
-				"",
-				"",
-				"",
-				virtApiConfig.VirtApiImage,
-				virtApiConfig.GetImagePullPolicy(),
-				virtApiConfig.GetImagePullSecrets(),
-				virtApiConfig.GetVerbosity(),
-				virtApiConfig.GetExtraEnv())
+			deployment = components.NewApiServerDeployment(virtApiConfig, "", "", "")
 
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
 		})
@@ -326,28 +315,9 @@ var _ = Describe("Apply Apps", func() {
 			virtHandlerConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
 				KubeVirtVersion: Version,
+				Namespace:       Namespace,
 			}
-			daemonSet = components.NewHandlerDaemonSet(
-				Namespace,
-				virtHandlerConfig.GetImageRegistry(),
-				virtHandlerConfig.GetImagePrefix(),
-				virtHandlerConfig.GetHandlerVersion(),
-				"",
-				"",
-				"",
-				"",
-				virtHandlerConfig.GetLauncherVersion(),
-				virtHandlerConfig.GetPrHelperVersion(),
-				virtHandlerConfig.VirtHandlerImage,
-				virtHandlerConfig.VirtLauncherImage,
-				virtHandlerConfig.PrHelperImage,
-				virtHandlerConfig.SidecarShimImage,
-				virtHandlerConfig.GetImagePullPolicy(),
-				virtHandlerConfig.GetImagePullSecrets(),
-				nil,
-				virtHandlerConfig.GetVerbosity(),
-				virtHandlerConfig.GetExtraEnv(),
-				false)
+			daemonSet = components.NewHandlerDaemonSet(virtHandlerConfig, "", "", "")
 			markHandlerReady(daemonSet)
 			daemonSet.UID = "random-id"
 			daemonSet.Generation = 1
@@ -1235,27 +1205,10 @@ var _ = Describe("Apply Apps", func() {
 			virtControllerConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
 				KubeVirtVersion: Version,
+				Namespace:       Namespace,
 			}
 			var err error
-			strategyDeployment = components.NewControllerDeployment(
-				Namespace,
-				virtControllerConfig.GetImageRegistry(),
-				virtControllerConfig.GetImagePrefix(),
-				virtControllerConfig.GetControllerVersion(),
-				virtControllerConfig.GetLauncherVersion(),
-				virtControllerConfig.GetExportServerVersion(),
-				"",
-				"",
-				"",
-				"",
-				virtControllerConfig.VirtControllerImage,
-				virtControllerConfig.VirtLauncherImage,
-				virtControllerConfig.VirtExportServerImage,
-				virtControllerConfig.SidecarShimImage,
-				virtControllerConfig.GetImagePullPolicy(),
-				virtControllerConfig.GetImagePullSecrets(),
-				virtControllerConfig.GetVerbosity(),
-				virtControllerConfig.GetExtraEnv())
+			strategyDeployment = components.NewControllerDeployment(virtControllerConfig, "", "", "")
 
 			cachedDeployment = strategyDeployment.DeepCopy()
 			cachedDeployment.Generation = 2
@@ -1268,19 +1221,7 @@ var _ = Describe("Apply Apps", func() {
 
 			stores = util.Stores{DeploymentCache: &MockStore{get: cachedDeployment}}
 
-			virtAPIDeployment = components.NewApiServerDeployment(
-				Namespace,
-				virtControllerConfig.GetImageRegistry(),
-				virtControllerConfig.GetImagePrefix(),
-				virtControllerConfig.GetApiVersion(),
-				"",
-				"",
-				"",
-				virtControllerConfig.VirtApiImage,
-				virtControllerConfig.GetImagePullPolicy(),
-				virtControllerConfig.GetImagePullSecrets(),
-				virtControllerConfig.GetVerbosity(),
-				virtControllerConfig.GetExtraEnv())
+			virtAPIDeployment = components.NewApiServerDeployment(virtControllerConfig, "", "", "")
 
 			virtAPIDeployment.Generation = 2
 			virtAPIDeployment.Annotations = map[string]string{
