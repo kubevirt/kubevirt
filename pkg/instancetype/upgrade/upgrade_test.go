@@ -182,6 +182,88 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			Expect(newPreferenceCR.Labels).To(HaveKeyWithValue(instancetypeapi.ControllerRevisionObjectKindLabel, originalKindLabel))
 		}
 	},
+		Entry("v1beta1 VirtualMachineClusterPreference & VirtualMachineClusterInstancetype with v1beta1 version label",
+			func() *appsv1.ControllerRevision {
+				cr := createControllerRevisionFromObject(
+					&instancetypev1beta1.VirtualMachineClusterInstancetype{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "instancetype",
+							Namespace: vm.Namespace,
+						},
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: uint32(1),
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128Mi"),
+							},
+						},
+					},
+				)
+				cr.Name = "v1beta1-clusterinstancetype-cr-name"
+				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = "v1beta1"
+				return cr
+			},
+			func() *appsv1.ControllerRevision {
+				cr := createControllerRevisionFromObject(
+					&instancetypev1beta1.VirtualMachineClusterPreference{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "preference",
+							Namespace: vm.Namespace,
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+							},
+						},
+					},
+				)
+				cr.Name = "v1beta1-clusterpreference-cr-name"
+				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = "v1beta1"
+				return cr
+			},
+		),
+		Entry("v1beta1 VirtualMachinePreference & VirtualMachineInstancetype with v1beta1 version label",
+			func() *appsv1.ControllerRevision {
+				cr := createControllerRevisionFromObject(
+					&instancetypev1beta1.VirtualMachineInstancetype{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "instancetype",
+							Namespace: vm.Namespace,
+						},
+						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1beta1.CPUInstancetype{
+								Guest: uint32(1),
+							},
+							Memory: instancetypev1beta1.MemoryInstancetype{
+								Guest: resource.MustParse("128Mi"),
+							},
+						},
+					},
+				)
+				cr.Name = "v1beta1-instancetype-cr-name"
+				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = "v1beta1"
+				return cr
+			},
+			func() *appsv1.ControllerRevision {
+				cr := createControllerRevisionFromObject(
+					&instancetypev1beta1.VirtualMachinePreference{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "preference",
+							Namespace: vm.Namespace,
+						},
+						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1beta1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+							},
+						},
+					},
+				)
+				cr.Name = "v1beta1-preference-cr-name"
+				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = "v1beta1"
+				return cr
+			},
+		),
 		Entry("v1beta1 VirtualMachineClusterPreference & VirtualMachineClusterInstancetype without version label",
 			func() *appsv1.ControllerRevision {
 				cr := createControllerRevisionFromObject(
