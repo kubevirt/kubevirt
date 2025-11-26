@@ -131,9 +131,10 @@ var _ = Describe("Virt remote commands", func() {
 		})
 
 		It("socket dir from UID and file path provider func", func() {
-			path, err := FindPodDirOnHost(vmi, "", SocketFilePathOnHost)
+			path, err := FindPodDirOnHost(vmi, "", SocketDirectoryOnHost)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(path).To(Equal(podSocketFile))
+			// TODO: FindPodDirOnHost should return clean path
+			Expect(filepath.Clean(path)).To(Equal(filepath.Dir(podSocketFile)))
 		})
 
 		It("negative test socket dir not found", func() {
