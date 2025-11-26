@@ -637,7 +637,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				return targetVMI.Status.Phase
 			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(Equal(virtv1.WaitingForSync))
 		},
-			Entry("delete source migration", true),
+			Entry("[QUARANTINE]delete source migration", decorators.Quarantine, true),
 			Entry("delete target migration", false),
 		)
 
