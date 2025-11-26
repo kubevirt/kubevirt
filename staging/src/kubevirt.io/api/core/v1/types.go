@@ -1932,19 +1932,12 @@ type VirtualMachineRunStrategy string
 // These are the valid VMI run strategies
 const (
 	// Placeholder. Not a valid RunStrategy.
-	RunStrategyUnknown VirtualMachineRunStrategy = ""
-	// VMI should always be running.
-	RunStrategyAlways VirtualMachineRunStrategy = "Always"
-	// VMI should never be running.
-	RunStrategyHalted VirtualMachineRunStrategy = "Halted"
-	// VMI can be started/stopped using API endpoints.
-	RunStrategyManual VirtualMachineRunStrategy = "Manual"
-	// VMI will initially be running--and restarted if a failure occurs.
-	// It will not be restarted upon successful completion.
+	RunStrategyUnknown        VirtualMachineRunStrategy = ""
+	RunStrategyAlways         VirtualMachineRunStrategy = "Always"
+	RunStrategyHalted         VirtualMachineRunStrategy = "Halted"
+	RunStrategyManual         VirtualMachineRunStrategy = "Manual"
 	RunStrategyRerunOnFailure VirtualMachineRunStrategy = "RerunOnFailure"
-	// VMI will run once and not be restarted upon completion regardless
-	// if the completion is of phase Failure or Success
-	RunStrategyOnce VirtualMachineRunStrategy = "Once"
+	RunStrategyOnce           VirtualMachineRunStrategy = "Once"
 	// Receiver pod will be created waiting for an incoming migration. Switch after to expected
 	// RunStrategy.
 	RunStrategyWaitAsReceiver VirtualMachineRunStrategy = "WaitAsReceiver"
@@ -1967,6 +1960,12 @@ type VirtualMachineSpec struct {
 
 	// Running state indicates the requested running state of the VirtualMachineInstance
 	// mutually exclusive with Running
+	// Following are allowed values:
+	// - "Always": VMI should always be running.
+	// - "Halted": VMI should never be running.
+	// - "Manual": VMI can be started/stopped using API endpoints.
+	// - "RerunOnFailure": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.
+	// - "Once": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.
 	RunStrategy *VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
 
 	// InstancetypeMatcher references a instancetype that is used to fill fields in Template
