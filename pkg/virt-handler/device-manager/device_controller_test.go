@@ -49,12 +49,16 @@ type FakePlugin struct {
 	Error      error
 }
 
+func (fp *FakePlugin) Setup() error {
+	return nil
+}
+
 func (fp *FakePlugin) Start(_ <-chan struct{}) (err error) {
 	atomic.AddInt32(&fp.Starts, 1)
 	return fp.Error
 }
 
-func (fp *FakePlugin) GetDeviceName() string {
+func (fp *FakePlugin) GetResourceName() string {
 	return fp.deviceName
 }
 
