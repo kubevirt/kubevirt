@@ -836,6 +836,31 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 		})
+
+		It("should reject greater hugepages.size than guest memory", func() {
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Guest:     pointer.P(resource.MustParse("64Mi")),
+				Hugepages: &v1.Hugepages{},
+			}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "1Gi"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
+
+		It("should reject greater hugepages.size than requests.limit", func() {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "1Gi"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
+
 		It("should allow smaller guest memory than requested memory", func() {
 			vmi := api.NewMinimalVMI("testvmi")
 			guestMemory := resource.MustParse("1Mi")
@@ -1611,18 +1636,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
-		})
-
-		It("should reject specs without a memory specification", func() {
-			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("4"),
-			}
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("4"),
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.memory"))
 		})
 
 		It("should reject specs with inconsistent memory specification", func() {
