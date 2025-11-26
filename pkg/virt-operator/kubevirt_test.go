@@ -3492,79 +3492,21 @@ func shouldExpectHCOConditions(kv *v1.KubeVirt, available k8sv1.ConditionStatus,
 }
 
 func getDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
-	return components.NewApiServerDeployment(
-		namespace,
-		config.GetImageRegistry(),
-		config.GetImagePrefix(),
-		config.GetApiVersion(),
-		"",
-		"",
-		"",
-		config.VirtApiImage,
-		config.GetImagePullPolicy(),
-		config.GetImagePullSecrets(),
-		config.GetVerbosity(),
-		config.GetExtraEnv())
+	config.Namespace = namespace
+	return components.NewApiServerDeployment(config, "", "", "")
 }
 
 func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
-	return components.NewControllerDeployment(
-		namespace,
-		config.GetImageRegistry(),
-		config.GetImagePrefix(),
-		config.GetControllerVersion(),
-		config.GetLauncherVersion(),
-		config.GetExportServerVersion(),
-		"",
-		"",
-		"",
-		"",
-		config.VirtControllerImage,
-		config.VirtLauncherImage,
-		config.VirtExportServerImage,
-		config.SidecarShimImage,
-		config.GetImagePullPolicy(),
-		config.GetImagePullSecrets(),
-		config.GetVerbosity(),
-		config.GetExtraEnv())
+	config.Namespace = namespace
+	return components.NewControllerDeployment(config, "", "", "")
 }
 
 func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.DaemonSet {
-	return components.NewHandlerDaemonSet(
-		namespace,
-		config.GetImageRegistry(),
-		config.GetImagePrefix(),
-		config.GetHandlerVersion(),
-		"",
-		"",
-		"",
-		"",
-		config.GetLauncherVersion(),
-		config.GetPrHelperVersion(),
-		config.VirtHandlerImage,
-		config.VirtLauncherImage,
-		config.PrHelperImage,
-		config.SidecarShimImage,
-		config.GetImagePullPolicy(),
-		config.GetImagePullSecrets(),
-		nil,
-		config.GetVerbosity(),
-		config.GetExtraEnv(),
-		false)
+	config.Namespace = namespace
+	return components.NewHandlerDaemonSet(config, "", "", "")
 }
 
 func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
-	return components.NewExportProxyDeployment(
-		namespace,
-		config.GetImageRegistry(),
-		config.GetImagePrefix(),
-		config.GetExportProxyVersion(),
-		"",
-		"",
-		"",
-		config.VirtExportProxyImage,
-		config.GetImagePullPolicy(),
-		config.GetImagePullSecrets(),
-		config.GetVerbosity(),
-		config.GetExtraEnv())
+	config.Namespace = namespace
+	return components.NewExportProxyDeployment(config, "", "", "")
 }
