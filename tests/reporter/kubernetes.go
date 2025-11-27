@@ -1489,16 +1489,41 @@ func getVmiType(vmi v12.VirtualMachineInstance) string {
 func prepareVmiConsole(vmi v12.VirtualMachineInstance, vmiType string) error {
 	// 20 seconds is plenty here. If the VMI is not ready for login, there's a low chance it has interesting logs
 	timeout := 20 * time.Second
+
+	var loginFunc console.LoginToFunction
 	switch vmiType {
 	case "fedora":
-		return console.LoginToFedora(&vmi, timeout)
+		loginFunc = console.LoginToFedora
 	case "cirros":
-		return console.LoginToCirros(&vmi, timeout)
+		loginFunc = console.LoginToCirros
 	case "alpine":
-		return console.LoginToAlpine(&vmi, timeout)
+		loginFunc = console.LoginToAlpine
 	default:
 		return fmt.Errorf("unknown vmi %s type", vmi.ObjectMeta.Name)
 	}
+
+	const maxRetries = 2
+	const retryDelay = 5 * time.Second
+
+	var err error
+	for attempt := range maxRetries {
+		if attempt > 0 {
+			printInfo("Retrying console connection to %s (attempt %d/%d)", vmi.ObjectMeta.Name, attempt+1, maxRetries)
+			time.Sleep(retryDelay)
+		}
+
+		err = loginFunc(&vmi, timeout)
+		if err == nil {
+			if attempt > 0 {
+				printInfo("Successfully connected to console of %s after %d retries", vmi.ObjectMeta.Name, attempt)
+			}
+			return nil
+		}
+
+		printInfo("failed to connect console of %s, will retry: %v", vmi.ObjectMeta.Name, err)
+	}
+
+	return fmt.Errorf("failed to connect to console after %d attempts: %v", maxRetries, err)
 }
 
 func (r *KubernetesReporter) executeNodeCommands(virtCli kubecli.KubevirtClient, logsdir string, pod *v1.Pod) {
