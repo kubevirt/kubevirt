@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 
 	v1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,7 +57,7 @@ type VirtHandlerConn interface {
 	ConnectionDetails() (ip string, port int, err error)
 	ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	USBRedirURI(vmi *virtv1.VirtualMachineInstance) (string, error)
-	VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	VNCURI(vmi *virtv1.VirtualMachineInstance, preserveSession bool) (string, error)
 	VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error)
 	PauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -181,8 +183,19 @@ func (v *virtHandlerConn) USBRedirURI(vmi *virtv1.VirtualMachineInstance) (strin
 	return v.formatURI(usbredirTemplateURI, vmi)
 }
 
-func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	return v.formatURI(vncTemplateURI, vmi)
+func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance, preserveSession bool) (string, error) {
+	baseURI, err := v.formatURI(vncTemplateURI, vmi)
+	if err != nil {
+		return "", err
+	}
+	u, err := url.Parse(baseURI)
+	if err != nil {
+		return "", err
+	}
+	queryParams := url.Values{}
+	queryParams.Add("preserveSession", strconv.FormatBool(preserveSession))
+	u.RawQuery = queryParams.Encode()
+	return u.String(), nil
 }
 
 func (v *virtHandlerConn) VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error) {
