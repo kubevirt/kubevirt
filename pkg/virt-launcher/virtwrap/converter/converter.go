@@ -1433,7 +1433,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.NewWatchdogDomainConfigurator(architecture),
 		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
-		compute.SysInfoDomainConfigurator{},
+		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1478,31 +1478,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
-	}
-
-	if c.SMBios != nil {
-		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
-			api.Entry{
-				Name:  "manufacturer",
-				Value: c.SMBios.Manufacturer,
-			},
-			api.Entry{
-				Name:  "family",
-				Value: c.SMBios.Family,
-			},
-			api.Entry{
-				Name:  "product",
-				Value: c.SMBios.Product,
-			},
-			api.Entry{
-				Name:  "sku",
-				Value: c.SMBios.Sku,
-			},
-			api.Entry{
-				Name:  "version",
-				Value: c.SMBios.Version,
-			},
-		)
 	}
 
 	// Take SMBios values from the VirtualMachineOptions
@@ -1959,5 +1934,19 @@ func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Do
 	domain.Spec.VCPU = &api.VCPU{
 		Placement: "static",
 		CPUs:      cpuCount,
+	}
+}
+
+func convertCmdv1SMBIOSToComputeSMBIOS(input *cmdv1.SMBios) *compute.SMBIOS {
+	if input == nil {
+		return nil
+	}
+
+	return &compute.SMBIOS{
+		Manufacturer: input.Manufacturer,
+		Product:      input.Product,
+		Version:      input.Version,
+		SKU:          input.Sku,
+		Family:       input.Family,
 	}
 }

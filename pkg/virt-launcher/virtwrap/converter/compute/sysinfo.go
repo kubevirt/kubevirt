@@ -25,17 +25,33 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type SysInfoDomainConfigurator struct{}
+type SMBIOS struct {
+	Manufacturer string
+	Product      string
+	Version      string
+	SKU          string
+	Family       string
+}
+
+type SysInfoDomainConfigurator struct {
+	smBIOS *SMBIOS
+}
+
+func NewSysInfoDomainConfigurator(smBIOS *SMBIOS) SysInfoDomainConfigurator {
+	return SysInfoDomainConfigurator{
+		smBIOS: smBIOS,
+	}
+}
 
 func (s SysInfoDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	domain.Spec.SysInfo = &api.SysInfo{}
 
-	domain.Spec.SysInfo.System = buildSystem(vmi.Spec.Domain.Firmware)
+	domain.Spec.SysInfo.System = buildSystem(vmi.Spec.Domain.Firmware, s.smBIOS)
 
 	return nil
 }
 
-func buildSystem(firmware *v1.Firmware) []api.Entry {
+func buildSystem(firmware *v1.Firmware, smBIOS *SMBIOS) []api.Entry {
 	var systemEntries []api.Entry
 
 	if firmware != nil {
@@ -44,6 +60,16 @@ func buildSystem(firmware *v1.Firmware) []api.Entry {
 		if len(firmware.Serial) > 0 {
 			systemEntries = append(systemEntries, api.Entry{Name: "serial", Value: firmware.Serial})
 		}
+	}
+
+	if smBIOS != nil {
+		systemEntries = append(systemEntries,
+			api.Entry{Name: "manufacturer", Value: smBIOS.Manufacturer},
+			api.Entry{Name: "family", Value: smBIOS.Family},
+			api.Entry{Name: "product", Value: smBIOS.Product},
+			api.Entry{Name: "sku", Value: smBIOS.SKU},
+			api.Entry{Name: "version", Value: smBIOS.Version},
+		)
 	}
 
 	return systemEntries
