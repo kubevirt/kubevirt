@@ -53,6 +53,7 @@ go_test(
         "panic_devices_test.go",
         "rng_test.go",
         "sound_test.go",
+        "sysinfo_test.go",
         "tpm_test.go",
         "vsock_test.go",
         "watchdog_test.go",
