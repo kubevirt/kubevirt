@@ -16,6 +16,7 @@ go_library(
         "panic_devices.go",
         "rng.go",
         "sound.go",
+        "sysinfo.go",
         "tpm.go",
         "vsock.go",
         "watchdog.go",
