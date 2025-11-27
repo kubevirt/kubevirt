@@ -13,6 +13,7 @@ go_library(
         "launch_security.go",
         "rng.go",
         "sound.go",
+        "sysinfo.go",
         "tpm.go",
         "vsock.go",
         "watchdog.go",
