@@ -22,6 +22,7 @@ package network
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"slices"
 	"strings"
 	"sync"
@@ -116,7 +117,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	}
 
 	// Guest Agent information will add and conditionally override data gathered from the cache.
-	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
+	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces, vmiInterfacesSpecByName)
 
 	primaryNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks)
 	if c.clusterConfigurer.DynamicPodInterfaceNamingEnabled() {
@@ -284,9 +285,21 @@ func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfa
 	return vmiStatusIfaces
 }
 
-func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetworkInterface, guestAgentInterfaces []api.InterfaceStatus) []v1.VirtualMachineInstanceNetworkInterface {
+func ifacesStatusFromGuestAgent(
+	vmiIfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
+	guestAgentInterfaces []api.InterfaceStatus,
+	vmiInterfacesSpecByName map[string]v1.Interface,
+) []v1.VirtualMachineInstanceNetworkInterface {
 	for _, guestAgentInterface := range guestAgentInterfaces {
 		if vmiIfaceStatus := netvmispec.LookupInterfaceStatusByMac(vmiIfacesStatus, guestAgentInterface.Mac); vmiIfaceStatus != nil {
+			vmiIfaceSpec := vmiInterfacesSpecByName[vmiIfaceStatus.Name]
+
+			// When using masquerade binding, guest-defined Link-Local Addresses (LLAs) are unreachable from the pod network.
+			// These addresses remain internal to the guest and are outside the scope of KubeVirt's NAT translation rules.
+			if vmiIfaceSpec.Masquerade != nil {
+				guestAgentInterface.IPs = filterOutLinkLocalAddresses(guestAgentInterface.IPs)
+			}
+
 			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceStatus, guestAgentInterface)
 			if !isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface) {
 				vmiIfaceStatus.InfoSource = netvmispec.InfoSourceDomainAndGA
@@ -335,6 +348,13 @@ func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstan
 	if len(ifaceStatus.IPs) > 0 {
 		ifaceStatus.IP = ifaceStatus.IPs[0]
 	}
+}
+
+func filterOutLinkLocalAddresses(ipv6Addresses []string) []string {
+	return slices.DeleteFunc(ipv6Addresses, func(s string) bool {
+		addr, err := netip.ParseAddr(s)
+		return err != nil || addr.IsLinkLocalUnicast()
+	})
 }
 
 func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus) v1.VirtualMachineInstanceNetworkInterface {
