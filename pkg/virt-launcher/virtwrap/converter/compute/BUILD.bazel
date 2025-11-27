@@ -10,6 +10,7 @@ go_library(
         "input_device.go",
         "launch_security.go",
         "rng.go",
+        "sysinfo.go",
         "tpm.go",
         "vsock.go",
     ],
