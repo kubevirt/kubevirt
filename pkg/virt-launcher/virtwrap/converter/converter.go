@@ -1132,13 +1132,6 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		return nil
 	}
 
-	domain.Spec.SysInfo.System = []api.Entry{
-		{
-			Name:  "uuid",
-			Value: string(firmware.UUID),
-		},
-	}
-
 	if vmi.IsBootloaderEFI() {
 		domain.Spec.OS.BootLoader = &api.Loader{
 			Path:     c.EFIConfiguration.EFICode,
@@ -1165,13 +1158,6 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 				UseSerial: "yes",
 			}
 		}
-	}
-
-	if len(firmware.Serial) > 0 {
-		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, api.Entry{
-			Name:  "serial",
-			Value: firmware.Serial,
-		})
 	}
 
 	if util.HasKernelBootContainerImage(vmi) {
@@ -1440,6 +1426,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewWatchdogDomainConfigurator(architecture),
 		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
 		compute.PanicDevicesDomainConfigurator{},
+		compute.SysInfoDomainConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1461,8 +1448,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.Architecture.SupportCPUHotplug() {
 		domainVCPUTopologyForHotplug(vmi, domain)
 	}
-
-	domain.Spec.SysInfo = &api.SysInfo{}
 
 	err = Convert_v1_Firmware_To_related_apis(vmi, domain, c)
 	if err != nil {
