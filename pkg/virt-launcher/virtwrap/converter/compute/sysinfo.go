@@ -47,6 +47,7 @@ func (s SysInfoDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 	domain.Spec.SysInfo = &api.SysInfo{}
 
 	domain.Spec.SysInfo.System = buildSystem(vmi.Spec.Domain.Firmware, s.smBIOS)
+	domain.Spec.SysInfo.Chassis = buildChassis(vmi.Spec.Domain.Chassis)
 
 	return nil
 }
@@ -73,4 +74,18 @@ func buildSystem(firmware *v1.Firmware, smBIOS *SMBIOS) []api.Entry {
 	}
 
 	return systemEntries
+}
+
+func buildChassis(chassis *v1.Chassis) []api.Entry {
+	if chassis == nil {
+		return nil
+	}
+
+	return []api.Entry{
+		{Name: "manufacturer", Value: chassis.Manufacturer},
+		{Name: "version", Value: chassis.Version},
+		{Name: "serial", Value: chassis.Serial},
+		{Name: "asset", Value: chassis.Asset},
+		{Name: "sku", Value: chassis.Sku},
+	}
 }
