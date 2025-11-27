@@ -54,7 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin", decorators.NetCustomBindingPlugins, Serial, func() {
+var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin", decorators.NetCustomBindingPlugins, decorators.Passt, Serial, func() {
 	const passtNetAttDefName = "netbindingpasst"
 
 	var err error
