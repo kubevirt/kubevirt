@@ -6,6 +6,7 @@ go_library(
         "balloon.go",
         "channels.go",
         "clock.go",
+        "graphics.go",
         "input_device.go",
         "launch_security.go",
         "rng.go",
@@ -16,6 +17,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/downwardmetrics:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/tpm:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-controller/watch/topology:go_default_library",
@@ -33,6 +35,7 @@ go_test(
         "channels_test.go",
         "clock_test.go",
         "compute_suite_test.go",
+        "graphics_test.go",
         "input_device_test.go",
         "launch_security_test.go",
         "rng_test.go",

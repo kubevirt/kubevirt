@@ -21,7 +21,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -32,18 +31,6 @@ type converterARM64 struct{}
 
 func (converterARM64) GetArchitecture() string {
 	return arm64
-}
-
-func (converterARM64) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
-	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
-	domain.Spec.Devices.Video = []api.Video{
-		{
-			Model: api.VideoModel{
-				Type:  v1.VirtIO,
-				Heads: pointer.P(graphicsDeviceDefaultHeads),
-			},
-		},
-	}
 }
 
 func (converterARM64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
