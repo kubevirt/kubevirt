@@ -42,14 +42,6 @@ if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAM
     fi
  fi
 
-if [[ ${CI} == "true" ]]; then
-  if [[ ! $TARGET =~ .*kind.* ]] && [[ ! $TARGET =~ .*k3d.* ]]; then
-    _delay="$(( ( RANDOM % 180 )))"
-    echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
-    sleep ${_delay}
-  fi
-fi
-
 if [ -z $TARGET ]; then
   echo "FATAL: TARGET must be non empty"
   exit 1
