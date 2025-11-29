@@ -830,6 +830,8 @@ func indexVMSpec(poolSpec *poolv1.VirtualMachinePoolSpec, idx int) *virtv1.Virtu
 		}
 	}
 
+	suffix := "-" + strconv.Itoa(idx)
+
 	for i, volume := range spec.Template.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
 			indexName, ok := dvNameMap[volume.VolumeSource.PersistentVolumeClaim.ClaimName]
@@ -842,9 +844,23 @@ func indexVMSpec(poolSpec *poolv1.VirtualMachinePoolSpec, idx int) *virtv1.Virtu
 				spec.Template.Spec.Volumes[i].DataVolume.Name = indexName
 			}
 		} else if volume.VolumeSource.ConfigMap != nil && appendIndexToConfigMapRefs {
-			volume.VolumeSource.ConfigMap.Name += "-" + strconv.Itoa(idx)
+			volume.VolumeSource.ConfigMap.Name += suffix
 		} else if volume.VolumeSource.Secret != nil && appendIndexToSecretRefs {
-			volume.VolumeSource.Secret.SecretName += "-" + strconv.Itoa(idx)
+			volume.VolumeSource.Secret.SecretName += suffix
+		} else if volume.VolumeSource.CloudInitNoCloud != nil && appendIndexToSecretRefs {
+			if volume.VolumeSource.CloudInitNoCloud.UserDataSecretRef != nil {
+				volume.CloudInitNoCloud.UserDataSecretRef.Name += suffix
+			}
+			if volume.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef != nil {
+				volume.CloudInitNoCloud.NetworkDataSecretRef.Name += suffix
+			}
+		} else if volume.VolumeSource.CloudInitConfigDrive != nil && appendIndexToSecretRefs {
+			if volume.VolumeSource.CloudInitConfigDrive.UserDataSecretRef != nil {
+				volume.CloudInitConfigDrive.UserDataSecretRef.Name += suffix
+			}
+			if volume.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+				volume.CloudInitConfigDrive.NetworkDataSecretRef.Name += suffix
+			}
 		}
 	}
 
