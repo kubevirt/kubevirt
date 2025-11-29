@@ -477,3 +477,11 @@ func (c *ClusterConfig) ClusterProfilerEnabled() bool {
 	return c.GetConfig().DeveloperConfiguration.ClusterProfiler ||
 		c.isFeatureGateDefined(featuregate.ClusterProfiler)
 }
+
+func (c *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
+	mdevConfig := c.GetConfig().MediatedDevicesConfiguration
+	if mdevConfig != nil && mdevConfig.DisableHandling != nil {
+		return *mdevConfig.DisableHandling
+	}
+	return c.isFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
+}
