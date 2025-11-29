@@ -373,7 +373,7 @@ func (app *virtHandlerApp) Run() {
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat()
-	passtRepairHandler := passt.NewRepairManager(app.clusterConfig)
+	passtRepairContoller := passt.NewPasstRepairController(app.clusterConfig)
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
@@ -387,7 +387,7 @@ func (app *virtHandlerApp) Run() {
 		migrationProxy,
 		"/proc/%d/root/var/run",
 		netStat,
-		passtRepairHandler,
+		passtRepairContoller,
 	)
 	if err != nil {
 		panic(err)
@@ -411,7 +411,7 @@ func (app *virtHandlerApp) Run() {
 		netConf,
 		netStat,
 		netbinding.MemoryCalculator{},
-		passtRepairHandler,
+		passtRepairContoller,
 	)
 	if err != nil {
 		panic(err)
