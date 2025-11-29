@@ -42,11 +42,8 @@ import (
 )
 
 const (
-	noVolumeSnapshotReason = "VMSnapshotNoVolumes"
-
-	notAllPVCsCreated = "NotAllPVCsCreated"
-	allPVCsReady      = "AllPVCsReady"
-	notAllPVCsReady   = "NotAllPVCsReady"
+	allPVCsReady    = "AllPVCsReady"
+	notAllPVCsReady = "NotAllPVCsReady"
 )
 
 func (ctrl *VMExportController) handleVMSnapshot(obj interface{}) {
@@ -71,45 +68,55 @@ func (ctrl *VMExportController) handleVMSnapshot(obj interface{}) {
 func (ctrl *VMExportController) getPVCFromSourceVMSnapshot(vmExport *exportv1.VirtualMachineExport) (*sourceVolumes, error) {
 	vmSnapshot, exists, err := ctrl.getVmSnapshot(vmExport.Namespace, vmExport.Spec.Source.Name)
 	if err != nil {
-		return &sourceVolumes{}, err
+		return nil, err
 	}
 	if !exists {
 		return &sourceVolumes{
-			volumes:          nil,
-			inUse:            false,
-			isPopulated:      false,
-			availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s does not exist", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+			volumes:         nil,
+			inUse:           false,
+			isPopulated:     false,
+			readyCondition:  newReadyCondition(corev1.ConditionFalse, VMSnapshotNotFoundReason, fmt.Sprintf("VirtualMachineSnapshot %s/%s not found", vmExport.Namespace, vmExport.Spec.Source.Name)),
+			sourceCondition: newVolumesCreatedCondition(corev1.ConditionFalse, noVolumeSnapshotReason, fmt.Sprintf("VirtualMachineSnapshot %s/%s does not contain any volume snapshots", vmExport.Namespace, vmExport.Spec.Source.Name)),
+		}, nil
 	}
 	if vmSnapshot.Status != nil && vmSnapshot.Status.ReadyToUse != nil && *vmSnapshot.Status.ReadyToUse {
 		pvcs, restoreableSnapshots, err := ctrl.handlePVCsForVirtualMachineSnapshot(vmExport, vmSnapshot)
 		if err != nil {
-			return &sourceVolumes{}, err
+			return nil, err
 		}
 		if len(pvcs) == restoreableSnapshots && restoreableSnapshots > 0 {
 			return &sourceVolumes{
-				volumes:          pvcs,
-				inUse:            false,
-				isPopulated:      true,
-				availableMessage: ""}, nil
+				volumes:         pvcs,
+				inUse:           false,
+				isPopulated:     true,
+				readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
+				sourceCondition: newVolumesCreatedCondition(corev1.ConditionTrue, allPVCsReady, ""),
+			}, nil
 		}
 		if restoreableSnapshots == 0 {
 			return &sourceVolumes{
-				volumes:          nil,
-				inUse:            false,
-				isPopulated:      false,
-				availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s does not contain any volume snapshots", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+				volumes:         nil,
+				inUse:           false,
+				isPopulated:     false,
+				readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
+				sourceCondition: newVolumesCreatedCondition(corev1.ConditionFalse, noVolumeSnapshotReason, fmt.Sprintf("VirtualMachineSnapshot %s/%s does not contain any volume snapshots", vmExport.Namespace, vmExport.Spec.Source.Name)),
+			}, nil
 		}
 		return &sourceVolumes{
-			volumes:          nil,
-			inUse:            false,
-			isPopulated:      false,
-			availableMessage: "Not all PVCs have been successfully restored"}, nil
+			volumes:         nil,
+			inUse:           false,
+			isPopulated:     false,
+			readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
+			sourceCondition: newVolumesCreatedCondition(corev1.ConditionFalse, notAllPVCsCreatedReason, "Not all PVCs have been successfully restored"),
+		}, nil
 	}
 	return &sourceVolumes{
-		volumes:          nil,
-		inUse:            false,
-		isPopulated:      false,
-		availableMessage: fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)}, nil
+		volumes:         nil,
+		inUse:           false,
+		isPopulated:     false,
+		readyCondition:  newReadyCondition(corev1.ConditionFalse, notAllPVCsCreatedReason, fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)),
+		sourceCondition: newVolumesCreatedCondition(corev1.ConditionFalse, notAllPVCsCreatedReason, fmt.Sprintf("VirtualMachineSnapshot %s/%s is not ready to use", vmExport.Namespace, vmExport.Spec.Source.Name)),
+	}, nil
 }
 
 func (ctrl *VMExportController) handlePVCsForVirtualMachineSnapshot(vmExport *exportv1.VirtualMachineExport, vmSnapshot *snapshotv1.VirtualMachineSnapshot) ([]*corev1.PersistentVolumeClaim, int, error) {
@@ -195,7 +202,7 @@ func (ctrl *VMExportController) updateVMExporVMSnapshotStatus(vmExport *exportv1
 		return 0, err
 	}
 
-	if err := ctrl.updateVMSnapshotExportStatusConditions(vmExportCopy, sourceVolumes.volumes, sourceVolumes.availableMessage); err != nil {
+	if err := ctrl.updateVMSnapshotExportStatusConditions(vmExportCopy, sourceVolumes); err != nil {
 		return 0, err
 	}
 
@@ -217,43 +224,30 @@ func (ctrl *VMExportController) getVmNameFromVmSnapshot(vmExport *exportv1.Virtu
 	return ""
 }
 
-func (ctrl *VMExportController) updateVMSnapshotExportStatusConditions(vmExportCopy *exportv1.VirtualMachineExport, pvcs []*corev1.PersistentVolumeClaim, availableMessage string) error {
-	vmSnapshot, exists, err := ctrl.getVmSnapshot(vmExportCopy.Namespace, vmExportCopy.Spec.Source.Name)
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, initializingReason, ""))
+func (ctrl *VMExportController) updateVMSnapshotExportStatusConditions(vmExportCopy *exportv1.VirtualMachineExport, sourceVolumes *sourceVolumes) error {
+	// Handle no volumes case
+	if len(sourceVolumes.volumes) == 0 {
+		vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, sourceVolumes.sourceCondition)
+		if sourceVolumes.sourceCondition.Reason == noVolumeSnapshotReason {
+			vmExportCopy.Status.Phase = exportv1.Skipped
+		}
 		return nil
 	}
-	if vmSnapshot.Status != nil && vmSnapshot.Status.VirtualMachineSnapshotContentName != nil && *vmSnapshot.Status.VirtualMachineSnapshotContentName != "" {
-		content, exists, err := ctrl.getVmSnapshotContent(vmSnapshot.Namespace, *vmSnapshot.Status.VirtualMachineSnapshotContentName)
-		if err != nil {
-			return err
-		}
-		if exists {
-			if len(content.Status.VolumeSnapshotStatus) == 0 {
-				vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newVolumesCreatedCondition(corev1.ConditionFalse, noVolumeSnapshotReason, availableMessage))
-				vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newReadyCondition(corev1.ConditionFalse, initializingReason, ""))
-				vmExportCopy.Status.Phase = exportv1.Skipped
-			} else if len(content.Status.VolumeSnapshotStatus) != len(pvcs) {
-				vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newVolumesCreatedCondition(corev1.ConditionFalse, notAllPVCsCreated, availableMessage))
-			} else {
-				readyCount := 0
-				for _, pvc := range pvcs {
-					if pvc.Status.Phase == corev1.ClaimBound {
-						readyCount++
-					}
-				}
-				if readyCount == len(pvcs) {
-					vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newVolumesCreatedCondition(corev1.ConditionTrue, allPVCsReady, availableMessage))
-				} else {
-					vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, newVolumesCreatedCondition(corev1.ConditionFalse, notAllPVCsReady, "Not all PVCs are ready"))
-				}
-			}
+
+	condition := newVolumesCreatedCondition(corev1.ConditionFalse, notAllPVCsReady, "Not all PVCs are ready")
+
+	allReady := true
+	for _, pvc := range sourceVolumes.volumes {
+		if pvc.Status.Phase != corev1.ClaimBound {
+			allReady = false
+			break
 		}
 	}
+	if allReady {
+		condition = newVolumesCreatedCondition(corev1.ConditionTrue, allPVCsReady, "")
+	}
+
+	vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, condition)
 	return nil
 }
 
