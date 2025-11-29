@@ -28,13 +28,12 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -50,14 +49,12 @@ const (
 )
 
 var _ = Describe("PCI Device", func() {
-	var mockPCI *MockDeviceHandler
-	var fakePermittedHostDevicesConfig string
 	var fakePermittedHostDevices v1.PermittedHostDevices
-	var ctrl *gomock.Controller
-	var clientTest *fake.Clientset
+	var fakeNodeStore cache.Store
 
 	BeforeEach(func() {
-		clientTest = fake.NewSimpleClientset()
+		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
+		fakeNodeStore = fakeNodeInformer.GetStore()
 		By("making sure the environment has a PCI device at " + fakeAddress)
 		_, err := os.Stat("/sys/bus/pci/devices/" + fakeAddress)
 		if errors.Is(err, os.ErrNotExist) {
@@ -65,8 +62,7 @@ var _ = Describe("PCI Device", func() {
 		}
 
 		By("mocking PCI functions to simulate a vfio-pci device at " + fakeAddress)
-		ctrl = gomock.NewController(GinkgoT())
-		mockPCI = NewMockDeviceHandler(ctrl)
+		mockPCI := NewMockDeviceHandler(gomock.NewController(GinkgoT()))
 		handler = mockPCI
 		// Force pre-defined returned values and ensure the function only get called exacly once each on 0000:00:00.0
 		mockPCI.EXPECT().GetDeviceIOMMUGroup(pciBasePath, fakeAddress).Return(fakeIommuGroup, nil).Times(1)
@@ -81,7 +77,7 @@ var _ = Describe("PCI Device", func() {
 		mockPCI.EXPECT().GetDevicePCIID(pciBasePath, gomock.Any()).AnyTimes()
 
 		By("creating a list of fake device using the yaml decoder")
-		fakePermittedHostDevicesConfig = `
+		fakePermittedHostDevicesConfig := `
 pciHostDevices:
 - pciVendorSelector: "` + fakeID + `"
   resourceName: "` + fakeName + `"
@@ -149,7 +145,7 @@ pciHostDevices:
 
 		By("creating an empty device controller")
 		var noDevices []Device
-		deviceController := NewDeviceController("master", 100, "rw", noDevices, fakeClusterConfig, clientTest.CoreV1())
+		deviceController := NewDeviceController("master", 100, "rw", noDevices, fakeClusterConfig, fakeNodeStore)
 
 		By("adding a host device to the cluster config")
 		kvConfig := kv.DeepCopy()

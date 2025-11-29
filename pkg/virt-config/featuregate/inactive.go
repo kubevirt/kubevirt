@@ -96,6 +96,13 @@ const (
 	// InstancetypeReferencePolicy allows a cluster admin to control how a VirtualMachine references instance types and preferences
 	// through the kv.spec.configuration.instancetype.referencePolicy configurable.
 	InstancetypeReferencePolicy = "InstancetypeReferencePolicy"
+
+	// Owner: sig-compute / @lyarwood
+	// Alpha: v1.0.0
+	// Deprecated: v1.8.0
+	//
+	// MultiArchitecture allows VM/VMIs to request and schedule to an architecture other than that of control plane
+	MultiArchitecture = "MultiArchitecture"
 )
 
 func init() {
@@ -127,4 +134,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
 
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Deprecated, Message: "MultiArchitecture has been deprecated since v1.8.0"})
 }

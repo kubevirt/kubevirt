@@ -3,9 +3,9 @@ package api
 import (
 	"reflect"
 
-	fuzz "github.com/google/gofuzz"
 	ginkgo "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/randfill"
 )
 
 var _ = ginkgo.Describe("Generated deepcopy functions", func() {
@@ -89,7 +89,7 @@ var _ = ginkgo.Describe("Generated deepcopy functions", func() {
 
 	ginkgo.It("should work for fuzzed structs", func() {
 		for _, s := range structs {
-			fuzz.New().NilChance(0).Fuzz(s)
+			randfill.New().NilChance(0).Fill(s)
 			Expect(reflect.ValueOf(s).MethodByName("DeepCopy").Call(nil)[0].Interface()).To(Equal(s))
 			if reflect.ValueOf(s).MethodByName("DeepCopyObject").IsValid() {
 				Expect(reflect.ValueOf(s).MethodByName("DeepCopyObject").Call(nil)[0].Interface()).To(Equal(s))

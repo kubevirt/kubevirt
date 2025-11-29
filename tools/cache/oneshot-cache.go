@@ -70,3 +70,16 @@ func (c *OneShotCache[T]) Get() (T, error) {
 
 	return value, nil
 }
+
+// ForceUpdate forces a spin of the calcFunc
+func (c *OneShotCache[T]) ForceUpdate() error {
+	c.valueLock.Lock()
+	defer c.valueLock.Unlock()
+	value, err := c.calcFunc()
+	if err != nil {
+		return fmt.Errorf("failed to calculate value: %w", err)
+	}
+
+	c.value.Store(&value)
+	return nil
+}

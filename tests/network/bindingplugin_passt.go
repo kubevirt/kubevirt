@@ -54,7 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin", decorators.NetCustomBindingPlugins, Serial, func() {
+var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin", decorators.NetCustomBindingPlugins, decorators.Passt, Serial, func() {
 	const passtNetAttDefName = "netbindingpasst"
 
 	var err error
@@ -67,7 +67,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 		err := config.RegisterKubevirtConfigChange(
-			config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
+			config.WithNetBindingPluginIfNotPresent(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
 				NetworkAttachmentDefinition: passtNetAttDefName,
 				Migration:                   &v1.InterfaceBindingMigration{},

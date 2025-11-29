@@ -88,8 +88,8 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 85
-	patchCount    = 53
+	resourceCount = 87
+	patchCount    = 55
 	updateCount   = 33
 )
 
@@ -1522,6 +1522,28 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 	}
 }
 
+func (k *KubeVirtTestData) makeHandlerComplete() {
+	exists := false
+	var obj interface{}
+	// we need to wait until the daemonset exists
+	for !exists {
+		obj, exists, _ = k.controller.stores.DaemonSetCache.GetByKey(NAMESPACE + "/virt-handler")
+		if exists {
+			handler, _ := obj.(*appsv1.DaemonSet)
+			handlerNew := handler.DeepCopy()
+			maxUnavailable := intstr.FromInt(1)
+			handlerNew.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+				MaxUnavailable: &maxUnavailable,
+			}
+			handlerNew.Spec.Template.Spec.Containers[0].Args = append(handlerNew.Spec.Template.Spec.Containers[0].Args, "migration-cn-types")
+			k.controller.stores.DaemonSetCache.Update(handlerNew)
+			key, err := kubecontroller.KeyFunc(handlerNew)
+			Expect(err).To(Not(HaveOccurred()))
+			k.mockQueue.Add(key)
+		}
+	}
+}
+
 func (k *KubeVirtTestData) addDummyValidationWebhook() {
 	version := fmt.Sprintf("rand-%s", rand.String(10))
 	registry := fmt.Sprintf("rand-%s", rand.String(10))
@@ -1822,6 +1844,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectKubeVirtUpdateStatusVersion(1, customConfig)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 			kvTestData.controller.Execute()
 			kv = kvTestData.getLatestKubeVirt(kv)
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
@@ -2017,6 +2040,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
 			kvTestData.makeDeploymentsReady(kv)
 			kvTestData.makeHandlerReady()
+			kvTestData.makeHandlerComplete()
 
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
@@ -2039,6 +2063,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["mutatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["mutatingwebhookconfigurations"][Added]))
 			Expect(kvTestData.resourceChanges["validatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["validatingwebhookconfigurations"][Added]))
 			Expect(kvTestData.resourceChanges["deployements"][Patched]).To(Equal(kvTestData.resourceChanges["deployements"][Added]))
+			// Expecting to drop certificate
 			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(kvTestData.resourceChanges["daemonsets"][Added]))
 		})
 
@@ -2192,7 +2217,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			const expectedImage = "myimage123:mytag456"
 			err := kvTestData.mockEnvVarManager.Setenv(util.VirtOperatorImageEnvName, expectedImage)
 			Expect(err).ToNot(HaveOccurred())
-			config := kvTestData.getConfig("registry", "v1.1.1")
+			config := kvTestData.getConfig("", "")
 
 			job, err := kvTestData.controller.generateInstallStrategyJob(&v1.ComponentConfig{}, config)
 			Expect(err).ToNot(HaveOccurred())
@@ -2512,6 +2537,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectRbacBackupCreations()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -2580,6 +2606,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectRbacBackupCreations()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -2653,6 +2680,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectRbacBackupCreations()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -3035,6 +3063,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -3112,6 +3141,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -3203,6 +3233,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 

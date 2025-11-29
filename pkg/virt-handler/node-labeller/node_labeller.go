@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"libvirt.org/go/libvirtxml"
 
@@ -54,6 +55,8 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.RealtimeLabel,
 	kubevirtv1.SEVLabel,
 	kubevirtv1.SEVESLabel,
+	kubevirtv1.SEVSNPLabel,
+	kubevirtv1.TDXLabel,
 	kubevirtv1.HostModelCPULabel,
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
@@ -64,11 +67,12 @@ var nodeLabellerLabels = []string{
 type NodeLabeller struct {
 	recorder                record.EventRecorder
 	nodeClient              k8scli.NodeInterface
+	nodeStore               cache.Store
 	host                    string
 	logger                  *log.FilteredLogger
 	clusterConfig           *virtconfig.ClusterConfig
 	hypervFeatures          supportedFeatures
-	hostCapabilities        supportedFeatures
+	hostCapabilities        supportedModels
 	queue                   workqueue.TypedRateLimitingInterface[string]
 	supportedFeatures       []string
 	cpuModelVendor          string
@@ -79,17 +83,19 @@ type NodeLabeller struct {
 	hostCPUModel            hostCPUModel
 	SEV                     SEVConfiguration
 	SecureExecution         SecureExecutionConfiguration
+	TDX                     TDXConfiguration
 	arch                    archLabeller
 }
 
-func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
-	return newNodeLabeller(clusterConfig, nodeClient, host, NodeLabellerVolumePath, recorder, cpuCounter, supportedMachines)
+func NewNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, nodeStore cache.Store, host string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
+	return newNodeLabeller(clusterConfig, nodeClient, nodeStore, host, NodeLabellerVolumePath, recorder, cpuCounter, supportedMachines)
 
 }
-func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
+func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.NodeInterface, nodeStore cache.Store, host, volumePath string, recorder record.EventRecorder, cpuCounter *libvirtxml.CapsHostCPUCounter, supportedMachines []libvirtxml.CapsGuestMachine) (*NodeLabeller, error) {
 	n := &NodeLabeller{
 		recorder:      recorder,
 		nodeClient:    nodeClient,
+		nodeStore:     nodeStore,
 		host:          host,
 		logger:        log.DefaultLogger(),
 		clusterConfig: clusterConfig,
@@ -113,7 +119,7 @@ func newNodeLabeller(clusterConfig *virtconfig.ClusterConfig, nodeClient k8scli.
 }
 
 // Run runs node-labeller
-func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
+func (n *NodeLabeller) Run(stop chan struct{}) {
 	defer n.queue.ShutDown()
 
 	n.logger.Infof("node-labeller is running")
@@ -128,10 +134,8 @@ func (n *NodeLabeller) Run(threadiness int, stop chan struct{}) {
 
 	interval := 3 * time.Minute
 	go wait.JitterUntil(func() { n.queue.Add(n.host) }, interval, 1.2, true, stop)
+	go wait.Until(n.runWorker, time.Second, stop)
 
-	for i := 0; i < threadiness; i++ {
-		go wait.Until(n.runWorker, time.Second, stop)
-	}
 	<-stop
 }
 
@@ -164,14 +168,14 @@ func (n *NodeLabeller) loadAll() error {
 	if n.arch.hasHostSupportedFeatures() {
 		err := n.loadHostSupportedFeatures()
 		if err != nil {
-			n.logger.Errorf("node-labeller could not load supported features: " + err.Error())
+			n.logger.Errorf("node-labeller could not load supported features: %s", err.Error())
 			return err
 		}
 	}
 
 	err := n.loadDomCapabilities()
 	if err != nil {
-		n.logger.Errorf("node-labeller could not load host dom capabilities: " + err.Error())
+		n.logger.Errorf("node-labeller could not load host dom capabilities: %s", err.Error())
 		return err
 	}
 
@@ -181,25 +185,23 @@ func (n *NodeLabeller) loadAll() error {
 }
 
 func (n *NodeLabeller) run() error {
-	originalNode, err := n.nodeClient.Get(context.Background(), n.host, metav1.GetOptions{})
+	originalNode, err := n.getNode()
 	if err != nil {
 		return err
 	}
 
-	node := originalNode.DeepCopy()
-
-	if !skipNodeLabelling(node) {
-		//prepare new labels
-		newLabels := n.prepareLabels(node)
-		//remove old labeller labels
-		n.removeLabellerLabels(node)
-		//add new labels
-		n.addLabellerLabels(node, newLabels)
+	if skipNodeLabelling(originalNode) {
+		return nil
 	}
 
-	err = n.patchNode(originalNode, node)
-
-	return err
+	node := originalNode.DeepCopy()
+	//prepare new labels
+	newLabels := n.prepareLabels(node)
+	//remove old labeller labels
+	n.removeLabellerLabels(node)
+	//add new labels
+	n.addLabellerLabels(node, newLabels)
+	return n.patchNode(originalNode, node)
 }
 
 func skipNodeLabelling(node *v1.Node) bool {
@@ -245,6 +247,8 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	if n.arch.supportsNamedModels() {
 		for _, value := range n.getSupportedCpuModels(obsoleteCPUsx86) {
 			newLabels[kubevirtv1.CPUModelLabel+value] = "true"
+		}
+		for _, value := range n.getKnownCpuModels(obsoleteCPUsx86) {
 			newLabels[kubevirtv1.SupportedHostModelMigrationCPU+value] = "true"
 		}
 	}
@@ -264,9 +268,7 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	}
 
 	if n.arch.supportsHostModel() {
-		if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; !hostModelObsolete {
-			newLabels[kubevirtv1.SupportedHostModelMigrationCPU+hostCpuModel.Name] = "true"
-		} else {
+		if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; hostModelObsolete {
 			newLabels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
 			err := n.alertIfHostModelIsObsolete(node, hostCpuModel.Name, obsoleteCPUsx86)
 			if err != nil {
@@ -297,11 +299,37 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	if n.SEV.SupportedES == "yes" {
 		newLabels[kubevirtv1.SEVESLabel] = "true"
 	}
+
+	if n.SEV.SupportedSNP == "yes" {
+		newLabels[kubevirtv1.SEVSNPLabel] = "true"
+	}
+
 	if n.SecureExecution.Supported == "yes" {
 		newLabels[kubevirtv1.SecureExecutionLabel] = "true"
 	}
 
+	if n.TDX.Supported == "yes" {
+		newLabels[kubevirtv1.TDXLabel] = "true"
+	}
+
 	return newLabels
+}
+
+func (n *NodeLabeller) getNode() (*v1.Node, error) {
+	nodeObj, exists, err := n.nodeStore.GetByKey(n.host)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("node %s does not exist", n.host)
+	}
+
+	node, ok := nodeObj.(*v1.Node)
+	if !ok {
+		return nil, fmt.Errorf("unknown object type found in node informer")
+	}
+
+	return node, nil
 }
 
 // addNodeLabels adds labels to node.

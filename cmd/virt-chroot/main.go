@@ -46,7 +46,7 @@ func main() {
 			return nil
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf(cmd.UsageString())
+			cmd.Printf("%s", cmd.UsageString())
 		},
 	}
 
@@ -140,7 +140,7 @@ func main() {
 		Short: "run selinux operations in specific namespaces",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf(cmd.UsageString())
+			cmd.Printf("%s", cmd.UsageString())
 		},
 	}
 

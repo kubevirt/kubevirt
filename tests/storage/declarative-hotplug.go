@@ -27,6 +27,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -132,6 +133,30 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 			},
 		})
 		return patchVM(vm, nil, newVolumes)
+	}
+
+	addHotplugVolumeAtBeginning := func(vm *v1.VirtualMachine, volumeName, pvcName string) *v1.VirtualMachine {
+		var err error
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		newVolumes := vm.DeepCopy().Spec.Template.Spec.Volumes
+		newVolume := v1.Volume{
+			Name: volumeName,
+			VolumeSource: v1.VolumeSource{
+				DataVolume: &v1.DataVolumeSource{
+					Name:         pvcName,
+					Hotpluggable: true,
+				},
+			},
+		}
+		// Prepend volume at the beginning
+		newVolumes = append([]v1.Volume{newVolume}, newVolumes...)
+		return patchVM(vm, nil, newVolumes)
+	}
+
+	verifyNoRestartRequired := func(vm *v1.VirtualMachine) {
+		Eventually(matcher.ThisVM(vm), 30*time.Second, 2*time.Second).
+			Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 	}
 
 	hotplugDisk := func(vm *v1.VirtualMachine, volumeName, pvcName string) *v1.VirtualMachine {
@@ -301,10 +326,13 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 			dv1 := createCDRomVolume(vm.Namespace, cd.ContainerDiskVirtio)
 			dv2 := createCDRomVolume(vm.Namespace, cd.ContainerDiskAlpine)
 
-			By("Hotplugging a CD-ROM")
+			By("Hotplugging a CD-ROM at the end of volumes list")
 			vm = addHotplugVolume(vm, cdRomName, dv1.Name)
 			waitForHotplugToComplete(vm, cdRomName, dv1.Name, true)
 			libstorage.EventuallyDV(dv1, 240, matcher.HaveSucceeded())
+
+			By("Verifying no RestartRequired condition after adding volume at the end")
+			verifyNoRestartRequired(vm)
 
 			By("Validate the first CD-ROM is present in the VM")
 			loginToVM(vm)
@@ -325,6 +353,68 @@ var _ = Describe(SIG("Declarative Hotplug", func() {
 
 			By("Validate the CD-ROM is not present in the VM")
 			validateVMHasNoCDRom(vm)
+
+			By("Re-adding the CD-ROM at the beginning of volumes list")
+			vm = addHotplugVolumeAtBeginning(vm, cdRomName, dv1.Name)
+			waitForHotplugToComplete(vm, cdRomName, dv1.Name, true)
+
+			By("Verifying no RestartRequired condition after adding volume at the beginning")
+			verifyNoRestartRequired(vm)
+
+			By("Validate the CD-ROM is present in the VM again")
+			validateVMHasCDRom(vm, "27")
+
+			By("Ejecting the CD-ROM again")
+			vm = removeHotplugVolume(vm, cdRomName)
+			waitForHotplugToComplete(vm, cdRomName, dv1.Name, false)
+
+			By("Validate the CD-ROM is not present in the VM")
+			validateVMHasNoCDRom(vm)
+		})
+
+		It("Should trigger RestartRequired if CD-ROM disk is removed", func() {
+			By("Creating a VM with an empty CD-ROM")
+			vm := createAndStartVMWithEmptyCDRom()
+
+			By("Creating cd-rom volumes")
+			dv := createCDRomVolume(vm.Namespace, cd.ContainerDiskVirtio)
+
+			By("Hotplugging a CD-ROM")
+			vm = addHotplugVolume(vm, cdRomName, dv.Name)
+			waitForHotplugToComplete(vm, cdRomName, dv.Name, true)
+			libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())
+
+			loginToVM(vm)
+
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			attachmentPodName := ""
+			for _, volumeStatus := range vmi.Status.VolumeStatus {
+				if volumeStatus.HotplugVolume != nil {
+					attachmentPodName = volumeStatus.HotplugVolume.AttachPodName
+				}
+			}
+
+			Expect(attachmentPodName).ToNot(BeEmpty())
+
+			By("Verifying no RestartRequired")
+			verifyNoRestartRequired(vm)
+
+			By("Removing CD-ROM disk and volume")
+			vm = removeHotplugDiskAndVolume(vm, cdRomName)
+			waitForHotplugToComplete(vm, cdRomName, dv.Name, false)
+
+			By("Checking RestartRequired Condition")
+			Eventually(matcher.ThisVM(vm), 120*time.Second, 2*time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
+
+			By("Checking hotplug voume was properly detached")
+			Eventually(func() error {
+				_, err := virtClient.CoreV1().Pods(vmi.Namespace).Get(context.Background(), attachmentPodName, metav1.GetOptions{})
+				return err
+			}, 300*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+
 		})
 	})
 

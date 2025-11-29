@@ -56,7 +56,7 @@ var _ = Describe(SIG("Slirp", decorators.Networking, decorators.NetCustomBinding
 		const slirpSidecarImage = "registry:5000/kubevirt/network-slirp-binding:devel"
 
 		err := config.RegisterKubevirtConfigChange(
-			config.WithNetBindingPlugin(slirpBindingName, v1.InterfaceBindingPlugin{
+			config.WithNetBindingPluginIfNotPresent(slirpBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage: slirpSidecarImage,
 			}),
 		)

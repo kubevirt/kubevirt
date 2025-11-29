@@ -136,12 +136,30 @@ func addVolumeMounts(volumeName string) []k8sv1.VolumeMount {
 	return volumeMounts
 }
 
+func WithStorageClass(sc string) Option {
+	return func(pvc *k8sv1.PersistentVolumeClaim) {
+		pvc.Spec.StorageClassName = &sc
+	}
+}
+
 func WithStorageProfile() Option {
+	return WithLabels(map[string]string{LabelApplyStorageProfile: "true"})
+}
+
+func WithLabels(labels map[string]string) Option {
 	return func(pvc *k8sv1.PersistentVolumeClaim) {
 		if pvc.Labels == nil {
 			pvc.Labels = map[string]string{}
 		}
-		pvc.Labels[LabelApplyStorageProfile] = "true"
+		for key, value := range labels {
+			pvc.Labels[key] = value
+		}
+	}
+}
+
+func WithVolumeMode(volumeMode k8sv1.PersistentVolumeMode) Option {
+	return func(pvc *k8sv1.PersistentVolumeClaim) {
+		pvc.Spec.VolumeMode = &volumeMode
 	}
 }
 
@@ -180,38 +198,14 @@ func createPVC(pvc *k8sv1.PersistentVolumeClaim, namespace string) *k8sv1.Persis
 	return createdPvc
 }
 
-func CreateFSPVC(name, namespace, size string, labels map[string]string) *k8sv1.PersistentVolumeClaim {
+func CreateFSPVC(name, namespace, size string, opts ...Option) *k8sv1.PersistentVolumeClaim {
 	sc, _ := GetRWOFileSystemStorageClass()
-	pvc := NewPVC(name, size, sc)
-	volumeMode := k8sv1.PersistentVolumeFilesystem
-	pvc.Spec.VolumeMode = &volumeMode
-	if labels != nil && pvc.Labels == nil {
-		pvc.Labels = map[string]string{}
-	}
-
-	for key, value := range labels {
-		pvc.Labels[key] = value
-	}
-
-	return createPVC(pvc, namespace)
+	return createPVC(NewPVC(name, size, sc, opts...), namespace)
 }
 
-func CreateRWXFSPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
-	sc, _ := GetRWXFileSystemStorageClass()
-	pvc := NewPVC(name, size, sc)
-	pvc.Spec.VolumeMode = pointer.P(k8sv1.PersistentVolumeFilesystem)
-	pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}
-
-	return createPVC(pvc, namespace)
-}
-
-func CreateBlockPVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
+func CreateBlockPVC(name, namespace, size string, opts ...Option) *k8sv1.PersistentVolumeClaim {
 	sc, _ := GetRWOBlockStorageClass()
-	pvc := NewPVC(name, size, sc)
-	volumeMode := k8sv1.PersistentVolumeBlock
-	pvc.Spec.VolumeMode = &volumeMode
-
-	return createPVC(pvc, namespace)
+	return createPVC(NewPVC(name, size, sc, append(opts, WithVolumeMode(k8sv1.PersistentVolumeBlock))...), namespace)
 }
 
 func CreateHostPathPVC(os, namespace, size string) {

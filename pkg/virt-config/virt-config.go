@@ -42,6 +42,7 @@ const (
 	MigrationAllowPostCopy                   bool   = false
 	MigrationProgressTimeout                 int64  = 150
 	MigrationCompletionTimeoutPerGiB         int64  = 150
+	MigrationUtilityVolumesTimeoutSeconds    int64  = 150
 	DefaultAMD64MachineType                         = "q35"
 	DefaultAARCH64MachineType                       = "virt"
 	DefaultS390XMachineType                         = "s390-ccw-virtio"
@@ -77,8 +78,8 @@ const (
 	DefaultVirtOperatorLogVerbosity                 = 2
 
 	// Default REST configuration settings
-	DefaultVirtHandlerQPS         float32 = 5
-	DefaultVirtHandlerBurst               = 10
+	DefaultVirtHandlerQPS         float32 = 50
+	DefaultVirtHandlerBurst               = 100
 	DefaultVirtControllerQPS      float32 = 200
 	DefaultVirtControllerBurst            = 400
 	DefaultVirtAPIQPS             float32 = 200
@@ -376,11 +377,6 @@ func (c *ClusterConfig) GetVirtLauncherVerbosity() uint {
 
 func (c *ClusterConfig) GetVirtSynchronizationControllerVerbosity() uint {
 	return c.getComponentVerbosity(virtSynchronizationController, "")
-}
-
-// GetMinCPUModel return minimal cpu which is used in node-labeller
-func (c *ClusterConfig) GetMinCPUModel() string {
-	return c.GetConfig().MinCPUModel
 }
 
 // GetObsoleteCPUModels return slice of obsolete cpus which are used in node-labeller

@@ -49,6 +49,13 @@ func shouldIfacesChangeRequireRestart(desiredIfaces, currentIfaces []v1.Interfac
 }
 
 func shouldNetsChangeRequireRestart(desiredNets, currentNets []v1.Network) bool {
+	isPodNetworkInDesiredNets := vmispec.LookupPodNetwork(desiredNets) != nil
+	isPodNetworkInCurrentNets := vmispec.LookupPodNetwork(currentNets) != nil
+
+	if isPodNetworkInDesiredNets && !isPodNetworkInCurrentNets {
+		return true
+	}
+
 	desiredNetsByName := vmispec.IndexNetworkSpecByName(desiredNets)
 	currentNetsByName := vmispec.IndexNetworkSpecByName(currentNets)
 

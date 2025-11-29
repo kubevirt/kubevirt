@@ -609,6 +609,30 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("evacuate/cancel")).
+			To(subresourceApp.EvacuateCancelHandler(subresourceApp.FetchVirtualMachineInstanceForVM)).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.EvacuateCancelOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vm-evacuatecancel").
+			Doc("Cancel evacuation Virtual Machine").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("evacuate/cancel")).
+			To(subresourceApp.EvacuateCancelHandler(subresourceApp.FetchVirtualMachineInstance)).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.EvacuateCancelOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vmi-evacuatecancel").
+			Doc("Cancel evacuation Virtual Machine Instance").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
+			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -692,6 +716,10 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
+						Name:       "virtualmachines/evacuate/cancel",
+						Namespaced: true,
+					},
+					{
 						Name:       "virtualmachineinstances/guestosinfo",
 						Namespaced: true,
 					},
@@ -729,6 +757,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/sev/injectlaunchsecret",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/evacuate/cancel",
 						Namespaced: true,
 					},
 				}
@@ -942,7 +974,7 @@ func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers)
 		validating_webhook.ServeVMIPreset(w, r)
 	})
 	http.HandleFunc(components.MigrationCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig, app.virtCli)
+		validating_webhook.ServeMigrationCreate(w, r, app.clusterConfig, app.virtCli, app.kubeVirtServiceAccounts)
 	})
 	http.HandleFunc(components.MigrationUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeMigrationUpdate(w, r)
@@ -1119,7 +1151,7 @@ func (app *virtAPIApp) Run() {
 	// Wire up health check trigger
 	kubeVirtInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
-		cache.DefaultWatchErrorHandler(r, err)
+		cache.DefaultWatchErrorHandler(context.TODO(), r, err)
 	})
 
 	kubeInformerFactory.ApiAuthConfigMap()

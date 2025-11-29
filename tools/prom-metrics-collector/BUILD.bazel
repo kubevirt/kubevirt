@@ -9,6 +9,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tools/prom-metrics-collector",
     visibility = ["//visibility:private"],
     deps = [
+        "//pkg/monitoring/rules:go_default_library",
         "//vendor/github.com/kubevirt/monitoring/pkg/metrics/parser:go_default_library",
         "//vendor/github.com/prometheus/client_model/go:go_default_library",
     ],

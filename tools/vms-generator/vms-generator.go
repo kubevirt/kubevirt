@@ -37,7 +37,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 

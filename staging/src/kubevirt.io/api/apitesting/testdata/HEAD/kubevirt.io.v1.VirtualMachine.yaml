@@ -439,6 +439,7 @@ spec:
           disks:
           - blockSize:
               custom:
+                discardGranularity: 18446744073709551598
                 logical: 18446744073709551609
                 physical: 18446744073709551608
               matchVolume:
@@ -616,6 +617,8 @@ spec:
             policy:
               encryptedState: true
             session: sessionValue
+          snp: {}
+          tdx: {}
         machine:
           type: typeValue
         memory:
@@ -715,6 +718,11 @@ spec:
         nodeTaintsPolicy: nodeTaintsPolicyValue
         topologyKey: topologyKeyValue
         whenUnsatisfiable: whenUnsatisfiableValue
+      utilityVolumes:
+      - claimName: claimNameValue
+        name: nameValue
+        readOnly: true
+        type: typeValue
       volumes:
       - cloudInitConfigDrive:
           networkData: networkDataValue
@@ -845,6 +853,7 @@ status:
       disk:
         blockSize:
           custom:
+            discardGranularity: 18446744073709551598
             logical: 18446744073709551609
             physical: 18446744073709551608
           matchVolume:

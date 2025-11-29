@@ -567,7 +567,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				}
 			}
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), &virtv1.VirtualMachineInstanceMigration{
+			wuMigration := &virtv1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						virtv1.WorkloadUpdateMigrationAnnotation: "",
@@ -578,7 +578,16 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 					VMIName: vmi.Name,
 				},
-			}, metav1.CreateOptions{})
+			}
+			if c.clusterConfig.MigrationPriorityQueueEnabled() {
+				// default is upgrade
+				priority := v1.PrioritySystemCritical
+				if isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi) {
+					priority = v1.PriorityUserTriggered
+				}
+				wuMigration.Spec.Priority = &priority
+			}
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), wuMigration, metav1.CreateOptions{})
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi as part of workload update")
 				c.migrationExpectations.CreationObserved(key)

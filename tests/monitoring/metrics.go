@@ -255,13 +255,13 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 
 func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vmDiskPVC := "test-vm-pvc"
-	pvc := libstorage.CreateFSPVC(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil)
+	dv := libstorage.CreateBlankFSDataVolume(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil)
 	iface := *v1.DefaultMasqueradeNetworkInterface()
 
 	vmi := libvmifact.NewFedora(
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 		libvmi.WithMemoryLimit("512Mi"),
-		libvmi.WithPersistentVolumeClaim("testdisk", pvc.Name),
+		libvmi.WithDataVolume("testdisk", dv.Name),
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithLabel("vm.kubevirt.io/test", "test-vm-labels"),

@@ -353,7 +353,6 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 }
 
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
-
 	config, err := operatorutil.GetConfigFromEnv()
 	if err != nil {
 		return err
@@ -371,15 +370,7 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNa
 
 	_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Create(context.Background(), configMap, metav1.CreateOptions{})
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			// force update if already exists
-			_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Update(context.Background(), configMap, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
+		return fmt.Errorf("failed to create new install strategy configmap: %v", err)
 	}
 
 	return nil
@@ -554,17 +545,17 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	if operatorutil.IsValidLabel(config.GetProductName()) {
 		productName = config.GetProductName()
 	} else {
-		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMessage, "kubevirt.spec.productName"))
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productName")
 	}
 	if operatorutil.IsValidLabel(config.GetProductVersion()) {
 		productVersion = config.GetProductVersion()
 	} else {
-		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMessage, "kubevirt.spec.productVersion"))
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productVersion")
 	}
 	if operatorutil.IsValidLabel(config.GetProductComponent()) {
 		productComponent = config.GetProductComponent()
 	} else {
-		log.Log.Errorf(fmt.Sprintf(invalidLabelPatternErrorMessage, "kubevirt.spec.productComponent"))
+		log.Log.Errorf(invalidLabelPatternErrorMessage, "kubevirt.spec.productComponent")
 	}
 
 	strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, components.NewOpertorValidatingWebhookConfiguration(operatorNamespace))

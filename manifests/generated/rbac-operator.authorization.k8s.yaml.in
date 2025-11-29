@@ -22,6 +22,8 @@ rules:
   - kubevirt-export-ca
   - kubevirt-virt-handler-certs
   - kubevirt-virt-handler-server-certs
+  - kubevirt-virt-handler-migration-client-certs
+  - kubevirt-virt-handler-vsock-client-certs
   - kubevirt-operator-certs
   - kubevirt-virt-api-certs
   - kubevirt-controller-certs
@@ -495,6 +497,12 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - nodes
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
   - namespaces
   verbs:
   - get
@@ -948,6 +956,7 @@ rules:
   - virtualmachineinstances/reset
   - virtualmachineinstances/sev/setupsession
   - virtualmachineinstances/sev/injectlaunchsecret
+  - virtualmachineinstances/evacuate/cancel
   verbs:
   - update
 - apiGroups:
@@ -966,6 +975,7 @@ rules:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
   - virtualmachines/memorydump
+  - virtualmachines/evacuate/cancel
   verbs:
   - update
 - apiGroups:
@@ -1106,6 +1116,7 @@ rules:
   - virtualmachineinstances/reset
   - virtualmachineinstances/sev/setupsession
   - virtualmachineinstances/sev/injectlaunchsecret
+  - virtualmachineinstances/evacuate/cancel
   verbs:
   - update
 - apiGroups:
@@ -1124,6 +1135,7 @@ rules:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
   - virtualmachines/memorydump
+  - virtualmachines/evacuate/cancel
   verbs:
   - update
 - apiGroups:

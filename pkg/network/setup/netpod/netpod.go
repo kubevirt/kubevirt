@@ -348,7 +348,6 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 		Name:     link.GenerateBridgeName(podIfaceName),
 		TypeName: nmstate.TypeBridge,
 		State:    nmstate.IfaceStateUp,
-		Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
@@ -430,7 +429,6 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 		State:      nmstate.IfaceStateUp,
 		MacAddress: link.StaticMasqueradeBridgeMAC,
 		MTU:        podIface.MTU,
-		Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 		IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 		IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetwork.Name},
@@ -491,7 +489,6 @@ func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStat
 		Name:     link.GenerateBridgeName(podIfaceName),
 		TypeName: nmstate.TypeBridge,
 		State:    nmstate.IfaceStateUp,
-		Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
@@ -703,13 +700,8 @@ func (n NetPod) unplugInterfaces(startedNets, finishedNets []v1.Network) []v1.In
 func (n NetPod) clearCache(nets []v1.Network) error {
 	var unplugErrors []error
 	for _, net := range nets {
-		err := cache.DeleteDomainInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), net.Name)
-		if err != nil {
-			unplugErrors = append(unplugErrors, err)
-		}
-
 		podInterfaceName := namescheme.HashedPodInterfaceName(net, n.vmiIfaceStatuses)
-		err = cache.DeleteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podInterfaceName)
+		err := cache.DeleteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podInterfaceName)
 		if err != nil {
 			unplugErrors = append(unplugErrors, err)
 		}

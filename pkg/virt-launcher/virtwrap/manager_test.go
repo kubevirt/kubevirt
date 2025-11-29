@@ -3003,7 +3003,7 @@ var _ = Describe("getUpdatedDisks", func() {
 				},
 			},
 			nil),
-		Entry("be empty if disk removed",
+		Entry("be ejected if disk removed",
 			[]api.Disk{
 				{
 					Device: "cdrom",
@@ -3038,7 +3038,19 @@ var _ = Describe("getUpdatedDisks", func() {
 					},
 				},
 			},
-			nil),
+			[]api.Disk{
+				{
+					Device: "cdrom",
+					Type:   "block",
+					Target: api.DiskTarget{
+						Device: "sdb",
+					},
+					Driver: &api.DiskDriver{
+						Type: "raw",
+					},
+				},
+			},
+		),
 		Entry("be empty not cd-roms",
 			[]api.Disk{
 				{
@@ -3933,7 +3945,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			// Mock createQCOW2Overlay to return error
 			createQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
 				createQCOW2OverlayCalled++
-				return fmt.Errorf(errMsg)
+				return fmt.Errorf("%s", errMsg)
 			}
 
 			err := applyChangedBlockTracking(vmi, converterContext)

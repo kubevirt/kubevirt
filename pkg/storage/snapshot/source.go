@@ -455,7 +455,7 @@ func (s *vmSnapshotSource) Freeze() error {
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
 		formattedErr := fmt.Errorf("%s %s: %v", failedFreezeMsg, s.vm.Name, err)
-		log.Log.Errorf(formattedErr.Error())
+		log.Log.Errorf("%s", formattedErr.Error())
 		return formattedErr
 	}
 	s.state.frozen = true

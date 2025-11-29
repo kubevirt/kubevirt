@@ -1380,7 +1380,6 @@ var _ = Describe("Validating VM Admitter", func() {
 			const maximumSockets uint32 = 24
 
 			BeforeEach(func() {
-				enableFeatureGate(featuregate.MultiArchitecture)
 				vm.Spec.Template.Spec.Architecture = arch
 				vm.Spec.Template.Spec.Domain.CPU = &v1.CPU{
 					MaxSockets: maximumSockets,
@@ -1416,7 +1415,6 @@ var _ = Describe("Validating VM Admitter", func() {
 					Guest:    &guest,
 					MaxGuest: &maxGuest,
 				}
-				enableFeatureGate(featuregate.MultiArchitecture)
 				vm.Spec.Template.Spec.Architecture = arch
 				vm.Spec.Template.Spec.Domain.Resources.Limits = nil
 				vm.Spec.Template.Spec.Domain.Resources.Requests = nil
@@ -1512,7 +1510,6 @@ var _ = Describe("Validating VM Admitter", func() {
 					Message: fmt.Sprintf("Guest memory must be %s aligned", resource.NewQuantity(memory.Hotplug1GHugePagesBlockAlignmentBytes, resource.BinarySI)),
 				}),
 				Entry("architecture is not amd64", func(vm *v1.VirtualMachine) {
-					enableFeatureGate(featuregate.MultiArchitecture)
 					vm.Spec.Template.Spec.Architecture = "arm64"
 				}, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueInvalid,

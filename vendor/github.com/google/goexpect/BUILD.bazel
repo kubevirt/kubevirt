@@ -9,6 +9,6 @@ go_library(
     deps = [
         "//vendor/github.com/google/goterm/term:go_default_library",
         "//vendor/golang.org/x/crypto/ssh:go_default_library",
-        "@org_golang_google_grpc//codes:go_default_library",
+        "//vendor/google.golang.org/grpc/codes:go_default_library",
     ],
 )

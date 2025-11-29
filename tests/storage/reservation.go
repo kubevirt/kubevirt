@@ -87,7 +87,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 	createSCSIDisk := func(podName, pvc string) {
 		diskSize := "1G"
 		// Create PVC where we store the backend storage for the SCSI disks
-		libstorage.CreateFSPVC(pvc, testsuite.NamespacePrivileged, diskSize, nil)
+		libstorage.CreateFSPVC(pvc, testsuite.NamespacePrivileged, diskSize, libstorage.WithStorageProfile())
 		// Create targetcli container
 		By("Create targetcli pod")
 		pod, err := libpod.Run(libpod.RenderTargetcliPod(podName, pvc), testsuite.NamespacePrivileged)
@@ -382,10 +382,15 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			It("ensure multipath socket is bind mounted and available to the pr-helper daemon", func() {
 				nodes := libnode.GetAllSchedulableNodes(virtClient)
 				for _, node := range nodes.Items {
-					output, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"cat", "/proc/mounts"})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(strings.Count(output, "multipathd.socket")).Should(Equal(1),
-						"the multipathd socket should be mounted only once")
+					Eventually(func(g Gomega) {
+						output, err := libnode.ExecuteCommandInVirtHandlerPod(node.Name, []string{"cat", "/proc/mounts"})
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(strings.Count(output, "multipathd.socket")).Should(Equal(1),
+							"the multipathd socket should be mounted only once")
+					}).
+						Within(20 * time.Second).
+						WithPolling(1 * time.Second).
+						Should(Succeed())
 				}
 			})
 		})

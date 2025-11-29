@@ -22,7 +22,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	dto "github.com/prometheus/client_model/go"
 )
+
+type Output struct {
+	MetricFamilies []*dto.MetricFamily `json:"metricFamilies,omitempty"`
+	RecordingRules []RecordingRule     `json:"recordingRules,omitempty"`
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -36,13 +43,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	metricFamilies, err := ReadMetrics(path)
+	// Build recording rules first and filter metrics accordingly
+	recRules, err := ExtractRecordingRules()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	recRulesNames := make(map[string]struct{}, len(recRules))
+	for _, rr := range recRules {
+		recRulesNames[rr.Record] = struct{}{}
+	}
+	metricFamilies, err := ReadMetrics(path, recRulesNames)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	jsonBytes, err := json.Marshal(metricFamilies)
+	out := Output{MetricFamilies: metricFamilies, RecordingRules: recRules}
+
+	jsonBytes, err := json.Marshal(out)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

@@ -29,11 +29,13 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
+	k8sv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
+
 	v1 "kubevirt.io/api/core/v1"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/kubernetes/fake"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -53,14 +55,15 @@ var _ = Describe("Mediated Device", func() {
 	var fakePermittedHostDevices v1.PermittedHostDevices
 	var ctrl *gomock.Controller
 	var fakeSupportedTypesPath string
-	var clientTest *fake.Clientset
+	var fakeNodeStore cache.Store
 	resourceNameToTypeName := func(rawName string) string {
 		typeNameStr := strings.Replace(rawName, " ", "_", -1)
 		typeNameStr = strings.TrimSpace(typeNameStr)
 		return typeNameStr
 	}
 	BeforeEach(func() {
-		clientTest = fake.NewSimpleClientset()
+		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
+		fakeNodeStore = fakeNodeInformer.GetStore()
 		By("creating a temporary fake mdev directory tree")
 		// create base mdev dir instead of /sys/bus/mdev/devices
 		fakeMdevBasePath, err := os.MkdirTemp("/tmp", "mdevs")
@@ -202,7 +205,7 @@ var _ = Describe("Mediated Device", func() {
 
 			By("creating an empty device controller")
 			var noDevices []Device
-			deviceController := NewDeviceController("master", 100, "rw", noDevices, fakeClusterConfig, clientTest.CoreV1())
+			deviceController := NewDeviceController("master", 100, "rw", noDevices, fakeClusterConfig, fakeNodeStore)
 
 			By("adding a host device to the cluster config")
 			kvConfig := kv.DeepCopy()

@@ -14,7 +14,7 @@ go_library(
         "//pkg/hooks/info:go_default_library",
         "//pkg/hooks/v1alpha2:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "@org_golang_google_grpc//:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
     ],
 )
 

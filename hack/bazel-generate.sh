@@ -10,7 +10,7 @@ rm -f vendor/libvirt.org/go/libvirt/BUILD.bazel
 # generate BUILD files
 bazel run \
     --config=${ARCHITECTURE} \
-    //:gazelle -- -exclude vendor/google.golang.org/grpc --exclude kubevirtci/cluster-up
+    //:gazelle -- --exclude kubevirtci/cluster-up
 
 # inject changes to libvirt BUILD file
 bazel run \

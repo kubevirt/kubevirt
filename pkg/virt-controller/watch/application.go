@@ -72,7 +72,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 
 	exportv1 "kubevirt.io/api/export/v1beta1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -264,6 +264,8 @@ type VirtControllerApp struct {
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 	cloneControllerThreads            int
+	additionalLauncherAnnotationsSync []string
+	additionalLauncherLabelsSync      []string
 
 	caConfigMapName          string
 	promCertFilePath         string
@@ -335,7 +337,7 @@ func Execute() {
 
 	if err := app.kubeVirtInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
-		cache.DefaultWatchErrorHandler(r, err)
+		cache.DefaultWatchErrorHandler(context.TODO(), r, err)
 	}); err != nil {
 		golog.Fatalf("failed to set the watch error handler: %v", err)
 	}
@@ -705,6 +707,8 @@ func (vca *VirtControllerApp) initCommon() {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
 		netmigration.NewEvaluator(),
+		vca.additionalLauncherAnnotationsSync,
+		vca.additionalLauncherLabelsSync,
 	)
 	if err != nil {
 		panic(err)
@@ -748,6 +752,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmiRecorder,
 		clientSet,
 		vca.clusterConfig,
+		netAnnotationsGenerator,
 	)
 	if err != nil {
 		panic(err)
@@ -772,6 +777,8 @@ func (vca *VirtControllerApp) initPool() {
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.poolInformer,
+		vca.persistentVolumeClaimInformer,
+		vca.dataVolumeInformer,
 		vca.controllerRevisionInformer,
 		recorder,
 		controller.BurstReplicas)
@@ -810,6 +817,8 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 			vca.clusterConfig,
 			recorder,
 		),
+		vca.additionalLauncherAnnotationsSync,
+		vca.additionalLauncherLabelsSync,
 	)
 	if err != nil {
 		panic(err)
@@ -1064,6 +1073,12 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.cloneControllerThreads, "clone-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for clone controller")
+
+	flag.StringSliceVar(&vca.additionalLauncherAnnotationsSync, "additional-launcher-annotations-sync", []string{},
+		"Comma separated list of annotation keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
+
+	flag.StringSliceVar(&vca.additionalLauncherLabelsSync, "additional-launcher-labels-sync", []string{},
+		"Comma separated list of labels keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
 }
 
 func (vca *VirtControllerApp) setupLeaderElector() (err error) {

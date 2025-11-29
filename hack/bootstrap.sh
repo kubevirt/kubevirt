@@ -26,7 +26,7 @@ KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
 HOST_ARCHITECTURE="$(uname -m)"
 
 sandbox_root=${SANDBOX_DIR}/default/root
-sandbox_hash="09d52f309cbe87f4ca9100c32e9fb1a2bed7156d"
+sandbox_hash="09a54f448d14a26d8c6b1eec07996141fa2c6768"
 
 function kubevirt::bootstrap::regenerate() {
     (
@@ -41,7 +41,7 @@ function kubevirt::bootstrap::regenerate() {
         rm .bazeldnf/sandbox.bazelrc -f
         # Run gazelle to ensure that nogo has all build files resolved and that we can bootstrap the env.
         # This is necessary since some steps remove the vendor build files and nogo would be broken then.
-        KUBEVIRT_BOOTSTRAPPING=true bazel run --config=${ARCHITECTURE} //:gazelle -- -exclude vendor/google.golang.org/grpc --exclude kubevirtci/cluster-up
+        KUBEVIRT_BOOTSTRAPPING=true bazel run --config=${HOST_ARCHITECTURE} //:gazelle -- --exclude kubevirtci/cluster-up
         KUBEVIRT_BOOTSTRAPPING=true bazel run --config ${HOST_ARCHITECTURE} //rpm:sandbox_${1}
         bazel clean
 

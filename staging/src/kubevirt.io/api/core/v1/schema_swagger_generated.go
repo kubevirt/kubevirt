@@ -412,6 +412,8 @@ func (DiskTarget) SwaggerDoc() map[string]string {
 func (LaunchSecurity) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"sev": "AMD Secure Encrypted Virtualization (SEV).",
+		"snp": "AMD SEV-SNP flags defined by the SEV-SNP specifications.\n+optional",
+		"tdx": "Intel Trust Domain Extensions (TDX).",
 	}
 }
 
@@ -430,7 +432,15 @@ func (SEVPolicy) SwaggerDoc() map[string]string {
 	}
 }
 
+func (SEVSNP) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (SEVAttestation) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (TDX) SwaggerDoc() map[string]string {
 	return map[string]string{}
 }
 
@@ -524,6 +534,13 @@ func (ContainerDiskSource) SwaggerDoc() map[string]string {
 		"imagePullSecret": "ImagePullSecret is the name of the Docker registry secret required to pull the image. The secret must already exist.",
 		"path":            "Path defines the path to disk file in the container",
 		"imagePullPolicy": "Image pull policy.\nOne of Always, Never, IfNotPresent.\nDefaults to Always if :latest tag is specified, or IfNotPresent otherwise.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/containers/images#updating-images\n+optional",
+	}
+}
+
+func (UtilityVolume) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name": "UtilityVolume's name.\nMust be unique within the vmi, including regular Volumes.",
+		"type": "Type represents the type of the utility volume.\n+optional",
 	}
 }
 

@@ -191,8 +191,15 @@ func domainIsActiveOnTarget(domain *api.Domain) bool {
 }
 
 func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	// as fallback set the target migration start timestamp
+	if vmi.Status.MigrationState.StartTimestamp == nil && domain.Spec.Metadata.KubeVirt.Migration.StartTimestamp != nil {
+		vmi.Status.MigrationState.StartTimestamp = domain.Spec.Metadata.KubeVirt.Migration.StartTimestamp
+	}
 	vmi.Status.MigrationState.EndTimestamp = domain.Spec.Metadata.KubeVirt.Migration.EndTimestamp
 	vmi.Labels[v1.NodeNameLabel] = c.host
+	if _, exists := vmi.GetAnnotations()[v1.EvictionSourceAnnotation]; exists {
+		delete(vmi.Annotations, v1.EvictionSourceAnnotation)
+	}
 	delete(vmi.Labels, v1.OutdatedLauncherImageLabel)
 	vmi.Status.LauncherContainerImageVersion = ""
 	vmi.Status.NodeName = c.host
@@ -681,9 +688,15 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
 	}
 
-	shouldReturn, err := c.checkLauncherClient(vmi)
-	if shouldReturn {
-		return err
+	if vmi.Status.Phase == v1.WaitingForSync {
+		// clear the start timestamp to avoid the migration being considered as running
+		log.Log.Object(vmi).Infof("clearing the start timestamp to avoid the migration being considered as running")
+		vmi.Status.MigrationState.StartTimestamp = nil
+	} else {
+		shouldReturn, err := c.checkLauncherClient(vmi)
+		if shouldReturn {
+			return err
+		}
 	}
 
 	if migrations.IsMigrating(vmi) {

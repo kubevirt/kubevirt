@@ -169,15 +169,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
 		mockCgroupManager = cgroup.NewMockManager(ctrl)
 
-		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
+		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, tlsConfig, config)
 		fakeDownwardMetricsManager := newFakeManager()
 
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
 			Initialized: true,
 		}
+		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
+		fakeNodeStore := fakeNodeInformer.GetStore()
 		controller, _ = NewVirtualMachineController(
 			recorder,
 			virtClient,
+			fakeNodeStore,
 			host,
 			privateDir,
 			podsDir,
@@ -2332,6 +2335,19 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable))
 		})
 
+		It("should not be allowed to live-migrate if the VMI uses TDX", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				TDX: &v1.TDX{},
+			}
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonTDXNotMigratable))
+		})
+
 		It("should not be allowed to live-migrate if the VMI uses SCSI persistent reservation", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 
@@ -2476,6 +2492,23 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable))
+		})
+
+		It("VMI with utility volumes should remain migratable", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "test-utility-volume",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-pvc",
+					},
+				},
+			}
+
+			cond, _ := controller.calculateLiveMigrationCondition(vmi)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 		})
 
 	})

@@ -20,7 +20,7 @@
 
 set -e
 
-linter_image_tag="v0.0.6"
+linter_image_tag="v0.0.11"
 
 source $(dirname "$0")/../common.sh
 

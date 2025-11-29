@@ -378,7 +378,7 @@ func (s *SynchronizationController) execute(key string) error {
 
 func (s *SynchronizationController) handleMigrationFinalizer(migration *virtv1.VirtualMachineInstanceMigration) error {
 	originalMigration := migration.DeepCopy()
-	if !migration.IsFinal() {
+	if !migration.IsFinal() && migration.DeletionTimestamp == nil {
 		controller.AddFinalizer(migration, SynchronizationFinalizer)
 	} else {
 		controller.RemoveFinalizer(migration, SynchronizationFinalizer)

@@ -35,6 +35,21 @@ type LauncherClientInfo struct {
 	DomainPipeStopChan  chan struct{}
 	NotInitializedSince time.Time
 	Ready               bool
+	closeOnce           sync.Once
+}
+
+func (l *LauncherClientInfo) Close() {
+	if l == nil {
+		return
+	}
+	l.closeOnce.Do(func() {
+		if l.Client != nil {
+			l.Client.Close()
+		}
+		if l.DomainPipeStopChan != nil {
+			close(l.DomainPipeStopChan)
+		}
+	})
 }
 
 type LauncherClientInfoByVMI struct {

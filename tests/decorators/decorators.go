@@ -21,17 +21,19 @@ var (
 
 	/* HW */
 
-	GPU         = Label("GPU")
-	VGPU        = Label("VGPU")
-	SEV         = Label("SEV")
-	SEVES       = Label("SEVES")
-	SRIOV       = Label("SRIOV")
-	StorageReq  = Label("storage-req")
-	Multus      = Label("Multus")
-	Macvtap     = Label("Macvtap")
-	Invtsc      = Label("Invtsc")
-	KSMRequired = Label("KSM-required")
-	ACPI        = Label("ACPI")
+	GPU             = Label("GPU")
+	VGPU            = Label("VGPU")
+	SEV             = Label("SEV")
+	SEVES           = Label("SEVES")
+	SEVSNP          = Label("SEVSNP")
+	SecureExecution = Label("secure-execution")
+	SRIOV           = Label("SRIOV")
+	StorageReq      = Label("storage-req")
+	Multus          = Label("Multus")
+	Macvtap         = Label("Macvtap")
+	Invtsc          = Label("Invtsc")
+	KSMRequired     = Label("KSM-required")
+	ACPI            = Label("ACPI")
 
 	/* Deployment */
 
@@ -68,6 +70,7 @@ var (
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
 	GuestAgentProbes                     = Label("guest-agent-probes")
+	Passt                                = Label("passt")
 
 	/* Storage classes */
 

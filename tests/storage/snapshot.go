@@ -88,15 +88,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 		webhook = nil
 	}
 
-	deletePVC := func(pvc *corev1.PersistentVolumeClaim) {
-		err := virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.Background(), pvc.Name, metav1.DeleteOptions{})
-		if errors.IsNotFound(err) {
-			err = nil
-		}
-		Expect(err).ToNot(HaveOccurred())
-		pvc = nil
-	}
-
 	waitDataVolumePopulated := func(namespace, name string) {
 		libstorage.EventuallyDVWith(namespace, name, 180, matcher.HaveSucceeded())
 		// THIS SHOULD NOT BE NECESSARY - but in DV/Populator integration
@@ -742,24 +733,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			})
 
 			Context("with memory dump", func() {
-				var memoryDumpPVC *corev1.PersistentVolumeClaim
-				const memoryDumpPVCName = "fs-pvc"
-
-				BeforeEach(func() {
-					memoryDumpPVC = libstorage.NewPVC(memoryDumpPVCName, "1.5Gi", snapshotStorageClass)
-					volumeMode := corev1.PersistentVolumeFilesystem
-					memoryDumpPVC.Spec.VolumeMode = &volumeMode
-					var err error
-					memoryDumpPVC, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), memoryDumpPVC, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				})
-
-				AfterEach(func() {
-					if memoryDumpPVC != nil {
-						deletePVC(memoryDumpPVC)
-					}
-				})
-
 				getMemoryDump := func(vmName, namespace, claimName string) {
 					Eventually(func() error {
 						memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
@@ -788,6 +761,8 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 					By("Get VM memory dump")
+					memoryDumpPVCName := "fs-pvc"
+					libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(nil), "1.5Gi", libstorage.WithStorageClass(snapshotStorageClass), libstorage.WithStorageProfile())
 					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
 					waitMemoryDumpCompletion(vm)
 
@@ -1572,7 +1547,7 @@ func AddVolumeAndVerify(virtClient kubecli.KubevirtClient, storageClass string, 
 
 	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ToNot(HaveOccurred())
-	verifyVolumeAndDiskVMIAdded(virtClient, vmi, addVolumeName)
+	libstorage.VerifyVolumeAndDiskInVMISpec(virtClient, vmi, addVolumeName)
 	libstorage.EventuallyDV(dv, 240, matcher.HaveSucceeded())
 
 	return addVolumeName

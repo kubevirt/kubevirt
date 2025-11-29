@@ -469,6 +469,12 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - nodes
+          verbs:
+          - get
+        - apiGroups:
+          - ""
+          resources:
           - namespaces
           verbs:
           - get
@@ -922,6 +928,7 @@ spec:
           - virtualmachineinstances/reset
           - virtualmachineinstances/sev/setupsession
           - virtualmachineinstances/sev/injectlaunchsecret
+          - virtualmachineinstances/evacuate/cancel
           verbs:
           - update
         - apiGroups:
@@ -940,6 +947,7 @@ spec:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
           - virtualmachines/memorydump
+          - virtualmachines/evacuate/cancel
           verbs:
           - update
         - apiGroups:
@@ -1080,6 +1088,7 @@ spec:
           - virtualmachineinstances/reset
           - virtualmachineinstances/sev/setupsession
           - virtualmachineinstances/sev/injectlaunchsecret
+          - virtualmachineinstances/evacuate/cancel
           verbs:
           - update
         - apiGroups:
@@ -1098,6 +1107,7 @@ spec:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
           - virtualmachines/memorydump
+          - virtualmachines/evacuate/cancel
           verbs:
           - update
         - apiGroups:
@@ -1357,6 +1367,7 @@ spec:
               labels:
                 kubevirt.io: virt-operator
                 name: virt-operator
+                np.kubevirt.io/allow-access-cluster-services: "true"
                 prometheus.kubevirt.io: "true"
               name: virt-operator
             spec:
@@ -1479,6 +1490,8 @@ spec:
           - kubevirt-export-ca
           - kubevirt-virt-handler-certs
           - kubevirt-virt-handler-server-certs
+          - kubevirt-virt-handler-migration-client-certs
+          - kubevirt-virt-handler-vsock-client-certs
           - kubevirt-operator-certs
           - kubevirt-virt-api-certs
           - kubevirt-controller-certs

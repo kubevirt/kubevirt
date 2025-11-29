@@ -1,0 +1,783 @@
+<domainCapabilities>
+  <path>/usr/bin/qemu-system-x86_64</path>
+  <domain>kvm</domain>
+  <machine>pc-i440fx-10.1</machine>
+  <arch>x86_64</arch>
+  <vcpu max='255'/>
+  <iothreads supported='yes'/>
+  <os supported='yes'>
+    <enum name='firmware'>
+      <value>bios</value>
+      <value>efi</value>
+    </enum>
+    <loader supported='yes'>
+      <value>/obviously/fake/firmware1.fd</value>
+      <value>/obviously/fake/firmware2.fd</value>
+      <enum name='type'>
+        <value>rom</value>
+        <value>pflash</value>
+      </enum>
+      <enum name='readonly'>
+        <value>yes</value>
+        <value>no</value>
+      </enum>
+      <enum name='secure'>
+        <value>no</value>
+      </enum>
+    </loader>
+  </os>
+  <cpu>
+    <mode name='host-passthrough' supported='yes'>
+      <enum name='hostPassthroughMigratable'>
+        <value>on</value>
+        <value>off</value>
+      </enum>
+    </mode>
+    <mode name='maximum' supported='yes'>
+      <enum name='maximumMigratable'>
+        <value>on</value>
+        <value>off</value>
+      </enum>
+    </mode>
+    <mode name='host-model' supported='yes'>
+      <model fallback='forbid'>GraniteRapids</model>
+      <vendor>Intel</vendor>
+      <maxphysaddr mode='passthrough' limit='64'/>
+      <feature policy='require' name='dtes64'/>
+      <feature policy='require' name='vmx'/>
+      <feature policy='require' name='pdcm'/>
+      <feature policy='require' name='hypervisor'/>
+      <feature policy='require' name='ds'/>
+      <feature policy='require' name='ss'/>
+      <feature policy='require' name='tsc_adjust'/>
+      <feature policy='require' name='fdp-excptn-only'/>
+      <feature policy='require' name='zero-fcs-fds'/>
+      <feature policy='require' name='waitpkg'/>
+      <feature policy='require' name='cldemote'/>
+      <feature policy='require' name='movdiri'/>
+      <feature policy='require' name='movdir64b'/>
+      <feature policy='require' name='md-clear'/>
+      <feature policy='require' name='stibp'/>
+      <feature policy='require' name='flush-l1d'/>
+      <feature policy='require' name='intel-psfd'/>
+      <feature policy='require' name='invtsc'/>
+      <feature policy='require' name='ibpb'/>
+      <feature policy='require' name='ibrs'/>
+      <feature policy='require' name='amd-stibp'/>
+      <feature policy='require' name='amd-ssbd'/>
+      <feature policy='require' name='tsx-ctrl'/>
+      <feature policy='require' name='gds-no'/>
+      <feature policy='require' name='rfds-no'/>
+      <feature policy='require' name='vmx-activity-wait-sipi'/>
+      <feature policy='require' name='vmx-encls-exit'/>
+      <feature policy='require' name='vmx-tsc-scaling'/>
+      <feature policy='require' name='vmx-enable-user-wait-pause'/>
+      <feature policy='disable' name='mcdt-no'/>
+      <feature policy='disable' name='sbdr-ssdp-no'/>
+      <feature policy='disable' name='fbsdp-no'/>
+      <feature policy='disable' name='psdp-no'/>
+      <feature policy='disable' name='pbrsb-no'/>
+    </mode>
+    <mode name='custom' supported='yes'>
+      <model usable='yes' vendor='unknown' canonical='486-v1'>486</model>
+      <model usable='yes' vendor='unknown'>486-v1</model>
+      <model usable='yes' vendor='Intel' canonical='Broadwell-v1'>Broadwell</model>
+      <model usable='yes' vendor='Intel' canonical='Broadwell-v3'>Broadwell-IBRS</model>
+      <model usable='yes' vendor='Intel' canonical='Broadwell-v2'>Broadwell-noTSX</model>
+      <model usable='yes' vendor='Intel' canonical='Broadwell-v4'>Broadwell-noTSX-IBRS</model>
+      <model usable='yes' vendor='Intel'>Broadwell-v1</model>
+      <model usable='yes' vendor='Intel'>Broadwell-v2</model>
+      <model usable='yes' vendor='Intel'>Broadwell-v3</model>
+      <model usable='yes' vendor='Intel'>Broadwell-v4</model>
+      <model usable='yes' vendor='Intel' canonical='Cascadelake-Server-v1'>Cascadelake-Server</model>
+      <model usable='yes' vendor='Intel' canonical='Cascadelake-Server-v3'>Cascadelake-Server-noTSX</model>
+      <model usable='yes' vendor='Intel'>Cascadelake-Server-v1</model>
+      <model usable='yes' vendor='Intel'>Cascadelake-Server-v2</model>
+      <model usable='yes' vendor='Intel'>Cascadelake-Server-v3</model>
+      <model usable='yes' vendor='Intel'>Cascadelake-Server-v4</model>
+      <model usable='yes' vendor='Intel'>Cascadelake-Server-v5</model>
+      <model usable='yes' vendor='Intel' canonical='Conroe-v1'>Conroe</model>
+      <model usable='yes' vendor='Intel'>Conroe-v1</model>
+      <model usable='yes' vendor='Intel' canonical='Cooperlake-v1'>Cooperlake</model>
+      <model usable='yes' vendor='Intel'>Cooperlake-v1</model>
+      <model usable='yes' vendor='Intel'>Cooperlake-v2</model>
+      <model usable='no' vendor='Intel' canonical='Denverton-v1'>Denverton</model>
+      <blockers model='Denverton'>
+        <feature name='mpx'/>
+      </blockers>
+      <model usable='no' vendor='Intel'>Denverton-v1</model>
+      <blockers model='Denverton-v1'>
+        <feature name='mpx'/>
+      </blockers>
+      <model usable='yes' vendor='Intel'>Denverton-v2</model>
+      <model usable='yes' vendor='Intel'>Denverton-v3</model>
+      <model usable='no' vendor='Hygon' canonical='Dhyana-v1'>Dhyana</model>
+      <blockers model='Dhyana'>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='no' vendor='Hygon'>Dhyana-v1</model>
+      <blockers model='Dhyana-v1'>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='no' vendor='Hygon'>Dhyana-v2</model>
+      <blockers model='Dhyana-v2'>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='no' vendor='AMD' canonical='EPYC-v1'>EPYC</model>
+      <blockers model='EPYC'>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='no' vendor='AMD' canonical='EPYC-Genoa-v1'>EPYC-Genoa</model>
+      <blockers model='EPYC-Genoa'>
+        <feature name='amd-psfd'/>
+        <feature name='auto-ibrs'/>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='lfence-always-serializing'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='no-nested-data-bp'/>
+        <feature name='null-sel-clr-base'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='stibp-always-on'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-Genoa-v1</model>
+      <blockers model='EPYC-Genoa-v1'>
+        <feature name='amd-psfd'/>
+        <feature name='auto-ibrs'/>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='lfence-always-serializing'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='no-nested-data-bp'/>
+        <feature name='null-sel-clr-base'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='stibp-always-on'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD' canonical='EPYC-v2'>EPYC-IBPB</model>
+      <blockers model='EPYC-IBPB'>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='no' vendor='AMD' canonical='EPYC-Milan-v1'>EPYC-Milan</model>
+      <blockers model='EPYC-Milan'>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-Milan-v1</model>
+      <blockers model='EPYC-Milan-v1'>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-Milan-v2</model>
+      <blockers model='EPYC-Milan-v2'>
+        <feature name='amd-psfd'/>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='lfence-always-serializing'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='no-nested-data-bp'/>
+        <feature name='null-sel-clr-base'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='stibp-always-on'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD' canonical='EPYC-Rome-v1'>EPYC-Rome</model>
+      <blockers model='EPYC-Rome'>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-Rome-v1</model>
+      <blockers model='EPYC-Rome-v1'>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-Rome-v2</model>
+      <blockers model='EPYC-Rome-v2'>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-Rome-v3</model>
+      <blockers model='EPYC-Rome-v3'>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-Rome-v4</model>
+      <blockers model='EPYC-Rome-v4'>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-v1</model>
+      <blockers model='EPYC-v1'>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-v2</model>
+      <blockers model='EPYC-v2'>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-v3</model>
+      <blockers model='EPYC-v3'>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>EPYC-v4</model>
+      <blockers model='EPYC-v4'>
+        <feature name='clzero'/>
+        <feature name='cr8legacy'/>
+        <feature name='fxsr_opt'/>
+        <feature name='misalignsse'/>
+        <feature name='mmxext'/>
+        <feature name='osvw'/>
+        <feature name='perfctr_core'/>
+        <feature name='sse4a'/>
+        <feature name='xsaveerptr'/>
+      </blockers>
+      <model usable='no' vendor='Intel' canonical='GraniteRapids-v1'>GraniteRapids</model>
+      <blockers model='GraniteRapids'>
+        <feature name='fbsdp-no'/>
+        <feature name='mcdt-no'/>
+        <feature name='pbrsb-no'/>
+        <feature name='psdp-no'/>
+        <feature name='sbdr-ssdp-no'/>
+      </blockers>
+      <model usable='no' vendor='Intel'>GraniteRapids-v1</model>
+      <blockers model='GraniteRapids-v1'>
+        <feature name='fbsdp-no'/>
+        <feature name='mcdt-no'/>
+        <feature name='pbrsb-no'/>
+        <feature name='psdp-no'/>
+        <feature name='sbdr-ssdp-no'/>
+      </blockers>
+      <model usable='no' vendor='Intel'>GraniteRapids-v2</model>
+      <blockers model='GraniteRapids-v2'>
+        <feature name='avx10'/>
+        <feature name='avx10-128'/>
+        <feature name='avx10-256'/>
+        <feature name='avx10-512'/>
+        <feature name='fbsdp-no'/>
+        <feature name='mcdt-no'/>
+        <feature name='pbrsb-no'/>
+        <feature name='psdp-no'/>
+        <feature name='sbdr-ssdp-no'/>
+      </blockers>
+      <model usable='yes' vendor='Intel' canonical='Haswell-v1'>Haswell</model>
+      <model usable='yes' vendor='Intel' canonical='Haswell-v3'>Haswell-IBRS</model>
+      <model usable='yes' vendor='Intel' canonical='Haswell-v2'>Haswell-noTSX</model>
+      <model usable='yes' vendor='Intel' canonical='Haswell-v4'>Haswell-noTSX-IBRS</model>
+      <model usable='yes' vendor='Intel'>Haswell-v1</model>
+      <model usable='yes' vendor='Intel'>Haswell-v2</model>
+      <model usable='yes' vendor='Intel'>Haswell-v3</model>
+      <model usable='yes' vendor='Intel'>Haswell-v4</model>
+      <model usable='yes' vendor='Intel' canonical='Icelake-Server-v1'>Icelake-Server</model>
+      <model usable='yes' vendor='Intel' canonical='Icelake-Server-v2'>Icelake-Server-noTSX</model>
+      <model usable='yes' vendor='Intel'>Icelake-Server-v1</model>
+      <model usable='yes' vendor='Intel'>Icelake-Server-v2</model>
+      <model usable='yes' vendor='Intel'>Icelake-Server-v3</model>
+      <model usable='yes' vendor='Intel'>Icelake-Server-v4</model>
+      <model usable='yes' vendor='Intel'>Icelake-Server-v5</model>
+      <model usable='yes' vendor='Intel'>Icelake-Server-v6</model>
+      <model usable='yes' vendor='Intel'>Icelake-Server-v7</model>
+      <model usable='yes' vendor='Intel' canonical='IvyBridge-v1'>IvyBridge</model>
+      <model usable='yes' vendor='Intel' canonical='IvyBridge-v2'>IvyBridge-IBRS</model>
+      <model usable='yes' vendor='Intel'>IvyBridge-v1</model>
+      <model usable='yes' vendor='Intel'>IvyBridge-v2</model>
+      <model usable='no' vendor='Intel' canonical='KnightsMill-v1'>KnightsMill</model>
+      <blockers model='KnightsMill'>
+        <feature name='avx512-4fmaps'/>
+        <feature name='avx512-4vnniw'/>
+        <feature name='avx512er'/>
+        <feature name='avx512pf'/>
+      </blockers>
+      <model usable='no' vendor='Intel'>KnightsMill-v1</model>
+      <blockers model='KnightsMill-v1'>
+        <feature name='avx512-4fmaps'/>
+        <feature name='avx512-4vnniw'/>
+        <feature name='avx512er'/>
+        <feature name='avx512pf'/>
+      </blockers>
+      <model usable='yes' vendor='Intel' canonical='Nehalem-v1'>Nehalem</model>
+      <model usable='yes' vendor='Intel' canonical='Nehalem-v2'>Nehalem-IBRS</model>
+      <model usable='yes' vendor='Intel'>Nehalem-v1</model>
+      <model usable='yes' vendor='Intel'>Nehalem-v2</model>
+      <model usable='yes' vendor='AMD' canonical='Opteron_G1-v1'>Opteron_G1</model>
+      <model usable='yes' vendor='AMD'>Opteron_G1-v1</model>
+      <model usable='yes' vendor='AMD' canonical='Opteron_G2-v1'>Opteron_G2</model>
+      <model usable='yes' vendor='AMD'>Opteron_G2-v1</model>
+      <model usable='no' vendor='AMD' canonical='Opteron_G3-v1'>Opteron_G3</model>
+      <blockers model='Opteron_G3'>
+        <feature name='misalignsse'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>Opteron_G3-v1</model>
+      <blockers model='Opteron_G3-v1'>
+        <feature name='misalignsse'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='no' vendor='AMD' canonical='Opteron_G4-v1'>Opteron_G4</model>
+      <blockers model='Opteron_G4'>
+        <feature name='fma4'/>
+        <feature name='misalignsse'/>
+        <feature name='sse4a'/>
+        <feature name='xop'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>Opteron_G4-v1</model>
+      <blockers model='Opteron_G4-v1'>
+        <feature name='fma4'/>
+        <feature name='misalignsse'/>
+        <feature name='sse4a'/>
+        <feature name='xop'/>
+      </blockers>
+      <model usable='no' vendor='AMD' canonical='Opteron_G5-v1'>Opteron_G5</model>
+      <blockers model='Opteron_G5'>
+        <feature name='fma4'/>
+        <feature name='misalignsse'/>
+        <feature name='sse4a'/>
+        <feature name='tbm'/>
+        <feature name='xop'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>Opteron_G5-v1</model>
+      <blockers model='Opteron_G5-v1'>
+        <feature name='fma4'/>
+        <feature name='misalignsse'/>
+        <feature name='sse4a'/>
+        <feature name='tbm'/>
+        <feature name='xop'/>
+      </blockers>
+      <model usable='yes' vendor='Intel' canonical='Penryn-v1'>Penryn</model>
+      <model usable='yes' vendor='Intel'>Penryn-v1</model>
+      <model usable='yes' vendor='Intel' canonical='SandyBridge-v1'>SandyBridge</model>
+      <model usable='yes' vendor='Intel' canonical='SandyBridge-v2'>SandyBridge-IBRS</model>
+      <model usable='yes' vendor='Intel'>SandyBridge-v1</model>
+      <model usable='yes' vendor='Intel'>SandyBridge-v2</model>
+      <model usable='yes' vendor='Intel' canonical='SapphireRapids-v1'>SapphireRapids</model>
+      <model usable='yes' vendor='Intel'>SapphireRapids-v1</model>
+      <model usable='no' vendor='Intel'>SapphireRapids-v2</model>
+      <blockers model='SapphireRapids-v2'>
+        <feature name='fbsdp-no'/>
+        <feature name='psdp-no'/>
+        <feature name='sbdr-ssdp-no'/>
+      </blockers>
+      <model usable='no' vendor='Intel'>SapphireRapids-v3</model>
+      <blockers model='SapphireRapids-v3'>
+        <feature name='fbsdp-no'/>
+        <feature name='psdp-no'/>
+        <feature name='sbdr-ssdp-no'/>
+      </blockers>
+      <model usable='no' vendor='Intel' canonical='SierraForest-v1'>SierraForest</model>
+      <blockers model='SierraForest'>
+        <feature name='avx-ifma'/>
+        <feature name='avx-ne-convert'/>
+        <feature name='avx-vnni-int8'/>
+        <feature name='cmpccxadd'/>
+        <feature name='fbsdp-no'/>
+        <feature name='mcdt-no'/>
+        <feature name='pbrsb-no'/>
+        <feature name='psdp-no'/>
+        <feature name='sbdr-ssdp-no'/>
+      </blockers>
+      <model usable='no' vendor='Intel'>SierraForest-v1</model>
+      <blockers model='SierraForest-v1'>
+        <feature name='avx-ifma'/>
+        <feature name='avx-ne-convert'/>
+        <feature name='avx-vnni-int8'/>
+        <feature name='cmpccxadd'/>
+        <feature name='fbsdp-no'/>
+        <feature name='mcdt-no'/>
+        <feature name='pbrsb-no'/>
+        <feature name='psdp-no'/>
+        <feature name='sbdr-ssdp-no'/>
+      </blockers>
+      <model usable='yes' vendor='Intel' canonical='Skylake-Client-v1'>Skylake-Client</model>
+      <model usable='yes' vendor='Intel' canonical='Skylake-Client-v2'>Skylake-Client-IBRS</model>
+      <model usable='yes' vendor='Intel' canonical='Skylake-Client-v3'>Skylake-Client-noTSX-IBRS</model>
+      <model usable='yes' vendor='Intel'>Skylake-Client-v1</model>
+      <model usable='yes' vendor='Intel'>Skylake-Client-v2</model>
+      <model usable='yes' vendor='Intel'>Skylake-Client-v3</model>
+      <model usable='yes' vendor='Intel'>Skylake-Client-v4</model>
+      <model usable='yes' vendor='Intel' canonical='Skylake-Server-v1'>Skylake-Server</model>
+      <model usable='yes' vendor='Intel' canonical='Skylake-Server-v2'>Skylake-Server-IBRS</model>
+      <model usable='yes' vendor='Intel' canonical='Skylake-Server-v3'>Skylake-Server-noTSX-IBRS</model>
+      <model usable='yes' vendor='Intel'>Skylake-Server-v1</model>
+      <model usable='yes' vendor='Intel'>Skylake-Server-v2</model>
+      <model usable='yes' vendor='Intel'>Skylake-Server-v3</model>
+      <model usable='yes' vendor='Intel'>Skylake-Server-v4</model>
+      <model usable='yes' vendor='Intel'>Skylake-Server-v5</model>
+      <model usable='no' vendor='Intel' canonical='Snowridge-v1'>Snowridge</model>
+      <blockers model='Snowridge'>
+        <feature name='core-capability'/>
+        <feature name='mpx'/>
+        <feature name='split-lock-detect'/>
+      </blockers>
+      <model usable='no' vendor='Intel'>Snowridge-v1</model>
+      <blockers model='Snowridge-v1'>
+        <feature name='core-capability'/>
+        <feature name='mpx'/>
+        <feature name='split-lock-detect'/>
+      </blockers>
+      <model usable='no' vendor='Intel'>Snowridge-v2</model>
+      <blockers model='Snowridge-v2'>
+        <feature name='core-capability'/>
+        <feature name='split-lock-detect'/>
+      </blockers>
+      <model usable='no' vendor='Intel'>Snowridge-v3</model>
+      <blockers model='Snowridge-v3'>
+        <feature name='core-capability'/>
+        <feature name='split-lock-detect'/>
+      </blockers>
+      <model usable='yes' vendor='Intel'>Snowridge-v4</model>
+      <model usable='yes' vendor='Intel' canonical='Westmere-v1'>Westmere</model>
+      <model usable='yes' vendor='Intel' canonical='Westmere-v2'>Westmere-IBRS</model>
+      <model usable='yes' vendor='Intel'>Westmere-v1</model>
+      <model usable='yes' vendor='Intel'>Westmere-v2</model>
+      <model usable='no' vendor='AMD' canonical='athlon-v1'>athlon</model>
+      <blockers model='athlon'>
+        <feature name='3dnow'/>
+        <feature name='3dnowext'/>
+        <feature name='mmxext'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>athlon-v1</model>
+      <blockers model='athlon-v1'>
+        <feature name='3dnow'/>
+        <feature name='3dnowext'/>
+        <feature name='mmxext'/>
+      </blockers>
+      <model usable='yes' vendor='Intel' canonical='core2duo-v1'>core2duo</model>
+      <model usable='yes' vendor='Intel'>core2duo-v1</model>
+      <model usable='yes' vendor='Intel' canonical='coreduo-v1'>coreduo</model>
+      <model usable='yes' vendor='Intel'>coreduo-v1</model>
+      <model usable='yes' vendor='unknown' canonical='kvm32-v1'>kvm32</model>
+      <model usable='yes' vendor='unknown'>kvm32-v1</model>
+      <model usable='yes' vendor='unknown' canonical='kvm64-v1'>kvm64</model>
+      <model usable='yes' vendor='unknown'>kvm64-v1</model>
+      <model usable='yes' vendor='Intel' canonical='n270-v1'>n270</model>
+      <model usable='yes' vendor='Intel'>n270-v1</model>
+      <model usable='yes' vendor='unknown' canonical='pentium-v1'>pentium</model>
+      <model usable='yes' vendor='unknown'>pentium-v1</model>
+      <model usable='yes' vendor='unknown' canonical='pentium2-v1'>pentium2</model>
+      <model usable='yes' vendor='unknown'>pentium2-v1</model>
+      <model usable='yes' vendor='unknown' canonical='pentium3-v1'>pentium3</model>
+      <model usable='yes' vendor='unknown'>pentium3-v1</model>
+      <model usable='no' vendor='AMD' canonical='phenom-v1'>phenom</model>
+      <blockers model='phenom'>
+        <feature name='3dnow'/>
+        <feature name='3dnowext'/>
+        <feature name='fxsr_opt'/>
+        <feature name='mmxext'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='no' vendor='AMD'>phenom-v1</model>
+      <blockers model='phenom-v1'>
+        <feature name='3dnow'/>
+        <feature name='3dnowext'/>
+        <feature name='fxsr_opt'/>
+        <feature name='mmxext'/>
+        <feature name='sse4a'/>
+      </blockers>
+      <model usable='yes' vendor='unknown' canonical='qemu32-v1'>qemu32</model>
+      <model usable='yes' vendor='unknown'>qemu32-v1</model>
+      <model usable='yes' vendor='unknown' canonical='qemu64-v1'>qemu64</model>
+      <model usable='yes' vendor='unknown'>qemu64-v1</model>
+    </mode>
+  </cpu>
+  <memoryBacking supported='yes'>
+    <enum name='sourceType'>
+      <value>file</value>
+      <value>anonymous</value>
+      <value>memfd</value>
+    </enum>
+  </memoryBacking>
+  <devices>
+    <disk supported='yes'>
+      <enum name='diskDevice'>
+        <value>disk</value>
+        <value>cdrom</value>
+        <value>floppy</value>
+        <value>lun</value>
+      </enum>
+      <enum name='bus'>
+        <value>ide</value>
+        <value>fdc</value>
+        <value>scsi</value>
+        <value>virtio</value>
+        <value>usb</value>
+        <value>sata</value>
+        <value>nvme</value>
+      </enum>
+      <enum name='model'>
+        <value>virtio</value>
+        <value>virtio-transitional</value>
+        <value>virtio-non-transitional</value>
+      </enum>
+    </disk>
+    <graphics supported='yes'>
+      <enum name='type'>
+        <value>vnc</value>
+        <value>rdp</value>
+        <value>dbus</value>
+      </enum>
+    </graphics>
+    <video supported='yes'>
+      <enum name='modelType'>
+        <value>vga</value>
+        <value>cirrus</value>
+        <value>vmvga</value>
+        <value>virtio</value>
+        <value>none</value>
+        <value>bochs</value>
+        <value>ramfb</value>
+      </enum>
+    </video>
+    <hostdev supported='yes'>
+      <enum name='mode'>
+        <value>subsystem</value>
+      </enum>
+      <enum name='startupPolicy'>
+        <value>default</value>
+        <value>mandatory</value>
+        <value>requisite</value>
+        <value>optional</value>
+      </enum>
+      <enum name='subsysType'>
+        <value>usb</value>
+        <value>pci</value>
+        <value>scsi</value>
+      </enum>
+      <enum name='capsType'/>
+      <enum name='pciBackend'>
+        <value>default</value>
+        <value>vfio</value>
+      </enum>
+    </hostdev>
+    <rng supported='yes'>
+      <enum name='model'>
+        <value>virtio</value>
+        <value>virtio-transitional</value>
+        <value>virtio-non-transitional</value>
+      </enum>
+      <enum name='backendModel'>
+        <value>random</value>
+        <value>egd</value>
+        <value>builtin</value>
+      </enum>
+    </rng>
+    <filesystem supported='yes'>
+      <enum name='driverType'>
+        <value>path</value>
+        <value>handle</value>
+        <value>virtiofs</value>
+      </enum>
+    </filesystem>
+    <tpm supported='yes'>
+      <enum name='model'>
+        <value>tpm-tis</value>
+        <value>tpm-crb</value>
+      </enum>
+      <enum name='backendModel'>
+        <value>passthrough</value>
+        <value>emulator</value>
+        <value>external</value>
+      </enum>
+      <enum name='backendVersion'>
+        <value>2.0</value>
+      </enum>
+    </tpm>
+    <redirdev supported='no'/>
+    <channel supported='yes'>
+      <enum name='type'>
+        <value>pty</value>
+        <value>unix</value>
+      </enum>
+    </channel>
+    <crypto supported='yes'>
+      <enum name='model'>
+        <value>virtio</value>
+      </enum>
+      <enum name='type'>
+        <value>qemu</value>
+      </enum>
+      <enum name='backendModel'>
+        <value>builtin</value>
+      </enum>
+    </crypto>
+    <interface supported='yes'>
+      <enum name='backendType'>
+        <value>default</value>
+        <value>passt</value>
+      </enum>
+    </interface>
+    <panic supported='yes'>
+      <enum name='model'>
+        <value>isa</value>
+        <value>hyperv</value>
+        <value>pvpanic</value>
+      </enum>
+    </panic>
+    <console supported='yes'>
+      <enum name='type'>
+        <value>null</value>
+        <value>vc</value>
+        <value>pty</value>
+        <value>dev</value>
+        <value>file</value>
+        <value>pipe</value>
+        <value>stdio</value>
+        <value>udp</value>
+        <value>tcp</value>
+        <value>unix</value>
+        <value>dbus</value>
+      </enum>
+    </console>
+  </devices>
+  <features>
+    <gic supported='no'/>
+    <vmcoreinfo supported='yes'/>
+    <genid supported='yes'/>
+    <backingStoreInput supported='yes'/>
+    <backup supported='yes'/>
+    <async-teardown supported='yes'/>
+    <ps2 supported='yes'/>
+    <tdx supported='yes'/>
+    <sev supported='no'/>
+    <sgx supported='yes'>
+      <flc>yes</flc>
+      <sgx1>yes</sgx1>
+      <sgx2>yes</sgx2>
+      <section_size unit='KiB'>500732</section_size>
+      <sections>
+        <section node='0' size='109820' unit='KiB'/>
+        <section node='1' size='130304' unit='KiB'/>
+        <section node='2' size='130304' unit='KiB'/>
+        <section node='3' size='130304' unit='KiB'/>
+      </sections>
+    </sgx>
+    <hyperv supported='yes'>
+      <enum name='features'>
+        <value>relaxed</value>
+        <value>vapic</value>
+        <value>spinlocks</value>
+        <value>vpindex</value>
+        <value>runtime</value>
+        <value>synic</value>
+        <value>stimer</value>
+        <value>reset</value>
+        <value>vendor_id</value>
+        <value>frequencies</value>
+        <value>reenlightenment</value>
+        <value>tlbflush</value>
+        <value>ipi</value>
+        <value>evmcs</value>
+        <value>avic</value>
+        <value>emsr_bitmap</value>
+        <value>xmm_input</value>
+      </enum>
+    </hyperv>
+    <launchSecurity supported='yes'>
+      <enum name='sectype'>
+        <value>tdx</value>
+      </enum>
+    </launchSecurity>
+  </features>
+</domainCapabilities>

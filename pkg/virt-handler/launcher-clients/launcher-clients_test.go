@@ -36,6 +36,7 @@ import (
 	api2 "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 )
@@ -217,6 +218,49 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 					Expect(timedOut).To(BeFalse(), "should not time out")
 				}
 			})
+		})
+	})
+
+	Describe("LauncherClientInfo Close", func() {
+		It("should safely handle multiple Close calls without panicking", func() {
+			stopChan := make(chan struct{})
+			clientInfo := &virtcache.LauncherClientInfo{
+				DomainPipeStopChan: stopChan,
+			}
+
+			clientInfo.Close()
+
+			Expect(func() {
+				clientInfo.Close()
+			}).ToNot(Panic())
+
+			Expect(func() {
+				clientInfo.Close()
+			}).ToNot(Panic())
+		})
+
+		It("should handle concurrent Close calls without panicking", func() {
+			stopChan := make(chan struct{})
+			clientInfo := &virtcache.LauncherClientInfo{
+				DomainPipeStopChan: stopChan,
+			}
+
+			done := make(chan bool, 5)
+			for i := 0; i < 5; i++ {
+				go func() {
+					defer func() {
+						if r := recover(); r != nil {
+							Fail(fmt.Sprintf("Panic occurred during concurrent Close: %v", r))
+						}
+						done <- true
+					}()
+					clientInfo.Close()
+				}()
+			}
+
+			for i := 0; i < 5; i++ {
+				<-done
+			}
 		})
 	})
 })

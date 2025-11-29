@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "cache.go",
         "dhcpconfig.go",
-        "domaininterface.go",
         "podinterface.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/cache",
@@ -14,7 +13,6 @@ go_library(
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/os/fs:go_default_library",
         "//pkg/util:go_default_library",
-        "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
     ],
@@ -26,7 +24,6 @@ go_test(
         "cache_suite_test.go",
         "cache_test.go",
         "dhcpconfig_test.go",
-        "domaininterface_test.go",
         "podinterface_test.go",
     ],
     embed = [":go_default_library"],
@@ -34,7 +31,6 @@ go_test(
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/os/fs:go_default_library",
-        "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

@@ -76,7 +76,7 @@ func (vols *invalidVols) errorMessage() error {
 		s.WriteString(fmt.Sprintf(" DV storage class isn't a CSI or not using volume populators: %v", vols.noCSIDVs))
 	}
 
-	return fmt.Errorf(s.String())
+	return fmt.Errorf("%s", s.String())
 }
 
 // updatedVolumesMapping returns a mapping with the volume names and the old claims that have been updated in the VM
@@ -100,6 +100,30 @@ func updatedVolumesMapping(vmi *virtv1.VirtualMachineInstance, vm *virtv1.Virtua
 		}
 	}
 	return updateVols
+}
+
+// PersistentVolumesUpdated checks only volumes that exist in VM AND VMI for claim changes
+func PersistentVolumesUpdated(vmSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) bool {
+	vmiVolumesByName := storagetypes.GetVolumesByName(vmiSpec)
+
+	for _, vmVol := range vmSpec.Volumes {
+		vmClaimName := storagetypes.PVCNameFromVirtVolume(&vmVol)
+		vmiVol, exists := vmiVolumesByName[vmVol.Name]
+		if vmClaimName == "" || !exists {
+			continue
+		}
+
+		vmiClaimName := storagetypes.PVCNameFromVirtVolume(vmiVol)
+		if vmiClaimName == "" {
+			continue
+		}
+
+		if vmiClaimName != vmClaimName {
+			return true
+		}
+	}
+
+	return false
 }
 
 // ValidateVolumes checks that the volumes can be updated with the migration

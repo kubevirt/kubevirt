@@ -24,6 +24,7 @@ const (
 	KubeletRoot                               = "/var/lib/kubelet"
 	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"
+	ContainerBinary                           = "/container-disk-binary"
 
 	NonRootUID        = 107
 	NonRootUserString = "qemu"
@@ -84,7 +85,7 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 }
 
 func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
-	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi)
+	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi) || IsTDXVMI(vmi)
 }
 
 func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {

@@ -855,7 +855,7 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 		if err != nil {
 			return domain, err
 		}
-		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i])
+		converter.SetOptimalIOMode(&domain.Spec.Devices.Disks[i], converter.IsPreAllocated)
 	}
 
 	if err := l.credManager.HandleQemuAgentAccessCredentials(vmi); err != nil {
@@ -1038,16 +1038,26 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	var efiConf *converter.EFIConfiguration
 	if vmi.IsBootloaderEFI() {
 		secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
-		sev := kutil.IsSEVVMI(vmi)
+		sev := kutil.IsSEVVMI(vmi) && !kutil.IsSEVSNPVMI(vmi)
+		snp := kutil.IsSEVSNPVMI(vmi)
+		tdx := kutil.IsTDXVMI(vmi)
 
-		if !l.efiEnvironment.Bootable(secureBoot, sev) {
-			log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)
-			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)
+		vmType := efi.None
+		if sev {
+			vmType = efi.SEV
+		} else if snp {
+			vmType = efi.SNP
+		} else if tdx {
+			vmType = efi.TDX
+		}
+		if !l.efiEnvironment.Bootable(secureBoot, vmType) {
+			log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
+			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV/SEV-ES=%v, SEV-SNP=%v, TDX=%v", secureBoot, sev, snp, tdx)
 		}
 
 		efiConf = &converter.EFIConfiguration{
-			EFICode:      l.efiEnvironment.EFICode(secureBoot, sev),
-			EFIVars:      l.efiEnvironment.EFIVars(secureBoot, sev),
+			EFICode:      l.efiEnvironment.EFICode(secureBoot, vmType),
+			EFIVars:      l.efiEnvironment.EFIVars(secureBoot, vmType),
 			SecureLoader: secureBoot,
 		}
 	}
@@ -1064,7 +1074,9 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		PermanentVolumes:      permanentVolumes,
 		EphemeraldiskCreator:  l.ephemeralDiskCreator,
-		UseLaunchSecurity:     kutil.UseLaunchSecurity(vmi),
+		UseLaunchSecuritySEV:  kutil.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
+		UseLaunchSecurityTDX:  kutil.IsTDXVMI(vmi),
+		UseLaunchSecurityPV:   kutil.IsSecureExecutionVMI(vmi),
 		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
 	}
@@ -1376,10 +1388,7 @@ func (l *LibvirtDomainManager) syncDisks(
 		if err != nil {
 			return err
 		}
-		err = converter.SetOptimalIOMode(&attachDisk)
-		if err != nil {
-			return err
-		}
+		converter.SetOptimalIOMode(&attachDisk, converter.IsPreAllocated)
 
 		attachBytes, err := xml.Marshal(attachDisk)
 		if err != nil {
@@ -1584,6 +1593,9 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 		if !isHotplugDisk(oldDisk) {
 			continue
 		}
+		if oldDisk.Target.Bus != "" && oldDisk.Target.Bus != v1.DiskBusVirtio && oldDisk.Target.Bus != v1.DiskBusSCSI {
+			continue
+		}
 		if _, ok := newDiskMap[oldDisk.Target.Device]; !ok {
 			// This disk got detached, add it to the list
 			res = append(res, oldDisk)
@@ -1602,6 +1614,10 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 		if !isHotplugDisk(newDisk) {
 			continue
 		}
+
+		if newDisk.Target.Bus != "" && newDisk.Target.Bus != v1.DiskBusVirtio && newDisk.Target.Bus != v1.DiskBusSCSI {
+			continue
+		}
 		if _, ok := oldDiskMap[newDisk.Target.Device]; !ok {
 			// This disk got attached, add it to the list
 			res = append(res, newDisk)
@@ -1615,22 +1631,23 @@ func isHotPlugDiskOrEmpty(disk api.Disk) bool {
 }
 
 func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
-	oldDiskMap := make(map[string]api.Disk)
-	for _, disk := range oldDisks {
-		oldDiskMap[disk.Target.Device] = disk
+	newDiskMap := make(map[string]api.Disk)
+	for _, disk := range newDisks {
+		newDiskMap[disk.Target.Device] = disk
 	}
 	var res []api.Disk
-	for _, newDisk := range newDisks {
-		oldDisk, ok := oldDiskMap[newDisk.Target.Device]
-		if !ok {
-			continue
-		}
+	for _, oldDisk := range oldDisks {
+		newDisk, newDiskExists := newDiskMap[oldDisk.Target.Device]
 		// only support cd-rom for now
-		if oldDisk.Device != "cdrom" || newDisk.Device != "cdrom" {
+		if oldDisk.Device != "cdrom" || (newDiskExists && newDisk.Device != "cdrom") {
 			continue
 		}
-		if !isHotPlugDiskOrEmpty(newDisk) || !isHotPlugDiskOrEmpty(oldDisk) {
+		if !isHotPlugDiskOrEmpty(oldDisk) || (newDiskExists && !isHotPlugDiskOrEmpty(newDisk)) {
 			continue
+		}
+		if !newDiskExists {
+			newDisk = *oldDisk.DeepCopy()
+			newDisk.Source = api.DiskSource{}
 		}
 		if equality.Semantic.DeepEqual(oldDisk.Source, newDisk.Source) {
 			continue
@@ -2295,7 +2312,18 @@ func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
-	return l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
+	domstats, err := l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get domain stats: %v", err)
+	}
+
+	if l.agentData != nil {
+		for _, ds := range domstats {
+			ds.Load = l.agentData.GetLoad()
+		}
+	}
+
+	return domstats, nil
 }
 
 func (l *LibvirtDomainManager) getDomainDirtyRateStats(calculationDuration time.Duration) ([]*stats.DomainStatsDirtyRate, error) {
@@ -2375,23 +2403,31 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 		return nil, err
 	}
 	devices := domainSpec.Devices
-	interfaces := devices.Interfaces
-	for _, nic := range interfaces {
-		if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
-			var mac string
-			if nic.MAC != nil {
-				mac = nic.MAC.MAC
+
+	if len(taggedInterfaces) > 0 {
+		interfaces := devices.Interfaces
+		for _, nic := range interfaces {
+			if nic.Alias == nil {
+				// Interfaces which do not include an alias cannot be associated with an iface spec.
+				log.Log.Object(vmi).Errorf("Missing alias for interface %v", nic)
+				continue
 			}
-			// currently network Interfaces do not contain host devices thus have no NUMA alignment.
-			deviceAlignedCPUs := []uint32{}
-			devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
-				nic.Address,
-				mac,
-				data.Tag,
-				devicesMetadata,
-				nil,
-				deviceAlignedCPUs,
-			)
+			if data, exist := taggedInterfaces[nic.Alias.GetName()]; exist {
+				var mac string
+				if nic.MAC != nil {
+					mac = nic.MAC.MAC
+				}
+				// currently network Interfaces do not contain host devices thus have no NUMA alignment.
+				deviceAlignedCPUs := []uint32{}
+				devicesMetadata = addToDeviceMetadata(cloudinit.NICMetadataType,
+					nic.Address,
+					mac,
+					data.Tag,
+					devicesMetadata,
+					nil,
+					deviceAlignedCPUs,
+				)
+			}
 		}
 	}
 
@@ -2465,14 +2501,6 @@ func (l *LibvirtDomainManager) GetGuestInfo() v1.VirtualMachineInstanceGuestAgen
 			ID:            sysInfo.OSInfo.Id,
 		},
 		Timezone: fmt.Sprintf("%s, %d", sysInfo.Timezone.Zone, sysInfo.Timezone.Offset),
-		Load: &v1.VirtualMachineInstanceGuestOSLoad{
-			Load1mSet:  sysInfo.Load.Load1mSet,
-			Load1m:     sysInfo.Load.Load1m,
-			Load5mSet:  sysInfo.Load.Load5mSet,
-			Load5m:     sysInfo.Load.Load5m,
-			Load15mSet: sysInfo.Load.Load15mSet,
-			Load15m:    sysInfo.Load.Load15m,
-		},
 	}
 
 	for _, user := range userInfo {
@@ -2624,7 +2652,7 @@ func (l *LibvirtDomainManager) GetLaunchMeasurement(vmi *v1.VirtualMachineInstan
 		sevMeasurementInfo.Policy = domainLaunchSecurityParameters.SEVPolicy
 	}
 
-	loader := l.efiEnvironment.EFICode(false, true) // no secureBoot, with sev
+	loader := l.efiEnvironment.EFICode(false, efi.SEV) // no secureBoot, with sev
 	f, err := os.Open(loader)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Errorf("Error opening loader binary %s", loader)

@@ -94,5 +94,5 @@ func retry(retryAttempts uint, f func() error) (uint, error) {
 		}
 	}
 
-	return retryAttempts, fmt.Errorf(strings.Join(errorsString, "\n"))
+	return retryAttempts, fmt.Errorf("%s", strings.Join(errorsString, "\n"))
 }

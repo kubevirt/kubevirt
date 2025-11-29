@@ -46,7 +46,6 @@ import (
 	cloudinit "kubevirt.io/kubevirt/pkg/cloud-init"
 	"kubevirt.io/kubevirt/pkg/config"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
-	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/emptydisk"
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -54,15 +53,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
@@ -70,7 +72,6 @@ const (
 	deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
 	defaultIOThread            = uint(1)
 	bootMenuTimeoutMS          = uint(10000)
-	multiQueueMaxQueues        = uint32(256)
 	QEMUSeaBiosDebugPipe       = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
 )
 
@@ -109,7 +110,9 @@ type ConverterContext struct {
 	VolumesDiscardIgnore            []string
 	Topology                        *cmdv1.Topology
 	ExpandDisksEnabled              bool
-	UseLaunchSecurity               bool
+	UseLaunchSecuritySEV            bool // For AMD SEV/ES/SNP
+	UseLaunchSecurityTDX            bool // For Intel TDX
+	UseLaunchSecurityPV             bool // For IBM SE(s390-pv)
 	FreePageReporting               bool
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
@@ -148,7 +151,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 			disk.Address = addr
 		}
 		if diskDevice.Disk.Bus == v1.DiskBusVirtio {
-			disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
+			disk.Model = virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 		}
 		disk.ReadOnly = toApiReadOnly(diskDevice.Disk.ReadOnly)
 		disk.Serial = diskDevice.Serial
@@ -209,7 +212,7 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 	if diskDevice.BootOrder != nil {
 		disk.BootOrder = &api.BootOrder{Order: *diskDevice.BootOrder}
 	}
-	if c.UseLaunchSecurity && disk.Target.Bus == v1.DiskBusVirtio {
+	if (c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV) && disk.Target.Bus == v1.DiskBusVirtio {
 		disk.Driver.IOMMU = "on"
 	}
 
@@ -296,6 +299,12 @@ func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk) error 
 			LogicalBlockSize:  blockSize.Logical,
 			PhysicalBlockSize: blockSize.Physical,
 		}
+		// TODO: as of the time of writing this, KubeVirt uses libvirt < v11.6.0
+		// which means that a discard_granularity value of 0 is omitted.
+		// remove this comment once upgraded.
+		if blockSize.DiscardGranularity != nil {
+			disk.BlockIO.DiscardGranularity = pointer.P(*blockSize.DiscardGranularity)
+		}
 	} else if matchFeature := source.BlockSize.MatchVolume; matchFeature != nil && (matchFeature.Enabled == nil || *matchFeature.Enabled) {
 		blockIO, err := getOptimalBlockIO(disk)
 		if err != nil {
@@ -315,31 +324,49 @@ func getOptimalBlockIO(disk *api.Disk) (*api.BlockIO, error) {
 	return nil, fmt.Errorf("disk is neither a block device nor a file")
 }
 
-// getOptimalBlockIOForDevice determines the optimal sizes based on the physical device properties.
 func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
-	f, err := os.OpenFile(path, syscall.O_RDONLY, 0)
+	safePath, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open device %v: %v", path, err)
+		return nil, err
 	}
-	defer util.CloseIOAndCheckErr(f, nil)
+	fd, err := safepath.OpenAtNoFollow(safePath)
+	if err != nil {
+		return nil, fmt.Errorf("could not open file %s. Reason: %w", safePath, err)
+	}
+	defer util.CloseIOAndCheckErr(fd, nil)
+
+	f, err := os.OpenFile(fd.SafePath(), os.O_RDONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer util.CloseIOAndCheckErr(f, &err)
 
 	logicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKSSZGET)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get logical block size from device %v: %v", path, err)
+		return nil, fmt.Errorf("unable to get logical block size from device %s: %w", path, err)
 	}
-	physicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKBSZGET)
+	physicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKPBSZGET)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get physical block size from device %v: %v", path, err)
+		return nil, fmt.Errorf("unable to get physical block size from device %s: %w", path, err)
 	}
 
-	log.Log.Infof("Detected logical size of %d and physical size of %d for device %v", logicalSize, physicalSize, path)
+	log.Log.Infof("Detected logical size of %d and physical size of %d for device %s", logicalSize, physicalSize, path)
 
 	if logicalSize == 0 && physicalSize == 0 {
 		return nil, fmt.Errorf("block sizes returned by device %v are 0", path)
 	}
+
+	discardGranularity, err := getDiscardGranularity(safePath)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Log.Infof("Detected discard granularity of %d for device %v", discardGranularity, path)
+
 	blockIO := &api.BlockIO{
-		LogicalBlockSize:  uint(logicalSize),
-		PhysicalBlockSize: uint(physicalSize),
+		LogicalBlockSize:   uint(logicalSize),
+		PhysicalBlockSize:  uint(physicalSize),
+		DiscardGranularity: pointer.P(uint(discardGranularity)),
 	}
 	if logicalSize == 0 || physicalSize == 0 {
 		if logicalSize > physicalSize {
@@ -350,21 +377,52 @@ func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
 			blockIO.LogicalBlockSize = uint(physicalSize)
 		}
 	}
+	if *blockIO.DiscardGranularity%blockIO.LogicalBlockSize != 0 {
+		log.Log.Infof("Invalid discard granularity %d. Matching it to physical size %d", *blockIO.DiscardGranularity, blockIO.PhysicalBlockSize)
+		blockIO.DiscardGranularity = pointer.P(uint(physicalSize))
+	}
 	return blockIO, nil
+}
+
+func getDiscardGranularity(safePath *safepath.Path) (uint64, error) {
+	fileInfo, err := safepath.StatAtNoFollow(safePath)
+	if err != nil {
+		return 0, fmt.Errorf("could not stat file %s. Reason: %w", safePath.String(), err)
+	}
+	stat := fileInfo.Sys().(*syscall.Stat_t)
+	rdev := uint64(stat.Rdev) //nolint:unconvert // Rdev is uint32 on e.g. MIPS.
+	major := unix.Major(rdev)
+	minor := unix.Minor(rdev)
+
+	raw, err := os.ReadFile(fmt.Sprintf("/sys/dev/block/%d:%d/queue/discard_granularity", major, minor))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// On the off chance that we can't stat the discard granularity, set it to disabled.
+			return 0, nil
+		}
+		return 0, fmt.Errorf("cannot read discard granularity for device %s: %w", safePath.String(), err)
+	}
+	discardGranularity, err := strconv.ParseUint(strings.TrimSpace(string(raw)), 10, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	return discardGranularity, err
 }
 
 // getOptimalBlockIOForFile determines the optimal sizes based on the filesystem settings
 // the VM's disk image is residing on. A filesystem does not differentiate between sizes.
 // The physical size will always match the logical size. The rest is up to the filesystem.
 func getOptimalBlockIOForFile(path string) (*api.BlockIO, error) {
-	var statfs syscall.Statfs_t
-	err := syscall.Statfs(path, &statfs)
-	if err != nil {
+	var statfs unix.Statfs_t
+	if err := unix.Statfs(path, &statfs); err != nil {
 		return nil, fmt.Errorf("failed to stat file %v: %v", path, err)
 	}
+	blockSize := uint(statfs.Bsize)
 	return &api.BlockIO{
-		LogicalBlockSize:  uint(statfs.Bsize),
-		PhysicalBlockSize: uint(statfs.Bsize),
+		LogicalBlockSize:   blockSize,
+		PhysicalBlockSize:  blockSize,
+		DiscardGranularity: &blockSize,
 	}, nil
 }
 
@@ -441,12 +499,12 @@ func IsPreAllocated(path string) bool {
 }
 
 // Set optimal io mode automatically
-func SetOptimalIOMode(disk *api.Disk) error {
+func SetOptimalIOMode(disk *api.Disk, isPreAllocated func(path string) bool) {
 	var path string
 
 	// If the user explicitly set the io mode do nothing
-	if v1.DriverIO(disk.Driver.IO) != "" {
-		return nil
+	if disk.Driver.IO != "" {
+		return
 	}
 
 	if disk.Source.File != "" {
@@ -454,22 +512,21 @@ func SetOptimalIOMode(disk *api.Disk) error {
 	} else if disk.Source.Dev != "" {
 		path = disk.Source.Dev
 	} else {
-		return nil
+		return
 	}
 
 	// O_DIRECT is needed for io="native"
 	if v1.DriverCache(disk.Driver.Cache) == v1.CacheNone {
 		// set native for block device or pre-allocateed image file
-		if (disk.Source.Dev != "") || IsPreAllocated(disk.Source.File) {
+		if (disk.Source.Dev != "") || isPreAllocated(disk.Source.File) {
 			disk.Driver.IO = v1.IONative
 		}
 	}
 	// For now we don't explicitly set io=threads even for sparse files as it's
 	// not clear it's better for all use-cases
-	if v1.DriverIO(disk.Driver.IO) != "" {
+	if disk.Driver.IO != "" {
 		log.Log.Infof("Driver IO mode for %s set to %s", path, disk.Driver.IO)
 	}
-	return nil
 }
 
 func (n *deviceNamer) getExistingVolumeValue(key string) (string, bool) {
@@ -535,19 +592,6 @@ func toApiReadOnly(src bool) *api.ReadOnly {
 		return &api.ReadOnly{}
 	}
 	return nil
-}
-
-// Add_Agent_To_api_Channel creates the channel for guest agent communication
-func Add_Agent_To_api_Channel() (channel api.Channel) {
-	channel.Type = "unix"
-	// let libvirt decide which path to use
-	channel.Source = nil
-	channel.Target = &api.ChannelTarget{
-		Name: "org.qemu.guest_agent.0",
-		Type: v1.VirtIO,
-	}
-
-	return
 }
 
 func Convert_v1_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c *ConverterContext, diskIndex int) error {
@@ -840,7 +884,7 @@ func Convert_v1_DownwardMetricSource_To_api_Disk(disk *api.Disk, c *ConverterCon
 		Name: "qemu",
 	}
 	// This disk always needs `virtio`. Validation ensures that bus is unset or is already virtio
-	disk.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
+	disk.Model = virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
 	disk.Source = api.DiskSource{
 		File: config.DownwardMetricDisk,
 	}
@@ -909,28 +953,6 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	return nil
 }
 
-func Convert_v1_Rng_To_api_Rng(_ *v1.Rng, rng *api.Rng, c *ConverterContext) error {
-
-	// default rng model for KVM/QEMU virtualization
-	rng.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
-
-	// default backend model, random
-	rng.Backend = &api.RngBackend{
-		Model: "random",
-	}
-
-	// the default source for rng is dev urandom
-	rng.Backend.Source = "/dev/urandom"
-
-	if c.UseLaunchSecurity {
-		rng.Driver = &api.RngDriver{
-			IOMMU: "on",
-		}
-	}
-
-	return nil
-}
-
 func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) error {
 	clientDevices := vmi.Spec.Domain.Devices.ClientPassthrough
 
@@ -990,77 +1012,6 @@ func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices
 	domainDevices.SoundCards = soundCards
 }
 
-func Convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input) error {
-	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB && input.Bus != "" {
-		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
-	}
-
-	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB {
-		input.Bus = v1.InputBusUSB
-	}
-
-	if input.Type != v1.InputTypeTablet {
-		return fmt.Errorf("input contains unsupported type %s", input.Type)
-	}
-
-	inputDevice.Bus = input.Bus
-	inputDevice.Type = input.Type
-	inputDevice.Alias = api.NewUserDefinedAlias(input.Name)
-
-	if input.Bus == v1.InputBusVirtio {
-		inputDevice.Model = v1.VirtIO
-	}
-	return nil
-}
-
-func Convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
-	if source.UTC != nil {
-		clock.Offset = "utc"
-		if source.UTC.OffsetSeconds != nil {
-			clock.Adjustment = strconv.Itoa(*source.UTC.OffsetSeconds)
-		} else {
-			clock.Adjustment = "reset"
-		}
-	} else if source.Timezone != nil {
-		clock.Offset = "timezone"
-		clock.Timezone = string(*source.Timezone)
-	}
-
-	if source.Timer != nil {
-		if source.Timer.RTC != nil {
-			newTimer := api.Timer{Name: "rtc"}
-			newTimer.Track = string(source.Timer.RTC.Track)
-			newTimer.TickPolicy = string(source.Timer.RTC.TickPolicy)
-			newTimer.Present = boolToYesNo(source.Timer.RTC.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
-		}
-		if source.Timer.PIT != nil {
-			newTimer := api.Timer{Name: "pit"}
-			newTimer.Present = boolToYesNo(source.Timer.PIT.Enabled, true)
-			newTimer.TickPolicy = string(source.Timer.PIT.TickPolicy)
-			clock.Timer = append(clock.Timer, newTimer)
-		}
-		if source.Timer.KVM != nil {
-			newTimer := api.Timer{Name: "kvmclock"}
-			newTimer.Present = boolToYesNo(source.Timer.KVM.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
-		}
-		if source.Timer.HPET != nil {
-			newTimer := api.Timer{Name: "hpet"}
-			newTimer.Present = boolToYesNo(source.Timer.HPET.Enabled, true)
-			newTimer.TickPolicy = string(source.Timer.HPET.TickPolicy)
-			clock.Timer = append(clock.Timer, newTimer)
-		}
-		if source.Timer.Hyperv != nil {
-			newTimer := api.Timer{Name: "hypervclock"}
-			newTimer.Present = boolToYesNo(source.Timer.Hyperv.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
-		}
-	}
-
-	return nil
-}
-
 func convertFeatureState(source *v1.FeatureState) *api.FeatureState {
 	if source != nil {
 		return &api.FeatureState{
@@ -1105,6 +1056,12 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 	if source.Pvspinlock != nil {
 		features.PVSpinlock = &api.FeaturePVSpinlock{
 			State: boolToOnOff(source.Pvspinlock.Enabled, true),
+		}
+	}
+
+	if c.UseLaunchSecurityTDX {
+		features.PMU = &api.FeatureState{
+			State: "off",
 		}
 	}
 
@@ -1155,24 +1112,6 @@ func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
 		}
 	}
 	return result
-}
-
-func ConvertV1ToAPIBalloning(source *v1.Devices, ballooning *api.MemBalloon, c *ConverterContext) {
-	if source != nil && source.AutoattachMemBalloon != nil && !*source.AutoattachMemBalloon {
-		ballooning.Model = "none"
-		ballooning.Stats = nil
-	} else {
-		ballooning.Model = InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture())
-		if c.MemBalloonStatsPeriod != 0 {
-			ballooning.Stats = &api.Stats{Period: c.MemBalloonStatsPeriod}
-		}
-		if c.UseLaunchSecurity {
-			ballooning.Driver = &api.MemBalloonDriver{
-				IOMMU: "on",
-			}
-		}
-		ballooning.FreePageReporting = boolToOnOff(&c.FreePageReporting, false)
-	}
 }
 
 func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
@@ -1236,12 +1175,18 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 			Path:     c.EFIConfiguration.EFICode,
 			ReadOnly: "yes",
 			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
-			Type:     "pflash",
 		}
 
-		domain.Spec.OS.NVRam = &api.NVRam{
-			Template: c.EFIConfiguration.EFIVars,
-			NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+		if util.IsSEVSNPVMI(vmi) || util.IsTDXVMI(vmi) {
+			// Use stateless firmware for the TDX/SNP VMs
+			domain.Spec.OS.BootLoader.Type = "rom"
+			domain.Spec.OS.NVRam = nil
+		} else {
+			domain.Spec.OS.BootLoader.Type = "pflash"
+			domain.Spec.OS.NVRam = &api.NVRam{
+				Template: c.EFIConfiguration.EFIVars,
+				NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			}
 		}
 	}
 
@@ -1266,13 +1211,13 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")
 		if kb.Container.KernelPath != "" {
 			kernelPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
-			log.Log.Object(vmi).Infof("setting kernel path for kernel boot: " + kernelPath)
+			log.Log.Object(vmi).Infof("setting kernel path for kernel boot: %s", kernelPath)
 			domain.Spec.OS.Kernel = kernelPath
 		}
 
 		if kb.Container.InitrdPath != "" {
 			initrdPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
-			log.Log.Object(vmi).Infof("setting initrd path for kernel boot: " + initrdPath)
+			log.Log.Object(vmi).Infof("setting initrd path for kernel boot: %s", initrdPath)
 			domain.Spec.OS.Initrd = initrdPath
 		}
 
@@ -1280,7 +1225,7 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 
 	// Define custom command-line arguments even if kernel-boot container is not defined
 	if firmware.KernelBoot != nil {
-		log.Log.Object(vmi).Infof("setting custom kernel arguments: " + firmware.KernelBoot.KernelArgs)
+		log.Log.Object(vmi).Infof("setting custom kernel arguments: %s", firmware.KernelBoot.KernelArgs)
 		domain.Spec.OS.KernelArgs = firmware.KernelBoot.KernelArgs
 	}
 
@@ -1486,9 +1431,40 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
 
-	domain.Spec.Name = api.VMINamespaceKeyFunc(vmi)
-	domain.ObjectMeta.Name = vmi.ObjectMeta.Name
-	domain.ObjectMeta.Namespace = vmi.ObjectMeta.Namespace
+	architecture := c.Architecture.GetArchitecture()
+
+	builder := NewDomainBuilder(
+		metadata.DomainConfigurator{},
+		network.NewDomainConfigurator(
+			network.WithDomainAttachmentByInterfaceName(c.DomainAttachmentByInterfaceName),
+			network.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
+			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+		),
+		compute.TPMDomainConfigurator{},
+		compute.VSOCKDomainConfigurator{},
+		compute.NewLaunchSecurityDomainConfigurator(architecture),
+		compute.ChannelsDomainConfigurator{},
+		compute.ClockDomainConfigurator{},
+		compute.NewRNGDomainConfigurator(
+			compute.RNGWithArchitecture(architecture),
+			compute.RNGWithUseVirtioTransitional(c.UseVirtioTransitional),
+			compute.RNGWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
+			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+		),
+		compute.NewInputDeviceDomainConfigurator(architecture),
+		compute.NewBalloonDomainConfigurator(
+			compute.BalloonWithArchitecture(architecture),
+			compute.BalloonWithUseVirtioTransitional(c.UseVirtioTransitional),
+			compute.BalloonWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
+			compute.BalloonWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+			compute.BalloonWithFreePageReporting(c.FreePageReporting),
+			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
+		),
+		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
+	)
+	if err := builder.Build(vmi, domain); err != nil {
+		return err
+	}
 
 	// Set VM CPU cores
 	// CPU topology will be created everytime, because user can specify
@@ -1520,14 +1496,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	newChannel := Add_Agent_To_api_Channel()
-	domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, newChannel)
-
-	if downwardmetrics.HasDevice(&vmi.Spec) {
-		// Handle downwardMetrics
-		domain.Spec.Devices.Channels = append(domain.Spec.Devices.Channels, convertDownwardMetricsChannel())
-	}
-
 	domain.Spec.SysInfo = &api.SysInfo{}
 
 	err = Convert_v1_Firmware_To_related_apis(vmi, domain, c)
@@ -1535,11 +1503,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	if c.UseLaunchSecurity {
+	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
-		domain.Spec.LaunchSecurity = c.Architecture.LaunchSecurity(vmi)
 	}
 
 	if c.SMBios != nil {
@@ -1729,31 +1696,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, *newWatchdog)
 	}
 
-	if vmi.Spec.Domain.Devices.Rng != nil {
-		newRng := &api.Rng{}
-		err := Convert_v1_Rng_To_api_Rng(vmi.Spec.Domain.Devices.Rng, newRng, c)
-		if err != nil {
-			return err
-		}
-		domain.Spec.Devices.Rng = newRng
-	}
-
-	domain.Spec.Devices.Ballooning = &api.MemBalloon{}
-	ConvertV1ToAPIBalloning(&vmi.Spec.Domain.Devices, domain.Spec.Devices.Ballooning, c)
-
-	if vmi.Spec.Domain.Devices.Inputs != nil {
-		inputDevices := make([]api.Input, 0)
-		for i := range vmi.Spec.Domain.Devices.Inputs {
-			inputDevice := api.Input{}
-			err := Convert_v1_Input_To_api_InputDevice(&vmi.Spec.Domain.Devices.Inputs[i], &inputDevice)
-			if err != nil {
-				return err
-			}
-			inputDevices = append(inputDevices, inputDevice)
-		}
-		domain.Spec.Devices.Inputs = inputDevices
-	}
-
 	err = Convert_v1_Usbredir_To_api_Usbredir(vmi, &domain.Spec.Devices, c)
 	if err != nil {
 		return err
@@ -1771,7 +1713,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
 
 	if needsSCSIController(vmi) {
-		scsiController := c.Architecture.ScsiController(InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
+		scsiController := c.Architecture.ScsiController(virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 
@@ -1787,16 +1729,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 			},
 		)
-	}
-
-	if vmi.Spec.Domain.Clock != nil {
-		clock := vmi.Spec.Domain.Clock
-		newClock := &api.Clock{}
-		err := Convert_v1_Clock_To_api_Clock(clock, newClock)
-		if err != nil {
-			return err
-		}
-		domain.Spec.Clock = newClock
 	}
 
 	if vmi.Spec.Domain.Features != nil {
@@ -1869,17 +1801,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	// Make use of the tsc frequency topology hint
-	if topology.IsManualTSCFrequencyRequired(vmi) {
-		freq := *vmi.Status.TopologyHints.TSCFrequency
-		clock := domain.Spec.Clock
-		if clock == nil {
-			clock = &api.Clock{}
-		}
-		clock.Timer = append(clock.Timer, api.Timer{Name: "tsc", Frequency: strconv.FormatInt(freq, 10)})
-		domain.Spec.Clock = clock
-	}
-
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GenericHostDevices...)
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GPUHostDevices...)
 
@@ -1892,7 +1813,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
 			Type:   "virtio-serial",
 			Index:  "0",
-			Model:  InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
+			Model:  virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
 			Driver: controllerDriver,
 		})
 
@@ -1931,34 +1852,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	}
 
-	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice == nil || *vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
-		c.Architecture.AddGraphicsDevice(vmi, domain, c.BochsForEFIGuests && vmi.IsBootloaderEFI())
-		if vmi.Spec.Domain.Devices.Video != nil {
-			video := api.Video{
-				Model: api.VideoModel{
-					Type:  vmi.Spec.Domain.Devices.Video.Type,
-					VRam:  pointer.P(uint(16384)),
-					Heads: pointer.P(uint(1)),
-				},
-			}
-			domain.Spec.Devices.Video = []api.Video{video}
-		}
-		domain.Spec.Devices.Graphics = []api.Graphics{
-			{
-				Listen: &api.GraphicsListen{
-					Type:   "socket",
-					Socket: fmt.Sprintf("/var/run/kubevirt-private/%s/virt-vnc", vmi.ObjectMeta.UID),
-				},
-				Type: "vnc",
-			},
-		}
-	}
-
-	domainInterfaces, err := CreateDomainInterfaces(vmi, c)
-	if err != nil {
-		return err
-	}
-	domain.Spec.Devices.Interfaces = append(domain.Spec.Devices.Interfaces, domainInterfaces...)
 	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.SRIOVDevices...)
 
 	// Add Ignition Command Line if present
@@ -1987,38 +1880,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				api.Arg{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", QEMUSeaBiosDebugPipe)},
 				api.Arg{Value: "-device"},
 				api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"})
-		}
-	}
-
-	if tpm.HasDevice(&vmi.Spec) {
-		domain.Spec.Devices.TPMs = []api.TPM{
-			{
-				Model: "tpm-tis",
-				Backend: api.TPMBackend{
-					Type:    "emulator",
-					Version: "2.0",
-				},
-			},
-		}
-		if tpm.HasPersistentDevice(&vmi.Spec) {
-			domain.Spec.Devices.TPMs[0].Backend.PersistentState = "yes"
-			// tpm-crb is not techincally required for persistence, but since there was a desire for both,
-			//   we decided to introduce them together. Ultimately, we should use tpm-crb for all cases,
-			//   as it is now the generally preferred model
-			domain.Spec.Devices.TPMs[0].Model = "tpm-crb"
-		}
-	}
-
-	// Handle VSOCK CID
-	if vmi.Status.VSOCKCID != nil {
-		domain.Spec.Devices.VSOCK = &api.VSOCK{
-			// Force virtio v1 for vhost-vsock-pci.
-			// https://gitlab.com/qemu-project/qemu/-/commit/6209070503989cf4f28549f228989419d4f0b236
-			Model: "virtio-non-transitional",
-			CID: api.CID{
-				Auto:    "no",
-				Address: *vmi.Status.VSOCKCID,
-			},
 		}
 	}
 
@@ -2147,11 +2008,6 @@ func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
 	return gracePeriodSeconds
-}
-
-func InterpretTransitionalModelType(useVirtioTransitional *bool, archString string) string {
-	vtenabled := useVirtioTransitional != nil && *useVirtioTransitional
-	return arch.NewConverter(archString).TransitionalModelType(vtenabled)
 }
 
 func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Domain) {

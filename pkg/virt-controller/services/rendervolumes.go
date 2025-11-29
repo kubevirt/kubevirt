@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/tpm"
@@ -22,6 +23,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
@@ -29,6 +31,9 @@ type VolumeRendererOption func(renderer *VolumeRenderer) error
 
 type VolumeRenderer struct {
 	useImageVolumes       bool
+	launcherImage         string
+	imageIDs              map[string]string
+	clusterConfig         *virtconfig.ClusterConfig
 	containerDiskDir      string
 	ephemeralDiskDir      string
 	virtShareDir          string
@@ -40,9 +45,12 @@ type VolumeRenderer struct {
 	volumeDevices         []k8sv1.VolumeDevice
 }
 
-func NewVolumeRenderer(imageVolumeFeatureGateEnabled bool, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
+func NewVolumeRenderer(clusterConfig *virtconfig.ClusterConfig, imageVolumeFeatureGateEnabled bool, launcherImage string, imageIDs map[string]string, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
 	volumeRenderer := &VolumeRenderer{
 		useImageVolumes:  imageVolumeFeatureGateEnabled,
+		launcherImage:    launcherImage,
+		imageIDs:         imageIDs,
+		clusterConfig:    clusterConfig,
 		containerDiskDir: containerDiskDir,
 		ephemeralDiskDir: ephemeralDisk,
 		namespace:        namespace,
@@ -241,6 +249,11 @@ func withImageVolumes(vmi *v1.VirtualMachineInstance) VolumeRendererOption {
 			renderer.addKernelBootVolume(kbc)
 			renderer.addKernelBootVolumeMount()
 		}
+
+		if shouldAddLauncherBinaryVolume(vmi, renderer.imageIDs) {
+			renderer.addLauncherBinaryVolume()
+		}
+
 		return nil
 	}
 }
@@ -733,11 +746,15 @@ func (vr *VolumeRenderer) addDownwardAPIVolumeMount(volume v1.Volume) {
 }
 
 func (vr *VolumeRenderer) addContainerDiskVolume(volume v1.Volume) {
+	diskContainerImage := volume.ContainerDisk.Image
+	if img, exists := vr.imageIDs[volume.Name]; exists {
+		diskContainerImage = img
+	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
 		Name: volume.Name,
 		VolumeSource: k8sv1.VolumeSource{
 			Image: &k8sv1.ImageVolumeSource{
-				Reference:  volume.ContainerDisk.Image,
+				Reference:  diskContainerImage,
 				PullPolicy: volume.ContainerDisk.ImagePullPolicy,
 			},
 		},
@@ -753,11 +770,15 @@ func (vr *VolumeRenderer) addContainerDiskVolumeMount(volume v1.Volume, volumeIn
 }
 
 func (vr *VolumeRenderer) addKernelBootVolume(kbc *v1.KernelBootContainer) {
+	kernelBootContainerImage := kbc.Image
+	if img, exists := vr.imageIDs[containerdisk.KernelBootVolumeName]; exists {
+		kernelBootContainerImage = img
+	}
 	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
-		Name: containerdisk.KernelBootName,
+		Name: containerdisk.KernelBootVolumeName,
 		VolumeSource: k8sv1.VolumeSource{
 			Image: &k8sv1.ImageVolumeSource{
-				Reference:  kbc.Image,
+				Reference:  kernelBootContainerImage,
 				PullPolicy: kbc.ImagePullPolicy,
 			},
 		},
@@ -766,9 +787,21 @@ func (vr *VolumeRenderer) addKernelBootVolume(kbc *v1.KernelBootContainer) {
 
 func (vr *VolumeRenderer) addKernelBootVolumeMount() {
 	vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
-		Name:      containerdisk.KernelBootName,
+		Name:      containerdisk.KernelBootVolumeName,
 		MountPath: util.VirtKernelBootVolumeDir,
 		ReadOnly:  true,
+	})
+}
+
+func (vr *VolumeRenderer) addLauncherBinaryVolume() {
+	vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+		Name: containerdisk.LauncherVolume,
+		VolumeSource: k8sv1.VolumeSource{
+			Image: &k8sv1.ImageVolumeSource{
+				Reference:  vr.launcherImage,
+				PullPolicy: vr.clusterConfig.GetImagePullPolicy(),
+			},
+		},
 	})
 }
 
@@ -838,4 +871,20 @@ func (vr *VolumeRenderer) handleDownwardMetrics(volume v1.Volume) {
 		Name:      volume.Name,
 		MountPath: config.DownwardMetricDisksDir,
 	})
+}
+
+// shouldAddLauncherBinaryVolume decides if we need to add the launcher image volume.
+// Even if only one init container is required for digest extraction, we must add the
+// volume that contains the binary used by that init container. Without this volume,
+// the init container cannot run.
+func shouldAddLauncherBinaryVolume(vmi *v1.VirtualMachineInstance, imageIDs map[string]string) bool {
+	for _, volume := range vmi.Spec.Volumes {
+		containerDiskImageIDAlreadyExists := strings.Contains(imageIDs[volume.Name], "@sha256:")
+		if volume.ContainerDisk == nil || containerDiskImageIDAlreadyExists {
+			continue
+		}
+		return true
+	}
+	kernelBootImageIDAlreadyExists := strings.Contains(imageIDs[containerdisk.KernelBootVolumeName], "@sha256:")
+	return util.HasKernelBootContainerImage(vmi) && !kernelBootImageIDAlreadyExists
 }

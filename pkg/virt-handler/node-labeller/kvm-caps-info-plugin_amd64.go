@@ -224,7 +224,7 @@ func exposeCapabilities(fd uintptr, supportedMSRS map[uint32]bool) []string {
 func getCapLabels() []string {
 	devkvm, err := os.OpenFile(util.KVMPath, syscall.O_RDWR|syscall.O_CLOEXEC, 0)
 	if err != nil {
-		log.DefaultLogger().Errorf("something happened during opening kvm file: " + err.Error())
+		log.DefaultLogger().Errorf("something happened during opening kvm file: %s", err.Error())
 		return nil
 	}
 	defer devkvm.Close()
@@ -233,7 +233,7 @@ func getCapLabels() []string {
 
 	supportedMSRS, err := populateCaps(fd)
 	if err != nil {
-		log.DefaultLogger().Errorf("something happened during populating kvm caps: " + err.Error())
+		log.DefaultLogger().Errorf("something happened during populating kvm caps: %s", err.Error())
 		return nil
 	}
 

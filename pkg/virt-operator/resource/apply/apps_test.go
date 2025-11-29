@@ -350,6 +350,7 @@ var _ = Describe("Apply Apps", func() {
 				false)
 			markHandlerReady(daemonSet)
 			daemonSet.UID = "random-id"
+			daemonSet.Generation = 1
 		})
 
 		Context("setting virt-handler maxDevices flag", func() {
@@ -528,7 +529,6 @@ var _ = Describe("Apply Apps", func() {
 					expectedDone bool,
 					expectingError bool,
 					expectingPatch bool) {
-					patched := false
 
 					r := &Reconciler{
 						clientset:    clientset,
@@ -542,43 +542,19 @@ var _ = Describe("Apply Apps", func() {
 					mockDSCacheStore.get = daemonSet
 					SetGeneration(&kv.Status.Generations, currentDs)
 
-					dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-						a, ok := action.(testing.PatchAction)
-						Expect(ok).To(BeTrue())
-						patched = true
-
-						patches := []patch.PatchOperation{}
-						json.Unmarshal(a.GetPatch(), &patches)
-
-						var annotations map[string]string
-						var dsSpec appsv1.DaemonSetSpec
-						for _, v := range patches {
-							if v.Path == "/spec" {
-								template, err := json.Marshal(v.Value)
-								Expect(err).ToNot(HaveOccurred())
-								json.Unmarshal(template, &dsSpec)
-							}
-							if v.Path == "/metadata/annotations" {
-								template, err := json.Marshal(v.Value)
-								Expect(err).ToNot(HaveOccurred())
-								json.Unmarshal(template, &annotations)
-							}
-						}
-
-						patchedDs := &appsv1.DaemonSet{
-							ObjectMeta: v12.ObjectMeta{
-								Annotations: annotations,
-							},
-							Spec: dsSpec,
-						}
-
-						dsCheck(kv, patchedDs)
-						return true, patchedDs, nil
-					})
+					_, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Create(context.TODO(), currentDs, v12.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
 					done, err, status := r.processCanaryUpgrade(currentDs, newDs, false)
 
+					patched := false
+					for _, action := range dsClient.Fake.Actions() {
+						if action.GetVerb() == "patch" && action.GetResource().Resource == "daemonsets" {
+							patched = true
+						}
+					}
 					Expect(patched).To(Equal(expectingPatch))
+
 					Expect(done).To(Equal(expectedDone))
 					Expect(status).To(Equal(expectedStatus))
 					if expectingError {
@@ -586,6 +562,11 @@ var _ = Describe("Apply Apps", func() {
 					} else {
 						Expect(err).ToNot(HaveOccurred())
 					}
+
+					patchedDs, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Get(context.TODO(), currentDs.Name, v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					dsCheck(kv, patchedDs)
+
 				},
 				Entry("should start canary upgrade with MaxUnavailable 1",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -672,7 +653,7 @@ var _ = Describe("Apply Apps", func() {
 				),
 				Entry("should complete rollout",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
-						maxUnavailable := intstr.FromString("10%")
+						maxUnavailable := intstr.FromInt(1)
 						newDs := daemonSet.DeepCopy()
 						addCustomTargetDeployment(kv, newDs)
 						addCustomTargetDeployment(kv, currentDs)
@@ -680,6 +661,10 @@ var _ = Describe("Apply Apps", func() {
 						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
 							MaxUnavailable: &maxUnavailable,
 						}
+						currentDs.Spec.Template.Spec.Containers[0].Args = append(currentDs.Spec.Template.Spec.Containers[0].Args,
+							"--migration-cn-types",
+						)
+						unattachCertificateSecret(&currentDs.Spec.Template.Spec, components.VirtHandlerCertSecretName)
 						return currentDs, newDs
 					},
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
@@ -689,7 +674,57 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
 						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
 					},
+					CanaryUpgradeStatusSuccessful, true, false, false,
+				),
+
+				Entry("should unattach secret before complete rollout",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						maxUnavailable := intstr.FromInt(1)
+						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+							MaxUnavailable: &maxUnavailable,
+						}
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerReady(daemonSet)
+
+						currentDs.Spec.Template.Spec.Containers[0].Args = append(currentDs.Spec.Template.Spec.Containers[0].Args,
+							"--migration-cn-types",
+						)
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
+						Expect(rollingUpdate).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
+						hasCertificateSecret(&daemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName)
+					},
 					CanaryUpgradeStatusSuccessful, true, false, true,
+				),
+				Entry("should switch to tls rollout",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						maxUnavailable := intstr.FromInt(1)
+						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+							MaxUnavailable: &maxUnavailable,
+						}
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerReady(daemonSet)
+
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
+						Expect(rollingUpdate).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
+						Expect(daemonSet.Spec.Template.Spec.Containers[0].Args).To(ContainElements("--migration-cn-types", "migration"))
+					},
+					CanaryUpgradeStatusWaitingDaemonSetRollout, false, false, true,
 				),
 			)
 		})

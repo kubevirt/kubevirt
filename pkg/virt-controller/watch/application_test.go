@@ -157,6 +157,8 @@ var _ = Describe("Application", func() {
 				return nil
 			},
 			stubMigrationEvaluator{},
+			[]string{},
+			[]string{},
 		)
 		app.rsController, _ = replicaset.NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController, _ = vm.NewController(vmiInformer,
@@ -173,6 +175,8 @@ var _ = Describe("Application", func() {
 			nil,
 			nil,
 			instancetypecontroller.NewControllerStub(),
+			[]string{},
+			[]string{},
 		)
 		app.migrationController, _ = migration.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
@@ -188,6 +192,7 @@ var _ = Describe("Application", func() {
 			recorder,
 			virtClient,
 			config,
+			stubNetworkAnnotationsGenerator{},
 		)
 		app.snapshotController = &snapshot.VMSnapshotController{
 			Client:                    virtClient,
@@ -367,4 +372,10 @@ type stubMigrationEvaluator struct{}
 
 func (e stubMigrationEvaluator) Evaluate(_ *v1.VirtualMachineInstance) k8sv1.ConditionStatus {
 	return k8sv1.ConditionUnknown
+}
+
+type stubNetworkAnnotationsGenerator struct{}
+
+func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
+	return nil
 }

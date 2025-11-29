@@ -733,8 +733,9 @@ type Disk struct {
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
 type CustomBlockSize struct {
-	Logical  uint `json:"logical"`
-	Physical uint `json:"physical"`
+	Logical            uint  `json:"logical,omitempty"`
+	Physical           uint  `json:"physical,omitempty"`
+	DiscardGranularity *uint `json:"discardGranularity,omitempty"`
 }
 
 // BlockSize provides the option to change the block size presented to the VM for a disk.
@@ -779,6 +780,11 @@ type DiskTarget struct {
 type LaunchSecurity struct {
 	// AMD Secure Encrypted Virtualization (SEV).
 	SEV *SEV `json:"sev,omitempty"`
+	// AMD SEV-SNP flags defined by the SEV-SNP specifications.
+	// +optional
+	SNP *SEVSNP `json:"snp,omitempty"`
+	// Intel Trust Domain Extensions (TDX).
+	TDX *TDX `json:"tdx,omitempty"`
 }
 
 type SEV struct {
@@ -801,7 +807,13 @@ type SEVPolicy struct {
 	EncryptedState *bool `json:"encryptedState,omitempty"`
 }
 
+type SEVSNP struct {
+}
+
 type SEVAttestation struct {
+}
+
+type TDX struct {
 }
 
 type LunTarget struct {
@@ -981,6 +993,28 @@ type ContainerDiskSource struct {
 	// More info: https://kubernetes.io/docs/concepts/containers/images#updating-images
 	// +optional
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
+}
+
+type UtilityVolumeType string
+
+const (
+	// MemoryDump represents a utility volume which will be used to collect memory dump
+	MemoryDump UtilityVolumeType = "MemoryDump"
+
+	// Backup represents a utility volume which will be used to collect backup output
+	Backup UtilityVolumeType = "Backup"
+)
+
+type UtilityVolume struct {
+	// UtilityVolume's name.
+	// Must be unique within the vmi, including regular Volumes.
+	Name string `json:"name"`
+	// PersistentVolumeClaimVolumeSource defines the PVC
+	// that is hotplugged to virt-launcher
+	v1.PersistentVolumeClaimVolumeSource `json:",inline"`
+	// Type represents the type of the utility volume.
+	// +optional
+	Type *UtilityVolumeType `json:"type,omitempty"`
 }
 
 // Exactly one of its members must be set.

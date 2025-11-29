@@ -49,7 +49,7 @@ func handleError(err error, cmdName string, response *cmdv1.Response) error {
 		return err
 	} else if err != nil {
 		msg := fmt.Sprintf("unknown error encountered sending command %s: %s", cmdName, err.Error())
-		return fmt.Errorf(msg)
+		return fmt.Errorf("%s", msg)
 	} else if response != nil && !response.Success {
 		return fmt.Errorf("server error. command %s failed: %q", cmdName, response.Message)
 	}

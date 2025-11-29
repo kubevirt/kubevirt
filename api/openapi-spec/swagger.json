@@ -6053,13 +6053,13 @@
      }
     }
    },
-   "/apis/pool.kubevirt.io/v1alpha1/": {
+   "/apis/pool.kubevirt.io/v1beta1/": {
     "get": {
      "description": "Get KubeVirt API Resources",
      "produces": [
       "application/json"
      ],
-     "operationId": "getAPIResources-pool.kubevirt.io-v1alpha1",
+     "operationId": "getAPIResources-pool.kubevirt.io-v1beta1",
      "responses": {
       "200": {
        "description": "OK",
@@ -6079,7 +6079,7 @@
      }
     }
    },
-   "/apis/pool.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinepools": {
+   "/apis/pool.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinepools": {
     "get": {
      "description": "Get a list of VirtualMachinePool objects.",
      "produces": [
@@ -6121,7 +6121,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePoolList"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePoolList"
        }
       },
       "401": {
@@ -6149,7 +6149,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePool"
        }
       },
       {
@@ -6160,19 +6160,19 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePool"
        }
       },
       "201": {
        "description": "Created",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePool"
        }
       },
       "202": {
        "description": "Accepted",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePool"
        }
       },
       "401": {
@@ -6232,7 +6232,7 @@
      }
     }
    },
-   "/apis/pool.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinepools/{name}": {
+   "/apis/pool.kubevirt.io/v1beta1/namespaces/{namespace}/virtualmachinepools/{name}": {
     "get": {
      "description": "Get a VirtualMachinePool object.",
      "produces": [
@@ -6253,7 +6253,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePool"
        }
       },
       "401": {
@@ -6281,7 +6281,7 @@
        "in": "body",
        "required": true,
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePool"
        }
       }
      ],
@@ -6289,13 +6289,13 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePool"
        }
       },
       "201": {
        "description": "Create",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePool"
        }
       },
       "401": {
@@ -6375,7 +6375,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePool"
        }
       },
       "401": {
@@ -6400,7 +6400,7 @@
      }
     ]
    },
-   "/apis/pool.kubevirt.io/v1alpha1/virtualmachinepools": {
+   "/apis/pool.kubevirt.io/v1beta1/virtualmachinepools": {
     "get": {
      "description": "Get a list of all VirtualMachinePool objects.",
      "produces": [
@@ -6413,7 +6413,7 @@
       "200": {
        "description": "OK",
        "schema": {
-        "$ref": "#/definitions/v1alpha1.VirtualMachinePoolList"
+        "$ref": "#/definitions/v1beta1.VirtualMachinePoolList"
        }
       },
       "401": {
@@ -6451,7 +6451,7 @@
      }
     ]
    },
-   "/apis/pool.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinepools": {
+   "/apis/pool.kubevirt.io/v1beta1/watch/namespaces/{namespace}/virtualmachinepools": {
     "get": {
      "description": "Watch a VirtualMachinePool object.",
      "produces": [
@@ -6503,7 +6503,7 @@
      }
     ]
    },
-   "/apis/pool.kubevirt.io/v1alpha1/watch/virtualmachinepools": {
+   "/apis/pool.kubevirt.io/v1beta1/watch/virtualmachinepools": {
     "get": {
      "description": "Watch a VirtualMachinePoolList object.",
      "produces": [
@@ -8255,6 +8255,67 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/evacuate/cancel": {
+    "put": {
+     "description": "Cancel evacuation Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1vmi-evacuatecancel",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/filesystemlist": {
     "get": {
      "description": "Get list of active filesystems on guest machine via guest agent",
@@ -9109,6 +9170,67 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/evacuate/cancel": {
+    "put": {
+     "description": "Cancel evacuation Virtual Machine",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1vm-evacuatecancel",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/expand-spec": {
     "get": {
      "description": "Get VirtualMachine object with expanded instancetype and preference.",
@@ -9837,6 +9959,67 @@
      "responses": {
       "401": {
        "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/evacuate/cancel": {
+    "put": {
+     "description": "Cancel evacuation Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3vmi-evacuatecancel",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
       }
      }
     },
@@ -10708,6 +10891,67 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/evacuate/cancel": {
+    "put": {
+     "description": "Cancel evacuation Virtual Machine",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3vm-evacuatecancel",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.EvacuateCancelOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/expand-spec": {
     "get": {
      "description": "Get VirtualMachine object with expanded instancetype and preference.",
@@ -11261,7 +11505,7 @@
    "/healthz": {
     "get": {
      "description": "Health endpoint",
-     "operationId": "func13",
+     "operationId": "func15",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -11674,7 +11918,7 @@
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
      },
      "matchLabelKeys": {
-      "description": "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both matchLabelKeys and labelSelector. Also, matchLabelKeys cannot be set when labelSelector isn't set. This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).",
+      "description": "MatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `labelSelector` as `key in (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both matchLabelKeys and labelSelector. Also, matchLabelKeys cannot be set when labelSelector isn't set.",
       "type": "array",
       "items": {
        "type": "string",
@@ -11683,7 +11927,7 @@
       "x-kubernetes-list-type": "atomic"
      },
      "mismatchLabelKeys": {
-      "description": "MismatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both mismatchLabelKeys and labelSelector. Also, mismatchLabelKeys cannot be set when labelSelector isn't set. This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).",
+      "description": "MismatchLabelKeys is a set of pod label keys to select which pods will be taken into consideration. The keys are used to lookup values from the incoming pod labels, those key-value labels are merged with `labelSelector` as `key notin (value)` to select the group of existing pods which pods will be taken into consideration for the incoming pod's pod (anti) affinity. Keys that don't exist in the incoming pod labels will be ignored. The default value is empty. The same key is forbidden to exist in both mismatchLabelKeys and labelSelector. Also, mismatchLabelKeys cannot be set when labelSelector isn't set.",
       "type": "array",
       "items": {
        "type": "string",
@@ -11938,7 +12182,7 @@
       "format": "int32"
      },
      "nodeAffinityPolicy": {
-      "description": "NodeAffinityPolicy indicates how we will treat Pod's nodeAffinity/nodeSelector when calculating pod topology spread skew. Options are: - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations. - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.\n\nIf this value is nil, the behavior is equivalent to the Honor policy. This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.\n\nPossible enum values:\n - `\"Honor\"` means use this scheduling directive when calculating pod topology spread skew.\n - `\"Ignore\"` means ignore this scheduling directive when calculating pod topology spread skew.",
+      "description": "NodeAffinityPolicy indicates how we will treat Pod's nodeAffinity/nodeSelector when calculating pod topology spread skew. Options are: - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations. - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.\n\nIf this value is nil, the behavior is equivalent to the Honor policy.\n\nPossible enum values:\n - `\"Honor\"` means use this scheduling directive when calculating pod topology spread skew.\n - `\"Ignore\"` means ignore this scheduling directive when calculating pod topology spread skew.",
       "type": "string",
       "enum": [
        "Honor",
@@ -11946,7 +12190,7 @@
       ]
      },
      "nodeTaintsPolicy": {
-      "description": "NodeTaintsPolicy indicates how we will treat node taints when calculating pod topology spread skew. Options are: - Honor: nodes without taints, along with tainted nodes for which the incoming pod has a toleration, are included. - Ignore: node taints are ignored. All nodes are included.\n\nIf this value is nil, the behavior is equivalent to the Ignore policy. This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.\n\nPossible enum values:\n - `\"Honor\"` means use this scheduling directive when calculating pod topology spread skew.\n - `\"Ignore\"` means ignore this scheduling directive when calculating pod topology spread skew.",
+      "description": "NodeTaintsPolicy indicates how we will treat node taints when calculating pod topology spread skew. Options are: - Honor: nodes without taints, along with tainted nodes for which the incoming pod has a toleration, are included. - Ignore: node taints are ignored. All nodes are included.\n\nIf this value is nil, the behavior is equivalent to the Ignore policy.\n\nPossible enum values:\n - `\"Honor\"` means use this scheduling directive when calculating pod topology spread skew.\n - `\"Ignore\"` means ignore this scheduling directive when calculating pod topology spread skew.",
       "type": "string",
       "enum": [
        "Honor",
@@ -13279,20 +13523,18 @@
    "v1.CustomBlockSize": {
     "description": "CustomBlockSize represents the desired logical and physical block size for a VM disk.",
     "type": "object",
-    "required": [
-     "logical",
-     "physical"
-    ],
     "properties": {
+     "discardGranularity": {
+      "type": "integer",
+      "format": "int32"
+     },
      "logical": {
       "type": "integer",
-      "format": "int32",
-      "default": 0
+      "format": "int32"
      },
      "physical": {
       "type": "integer",
-      "format": "int32",
-      "default": 0
+      "format": "int32"
      }
     }
    },
@@ -13993,6 +14235,36 @@
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
       "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimVolumeSource"
+     }
+    }
+   },
+   "v1.EvacuateCancelOptions": {
+    "description": "EvacuateCancelOptions may be provided on evacuate cancel request.",
+    "type": "object",
+    "required": [
+     "evacuationNodeName"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "evacuationNodeName": {
+      "type": "string",
+      "default": ""
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
      }
     }
    },
@@ -14945,6 +15217,7 @@
       "$ref": "#/definitions/v1.MigrationConfiguration"
      },
      "minCPUModel": {
+      "description": "deprecated",
       "type": "string"
      },
      "network": {
@@ -15259,6 +15532,14 @@
      "sev": {
       "description": "AMD Secure Encrypted Virtualization (SEV).",
       "$ref": "#/definitions/v1.SEV"
+     },
+     "snp": {
+      "description": "AMD SEV-SNP flags defined by the SEV-SNP specifications.",
+      "$ref": "#/definitions/v1.SEVSNP"
+     },
+     "tdx": {
+      "description": "Intel Trust Domain Extensions (TDX).",
+      "$ref": "#/definitions/v1.TDX"
      }
     }
    },
@@ -15545,6 +15826,11 @@
      "unsafeMigrationOverride": {
       "description": "UnsafeMigrationOverride allows live migrations to occur even if the compatibility check indicates the migration will be unsafe to the guest. Defaults to false",
       "type": "boolean"
+     },
+     "utilityVolumesTimeout": {
+      "description": "UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state for utility volumes to be detached. If utility volumes are still present after this timeout, the migration will be marked as Failed. Defaults to 150",
+      "type": "integer",
+      "format": "int64"
      }
     }
    },
@@ -16309,6 +16595,9 @@
      }
     }
    },
+   "v1.SEVSNP": {
+    "type": "object"
+   },
    "v1.SEVSecretOptions": {
     "description": "SEVSecretOptions is used to provide a secret for a running guest.",
     "type": "object",
@@ -16581,6 +16870,9 @@
      }
     }
    },
+   "v1.TDX": {
+    "type": "object"
+   },
    "v1.TLSConfiguration": {
     "description": "TLSConfiguration holds TLS options",
     "type": "object",
@@ -16770,6 +17062,33 @@
      "secret": {
       "description": "Secret means that the access credential is pulled from a kubernetes secret",
       "$ref": "#/definitions/v1.AccessCredentialSecretSource"
+     }
+    }
+   },
+   "v1.UtilityVolume": {
+    "type": "object",
+    "required": [
+     "name",
+     "claimName"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
+      "type": "string",
+      "default": ""
+     },
+     "name": {
+      "description": "UtilityVolume's name. Must be unique within the vmi, including regular Volumes.",
+      "type": "string",
+      "default": ""
+     },
+     "readOnly": {
+      "description": "readOnly Will force the ReadOnly setting in VolumeMounts. Default false.",
+      "type": "boolean"
+     },
+     "type": {
+      "description": "Type represents the type of the utility volume.",
+      "type": "string"
      }
     }
    },
@@ -17066,10 +17385,6 @@
       "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
       "type": "string"
      },
-     "load": {
-      "description": "Load contains the system load averages (1M, 5M, 15M) from the guest agent",
-      "$ref": "#/definitions/v1.VirtualMachineInstanceGuestOSLoad"
-     },
      "os": {
       "description": "OS contains the guest operating system information",
       "default": {},
@@ -17132,39 +17447,6 @@
      "versionId": {
       "description": "Version ID of the Guest OS",
       "type": "string"
-     }
-    }
-   },
-   "v1.VirtualMachineInstanceGuestOSLoad": {
-    "description": "VirtualMachineInstanceGuestOSLoad represents the system load averages from the guest agent",
-    "type": "object",
-    "properties": {
-     "load15m": {
-      "description": "Load average over 15 minutes",
-      "type": "number",
-      "format": "double"
-     },
-     "load15mSet": {
-      "description": "Load15mSet indicates whether the 15 minute load average is set",
-      "type": "boolean"
-     },
-     "load1m": {
-      "description": "Load average over 1 minute",
-      "type": "number",
-      "format": "double"
-     },
-     "load1mSet": {
-      "description": "Load1mSet indicates whether the 1 minute load average is set",
-      "type": "boolean"
-     },
-     "load5m": {
-      "description": "Load average over 5 minutes",
-      "type": "number",
-      "format": "double"
-     },
-     "load5mSet": {
-      "description": "Load5mSet indicates whether the 5 minute load average is set",
-      "type": "boolean"
      }
     }
    },
@@ -17429,6 +17711,10 @@
        "type": "string",
        "default": ""
       }
+     },
+     "priority": {
+      "description": "Priority of the migration. This can be one of `system-critical`, `user-triggered`, `system-maintenance`.",
+      "type": "string"
      },
      "receive": {
       "description": "If receieve is specified, this VirtualMachineInstanceMigration will be considered the target",
@@ -18114,6 +18400,18 @@
       "x-kubernetes-patch-merge-key": "topologyKey",
       "x-kubernetes-patch-strategy": "merge"
      },
+     "utilityVolumes": {
+      "description": "List of utility volumes that can be mounted to the vmi virt-launcher pod without having a matching disk in the domain. Used to collect data for various operational workflows.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.UtilityVolume"
+      },
+      "x-kubernetes-list-map-keys": [
+       "name"
+      ],
+      "x-kubernetes-list-type": "map"
+     },
      "volumes": {
       "description": "List of volumes that can be mounted by disks belonging to the vmi.",
       "type": "array",
@@ -18397,7 +18695,7 @@
       "$ref": "#/definitions/v1.PreferenceMatcher"
      },
      "runStrategy": {
-      "description": "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running",
+      "description": "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running Following are allowed values: - \"Always\": VMI should always be running. - \"Halted\": VMI should never be running. - \"Manual\": VMI can be started/stopped using API endpoints. - \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion. - \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
       "type": "string"
      },
      "running": {
@@ -18866,217 +19164,6 @@
        "type": "string",
        "default": ""
       }
-     }
-    }
-   },
-   "v1alpha1.VirtualMachinePool": {
-    "description": "VirtualMachinePool resource contains a VirtualMachine configuration that can be used to replicate multiple VirtualMachine resources.",
-    "type": "object",
-    "required": [
-     "spec"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "default": {},
-      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolSpec"
-     },
-     "status": {
-      "default": {},
-      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolStatus"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachinePoolCondition": {
-    "type": "object",
-    "required": [
-     "type",
-     "status"
-    ],
-    "properties": {
-     "lastProbeTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "lastTransitionTime": {
-      "type": [
-       "string",
-       "null"
-      ]
-     },
-     "message": {
-      "type": "string"
-     },
-     "reason": {
-      "type": "string"
-     },
-     "status": {
-      "type": "string",
-      "default": ""
-     },
-     "type": {
-      "type": "string",
-      "default": ""
-     }
-    }
-   },
-   "v1alpha1.VirtualMachinePoolList": {
-    "description": "VirtualMachinePoolList is a list of VirtualMachinePool resources.",
-    "type": "object",
-    "required": [
-     "items"
-    ],
-    "properties": {
-     "apiVersion": {
-      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-      "type": "string"
-     },
-     "items": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.VirtualMachinePool"
-      }
-     },
-     "kind": {
-      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-      "type": "string"
-     },
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachinePoolNameGeneration": {
-    "type": "object",
-    "properties": {
-     "appendIndexToConfigMapRefs": {
-      "type": "boolean"
-     },
-     "appendIndexToSecretRefs": {
-      "type": "boolean"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachinePoolProactiveScaleInStrategy": {
-    "description": "VirtualMachinePoolProactiveScaleInStrategy represents proactive scale-in strategy",
-    "type": "object",
-    "properties": {
-     "selectionPolicy": {
-      "description": "SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in Defaults to \"Random\" base policy when no SelectionPolicy is configured",
-      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolSelectionPolicy"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachinePoolScaleInStrategy": {
-    "description": "VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool",
-    "type": "object",
-    "properties": {
-     "proactive": {
-      "description": "Proactive scale-in by forcing VMs to shutdown during scale-in (Default)",
-      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolProactiveScaleInStrategy"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachinePoolSelectionPolicy": {
-    "description": "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for scale-in",
-    "type": "object",
-    "properties": {
-     "basePolicy": {
-      "description": "BasePolicy is a catch-all policy [Random|DescendingOrder]",
-      "type": "string"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachinePoolSpec": {
-    "type": "object",
-    "required": [
-     "selector",
-     "virtualMachineTemplate"
-    ],
-    "properties": {
-     "maxUnavailable": {
-      "description": "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.util.intstr.IntOrString"
-     },
-     "nameGeneration": {
-      "description": "Options for the name generation in a pool.",
-      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolNameGeneration"
-     },
-     "paused": {
-      "description": "Indicates that the pool is paused.",
-      "type": "boolean"
-     },
-     "replicas": {
-      "description": "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
-      "type": "integer",
-      "format": "int32"
-     },
-     "scaleInStrategy": {
-      "description": "ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool",
-      "$ref": "#/definitions/v1alpha1.VirtualMachinePoolScaleInStrategy"
-     },
-     "selector": {
-      "description": "Label selector for pods. Existing Poolss whose pods are selected by this will be the ones affected by this deployment.",
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
-     },
-     "virtualMachineTemplate": {
-      "description": "Template describes the VM that will be created.",
-      "$ref": "#/definitions/v1alpha1.VirtualMachineTemplateSpec"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachinePoolStatus": {
-    "type": "object",
-    "nullable": true,
-    "properties": {
-     "conditions": {
-      "type": "array",
-      "items": {
-       "default": {},
-       "$ref": "#/definitions/v1alpha1.VirtualMachinePoolCondition"
-      },
-      "x-kubernetes-list-type": "atomic"
-     },
-     "labelSelector": {
-      "description": "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
-      "type": "string"
-     },
-     "readyReplicas": {
-      "type": "integer",
-      "format": "int32"
-     },
-     "replicas": {
-      "type": "integer",
-      "format": "int32"
-     }
-    }
-   },
-   "v1alpha1.VirtualMachineTemplateSpec": {
-    "type": "object",
-    "properties": {
-     "metadata": {
-      "default": {},
-      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
-     },
-     "spec": {
-      "description": "VirtualMachineSpec contains the VirtualMachine specification.",
-      "default": {},
-      "$ref": "#/definitions/v1.VirtualMachineSpec"
      }
     }
    },
@@ -19834,6 +19921,26 @@
      }
     }
    },
+   "v1beta1.SourceIndication": {
+    "description": "SourceIndication provides an indication of the source VM with its description message",
+    "type": "object",
+    "required": [
+     "indication",
+     "message"
+    ],
+    "properties": {
+     "indication": {
+      "description": "Indication is the indication type",
+      "type": "string",
+      "default": ""
+     },
+     "message": {
+      "description": "Message provides a description message of the indication",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1beta1.SourceSpec": {
     "description": "SourceSpec contains the appropriate spec for the resource being snapshotted",
     "type": "object",
@@ -20564,6 +20671,303 @@
      }
     }
    },
+   "v1beta1.VirtualMachineOpportunisticUpdateStrategy": {
+    "type": "object"
+   },
+   "v1beta1.VirtualMachinePool": {
+    "description": "VirtualMachinePool resource contains a VirtualMachine configuration that can be used to replicate multiple VirtualMachine resources.",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "default": {},
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolSpec"
+     },
+     "status": {
+      "default": {},
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolStatus"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolAutohealingStrategy": {
+    "type": "object",
+    "properties": {
+     "minFailingToStartDuration": {
+      "description": "MinFailingToStartDuration is the minimum time a VM must be in a failing status (applies to status conditions like CrashLoopBackOff, Unschedulable) before being replaced. It measures the duration since the VM's Ready condition transitioned to False. Defaults to 5 minutes",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
+     },
+     "startUpFailureThreshold": {
+      "description": "StartUpFailureThreshold is the number of consecutive VMI start failures (it tracks the value of Status.StartFailure.ConsecutiveFailCount field) before replacing the VM. Defaults to 3",
+      "type": "integer",
+      "format": "int64"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolCondition": {
+    "type": "object",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string",
+      "default": ""
+     },
+     "type": {
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolList": {
+    "description": "VirtualMachinePoolList is a list of VirtualMachinePool resources.",
+    "type": "object",
+    "required": [
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VirtualMachinePool"
+      }
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolNameGeneration": {
+    "type": "object",
+    "properties": {
+     "appendIndexToConfigMapRefs": {
+      "type": "boolean"
+     },
+     "appendIndexToSecretRefs": {
+      "type": "boolean"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolOpportunisticScaleInStrategy": {
+    "description": "VirtualMachinePoolOpportunisticScaleInStrategy represents opportunistic scale-in strategy",
+    "type": "object",
+    "properties": {
+     "statePreservation": {
+      "description": "Specifies if and how to preserve the state of the VMs selected during scale-in. Disabled - (Default) all state for VMs selected for scale-in will be deleted. Offline - PVCs for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning time during scale out). Online - PVCs and memory for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning and boot time during scale out).",
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolProactiveScaleInStrategy": {
+    "description": "VirtualMachinePoolProactiveScaleInStrategy represents proactive scale-in strategy",
+    "type": "object",
+    "properties": {
+     "selectionPolicy": {
+      "description": "SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in Defaults to \"Random\" base policy when no SelectionPolicy is configured",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolSelectionPolicy"
+     },
+     "statePreservation": {
+      "description": "Specifies if and how to preserve the state of the VMs selected during scale-in. Disabled - (Default) all state for VMs selected for scale-in will be deleted. Offline - PVCs for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning time during scale out). Online - PVCs and memory for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning and boot time during scale out).",
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolProactiveUpdateStrategy": {
+    "description": "VirtualMachinePoolProactiveUpdateStrategy represents proactive update strategy",
+    "type": "object",
+    "properties": {
+     "selectionPolicy": {
+      "description": "SelectionPolicy defines the priority in which VM instances are selected for proactive update Defaults to \"Random\" base policy when no SelectionPolicy is configured",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolSelectionPolicy"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolScaleInStrategy": {
+    "description": "VirtualMachinePoolScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool",
+    "type": "object",
+    "properties": {
+     "opportunistic": {
+      "description": "Opportunistic scale-in is a strategy when vms are deleted by some other means than the scale-in action. For example, when the VM is deleted by the user or when the VM is deleted by the node that is hosting the VM.",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolOpportunisticScaleInStrategy"
+     },
+     "proactive": {
+      "description": "Proactive scale-in by forcing VMs to shutdown during scale-in (Default)",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolProactiveScaleInStrategy"
+     },
+     "unmanaged": {
+      "description": "The VM is never touched after creation. Users are responsible for scaling in the pool manually.",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolUnmanagedStrategy"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolSelectionPolicy": {
+    "description": "VirtualMachinePoolSelectionPolicy defines the priority in which VM instances are selected for proactive scale-in or update",
+    "type": "object",
+    "properties": {
+     "selectors": {
+      "description": "Selectors is a list of selection policies.",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolSelectors"
+     },
+     "sortPolicy": {
+      "description": "SortPolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]",
+      "type": "string"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolSelectors": {
+    "description": "VirtualMachinePoolSelectors specifies filtering criteria for VM selection. If both are specified, both must match for a VM to be selected. If only one is specified, only that one must match for a VM to be selected.",
+    "type": "object",
+    "properties": {
+     "labelSelector": {
+      "description": "LabelSelector is a list of label selector for VMs.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "nodeSelectorRequirementMatcher": {
+      "description": "NodeSelectorRequirementMatcher is a list of node selector requirement for VMs.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/k8s.io.api.core.v1.NodeSelectorRequirement"
+      }
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolSpec": {
+    "type": "object",
+    "required": [
+     "selector",
+     "virtualMachineTemplate"
+    ],
+    "properties": {
+     "autohealing": {
+      "description": "Autohealing specifies when a VMpool should replace a failing VM with a reprovisioned instance",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolAutohealingStrategy"
+     },
+     "maxUnavailable": {
+      "description": "(Defaults to 100%) Integer or string pointer, that when set represents either a percentage or number of VMs in a pool that can be unavailable (ready condition false) at a time during automated update.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.util.intstr.IntOrString"
+     },
+     "nameGeneration": {
+      "description": "Options for the name generation in a pool.",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolNameGeneration"
+     },
+     "paused": {
+      "description": "Indicates that the pool is paused.",
+      "type": "boolean"
+     },
+     "replicas": {
+      "description": "Number of desired pods. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.",
+      "type": "integer",
+      "format": "int32"
+     },
+     "scaleInStrategy": {
+      "description": "ScaleInStrategy specifies how the VMPool controller manages scaling in VMs within a VMPool",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolScaleInStrategy"
+     },
+     "selector": {
+      "description": "Label selector for pods. Existing Poolss whose pods are selected by this will be the ones affected by this deployment.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.LabelSelector"
+     },
+     "updateStrategy": {
+      "description": "UpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolUpdateStrategy"
+     },
+     "virtualMachineTemplate": {
+      "description": "Template describes the VM that will be created.",
+      "$ref": "#/definitions/v1beta1.VirtualMachineTemplateSpec"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolStatus": {
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "conditions": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VirtualMachinePoolCondition"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "labelSelector": {
+      "description": "Canonical form of the label selector for HPA which consumes it through the scale subresource.",
+      "type": "string"
+     },
+     "readyReplicas": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "replicas": {
+      "type": "integer",
+      "format": "int32"
+     }
+    }
+   },
+   "v1beta1.VirtualMachinePoolUnmanagedStrategy": {
+    "type": "object"
+   },
+   "v1beta1.VirtualMachinePoolUpdateStrategy": {
+    "description": "VirtualMachinePoolUpdateStrategy specifies how the VMPool controller manages updating VMs within a VMPool, by default it is proactive update.",
+    "type": "object",
+    "properties": {
+     "opportunistic": {
+      "description": "Opportunistic update only gets applied to the VM, VMI is updated naturally upon the restart. Whereas proactive it applies both the VM and VMI right away.",
+      "$ref": "#/definitions/v1beta1.VirtualMachineOpportunisticUpdateStrategy"
+     },
+     "proactive": {
+      "description": "Proactive update by forcing the VMs to restart during update",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolProactiveUpdateStrategy"
+     },
+     "unmanaged": {
+      "description": "Unmanaged indicates that no automatic update of VMs within a VMPool is performed. When this is set, the VMPool controller will not update the VMs within the pool.",
+      "$ref": "#/definitions/v1beta1.VirtualMachinePoolUnmanagedStrategy"
+     }
+    }
+   },
    "v1beta1.VirtualMachinePreference": {
     "description": "VirtualMachinePreference resource contains optional preferences related to the VirtualMachine.",
     "type": "object",
@@ -21025,6 +21429,7 @@
       "$ref": "#/definitions/v1beta1.Error"
      },
      "indications": {
+      "description": "Deprecated: Use SourceIndications instead. This field will be removed in a future version.",
       "type": "array",
       "items": {
        "type": "string",
@@ -21041,11 +21446,33 @@
      "snapshotVolumes": {
       "$ref": "#/definitions/v1beta1.SnapshotVolumesLists"
      },
+     "sourceIndications": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.SourceIndication"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "sourceUID": {
       "type": "string"
      },
      "virtualMachineSnapshotContentName": {
       "type": "string"
+     }
+    }
+   },
+   "v1beta1.VirtualMachineTemplateSpec": {
+    "type": "object",
+    "properties": {
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "description": "VirtualMachineSpec contains the VirtualMachine specification.",
+      "default": {},
+      "$ref": "#/definitions/v1.VirtualMachineSpec"
      }
     }
    },

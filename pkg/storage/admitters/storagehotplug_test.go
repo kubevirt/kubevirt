@@ -27,6 +27,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/client-go/api"
 
@@ -36,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -607,5 +609,243 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 		Entry("and not hotpluggable", false),
 		Entry("and hotpluggable", true),
 	)
+})
 
+var _ = Describe("Utility Volumes Admitter", func() {
+	Context("with feature gate enabled", func() {
+		var config *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			kv := &v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.UtilityVolumesGate},
+				},
+			}
+			config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)
+		})
+
+		It("should accept valid utility volumes on creation", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				Volumes: []v1.Volume{{Name: "vol1", VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}}},
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "util-vol1", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}},
+				},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, nil, nil, config)
+			Expect(result).To(BeNil())
+		})
+
+		It("should accept empty utility volumes list", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				Volumes:        []v1.Volume{{Name: "vol1", VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}}},
+				UtilityVolumes: []v1.UtilityVolume{},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, nil, nil, config)
+			Expect(result).To(BeNil())
+		})
+
+		It("should reject duplicate utility volume names", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "dup-vol", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}},
+					{Name: "dup-vol", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc2"}},
+				},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, nil, nil, config)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Result.Message).To(ContainSubstring("must not have the same Name"))
+			Expect(result.Result.Details.Causes).To(HaveLen(1))
+			Expect(result.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueDuplicate))
+			Expect(result.Result.Details.Causes[0].Field).To(Equal("spec.utilityVolumes[1].name"))
+		})
+
+		It("should reject utility volume name conflicting with regular volume", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				Volumes:        []v1.Volume{{Name: "conflict-vol", VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}}},
+				UtilityVolumes: []v1.UtilityVolume{{Name: "conflict-vol", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}}},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, nil, nil, config)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Result.Message).To(ContainSubstring("conflicts with"))
+			Expect(result.Result.Details.Causes).To(HaveLen(1))
+			Expect(result.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueDuplicate))
+			Expect(result.Result.Details.Causes[0].Field).To(Equal("spec.utilityVolumes[0].name"))
+		})
+
+		It("should reject utility volume with empty PVC name", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{{Name: "util-vol", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: ""}}},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, nil, nil, config)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Result.Message).To(ContainSubstring("claimName' must be set"))
+		})
+
+		It("should reject utility volume with empty name", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{{Name: "", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}}},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, nil, nil, config)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Result.Message).To(ContainSubstring("'name' must be set"))
+		})
+
+		It("should handle multiple validation errors", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				Volumes: []v1.Volume{{Name: "conflict-vol", VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}}},
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "conflict-vol", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}},
+					{Name: "empty-pvc", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: ""}},
+				},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, nil, nil, config)
+			Expect(result).ToNot(BeNil())
+			// Should fail on first validation error found
+			Expect(result.Result.Message).To(SatisfyAny(
+				ContainSubstring("conflicts with"),
+				ContainSubstring("claimName' must be set"),
+			))
+		})
+
+		It("should reject utility volumes marked as permanent (must be hotplug)", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "util-vol", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}},
+				},
+			}
+			oldSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{},
+			}
+
+			volumeStatuses := []v1.VolumeStatus{
+				{Name: "util-vol", HotplugVolume: nil},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, oldSpec, volumeStatuses, config)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Result.Message).To(ContainSubstring("cannot be a permanent volume"))
+		})
+
+		It("should accept new utility volumes being added on update", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "existing-util", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}},
+					{Name: "new-util", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc2"}},
+				},
+			}
+			oldSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "existing-util", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}},
+				},
+			}
+
+			volumeStatuses := []v1.VolumeStatus{
+				{Name: "existing-util", HotplugVolume: &v1.HotplugVolumeStatus{}},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, oldSpec, volumeStatuses, config)
+			Expect(result).To(BeNil())
+		})
+
+		It("should accept utility volumes being removed on update", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "remaining-util", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}},
+				},
+			}
+			oldSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "remaining-util", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}},
+					{Name: "removed-util", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc2"}},
+				},
+			}
+
+			volumeStatuses := []v1.VolumeStatus{
+				{Name: "remaining-util", HotplugVolume: &v1.HotplugVolumeStatus{}},
+				{Name: "removed-util", HotplugVolume: &v1.HotplugVolumeStatus{}},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, oldSpec, volumeStatuses, config)
+			Expect(result).To(BeNil())
+		})
+
+		It("should reject changes to existing utility volumes", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "util-vol", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc2"}}, // changed claim
+				},
+			}
+			oldSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "util-vol", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}}, // original claim
+				},
+			}
+
+			volumeStatuses := []v1.VolumeStatus{
+				{Name: "util-vol", HotplugVolume: &v1.HotplugVolumeStatus{}},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, oldSpec, volumeStatuses, config)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Result.Message).To(ContainSubstring("has changed"))
+		})
+	})
+
+	Context("with feature gate disabled", func() {
+		var config *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			kv := &v1.KubeVirtConfiguration{}
+			config, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kv)
+		})
+
+		It("should reject utility volumes when feature gate is disabled", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{
+					{Name: "util-vol", PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "pvc1"}},
+				},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, nil, nil, config)
+			Expect(result).ToNot(BeNil())
+			Expect(result.Result.Message).To(Equal("UtilityVolumes feature gate is not enabled"))
+		})
+
+		It("should accept empty utility volumes when feature gate is disabled", func() {
+			newSpec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{},
+			}
+
+			result := AdmitUtilityVolumes(newSpec, nil, nil, config)
+			Expect(result).To(BeNil())
+		})
+	})
+
+	Context("ValidateUtilityVolumesNotPresentOnCreation", func() {
+		It("should reject VMI spec with utility volumes on creation", func() {
+			spec := &v1.VirtualMachineInstanceSpec{
+				UtilityVolumes: []v1.UtilityVolume{
+					{
+						Name: "test-utility-volume",
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "test-pvc",
+						},
+					},
+				},
+			}
+
+			causes := ValidateUtilityVolumesNotPresentOnCreation(field.NewPath("spec"), spec)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(ContainSubstring("cannot create VMI with utility volumes in spec"))
+			Expect(causes[0].Field).To(Equal("spec.utilityVolumes"))
+		})
+	})
 })

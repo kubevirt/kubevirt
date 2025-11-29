@@ -31,6 +31,7 @@ go_test(
     race = "on",
     deps = [
         "//pkg/testutils:go_default_library",
+        "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-handler/notify-server:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",

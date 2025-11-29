@@ -405,32 +405,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			)
 		}
 
-		fedoraMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
-			if ipv6NetworkCIDR == "" {
-				ipv6NetworkCIDR = cloudinit.DefaultIPv6CIDR
-			}
-			networkData, err := cloudinit.NewNetworkData(
-				cloudinit.WithEthernet("eth0",
-					cloudinit.WithDHCP4Enabled(),
-					cloudinit.WithAddresses(ipv6NetworkCIDR),
-					cloudinit.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
-				),
-			)
-			if err != nil {
-				return nil, err
-			}
-
-			net := v1.DefaultPodNetwork()
-			net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
-			vmi := libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
-				libvmi.WithNetwork(net),
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-			)
-
-			return vmi, nil
-		}
-
 		portsUsedByLiveMigration := func() []v1.Port {
 			const LibvirtBlockMigrationPort = 49153
 			return []v1.Port{
@@ -528,13 +502,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
-				clientVMI, err := fedoraMasqueradeVMI([]v1.Port{}, networkCIDR)
+				clientVMI, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 
-				serverVMI, err := fedoraMasqueradeVMI(ports, networkCIDR)
+				serverVMI, err := newFedoraMasqueradeIPv6VMI(ports, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
@@ -566,7 +540,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					ipv6Address = flags.IPV6ConnectivityCheckAddress
 				}
 
-				vmi, err := fedoraMasqueradeVMI([]v1.Port{}, "")
+				vmi, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, "")
 				Expect(err).ToNot(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -641,7 +615,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
-				vmi, err = fedoraMasqueradeVMI([]v1.Port{}, "")
+				vmi, err = newFedoraMasqueradeIPv6VMI([]v1.Port{}, "")
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -788,8 +762,8 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		})
 	})
 
-	Context("VirtualMachineInstance with TX offload disabled", func() {
-		It("[test_id:1781]should have tx checksumming disabled on interface serving dhcp", func() {
+	Context("VirtualMachineInstance with TX offload enabled", func() {
+		It("[test_id:1781]should have tx checksumming enabled on interface serving dhcp", func() {
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
 				context.Background(),
 				libvmifact.NewAlpine(libvmi.WithMemoryRequest("1024M")),
@@ -801,10 +775,35 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				vmi,
 				[]string{"/bin/bash", "-c", "/usr/sbin/ethtool -k k6t-eth0|grep tx-checksumming|awk '{ printf $2 }'"},
 			)
-			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("off"))
+			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("on"))
 		})
 	})
 }))
+
+func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
+	if ipv6NetworkCIDR == "" {
+		ipv6NetworkCIDR = cloudinit.DefaultIPv6CIDR
+	}
+	networkData, err := cloudinit.NewNetworkData(
+		cloudinit.WithEthernet("eth0",
+			cloudinit.WithAddresses(ipv6NetworkCIDR),
+			cloudinit.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	net := v1.DefaultPodNetwork()
+	net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
+	vmi := libvmifact.NewFedora(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+		libvmi.WithNetwork(net),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+	)
+
+	return vmi, nil
+}
 
 func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess bool) []expect.Batcher {
 	expectResult := console.ShellFail

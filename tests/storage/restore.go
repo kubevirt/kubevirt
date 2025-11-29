@@ -225,15 +225,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 		Expect(err).ToNot(HaveOccurred())
 	}
 
-	deletePVC := func(pvc *corev1.PersistentVolumeClaim) {
-		err := virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.Background(), pvc.Name, metav1.DeleteOptions{})
-		if errors.IsNotFound(err) {
-			err = nil
-		}
-		Expect(err).ToNot(HaveOccurred())
-		pvc = nil
-	}
-
 	getMacAddressCloningPatch := func(sourceVM *v1.VirtualMachine) string {
 		interfaces := sourceVM.Spec.Template.Spec.Domain.Devices.Interfaces
 		Expect(interfaces).ToNot(BeEmpty())
@@ -1903,7 +1894,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("should restore with volume restore policy InPlace and PVC as disk", func() {
 				pvcName := "standalone-pvc"
-				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass)
+				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass, libstorage.WithStorageProfile())
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -2026,25 +2017,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			})
 
 			Context("with memory dump", func() {
-				var memoryDumpPVC *corev1.PersistentVolumeClaim
-				var memoryDumpPVCName string
-
-				BeforeEach(func() {
-					memoryDumpPVCName = "fs-pvc" + rand.String(5)
-					memoryDumpPVC = libstorage.NewPVC(memoryDumpPVCName, "1.5Gi", snapshotStorageClass)
-					volumeMode := corev1.PersistentVolumeFilesystem
-					memoryDumpPVC.Spec.VolumeMode = &volumeMode
-					var err error
-					memoryDumpPVC, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), memoryDumpPVC, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				})
-
-				AfterEach(func() {
-					if memoryDumpPVC != nil {
-						deletePVC(memoryDumpPVC)
-					}
-				})
-
 				getMemoryDump := func(vmName, namespace, claimName string) {
 					Eventually(func() error {
 						memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
@@ -2073,6 +2045,8 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					By("Get VM memory dump")
+					memoryDumpPVCName := "fs-pvc"
+					libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(nil), "1.5Gi", libstorage.WithStorageClass(snapshotStorageClass), libstorage.WithStorageProfile())
 					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
 					waitMemoryDumpCompletion(vm)
 

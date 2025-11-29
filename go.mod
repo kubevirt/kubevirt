@@ -1,8 +1,9 @@
 module kubevirt.io/kubevirt
 
-go 1.23.0
+go 1.24.0
 
 require (
+	dario.cat/mergo v1.0.2
 	github.com/cheggaaa/pb/v3 v3.1.0
 	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.5.1
@@ -16,14 +17,12 @@ require (
 	github.com/go-openapi/validate v0.24.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/google/go-github/v32 v32.0.0
 	github.com/google/goexpect v0.0.0-20190425035906-112704a48083
-	github.com/google/gofuzz v1.2.0
 	github.com/google/uuid v1.6.0
 	github.com/gordonklaus/ineffassign v0.0.0-20210209182638-d0e41b2fc8ed
-	github.com/gorilla/websocket v1.5.0
-	github.com/imdario/mergo v0.3.16
+	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/insomniacslk/dhcp v0.0.0-20230908212754-65c27093e38a
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.3.0
 	github.com/kisielk/errcheck v1.6.2
@@ -47,27 +46,26 @@ require (
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190725173916-b56e63a643cc
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.80.1
-	github.com/prometheus/client_golang v1.19.1
+	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.1
-	github.com/prometheus/common v0.55.0
+	github.com/prometheus/common v0.62.0
 	github.com/prometheus/procfs v0.15.1
 	github.com/rhobs/operator-observability-toolkit v0.0.29
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/vishvananda/netlink v1.3.0
-	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad
 	go.uber.org/mock v0.5.1
 	golang.org/x/crypto v0.36.0
 	golang.org/x/net v0.38.0
 	golang.org/x/sync v0.12.0
 	golang.org/x/sys v0.31.0
 	golang.org/x/term v0.30.0
-	golang.org/x/time v0.7.0
+	golang.org/x/time v0.9.0
 	golang.org/x/tools v0.28.0
-	google.golang.org/grpc v1.65.0
-	k8s.io/api v0.32.5
-	k8s.io/apiextensions-apiserver v0.32.5
-	k8s.io/apimachinery v0.32.5
+	google.golang.org/grpc v1.68.1
+	k8s.io/api v0.33.5
+	k8s.io/apiextensions-apiserver v0.33.5
+	k8s.io/apimachinery v0.33.5
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-aggregator v0.28.2
 	k8s.io/kube-openapi v0.31.0
@@ -79,8 +77,8 @@ require (
 	kubevirt.io/qe-tools v0.1.8
 	libvirt.org/go/libvirt v1.11005.0
 	libvirt.org/go/libvirtxml v1.11000.1
-	mvdan.cc/sh/v3 v3.8.0
 	sigs.k8s.io/controller-runtime v0.20.2
+	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -108,7 +106,7 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang/glog v1.2.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
-	github.com/google/gnostic-models v0.6.8 // indirect
+	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/google/renameio/v2 v2.0.0 // indirect
@@ -117,7 +115,7 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/josharian/native v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.17.9 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
@@ -139,6 +137,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/u-root/uio v0.0.0-20230220225925-ffce2a382923 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
+	github.com/wadey/gocovmerge v0.0.0-20160331181800-b5bfa59ec0ad // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.mongodb.org/mongo-driver v1.14.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
@@ -146,19 +145,19 @@ require (
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240826202546-f6391c0de4c7 // indirect
-	google.golang.org/protobuf v1.36.1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241209162323-e6fa225c2576 // indirect
+	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.32.5 // indirect
+	k8s.io/apiserver v0.33.5 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
 	mvdan.cc/editorconfig v0.2.1-0.20231228180347-1925077f8eb2 // indirect
+	mvdan.cc/sh/v3 v3.8.0 // indirect
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.5.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
 
 require (
@@ -172,32 +171,38 @@ replace (
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 
-	k8s.io/api => k8s.io/api v0.32.5
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.32.5
-	k8s.io/apimachinery => k8s.io/apimachinery v0.32.5
-	k8s.io/apiserver => k8s.io/apiserver v0.32.5
-	k8s.io/client-go => k8s.io/client-go v0.32.5
-	k8s.io/cloud-provider => k8s.io/cloud-provider v0.32.5
-	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.32.5
-	k8s.io/code-generator => k8s.io/code-generator v0.32.5
-	k8s.io/component-base => k8s.io/component-base v0.32.5
-	k8s.io/cri-api => k8s.io/cri-api v0.32.5
-	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.32.5
+	k8s.io/api => k8s.io/api v0.33.5
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.33.5
+	k8s.io/apimachinery => k8s.io/apimachinery v0.33.5
+	k8s.io/apiserver => k8s.io/apiserver v0.33.5
+	k8s.io/client-go => k8s.io/client-go v0.33.5
+	k8s.io/cloud-provider => k8s.io/cloud-provider v0.33.5
+	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.33.5
+	k8s.io/code-generator => k8s.io/code-generator v0.33.5
+	k8s.io/component-base => k8s.io/component-base v0.33.5
+	k8s.io/cri-api => k8s.io/cri-api v0.33.5
+	k8s.io/csi-translation-lib => k8s.io/csi-translation-lib v0.33.5
 	k8s.io/klog => k8s.io/klog v0.4.0
-	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.32.5
-	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.32.5
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20240430033511-f0e62f92d13f
-	k8s.io/kube-proxy => k8s.io/kube-proxy v0.32.5
-	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.32.5
-	k8s.io/kubectl => k8s.io/kubectl v0.32.5
-	k8s.io/kubelet => k8s.io/kubelet v0.32.5
-	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.32.5
-	k8s.io/metrics => k8s.io/metrics v0.32.5
-	k8s.io/node-api => k8s.io/node-api v0.32.5
-	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.32.5
-	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.32.5
-	k8s.io/sample-controller => k8s.io/sample-controller v0.32.5
+	k8s.io/kube-aggregator => k8s.io/kube-aggregator v0.33.5
+	k8s.io/kube-controller-manager => k8s.io/kube-controller-manager v0.33.5
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250318190949-c8a335a9a2ff
+	k8s.io/kube-proxy => k8s.io/kube-proxy v0.33.5
+	k8s.io/kube-scheduler => k8s.io/kube-scheduler v0.33.5
+	k8s.io/kubectl => k8s.io/kubectl v0.33.5
+	k8s.io/kubelet => k8s.io/kubelet v0.33.5
+	k8s.io/legacy-cloud-providers => k8s.io/legacy-cloud-providers v0.33.5
+	k8s.io/metrics => k8s.io/metrics v0.33.5
+	k8s.io/node-api => k8s.io/node-api v0.33.5
+	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.33.5
+	k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.33.5
+	k8s.io/sample-controller => k8s.io/sample-controller v0.33.5
 
 	kubevirt.io/api => ./staging/src/kubevirt.io/api
 	kubevirt.io/client-go => ./staging/src/kubevirt.io/client-go
+)
+
+tool (
+	github.com/onsi/ginkgo/v2/ginkgo
+	github.com/wadey/gocovmerge
+	mvdan.cc/sh/v3/cmd/shfmt
 )

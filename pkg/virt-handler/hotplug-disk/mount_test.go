@@ -330,6 +330,41 @@ var _ = Describe("HotplugVolume", func() {
 			Expect(res).To(BeTrue())
 		})
 
+		It("should skip mounting utility volumes with block mode PVCs", func() {
+			vmi := api.NewMinimalVMI("fake-vmi")
+			vmi.UID = "1234"
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "utility-vol",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-pvc",
+					},
+				},
+			}
+			blockMode := k8sv1.PersistentVolumeBlock
+			vmi.Status.VolumeStatus = []v1.VolumeStatus{
+				{
+					Name:  "utility-vol",
+					Phase: v1.VolumePending,
+					HotplugVolume: &v1.HotplugVolumeStatus{
+						AttachPodName: "test-pod",
+						AttachPodUID:  "test-uid",
+					},
+					PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+						VolumeMode: &blockMode,
+					},
+				},
+			}
+
+			cgroupManagerMock.EXPECT().GetCgroupVersion().Return(cgroup.V2).AnyTimes()
+			err = m.mountFromPod(vmi, "", cgroupManagerMock)
+			Expect(err).ToNot(HaveOccurred())
+
+			record, err := m.getMountTargetRecord(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(record.MountTargetEntries).To(BeEmpty())
+		})
+
 		It("findVirtlauncherUID should find the right UID", func() {
 			res := m.findVirtlauncherUID(vmi)
 			Expect(res).To(BeEquivalentTo("abcd"))

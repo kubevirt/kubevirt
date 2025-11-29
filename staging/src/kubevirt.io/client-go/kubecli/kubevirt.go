@@ -19,7 +19,7 @@
 
 package kubecli
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
+//go:generate mockgen -destination=generated_mock_kubevirt.go -package=kubecli kubevirt.io/client-go/kubecli KubevirtClient,VirtualMachineInstanceInterface,ReplicaSetInterface,VirtualMachineInstancePresetInterface,VirtualMachineInterface,VirtualMachineInstanceMigrationInterface,KubeVirtInterface,ServerVersionInterface,ExpandSpecInterface
 
 /*
  ATTENTION: Rerun code generators when interface signatures are modified.
@@ -47,7 +47,7 @@ import (
 	exportv1 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 	migrationsv1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
-	poolv1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
+	poolv1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
 	snapshotv1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
 	networkclient "kubevirt.io/client-go/networkattachmentdefinitionclient"
 	promclient "kubevirt.io/client-go/prometheusoperator"
@@ -168,7 +168,7 @@ func (k kubevirtClient) GeneratedKubeVirtClient() generatedclient.Interface {
 }
 
 func (k kubevirtClient) VirtualMachinePool(namespace string) poolv1.VirtualMachinePoolInterface {
-	return k.generatedKubeVirtClient.PoolV1alpha1().VirtualMachinePools(namespace)
+	return k.generatedKubeVirtClient.PoolV1beta1().VirtualMachinePools(namespace)
 }
 
 func (k kubevirtClient) VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface {

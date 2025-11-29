@@ -69,6 +69,10 @@ func (config *ClusterConfig) LiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.LiveMigrationGate)
 }
 
+func (config *ClusterConfig) UtilityVolumesEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.UtilityVolumesGate)
+}
+
 func (config *ClusterConfig) SRIOVLiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.SRIOVLiveMigrationGate)
 }
@@ -135,6 +139,10 @@ func (config *ClusterConfig) RootEnabled() bool {
 
 func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionSEV)
+}
+
+func (config *ClusterConfig) WorkloadEncryptionTDXEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionTDX)
 }
 
 func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
@@ -215,4 +223,8 @@ func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
 
 func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
+}
+
+func (config *ClusterConfig) MigrationPriorityQueueEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.MigrationPriorityQueue)
 }

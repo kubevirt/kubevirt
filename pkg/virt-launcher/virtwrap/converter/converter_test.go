@@ -59,8 +59,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-	sev "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
+	lsec "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
 var (
@@ -110,33 +111,6 @@ func memBalloonWithModelAndPeriod(model string, period int) string {
     `, period))
 
 }
-
-var _ = Describe("getOptimalBlockIO", func() {
-
-	It("Should detect disk block sizes for a file DiskSource", func() {
-		disk := &api.Disk{
-			Source: api.DiskSource{
-				File: "/",
-			},
-		}
-		blockIO, err := getOptimalBlockIO(disk)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(blockIO.LogicalBlockSize).To(Equal(blockIO.PhysicalBlockSize))
-		// The default for most filesystems nowadays is 4096 but it can be changed.
-		// As such, relying on a specific value is flakey unless
-		// we create a disk image and filesystem just for this test.
-		// For now, as long as we have a value, the exact value doesn't matter.
-		Expect(blockIO.LogicalBlockSize).ToNot(BeZero())
-	})
-
-	It("Should fail for non-file or non-block devices", func() {
-		disk := &api.Disk{
-			Source: api.DiskSource{},
-		}
-		_, err := getOptimalBlockIO(disk)
-		Expect(err).To(HaveOccurred())
-	})
-})
 
 var _ = Describe("Converter", func() {
 
@@ -217,26 +191,6 @@ var _ = Describe("Converter", func() {
 			),
 		)
 
-	})
-
-	Context("with timezone", func() {
-		It("Should set timezone attribute", func() {
-			timezone := v1.ClockOffsetTimezone("America/New_York")
-			clock := &v1.Clock{
-				ClockOffset: v1.ClockOffset{
-					Timezone: &timezone,
-				},
-				Timer: &v1.Timer{},
-			}
-
-			var convertClock api.Clock
-			Convert_v1_Clock_To_api_Clock(clock, &convertClock)
-			data, err := xml.MarshalIndent(convertClock, "", "  ")
-			Expect(err).ToNot(HaveOccurred())
-
-			expectedClock := `<Clock offset="timezone" timezone="America/New_York"></Clock>`
-			Expect(string(data)).To(Equal(expectedClock))
-		})
 	})
 
 	Context("with v1.Disk", func() {
@@ -379,15 +333,16 @@ var _ = Describe("Converter", func() {
 			kubevirtDisk := &v1.Disk{
 				BlockSize: &v1.BlockSize{
 					Custom: &v1.CustomBlockSize{
-						Logical:  1234,
-						Physical: 1234,
+						Logical:            1234,
+						Physical:           1234,
+						DiscardGranularity: pointer.P[uint](1234),
 					},
 				},
 			}
 			expectedXML := `<Disk device="" type="">
   <source></source>
   <target></target>
-  <blockio logical_block_size="1234" physical_block_size="1234"></blockio>
+  <blockio logical_block_size="1234" physical_block_size="1234" discard_granularity="1234"></blockio>
 </Disk>`
 			libvirtDisk := &api.Disk{}
 			Expect(Convert_v1_BlockSize_To_api_BlockIO(kubevirtDisk, libvirtDisk)).To(Succeed())
@@ -1808,6 +1763,41 @@ var _ = Describe("Converter", func() {
 		},
 			MultiArchEntry(""),
 		)
+
+		Context("BlockIO", func() {
+			It("Should detect disk block sizes for a file DiskSource", func() {
+				v1Disk := v1.Disk{
+					Name: "test",
+					BlockSize: &v1.BlockSize{
+						MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
+					},
+				}
+				apiDisk := api.Disk{Source: api.DiskSource{File: "/"}}
+				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk)).To(Succeed())
+
+				blockIO := apiDisk.BlockIO
+				Expect(blockIO.LogicalBlockSize).To(Equal(blockIO.PhysicalBlockSize))
+				// The default for most filesystems nowadays is 4096 but it can be changed.
+				// As such, relying on a specific value is flakey unless
+				// we create a disk image and filesystem just for this test.
+				// For now, as long as we have a value, the exact value doesn't matter.
+				Expect(blockIO.LogicalBlockSize).ToNot(BeZero())
+				Expect(blockIO.DiscardGranularity).ToNot(BeNil())
+				Expect(*blockIO.DiscardGranularity).To(Equal(blockIO.LogicalBlockSize))
+			})
+
+			It("Should fail for non-file or non-block devices", func() {
+				const blockIoConfigErrorMessage = "failed to configure disk with block size detection enabled"
+				v1Disk := v1.Disk{
+					Name: "test",
+					BlockSize: &v1.BlockSize{
+						MatchVolume: &v1.FeatureState{Enabled: pointer.P(true)},
+					},
+				}
+				apiDisk := api.Disk{Source: api.DiskSource{}}
+				Expect(Convert_v1_BlockSize_To_api_BlockIO(&v1Disk, &apiDisk)).To(MatchError(ContainSubstring(blockIoConfigErrorMessage)))
+			})
+		})
 	})
 	Context("Network convert", func() {
 		var vmi *v1.VirtualMachineInstance
@@ -2908,7 +2898,7 @@ var _ = Describe("Converter", func() {
 				Threads: 2,
 			}
 			domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true})
-			expectedNumberQueues := uint(multiQueueMaxQueues)
+			expectedNumberQueues := uint(network.MultiQueueMaxQueues)
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedNumberQueues),
 				"should be capped to the maximum number of queues on tap devices")
 		})
@@ -3491,10 +3481,10 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			c = &ConverterContext{
-				Architecture:      archconverter.NewConverter(amd64),
-				AllowEmulation:    true,
-				EFIConfiguration:  &EFIConfiguration{},
-				UseLaunchSecurity: true,
+				Architecture:         archconverter.NewConverter(amd64),
+				AllowEmulation:       true,
+				EFIConfiguration:     &EFIConfiguration{},
+				UseLaunchSecuritySEV: true,
 			}
 		})
 
@@ -3503,7 +3493,7 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
 			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("sev"))
-			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(sev.SEVPolicyNoDebug), 16)))
+			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(lsec.SEVPolicyNoDebug), 16)))
 		})
 
 		It("should set LaunchSecurity domain element with 'sev' type with 'NoDebug' and 'EncryptedState' policy bits", func() {
@@ -3519,15 +3509,22 @@ var _ = Describe("Converter", func() {
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
 			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("sev"))
-			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(sev.SEVPolicyNoDebug|sev.SEVPolicyEncryptedState), 16)))
+			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(lsec.SEVPolicyNoDebug|lsec.SEVPolicyEncryptedState), 16)))
+		})
+
+		It("should set LaunchSecurity domain element with 'sev-snp' type with 'Reserved' policy bits", func() {
+			// VMI with SEV-SNP
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				SNP: &v1.SEVSNP{},
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("sev-snp"))
+			Expect(domain.Spec.LaunchSecurity.Policy).To(Equal("0x" + strconv.FormatUint(uint64(lsec.SNPPolicySmt|lsec.SNPPolicyReserved), 16)))
 		})
 
 		It("should set IOMMU attribute of the RngDriver", func() {
-			rng := &api.Rng{}
-			Expect(Convert_v1_Rng_To_api_Rng(&v1.Rng{}, rng, c)).To(Succeed())
-			Expect(rng.Driver).ToNot(BeNil())
-			Expect(rng.Driver.IOMMU).To(Equal("on"))
-
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Rng).ToNot(BeNil())
@@ -3536,11 +3533,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should set IOMMU attribute of the MemBalloonDriver", func() {
-			memBaloon := &api.MemBalloon{}
-			ConvertV1ToAPIBalloning(&v1.Devices{}, memBaloon, c)
-			Expect(memBaloon.Driver).ToNot(BeNil())
-			Expect(memBaloon.Driver.IOMMU).To(Equal("on"))
-
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
@@ -3609,9 +3601,9 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 			c = &ConverterContext{
-				Architecture:      archconverter.NewConverter(s390x),
-				AllowEmulation:    true,
-				UseLaunchSecurity: true,
+				Architecture:        archconverter.NewConverter(s390x),
+				AllowEmulation:      true,
+				UseLaunchSecurityPV: true,
 			}
 		})
 
@@ -3622,11 +3614,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should set IOMMU attribute of the RngDriver", func() {
-			rng := &api.Rng{}
-			Expect(Convert_v1_Rng_To_api_Rng(&v1.Rng{}, rng, c)).To(Succeed())
-			Expect(rng.Driver).ToNot(BeNil())
-			Expect(rng.Driver.IOMMU).To(Equal("on"))
-
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Rng).ToNot(BeNil())
@@ -3635,11 +3622,6 @@ var _ = Describe("Converter", func() {
 		})
 
 		It("should set IOMMU attribute of the MemBalloonDriver", func() {
-			memBaloon := &api.MemBalloon{}
-			ConvertV1ToAPIBalloning(&v1.Devices{}, memBaloon, c)
-			Expect(memBaloon.Driver).ToNot(BeNil())
-			Expect(memBaloon.Driver.IOMMU).To(Equal("on"))
-
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
@@ -3663,6 +3645,54 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Disks).To(HaveLen(1))
 			Expect(domain.Spec.Devices.Disks[0].Driver).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Disks[0].Driver.IOMMU).To(Equal("on"))
+		})
+	})
+
+	Context("with Intel TDX LaunchSecurity", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			nonVirtioIface := v1.Interface{Name: "red", Model: "e1000"}
+			secondaryNetwork := v1.Network{Name: "red"}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultBridgeNetworkInterface(), nonVirtioIface,
+			}
+			vmi.Spec.Networks = []v1.Network{
+				*v1.DefaultPodNetwork(), secondaryNetwork,
+			}
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				TDX: &v1.TDX{},
+			}
+			vmi.Spec.Domain.Features = &v1.Features{
+				SMM: &v1.FeatureState{
+					Enabled: pointer.P(false),
+				},
+			}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(false),
+					},
+				},
+			}
+			c = &ConverterContext{
+				Architecture:         archconverter.NewConverter(amd64),
+				AllowEmulation:       true,
+				EFIConfiguration:     &EFIConfiguration{},
+				UseLaunchSecurityTDX: true,
+			}
+		})
+
+		It("should set LaunchSecurity domain element with 'tdx' type", func() {
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("tdx"))
 		})
 	})
 
@@ -3958,7 +3988,7 @@ var _ = Describe("direct IO checker", func() {
 	})
 })
 
-var _ = Describe("SetDriverCacheMode", func() {
+var _ = Describe("Driver Cache and IO Settings", func() {
 	var ctrl *gomock.Controller
 	var mockDirectIOChecker *MockDirectIOChecker
 
@@ -4010,6 +4040,17 @@ var _ = Describe("SetDriverCacheMode", func() {
 		Entry("'writethrough' with direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckTrue),
 		Entry("'writethrough' without direct io", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckFalse),
 		Entry("'writethrough' on error", string(v1.CacheWriteThrough), string(v1.CacheWriteThrough), expectCheckError),
+	)
+
+	DescribeTable("should set appropriate IO modes", func(disk *api.Disk, expectedIO v1.DriverIO, isPreAllocated bool) {
+		SetOptimalIOMode(disk, func(path string) bool { return isPreAllocated })
+		Expect(disk.Driver.IO).To(Equal(expectedIO))
+	},
+		Entry("user-specified IO", &api.Disk{Driver: &api.DiskDriver{IO: v1.IOThreads}}, v1.IOThreads, false),
+		Entry("sparse image", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{}}, v1.DriverIO(""), false),
+		Entry("pre-allocated image with O_DIRECT", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}}, v1.IONative, true),
+		Entry("pre-allocated image without O_DIRECT", &api.Disk{Source: api.DiskSource{File: "test.img"}, Driver: &api.DiskDriver{Cache: string(v1.CacheWriteThrough)}}, v1.DriverIO(""), true),
+		Entry("block device with O_DIRECT", &api.Disk{Source: api.DiskSource{Dev: "/dev/test"}, Driver: &api.DiskDriver{Cache: string(v1.CacheNone)}}, v1.IONative, true),
 	)
 })
 

@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["dns_resolver.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/resolver/dns",
+    importpath = "google.golang.org/grpc/resolver/dns",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/google.golang.org/grpc/internal/resolver/dns:go_default_library",
+        "//vendor/google.golang.org/grpc/resolver:go_default_library",
+    ],
+)

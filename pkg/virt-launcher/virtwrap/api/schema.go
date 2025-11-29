@@ -123,7 +123,6 @@ type DomainSysInfo struct {
 	Hostname string
 	OSInfo   GuestOSInfo
 	Timezone Timezone
-	Load     Load
 }
 
 type GuestOSInfo struct {
@@ -152,15 +151,6 @@ type SEVNodeParameters struct {
 type Timezone struct {
 	Zone   string
 	Offset int
-}
-
-type Load struct {
-	Load1mSet  bool
-	Load1m     float64
-	Load5mSet  bool
-	Load5m     float64
-	Load15mSet bool
-	Load15m    float64
 }
 
 type FSFreeze struct {
@@ -779,8 +769,9 @@ type BackingStoreFormat struct {
 }
 
 type BlockIO struct {
-	LogicalBlockSize  uint `xml:"logical_block_size,attr,omitempty"`
-	PhysicalBlockSize uint `xml:"physical_block_size,attr,omitempty"`
+	LogicalBlockSize   uint  `xml:"logical_block_size,attr,omitempty"`
+	PhysicalBlockSize  uint  `xml:"physical_block_size,attr,omitempty"`
+	DiscardGranularity *uint `xml:"discard_granularity,attr,omitempty"`
 }
 
 type Reservations struct {
@@ -955,6 +946,10 @@ func NewUserDefinedAlias(aliasName string) *Alias {
 	return &Alias{name: aliasName, userDefined: true}
 }
 
+func NewNonUserDefinedAlias(aliasName string) *Alias {
+	return &Alias{name: aliasName, userDefined: false}
+}
+
 func (alias Alias) GetName() string {
 	return alias.name
 }
@@ -1079,11 +1074,11 @@ type Entry struct {
 
 type LaunchSecurity struct {
 	Type            string `xml:"type,attr"`
+	DHCert          string `xml:"dhCert,omitempty"`
+	Session         string `xml:"session,omitempty"`
 	Cbitpos         string `xml:"cbitpos,omitempty"`
 	ReducedPhysBits string `xml:"reducedPhysBits,omitempty"`
 	Policy          string `xml:"policy,omitempty"`
-	DHCert          string `xml:"dhCert,omitempty"`
-	Session         string `xml:"session,omitempty"`
 }
 
 //END LaunchSecurity --------------------
