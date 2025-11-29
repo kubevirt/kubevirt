@@ -5,14 +5,14 @@ go_library(
     srcs = [
         "definitions.go",
         "init.go",
-        "kvm.go",
-        "mshv.go",
         "registry.go",
         "types.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/capabilities",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/capabilities/arch:go_default_library",
+        "//pkg/capabilities/hypervisor:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
     ],
