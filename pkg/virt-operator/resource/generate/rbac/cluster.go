@@ -396,7 +396,6 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					apiVMInstancesConsole,
 					apiVMInstancesVNC,
-					apiVMInstancesVNCScreenshot,
 					apiVMInstancesPortForward,
 					apiVMInstancesGuestOSInfo,
 					apiVMInstancesFileSysList,
