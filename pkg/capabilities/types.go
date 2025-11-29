@@ -15,11 +15,7 @@ const (
 type Platform string
 
 const (
-	Universal Platform = ""
-	KVM       Platform = "kvm"
-	KVM_AMD64 Platform = "kvm/amd64"
-	KVM_S390X Platform = "kvm/s390x"
-	KVM_ARM64 Platform = "kvm/arm64"
+	Universal Platform = "" // Applies to all platforms
 )
 
 type Capability struct {
@@ -32,4 +28,16 @@ type CapabilitySupport struct {
 	Level   SupportLevel
 	Message string // User-facing explanation
 	GatedBy string // Optional: feature gate name
+}
+
+func PlatformKeyFromHypervisor(hypervisor string) Platform {
+	return Platform(hypervisor + "/")
+}
+
+func PlatformKeyFromArch(arch string) Platform {
+	return Platform("/" + arch)
+}
+
+func PlatformKeyFromHypervisorAndArch(hypervisor, arch string) Platform {
+	return Platform(hypervisor + "/" + arch)
 }

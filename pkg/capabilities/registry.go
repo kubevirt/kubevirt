@@ -28,17 +28,25 @@ func GetCapabilitiesSupportForPlatform(hypervisor, arch string) map[CapabilityKe
 		}
 	}
 
-	// First overlay hypervisor-specific capabilities
-	platformKey := Platform(hypervisor)
-	if hypervisorSupports, exists := PlatformCapabilitySupport[platformKey]; exists {
+	// Then overlay hypervisor-specific capabilities
+	platformHypervisorKey := Platform(PlatformKeyFromHypervisor(hypervisor))
+	if hypervisorSupports, exists := PlatformCapabilitySupport[platformHypervisorKey]; exists {
 		for capKey, capSupport := range hypervisorSupports {
 			supports[capKey] = capSupport
 		}
 	}
 
+	// Then overlay architecture-specific capabilities
+	platformArchKey := Platform(PlatformKeyFromArch(arch))
+	if archSupports, exists := PlatformCapabilitySupport[platformArchKey]; exists {
+		for capKey, capSupport := range archSupports {
+			supports[capKey] = capSupport
+		}
+	}
+
 	// Then overlay hypervisor+arch-specific capabilities
-	platformArchKey := Platform(hypervisor + "/" + arch)
-	if hypervisorArchSupports, exists := PlatformCapabilitySupport[platformArchKey]; exists {
+	platformHypervisorArchKey := Platform(PlatformKeyFromHypervisorAndArch(hypervisor, arch))
+	if hypervisorArchSupports, exists := PlatformCapabilitySupport[platformHypervisorArchKey]; exists {
 		for capKey, capSupport := range hypervisorArchSupports {
 			supports[capKey] = capSupport
 		}
