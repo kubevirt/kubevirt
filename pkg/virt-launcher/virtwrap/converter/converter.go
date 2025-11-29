@@ -990,28 +990,6 @@ func convertPanicDevices(panicDevices []v1.PanicDevice) []api.PanicDevice {
 	return domainPanicDevices
 }
 
-func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) {
-	sound := vmi.Spec.Domain.Devices.Sound
-
-	// Default is to not have any Sound device
-	if sound == nil {
-		return
-	}
-
-	model := "ich9"
-	if sound.Model == "ac97" {
-		model = "ac97"
-	}
-
-	soundCards := make([]api.SoundCard, 1)
-	soundCards[0] = api.SoundCard{
-		Alias: api.NewUserDefinedAlias(sound.Name),
-		Model: model,
-	}
-
-	domainDevices.SoundCards = soundCards
-}
-
 func convertFeatureState(source *v1.FeatureState) *api.FeatureState {
 	if source != nil {
 		return &api.FeatureState{
@@ -1461,6 +1439,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
 		),
 		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
+		compute.SoundDomainConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1684,8 +1663,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, convertFileSystems(vmi.Spec.Domain.Devices.Filesystems)...)
 
 	domain.Spec.Devices.PanicDevices = append(domain.Spec.Devices.PanicDevices, convertPanicDevices(vmi.Spec.Domain.Devices.PanicDevices)...)
-
-	Convert_v1_Sound_To_api_Sound(vmi, &domain.Spec.Devices, c)
 
 	if vmi.Spec.Domain.Devices.Watchdog != nil {
 		newWatchdog := &api.Watchdog{}
