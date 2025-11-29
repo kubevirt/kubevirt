@@ -41,6 +41,8 @@ const (
 	gpuName0 = "gpu_name0"
 	gpuName1 = "gpu_name1"
 
+	gpuInvalidAliasName = "gpu.name"
+
 	gpuResource0    = "vendor.com/gpu_name0"
 	gpuResource1    = "vendor.com/gpu_name1"
 	envGPUResource0 = "VENDOR_COM_GPU_NAME0"
