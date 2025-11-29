@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -156,42 +157,16 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			}, 15*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
-		It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", func() {
+		It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", decorators.RequiresAMD64, func() {
 			for _, node := range nodesWithKVM {
-				cpuModelLabelPresent := false
-				cpuFeatureLabelPresent := false
-				hyperVLabelPresent := false
-				hostCPUModelPresent := false
-				hostCPURequiredFeaturesPresent := false
-				for key := range node.Labels {
-					if strings.Contains(key, v1.CPUModelLabel) {
-						cpuModelLabelPresent = true
-					}
-					if strings.Contains(key, v1.CPUFeatureLabel) {
-						cpuFeatureLabelPresent = true
-					}
-					if strings.Contains(key, v1.HypervLabel) {
-						hyperVLabelPresent = true
-					}
-					if strings.Contains(key, v1.HostModelCPULabel) {
-						hostCPUModelPresent = true
-					}
-					if strings.Contains(key, v1.HostModelRequiredFeaturesLabel) {
-						hostCPURequiredFeaturesPresent = true
-					}
-
-					if cpuModelLabelPresent && cpuFeatureLabelPresent && hyperVLabelPresent && hostCPUModelPresent &&
-						hostCPURequiredFeaturesPresent {
-						break
-					}
-				}
-
 				errorMessageTemplate := "node " + node.Name + " does not contain %s label"
-				Expect(cpuModelLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "cpu"))
-				Expect(cpuFeatureLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "feature"))
-				Expect(hyperVLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "hyperV"))
-				Expect(hostCPUModelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
-				Expect(hostCPURequiredFeaturesPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu required features"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelLabel)), fmt.Sprintf(errorMessageTemplate, "cpu"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUFeatureLabel)), fmt.Sprintf(errorMessageTemplate, "feature"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HypervLabel)), fmt.Sprintf(errorMessageTemplate, "hyperV"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelCPULabel)), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelRequiredFeaturesLabel)),
+					fmt.Sprintf(errorMessageTemplate, "host cpu required features"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelVendorLabel)), fmt.Sprintf(errorMessageTemplate, "vendor"))
 			}
 		})
 
