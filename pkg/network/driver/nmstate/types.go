@@ -24,7 +24,6 @@ import (
 
 	vishnetlink "github.com/vishvananda/netlink"
 
-	"kubevirt.io/kubevirt/pkg/network/driver/ethtool"
 	"kubevirt.io/kubevirt/pkg/network/driver/netlink"
 	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
 	"kubevirt.io/kubevirt/pkg/network/driver/virtchroot"
@@ -140,9 +139,6 @@ type adapter interface {
 	LinkSetMaster(vishnetlink.Link, *vishnetlink.Bridge) error
 	LinkSetName(vishnetlink.Link, string) error
 	LinkSetLearningOff(vishnetlink.Link) error
-	ReadTXChecksum(string) (bool, error)
-	TXChecksumOff(name string) error
-
 	AddrList(vishnetlink.Link, int) ([]vishnetlink.Addr, error)
 	AddrAdd(vishnetlink.Link, *vishnetlink.Addr) error
 	AddrDel(vishnetlink.Link, *vishnetlink.Addr) error
@@ -189,7 +185,6 @@ func WithAdapter(adapter adapter) option {
 
 type defaultHandler struct {
 	netlink.NetLink
-	ethtool.Ethtool
 	procsys.ProcSys
 	virtchroot.VirtCHRoot
 }
