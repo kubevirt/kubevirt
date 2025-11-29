@@ -1233,7 +1233,31 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			app.ResetVMIRequestHandler(request, response)
 
-			ExpectStatusErrorWithCode(recorder, http.StatusBadRequest)
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+
+		It("Should fail reset on a paused VMI", func() {
+
+			expectVMI(Running, Paused)
+
+			app.ResetVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+		})
+
+		It("Should fail reset on a migrating VMI", func() {
+			now := k8smetav1.Now()
+			migratingVMI := func(vmi *v1.VirtualMachineInstance) {
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					StartTimestamp: &now,
+				}
+			}
+
+			expectVMI(Running, UnPaused, migratingVMI)
+
+			app.ResetVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 		})
 	})
 
@@ -1340,9 +1364,16 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("a running VMI with LivenessProbe with dry-run option", Running, UnPaused, withLivenessProbe, &v1.PauseOptions{DryRun: withDryRun()}, http.StatusForbidden, "Pausing VMIs with LivenessProbe is currently not supported"),
 		)
 
-		DescribeTable("Should fail unpausing due to VMI state", func(running bool, paused bool, unpauseOptions *v1.UnpauseOptions, expectedError string) {
+		migratingVMI := func(vmi *v1.VirtualMachineInstance) {
+			now := k8smetav1.Now()
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				StartTimestamp: &now,
+			}
+		}
 
-			expectVMI(running, paused)
+		DescribeTable("Should fail unpausing due to VMI state", func(running bool, paused bool, vmiOps func(*v1.VirtualMachineInstance), unpauseOptions *v1.UnpauseOptions, expectedError string) {
+
+			expectVMI(running, paused, vmiOps)
 
 			vm := newVirtualMachineWithRunning(pointer.P(Running))
 			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vm, nil)
@@ -1355,11 +1386,14 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
 			ExpectMessage(recorder, ContainSubstring(expectedError))
 		},
-			Entry("a running, not paused VMI", Running, UnPaused, &v1.UnpauseOptions{}, "VMI is not paused"),
-			Entry("a running, not paused VMI with dry-run option", Running, UnPaused, &v1.UnpauseOptions{DryRun: withDryRun()}, "VMI is not paused"),
+			Entry("a running, not paused VMI", Running, UnPaused, nilAdditionalOps, &v1.UnpauseOptions{}, "VMI is not paused"),
+			Entry("a running, not paused VMI with dry-run option", Running, UnPaused, nilAdditionalOps, &v1.UnpauseOptions{DryRun: withDryRun()}, "VMI is not paused"),
 
-			Entry("a not running VMI", NotRunning, UnPaused, &v1.UnpauseOptions{}, "VMI is not running"),
-			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: withDryRun()}, "VMI is not running"),
+			Entry("a not running VMI", NotRunning, UnPaused, nilAdditionalOps, &v1.UnpauseOptions{}, "VMI is not running"),
+			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, nilAdditionalOps, &v1.UnpauseOptions{DryRun: withDryRun()}, "VMI is not running"),
+
+			Entry("a migrating VMI", Running, Paused, migratingVMI, &v1.UnpauseOptions{}, "Cannot unpause VM during migration"),
+			Entry("a migrating VMI with dry-run option", Running, Paused, migratingVMI, &v1.UnpauseOptions{DryRun: withDryRun()}, "Cannot unpause VM during migration"),
 		)
 
 		DescribeTable("Should fail unpausing when snapshot in progress", func(unpauseOptions *v1.UnpauseOptions) {
