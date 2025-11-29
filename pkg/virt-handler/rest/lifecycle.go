@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -338,6 +339,40 @@ func (lh *LifecycleHandler) SEVInjectLaunchSecretHandler(request *restful.Reques
 	if err := client.InjectLaunchSecret(vmi, opts); err != nil {
 		log.Log.Object(vmi).Reason(err).Error("Failed to inject SEV launch secret")
 		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) BackupHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	if request.Request.Body == nil {
+		log.Log.Object(vmi).Reason(err).Error("Request with no body: Backup parameters are required")
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to retrieve Backup parameters from request"))
+		return
+	}
+
+	opts := &backupv1.BackupOptions{}
+	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		log.Log.Object(vmi).Reason(err).Error("Failed to decode Backup parameters")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+
+	err = client.VirtualMachineBackup(vmi, opts)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed backing up VM")
+		response.WriteError(http.StatusBadRequest, err)
+		lh.recorder.Eventf(vmi, k8sv1.EventTypeWarning, "BackupError", "%s: %s", "Failed backing up VM", err.Error())
 		return
 	}
 

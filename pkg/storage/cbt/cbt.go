@@ -47,11 +47,13 @@ func CBTState(status *v1.ChangedBlockTrackingStatus) v1.ChangedBlockTrackingStat
 }
 
 func SetCBTState(status **v1.ChangedBlockTrackingStatus, state v1.ChangedBlockTrackingState) {
-	if state == v1.ChangedBlockTrackingUndefined {
-		*status = nil
+	if status == nil {
 		return
 	}
-	*status = &v1.ChangedBlockTrackingStatus{State: state}
+	if *status == nil {
+		*status = &v1.ChangedBlockTrackingStatus{}
+	}
+	(*status).State = state
 }
 
 func CompareCBTState(status *v1.ChangedBlockTrackingStatus, state v1.ChangedBlockTrackingState) bool {
@@ -257,7 +259,7 @@ func disableChangedBlockTracking(vm *v1.VirtualMachine, vmi *v1.VirtualMachineIn
 }
 
 func resetInvalidState(vm *v1.VirtualMachine) {
-	log.Log.Object(vm).Warningf("invalid changedBlockTracking state %s, resetting to undefined", vm.Status.ChangedBlockTracking)
+	log.Log.Object(vm).Warningf("invalid changedBlockTracking state %s, resetting to undefined", vm.Status.ChangedBlockTracking.State)
 	SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingUndefined)
 }
 

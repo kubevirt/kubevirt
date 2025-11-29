@@ -10,6 +10,7 @@ go_library(
     importpath = "kubevirt.io/client-go/kubevirt/fake",
     visibility = ["//visibility:public"],
     deps = [
+        "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -22,6 +23,8 @@ go_library(
         "//staging/src/kubevirt.io/api/snapshot/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1/fake:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/typed/clone/v1beta1:go_default_library",

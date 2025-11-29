@@ -30,6 +30,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/json"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -39,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
 
 const (
@@ -808,4 +810,54 @@ func (l *Launcher) GetScreenshot(_ context.Context, request *cmdv1.VMIRequest) (
 func ReceivedEarlyExitSignal() bool {
 	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
 	return earlyExit
+}
+
+func getBackupOptionsFromRequest(request *cmdv1.BackupRequest) (*backupv1.BackupOptions, error) {
+	if request.Options == nil {
+		return nil, fmt.Errorf("backup options object not present in command server request")
+	}
+
+	var options *backupv1.BackupOptions
+	if err := json.Unmarshal(request.Options, &options); err != nil {
+		return nil, fmt.Errorf("no valid backup options object present in command server request: %v", err)
+	}
+
+	if options.Mode != backupv1.PushMode {
+		return nil, fmt.Errorf("currently only backup in push mode is supported")
+	}
+	if options.PushPath == nil {
+		return nil, fmt.Errorf("backup with push mode - pushPath wasn't provided")
+	}
+
+	return options, nil
+}
+
+func (l *Launcher) BackupVirtualMachine(_ context.Context, request *cmdv1.BackupRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if !storage.IsChangedBlockTrackingEnabled(vmi) {
+		response.Success = false
+		response.Message = storage.ChangedBlockTrackingNotEnabledMsg
+		return response, nil
+	}
+
+	options, err := getBackupOptionsFromRequest(request)
+	if err != nil {
+		response.Success = false
+		response.Message = err.Error()
+		return response, nil
+	}
+
+	if err := l.domainManager.BackupVirtualMachine(vmi, options); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to run backup job")
+		response.Success = false
+		response.Message = err.Error()
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("VMI backup job initiated")
+	return response, nil
 }

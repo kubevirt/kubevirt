@@ -69,6 +69,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
@@ -601,127 +602,6 @@ var _ = Describe("Manager", func() {
 			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(newspec).ToNot(BeNil())
-		})
-		It("should freeze a VirtualMachineInstance", func() {
-			vmi := newVMI(testNamespace, testVmName)
-
-			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
-			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil).Times(1)
-			mockLibvirt.DomainEXPECT().Free().Times(1)
-			mockLibvirt.DomainEXPECT().FSFreeze(nil, uint32(0)).Times(1)
-
-			manager, _ := newLibvirtDomainManagerDefault()
-
-			Expect(manager.FreezeVMI(vmi, 0)).To(Succeed())
-		})
-		It("should fail freeze a VirtualMachineInstance during migration", func() {
-			vmi := newVMI(testNamespace, testVmName)
-			now := metav1.Now()
-			migrationMetadata, _ := metadataCache.Migration.Load()
-			migrationMetadata.StartTimestamp = &now
-			metadataCache.Migration.Store(migrationMetadata)
-
-			manager, _ := newLibvirtDomainManagerDefault()
-
-			Expect(manager.FreezeVMI(vmi, 0)).To(MatchError(ContainSubstring("VMI is currently during migration")))
-		})
-		It("should unfreeze a VirtualMachineInstance", func() {
-			vmi := newVMI(testNamespace, testVmName)
-
-			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
-			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil).Times(1)
-			mockLibvirt.DomainEXPECT().Free().Times(1)
-			mockLibvirt.DomainEXPECT().FSThaw(nil, uint32(0)).Times(1)
-
-			manager, _ := newLibvirtDomainManagerDefault()
-
-			Expect(manager.UnfreezeVMI(vmi)).To(Succeed())
-		})
-		It("should automatically unfreeze after a timeout a frozen VirtualMachineInstance", func() {
-			vmi := newVMI(testNamespace, testVmName)
-
-			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
-			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
-			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil).Times(2)
-			mockLibvirt.DomainEXPECT().Free().Times(2)
-			mockLibvirt.DomainEXPECT().FSFreeze(nil, uint32(0)).Times(1)
-			mockLibvirt.DomainEXPECT().FSThaw(nil, uint32(0)).Times(1)
-
-			manager, _ := newLibvirtDomainManagerDefault()
-
-			var unfreezeTimeout time.Duration = 3 * time.Second
-			Expect(manager.FreezeVMI(vmi, int32(unfreezeTimeout.Seconds()))).To(Succeed())
-			// wait for the unfreeze timeout
-			time.Sleep(unfreezeTimeout + 2*time.Second)
-		})
-		It("should freeze and unfreeze a VirtualMachineInstance without a trigger to the unfreeze timeout", func() {
-			vmi := newVMI(testNamespace, testVmName)
-
-			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
-			mockLibvirt.ConnectionEXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
-			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(mockLibvirt.VirtDomain, nil).Times(2)
-			mockLibvirt.DomainEXPECT().Free().Times(2)
-			mockLibvirt.DomainEXPECT().FSFreeze(nil, uint32(0)).Times(1)
-			mockLibvirt.DomainEXPECT().FSThaw(nil, uint32(0)).Times(1)
-
-			manager, _ := newLibvirtDomainManagerDefault()
-
-			var unfreezeTimeout time.Duration = 3 * time.Second
-			Expect(manager.FreezeVMI(vmi, int32(unfreezeTimeout.Seconds()))).To(Succeed())
-			time.Sleep(time.Second)
-			Expect(manager.UnfreezeVMI(vmi)).To(Succeed())
-			// wait for the unfreeze timeout
-			time.Sleep(unfreezeTimeout + 2*time.Second)
-		})
-		It("should update domain with memory dump info when completed successfully", func() {
-			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
-			mockLibvirt.DomainEXPECT().CoreDumpWithFormat(testDumpPath, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY).Return(nil)
-
-			manager, _ := newLibvirtDomainManagerDefault()
-
-			vmi := newVMI(testNamespace, testVmName)
-			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
-			// Expect extra call to memory dump not to impact
-			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
-
-			Eventually(func() bool {
-				memoryDump, _ := metadataCache.MemoryDump.Load()
-				return memoryDump.Completed
-			}, 5*time.Second, 2).Should(BeTrue())
-		})
-		It("should skip memory dump if the same dump command already completed successfully", func() {
-			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
-			mockLibvirt.DomainEXPECT().CoreDumpWithFormat(testDumpPath, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY).Times(1).Return(nil)
-
-			manager, _ := newLibvirtDomainManagerDefault()
-
-			vmi := newVMI(testNamespace, testVmName)
-			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
-			// Expect extra call to memory dump not to impact
-			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
-
-			Eventually(func() bool {
-				memoryDump, _ := metadataCache.MemoryDump.Load()
-				return memoryDump.Completed
-			}, 5*time.Second, 2).Should(BeTrue())
-			// Expect extra call to memory dump after completion
-			// not to call core dump command again
-			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
-		})
-		It("should update domain with memory dump info if memory dump failed", func() {
-			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
-			dumpFailure := fmt.Errorf("Memory dump failed!!")
-			mockLibvirt.DomainEXPECT().CoreDumpWithFormat(testDumpPath, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY).Return(dumpFailure)
-
-			manager, _ := newLibvirtDomainManagerDefault()
-
-			vmi := newVMI(testNamespace, testVmName)
-			err := manager.MemoryDump(vmi, testDumpPath)
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
-				memoryDump, _ := metadataCache.MemoryDump.Load()
-				return memoryDump.Failed
-			}, 5*time.Second).Should(BeTrue(), "failed memory dump result wasn't set")
 		})
 		It("should pause a VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
@@ -3763,12 +3643,12 @@ var _ = Describe("Manager helper functions", func() {
 })
 
 var _ = Describe("Changed Block Tracking", func() {
-	Context("needToCreateQCOW2Overlay", func() {
+	Context("ShouldCreateQCOW2Overlay", func() {
 		DescribeTable("should return correct value based on ChangedBlockTracking state", func(state v1.ChangedBlockTrackingState, expected bool) {
 			vmi := newVMI(testNamespace, testVmName)
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, state)
 
-			result := needToCreateQCOW2Overlay(vmi)
+			result := storage.ShouldCreateQCOW2Overlay(vmi)
 			Expect(result).To(Equal(expected))
 		},
 			Entry("when state is Initializing", v1.ChangedBlockTrackingInitializing, true),
@@ -3795,7 +3675,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			}
 			createQCOW2OverlayCalled = 0
 			blockDevCalled = 0
-			createQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+			storage.CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
 				createQCOW2OverlayCalled++
 				if blockDev {
 					blockDevCalled++
@@ -3820,7 +3700,7 @@ var _ = Describe("Changed Block Tracking", func() {
 				},
 			}
 
-			err := applyChangedBlockTracking(vmi, converterContext)
+			err := storage.ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(converterContext.ApplyCBT).To(BeEmpty())
 			Expect(createQCOW2OverlayCalled).To(Equal(0))
@@ -3858,7 +3738,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			converterContext.IsBlockPVC["pvc-volume"] = false
 			converterContext.IsBlockDV["dv-volume"] = false
 
-			err := applyChangedBlockTracking(vmi, converterContext)
+			err := storage.ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(3))
 			Expect(blockDevCalled).To(Equal(0))
@@ -3894,7 +3774,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			converterContext.IsBlockPVC["pvc-volume"] = true
 			converterContext.IsBlockDV["dv-volume"] = true
 
-			err := applyChangedBlockTracking(vmi, converterContext)
+			err := storage.ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(2))
 			Expect(blockDevCalled).To(Equal(2))
@@ -3919,7 +3799,7 @@ var _ = Describe("Changed Block Tracking", func() {
 			}
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 
-			err := applyChangedBlockTracking(vmi, converterContext)
+			err := storage.ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(0))
 			Expect(converterContext.ApplyCBT).To(HaveKey("pvc-volume"))
@@ -3943,12 +3823,12 @@ var _ = Describe("Changed Block Tracking", func() {
 
 			errMsg := "failed to create overlay"
 			// Mock createQCOW2Overlay to return error
-			createQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
+			storage.CreateQCOW2Overlay = func(overlayPath, imagePath string, blockDev bool) error {
 				createQCOW2OverlayCalled++
 				return fmt.Errorf("%s", errMsg)
 			}
 
-			err := applyChangedBlockTracking(vmi, converterContext)
+			err := storage.ApplyChangedBlockTracking(vmi, converterContext)
 			Expect(err).To(HaveOccurred())
 			Expect(createQCOW2OverlayCalled).To(Equal(1))
 			Expect(err.Error()).To(ContainSubstring(errMsg))

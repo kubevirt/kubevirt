@@ -26,6 +26,7 @@ const (
 	vsockTemplateURI          = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vsock"
 	pauseTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
 	unpauseTemplateURI        = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	backupTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/backup"
 	freezeTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/freeze"
 	unfreezeTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unfreeze"
 	resetTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/reset"
@@ -77,6 +78,7 @@ type VirtHandlerConn interface {
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	BackupURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
 
 type virtHandler struct {
@@ -212,6 +214,10 @@ func (v *virtHandlerConn) VSOCKURI(vmi *virtv1.VirtualMachineInstance, port stri
 		return "", err
 	}
 	return fmt.Sprintf("%s?port=%s&tls=%s", baseURI, port, tls), nil
+}
+
+func (v *virtHandlerConn) BackupURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(backupTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
