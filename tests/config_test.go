@@ -34,6 +34,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"golang.org/x/crypto/ssh"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
@@ -111,8 +112,37 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			It("[test_id:782]Should be the fs layout the same for a pod and vmi", func() {
 				expectedOutput := "value1value2value3"
 
+				const diskVolumeName = "configmap-disk-volume"
+				const diskSerial = "configmap-disk"
+				configMapPath = config.GetConfigMapSourcePath(diskVolumeName)
+
+				disk := v1.Disk{
+					Name:   diskVolumeName,
+					Serial: diskSerial,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: v1.DiskBusVirtio,
+						},
+					},
+				}
+
+				volume := v1.Volume{
+					Name: diskVolumeName,
+					VolumeSource: v1.VolumeSource{
+						ConfigMap: &v1.ConfigMapVolumeSource{
+							LocalObjectReference: k8sv1.LocalObjectReference{
+								Name: configMapName,
+							},
+						},
+					},
+				}
+
 				By("Running VMI")
-				vmi := libvmifact.NewAlpine(libvmi.WithConfigMapDisk(configMapName, configMapName))
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					withDisk(disk),
+					withVolume(volume),
+				)
+
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -136,8 +166,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Checking mounted iso image")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					// mount iso ConfigMap image
-					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+					// mount iso ConfigMap image, using the custom serial
+					&expect.BSnd{S: fmt.Sprintf("mount $(find /dev/disk/by-id/ -name '*%s') /mnt\n", diskSerial)},
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
@@ -145,6 +175,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					&expect.BExp{R: expectedOutput},
 				}, 200)).To(Succeed())
 			})
+
 		})
 
 		Context("With multiple volumes", func() {
@@ -212,8 +243,36 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			It("[test_id:779]Should be the fs layout the same for a pod and vmi", func() {
 				expectedOutput := "adminredhat"
 
+				const diskVolumeName = "secret-disk-volume"
+				const diskSerial = "secret-disk"
+
+				secretPath = config.GetSecretSourcePath(diskVolumeName)
+
+				disk := v1.Disk{
+					Name:   diskVolumeName,
+					Serial: diskSerial,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: v1.DiskBusVirtio,
+						},
+					},
+				}
+
+				volume := v1.Volume{
+					Name: diskVolumeName,
+					VolumeSource: v1.VolumeSource{
+						Secret: &v1.SecretVolumeSource{
+							SecretName: secretName,
+						},
+					},
+				}
+
 				By("Running VMI")
-				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					withDisk(disk),
+					withVolume(volume),
+				)
+
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -235,8 +294,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Checking mounted iso image")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					// mount iso Secret image
-					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+					// mount iso Secret image (using the defined serial)
+					&expect.BSnd{S: fmt.Sprintf("mount $(find /dev/disk/by-id/ -name '*%s') /mnt\n", diskSerial)},
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
@@ -292,8 +351,36 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		serviceAccountPath := config.ServiceAccountSourceDir
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
+
+			const diskVolumeName = "sa-disk-volume"
+			const diskSerial = "sa-disk"
+			const serviceAccountName = "default"
+
+			disk := v1.Disk{
+				Name:   diskVolumeName,
+				Serial: diskSerial,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
+					},
+				},
+			}
+
+			volume := v1.Volume{
+				Name: diskVolumeName,
+				VolumeSource: v1.VolumeSource{
+					ServiceAccount: &v1.ServiceAccountVolumeSource{
+						ServiceAccountName: serviceAccountName,
+					},
+				},
+			}
+
 			By("Running VMI")
-			vmi := libvmifact.NewAlpine(libvmi.WithServiceAccountDisk("default"))
+			vmi := libvmifact.NewAlpineWithTestTooling(
+				withDisk(disk),
+				withVolume(volume),
+			)
+
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -326,8 +413,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			By("Checking mounted iso image")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-				// mount service account iso image
-				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+				// mount service account iso image (using the defined serial)
+				&expect.BSnd{S: fmt.Sprintf("mount $(find /dev/disk/by-id/ -name '*%s') /mnt\n", diskSerial)},
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
@@ -337,7 +424,6 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				&expect.BExp{R: token},
 			}, 200)).To(Succeed())
 		})
-
 	})
 
 	Context("With a Secret and a ConfigMap defined", func() {
@@ -508,8 +594,36 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				expectedPrivateKey := string(privateKeyBytes)
 				expectedPublicKey := string(publicKeyBytes)
 
+				const diskVolumeName = "secret-ssh-disk-volume"
+				const diskSerial = "secret-disk"
+
+				secretPath = config.GetSecretSourcePath(diskVolumeName)
+
+				disk := v1.Disk{
+					Name:   diskVolumeName,
+					Serial: diskSerial,
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: v1.DiskBusVirtio,
+						},
+					},
+				}
+
+				volume := v1.Volume{
+					Name: diskVolumeName,
+					VolumeSource: v1.VolumeSource{
+						Secret: &v1.SecretVolumeSource{
+							SecretName: secretName,
+						},
+					},
+				}
+
 				By("Running VMI")
-				vmi := libvmifact.NewAlpine(libvmi.WithSecretDisk(secretName, secretName))
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					withDisk(disk),
+					withVolume(volume),
+				)
+
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -541,10 +655,10 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 				By("Checking mounted secrets sshkeys image")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-					// mount iso Secret image
+					// mount iso Secret image (using the defined serial)
 					&expect.BSnd{S: "sudo su -\n"},
 					&expect.BExp{R: ""},
-					&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+					&expect.BSnd{S: fmt.Sprintf("mount $(find /dev/disk/by-id/ -name '*%s') /mnt\n", diskSerial)}, // Use diskSerial
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
@@ -567,10 +681,44 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		expectedOutput := testLabelKey + "=" + "\"" + testLabelVal + "\""
 
 		It("[test_id:790]Should be the namespace and token the same for a pod and vmi", func() {
+
+			const diskVolumeName = "downwardapi-disk-volume"
+			const diskSerial = "downwardapi-disk"
+			downwardAPIPath = config.GetDownwardAPISourcePath(diskVolumeName)
+
+			disk := v1.Disk{
+				Name:   diskVolumeName,
+				Serial: diskSerial,
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: v1.DiskBusVirtio,
+					},
+				},
+			}
+
+			volume := v1.Volume{
+				Name: diskVolumeName,
+				VolumeSource: v1.VolumeSource{
+					DownwardAPI: &v1.DownwardAPIVolumeSource{
+						Fields: []k8sv1.DownwardAPIVolumeFile{
+							{
+								Path: "labels",
+								FieldRef: &k8sv1.ObjectFieldSelector{
+									FieldPath: "metadata.labels",
+								},
+							},
+						},
+					},
+				},
+			}
+
 			By("Running VMI")
-			vmi := libvmifact.NewAlpine(
+			vmi := libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithLabel(testLabelKey, testLabelVal),
-				libvmi.WithDownwardAPIDisk(downwardAPIName))
+				withDisk(disk),
+				withVolume(volume),
+			)
+
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsMedium)
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
@@ -592,8 +740,8 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 			By("Checking mounted iso image")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
-				// mount iso DownwardAPI image
-				&expect.BSnd{S: "mount /dev/sda /mnt\n"},
+				// mount iso DownwardAPI image (using the defined serial)
+				&expect.BSnd{S: fmt.Sprintf("mount $(find /dev/disk/by-id/ -name '*%s') /mnt\n", diskSerial)},
 				&expect.BSnd{S: "echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep " + testLabelKey + " /mnt/labels\n"},
@@ -645,4 +793,18 @@ func encodePrivateKeyToPEM(privateKey *rsa.PrivateKey) []byte {
 	privatePEM := pem.EncodeToMemory(&privateBlock)
 
 	return privatePEM
+}
+
+// withDisk creates a VMI option to add a Disk device.
+func withDisk(disk v1.Disk) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, disk)
+	}
+}
+
+// withVolume creates a VMI option to add a Volume source.
+func withVolume(volume v1.Volume) libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, volume)
+	}
 }
