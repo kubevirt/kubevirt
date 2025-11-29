@@ -15,6 +15,6 @@ func RegisterUniversalCapabilities() {
 // Function to register all capabilities and their support levels
 func Init() {
 	RegisterUniversalCapabilities()
-	// Additional platform-specific registrations
-
+	RegisterKvmCapabilities()
+	RegisterMshvCapabilities()
 }
