@@ -17,8 +17,6 @@
 package arch
 
 import (
-	"fmt"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -69,10 +67,6 @@ func (converterARM64) ShouldVerboseLogsBeEnabled() bool {
 
 func (converterARM64) HasVMPort() bool {
 	return false
-}
-
-func (converterARM64) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error {
-	return fmt.Errorf("watchdog is not supported on architecture ARM64")
 }
 
 func (converterARM64) SupportPCIHole64Disabling() bool {

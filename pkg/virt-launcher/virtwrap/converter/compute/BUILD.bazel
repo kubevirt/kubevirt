@@ -12,6 +12,7 @@ go_library(
         "rng.go",
         "tpm.go",
         "vsock.go",
+        "watchdog.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute",
     visibility = ["//visibility:public"],
@@ -41,6 +42,7 @@ go_test(
         "rng_test.go",
         "tpm_test.go",
         "vsock_test.go",
+        "watchdog_test.go",
     ],
     race = "on",
     deps = [
