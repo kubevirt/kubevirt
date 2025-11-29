@@ -1025,7 +1025,9 @@ type VirtualMachineInstanceMigrationState struct {
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the dedicated CPU set on the target node
 	// +listType=atomic
-	TargetCPUSet []int `json:"targetCPUSet,omitempty"`
+	// Deprecated: The VirtualMachineInstance field "TargetCPUSet" is deprecated
+	// and will no longer be populated starting from version 1.8.
+	TargetCPUSet []int `json:"targetCPUSet,omitempty"` //
 	// If the VMI requires dedicated CPUs, this field will
 	// hold the numa topology on the target node
 	TargetNodeTopology string `json:"targetNodeTopology,omitempty"`
