@@ -517,7 +517,6 @@ var _ = Describe("Storage Hotplug Admitter", func() {
 
 	Context("with filesystem devices", func() {
 		BeforeEach(func() {
-			enableFeatureGate(featuregate.VirtIOFSConfigVolumesGate)
 			enableFeatureGate(featuregate.VirtIOFSStorageVolumeGate)
 		})
 
