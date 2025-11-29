@@ -775,7 +775,7 @@ func (r *Reconciler) createOrUpdateCACertificateSecret(queue workqueue.TypedRate
 }
 
 func (r *Reconciler) updateSynchronizationAddress() (err error) {
-	if !r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+	if !r.IsFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
 		r.kv.Status.SynchronizationAddresses = nil
 		return nil
 	}
