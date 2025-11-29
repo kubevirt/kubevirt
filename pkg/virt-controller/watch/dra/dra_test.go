@@ -28,7 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	k8sv1 "k8s.io/api/core/v1"
-	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	resourcev1 "k8s.io/api/resource/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8scache "k8s.io/client-go/tools/cache"
@@ -387,11 +387,11 @@ var _ = Describe("DRA Status Controller", func() {
 	})
 })
 
-func testDRAStatusController(kubeClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, resourceClaim *resourcev1beta1.ResourceClaim, resourceSlice *resourcev1beta1.ResourceSlice) *DRAStatusController {
+func testDRAStatusController(kubeClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, resourceClaim *resourcev1.ResourceClaim, resourceSlice *resourcev1.ResourceSlice) *DRAStatusController {
 	vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 	podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
-	resourceClaimInformer, _ := testutils.NewFakeInformerFor(&resourcev1beta1.ResourceClaim{})
-	resourceSliceInformer, _ := testutils.NewFakeInformerFor(&resourcev1beta1.ResourceSlice{})
+	resourceClaimInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceClaim{})
+	resourceSliceInformer, _ := testutils.NewFakeInformerFor(&resourcev1.ResourceSlice{})
 	recorder := record.NewFakeRecorder(100)
 
 	clusterConfig := newTestClusterConfigWithGPUDRA()
@@ -439,58 +439,56 @@ func newTestClusterConfigWithGPUDRA() *virtconfig.ClusterConfig {
 	return cc
 }
 
-func getTestResourceClaim(name, namespace, requestName, deviceName, driverName string) *resourcev1beta1.ResourceClaim {
-	resourceClaim := &resourcev1beta1.ResourceClaim{
+func getTestResourceClaim(name, namespace, requestName, deviceName, driverName string) *resourcev1.ResourceClaim {
+	resourceClaim := &resourcev1.ResourceClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Status: resourcev1beta1.ResourceClaimStatus{
-			Allocation: &resourcev1beta1.AllocationResult{},
+		Status: resourcev1.ResourceClaimStatus{
+			Allocation: &resourcev1.AllocationResult{},
 		},
 	}
 
-	expectedDeviceResult := resourcev1beta1.DeviceRequestAllocationResult{
+	expectedDeviceResult := resourcev1.DeviceRequestAllocationResult{
 		Request: requestName,
 		Device:  deviceName,
 		Driver:  driverName,
 		Pool:    "default",
 	}
 
-	resourceClaim.Status.Allocation.Devices = resourcev1beta1.DeviceAllocationResult{
-		Results: []resourcev1beta1.DeviceRequestAllocationResult{expectedDeviceResult},
+	resourceClaim.Status.Allocation.Devices = resourcev1.DeviceAllocationResult{
+		Results: []resourcev1.DeviceRequestAllocationResult{expectedDeviceResult},
 	}
 
 	return resourceClaim
 }
 
-func getTestResourceSlice(name, nodeName, deviceName, driverName string) *resourcev1beta1.ResourceSlice {
+func getTestResourceSlice(name, nodeName, deviceName, driverName string) *resourcev1.ResourceSlice {
 	pciAddress := "0000:00:01.0"
 	mdevUUID := "mdev-uuid-123"
 
-	return &resourcev1beta1.ResourceSlice{
+	return &resourcev1.ResourceSlice{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
-		Spec: resourcev1beta1.ResourceSliceSpec{
-			NodeName: nodeName,
+		Spec: resourcev1.ResourceSliceSpec{
+			NodeName: ptr.To(nodeName),
 			Driver:   driverName,
-			Pool: resourcev1beta1.ResourcePool{
+			Pool: resourcev1.ResourcePool{
 				Name:               "default",
 				Generation:         1,
 				ResourceSliceCount: 1,
 			},
-			Devices: []resourcev1beta1.Device{
+			Devices: []resourcev1.Device{
 				{
 					Name: deviceName,
-					Basic: &resourcev1beta1.BasicDevice{
-						Attributes: map[resourcev1beta1.QualifiedName]resourcev1beta1.DeviceAttribute{
-							PCIAddressDeviceAttributeKey: {
-								StringValue: ptr.To(pciAddress),
-							},
-							MDevUUIDDeviceAttributeKey: {
-								StringValue: ptr.To(mdevUUID),
-							},
+					Attributes: map[resourcev1.QualifiedName]resourcev1.DeviceAttribute{
+						PCIAddressDeviceAttributeKey: {
+							StringValue: ptr.To(pciAddress),
+						},
+						MDevUUIDDeviceAttributeKey: {
+							StringValue: ptr.To(mdevUUID),
 						},
 					},
 				},

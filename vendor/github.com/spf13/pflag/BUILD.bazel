@@ -27,6 +27,7 @@ go_library(
         "ip_slice.go",
         "ipmask.go",
         "ipnet.go",
+        "ipnet_slice.go",
         "string.go",
         "string_array.go",
         "string_slice.go",

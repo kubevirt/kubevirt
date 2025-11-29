@@ -43,8 +43,7 @@ var exampleJSONFmt = `{
   "metadata": {
     "name": "testvmi",
     "namespace": "default",
-    "selfLink": "/apis/kubevirt.io/%s/namespaces/default/virtualmachineinstances/testvmi",
-    "creationTimestamp": null
+    "selfLink": "/apis/kubevirt.io/%s/namespaces/default/virtualmachineinstances/testvmi"
   },
   "spec": {
     "domain": {

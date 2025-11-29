@@ -23,8 +23,5 @@ go_library(
         "//vendor/k8s.io/client-go/features:go_default_library",
         "//vendor/k8s.io/client-go/rest:go_default_library",
         "//vendor/k8s.io/client-go/util/apply:go_default_library",
-        "//vendor/k8s.io/client-go/util/consistencydetector:go_default_library",
-        "//vendor/k8s.io/client-go/util/watchlist:go_default_library",
-        "//vendor/k8s.io/klog/v2:go_default_library",
     ],
 )
