@@ -1414,6 +1414,10 @@ const (
 	// This could be useful to distinguish evictions originated from the descheduler.
 	EvictionSourceAnnotation = "kubevirt.io/eviction-source"
 
+	// QGSSocketPathAnnotation specifies the path to the TDX Quote Generation Service socket.
+	// This annotation is set by virt-handler based on the cluster configuration.
+	QGSSocketPathAnnotation = "kubevirt.io/qgs-socket-path"
+
 	// AllowAccessClusterServicesNPLabel is a pod label to be set by virt-components to indicate that they require
 	// access to cluster services otherwise blocked by the strict network policy (NP).
 	// This label will be applied to the following virt pods:
@@ -3323,9 +3327,18 @@ type DeveloperConfiguration struct {
 	MinimumClusterTSCFrequency *int64            `json:"minimumClusterTSCFrequency,omitempty"`
 	DiskVerification           *DiskVerification `json:"diskVerification,omitempty"`
 	LogVerbosity               *LogVerbosity     `json:"logVerbosity,omitempty"`
-
 	// Enable the ability to pprof profile KubeVirt control plane
 	ClusterProfiler bool `json:"clusterProfiler,omitempty"`
+	// TDX configuration
+	QGS *QGSConfiguration `json:"qgs,omitempty"`
+}
+
+// QGSConfiguration holds QGS configuration
+type QGSConfiguration struct {
+	// Indicates whether TDX VM should require QGS in order to be scheduled, defaults to true
+	Enabled *bool `json:"enabled,omitempty"`
+	// QGS socket path, defaults to /var/run/tdx-qgs/qgs.socket
+	QgsSocketPath *string `json:"qgsSocketPath,omitempty"`
 }
 
 // LogVerbosity sets log verbosity level of  various components

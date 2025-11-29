@@ -489,6 +489,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.PreferenceMatcher":                                                       schema_kubevirtio_api_core_v1_PreferenceMatcher(ref),
 		"kubevirt.io/api/core/v1.Probe":                                                                   schema_kubevirtio_api_core_v1_Probe(ref),
 		"kubevirt.io/api/core/v1.ProfilerResult":                                                          schema_kubevirtio_api_core_v1_ProfilerResult(ref),
+		"kubevirt.io/api/core/v1.QGSConfiguration":                                                        schema_kubevirtio_api_core_v1_QGSConfiguration(ref),
 		"kubevirt.io/api/core/v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation":                   schema_kubevirtio_api_core_v1_QemuGuestAgentSSHPublicKeyAccessCredentialPropagation(ref),
 		"kubevirt.io/api/core/v1.QemuGuestAgentUserPasswordAccessCredentialPropagation":                   schema_kubevirtio_api_core_v1_QemuGuestAgentUserPasswordAccessCredentialPropagation(ref),
 		"kubevirt.io/api/core/v1.RESTClientConfiguration":                                                 schema_kubevirtio_api_core_v1_RESTClientConfiguration(ref),
@@ -19148,11 +19149,17 @@ func schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
+					"qgs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TDX configuration",
+							Ref:         ref("kubevirt.io/api/core/v1.QGSConfiguration"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DiskVerification", "kubevirt.io/api/core/v1.LogVerbosity"},
+			"kubevirt.io/api/core/v1.DiskVerification", "kubevirt.io/api/core/v1.LogVerbosity", "kubevirt.io/api/core/v1.QGSConfiguration"},
 	}
 }
 
@@ -23965,6 +23972,33 @@ func schema_kubevirtio_api_core_v1_ProfilerResult(ref common.ReferenceCallback) 
 									},
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_QGSConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "QGSConfiguration holds QGS configuration",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indicates whether TDX VM should require QGS in order to be scheduled, defaults to true",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"qgsSocketPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QGS socket path, defaults to /var/run/tdx-qgs/qgs.socket",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
