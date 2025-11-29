@@ -9,4 +9,5 @@ go_library(
     ],
     importpath = "kubevirt.io/kubevirt/pkg/capabilities/arch",
     visibility = ["//visibility:public"],
+    deps = ["//pkg/capabilities/core:go_default_library"],
 )

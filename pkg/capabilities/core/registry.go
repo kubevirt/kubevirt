@@ -2,7 +2,8 @@ package capabilities
 
 // Define a struct to hold a map from capability keys to their definitions
 var CapabilityDefinitions = map[CapabilityKey]Capability{
-	CapVsock: CapVsockDef,
+	CapVsock:        CapVsockDef,
+	CapPanicDevices: CapPanicDevicesDef,
 	// Add other capabilities here as they are defined
 }
 

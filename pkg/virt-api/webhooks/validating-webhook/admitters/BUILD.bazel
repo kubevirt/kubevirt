@@ -22,6 +22,7 @@ go_library(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/capabilities:go_default_library",
+        "//pkg/capabilities/core:go_default_library",
         "//pkg/controller:go_default_library",
         "//pkg/defaults:go_default_library",
         "//pkg/downwardmetrics:go_default_library",

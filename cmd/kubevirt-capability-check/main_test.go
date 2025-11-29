@@ -3,18 +3,18 @@ package main
 import (
 	"testing"
 
-	"kubevirt.io/kubevirt/pkg/capabilities"
+	core_capabilities "kubevirt.io/kubevirt/pkg/capabilities/core"
 )
 
 func TestSupportLevelToString(t *testing.T) {
 	tests := []struct {
-		level    capabilities.SupportLevel
+		level    core_capabilities.SupportLevel
 		expected string
 	}{
-		{capabilities.Unregistered, "Unregistered"},
-		{capabilities.Unsupported, "Unsupported"},
-		{capabilities.Experimental, "Experimental"},
-		{capabilities.Deprecated, "Deprecated"},
+		{core_capabilities.Unregistered, "Unregistered"},
+		{core_capabilities.Unsupported, "Unsupported"},
+		{core_capabilities.Experimental, "Experimental"},
+		{core_capabilities.Deprecated, "Deprecated"},
 	}
 
 	for _, tt := range tests {

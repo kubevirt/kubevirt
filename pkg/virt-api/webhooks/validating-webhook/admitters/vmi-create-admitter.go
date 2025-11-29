@@ -37,7 +37,8 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/capabilities"
+	capabilities "kubevirt.io/kubevirt/pkg/capabilities"
+	core_capabilities "kubevirt.io/kubevirt/pkg/capabilities/core"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	draadmitter "kubevirt.io/kubevirt/pkg/dra/admitter"
 	"kubevirt.io/kubevirt/pkg/hooks"
@@ -186,21 +187,21 @@ func ValidateCapabilities(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 	arch := spec.Architecture
 
 	// Retrieve the capability support information for the given hypervisor and architecture
-	supports := capabilities.GetCapabilitiesSupportForPlatform(hypervisor, arch)
+	supports := core_capabilities.GetCapabilitiesSupportForPlatform(hypervisor, arch)
 
 	// Validate the capabilities in the spec against the supported capabilities
 	for capKey, capSupport := range supports {
-		capabilityDef := capabilities.CapabilityDefinitions[capKey]
+		capabilityDef := core_capabilities.CapabilityDefinitions[capKey]
 
 		if capabilityDef.IsRequiredBy(spec) {
 			switch capSupport.Level {
-			case capabilities.Unsupported:
+			case core_capabilities.Unsupported:
 				causes = append(causes, metav1.StatusCause{
 					Type:    metav1.CauseTypeFieldValueNotSupported,
 					Message: capSupport.Message,
 					Field:   field.String(),
 				})
-			case capabilities.Experimental:
+			case core_capabilities.Experimental:
 				if capSupport.GatedBy != "" && !config.IsFeatureGateEnabled(capSupport.GatedBy) {
 					causes = append(causes, metav1.StatusCause{
 						Type:    metav1.CauseTypeFieldValueNotSupported,

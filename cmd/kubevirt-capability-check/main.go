@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/capabilities"
+	core_capabilities "kubevirt.io/kubevirt/pkg/capabilities/core"
 )
 
 func main() {
@@ -62,20 +63,20 @@ func main() {
 	capabilities.Init()
 
 	// Get capabilities support for the specified platform
-	platformSupports := capabilities.GetCapabilitiesSupportForPlatform(*hypervisor, *arch)
+	platformSupports := core_capabilities.GetCapabilitiesSupportForPlatform(*hypervisor, *arch)
 
 	// Filter capabilities by support level
-	var targetLevel capabilities.SupportLevel
+	var targetLevel core_capabilities.SupportLevel
 	if !*listAll {
 		switch strings.ToLower(*supportLevel) {
 		case "unsupported":
-			targetLevel = capabilities.Unsupported
+			targetLevel = core_capabilities.Unsupported
 		case "experimental":
-			targetLevel = capabilities.Experimental
+			targetLevel = core_capabilities.Experimental
 		case "deprecated":
-			targetLevel = capabilities.Deprecated
+			targetLevel = core_capabilities.Deprecated
 		case "unregistered":
-			targetLevel = capabilities.Unregistered
+			targetLevel = core_capabilities.Unregistered
 		default:
 			log.Log.Errorf("Invalid support level: %s", *supportLevel)
 			printUsage()
@@ -98,11 +99,11 @@ func main() {
 		}
 
 		// Also include capabilities that are registered but not in platform supports (Unregistered)
-		for capKey := range capabilities.CapabilityDefinitions {
+		for capKey := range core_capabilities.CapabilityDefinitions {
 			if _, exists := platformSupports[capKey]; !exists {
 				matchingCapabilities = append(matchingCapabilities, capabilityInfo{
 					Key:     string(capKey),
-					Level:   capabilities.Unregistered,
+					Level:   core_capabilities.Unregistered,
 					Message: "Not explicitly registered for this platform",
 					GatedBy: "",
 				})
@@ -122,12 +123,12 @@ func main() {
 		}
 
 		// For Unregistered level, also check capabilities not in platform supports
-		if targetLevel == capabilities.Unregistered {
-			for capKey := range capabilities.CapabilityDefinitions {
+		if targetLevel == core_capabilities.Unregistered {
+			for capKey := range core_capabilities.CapabilityDefinitions {
 				if _, exists := platformSupports[capKey]; !exists {
 					matchingCapabilities = append(matchingCapabilities, capabilityInfo{
 						Key:     string(capKey),
-						Level:   capabilities.Unregistered,
+						Level:   core_capabilities.Unregistered,
 						Message: "Not explicitly registered for this platform",
 						GatedBy: "",
 					})
@@ -157,10 +158,10 @@ func main() {
 }
 
 type capabilityInfo struct {
-	Key     string                    `json:"key"`
-	Level   capabilities.SupportLevel `json:"level"`
-	Message string                    `json:"message,omitempty"`
-	GatedBy string                    `json:"gatedBy,omitempty"`
+	Key     string                         `json:"key"`
+	Level   core_capabilities.SupportLevel `json:"level"`
+	Message string                         `json:"message,omitempty"`
+	GatedBy string                         `json:"gatedBy,omitempty"`
 }
 
 func outputKeys(caps []capabilityInfo) {
@@ -227,15 +228,15 @@ func outputJSON(caps []capabilityInfo, hypervisor, arch string) {
 	fmt.Printf("}\n")
 }
 
-func supportLevelToString(level capabilities.SupportLevel) string {
+func supportLevelToString(level core_capabilities.SupportLevel) string {
 	switch level {
-	case capabilities.Unregistered:
+	case core_capabilities.Unregistered:
 		return "Unregistered"
-	case capabilities.Unsupported:
+	case core_capabilities.Unsupported:
 		return "Unsupported"
-	case capabilities.Experimental:
+	case core_capabilities.Experimental:
 		return "Experimental"
-	case capabilities.Deprecated:
+	case core_capabilities.Deprecated:
 		return "Deprecated"
 	default:
 		return fmt.Sprintf("Unknown(%d)", level)
