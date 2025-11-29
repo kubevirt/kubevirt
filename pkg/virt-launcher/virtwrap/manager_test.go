@@ -684,10 +684,12 @@ var _ = Describe("Manager", func() {
 			// Expect extra call to memory dump not to impact
 			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
 
-			Eventually(func() bool {
+			Eventually(metadataCache.Listen(), 5*time.Second).Should(Receive())
+			Expect(func() bool {
 				memoryDump, _ := metadataCache.MemoryDump.Load()
 				return memoryDump.Completed
-			}, 5*time.Second, 2).Should(BeTrue())
+			}()).Should(BeTrue())
+			Eventually(manager.(*LibvirtDomainManager).memoryDumpInProgress).Should(BeEmpty())
 		})
 		It("should skip memory dump if the same dump command already completed successfully", func() {
 			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).DoAndReturn(mockDomainWithFreeExpectation)
@@ -700,10 +702,12 @@ var _ = Describe("Manager", func() {
 			// Expect extra call to memory dump not to impact
 			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
 
-			Eventually(func() bool {
+			Eventually(metadataCache.Listen(), 5*time.Second).Should(Receive())
+			Expect(func() bool {
 				memoryDump, _ := metadataCache.MemoryDump.Load()
 				return memoryDump.Completed
-			}, 5*time.Second, 2).Should(BeTrue())
+			}()).Should(BeTrue())
+			Eventually(manager.(*LibvirtDomainManager).memoryDumpInProgress).Should(BeEmpty())
 			// Expect extra call to memory dump after completion
 			// not to call core dump command again
 			Expect(manager.MemoryDump(vmi, testDumpPath)).To(Succeed())
@@ -718,10 +722,13 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			err := manager.MemoryDump(vmi, testDumpPath)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
+			Eventually(metadataCache.Listen(), 5*time.Second).Should(Receive())
+			Expect(func() bool {
 				memoryDump, _ := metadataCache.MemoryDump.Load()
 				return memoryDump.Failed
-			}, 5*time.Second).Should(BeTrue(), "failed memory dump result wasn't set")
+			}()).To(BeTrue(), "failed memory dump result wasn't set")
+			// Wait for the memory dump to finish
+			Eventually(manager.(*LibvirtDomainManager).memoryDumpInProgress).Should(BeEmpty())
 		})
 		It("should pause a VirtualMachineInstance", func() {
 			vmi := newVMI(testNamespace, testVmName)
