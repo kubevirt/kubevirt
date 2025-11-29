@@ -25,9 +25,9 @@ import (
 var _ = Describe("Apply PDBs", func() {
 
 	var ctrl *gomock.Controller
-	var pdbClient *fake.Clientset
+	var k8sClient *fake.Clientset
 	var stores util.Stores
-	var clientset *kubecli.MockKubevirtClient
+	var virtClientset *kubecli.MockKubevirtClient
 	var expectations *util.Expectations
 	var kv *v1.KubeVirt
 	var deployment *v12.Deployment
@@ -49,7 +49,7 @@ var _ = Describe("Apply PDBs", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
-		pdbClient = fake.NewSimpleClientset()
+		k8sClient = fake.NewSimpleClientset()
 
 		stores = util.Stores{}
 		stores.PodDisruptionBudgetCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
@@ -57,16 +57,16 @@ var _ = Describe("Apply PDBs", func() {
 
 		expectations = &util.Expectations{}
 
-		clientset = kubecli.NewMockKubevirtClient(ctrl)
-		clientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
-		clientset.EXPECT().PolicyV1().Return(pdbClient.PolicyV1()).AnyTimes()
+		virtClientset = kubecli.NewMockKubevirtClient(ctrl)
+		virtClientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
 		kv = &v1.KubeVirt{}
 
 		r = &Reconciler{
 			kv:             kv,
 			targetStrategy: nil,
 			stores:         stores,
-			clientset:      clientset,
+			virtClientset:  virtClientset,
+			k8sClientset:   k8sClient,
 			expectations:   expectations,
 		}
 
@@ -108,7 +108,7 @@ var _ = Describe("Apply PDBs", func() {
 			cachedPDB := getCachedPDB()
 			Expect(cachedPDB).ToNot(BeNil())
 
-			pdbClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			k8sClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				// Fail if patch occurred
 				Expect(true).To(BeFalse())
 				return true, nil, nil
@@ -127,7 +127,7 @@ var _ = Describe("Apply PDBs", func() {
 			cachedPDB := getCachedPDB()
 			cachedPDB.ObjectMeta.Annotations[versionAnnotation] = modifiedVersion
 
-			pdbClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			k8sClient.Fake.PrependReactor("patch", "poddisruptionbudgets", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
 				// Ensure that the PDB in cache is being patched to required state
 				Expect(cachedPDB.ObjectMeta.Annotations[versionAnnotation]).To(Equal(modifiedVersion))
 				a := action.(testing.PatchActionImpl)
