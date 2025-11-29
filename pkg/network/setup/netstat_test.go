@@ -587,6 +587,45 @@ var _ = Describe("netstat", func() {
 		}), "the SR-IOV interface should be reported in the status, associated to the network")
 	})
 
+	It("should not report link local addresses for masquerade binding when reported by guest-agent", func() {
+		const (
+			primaryNetworkName = "primary"
+
+			primaryGaIPv4    = "1.1.1.1"
+			primaryGaLLAIPv6 = "fe80::a00:27ff:fe8f:5d42"
+
+			primaryMAC     = "1C:CE:C0:01:BE:E7"
+			primaryPodIPv4 = "1.1.1.1"
+		)
+
+		Expect(
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithMasqueradeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				primaryPodIPv4,
+			)).To(Succeed())
+
+		setup.addGuestAgentInterfaces(
+			newDomainStatusIface([]string{primaryGaIPv4, primaryGaLLAIPv6}, primaryMAC, "eth0"),
+		)
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:          primaryNetworkName,
+				InterfaceName: "eth0",
+				IP:            primaryPodIPv4,
+				IPs:           []string{primaryPodIPv4},
+				MAC:           primaryMAC,
+				InfoSource:    netvmispec.InfoSourceDomainAndGA,
+				QueueCount:    netsetup.DefaultInterfaceQueueCount,
+				LinkState:     linkStateUp,
+			},
+		}))
+	})
+
 	When("the desired state (VMI spec) is not in sync with the state in the guest (guest-agent)", func() {
 		const (
 			primaryNetworkName = "primary"
