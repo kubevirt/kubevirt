@@ -431,6 +431,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.InstancetypeConfiguration":                                               schema_kubevirtio_api_core_v1_InstancetypeConfiguration(ref),
 		"kubevirt.io/api/core/v1.InstancetypeMatcher":                                                     schema_kubevirtio_api_core_v1_InstancetypeMatcher(ref),
 		"kubevirt.io/api/core/v1.InstancetypeStatusRef":                                                   schema_kubevirtio_api_core_v1_InstancetypeStatusRef(ref),
+		"kubevirt.io/api/core/v1.InstancetypeStatusResources":                                             schema_kubevirtio_api_core_v1_InstancetypeStatusResources(ref),
 		"kubevirt.io/api/core/v1.Interface":                                                               schema_kubevirtio_api_core_v1_Interface(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingMethod":                                                  schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref),
 		"kubevirt.io/api/core/v1.InterfaceBindingMigration":                                               schema_kubevirtio_api_core_v1_InterfaceBindingMigration(ref),
@@ -21157,11 +21158,43 @@ func schema_kubevirtio_api_core_v1_InstancetypeStatusRef(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InstancetypeStatusResources provides a way for users to see which resources are provided by the referenced instance type without the need to run the VM, fetch the instance type or call expand-spec",
+							Ref:         ref("kubevirt.io/api/core/v1.InstancetypeStatusResources"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.ControllerRevisionRef"},
+			"kubevirt.io/api/core/v1.ControllerRevisionRef", "kubevirt.io/api/core/v1.InstancetypeStatusResources"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_InstancetypeStatusResources(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cpu": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("kubevirt.io/api/core/v1.CPUTopology"),
+						},
+					},
+					"memory": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+				},
+				Required: []string{"cpu", "memory"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.CPUTopology"},
 	}
 }
 
