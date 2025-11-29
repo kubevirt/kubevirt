@@ -51,7 +51,7 @@ import (
 
 var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, decorators.VirtioFS, func() {
 	BeforeEach(func() {
-		checks.SkipTestIfNoFeatureGate(featuregate.VirtIOFSConfigVolumesGate)
+		checks.FailTestIfNoFeatureGate(featuregate.VirtIOFSConfigVolumesGate)
 	})
 
 	Context("With a single ConfigMap volume", func() {
