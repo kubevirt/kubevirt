@@ -1077,7 +1077,7 @@ func (i *mockIsolationDetector) Allowlist(_ []string) isolation.PodIsolationDete
 	return i
 }
 
-func (i *mockIsolationDetector) AdjustResources(_ *v1.VirtualMachineInstance, _ *string) error {
+func (i *mockIsolationDetector) AdjustResources(_ *v1.VirtualMachineInstance, _ *string, _ map[string]v1.InterfaceBindingPlugin) error {
 	return nil
 }
 

@@ -14933,6 +14933,10 @@
       "description": "DownwardAPI specifies what kind of data should be exposed to the binding plugin sidecar. Supported values: \"device-info\" version: v1alphav1",
       "type": "string"
      },
+     "memoryLockLimits": {
+      "description": "MemLockLimitRequirements specifies network binding plugin's memory lock rlimit requirements by means of a boolean flag and an offset. The LockGuestMemory boolean flag specifies that the entire guest memory has to be taken into account when updating process memory lock rlimits per each network binding plugin interface. Offset specifies the amount of extra memory to expect in the memory lock rlimits per each network binding plugin type attached to the VMI. version: v1alphav1",
+      "$ref": "#/definitions/v1.MemoryLockLimitRequirements"
+     },
      "migration": {
       "description": "Migration means the VM using the plugin can be safely migrated version: 1alphav1",
       "$ref": "#/definitions/v1.InterfaceBindingMigration"
@@ -15716,6 +15720,20 @@
      "readOnly": {
       "description": "readOnly Will force the ReadOnly setting in VolumeMounts. Default false.",
       "type": "boolean"
+     }
+    }
+   },
+   "v1.MemoryLockLimitRequirements": {
+    "description": "MemoryLockLimitRequirements describes network binding plugin memory lock rlimit configuration requirements",
+    "type": "object",
+    "properties": {
+     "lockGuestMemory": {
+      "description": "LockGuestMemory describes if the network binding plugin expects to take the VMI memory into account for the memlock rlimit. The guest memory will be applied to the memory lock rlimit per each interface of a network binding plugin kind attached to the VMI.",
+      "type": "boolean"
+     },
+     "offset": {
+      "description": "Offset describes how much extra memory has to be taken into account in the memlock rlimit. The offset will be applied once per each network binding plugin type attached to a VMI.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },
