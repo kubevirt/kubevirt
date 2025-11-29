@@ -140,16 +140,6 @@ load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")
 rules_pkg_dependencies()
 
 http_archive(
-    name = "io_bazel_rules_docker",
-    sha256 = "95d39fd84ff4474babaf190450ee034d958202043e366b9fc38f438c9e6c3334",
-    strip_prefix = "rules_docker-0.16.0",
-    urls = [
-        "https://github.com/bazelbuild/rules_docker/releases/download/v0.16.0/rules_docker-v0.16.0.tar.gz",
-        "https://storage.googleapis.com/builddeps/95d39fd84ff4474babaf190450ee034d958202043e366b9fc38f438c9e6c3334",
-    ],
-)
-
-http_archive(
     name = "com_github_ash2k_bazel_tools",
     sha256 = "46fdbc00930c8dc9d84690b5bd94db6b4683b061199967d2cda1cfbda8f02c49",
     strip_prefix = "bazel-tools-19b174803c0db1a01e77f10fa2079c35f54eed6e",
@@ -262,6 +252,21 @@ load(
 gazelle_dependencies(go_sdk = "go_sdk")
 
 bazeldnf_dependencies()
+
+http_archive(
+    name = "rules_distroless",
+    sha256 = "af93e1f178aea17ada4435881097f43f0392c57f01b6ff7fcd3591868ea53768",
+    strip_prefix = "rules_distroless-0.4.2",
+    url = "https://github.com/GoogleContainerTools/rules_distroless/releases/download/v0.4.2/rules_distroless-v0.4.2.tar.gz",
+)
+
+load("@rules_distroless//distroless:dependencies.bzl", "distroless_dependencies")
+
+distroless_dependencies()
+
+load("@rules_distroless//distroless:toolchains.bzl", "distroless_register_toolchains")
+
+distroless_register_toolchains()
 
 # Winrmcli dependencies
 go_repository(
