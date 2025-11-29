@@ -333,6 +333,12 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 	}
 	defer conn.Close()
 
+	go func() {
+		<-request.Request.Context().Done()
+		clientSocket.Close()
+		conn.Close()
+	}()
+
 	errCh := make(chan error, 2)
 	go func() {
 		_, err := kvcorev1.CopyTo(clientSocket, conn)
