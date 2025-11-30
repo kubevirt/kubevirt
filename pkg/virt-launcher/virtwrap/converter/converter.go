@@ -1440,6 +1440,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
 		compute.SoundDomainConfigurator{},
+		compute.NewHostDeviceDomainConfigurator(
+			c.GenericHostDevices,
+			c.GPUHostDevices,
+			c.SRIOVDevices,
+		),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1778,9 +1783,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GenericHostDevices...)
-	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GPUHostDevices...)
-
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
@@ -1828,8 +1830,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 
 	}
-
-	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.SRIOVDevices...)
 
 	// Add Ignition Command Line if present
 	ignitiondata := vmi.Annotations[v1.IgnitionAnnotation]
