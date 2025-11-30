@@ -31,13 +31,14 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = Describe(SIG("downwardMetrics", func() {
+var _ = Describe(SIG("downwardMetrics", decorators.WgS390x, func() {
 	const vmiStartTimeout = libvmops.StartupTimeoutSecondsXLarge
 
 	DescribeTable("should start a vmi and get the metrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
