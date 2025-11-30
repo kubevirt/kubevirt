@@ -3889,6 +3889,39 @@ var _ = Describe("Converter", func() {
 		)
 	})
 
+	Context("with memballoon device", func() {
+		It("should unconditionally set Ballooning device in domain", func() {
+			vmi := kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			c := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+			}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil(), "Ballooning device should be unconditionally present in domain")
+		})
+
+		It("should unconditionally set Ballooning device even when AutoattachMemBalloon is false", func() {
+			vmi := kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
+
+			c := &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+			}
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil(), "Ballooning device should be unconditionally present even when AutoattachMemBalloon is false")
+		})
+	})
+
 	Context("with Paused strategy", func() {
 		var (
 			vmi *v1.VirtualMachineInstance
