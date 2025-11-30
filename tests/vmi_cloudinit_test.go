@@ -80,7 +80,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 	Describe("[rfe_id:151][crit:medium][vendor:cnv-qe@redhat.com][level:component]A new VirtualMachineInstance", func() {
 		Context("with cloudInitNoCloud", func() {
-			It("[test_id:1618]should take user-data from k8s secret", decorators.Conformance, func() {
+			It("[test_id:1618]should take user-data from k8s secret", decorators.Conformance, decorators.WgS390x, func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 
@@ -112,7 +112,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(origCloudInitVolume).To(Equal(runningCloudInitVolume), "volume must not be changed when running the vmi, to prevent secret leaking")
 			})
 
-			It("[test_id:1615]should have cloud-init data from userDataBase64 source", func() {
+			It("[test_id:1615]should have cloud-init data from userDataBase64 source", decorators.WgS390x, func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudEncodedUserData(userData)),

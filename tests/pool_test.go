@@ -182,7 +182,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Entry("to five, to six and then to zero replicas", 5, 6),
 	)
 
-	It("should be rejected on POST if spec is invalid", func() {
+	It("should be rejected on POST if spec is invalid", decorators.WgS390x, func() {
 		newPool := newOfflineVirtualMachinePool()
 		newPool.TypeMeta = metav1.TypeMeta{
 			APIVersion: poolv1.SchemeGroupVersion.String(),
@@ -195,7 +195,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		Expect(err.Error()).To(ContainSubstring("selector does not match labels"))
 	})
 
-	It("should reject POST if vmi spec is invalid", func() {
+	It("should reject POST if vmi spec is invalid", decorators.WgS390x, func() {
 		newPool := newOfflineVirtualMachinePool()
 		newPool.TypeMeta = metav1.TypeMeta{
 			APIVersion: poolv1.SchemeGroupVersion.String(),
@@ -230,7 +230,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 120*time.Second, 1*time.Second).Should(BeZero())
 	})
 
-	It("should handle pool with dataVolumeTemplates", func() {
+	It("should handle pool with dataVolumeTemplates", decorators.WgS390x, func() {
 		pool := newPersistentStorageVirtualMachinePool()
 		newPool := createVirtualMachinePool(pool)
 		doScale(newPool.ObjectMeta.Name, 2)
@@ -638,7 +638,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 30*time.Second, 5*time.Second).Should(Succeed())
 	})
 
-	It("should auto-heal VMs when VM is in not ready state for too long when pvc is not found", func() {
+	It("should auto-heal VMs when VM is in not ready state for too long when pvc is not found", decorators.WgS390x, func() {
 		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
 		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
 		pool.Spec.VirtualMachineTemplate.Spec.Template.Spec.Volumes = []v1.Volume{
@@ -694,7 +694,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 3*time.Minute, 30*time.Second).Should(Succeed())
 	})
 
-	It("should remove owner references on the VirtualMachine if it is orphan deleted", func() {
+	It("should remove owner references on the VirtualMachine if it is orphan deleted", decorators.WgS390x, func() {
 		newPool := newOfflineVirtualMachinePool()
 		doScale(newPool.Name, 2)
 
@@ -744,7 +744,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 60*time.Second, 1*time.Second).Should(BeEmpty())
 	})
 
-	It("should not scale when paused and scale when resume", func() {
+	It("should not scale when paused and scale when resume", decorators.WgS390x, func() {
 		pool := newOfflineVirtualMachinePool()
 		// pause controller
 		By("Pausing the pool")
@@ -796,7 +796,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(1)))
 	})
 
-	It("should use DescendingOrder scale-in strategy when specified", func() {
+	It("should use DescendingOrder scale-in strategy when specified", decorators.WgS390x, func() {
 		By("Create a new VirtualMachinePool with DescendingOrder scale-in policy")
 		pool := newPoolFromVMI(libvmifact.NewAlpine())
 
@@ -878,7 +878,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		waitForVMIs(pool.Namespace, pool.Spec.Selector, 2)
 	})
 
-	It("should scale in VMs based on the scale-in strategy and preserve state is set to offline", func() {
+	It("should scale in VMs based on the scale-in strategy and preserve state is set to offline", decorators.WgS390x, func() {
 		pool := newPersistentStorageVirtualMachinePool()
 		pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["app"] = "test"
 		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
@@ -968,7 +968,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}
 	})
 
-	DescribeTable("should respect name generation settings", func(appendIndex *bool) {
+	DescribeTable("should respect name generation settings", decorators.WgS390x, func(appendIndex *bool) {
 		const (
 			cmName     = "configmap"
 			secretName = "secret"

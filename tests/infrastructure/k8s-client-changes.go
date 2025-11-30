@@ -33,6 +33,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/replicaset"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -71,7 +72,7 @@ var _ = Describe(SIGSerial("changes to the kubernetes client", func() {
 		return duration
 	}
 
-	It("on the controller rate limiter should lead to delayed VMI starts", func() {
+	It("on the controller rate limiter should lead to delayed VMI starts", decorators.WgS390x, func() {
 		By("first getting the basetime for a replicaset")
 		replicaset := replicaset.New(libvmifact.NewAlpine(libvmi.WithMemoryRequest("1Mi")), 0)
 		replicaset, err = virtClient.ReplicaSet(testsuite.GetTestNamespace(nil)).Create(context.Background(), replicaset, metav1.CreateOptions{})

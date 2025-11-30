@@ -50,7 +50,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		virtClient = kubevirt.Client()
 	})
 
-	Context("Instancetype validation", func() {
+	Context("Instancetype validation", decorators.WgS390x, func() {
 		It("[test_id:CNV-9082] should allow valid instancetype", func() {
 			instancetype := builder.NewInstancetypeFromVMI(nil)
 			_, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
@@ -100,7 +100,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		)
 	})
 
-	Context("Preference validation", func() {
+	Context("Preference validation", decorators.WgS390x, func() {
 		It("[test_id:CNV-9084] should allow valid preference", func() {
 			preference := builder.NewPreference()
 			_, err := virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
@@ -132,7 +132,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).ShouldNot(matcher.HaveConditionTrueWithReason(failureCondition, expectedReason))
 			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.BeReady())
 		},
-			Entry("[test_id:CNV-9086] cluster instance type should still be created and eventually start when missing resource created",
+			Entry("[test_id:CNV-9086] cluster instance type should still be created and eventually start when missing resource created", decorators.WgS390x,
 				libvmi.WithClusterInstancetype(resourceName),
 				instancetypeNotFoundReason,
 				func(_ string) error {
@@ -147,7 +147,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					return err
 				},
 			),
-			Entry("[test_id:CNV-9089] instance type should still be created and eventually start when missing resource created",
+			Entry("[test_id:CNV-9089] instance type should still be created and eventually start when missing resource created", decorators.WgS390x,
 				libvmi.WithInstancetype(resourceName),
 				instancetypeNotFoundReason,
 				func(namespace string) error {
@@ -193,7 +193,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		)
 	})
 
-	Context("with cluster memory overcommit being applied", Serial, func() {
+	Context("with cluster memory overcommit being applied", decorators.WgS390x, Serial, func() {
 		BeforeEach(func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
 
@@ -363,7 +363,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-1", "1"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-2", "2"))
 		})
-		It("should apply memory overcommit instancetype to VMI", func() {
+		It("should apply memory overcommit instancetype to VMI", decorators.WgS390x, func() {
 			// Use an Alpine VMI so we have enough memory in the eventual instance type and launched VMI to get past validation checks
 			vmi = libvmifact.NewAlpine()
 			instancetype := builder.NewInstancetypeFromVMI(vmi)
@@ -393,7 +393,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(memRequest.Value()).To(Equal(expectedOverhead))
 		})
 
-		It("[test_id:CNV-9096] should fail if instancetype and VM define CPU", func() {
+		It("[test_id:CNV-9096] should fail if instancetype and VM define CPU", decorators.WgS390x, func() {
 			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -429,7 +429,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(cause2.Field).To(Equal(threadsConflict.String()))
 		})
 
-		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", func(resources virtv1.ResourceRequirements, expectedConflict *conflict.Conflict) {
+		DescribeTable("[test_id:CNV-9301] should fail if the VirtualMachine has ", decorators.WgS390x, func(resources virtv1.ResourceRequirements, expectedConflict *conflict.Conflict) {
 			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -701,7 +701,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 	})
 
-	Context("with inferFromVolume", func() {
+	Context("with inferFromVolume", decorators.WgS390x, func() {
 		var (
 			vm           *virtv1.VirtualMachine
 			instancetype *instancetypev1beta1.VirtualMachineInstancetype
@@ -1043,7 +1043,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		})
 	})
 
-	Context("VirtualMachine using preference resource requirements", func() {
+	Context("VirtualMachine using preference resource requirements", decorators.WgS390x, func() {
 		var (
 			guestMemory2GB = resource.MustParse("2Gi")
 			guestMemory1GB = resource.MustParse("1Gi")
