@@ -56,7 +56,7 @@ const (
 	vmiStartTimeout          = 180
 )
 
-var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
+var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, decorators.WgS390x, func() {
 	Context("Readiness Probe", func() {
 		const (
 			period         = 5

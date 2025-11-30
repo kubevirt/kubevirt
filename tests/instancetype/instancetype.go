@@ -56,7 +56,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).ShouldNot(matcher.HaveConditionTrueWithReason(failureCondition, expectedReason))
 			Eventually(matcher.ThisVM(vm), time.Minute, time.Second).Should(matcher.BeReady())
 		},
-			Entry("[test_id:CNV-9086] cluster instance type should still be created and eventually start when missing resource created",
+			Entry("[test_id:CNV-9086] cluster instance type should still be created and eventually start when missing resource created", decorators.WgS390x,
 				libvmi.WithClusterInstancetype(resourceName),
 				instancetypeNotFoundReason,
 				func(_ string) error {
@@ -71,7 +71,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					return err
 				},
 			),
-			Entry("[test_id:CNV-9089] instance type should still be created and eventually start when missing resource created",
+			Entry("[test_id:CNV-9089] instance type should still be created and eventually start when missing resource created", decorators.WgS390x,
 				libvmi.WithInstancetype(resourceName),
 				instancetypeNotFoundReason,
 				func(namespace string) error {

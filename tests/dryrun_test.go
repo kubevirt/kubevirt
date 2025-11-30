@@ -52,7 +52,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]Dry-Run requests", decorators.SigCompute, decorators.WgS390x, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var restClient *rest.RESTClient

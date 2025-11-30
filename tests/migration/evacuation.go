@@ -116,7 +116,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				)
 			})
 
-			It("should not remove eviction-in-progress annotation from source virt-launcher pod", func() {
+			It("should not remove eviction-in-progress annotation from source virt-launcher pod", decorators.WgS390x, func() {
 				By("Starting the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
@@ -182,7 +182,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 				events.ExpectEvent(vmi, k8sv1.EventTypeWarning, controller.MigrationBackoffReason)
 			})
 
-			It("after a successful migration backoff should be cleared", func() {
+			It("after a successful migration backoff should be cleared", decorators.WgS390x, func() {
 				By("Starting the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
@@ -308,7 +308,7 @@ var _ = Describe(SIG("VM Live Migration triggered by evacuation", decorators.Req
 
 	})
 
-	Context("Evacuation cancellation behavior", func() {
+	Context("Evacuation cancellation behavior", decorators.WgS390x, func() {
 		var migrationBandwidthLimit = resource.MustParse("1Ki")
 
 		It("should stop recreating migrations after evacuate-cancel", func() {
