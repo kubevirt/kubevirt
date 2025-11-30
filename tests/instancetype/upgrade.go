@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instance type and preference ControllerRevision Upgrades", decorators.SigCompute, decorators.SigComputeInstancetype, func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instance type and preference ControllerRevision Upgrades", decorators.SigCompute, decorators.SigComputeInstancetype, decorators.WgS390x, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
