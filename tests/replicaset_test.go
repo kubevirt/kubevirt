@@ -134,7 +134,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		return newReplicaSetWithTemplate(template)
 	}
 
-	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale", func(startScale int, stopScale int) {
+	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale", decorators.WgS390x, func(startScale int, stopScale int) {
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, int32(startScale))
 		doScale(newRS.ObjectMeta.Name, int32(stopScale))
@@ -145,7 +145,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Entry("[test_id:1406]to five, to six and then to zero replicas", 5, 6),
 	)
 
-	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with scale subresource", func(startScale int, stopScale int) {
+	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with scale subresource", decorators.WgS390x, func(startScale int, stopScale int) {
 		newRS := newReplicaSet()
 		libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(startScale))
 		libreplicaset.DoScaleWithScaleSubresource(virtClient, newRS.ObjectMeta.Name, int32(stopScale))
@@ -155,7 +155,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Entry("[test_id:1408]to five, to six and then to zero replicas", 5, 6),
 	)
 
-	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
+	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", decorators.WgS390x, func(startScale int, stopScale int) {
 		template := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -172,7 +172,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Entry("[test_id:1410]to five, to six and then to one replicas", 5, 6),
 	)
 
-	It("[test_id:1411]should be rejected on POST if spec is invalid", func() {
+	It("[test_id:1411]should be rejected on POST if spec is invalid", decorators.WgS390x, func() {
 		newRS := newReplicaSet()
 		newRS.TypeMeta = metav1.TypeMeta{
 			APIVersion: v1.StorageGroupVersion.String(),
@@ -193,7 +193,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(statusCode).To(Equal(http.StatusUnprocessableEntity))
 
 	})
-	It("[test_id:1412]should reject POST if validation webhoook deems the spec is invalid", func() {
+	It("[test_id:1412]should reject POST if validation webhoook deems the spec is invalid", decorators.WgS390x, func() {
 		newRS := newReplicaSet()
 		newRS.TypeMeta = metav1.TypeMeta{
 			APIVersion: v1.GroupVersion.String(),
@@ -221,7 +221,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(reviewResponse.Details.Causes).To(HaveLen(1))
 		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].name"))
 	})
-	It("[test_id:1413]should update readyReplicas once VMIs are up", func() {
+	It("[test_id:1413]should update readyReplicas once VMIs are up", decorators.WgS390x, func() {
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 
@@ -233,7 +233,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}, 120*time.Second, 1*time.Second).Should(Equal(2))
 	})
 
-	It("[test_id:1414]should return the correct data when using server-side printing", func() {
+	It("[test_id:1414]should return the correct data when using server-side printing", decorators.WgS390x, func() {
 		newRS := newReplicaSet()
 		doScale(newRS.ObjectMeta.Name, 2)
 
@@ -269,7 +269,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(table.Rows[0].Cells[3]).To(BeNumerically("==", 2))
 	})
 
-	It("[test_id:1415]should remove VMIs once they are marked for deletion", func() {
+	It("[test_id:1415]should remove VMIs once they are marked for deletion", decorators.WgS390x, func() {
 		newRS := newReplicaSet()
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)
@@ -285,7 +285,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}, 120*time.Second, 1*time.Second).Should(BeZero())
 	})
 
-	It("[test_id:1416]should remove owner references on the VirtualMachineInstance if it is orphan deleted", func() {
+	It("[test_id:1416]should remove owner references on the VirtualMachineInstance if it is orphan deleted", decorators.WgS390x, func() {
 		newRS := newReplicaSet()
 		// Create a replicaset with two replicas
 		doScale(newRS.ObjectMeta.Name, 2)
@@ -321,7 +321,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("[test_id:1417]should not scale when paused and scale when resume", func() {
+	It("[test_id:1417]should not scale when paused and scale when resume", decorators.WgS390x, func() {
 		rs := newReplicaSet()
 		// pause controller
 		By("Pausing the replicaset")
@@ -373,7 +373,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}, 10*time.Second, 1*time.Second).Should(Equal(int32(2)))
 	})
 
-	It("[test_id:1418] should replace finished VMIs", func() {
+	It("[test_id:1418] should replace finished VMIs", decorators.WgS390x, func() {
 		By("Creating new replica set")
 		rs := newReplicaSet()
 		doScale(rs.ObjectMeta.Name, int32(2))
@@ -453,7 +453,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(vmi.DeletionTimestamp).ToNot(BeNil())
 	})
 
-	Context("replicaset with topology spread constraints", decorators.WgS390x, func() {
+	Context("replicaset with topology spread constraints", func() {
 		It("Replicas should be spread across nodes", decorators.RequiresTwoSchedulableNodes, func() {
 			nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some schedulable nodes")

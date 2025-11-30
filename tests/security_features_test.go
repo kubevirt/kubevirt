@@ -194,7 +194,7 @@ var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() 
 	})
 
 	Context("The VMI SELinux context status", func() {
-		It("Should get set and stay the the same after a migration", decorators.RequiresTwoSchedulableNodes, func() {
+		It("Should get set and stay the the same after a migration", decorators.RequiresTwoSchedulableNodes, decorators.WgS390x, func() {
 			vmi := libvmifact.NewAlpine(libnet.WithMasqueradeNetworking())
 
 			By("Starting a New VMI")

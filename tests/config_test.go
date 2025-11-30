@@ -54,7 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", decorators.SigCompute, decorators.WgS390x, func() {
+var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute]Config", decorators.SigCompute, func() {
 
 	var CheckIsoVolumeSizes = func(vmi *v1.VirtualMachineInstance) {
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -81,7 +81,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		}
 	}
 
-	Context("With a ConfigMap defined", func() {
+	Context("With a ConfigMap defined", decorators.WgS390x, func() {
 
 		Context("With a single volume", func() {
 			var (
@@ -208,7 +208,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Context("With a Secret defined", func() {
+	Context("With a Secret defined", decorators.WgS390x, func() {
 
 		Context("With a single volume", func() {
 			var (
@@ -406,7 +406,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Context("With a Secret and a ConfigMap defined", func() {
+	Context("With a Secret and a ConfigMap defined", decorators.WgS390x, func() {
 
 		Context("With a single volume", func() {
 			var (
@@ -643,7 +643,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Context("With a DownwardAPI defined", func() {
+	Context("With a DownwardAPI defined", decorators.WgS390x, func() {
 
 		testLabelKey := "kubevirt.io.testdownwardapi"
 		testLabelVal := "downwardAPIValue"

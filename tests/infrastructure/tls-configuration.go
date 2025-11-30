@@ -35,6 +35,7 @@ import (
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -66,13 +67,14 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 		Expect(newKv.Spec.Configuration.TLSConfiguration.Ciphers).To(BeEquivalentTo([]string{cipher.Name}))
 	})
 
-	It("[test_id:9306]should result only connections with the correct client-side tls configurations are accepted by the components", func() {
-		podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
+	It("[test_id:9306]should result only connections with the correct client-side tls configurations are accepted by the components",
+		decorators.WgS390x, func() {
+			podsToTest := listPods("kubevirt.io=virt-api", "kubevirt.io=virt-handler", "kubevirt.io=virt-exportproxy")
 
-		By("Verifying TLS connections to kubevirt pods")
-		const kubevirtPodTLSPort = 8443
-		verifyTLSEnforcement(podsToTest, kubevirtPodTLSPort, cipher)
-	})
+			By("Verifying TLS connections to kubevirt pods")
+			const kubevirtPodTLSPort = 8443
+			verifyTLSEnforcement(podsToTest, kubevirtPodTLSPort, cipher)
+		})
 
 	It("should enforce TLS configuration on virt-template components", func() {
 		By("Enabling the Template feature gate")

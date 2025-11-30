@@ -28,7 +28,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, decorators.WgS390x, func() {
+var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.VMLiveUpdateRolloutStrategy, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)
@@ -144,7 +144,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 			}, 240*time.Second, time.Second).Should(BeTrue())
 
 		})
-		It("[test_id:11209]should successfully update node affinity", func() {
+		It("[test_id:11209]should successfully update node affinity", decorators.WgS390x, func() {
 
 			By("Creating a running VM")
 			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
