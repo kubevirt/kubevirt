@@ -2872,19 +2872,26 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 
 	patchSet := patch.New()
 	newVmiAnnotations := maps.Clone(vmi.Annotations)
+	if newVmiAnnotations == nil {
+		newVmiAnnotations = map[string]string{}
+	}
 	newVmiLabels := maps.Clone(vmi.Labels)
+	if newVmiLabels == nil {
+		newVmiLabels = map[string]string{}
+	}
 
-	syncMap := func(keys []string, vmMap, vmiMap, vmiOrigMap map[string]string, subPath string) {
+	syncMap := func(patterns []string, vmMap, vmiMap, vmiOrigMap map[string]string, subPath string) {
 		changed := false
 		if _, ok := vmiMap[virtv1.DeprecatedVirtualMachineGenerationAnnotation]; ok {
 			delete(vmiMap, virtv1.DeprecatedVirtualMachineGenerationAnnotation)
 			changed = true
 		}
-		for _, key := range keys {
+
+		syncKey := func(key string) {
 			vmVal, vmExists := vmMap[key]
 			vmiVal, vmiExists := vmiMap[key]
 			if vmExists == vmiExists && vmVal == vmiVal {
-				continue
+				return
 			}
 			changed = true
 			if vmExists {
@@ -2892,6 +2899,36 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 			} else {
 				delete(vmiMap, key)
 			}
+		}
+
+		syncPrefix := func(prefix string) {
+			visited := map[string]struct{}{}
+			for key := range vmMap {
+				if strings.HasPrefix(key, prefix) {
+					visited[key] = struct{}{}
+					syncKey(key)
+				}
+			}
+			for key := range vmiMap {
+				if strings.HasPrefix(key, prefix) {
+					if _, ok := visited[key]; ok {
+						continue
+					}
+					visited[key] = struct{}{}
+					syncKey(key)
+				}
+			}
+		}
+
+		for _, pattern := range patterns {
+			if pattern == "" {
+				continue
+			}
+			if strings.HasSuffix(pattern, "*") {
+				syncPrefix(strings.TrimSuffix(pattern, "*"))
+				continue
+			}
+			syncKey(pattern)
 		}
 
 		if !changed {
