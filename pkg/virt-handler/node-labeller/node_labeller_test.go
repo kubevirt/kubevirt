@@ -218,6 +218,24 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(HaveKeyWithValue(v1.TDXLabel, "true"))
 	})
 
+	It("should not add HostDevIOMMUFD label", func() {
+		// as no `devices>hostdev` element in virsh_domcapabilities.xml
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(Not(HaveKey(v1.HostDevIOMMUFDLabel)))
+	})
+
+	It("should add HostDevIOMMUFD label when HostDevIOMMUFD is supported", func() {
+		nlController.hostDevIOMMUFDSupported = true
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKeyWithValue(v1.HostDevIOMMUFDLabel, "true"))
+	})
+
 	It("should add usable cpu model labels for the host cpu model", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())

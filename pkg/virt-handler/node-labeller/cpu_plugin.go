@@ -136,6 +136,8 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	n.SecureExecution = hostDomCapabilities.SecureExecution
 	n.TDX = hostDomCapabilities.TDX
 
+	n.loadDomHostDevCaps(&hostDomCapabilities.HostDev)
+
 	return nil
 }
 
