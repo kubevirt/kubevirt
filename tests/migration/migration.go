@@ -1895,7 +1895,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigrationAborted(vmi, string(migration.UID), 180)
 
 				By("Waiting for the migration object to disappear")
-				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
+				Expect(libwait.WaitForMigrationToDisappearWithTimeout(migration, 240*time.Second)).To(Succeed())
 			},
 				Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
 				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk),
@@ -1961,7 +1961,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred(), "target migration pod is expected to disappear after migration cancellation")
 
 				By("Waiting for the migration object to disappear")
-				libwait.WaitForMigrationToDisappearWithTimeout(migration, 20)
+				Expect(libwait.WaitForMigrationToDisappearWithTimeout(migration, 20*time.Second)).To(Succeed())
 			})
 
 			It("[sig-compute][test_id:8584]Immediate migration cancellation before migration starts running cancel a migration by deleting vmim object", func() {
@@ -1992,7 +1992,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for the migration object to disappear")
-				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
+				Expect(libwait.WaitForMigrationToDisappearWithTimeout(migration, 240*time.Second)).To(Succeed())
 
 				By("Verifying the VMI's phase, migration state and on node")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
