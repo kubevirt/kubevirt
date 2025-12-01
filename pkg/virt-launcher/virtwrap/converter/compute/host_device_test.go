@@ -29,6 +29,15 @@ import (
 )
 
 var _ = Describe("HostDevice Domain Configurator", func() {
+	It("Should handle empty variadic arguments", func() {
+		vmi := libvmi.New()
+		var domain api.Domain
+
+		configurator := compute.NewHostDeviceDomainConfigurator()
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+		Expect(domain.Spec.Devices.HostDevices).To(BeEmpty())
+	})
+
 	It("Should preserve the order of HostDevices: generic, gpu, sriov", func() {
 		vmi := libvmi.New()
 		var domain api.Domain
@@ -44,15 +53,6 @@ var _ = Describe("HostDevice Domain Configurator", func() {
 		Expect(domain.Spec.Devices.HostDevices).To(Equal(
 			[]api.HostDevice{genericHostDevice, gpuHostDevice, sriovDevice}),
 		)
-	})
-
-	It("Should handle empty variadic arguments", func() {
-		vmi := libvmi.New()
-		var domain api.Domain
-
-		configurator := compute.NewHostDeviceDomainConfigurator()
-		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-		Expect(domain.Spec.Devices.HostDevices).To(BeEmpty())
 	})
 
 	It("Should append to existing HostDevices preserving order", func() {
