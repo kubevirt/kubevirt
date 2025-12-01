@@ -13761,10 +13761,6 @@
       "type": "integer",
       "format": "int32"
      },
-     "qgs": {
-      "description": "TDX configuration",
-      "$ref": "#/definitions/v1.QGSConfiguration"
-     },
      "useEmulation": {
       "description": "UseEmulation can be set to true to allow fallback to software emulation in case hardware-assisted emulation is not available. Defaults to false",
       "type": "boolean"
@@ -15240,6 +15236,10 @@
      },
      "permittedHostDevices": {
       "$ref": "#/definitions/v1.PermittedHostDevices"
+     },
+     "qgs-tdx": {
+      "description": "QGS configuration for attestation on the Intel TDX Platform",
+      "$ref": "#/definitions/v1.QGSConfiguration"
      },
      "seccompConfiguration": {
       "$ref": "#/definitions/v1.SeccompConfiguration"

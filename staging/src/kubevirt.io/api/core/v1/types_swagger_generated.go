@@ -903,6 +903,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"commonInstancetypesDeployment":      "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources\n+nullable",
 		"instancetype":                       "Instancetype configuration\n+nullable",
 		"changedBlockTrackingLabelSelectors": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.\nEnabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.\n+nullable",
+		"qgs-tdx":                            "QGS configuration for attestation on the Intel TDX Platform",
 	}
 }
 
@@ -1026,7 +1027,6 @@ func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 		"cpuAllocationRatio":              "For each requested virtual CPU, CPUAllocationRatio defines how much physical CPU to request per VMI\nfrom the hosting node. The value is in fraction of a CPU thread (or core on non-hyperthreaded nodes).\nFor example, a value of 1 means 1 physical CPU thread per VMI CPU thread.\nA value of 100 would be 1% of a physical thread allocated for each requested VMI thread.\nThis option has no effect on VMIs that request dedicated CPUs. More information at:\nhttps://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio\nDefaults to 10",
 		"minimumClusterTSCFrequency":      "Allow overriding the automatically determined minimum TSC frequency of the cluster\nand fixate the minimum to this frequency.",
 		"clusterProfiler":                 "Enable the ability to pprof profile KubeVirt control plane",
-		"qgs":                             "TDX configuration",
 	}
 }
 

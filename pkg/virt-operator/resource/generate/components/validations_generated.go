@@ -1098,17 +1098,6 @@ var CRDsValidation map[string]string = map[string]string{
                     allowed to be compared to the requested size (to account for various overheads).
                     Defaults to 10
                   type: integer
-                qgs:
-                  description: TDX configuration
-                  properties:
-                    enabled:
-                      description: Indicates whether TDX VM should require QGS in
-                        order to be scheduled, defaults to true
-                      type: boolean
-                    qgsSocketPath:
-                      description: QGS socket path, defaults to /var/run/tdx-qgs/qgs.socket
-                      type: string
-                  type: object
                 useEmulation:
                   description: |-
                     UseEmulation can be set to true to allow fallback to software emulation
@@ -1581,6 +1570,17 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   type: array
                   x-kubernetes-list-type: atomic
+              type: object
+            qgs-tdx:
+              description: QGS configuration for attestation on the Intel TDX Platform
+              properties:
+                enabled:
+                  description: Indicates whether TDX VM should require QGS in order
+                    to be scheduled, defaults to true
+                  type: boolean
+                qgsSocketPath:
+                  description: QGS socket path, defaults to /var/run/tdx-qgs/qgs.socket
+                  type: string
               type: object
             seccompConfiguration:
               description: SeccompConfiguration holds Seccomp configuration for Kubevirt

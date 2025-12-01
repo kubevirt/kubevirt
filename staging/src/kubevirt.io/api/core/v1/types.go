@@ -3072,6 +3072,9 @@ type KubeVirtConfiguration struct {
 	// Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
+
+	// QGS configuration for attestation on the Intel TDX Platform
+	QGS *QGSConfiguration `json:"qgs-tdx,omitempty"`
 }
 
 type ChangedBlockTrackingSelectors struct {
@@ -3330,8 +3333,6 @@ type DeveloperConfiguration struct {
 	LogVerbosity               *LogVerbosity     `json:"logVerbosity,omitempty"`
 	// Enable the ability to pprof profile KubeVirt control plane
 	ClusterProfiler bool `json:"clusterProfiler,omitempty"`
-	// TDX configuration
-	QGS *QGSConfiguration `json:"qgs,omitempty"`
 }
 
 // QGSConfiguration holds QGS configuration

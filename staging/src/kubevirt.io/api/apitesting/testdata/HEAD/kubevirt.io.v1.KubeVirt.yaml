@@ -132,9 +132,6 @@ spec:
       nodeSelectors:
         nodeSelectorsKey: nodeSelectorsValue
       pvcTolerateLessSpaceUpToPercent: -31
-      qgs:
-        enabled: true
-        qgsSocketPath: qgsSocketPathValue
       useEmulation: true
     emulatedMachines:
     - emulatedMachinesValue
@@ -226,6 +223,9 @@ spec:
         selectors:
         - product: productValue
           vendor: vendorValue
+    qgs-tdx:
+      enabled: true
+      qgsSocketPath: qgsSocketPathValue
     seccompConfiguration:
       virtualMachineInstanceProfile:
         customProfile:

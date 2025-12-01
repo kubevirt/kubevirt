@@ -19149,17 +19149,11 @@ func schema_kubevirtio_api_core_v1_DeveloperConfiguration(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
-					"qgs": {
-						SchemaProps: spec.SchemaProps{
-							Description: "TDX configuration",
-							Ref:         ref("kubevirt.io/api/core/v1.QGSConfiguration"),
-						},
-					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DiskVerification", "kubevirt.io/api/core/v1.LogVerbosity", "kubevirt.io/api/core/v1.QGSConfiguration"},
+			"kubevirt.io/api/core/v1.DiskVerification", "kubevirt.io/api/core/v1.LogVerbosity"},
 	}
 }
 
@@ -22014,11 +22008,17 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref:         ref("kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors"),
 						},
 					},
+					"qgs-tdx": {
+						SchemaProps: spec.SchemaProps{
+							Description: "QGS configuration for attestation on the Intel TDX Platform",
+							Ref:         ref("kubevirt.io/api/core/v1.QGSConfiguration"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.QGSConfiguration", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
 	}
 }
 

@@ -206,8 +206,8 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 			}
 		}
 	}
-	if kv.Spec.Configuration.DeveloperConfiguration != nil && kv.Spec.Configuration.DeveloperConfiguration.QGS != nil && kv.Spec.Configuration.DeveloperConfiguration.QGS.QgsSocketPath != nil {
-		additionalProperties[AdditionalPropertiesQGSSocketPath] = *kv.Spec.Configuration.DeveloperConfiguration.QGS.QgsSocketPath
+	if kv.Spec.Configuration.DeveloperConfiguration != nil && kv.Spec.Configuration.QGS != nil && kv.Spec.Configuration.QGS.QgsSocketPath != nil {
+		additionalProperties[AdditionalPropertiesQGSSocketPath] = *kv.Spec.Configuration.QGS.QgsSocketPath
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars

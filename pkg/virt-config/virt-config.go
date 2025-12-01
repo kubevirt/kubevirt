@@ -108,7 +108,7 @@ func (config *ClusterConfig) RequireQGS() bool {
 	if !config.WorkloadEncryptionTDXEnabled() {
 		return false
 	}
-	qgs := config.GetConfig().DeveloperConfiguration.QGS
+	qgs := config.GetConfig().QGS
 	// When QGS or QGS.Enabled is not set, we default to true.
 	if qgs == nil || qgs.Enabled == nil {
 		return true
@@ -117,7 +117,7 @@ func (config *ClusterConfig) RequireQGS() bool {
 }
 
 func (c *ClusterConfig) GetQGSSocketPath() string {
-	qgs := c.GetConfig().DeveloperConfiguration.QGS
+	qgs := c.GetConfig().QGS
 	if qgs == nil || qgs.QgsSocketPath == nil {
 		return DefaultQGSSocketPath
 	}
