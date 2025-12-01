@@ -24,56 +24,65 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type ConsoleDomainConfigurator struct {
-	serialConsoleLog bool
+	useSerialConsoleLog bool
 }
 
-func NewConsoleDomainConfigurator(serialConsoleLog bool) ConsoleDomainConfigurator {
+func NewConsoleDomainConfigurator(useSerialConsoleLog bool) ConsoleDomainConfigurator {
 	return ConsoleDomainConfigurator{
-		serialConsoleLog: serialConsoleLog,
+		useSerialConsoleLog: useSerialConsoleLog,
 	}
 }
 
 func (c ConsoleDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole {
-		var serialPort uint = 0
-		var serialType string = "serial"
-		domain.Spec.Devices.Consoles = []api.Console{
-			{
-				Type: "pty",
-				Target: &api.ConsoleTarget{
-					Type: &serialType,
-					Port: &serialPort,
-				},
-			},
-		}
-
-		socketPath := fmt.Sprintf("%s/%s/virt-serial%d", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)
-		domain.Spec.Devices.Serials = []api.Serial{
-			{
-				Type: "unix",
-				Target: &api.SerialTarget{
-					Port: &serialPort,
-				},
-				Source: &api.SerialSource{
-					Mode: "bind",
-					Path: socketPath,
-				},
-			},
-		}
-
-		if c.serialConsoleLog {
-			domain.Spec.Devices.Serials[0].Log = &api.SerialLog{
-				File:   fmt.Sprintf("%s-log", socketPath),
-				Append: "on",
-			}
-		}
-
+	if vmi.Spec.Domain.Devices.AutoattachSerialConsole != nil && !*vmi.Spec.Domain.Devices.AutoattachSerialConsole {
+		return nil
 	}
+
+	const (
+		serialPortIndex = uint(0)
+		serialType      = "serial"
+		consoleType     = "pty"
+		serialTypeUnix  = "unix"
+		bindMode        = "bind"
+		logAppend       = "on"
+	)
+
+	domain.Spec.Devices.Consoles = []api.Console{
+		{
+			Type: consoleType,
+			Target: &api.ConsoleTarget{
+				Type: pointer.P(serialType),
+				Port: pointer.P(serialPortIndex),
+			},
+		},
+	}
+
+	socketPath := fmt.Sprintf("%s/%s/virt-serial%d", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPortIndex)
+	serial := api.Serial{
+		Type: serialTypeUnix,
+		Target: &api.SerialTarget{
+			Port: pointer.P(serialPortIndex),
+		},
+		Source: &api.SerialSource{
+			Mode: bindMode,
+			Path: socketPath,
+		},
+	}
+
+	if c.useSerialConsoleLog {
+		serial.Log = &api.SerialLog{
+			File:   fmt.Sprintf("%s-log", socketPath),
+			Append: logAppend,
+		}
+	}
+
+	domain.Spec.Devices.Serials = []api.Serial{serial}
 
 	return nil
 }
