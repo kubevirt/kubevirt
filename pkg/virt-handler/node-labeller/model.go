@@ -42,6 +42,7 @@ type HostDomCapabilities struct {
 	SecureExecution SecureExecutionConfiguration `xml:"features>s390-pv"`
 	TDX             TDXConfiguration             `xml:"features>tdx"`
 	LaunchSecurity  LaunchSecurityConfiguration  `xml:"features>launchSecurity"`
+	//TODO: handle iommufd
 }
 
 // CPU represents slice of cpu modes

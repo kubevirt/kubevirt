@@ -1461,6 +1461,9 @@ const (
 	//         - protocol: UDP
 	//           port: dns
 	AllowAccessClusterServicesNPLabel string = "np.kubevirt.io/allow-access-cluster-services"
+
+	// HostDevIOMMUFDLabel marks the node as capable of IOMMUFD enabled host devices assignment
+	HostDevIOMMUFDLabel string = "kubevirt.io/hostDevIommufd"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {

@@ -61,6 +61,7 @@ var nodeLabellerLabels = []string{
 	kubevirtv1.HostModelRequiredFeaturesLabel,
 	kubevirtv1.NodeHostModelIsObsoleteLabel,
 	kubevirtv1.SupportedMachineTypeLabel,
+	kubevirtv1.HostDevIOMMUFDLabel,
 }
 
 // NodeLabeller struct holds information needed to run node-labeller
@@ -312,6 +313,10 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 		newLabels[kubevirtv1.TDXLabel] = "true"
 	}
 
+	if n.supportsHostDevIOMMUFD() {
+		newLabels[kubevirtv1.HostDevIOMMUFDLabel] = "true"
+	}
+
 	return newLabels
 }
 
@@ -382,4 +387,13 @@ func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostMod
 
 func (n *NodeLabeller) hasTSCCounter() bool {
 	return n.cpuCounter != nil && n.cpuCounter.Name == "tsc"
+}
+
+func (n *NodeLabeller) supportsHostDevIOMMUFD() bool {
+	if !n.clusterConfig.HostDevIOMMUFDEnabled() {
+		return false
+	}
+	// TODO: handler domain cap
+
+	return true
 }
