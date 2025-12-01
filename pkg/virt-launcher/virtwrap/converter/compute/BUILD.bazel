@@ -6,6 +6,7 @@ go_library(
         "balloon.go",
         "channels.go",
         "clock.go",
+        "console.go",
         "graphics.go",
         "host_device.go",
         "input_device.go",
