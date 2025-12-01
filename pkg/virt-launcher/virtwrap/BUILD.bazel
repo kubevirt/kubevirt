@@ -46,6 +46,7 @@ go_library(
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/migration-proxy:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
+        "//pkg/virt-launcher/premigration-hook-server:go_default_library",
         "//pkg/virt-launcher/virtwrap/access-credentials:go_default_library",
         "//pkg/virt-launcher/virtwrap/agent:go_default_library",
         "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",
