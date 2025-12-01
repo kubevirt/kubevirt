@@ -30,11 +30,9 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	"github.com/openshift/library-go/pkg/build/naming"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -47,7 +45,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
@@ -990,9 +987,6 @@ func (t *vmRestoreTarget) reconcileSpec(restoredVM *kubevirtv1.VirtualMachine) (
 	log.Log.Object(t.vmRestore).V(3).Info("Reconcile new VM spec")
 
 	var err error
-	if err = t.restoreInstancetypeControllerRevisions(restoredVM); err != nil {
-		return false, err
-	}
 
 	if !t.Exists() {
 		restoredVM, err = patchVM(restoredVM, t.vmRestore.Spec.Patches)
@@ -1008,10 +1002,6 @@ func (t *vmRestoreTarget) reconcileSpec(restoredVM *kubevirtv1.VirtualMachine) (
 	}
 
 	t.UpdateTarget(restoredVM)
-
-	if err = t.claimInstancetypeControllerRevisionsOwnership(t.vm); err != nil {
-		return false, err
-	}
 
 	if err = t.updateRestorePVCOwnership(); err != nil {
 		return false, err
@@ -1129,119 +1119,6 @@ func (t *vmRestoreTarget) reconcileDataVolumes(restoredVM *kubevirtv1.VirtualMac
 	}
 
 	return createdDV || waitingDV, nil
-}
-
-func (t *vmRestoreTarget) getControllerRevision(namespace, name string) (*appsv1.ControllerRevision, error) {
-	revisionKey := cacheKeyFunc(namespace, name)
-	obj, exists, err := t.controller.CRInformer.GetStore().GetByKey(revisionKey)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, fmt.Errorf("Unable to find ControllerRevision %s", revisionKey)
-	}
-	return obj.(*appsv1.ControllerRevision), nil
-}
-
-func (t *vmRestoreTarget) restoreInstancetypeControllerRevision(vmSnapshotRevisionName, vmSnapshotName string, vm *kubevirtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
-	snapshotCR, err := t.getControllerRevision(vm.Namespace, vmSnapshotRevisionName)
-	if err != nil {
-		return nil, err
-	}
-
-	// Switch the snapshot and vm names for the restored CR name
-	restoredCRName := strings.Replace(vmSnapshotRevisionName, vmSnapshotName, vm.Name, 1)
-	restoredCR := snapshotCR.DeepCopy()
-	restoredCR.ObjectMeta.Reset()
-	restoredCR.ObjectMeta.SetLabels(snapshotCR.Labels)
-	restoredCR.Name = restoredCRName
-
-	// If the target VirtualMachine already exists it's likely that the original ControllerRevision is already present.
-	// Check that here by attempting to lookup the CR using the generated restoredCRName.
-	// Ignore any NotFound errors raised allowing the CR to be restored below.
-	if t.Exists() {
-		existingCR, err := t.getControllerRevision(vm.Namespace, restoredCRName)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return nil, err
-		}
-		if existingCR != nil {
-			// Ensure that the existing CR contains the expected data from the snapshot before returning it
-			equal, err := revision.Compare(snapshotCR, existingCR)
-			if err != nil {
-				return nil, err
-			}
-			if equal {
-				return existingCR, nil
-			}
-			// Otherwise as CRs are immutable delete the existing CR so we can restore the version from the snapshot below
-			if err := t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Delete(context.Background(), existingCR.Name, metav1.DeleteOptions{}); err != nil {
-				return nil, err
-			}
-			// As the VirtualMachine already exists here we can also populate the OwnerReference, avoiding the need to do so later during claimInstancetypeControllerRevisionOwnership
-			restoredCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(vm, kubevirtv1.VirtualMachineGroupVersionKind)}
-		}
-	}
-
-	restoredCR, err = t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), restoredCR, metav1.CreateOptions{})
-	// This might not be our first time through the reconcile loop so accommodate previous calls to restoreInstancetypeControllerRevision by ignoring unexpected existing CRs for now.
-	// TODO - Check the contents of the existing CR here against that of the snapshot CR
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return nil, err
-	}
-
-	return restoredCR, nil
-}
-
-func (t *vmRestoreTarget) restoreInstancetypeControllerRevisions(vm *kubevirtv1.VirtualMachine) error {
-	if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Instancetype.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm)
-		if err != nil {
-			return err
-		}
-		vm.Spec.Instancetype.RevisionName = restoredCR.Name
-	}
-
-	if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-		restoredCR, err := t.restoreInstancetypeControllerRevision(vm.Spec.Preference.RevisionName, t.vmRestore.Spec.VirtualMachineSnapshotName, vm)
-		if err != nil {
-			return err
-		}
-		vm.Spec.Preference.RevisionName = restoredCR.Name
-	}
-
-	return nil
-}
-
-func (t *vmRestoreTarget) claimInstancetypeControllerRevisionOwnership(revisionName string, vm *kubevirtv1.VirtualMachine) error {
-	cr, err := t.getControllerRevision(vm.Namespace, revisionName)
-	if err != nil {
-		return err
-	}
-
-	if !metav1.IsControlledBy(cr, vm) {
-		cr.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(vm, kubevirtv1.VirtualMachineGroupVersionKind)}
-		_, err = t.controller.Client.AppsV1().ControllerRevisions(vm.Namespace).Update(context.Background(), cr, metav1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (t *vmRestoreTarget) claimInstancetypeControllerRevisionsOwnership(vm *kubevirtv1.VirtualMachine) error {
-	if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-		if err := t.claimInstancetypeControllerRevisionOwnership(vm.Spec.Instancetype.RevisionName, vm); err != nil {
-			return err
-		}
-	}
-
-	if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-		if err := t.claimInstancetypeControllerRevisionOwnership(vm.Spec.Preference.RevisionName, vm); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (t *vmRestoreTarget) createDataVolume(restoredVM *kubevirtv1.VirtualMachine, dvt kubevirtv1.DataVolumeTemplateSpec) (bool, error) {

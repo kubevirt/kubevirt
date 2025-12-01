@@ -26,10 +26,8 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"strings"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -45,7 +43,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
-	utils "kubevirt.io/kubevirt/pkg/util"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 	launcherapi "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -314,74 +311,6 @@ func (s *vmSnapshotSource) getVMRevision() (*snapshotv1.VirtualMachine, error) {
 	return vmRevision, nil
 }
 
-func (s *vmSnapshotSource) getControllerRevision(namespace, name string) (*appsv1.ControllerRevision, error) {
-	crKey := cacheKeyFunc(namespace, name)
-	obj, exists, err := s.controller.CRInformer.GetStore().GetByKey(crKey)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, fmt.Errorf("Unable to fetch ControllerRevision %s", crKey)
-	}
-	cr, ok := obj.(*appsv1.ControllerRevision)
-	if !ok {
-		return nil, fmt.Errorf("Unexpected object format returned by informer")
-	}
-	return cr, nil
-}
-
-func (s *vmSnapshotSource) captureInstancetypeControllerRevision(namespace, revisionName string) (string, error) {
-	existingCR, err := s.getControllerRevision(namespace, revisionName)
-	if err != nil {
-		return "", err
-	}
-
-	snapshotCR := existingCR.DeepCopy()
-	snapshotCR.ObjectMeta.Reset()
-	snapshotCR.ObjectMeta.SetLabels(existingCR.Labels)
-
-	// We strip out the source VM name from the CR name and replace it with the snapshot name
-	snapshotCR.Name = strings.Replace(existingCR.Name, s.snapshot.Spec.Source.Name, s.snapshot.Name, 1)
-
-	// Ensure GVK is set before we attempt to create the controller OwnerReference below
-	obj, err := utils.GenerateKubeVirtGroupVersionKind(s.snapshot)
-	if err != nil {
-		return "", err
-	}
-	snapshot, ok := obj.(*snapshotv1.VirtualMachineSnapshot)
-	if !ok {
-		return "", fmt.Errorf("Unexpected object format returned from GenerateKubeVirtGroupVersionKind")
-	}
-	snapshotCR.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(snapshot, snapshot.GroupVersionKind())}
-
-	snapshotCR, err = s.controller.Client.AppsV1().ControllerRevisions(s.snapshot.Namespace).Create(context.Background(), snapshotCR, metav1.CreateOptions{})
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
-		return "", err
-	}
-
-	return snapshotCR.Name, nil
-}
-
-func (s *vmSnapshotSource) captureInstancetypeControllerRevisions(vm *snapshotv1.VirtualMachine) error {
-	if vm.Spec.Instancetype != nil && vm.Spec.Instancetype.RevisionName != "" {
-		snapshotCRName, err := s.captureInstancetypeControllerRevision(vm.Namespace, vm.Spec.Instancetype.RevisionName)
-		if err != nil {
-			return err
-		}
-		vm.Spec.Instancetype.RevisionName = snapshotCRName
-	}
-
-	if vm.Spec.Preference != nil && vm.Spec.Preference.RevisionName != "" {
-		snapshotCRName, err := s.captureInstancetypeControllerRevision(vm.Namespace, vm.Spec.Preference.RevisionName)
-		if err != nil {
-			return err
-		}
-		vm.Spec.Preference.RevisionName = snapshotCRName
-	}
-
-	return nil
-}
-
 func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 	vmCpy := &snapshotv1.VirtualMachine{}
 	metaObj := *getSimplifiedMetaObject(s.vm.ObjectMeta)
@@ -401,10 +330,6 @@ func (s *vmSnapshotSource) Spec() (snapshotv1.SourceSpec, error) {
 		vmCpy.ObjectMeta = metaObj
 		vmCpy.Spec = *s.vm.Spec.DeepCopy()
 		vmCpy.Status = kubevirtv1.VirtualMachineStatus{}
-	}
-
-	if err := s.captureInstancetypeControllerRevisions(vmCpy); err != nil {
-		return snapshotv1.SourceSpec{}, err
 	}
 
 	return snapshotv1.SourceSpec{
