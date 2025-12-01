@@ -35,7 +35,7 @@ var _ = Describe("HostDevice Domain Configurator", func() {
 
 		configurator := compute.NewHostDeviceDomainConfigurator()
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-		Expect(domain.Spec.Devices.HostDevices).To(BeEmpty())
+		Expect(domain).To(Equal(api.Domain{}))
 	})
 
 	It("Should preserve the order of HostDevices: generic, gpu, sriov", func() {
@@ -50,9 +50,19 @@ var _ = Describe("HostDevice Domain Configurator", func() {
 			[]api.HostDevice{genericHostDevice, gpuHostDevice, sriovDevice},
 		)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-		Expect(domain.Spec.Devices.HostDevices).To(Equal(
-			[]api.HostDevice{genericHostDevice, gpuHostDevice, sriovDevice}),
-		)
+
+		expectedDomain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					HostDevices: []api.HostDevice{
+						genericHostDevice,
+						gpuHostDevice,
+						sriovDevice,
+					},
+				},
+			},
+		}
+		Expect(domain).To(Equal(expectedDomain))
 	})
 
 	It("Should append to existing HostDevices preserving order", func() {
@@ -77,8 +87,19 @@ var _ = Describe("HostDevice Domain Configurator", func() {
 			[]api.HostDevice{genericHostDevice, gpuHostDevice, sriovDevice},
 		)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-		Expect(domain.Spec.Devices.HostDevices).To(Equal(
-			[]api.HostDevice{existingDevice, genericHostDevice, gpuHostDevice, sriovDevice}),
-		)
+
+		expectedDomain := api.Domain{
+			Spec: api.DomainSpec{
+				Devices: api.Devices{
+					HostDevices: []api.HostDevice{
+						existingDevice,
+						genericHostDevice,
+						gpuHostDevice,
+						sriovDevice,
+					},
+				},
+			},
+		}
+		Expect(domain).To(Equal(expectedDomain))
 	})
 })
