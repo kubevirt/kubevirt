@@ -43,13 +43,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	"sigs.k8s.io/yaml"
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/monitoring/rules"
@@ -352,7 +352,7 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 	return "", nil
 }
 
-func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
+func DumpInstallStrategyToConfigMap(clientset kubernetes.Interface, operatorNamespace string) error {
 	config, err := operatorutil.GetConfigFromEnv()
 	if err != nil {
 		return err
