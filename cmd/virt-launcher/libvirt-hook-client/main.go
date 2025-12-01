@@ -20,12 +20,18 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 const (
-	migratedMarkerPath = "/run/kubevirt-private/backend-storage-meta/migrated"
+	migrationHookSocket = "/var/run/kubevirt/migration-hook-socket"
+	migratedMarkerPath  = "/run/kubevirt-private/backend-storage-meta/migrated"
+	connectTimeout      = 30 * time.Second
+	idleTimeout         = 30 * time.Second
 )
 
 func main() {
@@ -49,11 +55,67 @@ func run() error {
 		extra = os.Args[4]
 	}
 
+	if op == "migrate" && subOp == "begin" {
+		return handleMigrationBegin()
+	}
+
 	if op == "release" && subOp == "end" && extra == "migrated" {
 		return handleMigrationEnd()
 	}
 
 	return nil
+}
+
+func handleMigrationBegin() error {
+	// Connect to the migration hook server with timeout
+	dialer := net.Dialer{
+		Timeout: connectTimeout,
+	}
+
+	conn, err := dialer.Dial("unix", migrationHookSocket)
+	if err != nil {
+		return fmt.Errorf("failed to connect to migration hook socket: %w", err)
+	}
+	defer conn.Close()
+
+	// Set deadline for the entire operation
+	if err := conn.SetDeadline(time.Now().Add(idleTimeout)); err != nil {
+		return fmt.Errorf("failed to set connection deadline: %w", err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		// Send domain XML from stdin to server
+		if _, err := io.Copy(conn, os.Stdin); err != nil {
+			done <- fmt.Errorf("failed to send data: %w", err)
+			return
+		}
+
+		response, err := io.ReadAll(conn)
+		if err != nil {
+			done <- fmt.Errorf("failed to read response: %w", err)
+			return
+		}
+
+		if len(response) == 0 {
+			done <- fmt.Errorf("hook processing failed on server")
+			return
+		}
+
+		if _, err := os.Stdout.Write(response); err != nil {
+			done <- fmt.Errorf("failed to write response: %w", err)
+			return
+		}
+
+		done <- nil
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(idleTimeout):
+		return fmt.Errorf("operation timed out after %v", idleTimeout)
+	}
 }
 
 func handleMigrationEnd() error {
