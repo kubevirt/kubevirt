@@ -291,13 +291,13 @@ func (l *launcherClientsManager) startDomainNotifyPipe(domainPipeStopChan chan s
 		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
 		return err
 	}
-	socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
-	if err != nil {
-		return err
-	}
 
 	if util.IsNonRootVMI(vmi) {
-		err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
+		socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
+		if err != nil {
+			return err
+		}
+		err = diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
 		if err != nil {
 			log.Log.Reason(err).Error("unable to change ownership for domain notify")
 			return err
