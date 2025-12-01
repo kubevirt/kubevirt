@@ -32,7 +32,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -141,6 +140,7 @@ func newDecorateHook(iface v1.Interface) func(hostDevice *api.HostDevice) error 
 	}
 }
 
+/*
 // CreateDRAHostDevices creates SR-IOV host devices for networks that use DRA (Dynamic Resource Allocation).
 // Unlike traditional SR-IOV which gets PCI addresses from multus network status, DRA-based SR-IOV
 // gets PCI addresses from the VMI device status populated by the DRA controller.
@@ -214,6 +214,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 
 	return hostDevices, nil
 }
+*/
 
 func SafelyDetachHostDevices(domainSpec *api.DomainSpec, eventDetach hostdevice.EventRegistrar, dom hostdevice.DeviceDetacher, timeout time.Duration) error {
 	sriovDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, deviceinfo.SRIOVAliasPrefix)
