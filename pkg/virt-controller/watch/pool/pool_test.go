@@ -1094,6 +1094,135 @@ var _ = Describe("Pool", func() {
 			Entry("do not append index if set to false", pointer.P(false)),
 			Entry("append index if set to true", pointer.P(true)),
 		)
+
+		DescribeTable("should respect name generation settings for CloudInit volumes", func(appendIndex *bool) {
+			const (
+				userDataSecretName    = "userdata-secret"
+				networkDataSecretName = "networkdata-secret"
+			)
+
+			pool, _ := DefaultPool(3)
+			pool.Spec.VirtualMachineTemplate.Spec.Template.Spec.Volumes = []v1.Volume{
+				{
+					Name: "cloudinitdisk",
+					VolumeSource: v1.VolumeSource{
+						CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+							UserDataSecretRef: &k8sv1.LocalObjectReference{
+								Name: userDataSecretName,
+							},
+							NetworkDataSecretRef: &k8sv1.LocalObjectReference{
+								Name: networkDataSecretName,
+							},
+						},
+					},
+				},
+			}
+			pool.Spec.NameGeneration = &poolv1.VirtualMachinePoolNameGeneration{
+				AppendIndexToSecretRefs: appendIndex,
+			}
+
+			addPool(pool)
+
+			poolRevision := createPoolRevision(pool)
+
+			sanityExecute()
+
+			cr, err := k8sClient.AppsV1().ControllerRevisions(pool.Namespace).Get(context.TODO(), poolRevision.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cr.Name).To(Equal(poolRevision.Name))
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(3))
+
+			for i, vm := range vms.Items {
+				Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("cloudinitdisk"))
+				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud).ToNot(BeNil())
+
+				if appendIndex != nil && *appendIndex {
+					Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataSecretRef.Name).To(Equal(fmt.Sprintf("%s-%d", userDataSecretName, i)))
+					Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataSecretRef.Name).To(Equal(fmt.Sprintf("%s-%d", networkDataSecretName, i)))
+				} else {
+					Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.UserDataSecretRef.Name).To(Equal(userDataSecretName))
+					Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitNoCloud.NetworkDataSecretRef.Name).To(Equal(networkDataSecretName))
+				}
+			}
+
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
+		},
+			Entry("do not append index by default", nil),
+			Entry("do not append index if set to false", pointer.P(false)),
+			Entry("append index if set to true", pointer.P(true)),
+		)
+
+		DescribeTable("should respect name generation settings for CloudInitConfigDrive volumes", func(appendIndex *bool) {
+			const (
+				userDataSecretName    = "userdata-secret"
+				networkDataSecretName = "networkdata-secret"
+			)
+
+			pool, _ := DefaultPool(3)
+			pool.Spec.VirtualMachineTemplate.Spec.Template.Spec.Volumes = []v1.Volume{
+				{
+					Name: "cloudinitdisk",
+					VolumeSource: v1.VolumeSource{
+						CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+							UserDataSecretRef: &k8sv1.LocalObjectReference{
+								Name: userDataSecretName,
+							},
+							NetworkDataSecretRef: &k8sv1.LocalObjectReference{
+								Name: networkDataSecretName,
+							},
+						},
+					},
+				},
+			}
+			pool.Spec.NameGeneration = &poolv1.VirtualMachinePoolNameGeneration{
+				AppendIndexToSecretRefs: appendIndex,
+			}
+
+			addPool(pool)
+
+			poolRevision := createPoolRevision(pool)
+
+			sanityExecute()
+
+			cr, err := k8sClient.AppsV1().ControllerRevisions(pool.Namespace).Get(context.TODO(), poolRevision.Name, metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cr.Name).To(Equal(poolRevision.Name))
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(3))
+
+			for i, vm := range vms.Items {
+				Expect(vm.Spec.Template.Spec.Volumes).To(HaveLen(1))
+				Expect(vm.Spec.Template.Spec.Volumes[0].Name).To(Equal("cloudinitdisk"))
+				Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive).ToNot(BeNil())
+
+				if appendIndex != nil && *appendIndex {
+					Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.UserDataSecretRef.Name).To(Equal(fmt.Sprintf("%s-%d", userDataSecretName, i)))
+					Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef.Name).To(Equal(fmt.Sprintf("%s-%d", networkDataSecretName, i)))
+				} else {
+					Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.UserDataSecretRef.Name).To(Equal(userDataSecretName))
+					Expect(vm.Spec.Template.Spec.Volumes[0].VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef.Name).To(Equal(networkDataSecretName))
+				}
+			}
+
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			testutils.ExpectEvent(recorder, common.SuccessfulCreateVirtualMachineReason)
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "create", "virtualmachines")).To(HaveLen(3))
+		},
+			Entry("do not append index by default", nil),
+			Entry("do not append index if set to false", pointer.P(false)),
+			Entry("append index if set to true", pointer.P(true)),
+		)
+
 		It("should remove finalizer on vms when pool is marked for deletion and VMs are orphaned", func() {
 			pool, vm := DefaultPool(3)
 			addPool(pool)
