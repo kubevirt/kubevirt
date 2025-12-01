@@ -31,6 +31,8 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/cpuhook"
+
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
@@ -432,7 +434,7 @@ func main() {
 	metadataCache := metadata.NewCache()
 
 	signalStopChan := make(chan struct{})
-	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(stopChan)
+	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(stopChan, cpuhook.CPUDedicatedHook)
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, *libvirtHooksServerAndClientEnabled, preMigrationHookServer)
 	if err != nil {
 		panic(err)
