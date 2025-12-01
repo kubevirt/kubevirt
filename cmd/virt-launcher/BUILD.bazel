@@ -27,6 +27,7 @@ go_library(
         "//pkg/virt-launcher:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
+        "//pkg/virt-launcher/premigration-hook-server:go_default_library",
         "//pkg/virt-launcher/standalone:go_default_library",
         "//pkg/virt-launcher/virtwrap:go_default_library",
         "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",
@@ -198,6 +199,7 @@ oci_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
+            ":libvirt-hook-tar",
             ":qemu-kvm-modules-dir-tar",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
@@ -206,6 +208,7 @@ oci_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
+            ":libvirt-hook-tar",
             ":qemu-kvm-modules-dir-tar",
         ],
         "//conditions:default": [
