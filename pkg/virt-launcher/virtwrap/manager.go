@@ -1089,12 +1089,14 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			return nil, err
 		}
 
-		// Add DRA-based SR-IOV devices
-		sriovDRADevices, err := sriov.CreateDRAHostDevices(vmi)
+		// Add DRA SR-IOV devices if the results file exists
+		draSriovDevices, err := sriov.CreateDRASRIOVHostDevices()
 		if err != nil {
-			return nil, err
+			log.Log.Object(vmi).Reason(err).Warning("DRA SR-IOV host devices not available")
+			// Don't fail - continue without DRA SR-IOV devices
+		} else if len(draSriovDevices) > 0 {
+			sriovDevices = append(sriovDevices, draSriovDevices...)
 		}
-		sriovDevices = append(sriovDevices, sriovDRADevices...)
 
 		c.HotplugVolumes = hotplugVolumes
 		c.SRIOVDevices = sriovDevices
@@ -1140,6 +1142,48 @@ func isFreePageReportingEnabled(clusterFreePageReportingDisabled bool, vmi *v1.V
 
 func isSerialConsoleLogEnabled(clusterSerialConsoleLogDisabled bool, vmi *v1.VirtualMachineInstance) bool {
 	return (vmi.Spec.Domain.Devices.LogSerialConsole != nil && *vmi.Spec.Domain.Devices.LogSerialConsole) || (vmi.Spec.Domain.Devices.LogSerialConsole == nil && !clusterSerialConsoleLogDisabled)
+}
+
+func (l *LibvirtDomainManager) syncDRASRIOVHostDevices(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, dom cli.VirDomain) error {
+	if l.storageManager.MigrationInProgress() {
+		log.Log.Object(vmi).V(4).Info("Skipping DRA SR-IOV sync - migration is in progress")
+		return nil
+	}
+
+	// Get currently attached SR-IOV devices (both regular and DRA use the same prefix)
+	currentSRIOVDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, netsriov.SRIOVAliasPrefix)
+
+	// Sync DRA SR-IOV devices from file
+	draSriovDevices, err := sriov.CreateDRASRIOVHostDevices()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).V(4).Info("DRA SR-IOV results file not available for sync")
+		return nil
+	}
+
+	var devicesToHotplug []api.HostDevice
+	for _, dev := range draSriovDevices {
+		// Check if already in domain
+		found := false
+		for _, existingDev := range currentSRIOVDevices {
+			if existingDev.Alias.GetName() == dev.Alias.GetName() {
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Log.Object(vmi).Infof("DRA SR-IOV device %s not in domain, will hotplug", dev.Alias.GetName())
+			devicesToHotplug = append(devicesToHotplug, dev)
+		}
+	}
+
+	if len(devicesToHotplug) > 0 {
+		log.Log.Object(vmi).Infof("Hotplugging %d DRA SR-IOV host devices", len(devicesToHotplug))
+		if err := hostdevice.AttachHostDevices(dom, devicesToHotplug); err != nil {
+			return fmt.Errorf("failed to hotplug DRA SR-IOV host devices: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
@@ -1222,6 +1266,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		domainAttachments = options.GetInterfaceDomainAttachment()
 	}
 	if err := network.Sync(domain, oldSpec, dom, vmi, domainAttachments); err != nil {
+		return nil, err
+	}
+
+	// Sync DRA SR-IOV host devices - hotplug any devices for this pod that are missing from domain
+	if err := l.syncDRASRIOVHostDevices(vmi, oldSpec, dom); err != nil {
 		return nil, err
 	}
 
