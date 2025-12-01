@@ -23,7 +23,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"path/filepath"
 	"time"
 )
 
@@ -119,11 +118,6 @@ func handleMigrationBegin() error {
 }
 
 func handleMigrationEnd() error {
-	dir := filepath.Dir(migratedMarkerPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory %s: %w", dir, err)
-	}
-
 	file, err := os.Create(migratedMarkerPath)
 	if err != nil {
 		return fmt.Errorf("failed to create marker file: %w", err)
