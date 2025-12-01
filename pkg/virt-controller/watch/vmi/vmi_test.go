@@ -2143,6 +2143,10 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				additionalLauncherAnnotationsSync []string
 				additionalLauncherLabelsSync      []string
 			}
+			const (
+				wildcardAnnotationPrefix = "custom/wildcard-annotation/"
+				wildcardLabelPrefix      = "custom/wildcard-label/"
+			)
 			DescribeTable("when VMI dynamic annotations and label sets changes", func(td *testData) {
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Status.Phase = virtv1.Running
@@ -2417,6 +2421,145 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 						},
 						expectedPatch:                true,
 						additionalLauncherLabelsSync: []string{"custom/label"},
+					},
+				),
+				Entry("when VMI and pod wildcard annotations differ",
+					&testData{
+						vmiAnnotations: map[string]string{
+							wildcardAnnotationPrefix + "one": "value-one",
+							wildcardAnnotationPrefix + "two": "value-two",
+						},
+						podAnnotations: map[string]string{
+							wildcardAnnotationPrefix + "one": "stale",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":             "testvmi",
+							descheduler.EvictOnlyAnnotation:  "",
+							wildcardAnnotationPrefix + "one": "value-one",
+							wildcardAnnotationPrefix + "two": "value-two",
+						},
+						expectedPatch:                     true,
+						additionalLauncherAnnotationsSync: []string{wildcardAnnotationPrefix + "*"},
+					},
+				),
+				Entry("when pod has wildcard annotations missing on VMI",
+					&testData{
+						vmiAnnotations: map[string]string{
+							"kubevirt.io/domain": "testvmi",
+						},
+						podAnnotations: map[string]string{
+							"kubevirt.io/domain":             "testvmi",
+							descheduler.EvictOnlyAnnotation:  "",
+							wildcardAnnotationPrefix + "one": "stale",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedPatch:                     true,
+						additionalLauncherAnnotationsSync: []string{wildcardAnnotationPrefix + "*"},
+					},
+				),
+				Entry("when VMI and pod wildcard labels differ",
+					&testData{
+						vmiLabels: map[string]string{
+							wildcardLabelPrefix + "one": "nodeA",
+							wildcardLabelPrefix + "two": "nodeB",
+						},
+						podLabels: map[string]string{
+							wildcardLabelPrefix + "one": "nodeOld",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":               "virt-launcher",
+							"kubevirt.io/created-by":    "1234",
+							wildcardLabelPrefix + "one": "nodeA",
+							wildcardLabelPrefix + "two": "nodeB",
+						},
+						expectedPatch:                true,
+						additionalLauncherLabelsSync: []string{wildcardLabelPrefix + "*"},
+					},
+				),
+				Entry("when pod has wildcard labels missing on VMI",
+					&testData{
+						vmiLabels: map[string]string{
+							"kubevirt.io":        "virt-launcher",
+							virtv1.NodeNameLabel: "node1",
+						},
+						podLabels: map[string]string{
+							"kubevirt.io":               "virt-launcher",
+							wildcardLabelPrefix + "one": "nodeOld",
+							virtv1.NodeNameLabel:        "node1",
+							"kubevirt.io/created-by":    "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+							virtv1.NodeNameLabel:     "node1",
+						},
+						expectedPatch:                true,
+						additionalLauncherLabelsSync: []string{wildcardLabelPrefix + "*"},
+					},
+				),
+				Entry("when bare '*' annotation pattern is used it should be ignored",
+					&testData{
+						vmiAnnotations: map[string]string{
+							"custom/something": "value",
+						},
+						podAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedPatch:                     false,
+						additionalLauncherAnnotationsSync: []string{"*"},
+					},
+				),
+				Entry("when bare '*' label pattern is used it should be ignored",
+					&testData{
+						vmiLabels: map[string]string{
+							"kubevirt.io":        "virt-launcher",
+							"custom/some-label":  "value",
+							virtv1.NodeNameLabel: "node1",
+						},
+						podLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							virtv1.NodeNameLabel:     "node1",
+							"kubevirt.io/created-by": "1234",
+						},
+						expectedAnnotations: map[string]string{
+							"kubevirt.io/domain":            "testvmi",
+							descheduler.EvictOnlyAnnotation: "",
+						},
+						expectedLabels: map[string]string{
+							"kubevirt.io":            "virt-launcher",
+							"kubevirt.io/created-by": "1234",
+							virtv1.NodeNameLabel:     "node1",
+						},
+						expectedPatch:                false,
+						additionalLauncherLabelsSync: []string{"*"},
 					},
 				),
 			)
