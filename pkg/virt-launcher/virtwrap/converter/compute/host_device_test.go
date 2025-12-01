@@ -20,6 +20,8 @@
 package compute_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -38,68 +40,48 @@ var _ = Describe("HostDevice Domain Configurator", func() {
 		Expect(domain).To(Equal(api.Domain{}))
 	})
 
-	It("Should preserve the order of HostDevices: generic, gpu, sriov", func() {
+	DescribeTable("should preserve the order of input devices", func(existing, input []api.HostDevice) {
 		vmi := libvmi.New()
-		var domain api.Domain
-
-		genericHostDevice := newHostDevice("hostdevice-generic0", api.HostDevicePCI)
-		gpuHostDevice := newHostDevice("gpu-gpu0", api.HostDeviceMDev)
-		sriovDevice := newHostDevice("sriov-sriov0", api.HostDevicePCI)
-
-		configurator := compute.NewHostDeviceDomainConfigurator(
-			[]api.HostDevice{genericHostDevice, gpuHostDevice, sriovDevice},
-		)
-		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
-
-		expectedDomain := api.Domain{
-			Spec: api.DomainSpec{
-				Devices: api.Devices{
-					HostDevices: []api.HostDevice{
-						genericHostDevice,
-						gpuHostDevice,
-						sriovDevice,
-					},
-				},
-			},
-		}
-		Expect(domain).To(Equal(expectedDomain))
-	})
-
-	It("Should append to existing HostDevices preserving order", func() {
-		vmi := libvmi.New()
-		existingDevice := newHostDevice("existing-device", api.HostDevicePCI)
 
 		domain := api.Domain{
 			Spec: api.DomainSpec{
 				Devices: api.Devices{
-					HostDevices: []api.HostDevice{existingDevice},
+					HostDevices: existing,
 				},
 			},
 		}
 
-		genericHostDevice := newHostDevice("hostdevice-generic0", api.HostDevicePCI)
-		gpuHostDevice := newHostDevice("gpu-gpu0", api.HostDeviceMDev)
-		sriovDevice := newHostDevice("sriov-sriov0", api.HostDevicePCI)
-
-		configurator := compute.NewHostDeviceDomainConfigurator(
-			[]api.HostDevice{genericHostDevice, gpuHostDevice, sriovDevice},
-		)
+		configurator := compute.NewHostDeviceDomainConfigurator(input)
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 
 		expectedDomain := api.Domain{
 			Spec: api.DomainSpec{
 				Devices: api.Devices{
-					HostDevices: []api.HostDevice{
-						existingDevice,
-						genericHostDevice,
-						gpuHostDevice,
-						sriovDevice,
-					},
+					HostDevices: slices.Concat(existing, input),
 				},
 			},
 		}
 		Expect(domain).To(Equal(expectedDomain))
-	})
+	},
+		Entry("without existing devices",
+			nil,
+			[]api.HostDevice{
+				newHostDevice("hostdevice-generic0", api.HostDevicePCI),
+				newHostDevice("gpu-gpu0", api.HostDeviceMDev),
+				newHostDevice("sriov-sriov0", api.HostDevicePCI),
+			},
+		),
+		Entry("with existing device",
+			[]api.HostDevice{
+				newHostDevice("existing-device", api.HostDevicePCI),
+			},
+			[]api.HostDevice{
+				newHostDevice("hostdevice-generic0", api.HostDevicePCI),
+				newHostDevice("gpu-gpu0", api.HostDeviceMDev),
+				newHostDevice("sriov-sriov0", api.HostDevicePCI),
+			},
+		),
+	)
 })
 
 func newHostDevice(name, typeString string) api.HostDevice {
