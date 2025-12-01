@@ -42,9 +42,9 @@ var _ = Describe("HostDevice Domain Configurator", func() {
 		vmi := libvmi.New()
 		var domain api.Domain
 
-		genericHostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias("hostdevice-generic0"), Type: api.HostDevicePCI}
-		gpuHostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias("gpu-gpu0"), Type: api.HostDeviceMDev}
-		sriovDevice := api.HostDevice{Alias: api.NewUserDefinedAlias("sriov-sriov0"), Type: api.HostDevicePCI}
+		genericHostDevice := newHostDevice("hostdevice-generic0", api.HostDevicePCI)
+		gpuHostDevice := newHostDevice("gpu-gpu0", api.HostDeviceMDev)
+		sriovDevice := newHostDevice("sriov-sriov0", api.HostDevicePCI)
 
 		configurator := compute.NewHostDeviceDomainConfigurator(
 			[]api.HostDevice{genericHostDevice, gpuHostDevice, sriovDevice},
@@ -67,10 +67,8 @@ var _ = Describe("HostDevice Domain Configurator", func() {
 
 	It("Should append to existing HostDevices preserving order", func() {
 		vmi := libvmi.New()
-		existingDevice := api.HostDevice{
-			Alias: api.NewUserDefinedAlias("existing-device"),
-			Type:  api.HostDevicePCI,
-		}
+		existingDevice := newHostDevice("existing-device", api.HostDevicePCI)
+
 		domain := api.Domain{
 			Spec: api.DomainSpec{
 				Devices: api.Devices{
@@ -79,9 +77,9 @@ var _ = Describe("HostDevice Domain Configurator", func() {
 			},
 		}
 
-		genericHostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias("hostdevice-generic0"), Type: api.HostDevicePCI}
-		gpuHostDevice := api.HostDevice{Alias: api.NewUserDefinedAlias("gpu-gpu0"), Type: api.HostDeviceMDev}
-		sriovDevice := api.HostDevice{Alias: api.NewUserDefinedAlias("sriov-sriov0"), Type: api.HostDevicePCI}
+		genericHostDevice := newHostDevice("hostdevice-generic0", api.HostDevicePCI)
+		gpuHostDevice := newHostDevice("gpu-gpu0", api.HostDeviceMDev)
+		sriovDevice := newHostDevice("sriov-sriov0", api.HostDevicePCI)
 
 		configurator := compute.NewHostDeviceDomainConfigurator(
 			[]api.HostDevice{genericHostDevice, gpuHostDevice, sriovDevice},
@@ -103,3 +101,10 @@ var _ = Describe("HostDevice Domain Configurator", func() {
 		Expect(domain).To(Equal(expectedDomain))
 	})
 })
+
+func newHostDevice(name, typeString string) api.HostDevice {
+	return api.HostDevice{
+		Alias: api.NewUserDefinedAlias(name),
+		Type:  typeString,
+	}
+}
