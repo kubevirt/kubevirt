@@ -117,6 +117,22 @@ func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
 	return ret
 }
 
+func SecureGuestCapacityDevicePlugins(nodeStore cache.Store, nodeName string) []Device {
+	plugins := []Device{}
+
+	cvmPlugin, err := NewSecureGuestCapacityDevicePlugin(nodeStore, nodeName)
+	if err != nil {
+		log.Log.V(3).Infof("Secure guest capacity plugin not available: %v", err)
+		return plugins
+	}
+
+	log.Log.Infof("Secure guest capacity device plugin created: type=%s, capacity=%d, resource=%s, managed=%v",
+		cvmPlugin.secureGuestType, cvmPlugin.capacity, cvmPlugin.resourceName, cvmPlugin.isManaged)
+
+	plugins = append(plugins, cvmPlugin)
+	return plugins
+}
+
 type DeviceControllerInterface interface {
 	Initialized() bool
 	RefreshMediatedDeviceTypes()
@@ -145,6 +161,9 @@ func NewDeviceController(
 	clusterConfig *virtconfig.ClusterConfig,
 	nodeStore cache.Store,
 ) *DeviceController {
+	cvmPlugins := SecureGuestCapacityDevicePlugins(nodeStore, host)
+	permanentPlugins = append(permanentPlugins, cvmPlugins...)
+
 	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
 	for i := range permanentPlugins {
 		permanentPluginsMap[permanentPlugins[i].GetDeviceName()] = permanentPlugins[i]
