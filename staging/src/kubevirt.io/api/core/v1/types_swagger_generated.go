@@ -1078,6 +1078,7 @@ func (MediatedDevicesConfiguration) SwaggerDoc() map[string]string {
 		"mediatedDevicesTypes":    "Deprecated. Use mediatedDeviceTypes instead.\n+optional\n+listType=atomic",
 		"mediatedDeviceTypes":     "+optional\n+listType=atomic",
 		"nodeMediatedDeviceTypes": "+optional\n+listType=atomic",
+		"disableHandling":         "Disable the creation and removal of mediated devices by virt-handler\nReplaces the deprecated DisableMDEVConfiguration feature gate\n+optional",
 	}
 }
 

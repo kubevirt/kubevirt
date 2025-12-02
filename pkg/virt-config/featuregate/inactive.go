@@ -103,6 +103,14 @@ const (
 	//
 	// MultiArchitecture allows VM/VMIs to request and schedule to an architecture other than that of control plane
 	MultiArchitecture = "MultiArchitecture"
+
+	// Owner: sig-compute
+	// Alpha: v1.0.0
+	// Deprecated: v1.8.0
+	//
+	// DisableMediatedDevicesHandling disables the handling of mediated
+	// devices, its creation and deletion
+	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
 )
 
 func init() {
@@ -135,4 +143,5 @@ func init() {
 
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Deprecated, Message: "MultiArchitecture has been deprecated since v1.8.0"})
+	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Deprecated, Message: "DisableMDEVConfiguration has been deprecated since v1.8.0"})
 }
