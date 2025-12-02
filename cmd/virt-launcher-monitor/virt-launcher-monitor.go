@@ -124,7 +124,7 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
 					wpid, err := syscall.Wait4(-1, &wstatus, syscall.WNOHANG, nil)
 					if err != nil {
 						if err == syscall.ECHILD {
-							log.Log.Reason(err).Errorf("Break reap loop")
+							log.Log.V(4).Infof("Break reap loop: %v", err)
 							break
 						}
 						log.Log.Reason(err).Errorf("Failed to reap process %d", wpid)
