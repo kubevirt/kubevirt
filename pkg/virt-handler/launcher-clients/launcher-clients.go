@@ -27,8 +27,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -145,18 +143,12 @@ func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInsta
 	l.launcherClients.Delete(vmi.UID)
 }
 
-// used by unit tests to add mock clients
-func (l *launcherClientsManager) addLauncherClient(vmUID types.UID, info *virtcache.LauncherClientInfo) error {
-	l.launcherClients.Store(vmUID, info)
-	return nil
-}
-
 func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {
 	var socketFile string
 
 	clientInfo, exists := l.launcherClients.Load(vmi.UID)
 	if exists {
-		if clientInfo.Ready == true {
+		if clientInfo.Ready {
 			// use cached socket if we previously established a connection
 			socketFile = clientInfo.SocketFile
 		} else {
