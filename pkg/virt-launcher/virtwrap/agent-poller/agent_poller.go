@@ -408,7 +408,7 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 // GET_AGENT - According to libvirt engineers this command shouldn't be used
 // by KubeVirt, because it provides irrelevant information (version and supported commands).
 func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
-	log.Log.Infof("Polling command: %v", commands)
+	log.Log.V(4).Infof("Polling command: %v", commands) //nolint:mnd
 
 	for _, command := range commands {
 		cmdResult, err := agentPoller.Connection.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, agentPoller.domainName)
@@ -444,7 +444,7 @@ func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
 }
 
 func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller *AgentPoller) {
-	log.Log.Infof("Polling API operations: %v", infoTypes)
+	log.Log.V(4).Infof("Polling API operations: %v", infoTypes) //nolint:mnd
 
 	domain, err := agentPoller.Connection.LookupDomainByName(agentPoller.domainName)
 	if err != nil {
@@ -459,7 +459,7 @@ func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller 
 
 	guestInfo, err := domain.GetGuestInfo(infoTypes, 0)
 	if err != nil {
-		log.Log.Errorf("Fetching guest info failed: %v", err)
+		log.Log.V(3).Infof("Fetching guest info failed: %v", err) //nolint:mnd
 		return
 	}
 
