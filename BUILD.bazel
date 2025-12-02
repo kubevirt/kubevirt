@@ -370,6 +370,16 @@ oci_push(
 )
 
 genrule(
+    name = "build-capability-check",
+    srcs = [
+        "//cmd/kubevirt-capability-check",
+    ],
+    outs = ["kubevirt-capability-check-copier"],
+    cmd = "echo '#!/bin/sh\n\ncp -f $(SRCS) $$1' > \"$@\"",
+    executable = 1,
+)
+
+genrule(
     name = "build-virtctl",
     srcs = [
         "//cmd/virtctl",

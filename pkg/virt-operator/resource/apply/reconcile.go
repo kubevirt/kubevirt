@@ -381,7 +381,7 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 
 	exportProxyEnabled := r.exportProxyEnabled()
 	exportProxyDeploymentsRolledOver := !exportProxyEnabled || haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
-	synchronizationControllerEnabled := r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
+	synchronizationControllerEnabled := r.IsFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
 	synchronizationControllerDeploymentRolledOver := !synchronizationControllerEnabled || haveSynchronizationControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	daemonSetsRolledOver := haveDaemonSetsRolledOver(r.targetStrategy, r.kv, r.stores)
@@ -597,7 +597,7 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
-		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+		if r.IsFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
 				return false, err
@@ -1201,7 +1201,7 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 	return nil
 }
 
-func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
+func (r *Reconciler) IsFeatureGateEnabled(featureGate string) bool {
 	if r.kv.Spec.Configuration.DeveloperConfiguration == nil {
 		return false
 	}
@@ -1216,7 +1216,7 @@ func (r *Reconciler) isFeatureGateEnabled(featureGate string) bool {
 }
 
 func (r *Reconciler) exportProxyEnabled() bool {
-	return r.isFeatureGateEnabled(featuregate.VMExportGate)
+	return r.IsFeatureGateEnabled(featuregate.VMExportGate)
 }
 
 func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {

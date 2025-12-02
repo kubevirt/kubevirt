@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["init.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/capabilities",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/capabilities/arch:go_default_library",
+        "//pkg/capabilities/core:go_default_library",
+        "//pkg/capabilities/hypervisor:go_default_library",
+        "//pkg/virt-config/featuregate:go_default_library",
+    ],
+)

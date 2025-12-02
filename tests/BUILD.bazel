@@ -90,6 +90,7 @@ go_test(
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/apimachinery/wait:go_default_library",
+        "//pkg/capabilities/core:go_default_library",
         "//pkg/cloud-init:go_default_library",
         "//pkg/config:go_default_library",
         "//pkg/controller:go_default_library",

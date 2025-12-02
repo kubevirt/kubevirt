@@ -1,6 +1,10 @@
 package decorators
 
-import . "github.com/onsi/ginkgo/v2"
+import (
+	. "github.com/onsi/ginkgo/v2"
+
+	core_capabilities "kubevirt.io/kubevirt/pkg/capabilities/core"
+)
 
 var (
 	Quarantine  = Label("QUARANTINE")
@@ -133,4 +137,8 @@ var (
 
 	// Swap decorator is used in case a swap is required on a node.
 	Swap = Label("SwapTest")
+
+	RequiresCapability = func(capabilityKey core_capabilities.CapabilityKey) Labels {
+		return Label("requires-capability-" + string(capabilityKey))
+	}
 )

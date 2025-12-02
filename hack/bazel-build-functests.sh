@@ -33,6 +33,7 @@ fi
 rm -rf "${TESTS_OUT_DIR}"
 mkdir -p "${TESTS_OUT_DIR}/tools"
 mkdir -p "${CMD_OUT_DIR}/dump"
+mkdir -p "${CMD_OUT_DIR}/kubevirt-capability-check"
 mkdir -p "${CMD_OUT_DIR}/virtctl"
 mkdir -p "${CMD_OUT_DIR}/example-guest-agent"
 
@@ -44,6 +45,7 @@ bazel build \
     --config=${HOST_ARCHITECTURE} \
     //cmd/virtctl:virtctl \
     //cmd/dump:dump \
+    //cmd/kubevirt-capability-check:kubevirt-capability-check \
     //tools/manifest-templator:templator \
     //vendor/github.com/onsi/ginkgo/v2/ginkgo:ginkgo \
     //tests:go_default_test \
@@ -62,6 +64,9 @@ bazel run \
 bazel run \
     --config=${HOST_ARCHITECTURE} \
     :build-dump -- ${CMD_OUT_DIR}/dump/dump
+bazel run \
+    --config=${HOST_ARCHITECTURE} \
+    :build-capability-check -- ${CMD_OUT_DIR}/kubevirt-capability-check/kubevirt-capability-check
 bazel run \
     --config=${HOST_ARCHITECTURE} \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl

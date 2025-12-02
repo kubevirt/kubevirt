@@ -47,6 +47,7 @@ import (
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	core_capabilities "kubevirt.io/kubevirt/pkg/capabilities/core"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -453,7 +454,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			})
 		})
 
-		Context("when guest crashes", Serial, decorators.VMIlifecycle, func() {
+		Context("when guest crashes", Serial, decorators.VMIlifecycle, decorators.RequiresCapability(core_capabilities.CapPanicDevices), func() {
 			BeforeEach(func() {
 				kvconfig.EnableFeatureGate(featuregate.PanicDevicesGate)
 			})
