@@ -12,6 +12,7 @@ go_library(
         "mediated_device.go",
         "mediated_devices_types.go",
         "pci_device.go",
+        "secure_guest_capacity_device.go",
         "socket_device.go",
         "usb_device.go",
     ],
