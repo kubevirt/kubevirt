@@ -148,7 +148,7 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 
 	clientInfo, exists := l.launcherClients.Load(vmi.UID)
 	if exists {
-		if clientInfo.Ready == true {
+		if clientInfo.Ready {
 			// use cached socket if we previously established a connection
 			socketFile = clientInfo.SocketFile
 		} else {
