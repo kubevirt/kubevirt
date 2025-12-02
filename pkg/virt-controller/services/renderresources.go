@@ -375,6 +375,34 @@ func WithSEV() ResourceRendererOption {
 	}
 }
 
+func WithTDXCapacity(useSameResourceAsKata bool) ResourceRendererOption {
+	resourceName := TdxKeysDevice
+	if useSameResourceAsKata {
+		resourceName = KataTdxKeysDevice
+	}
+
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+		requestResource(&resources, resourceName)
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+	}
+}
+
+func WithSNPCapacity(useSameResourceAsKata bool) ResourceRendererOption {
+	resourceName := SevESidsDevice
+	if useSameResourceAsKata {
+		resourceName = KataSevESidsDevice
+	}
+
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+		requestResource(&resources, resourceName)
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+	}
+}
+
 func WithPersistentReservation() ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		resources := renderer.ResourceRequirements()

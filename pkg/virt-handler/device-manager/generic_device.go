@@ -59,11 +59,17 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		permissions: permissions,
 	}
 
+	initHealth := pluginapi.Unhealthy
+	if devicePath == "" {
+		// No device is monitored, e.g. secure guest capacity
+		initHealth = pluginapi.Healthy
+	}
+
 	for i := range maxDevices {
 		deviceId := deviceName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,
-			Health: pluginapi.Unhealthy,
+			Health: initHealth,
 		})
 	}
 	dpi.deviceNameByID = dpi.deviceNameByIDFunc
@@ -73,7 +79,17 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 	return dpi
 }
 
+func (dpi *GenericDevicePlugin) emptyDevicePath() bool {
+	// For some devices, e.g. secure guest capacity device, there is no actual device
+	// like /dev/kvm, so the device path is empty, handle it in a different way
+	return dpi.devicePath == ""
+}
+
 func (dpi *GenericDevicePlugin) setupDevicePluginFunc() error {
+	if dpi.emptyDevicePath() {
+		return nil
+	}
+
 	// The kernel module(s) for some devices, like tun and vhost-net, auto-load when needed.
 	// That need is identified by the first access to their main device node.
 	// Opening and closing the device nodes here will trigger any necessary modprobe.
@@ -91,20 +107,31 @@ func (dpi *GenericDevicePlugin) allocateDPFunc(ctx context.Context, r *pluginapi
 	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
 	response := pluginapi.AllocateResponse{}
-	containerResponse := new(pluginapi.ContainerAllocateResponse)
 
-	dev := new(pluginapi.DeviceSpec)
-	dev.HostPath = dpi.devicePath
-	dev.ContainerPath = dpi.devicePath
-	dev.Permissions = dpi.permissions
-	containerResponse.Devices = []*pluginapi.DeviceSpec{dev}
+	if dpi.emptyDevicePath() {
+		for range r.ContainerRequests {
+			containerResponse := new(pluginapi.ContainerAllocateResponse)
+			response.ContainerResponses = append(response.ContainerResponses, containerResponse)
+		}
+	} else {
+		containerResponse := new(pluginapi.ContainerAllocateResponse)
+		dev := new(pluginapi.DeviceSpec)
+		dev.HostPath = dpi.devicePath
+		dev.ContainerPath = dpi.devicePath
+		dev.Permissions = dpi.permissions
+		containerResponse.Devices = []*pluginapi.DeviceSpec{dev}
 
-	response.ContainerResponses = []*pluginapi.ContainerAllocateResponse{containerResponse}
+		response.ContainerResponses = []*pluginapi.ContainerAllocateResponse{containerResponse}
+	}
 
 	return &response, nil
 }
 
 func (dpi *GenericDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+	if dpi.emptyDevicePath() {
+		return nil
+	}
+
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 	deviceDirPath := filepath.Dir(devicePath)
 	// Note: Directly watching the device path is not recommended and instead we watch the directory path

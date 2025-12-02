@@ -119,6 +119,37 @@ func PermanentHostDevicePlugins(maxDevices int, permissions string) []devicePlug
 	return ret
 }
 
+func SecureGuestCapacityDevicePlugins() []devicePlugin {
+	// Consider AMD-SNP and Intel-TDX only
+	var capacityDeviceNames = map[string]string{
+		"sev_es": "sev-esids",
+		"tdx":    "tdx-keys",
+	}
+
+	caps, err := util.GetSecureGuestCapacity()
+	if err != nil {
+		log.Log.Reason(err).Errorf("Error getting secure guest capacity")
+		return nil
+	}
+
+	if len(caps) == 0 {
+		log.Log.V(4).Infof("No secure guest capacity available")
+		return nil
+	}
+
+	plugins := []devicePlugin{}
+	for capKey, capacity := range caps {
+		deviceName, existed := capacityDeviceNames[capKey]
+		if existed {
+			cvmPlugin := NewGenericDevicePlugin(deviceName, "", capacity, "", false)
+			log.Log.Infof("Secure guest capacity device plugin created: capacity=%d, resource=%s", capacity, cvmPlugin.resourceName)
+			plugins = append(plugins, cvmPlugin)
+		}
+	}
+
+	return plugins
+}
+
 type DeviceControllerInterface interface {
 	Initialized() bool
 	RefreshMediatedDeviceTypes()
@@ -191,6 +222,13 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []devicePlugin {
 				permittedDevices,
 				NewGenericDevicePlugin(dev.Name, dev.Path, c.maxDevices, c.permissions, true),
 			)
+		}
+	}
+
+	if !c.virtConfig.SecureGuestCapacityExtendedResourceEnabled() {
+		cvmPlugins := SecureGuestCapacityDevicePlugins()
+		if len(cvmPlugins) > 0 {
+			permittedDevices = append(permittedDevices, cvmPlugins...)
 		}
 	}
 
