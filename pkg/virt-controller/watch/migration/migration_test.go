@@ -2425,7 +2425,7 @@ var _ = Describe("Migration watcher", func() {
 
 		It("existing items should keep low priority after regular Add", func() {
 			controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-				Priority: migrationsutil.QueuePriorityPending,
+				Priority: pointer.P(migrationsutil.QueuePriorityPending),
 			}, "default/testmigrationpending")
 
 			// Simulating what we do with informer handler
@@ -2448,12 +2448,12 @@ var _ = Describe("Migration watcher", func() {
 		It("should get items in order based on priority", func() {
 			for i := range 5 {
 				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-					Priority: migrationsutil.QueuePriorityPending,
+					Priority: pointer.P(migrationsutil.QueuePriorityPending),
 				}, fmt.Sprintf("default/pending%d", i))
 			}
 			for i := range 5 {
 				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-					Priority: migrationsutil.QueuePriorityRunning,
+					Priority: pointer.P(migrationsutil.QueuePriorityRunning),
 				}, fmt.Sprintf("default/active%d", i))
 			}
 			// Add should not change active3's priority
