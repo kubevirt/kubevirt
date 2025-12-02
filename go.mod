@@ -77,7 +77,7 @@ require (
 	kubevirt.io/qe-tools v0.1.8
 	libvirt.org/go/libvirt v1.11005.0
 	libvirt.org/go/libvirtxml v1.11000.1
-	sigs.k8s.io/controller-runtime v0.20.2
+	sigs.k8s.io/controller-runtime v0.22.4
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.6.0
 )
