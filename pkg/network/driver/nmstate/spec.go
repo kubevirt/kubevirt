@@ -194,12 +194,6 @@ func (n NMState) setupInterface(iface Interface, link vishnetlink.Link) error {
 		}
 	}
 
-	if iface.Ethtool.Feature.TxChecksum != nil && !(*iface.Ethtool.Feature.TxChecksum) {
-		if err := n.adapter.TXChecksumOff(iface.Name); err != nil {
-			return err
-		}
-	}
-
 	if iface.Controller != "" {
 		bridgeLink := vishnetlink.Bridge{}
 		bridgeLink.Name = iface.Controller
