@@ -20,7 +20,7 @@
 package launcher_clients
 
 import (
-	goerror "errors"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -30,12 +30,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 )
 
 type LauncherClientsManager interface {
@@ -210,7 +209,7 @@ func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, v
 		for {
 			fd, err := ln.Accept()
 			if err != nil {
-				if goerror.Is(err, net.ErrClosed) {
+				if errors.Is(err, net.ErrClosed) {
 					// As Accept blocks, closing it is our mechanism to exit this loop
 					return
 				}
@@ -276,34 +275,10 @@ func (l *launcherClientsManager) startDomainNotifyPipe(domainPipeStopChan chan s
 		return fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
 	}
 
-	// inject the domain-notify.sock into the VMI pod.
-	root, err := res.MountRoot()
+	listener, err := pipe.InjectNotify(res, l.virtShareDir, util.IsNonRootVMI(vmi))
 	if err != nil {
 		return err
 	}
-	socketDir, err := root.AppendAndResolveWithRelativeRoot(l.virtShareDir)
-	if err != nil {
-		return err
-	}
-
-	listener, err := safepath.ListenUnixNoFollow(socketDir, "domain-notify-pipe.sock")
-	if err != nil {
-		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
-		return err
-	}
-
-	if util.IsNonRootVMI(vmi) {
-		socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
-		if err != nil {
-			return err
-		}
-		err = diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
-		if err != nil {
-			log.Log.Reason(err).Error("unable to change ownership for domain notify")
-			return err
-		}
-	}
-
 	handleDomainNotifyPipe(domainPipeStopChan, listener, l.virtShareDir, vmi)
 
 	return nil
