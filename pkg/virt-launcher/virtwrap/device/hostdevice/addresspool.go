@@ -48,7 +48,7 @@ func (p *AddressPool) load(resourcePrefix string, resources []string) {
 		addressEnvVarName := util.ResourceNameToEnvVar(resourcePrefix, resource)
 		addressString, isSet := os.LookupEnv(addressEnvVarName)
 		if !isSet {
-			log.Log.Warningf("%s not set for resource %s", addressEnvVarName, resource)
+			log.Log.V(3).Infof("%s not set for resource %s", addressEnvVarName, resource)
 			continue
 		}
 
