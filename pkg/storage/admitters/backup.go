@@ -83,18 +83,29 @@ func (admitter *VMBackupAdmitter) Admit(ctx context.Context, ar *admissionv1.Adm
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
-		sourceField := k8sfield.NewPath("spec", "source")
 
-		// source is required until VirtualMachineBackupTracker is introduced
-		if vmBackup.Spec.Source == nil {
+		// Validate that exactly one of Source or BackupTracker is specified
+		if vmBackup.Spec.Source == nil && vmBackup.Spec.BackupTracker == nil {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "must specify backup source",
-				Field:   sourceField.String(),
+				Message: "must specify either source or backupTracker",
+				Field:   k8sfield.NewPath("spec").String(),
 			})
 			return webhookutils.ToAdmissionResponse(causes)
 		}
-		causes = validateSource(vmBackup.Spec.Source, causes)
+
+		if vmBackup.Spec.Source != nil && vmBackup.Spec.BackupTracker != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "source and backupTracker are mutually exclusive",
+				Field:   k8sfield.NewPath("spec").String(),
+			})
+			return webhookutils.ToAdmissionResponse(causes)
+		}
+
+		if vmBackup.Spec.Source != nil {
+			causes = validateSource(vmBackup.Spec.Source, causes)
+		}
 		causes = validateBackupMode(vmBackup, causes)
 
 	case admissionv1.Update:
@@ -230,4 +241,80 @@ func validatePVCNameExists(vmBackup *backupv1.VirtualMachineBackup, causes []met
 		})
 	}
 	return causes
+}
+
+// VMBackupTrackerAdmitter validates VirtualMachineBackupTrackers
+type VMBackupTrackerAdmitter struct {
+	Config *virtconfig.ClusterConfig
+}
+
+// NewVMBackupTrackerAdmitter creates a VMBackupTrackerAdmitter
+func NewVMBackupTrackerAdmitter(config *virtconfig.ClusterConfig) *VMBackupTrackerAdmitter {
+	return &VMBackupTrackerAdmitter{
+		Config: config,
+	}
+}
+
+// Admit validates an AdmissionReview for VirtualMachineBackupTracker
+func (admitter *VMBackupTrackerAdmitter) Admit(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
+	if ar.Request.Resource.Group != backupv1.SchemeGroupVersion.Group ||
+		ar.Request.Resource.Resource != "virtualmachinebackuptrackers" {
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
+	}
+
+	if ar.Request.Operation == admissionv1.Create && !admitter.Config.IncrementalBackupEnabled() {
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("IncrementalBackup feature gate not enabled"))
+	}
+
+	backupTracker := &backupv1.VirtualMachineBackupTracker{}
+	err := json.Unmarshal(ar.Request.Object.Raw, backupTracker)
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	}
+
+	var causes []metav1.StatusCause
+
+	switch ar.Request.Operation {
+	case admissionv1.Create:
+		sourceField := k8sfield.NewPath("spec", "source")
+
+		if backupTracker.Spec.Source.Name == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotFound,
+				Message: "must specify source",
+				Field:   sourceField.String(),
+			})
+			return webhookutils.ToAdmissionResponse(causes)
+		}
+
+		causes = validateSource(&backupTracker.Spec.Source, causes)
+
+	case admissionv1.Update:
+		prevObj := &backupv1.VirtualMachineBackupTracker{}
+		err = json.Unmarshal(ar.Request.OldObject.Raw, prevObj)
+		if err != nil {
+			return webhookutils.ToAdmissionResponseError(err)
+		}
+
+		if !equality.Semantic.DeepEqual(prevObj.Spec, backupTracker.Spec) {
+			causes = []metav1.StatusCause{
+				{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "spec is immutable after creation",
+					Field:   k8sfield.NewPath("spec").String(),
+				},
+			}
+		}
+	default:
+		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected operation %s", ar.Request.Operation))
+	}
+
+	if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	reviewResponse := admissionv1.AdmissionResponse{
+		Allowed: true,
+	}
+	return &reviewResponse
 }
