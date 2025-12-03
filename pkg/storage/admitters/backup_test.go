@@ -48,7 +48,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 		kvStore          cache.Store
 		vmBackupInformer cache.SharedIndexInformer
 		admitter         *VMBackupAdmitter
-		sourceRef        *corev1.TypedLocalObjectReference
+		sourceRef        corev1.TypedLocalObjectReference
 	)
 
 	const (
@@ -60,7 +60,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 		enableFeatureGate(kvStore, "IncrementalBackup")
 		vmBackupInformer = createTestVMBackupInformer()
 		admitter = createTestVMBackupAdmitter(config, vmBackupInformer)
-		sourceRef = &corev1.TypedLocalObjectReference{
+		sourceRef = corev1.TypedLocalObjectReference{
 			APIGroup: pointer.P(apiGroup),
 			Kind:     "VirtualMachine",
 			Name:     vmName,
@@ -141,7 +141,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 					Namespace: "default",
 				},
 				Spec: backupv1.VirtualMachineBackupSpec{
-					Source: &corev1.TypedLocalObjectReference{
+					Source: corev1.TypedLocalObjectReference{
 						APIGroup: pointer.P(apiGroup),
 						Kind:     "VirtualMachine",
 						Name:     vmName,
@@ -158,7 +158,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 					Namespace: "default",
 				},
 				Spec: backupv1.VirtualMachineBackupSpec{
-					Source: &corev1.TypedLocalObjectReference{
+					Source: corev1.TypedLocalObjectReference{
 						APIGroup: pointer.P(apiGroup),
 						Kind:     "VirtualMachine",
 						Name:     vmName,
@@ -260,27 +260,10 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 	})
 
 	Context("Source validation", func() {
-		// source is required until VirtualMachineBackupTracker is introduced
-		It("should reject if source is not provided", func() {
-			backup := &backupv1.VirtualMachineBackup{
-				Spec: backupv1.VirtualMachineBackupSpec{
-					PvcName: pointer.P("test-pvc"),
-				},
-			}
-
-			ar := createBackupAdmissionReview(backup)
-			resp := admitter.Admit(context.Background(), ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Details.Causes).To(HaveLen(1))
-			Expect(resp.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueNotFound))
-			Expect(resp.Result.Details.Causes[0].Message).Should(Equal("must specify backup source"))
-			Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.source"))
-		})
-
 		It("should reject if source apiGroup is missing", func() {
 			backup := &backupv1.VirtualMachineBackup{
 				Spec: backupv1.VirtualMachineBackupSpec{
-					Source: &corev1.TypedLocalObjectReference{
+					Source: corev1.TypedLocalObjectReference{
 						Kind: "VirtualMachine",
 						Name: vmName,
 					},
@@ -301,7 +284,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 			invalidAPIGroup := "invalid.group.io"
 			backup := &backupv1.VirtualMachineBackup{
 				Spec: backupv1.VirtualMachineBackupSpec{
-					Source: &corev1.TypedLocalObjectReference{
+					Source: corev1.TypedLocalObjectReference{
 						APIGroup: &invalidAPIGroup,
 						Kind:     "VirtualMachine",
 						Name:     vmName,
@@ -322,7 +305,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 		It("should reject if source kind is invalid", func() {
 			backup := &backupv1.VirtualMachineBackup{
 				Spec: backupv1.VirtualMachineBackupSpec{
-					Source: &corev1.TypedLocalObjectReference{
+					Source: corev1.TypedLocalObjectReference{
 						APIGroup: pointer.P(apiGroup),
 						Kind:     "InvalidKind",
 						Name:     vmName,
@@ -343,7 +326,7 @@ var _ = Describe("Validating VirtualMachineBackup Admitter", func() {
 		It("should reject if source name is missing", func() {
 			backup := &backupv1.VirtualMachineBackup{
 				Spec: backupv1.VirtualMachineBackupSpec{
-					Source: &corev1.TypedLocalObjectReference{
+					Source: corev1.TypedLocalObjectReference{
 						APIGroup: pointer.P(apiGroup),
 						Kind:     "VirtualMachine",
 						Name:     "",
