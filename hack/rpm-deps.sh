@@ -113,7 +113,6 @@ launcherbase_s390x="
   qemu-kvm-device-display-virtio-gpu-ccw-${QEMU_VERSION}
 "
 launcherbase_extra="
-  ethtool
   findutils
   nftables
   nmap-ncat
