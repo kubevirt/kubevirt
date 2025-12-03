@@ -20,6 +20,7 @@
 package launcher_clients
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
@@ -48,7 +49,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			var serverStopChan chan struct{}
 			var serverIsStoppedChan chan struct{}
 			var stoppedServer bool
-			var domainPipeStopChan chan struct{}
+			var ctx context.Context
+			var cancel context.CancelFunc
 			var stoppedPipe bool
 			var eventChan chan watch.Event
 			var client *notifyclient.Notifier
@@ -58,7 +60,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			BeforeEach(func() {
 				var err error
 				serverStopChan = make(chan struct{})
-				domainPipeStopChan = make(chan struct{})
+				ctx, cancel = context.WithCancel(context.Background())
 				serverIsStoppedChan = make(chan struct{})
 				eventChan = make(chan watch.Event, 100)
 				stoppedServer = false
@@ -84,7 +86,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 					close(serverStopChan)
 				}
 				if stoppedPipe == false {
-					close(domainPipeStopChan)
+					cancel()
 				}
 				client.Close()
 				os.RemoveAll(shareDir)
@@ -107,7 +109,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				listener, err := net.Listen("unix", pipePath)
 				Expect(err).ToNot(HaveOccurred())
 
-				handleDomainNotifyPipe(domainPipeStopChan, listener, shareDir, vmi)
+				handleDomainNotifyPipe(ctx, listener, shareDir, vmi)
 				time.Sleep(1)
 
 				client = notifyclient.NewNotifier(pipeDir)
@@ -153,7 +155,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				listener, err := net.Listen("unix", pipePath)
 				Expect(err).ToNot(HaveOccurred())
 
-				handleDomainNotifyPipe(domainPipeStopChan, listener, shareDir, vmi)
+				handleDomainNotifyPipe(ctx, listener, shareDir, vmi)
 				time.Sleep(1)
 
 				// Expect the client to reconnect and succeed despite initial failure
@@ -179,7 +181,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				listener, err := net.Listen("unix", pipePath)
 				Expect(err).ToNot(HaveOccurred())
 
-				handleDomainNotifyPipe(domainPipeStopChan, listener, shareDir, vmi)
+				handleDomainNotifyPipe(ctx, listener, shareDir, vmi)
 				time.Sleep(1)
 
 				client = notifyclient.NewNotifier(pipeDir)

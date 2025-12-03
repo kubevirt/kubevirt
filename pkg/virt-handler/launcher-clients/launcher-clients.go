@@ -20,6 +20,7 @@
 package launcher_clients
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -189,13 +190,13 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 	return cmdclient.IsSocketUnresponsive(socketFile), true, nil
 }
 
-func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
+func handleDomainNotifyPipe(ctx context.Context, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
 
 	fdChan := make(chan net.Conn, 100)
 
 	// Close listener and exit when stop encountered
 	go func() {
-		<-domainPipeStopChan
+		<-ctx.Done()
 		log.Log.Object(vmi).Infof("closing notify pipe listener for vmi")
 		if err := ln.Close(); err != nil {
 			log.Log.Object(vmi).Infof("failed closing notify pipe listener for vmi: %v", err)
@@ -203,7 +204,7 @@ func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, v
 	}()
 
 	// Listen for new connections,
-	go func(vmi *v1.VirtualMachineInstance, ln net.Listener, domainPipeStopChan chan struct{}) {
+	go func(vmi *v1.VirtualMachineInstance, ln net.Listener) {
 		for {
 			fd, err := ln.Accept()
 			if err != nil {
@@ -218,20 +219,20 @@ func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, v
 				fdChan <- fd
 			}
 		}
-	}(vmi, ln, domainPipeStopChan)
+	}(vmi, ln)
 
 	// Process new connections
 	// exit when stop encountered
-	go func(vmi *v1.VirtualMachineInstance, fdChan chan net.Conn, domainPipeStopChan chan struct{}) {
+	go func(vmi *v1.VirtualMachineInstance, fdChan chan net.Conn, ctx context.Context) {
 		for {
 			select {
-			case <-domainPipeStopChan:
+			case <-ctx.Done():
 				return
 			case fd := <-fdChan:
 				go pipe.Proxy(log.Log.Object(vmi), fd, pipe.NewConnectToNotifyFunc(virtShareDir))
 			}
 		}
-	}(vmi, fdChan, domainPipeStopChan)
+	}(vmi, fdChan, ctx)
 }
 
 func (l *launcherClientsManager) startDomainNotifyPipe(domainPipeStopChan chan struct{}, vmi *v1.VirtualMachineInstance) error {
@@ -245,7 +246,12 @@ func (l *launcherClientsManager) startDomainNotifyPipe(domainPipeStopChan chan s
 	if err != nil {
 		return err
 	}
-	handleDomainNotifyPipe(domainPipeStopChan, listener, l.virtShareDir, vmi)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-domainPipeStopChan
+		cancel()
+	}()
+	handleDomainNotifyPipe(ctx, listener, l.virtShareDir, vmi)
 
 	return nil
 }
