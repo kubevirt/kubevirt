@@ -72,6 +72,7 @@ func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *res
 		return
 	}
 
+	lh.recorder.Eventf(vmi, k8sv1.EventTypeNormal, "Paused", "VirtualMachineInstance paused")
 	response.WriteHeader(http.StatusAccepted)
 }
 
@@ -89,6 +90,7 @@ func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *r
 		return
 	}
 
+	lh.recorder.Eventf(vmi, k8sv1.EventTypeNormal, "Unpaused", "VirtualMachineInstance unpaused")
 	response.WriteHeader(http.StatusAccepted)
 }
 
