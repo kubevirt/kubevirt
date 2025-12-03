@@ -1438,6 +1438,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewWatchdogDomainConfigurator(architecture),
 		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
 		compute.PanicDevicesDomainConfigurator{},
+		compute.NewControllerDomainConfigurator(
+			compute.WithUSBConfigurator(c.Architecture),
+		),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1664,17 +1667,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if err != nil {
 		return err
 	}
-
-	// Creating USB controller, disabled by default
-	usbController := api.Controller{
-		Type:  "usb",
-		Index: "0",
-		Model: "none",
-	}
-	if c.Architecture.IsUSBNeeded(vmi) {
-		usbController.Model = "qemu-xhci"
-	}
-	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
 
 	if needsSCSIController(vmi) {
 		scsiController := c.Architecture.ScsiController(virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
