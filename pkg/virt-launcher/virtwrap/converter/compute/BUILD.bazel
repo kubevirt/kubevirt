@@ -43,6 +43,7 @@ go_test(
         "clock_test.go",
         "compute_suite_test.go",
         "console_test.go",
+        "controller_test.go",
         "graphics_test.go",
         "host_device_test.go",
         "input_device_test.go",
