@@ -2475,5 +2475,8 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 	if backupMetadata.BackupMsg != "" {
 		vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg = &backupMetadata.BackupMsg
 	}
+	if backupMetadata.CheckpointName != "" {
+		vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName = &backupMetadata.CheckpointName
+	}
 	// TODO: Handle backup failure (backupMetadata.Failed) and abort status (backupMetadata.AbortStatus)
 }
