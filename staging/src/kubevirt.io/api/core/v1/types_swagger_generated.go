@@ -529,6 +529,7 @@ func (VirtualMachineInstanceBackupStatus) SwaggerDoc() map[string]string {
 		"endTimestamp":   "EndTimestamp is the timestamp when the backup ended",
 		"completed":      "Completed indicates the backup completed",
 		"backupMsg":      "BackupMsg resturns any relevant information like failure reason\nunfreeze failed etc...\n+optional",
+		"checkpointName": "CheckpointName is the name of the checkpoint created for the backup\n+optional",
 	}
 }
 

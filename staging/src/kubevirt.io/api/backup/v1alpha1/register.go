@@ -52,6 +52,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&VirtualMachineBackup{},
 		&VirtualMachineBackupList{},
+		&VirtualMachineBackupTracker{},
+		&VirtualMachineBackupTrackerList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

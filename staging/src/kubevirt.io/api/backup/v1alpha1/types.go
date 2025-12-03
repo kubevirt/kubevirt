@@ -33,12 +33,20 @@ const (
 	PushMode BackupMode = "Push"
 )
 
+type BackupCheckpoint struct {
+	Name         string       `json:"name,omitempty"`
+	CreationTime *metav1.Time `json:"creationTime,omitempty"`
+}
+
 // BackupType is the const type for the backup possible types
 type BackupType string
 
 const (
 	// Full defines full backup, all the data is in the backup
 	Full BackupType = "Full"
+	// Incremental defines incremental backup, only changes from given checkpoint
+	// are in the backup
+	Incremental BackupType = "Incremental"
 )
 
 // BackupCmd is the const type for the backup possible commands
@@ -54,8 +62,46 @@ type BackupOptions struct {
 	Cmd             BackupCmd    `json:"cmd,omitempty"`
 	Mode            BackupMode   `json:"mode,omitempty"`
 	BackupStartTime *metav1.Time `json:"backupStartTime,omitempty"`
+	Incremental     *string      `json:"incremental,omitempty"`
 	PushPath        *string      `json:"pushPath,omitempty"`
 	SkipQuiesce     bool         `json:"skipQuiesce,omitempty"`
+}
+
+// VirtualMachineBackupTracker defines the way to track the latest checkpoint of
+// a backup solution for a vm
+// +k8s:openapi-gen=true
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachineBackupTracker struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec VirtualMachineBackupTrackerSpec `json:"spec"`
+
+	// +optional
+	Status *VirtualMachineBackupTrackerStatus `json:"status,omitempty"`
+}
+
+// VirtualMachineBackupTrackerSpec is the spec for a VirtualMachineBackupTracker resource
+type VirtualMachineBackupTrackerSpec struct {
+	// Source specifies the VM that this backupTracker is associated with
+	Source corev1.TypedLocalObjectReference `json:"source"`
+}
+
+type VirtualMachineBackupTrackerStatus struct {
+	// +optional
+	// LatestCheckpoint is the metadata of the checkpoint of
+	// the latest preformed backup
+	LatestCheckpoint *BackupCheckpoint `json:"latestCheckpoint,omitempty"`
+}
+
+// VirtualMachineBackupTrackerList is a list of VirtualMachineBackupTracker resources
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachineBackupTrackerList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	// +listType=atomic
+	Items []VirtualMachineBackupTracker `json:"items"`
 }
 
 // VirtualMachineBackup defines the operation of backing up a VM
@@ -88,6 +134,14 @@ type VirtualMachineBackupSpec struct {
 	// If not provided, a reference to a VirtualMachineBackupTracker must be specified instead
 	Source *corev1.TypedLocalObjectReference `json:"source,omitempty"`
 	// +optional
+	// BackupTracker is a reference to a VirtualMachineBackupTracker object
+	// which tracks for a specific VM the latest checkpoint for incremental backups.
+	// The referenced tracker will be used to get the source VM for the backup
+	// and the base checkpoint for incremental backup. The tracker will be updated
+	// with the new checkpoint after backup completion.
+	// If not specified, Source must be provided and a full backup will be performed.
+	BackupTracker *corev1.LocalObjectReference `json:"backupTracker,omitempty"`
+	// +optional
 	// Mode specifies the way the backup output will be recieved
 	Mode *BackupMode `json:"mode,omitempty"`
 	// +optional
@@ -110,6 +164,9 @@ type VirtualMachineBackupStatus struct {
 	// +optional
 	// +listType=atomic
 	Conditions []Condition `json:"conditions,omitempty"`
+	// +optional
+	// CheckpointName the name of the checkpoint created for the current backup
+	CheckpointName *string `json:"checkpointName,omitempty"`
 }
 
 // ConditionType is the const type for Conditions
