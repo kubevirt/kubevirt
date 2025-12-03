@@ -990,7 +990,7 @@ func convertFeatureState(source *v1.FeatureState) *api.FeatureState {
 	return nil
 }
 
-func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Features, c *ConverterContext) error {
+func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Features, useLaunchSecurityTDX bool) error {
 	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
 		features.ACPI = &api.FeatureEnabled{}
 	}
@@ -1028,7 +1028,7 @@ func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Feat
 		}
 	}
 
-	if c.UseLaunchSecurityTDX {
+	if useLaunchSecurityTDX {
 		features.PMU = &api.FeatureState{
 			State: "off",
 		}
@@ -1686,7 +1686,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	if vmi.Spec.Domain.Features != nil {
 		domain.Spec.Features = &api.Features{}
-		err := Convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, c)
+		err := Convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, c.UseLaunchSecurityTDX)
 
 		if c.Architecture.HasVMPort() {
 			domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
