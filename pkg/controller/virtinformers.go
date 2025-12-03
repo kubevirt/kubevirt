@@ -134,6 +134,9 @@ type KubeInformerFactory interface {
 	// Watches VirtualMachineBackup objects
 	VirtualMachineBackup() cache.SharedIndexInformer
 
+	// Watches VirtualMachineBackupTracker objects
+	VirtualMachineBackupTracker() cache.SharedIndexInformer
+
 	// Watches VirtualMachineExport objects
 	VirtualMachineExport() cache.SharedIndexInformer
 
@@ -647,6 +650,18 @@ func GetVirtualMachineBackupInformerIndexers() cache.Indexers {
 
 			return nil, nil
 		},
+		"backupTracker": func(obj interface{}) ([]string, error) {
+			backup, ok := obj.(*backupv1.VirtualMachineBackup)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if backup.Spec.BackupTracker != nil {
+				return []string{fmt.Sprintf("%s/%s", backup.Namespace, backup.Spec.BackupTracker.Name)}, nil
+			}
+
+			return nil, nil
+		},
 	}
 }
 
@@ -654,6 +669,34 @@ func (f *kubeInformerFactory) VirtualMachineBackup() cache.SharedIndexInformer {
 	return f.getInformer("vmBackupInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().BackupV1alpha1().RESTClient(), "virtualmachinebackups", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &backupv1.VirtualMachineBackup{}, f.defaultResync, GetVirtualMachineBackupInformerIndexers())
+	})
+}
+
+func GetVirtualMachineBackupTrackerInformerIndexers() cache.Indexers {
+	return cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		"vmi": func(obj interface{}) ([]string, error) {
+			tracker, ok := obj.(*backupv1.VirtualMachineBackupTracker)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			source := tracker.Spec.Source
+			if source.APIGroup != nil &&
+				*source.APIGroup == core.GroupName &&
+				source.Kind == "VirtualMachine" {
+				return []string{fmt.Sprintf("%s/%s", tracker.Namespace, source.Name)}, nil
+			}
+
+			return nil, nil
+		},
+	}
+}
+
+func (f *kubeInformerFactory) VirtualMachineBackupTracker() cache.SharedIndexInformer {
+	return f.getInformer("vmBackupTrackerInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().BackupV1alpha1().RESTClient(), "virtualmachinebackuptrackers", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &backupv1.VirtualMachineBackupTracker{}, f.defaultResync, GetVirtualMachineBackupTrackerInformerIndexers())
 	})
 }
 
