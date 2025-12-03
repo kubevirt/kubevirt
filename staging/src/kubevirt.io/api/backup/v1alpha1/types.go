@@ -83,8 +83,12 @@ type VirtualMachineBackupTracker struct {
 }
 
 // VirtualMachineBackupTrackerSpec is the spec for a VirtualMachineBackupTracker resource
+// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec is immutable after creation"
 type VirtualMachineBackupTrackerSpec struct {
 	// Source specifies the VM that this backupTracker is associated with
+	// +kubebuilder:validation:XValidation:rule="has(self.apiGroup) && self.apiGroup == 'kubevirt.io'",message="apiGroup must be kubevirt.io"
+	// +kubebuilder:validation:XValidation:rule="self.kind == 'VirtualMachine'",message="kind must be VirtualMachine"
+	// +kubebuilder:validation:XValidation:rule="self.name != ''",message="name is required"
 	Source corev1.TypedLocalObjectReference `json:"source"`
 }
 
@@ -128,14 +132,21 @@ type VirtualMachineBackupList struct {
 }
 
 // VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource
+// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="spec is immutable after creation"
+// +kubebuilder:validation:XValidation:rule="(has(self.mode) && self.mode != 'Push') || (has(self.pvcName) && self.pvcName != \"\")",message="pvcName must be provided when mode is unset or Push"
 type VirtualMachineBackupSpec struct {
 	// Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker.
 	// When Kind is VirtualMachine: performs a backup of the specified VM.
 	// When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM
 	// and the base checkpoint for incremental backup. The tracker will be updated
 	// with the new checkpoint after backup completion.
+	// +kubebuilder:validation:XValidation:rule="has(self.apiGroup)",message="apiGroup is required"
+	// +kubebuilder:validation:XValidation:rule="!has(self.apiGroup) || self.apiGroup == 'kubevirt.io' || self.apiGroup == 'backup.kubevirt.io'",message="apiGroup must be kubevirt.io or backup.kubevirt.io"
+	// +kubebuilder:validation:XValidation:rule="!has(self.apiGroup) || (self.apiGroup == 'kubevirt.io' && self.kind == 'VirtualMachine') || (self.apiGroup == 'backup.kubevirt.io' && self.kind == 'VirtualMachineBackupTracker')",message="kind must be VirtualMachine for kubevirt.io or VirtualMachineBackupTracker for backup.kubevirt.io"
+	// +kubebuilder:validation:XValidation:rule="self.name != ''",message="name is required"
 	Source corev1.TypedLocalObjectReference `json:"source"`
 	// +optional
+	// +kubebuilder:validation:Enum=Push
 	// Mode specifies the way the backup output will be recieved
 	Mode *BackupMode `json:"mode,omitempty"`
 	// +optional

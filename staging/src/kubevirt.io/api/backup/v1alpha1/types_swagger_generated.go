@@ -21,8 +21,8 @@ func (VirtualMachineBackupTracker) SwaggerDoc() map[string]string {
 
 func (VirtualMachineBackupTrackerSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":       "VirtualMachineBackupTrackerSpec is the spec for a VirtualMachineBackupTracker resource",
-		"source": "Source specifies the VM that this backupTracker is associated with",
+		"":       "VirtualMachineBackupTrackerSpec is the spec for a VirtualMachineBackupTracker resource\n+kubebuilder:validation:XValidation:rule=\"self == oldSelf\",message=\"spec is immutable after creation\"",
+		"source": "Source specifies the VM that this backupTracker is associated with\n+kubebuilder:validation:XValidation:rule=\"has(self.apiGroup) && self.apiGroup == 'kubevirt.io'\",message=\"apiGroup must be kubevirt.io\"\n+kubebuilder:validation:XValidation:rule=\"self.kind == 'VirtualMachine'\",message=\"kind must be VirtualMachine\"\n+kubebuilder:validation:XValidation:rule=\"self.name != ''\",message=\"name is required\"",
 	}
 }
 
@@ -55,9 +55,9 @@ func (VirtualMachineBackupList) SwaggerDoc() map[string]string {
 
 func (VirtualMachineBackupSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":                "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource",
-		"source":          "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker.\nWhen Kind is VirtualMachine: performs a backup of the specified VM.\nWhen Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM\nand the base checkpoint for incremental backup. The tracker will be updated\nwith the new checkpoint after backup completion.",
-		"mode":            "+optional\nMode specifies the way the backup output will be recieved",
+		"":                "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource\n+kubebuilder:validation:XValidation:rule=\"self == oldSelf\",message=\"spec is immutable after creation\"\n+kubebuilder:validation:XValidation:rule=\"(has(self.mode) && self.mode != 'Push') || (has(self.pvcName) && self.pvcName != \\\"\\\")\",message=\"pvcName must be provided when mode is unset or Push\"",
+		"source":          "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker.\nWhen Kind is VirtualMachine: performs a backup of the specified VM.\nWhen Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM\nand the base checkpoint for incremental backup. The tracker will be updated\nwith the new checkpoint after backup completion.\n+kubebuilder:validation:XValidation:rule=\"has(self.apiGroup)\",message=\"apiGroup is required\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.apiGroup) || self.apiGroup == 'kubevirt.io' || self.apiGroup == 'backup.kubevirt.io'\",message=\"apiGroup must be kubevirt.io or backup.kubevirt.io\"\n+kubebuilder:validation:XValidation:rule=\"!has(self.apiGroup) || (self.apiGroup == 'kubevirt.io' && self.kind == 'VirtualMachine') || (self.apiGroup == 'backup.kubevirt.io' && self.kind == 'VirtualMachineBackupTracker')\",message=\"kind must be VirtualMachine for kubevirt.io or VirtualMachineBackupTracker for backup.kubevirt.io\"\n+kubebuilder:validation:XValidation:rule=\"self.name != ''\",message=\"name is required\"",
+		"mode":            "+optional\n+kubebuilder:validation:Enum=Push\nMode specifies the way the backup output will be recieved",
 		"pvcName":         "+optional\nPvcName required in push mode. Specifies the name of the PVC\nwhere the backup output will be stored",
 		"skipQuiesce":     "+optional\nSkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
 		"forceFullBackup": "+optional\nForceFullBackup indicates that a full backup is desired",

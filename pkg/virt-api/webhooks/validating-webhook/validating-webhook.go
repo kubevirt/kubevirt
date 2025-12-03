@@ -94,6 +94,10 @@ func ServeVMBackups(resp http.ResponseWriter, req *http.Request, clusterConfig *
 	validating_webhooks.Serve(resp, req, storageadmitters.NewVMBackupAdmitter(clusterConfig, virtCli, informers.VMBackupInformer))
 }
 
+func ServeVMBackupTrackers(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	validating_webhooks.Serve(resp, req, storageadmitters.NewVMBackupTrackerAdmitter(clusterConfig))
+}
+
 func ServeVMExports(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
 	validating_webhooks.Serve(resp, req, storageadmitters.NewVMExportAdmitter(clusterConfig))
 }

@@ -302,6 +302,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	vmSnapshotValidatePath := VMSnapshotValidatePath
 	vmRestoreValidatePath := VMRestoreValidatePath
 	vmBackupValidatePath := VMBackupValidatePath
+	vmBackupTrackerValidatePath := VMBackupTrackerValidatePath
 	vmExportValidatePath := VMExportValidatePath
 	VmInstancetypeValidatePath := VMInstancetypeValidatePath
 	VmClusterInstancetypeValidatePath := VMClusterInstancetypeValidatePath
@@ -664,6 +665,31 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				},
 			},
 			{
+				Name:                    "virtualmachinebackuptracker-validator.backup.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{backupv1.SchemeGroupVersion.Group},
+						APIVersions: []string{backupv1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachinebackuptrackers"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmBackupTrackerValidatePath,
+					},
+				},
+			},
+			{
 				Name:                    "virtualmachineexport-validator.export.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1"},
 				FailurePolicy:           &failurePolicy,
@@ -930,6 +956,8 @@ const VMSnapshotValidatePath = "/virtualmachinesnapshots-validate"
 const VMRestoreValidatePath = "/virtualmachinerestores-validate"
 
 const VMBackupValidatePath = "/virtualmachinebackups-validate"
+
+const VMBackupTrackerValidatePath = "/virtualmachinebackuptrackers-validate"
 
 const VMExportValidatePath = "/virtualmachineexports-validate"
 

@@ -8980,6 +8980,8 @@ var CRDsValidation map[string]string = map[string]string{
           type: boolean
         mode:
           description: Mode specifies the way the backup output will be recieved
+          enum:
+          - Push
           type: string
         pvcName:
           description: |-
@@ -9015,9 +9017,28 @@ var CRDsValidation map[string]string = map[string]string{
           - name
           type: object
           x-kubernetes-map-type: atomic
+          x-kubernetes-validations:
+          - message: apiGroup is required
+            rule: has(self.apiGroup)
+          - message: apiGroup must be kubevirt.io or backup.kubevirt.io
+            rule: '!has(self.apiGroup) || self.apiGroup == ''kubevirt.io'' || self.apiGroup
+              == ''backup.kubevirt.io'''
+          - message: kind must be VirtualMachine for kubevirt.io or VirtualMachineBackupTracker
+              for backup.kubevirt.io
+            rule: '!has(self.apiGroup) || (self.apiGroup == ''kubevirt.io'' && self.kind
+              == ''VirtualMachine'') || (self.apiGroup == ''backup.kubevirt.io'' &&
+              self.kind == ''VirtualMachineBackupTracker'')'
+          - message: name is required
+            rule: self.name != ''
       required:
       - source
       type: object
+      x-kubernetes-validations:
+      - message: spec is immutable after creation
+        rule: self == oldSelf
+      - message: pvcName must be provided when mode is unset or Push
+        rule: (has(self.mode) && self.mode != 'Push') || (has(self.pvcName) && self.pvcName
+          != "")
     status:
       description: VirtualMachineBackupStatus is the status for a VirtualMachineBackup
         resource
@@ -9108,9 +9129,19 @@ var CRDsValidation map[string]string = map[string]string{
           - name
           type: object
           x-kubernetes-map-type: atomic
+          x-kubernetes-validations:
+          - message: apiGroup must be kubevirt.io
+            rule: has(self.apiGroup) && self.apiGroup == 'kubevirt.io'
+          - message: kind must be VirtualMachine
+            rule: self.kind == 'VirtualMachine'
+          - message: name is required
+            rule: self.name != ''
       required:
       - source
       type: object
+      x-kubernetes-validations:
+      - message: spec is immutable after creation
+        rule: self == oldSelf
     status:
       properties:
         latestCheckpoint:
