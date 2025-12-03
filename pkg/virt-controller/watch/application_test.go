@@ -124,6 +124,7 @@ var _ = Describe("Application", func() {
 		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
 		cloneInformer, _ := testutils.NewFakeInformerFor(&clone.VirtualMachineClone{})
 		backupInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackup{})
+		backupTrackerInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackupTracker{})
 		secretInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Secret{})
 		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
 		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
@@ -268,6 +269,7 @@ var _ = Describe("Application", func() {
 		app.vmBackupController, _ = backup.NewVMBackupController(
 			virtClient,
 			backupInformer,
+			backupTrackerInformer,
 			vmInformer,
 			vmiInformer,
 			pvcInformer,

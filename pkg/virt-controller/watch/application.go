@@ -221,8 +221,9 @@ type VirtControllerApp struct {
 	vmCloneInformer   cache.SharedIndexInformer
 	vmCloneController *clonecontroller.VMCloneController
 
-	vmBackupInformer   cache.SharedIndexInformer
-	vmBackupController *backup.VMBackupController
+	vmBackupInformer        cache.SharedIndexInformer
+	vmBackupTrackerInformer cache.SharedIndexInformer
+	vmBackupController      *backup.VMBackupController
 
 	instancetypeInformer        cache.SharedIndexInformer
 	clusterInstancetypeInformer cache.SharedIndexInformer
@@ -408,6 +409,7 @@ func Execute() {
 	app.controllerRevisionInformer = app.informerFactory.ControllerRevision()
 
 	app.vmBackupInformer = app.informerFactory.VirtualMachineBackup()
+	app.vmBackupTrackerInformer = app.informerFactory.VirtualMachineBackupTracker()
 	app.vmExportInformer = app.informerFactory.VirtualMachineExport()
 	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
@@ -984,7 +986,7 @@ func (vca *VirtControllerApp) initBackupController() {
 	var err error
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "backup-controller")
 	vca.vmBackupController, err = backup.NewVMBackupController(
-		vca.clientSet, vca.vmBackupInformer, vca.vmInformer, vca.vmiInformer, vca.persistentVolumeClaimInformer, recorder,
+		vca.clientSet, vca.vmBackupInformer, vca.vmBackupTrackerInformer, vca.vmInformer, vca.vmiInformer, vca.persistentVolumeClaimInformer, recorder,
 	)
 	if err != nil {
 		panic(err)
