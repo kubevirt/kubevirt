@@ -23,11 +23,20 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
+type scsiConfigurator interface {
+	ScsiController(model string, driver *api.ControllerDriver) api.Controller
+}
+
 type ControllerDomainConfigurator struct {
-	architecture string
+	architecture          string
+	scsiConfigurator      scsiConfigurator
+	useVirtioTransitional bool
+	useLaunchSecuritySEV  bool
+	useLaunchSecurityPV   bool
 }
 
 type ControllerOption func(*ControllerDomainConfigurator)
@@ -46,8 +55,33 @@ func WithArchitecture(architecture string) ControllerOption {
 	}
 }
 
+func WithSCSIConfigurator(scsiConfigurator scsiConfigurator) ControllerOption {
+	return func(c *ControllerDomainConfigurator) {
+		c.scsiConfigurator = scsiConfigurator
+	}
+}
+
+func WithUseVirtioTransitional(useVirtioTransitional bool) ControllerOption {
+	return func(c *ControllerDomainConfigurator) {
+		c.useVirtioTransitional = useVirtioTransitional
+	}
+}
+
+func WithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) ControllerOption {
+	return func(c *ControllerDomainConfigurator) {
+		c.useLaunchSecuritySEV = useLaunchSecuritySEV
+	}
+}
+
+func WithUseLaunchSecurityPV(useLaunchSecurityPV bool) ControllerOption {
+	return func(c *ControllerDomainConfigurator) {
+		c.useLaunchSecurityPV = useLaunchSecurityPV
+	}
+}
+
 func (c ControllerDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	c.configureUSBController(vmi, domain)
+	c.configureSCSIController(vmi, domain)
 	return nil
 }
 
@@ -69,6 +103,42 @@ func (c ControllerDomainConfigurator) configureUSBController(vmi *v1.VirtualMach
 	}
 
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
+}
+
+func (c ControllerDomainConfigurator) configureSCSIController(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if needsSCSIController(vmi) {
+		var controllerDriver *api.ControllerDriver
+		if c.useLaunchSecuritySEV || c.useLaunchSecurityPV {
+			controllerDriver = &api.ControllerDriver{
+				IOMMU: "on",
+			}
+		}
+
+		scsiController := c.scsiConfigurator.ScsiController(virtio.InterpretTransitionalModelType(&c.useVirtioTransitional, c.architecture), controllerDriver)
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
+	}
+}
+
+func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if getBusFromDisk(disk) == v1.DiskBusSCSI {
+			return true
+		}
+	}
+	return !vmi.Spec.Domain.Devices.DisableHotplug
+}
+
+func getBusFromDisk(disk v1.Disk) v1.DiskBus {
+	if disk.LUN != nil {
+		return disk.LUN.Bus
+	}
+	if disk.Disk != nil {
+		return disk.Disk.Bus
+	}
+	if disk.CDRom != nil {
+		return disk.CDRom.Bus
+	}
+	return ""
 }
 
 func isUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
