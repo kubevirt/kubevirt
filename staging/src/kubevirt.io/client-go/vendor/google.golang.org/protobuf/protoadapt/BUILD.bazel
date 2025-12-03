@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["convert.go"],
+    importmap = "kubevirt.io/client-go/vendor/google.golang.org/protobuf/protoadapt",
+    importpath = "google.golang.org/protobuf/protoadapt",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/vendor/google.golang.org/protobuf/proto:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/google.golang.org/protobuf/runtime/protoiface:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/google.golang.org/protobuf/runtime/protoimpl:go_default_library",
+    ],
+)
