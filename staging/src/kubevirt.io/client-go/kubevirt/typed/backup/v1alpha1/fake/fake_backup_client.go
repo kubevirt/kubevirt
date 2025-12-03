@@ -34,6 +34,10 @@ func (c *FakeBackupV1alpha1) VirtualMachineBackups(namespace string) v1alpha1.Vi
 	return newFakeVirtualMachineBackups(c, namespace)
 }
 
+func (c *FakeBackupV1alpha1) VirtualMachineBackupTrackers(namespace string) v1alpha1.VirtualMachineBackupTrackerInterface {
+	return newFakeVirtualMachineBackupTrackers(c, namespace)
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeBackupV1alpha1) RESTClient() rest.Interface {

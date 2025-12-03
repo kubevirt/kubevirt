@@ -1288,6 +1288,11 @@ func (in *Domain) DeepCopyObject() runtime.Object {
 func (in *DomainBackup) DeepCopyInto(out *DomainBackup) {
 	*out = *in
 	out.XMLName = in.XMLName
+	if in.Incremental != nil {
+		in, out := &in.Incremental, &out.Incremental
+		*out = new(string)
+		**out = **in
+	}
 	if in.BackupDisks != nil {
 		in, out := &in.BackupDisks, &out.BackupDisks
 		*out = new(BackupDisks)

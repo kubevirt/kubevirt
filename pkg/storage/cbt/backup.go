@@ -444,9 +444,6 @@ func (ctrl *VMBackupController) removeBackupFinalizer(backup *backupv1.VirtualMa
 
 func getSourceName(backup *backupv1.VirtualMachineBackup) string {
 	// source name is fetched from the source field which is required until VirtualMachineBackupTracker is introduced
-	if backup.Spec.Source == nil {
-		return ""
-	}
 	return backup.Spec.Source.Name
 }
 

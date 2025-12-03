@@ -31,6 +31,7 @@ import (
 type BackupV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	VirtualMachineBackupsGetter
+	VirtualMachineBackupTrackersGetter
 }
 
 // BackupV1alpha1Client is used to interact with features provided by the backup.kubevirt.io group.
@@ -40,6 +41,10 @@ type BackupV1alpha1Client struct {
 
 func (c *BackupV1alpha1Client) VirtualMachineBackups(namespace string) VirtualMachineBackupInterface {
 	return newVirtualMachineBackups(c, namespace)
+}
+
+func (c *BackupV1alpha1Client) VirtualMachineBackupTrackers(namespace string) VirtualMachineBackupTrackerInterface {
+	return newVirtualMachineBackupTrackers(c, namespace)
 }
 
 // NewForConfig creates a new BackupV1alpha1Client for the given config.

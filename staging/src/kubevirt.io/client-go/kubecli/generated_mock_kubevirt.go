@@ -1229,6 +1229,20 @@ func (mr *MockKubevirtClientMockRecorder) VirtualMachineBackup(namespace any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineBackup", reflect.TypeOf((*MockKubevirtClient)(nil).VirtualMachineBackup), namespace)
 }
 
+// VirtualMachineBackupTracker mocks base method.
+func (m *MockKubevirtClient) VirtualMachineBackupTracker(namespace string) v1alpha19.VirtualMachineBackupTrackerInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VirtualMachineBackupTracker", namespace)
+	ret0, _ := ret[0].(v1alpha19.VirtualMachineBackupTrackerInterface)
+	return ret0
+}
+
+// VirtualMachineBackupTracker indicates an expected call of VirtualMachineBackupTracker.
+func (mr *MockKubevirtClientMockRecorder) VirtualMachineBackupTracker(namespace any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineBackupTracker", reflect.TypeOf((*MockKubevirtClient)(nil).VirtualMachineBackupTracker), namespace)
+}
+
 // VirtualMachineClone mocks base method.
 func (m *MockKubevirtClient) VirtualMachineClone(namespace string) v1beta117.VirtualMachineCloneInterface {
 	m.ctrl.T.Helper()

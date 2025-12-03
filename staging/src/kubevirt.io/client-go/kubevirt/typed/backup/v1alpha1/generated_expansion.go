@@ -21,3 +21,5 @@ Copyright The KubeVirt Authors.
 package v1alpha1
 
 type VirtualMachineBackupExpansion interface{}
+
+type VirtualMachineBackupTrackerExpansion interface{}

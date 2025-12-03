@@ -5332,6 +5332,11 @@ func (in *VirtualMachineInstanceBackupStatus) DeepCopyInto(out *VirtualMachineIn
 		*out = new(string)
 		**out = **in
 	}
+	if in.CheckpointName != nil {
+		in, out := &in.CheckpointName, &out.CheckpointName
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

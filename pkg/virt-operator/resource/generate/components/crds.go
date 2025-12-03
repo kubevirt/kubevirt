@@ -70,6 +70,7 @@ var (
 	MIGRATIONPOLICY                  = "migrationpolicies." + migrationsv1.MigrationPolicyKind.Group
 	VIRTUALMACHINECLONE              = "virtualmachineclones." + clone.GroupName
 	VIRTUALMACHINEBACKUP             = "virtualmachinebackups." + backupv1alpha1.SchemeGroupVersion.Group
+	VIRTUALMACHINEBACKUPTRACKER      = "virtualmachinebackuptrackers." + backupv1alpha1.SchemeGroupVersion.Group
 )
 
 func addFieldsToVersion(version *extv1.CustomResourceDefinitionVersion, fields ...interface{}) error {
@@ -702,6 +703,52 @@ func NewVirtualMachineBackupCrd() (*extv1.CustomResourceDefinition, error) {
 		{Name: "Type", Type: "string", JSONPath: ".status.Type"},
 		{Name: "CheckpointName", Type: "string", JSONPath: ".status.CheckpointName"},
 		{Name: "CompletionTime", Type: "date", JSONPath: ".status.CompletionTime"},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
+func NewVirtualMachineBackupTrackerCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = VIRTUALMACHINEBACKUPTRACKER
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: backupv1alpha1.SchemeGroupVersion.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    backupv1alpha1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+			},
+		},
+		Scope: "Namespaced",
+		Conversion: &extv1.CustomResourceConversion{
+			Strategy: extv1.NoneConverter,
+		},
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachinebackuptrackers",
+			Singular:   "virtualmachinebackuptracker",
+			Kind:       "VirtualMachineBackupTracker",
+			ShortNames: []string{"vmbackuptracker", "vmbackuptrackers"},
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
+		{Name: "SourceKind", Type: "string", JSONPath: ".spec.source.kind"},
+		{Name: "SourceName", Type: "string", JSONPath: ".spec.source.name"},
+		{Name: "LatestCheckpoint", Type: "string", JSONPath: ".status.latestCheckpoint.name"},
+		{Name: "CheckpointTime", Type: "date", JSONPath: ".status.latestCheckpoint.creationTime"},
 	})
 	if err != nil {
 		return nil, err

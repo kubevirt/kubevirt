@@ -64,6 +64,7 @@ type KubevirtClient interface {
 	KubeVirt(namespace string) KubeVirtInterface
 	VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface
 	VirtualMachineBackup(namespace string) backupv1.VirtualMachineBackupInterface
+	VirtualMachineBackupTracker(namespace string) backupv1.VirtualMachineBackupTrackerInterface
 	VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface
 	VirtualMachineSnapshotContent(namespace string) snapshotv1.VirtualMachineSnapshotContentInterface
 	VirtualMachineRestore(namespace string) snapshotv1.VirtualMachineRestoreInterface
@@ -175,6 +176,10 @@ func (k kubevirtClient) VirtualMachinePool(namespace string) poolv1.VirtualMachi
 
 func (k kubevirtClient) VirtualMachineBackup(namespace string) backupv1.VirtualMachineBackupInterface {
 	return k.generatedKubeVirtClient.BackupV1alpha1().VirtualMachineBackups(namespace)
+}
+
+func (k kubevirtClient) VirtualMachineBackupTracker(namespace string) backupv1.VirtualMachineBackupTrackerInterface {
+	return k.generatedKubeVirtClient.BackupV1alpha1().VirtualMachineBackupTrackers(namespace)
 }
 
 func (k kubevirtClient) VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface {

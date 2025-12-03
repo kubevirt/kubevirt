@@ -52,6 +52,7 @@ const (
 	apiVMSnapshots        = "virtualmachinesnapshots"
 	apiVMSnapshotContents = "virtualmachinesnapshotcontents"
 	apiVMBackups          = "virtualmachinebackups"
+	apiVMBackupTrackers   = "virtualmachinebackuptrackers"
 	apiVMRestores         = "virtualmachinerestores"
 	apiVMExports          = "virtualmachineexports"
 	apiVMClones           = "virtualmachineclones"
@@ -324,6 +325,18 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
+				},
+			},
+			{
+				APIGroups: []string{
+					backup.GroupName,
+				},
+				Resources: []string{
+					apiVMBackupTrackers,
+					apiVMBackupTrackers + "/status",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "create", "update", "patch",
 				},
 			},
 			{
