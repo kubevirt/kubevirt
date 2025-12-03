@@ -45,15 +45,11 @@ import (
 var _ = Describe("VirtualMachineInstance migration target", func() {
 	var _ = Describe("DomainNotifyServerRestarts", func() {
 		Context("should establish a notify server pipe", func() {
-			var shareDir string
+			var notifyDir string
 			var serverStopChan chan struct{}
 			var serverIsStoppedChan chan struct{}
-			var stoppedServer bool
 			var ctx context.Context
 			var cancel context.CancelFunc
-			var stoppedPipe bool
-			var eventChan chan watch.Event
-			var client *notifyclient.Notifier
 			var recorder *record.FakeRecorder
 			var vmiStore cache.Store
 
@@ -62,10 +58,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				serverStopChan = make(chan struct{})
 				ctx, cancel = context.WithCancel(context.Background())
 				serverIsStoppedChan = make(chan struct{})
-				eventChan = make(chan watch.Event, 100)
-				stoppedServer = false
-				stoppedPipe = false
-				shareDir, err = os.MkdirTemp("", "kubevirt-share")
+				notifyDir, err = os.MkdirTemp("", "kubevirt-share")
 				Expect(err).ToNot(HaveOccurred())
 
 				recorder = record.NewFakeRecorder(10)
@@ -74,22 +67,25 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				vmiStore = vmiInformer.GetStore()
 
 				go func(serverIsStoppedChan chan struct{}) {
-					notifyserver.RunServer(shareDir, serverStopChan, eventChan, recorder, vmiStore)
+					notifyserver.RunServer(notifyDir, serverStopChan, make(chan watch.Event, 100), recorder, vmiStore)
 					close(serverIsStoppedChan)
 				}(serverIsStoppedChan)
 
 				time.Sleep(3)
 			})
 
+			var preparePipe = func() (string, string) {
+				pipeDir := GinkgoT().TempDir()
+				pipePath := filepath.Join(pipeDir, "domain-notify-pipe.sock")
+				err := os.MkdirAll(pipeDir, 0755)
+				Expect(err).ToNot(HaveOccurred())
+				return pipeDir, pipePath
+			}
+
 			AfterEach(func() {
-				if stoppedServer == false {
-					close(serverStopChan)
-				}
-				if stoppedPipe == false {
-					cancel()
-				}
-				client.Close()
-				os.RemoveAll(shareDir)
+				close(serverStopChan)
+				cancel()
+				os.RemoveAll(notifyDir)
 			})
 
 			It("should get notify events", func() {
@@ -101,18 +97,16 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				eventReason := "fooReason"
 				eventMessage := "barMessage"
 
-				pipePath := filepath.Join(shareDir, "client_path", "domain-notify-pipe.sock")
-				pipeDir := filepath.Join(shareDir, "client_path")
-				err := os.MkdirAll(pipeDir, 0755)
-				Expect(err).ToNot(HaveOccurred())
+				pipeDir, pipePath := preparePipe()
 
 				listener, err := net.Listen("unix", pipePath)
 				Expect(err).ToNot(HaveOccurred())
 
-				handleDomainNotifyPipe(ctx, listener, shareDir, vmi)
+				handleDomainNotifyPipe(ctx, listener, notifyDir, vmi)
 				time.Sleep(1)
 
-				client = notifyclient.NewNotifier(pipeDir)
+				client := notifyclient.NewNotifier(pipeDir)
+				defer client.Close()
 
 				err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
 				Expect(err).ToNot(HaveOccurred())
@@ -138,24 +132,22 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				eventReason := "fooReason"
 				eventMessage := "barMessage"
 
-				pipePath := filepath.Join(shareDir, "client_path", "domain-notify-pipe.sock")
-				pipeDir := filepath.Join(shareDir, "client_path")
-				err := os.MkdirAll(pipeDir, 0755)
-				Expect(err).ToNot(HaveOccurred())
+				pipeDir, pipePath := preparePipe()
 
 				// Client should fail when pipe is offline
-				client = notifyclient.NewNotifier(pipeDir)
+				client := notifyclient.NewNotifier(pipeDir)
+				defer client.Close()
 
 				client.SetCustomTimeouts(1*time.Second, 1*time.Second, 3*time.Second)
 
-				err = client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
+				err := client.SendK8sEvent(vmi, eventType, eventReason, eventMessage)
 				Expect(err).To(HaveOccurred())
 
 				// Client should automatically come online when pipe is established
 				listener, err := net.Listen("unix", pipePath)
 				Expect(err).ToNot(HaveOccurred())
 
-				handleDomainNotifyPipe(ctx, listener, shareDir, vmi)
+				handleDomainNotifyPipe(ctx, listener, notifyDir, vmi)
 				time.Sleep(1)
 
 				// Expect the client to reconnect and succeed despite initial failure
@@ -173,18 +165,16 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 				eventReason := "fooReason"
 				eventMessage := "barMessage"
 
-				pipePath := filepath.Join(shareDir, "client_path", "domain-notify-pipe.sock")
-				pipeDir := filepath.Join(shareDir, "client_path")
-				err := os.MkdirAll(pipeDir, 0755)
-				Expect(err).ToNot(HaveOccurred())
+				pipeDir, pipePath := preparePipe()
 
 				listener, err := net.Listen("unix", pipePath)
 				Expect(err).ToNot(HaveOccurred())
 
-				handleDomainNotifyPipe(ctx, listener, shareDir, vmi)
+				handleDomainNotifyPipe(ctx, listener, notifyDir, vmi)
 				time.Sleep(1)
 
-				client = notifyclient.NewNotifier(pipeDir)
+				client := notifyclient.NewNotifier(pipeDir)
+				defer client.Close()
 
 				for i := 1; i < 5; i++ {
 					// close and wait for server to stop
@@ -200,7 +190,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 					serverStopChan = make(chan struct{})
 					serverIsStoppedChan = make(chan struct{})
 					go func() {
-						notifyserver.RunServer(shareDir, serverStopChan, eventChan, recorder, vmiStore)
+						notifyserver.RunServer(notifyDir, serverStopChan, make(chan watch.Event, 100), recorder, vmiStore)
 						close(serverIsStoppedChan)
 					}()
 
