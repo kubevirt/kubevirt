@@ -20,23 +20,22 @@
 package compute
 
 import (
+	"errors"
+	"fmt"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type vmPortChecker interface {
-	HasVMPort() bool
-}
-
 type HypervisorFeaturesDomainConfigurator struct {
-	vmPortChecker        vmPortChecker
+	architecture         string
 	useLaunchSecurityTDX bool
 }
 
-func NewHypervisorFeaturesDomainConfigurator(vmPortChecker vmPortChecker, useLaunchSecurityTDX bool) HypervisorFeaturesDomainConfigurator {
+func NewHypervisorFeaturesDomainConfigurator(architecture string, useLaunchSecurityTDX bool) HypervisorFeaturesDomainConfigurator {
 	return HypervisorFeaturesDomainConfigurator{
-		vmPortChecker:        vmPortChecker,
+		architecture:         architecture,
 		useLaunchSecurityTDX: useLaunchSecurityTDX,
 	}
 }
@@ -44,15 +43,23 @@ func NewHypervisorFeaturesDomainConfigurator(vmPortChecker vmPortChecker, useLau
 func (h HypervisorFeaturesDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if vmi.Spec.Domain.Features != nil {
 		domain.Spec.Features = &api.Features{}
-		err := convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
 
-		if h.vmPortChecker.HasVMPort() {
+		var errs []error
+		err := convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
+		if err != nil {
+			errs = append(errs, err)
+		}
+
+		archSupportsVMPort, archErr := doesArchSupportVMPort(h.architecture)
+		if archErr != nil {
+			errs = append(errs, archErr)
+		}
+
+		if archErr == nil && archSupportsVMPort {
 			domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
 		}
 
-		if err != nil {
-			return err
-		}
+		return errors.Join(errs...)
 	}
 
 	return nil
@@ -158,4 +165,17 @@ func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
 		}
 	}
 	return result
+}
+
+func doesArchSupportVMPort(architecture string) (bool, error) {
+	switch architecture {
+	case "amd64":
+		return true, nil
+	case "arm64":
+		return false, nil
+	case "s390x":
+		return false, nil
+	default:
+		return false, fmt.Errorf("unsupported architecture: %s", architecture)
+	}
 }

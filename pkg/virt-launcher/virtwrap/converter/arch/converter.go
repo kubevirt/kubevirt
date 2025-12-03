@@ -36,7 +36,6 @@ type Converter interface {
 	IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	SupportCPUHotplug() bool
 	IsSMBiosNeeded() bool
-	HasVMPort() bool
 	TransitionalModelType(useVirtioTransitional bool) string
 	IsROMTuningSupported() bool
 	RequiresMPXCPUValidation() bool

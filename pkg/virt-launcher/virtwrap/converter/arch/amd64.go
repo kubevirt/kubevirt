@@ -86,10 +86,6 @@ func (converterAMD64) ShouldVerboseLogsBeEnabled() bool {
 	return true
 }
 
-func (converterAMD64) HasVMPort() bool {
-	return true
-}
-
 func (converterAMD64) SupportPCIHole64Disabling() bool {
 	return true
 }

@@ -1345,7 +1345,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.NewWatchdogDomainConfigurator(architecture),
 		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
-		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture, c.UseLaunchSecurityTDX),
+		compute.NewHypervisorFeaturesDomainConfigurator(architecture, c.UseLaunchSecurityTDX),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
