@@ -16,10 +16,6 @@
 
 package arch
 
-import (
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-)
-
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
 var _ = Converter(&converterS390X{})
 
@@ -27,15 +23,6 @@ type converterS390X struct{}
 
 func (converterS390X) GetArchitecture() string {
 	return s390x
-}
-
-func (converterS390X) ScsiController(_ string, driver *api.ControllerDriver) api.Controller {
-	return api.Controller{
-		Type:   "scsi",
-		Index:  "0",
-		Model:  "virtio-scsi",
-		Driver: driver,
-	}
 }
 
 func (converterS390X) SupportCPUHotplug() bool {

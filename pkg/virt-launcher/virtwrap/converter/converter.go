@@ -1440,7 +1440,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.PanicDevicesDomainConfigurator{},
 		compute.NewControllerDomainConfigurator(
 			compute.WithArchitecture(architecture),
-			compute.WithSCSIConfigurator(c.Architecture),
 			compute.WithUseVirtioTransitional(c.UseVirtioTransitional),
 			compute.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),

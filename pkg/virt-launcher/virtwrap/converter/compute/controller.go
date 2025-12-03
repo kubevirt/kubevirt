@@ -27,13 +27,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-type scsiConfigurator interface {
-	ScsiController(model string, driver *api.ControllerDriver) api.Controller
-}
-
 type ControllerDomainConfigurator struct {
 	architecture          string
-	scsiConfigurator      scsiConfigurator
 	useVirtioTransitional bool
 	useLaunchSecuritySEV  bool
 	useLaunchSecurityPV   bool
@@ -52,12 +47,6 @@ func NewControllerDomainConfigurator(opts ...ControllerOption) ControllerDomainC
 func WithArchitecture(architecture string) ControllerOption {
 	return func(c *ControllerDomainConfigurator) {
 		c.architecture = architecture
-	}
-}
-
-func WithSCSIConfigurator(scsiConfigurator scsiConfigurator) ControllerOption {
-	return func(c *ControllerDomainConfigurator) {
-		c.scsiConfigurator = scsiConfigurator
 	}
 }
 
@@ -114,8 +103,25 @@ func (c ControllerDomainConfigurator) configureSCSIController(vmi *v1.VirtualMac
 			}
 		}
 
-		scsiController := c.scsiConfigurator.ScsiController(virtio.InterpretTransitionalModelType(&c.useVirtioTransitional, c.architecture), controllerDriver)
+		scsiController := c.scsiController(controllerDriver)
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
+	}
+}
+
+func (c ControllerDomainConfigurator) scsiController(driver *api.ControllerDriver) api.Controller {
+	model := virtio.InterpretTransitionalModelType(&c.useVirtioTransitional, c.architecture)
+
+	// s390x always uses "virtio-scsi" as the model since "virtio-transitional"
+	// and "virtio-non-transitional" are PCI devices that don't work on s390x.
+	if c.architecture == "s390x" {
+		model = "virtio-scsi"
+	}
+
+	return api.Controller{
+		Type:   "scsi",
+		Index:  "0",
+		Model:  model,
+		Driver: driver,
 	}
 }
 

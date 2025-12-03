@@ -16,10 +16,6 @@
 
 package arch
 
-import (
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-)
-
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
 var _ = Converter(&converterAMD64{})
 
@@ -27,10 +23,6 @@ type converterAMD64 struct{}
 
 func (converterAMD64) GetArchitecture() string {
 	return amd64
-}
-
-func (converterAMD64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
-	return defaultSCSIController(model, driver)
 }
 
 func (converterAMD64) SupportCPUHotplug() bool {
