@@ -30,6 +30,12 @@ import (
 // SchemeGroupVersion is group version used to register these objects
 var SchemeGroupVersion = schema.GroupVersion{Group: backup.GroupName, Version: "v1alpha1"}
 
+var (
+	// GroupVersionKind
+	VirtualMachineBackupGroupVersionKind        = schema.GroupVersionKind{Group: backup.GroupName, Version: SchemeGroupVersion.Version, Kind: "VirtualMachineBackup"}
+	VirtualMachineBackupTrackerGroupVersionKind = schema.GroupVersionKind{Group: backup.GroupName, Version: SchemeGroupVersion.Version, Kind: "VirtualMachineBackupTracker"}
+)
+
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
@@ -52,6 +58,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&VirtualMachineBackup{},
 		&VirtualMachineBackupList{},
+		&VirtualMachineBackupTracker{},
+		&VirtualMachineBackupTrackerList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil

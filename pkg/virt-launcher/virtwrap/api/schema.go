@@ -424,6 +424,7 @@ type BackupMetadata struct {
 	EndTimestamp   *metav1.Time `xml:"endTimestamp,omitempty"`
 	Completed      bool         `xml:"completed,omitempty"`
 	BackupMsg      string       `xml:"backupMsg,omitempty"`
+	CheckpointName string       `xml:"checkpointName,omitempty"`
 }
 
 type GracePeriodMetadata struct {
@@ -436,6 +437,7 @@ type GracePeriodMetadata struct {
 type DomainBackup struct {
 	XMLName     xml.Name     `xml:"domainbackup"`
 	Mode        string       `xml:"mode,attr"`
+	Incremental *string      `xml:"incremental,omitempty"`
 	BackupDisks *BackupDisks `xml:"disks"`
 }
 

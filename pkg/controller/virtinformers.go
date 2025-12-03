@@ -638,8 +638,7 @@ func GetVirtualMachineBackupInformerIndexers() cache.Indexers {
 			}
 
 			source := backup.Spec.Source
-			if source != nil &&
-				source.APIGroup != nil &&
+			if source.APIGroup != nil &&
 				*source.APIGroup == core.GroupName &&
 				source.Kind == "VirtualMachine" {
 				return []string{fmt.Sprintf("%s/%s", backup.Namespace, source.Name)}, nil

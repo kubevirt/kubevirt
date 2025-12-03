@@ -83,18 +83,7 @@ func (admitter *VMBackupAdmitter) Admit(ctx context.Context, ar *admissionv1.Adm
 		if err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
-		sourceField := k8sfield.NewPath("spec", "source")
-
-		// source is required until VirtualMachineBackupTracker is introduced
-		if vmBackup.Spec.Source == nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueNotFound,
-				Message: "must specify backup source",
-				Field:   sourceField.String(),
-			})
-			return webhookutils.ToAdmissionResponse(causes)
-		}
-		causes = validateSource(vmBackup.Spec.Source, causes)
+		causes = validateSource(&vmBackup.Spec.Source, causes)
 		causes = validateBackupMode(vmBackup, causes)
 
 	case admissionv1.Update:
