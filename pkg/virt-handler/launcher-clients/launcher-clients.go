@@ -22,9 +22,7 @@ package launcher_clients
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net"
-	"path/filepath"
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -230,39 +228,7 @@ func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, v
 			case <-domainPipeStopChan:
 				return
 			case fd := <-fdChan:
-				go func(vmi *v1.VirtualMachineInstance) {
-					defer fd.Close()
-
-					// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
-					// so virt-handler receives notifications from the VMI
-					conn, err := net.Dial("unix", filepath.Join(virtShareDir, "domain-notify.sock"))
-					if err != nil {
-						log.Log.Reason(err).Error("error connecting to domain-notify.sock for proxy connection")
-						return
-					}
-					defer conn.Close()
-
-					log.Log.Object(vmi).Infof("Accepted new notify pipe connection for vmi")
-					copyErr := make(chan error, 2)
-					go func() {
-						_, err := io.Copy(fd, conn)
-						copyErr <- err
-					}()
-					go func() {
-						_, err := io.Copy(conn, fd)
-						copyErr <- err
-					}()
-
-					// wait until one of the copy routines exit then
-					// let the fd close
-					err = <-copyErr
-					if err != nil {
-						log.Log.Object(vmi).Infof("closing notify pipe connection for vmi with error: %v", err)
-					} else {
-						log.Log.Object(vmi).Infof("gracefully closed notify pipe connection for vmi")
-					}
-
-				}(vmi)
+				go pipe.Proxy(log.Log.Object(vmi), fd, pipe.NewConnectToNotifyFunc(virtShareDir))
 			}
 		}
 	}(vmi, fdChan, domainPipeStopChan)

@@ -19,6 +19,7 @@
 package pipe
 
 import (
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -26,6 +27,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+
+	"kubevirt.io/client-go/log"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -79,5 +82,44 @@ var _ = Describe("InjectNotify", func() {
 		listener, err := InjectNotify(pod, "dir", true)
 		Expect(err).ToNot(HaveOccurred())
 		defer listener.Close()
+	})
+})
+
+var _ = Describe("Proxy", func() {
+	It("should proxy", func() {
+		pipeS, pipe := net.Pipe()
+		notifyS, notify := net.Pipe()
+
+		exit := make(chan struct{})
+		go func() {
+			Proxy(log.Log, pipeS, func() (net.Conn, error) { return notifyS, nil })
+			exit <- struct{}{}
+		}()
+
+		_, err := pipe.Write([]byte("Hello"))
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(func() (string, error) {
+			buf := make([]byte, 5)
+			_, err := notify.Read(buf)
+			return string(buf), err
+		}()).Should(Equal("Hello"))
+
+		_, err = notify.Write([]byte("Hello back"))
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(func() (string, error) {
+			buf := make([]byte, 10)
+			_, err := pipe.Read(buf)
+			return string(buf), err
+		}()).Should(Equal("Hello back"))
+
+		// Closing the pipe should close the notify connection and proxy should exit
+		Expect(pipe.Close()).To(Succeed())
+		Eventually(exit).Should(Receive())
+		Eventually(func() error {
+			_, err := notify.Read(make([]byte, 5))
+			return err
+		}).Should(MatchError(io.EOF))
 	})
 })

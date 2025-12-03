@@ -26,12 +26,23 @@ package pipe
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"path/filepath"
+
+	"kubevirt.io/client-go/log"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
+
+func NewConnectToNotifyFunc(virtShareDir string) connectFunc {
+	return func() (net.Conn, error) {
+		conn, err := net.Dial("unix", filepath.Join(virtShareDir, "domain-notify.sock"))
+		return conn, err
+	}
+}
 
 // InjectNotify injects the domain-notify.sock into the VMI pod and listens for connections
 func InjectNotify(pod isolation.IsolationResult, virtShareDir string,
@@ -63,4 +74,40 @@ func InjectNotify(pod isolation.IsolationResult, virtShareDir string,
 	}
 
 	return listener, nil
+}
+
+type connectFunc func() (net.Conn, error)
+
+// Proxy is blocking, it proxies pipe connection [pipeConn] to given connection [connect](ultimately to notify server)
+// pipeConn is closed on success or error
+func Proxy(logger *log.FilteredLogger, pipeConn net.Conn, connect connectFunc) {
+	defer pipeConn.Close()
+
+	// proxy the VMI domain-notify-pipe.sock to the virt-handler domain-notify.sock
+	// so virt-handler receives notifications from the VMI
+	notifyConn, err := connect()
+	if err != nil {
+		logger.Reason(err).Error("error connecting to domain-notify.sock for proxy connection")
+		return
+	}
+	defer notifyConn.Close()
+
+	logger.Infof("Accepted new notify pipe connection")
+	copyErr := make(chan error, 2)
+	go func() {
+		_, err := io.Copy(pipeConn, notifyConn)
+		copyErr <- err
+	}()
+	go func() {
+		_, err := io.Copy(notifyConn, pipeConn)
+		copyErr <- err
+	}()
+
+	// wait until one of the copy routines exit then
+	// let the connections close
+	if err = <-copyErr; err != nil {
+		logger.Reason(err).Infof("closing notify pipe connection")
+	} else {
+		logger.Infof("gracefully closed notify pipe connection")
+	}
 }
