@@ -583,6 +583,11 @@ func (in *CloudInitNoCloudSource) DeepCopyInto(out *CloudInitNoCloudSource) {
 		*out = new(corev1.LocalObjectReference)
 		**out = **in
 	}
+	if in.VendorDataSecretRef != nil {
+		in, out := &in.VendorDataSecretRef, &out.VendorDataSecretRef
+		*out = new(corev1.LocalObjectReference)
+		**out = **in
+	}
 	return
 }
 

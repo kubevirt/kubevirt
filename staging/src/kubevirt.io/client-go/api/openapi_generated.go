@@ -18461,6 +18461,26 @@ func schema_kubevirtio_api_core_v1_CloudInitNoCloudSource(ref common.ReferenceCa
 							Format:      "",
 						},
 					},
+					"vendorDataSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VendorDataSecretRef references a k8s secret that contains NoCloud vendordata.",
+							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
+						},
+					},
+					"vendorDataBase64": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VendorDataBase64 contains NoCloud cloud-init vendordata as a base64 encoded string.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vendorData": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VendorData contains NoCloud inline cloud-init vendordata.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
