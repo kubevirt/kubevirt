@@ -3,11 +3,14 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "cursor.go",
         "inspector.go",
         "iter.go",
         "typeof.go",
+        "walk.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/golang.org/x/tools/go/ast/inspector",
     importpath = "golang.org/x/tools/go/ast/inspector",
     visibility = ["//visibility:public"],
+    deps = ["//vendor/golang.org/x/tools/go/ast/edge:go_default_library"],
 )
