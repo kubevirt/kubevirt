@@ -41,28 +41,28 @@ func NewHypervisorFeaturesDomainConfigurator(architecture string, useLaunchSecur
 }
 
 func (h HypervisorFeaturesDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Features != nil {
-		domain.Spec.Features = &api.Features{}
+	domain.Spec.Features = &api.Features{}
 
-		var errs []error
-		err := convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
-		if err != nil {
-			errs = append(errs, err)
-		}
-
-		archSupportsVMPort, archErr := doesArchSupportVMPort(h.architecture)
-		if archErr != nil {
-			errs = append(errs, archErr)
-		}
-
-		if archErr == nil && archSupportsVMPort {
-			domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
-		}
-
-		return errors.Join(errs...)
+	if vmi.Spec.Domain.Features == nil {
+		return nil
 	}
 
-	return nil
+	var errs []error
+	err := convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	archSupportsVMPort, archErr := doesArchSupportVMPort(h.architecture)
+	if archErr != nil {
+		errs = append(errs, archErr)
+	}
+
+	if archErr == nil && archSupportsVMPort {
+		domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
+	}
+
+	return errors.Join(errs...)
 }
 
 func convert_v1_Features_To_api_Features(source *v1.Features, features *api.Features, useLaunchSecurityTDX bool) error {
