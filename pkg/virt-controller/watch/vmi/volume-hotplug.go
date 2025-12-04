@@ -56,7 +56,10 @@ func getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAtta
 		if !podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {
 			oldPods = append(oldPods, attachmentPod)
 		} else {
-			currentPod = attachmentPod
+			// don't consider attachementPod if it is marked for deletion
+			if attachmentPod.DeletionTimestamp == nil {
+				currentPod = attachmentPod
+			}
 		}
 	}
 	sort.Slice(oldPods, func(i, j int) bool {
