@@ -638,19 +638,11 @@ func validateBootOrder(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec
 		matchingVolume, volumeExists := volumeNameMap[disk.Name]
 
 		if !volumeExists {
-			if disk.CDRom == nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "devices", "disks").Index(idx).Child("Name").String(), disk.Name),
-					Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
-				})
-			} else if !config.DeclarativeHotplugVolumesEnabled() {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("%s feature gate not enabled, cannot define an empty CD-ROM disk", featuregate.DeclarativeHotplugVolumesGate),
-					Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
-				})
-			}
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "devices", "disks").Index(idx).Child("Name").String(), disk.Name),
+				Field:   field.Child("domain", "devices", "disks").Index(idx).Child("name").String(),
+			})
 		}
 
 		// Verify Lun disks are only mapped to network/block devices.
