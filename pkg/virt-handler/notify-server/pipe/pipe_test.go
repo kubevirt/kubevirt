@@ -19,10 +19,12 @@
 package pipe
 
 import (
+	"context"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -100,26 +102,91 @@ var _ = Describe("Proxy", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(func() (string, error) {
-			buf := make([]byte, 5)
-			_, err := notify.Read(buf)
-			return string(buf), err
+			return readMsg(notify, 5)
 		}()).Should(Equal("Hello"))
 
 		_, err = notify.Write([]byte("Hello back"))
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(func() (string, error) {
-			buf := make([]byte, 10)
-			_, err := pipe.Read(buf)
-			return string(buf), err
+			return readMsg(pipe, 10)
 		}()).Should(Equal("Hello back"))
 
 		// Closing the pipe should close the notify connection and proxy should exit
 		Expect(pipe.Close()).To(Succeed())
 		Eventually(exit).Should(Receive())
 		Eventually(func() error {
-			_, err := notify.Read(make([]byte, 5))
+			_, err := readMsg(notify, 5)
 			return err
 		}).Should(MatchError(io.EOF))
 	})
 })
+
+var _ = Describe("ChanFromListener", func() {
+	It("should work", func() {
+		tmp := GinkgoT().TempDir()
+		safeTmp, err := safepath.JoinAndResolveWithRelativeRoot(tmp)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(os.MkdirAll(filepath.Join(tmp, "dir"), 0777)).To(Succeed())
+
+		pod := isolation.NewMockIsolationResult(gomock.NewController(GinkgoT()))
+		pod.EXPECT().MountRoot().Return(safeTmp, nil)
+
+		socketPath := filepath.Join(tmp, "dir", "domain-notify-pipe.sock")
+
+		listener, err := InjectNotify(pod, "dir", false)
+		Expect(err).ToNot(HaveOccurred())
+		defer listener.Close()
+		ctx, cancelListener := context.WithCancel(context.Background())
+		pipeChan := ChanFromListener(ctx, log.Log, listener)
+
+		conn, err := net.Dial("unix", socketPath)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = conn.Write([]byte("Hello"))
+		Expect(err).ToNot(HaveOccurred())
+
+		var pipeConn net.Conn
+		var open bool
+		select {
+		case <-time.After(time.Second):
+			Fail("Expected to recieve new connection from channel")
+		case pipeConn, open = <-pipeChan:
+			if !open {
+				Fail("Expected to not close channel")
+			}
+			msg, err := readMsg(pipeConn, 5)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(msg).To(Equal("Hello"))
+		}
+
+		cancelListener()
+
+		// Should close listener
+		Eventually(func() error {
+			_, err = net.Dial("unix", socketPath)
+			return err
+		}).Should(HaveOccurred())
+
+		// will keep current connections
+
+		_, err = conn.Write([]byte("Hello"))
+		Expect(err).ToNot(HaveOccurred())
+
+		msg, err := readMsg(pipeConn, 5)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(msg).To(Equal("Hello"))
+
+	})
+
+})
+
+func readMsg(conn net.Conn, n int) (string, error) {
+	buf := make([]byte, n)
+	_, err := conn.Read(buf)
+	if err != nil {
+		return "", err
+	}
+	return string(buf), err
+
+}
