@@ -42,7 +42,8 @@ var _ = Describe("Generic Device", func() {
 	var devicePath string
 
 	BeforeEach(func() {
-		workDir, err := os.MkdirTemp("", "kubevirt-test")
+		var err error
+		workDir, err = os.MkdirTemp("", "kubevirt-test")
 		Expect(err).ToNot(HaveOccurred())
 
 		devicePath = path.Join(workDir, "foo")

@@ -48,9 +48,7 @@ var _ = Describe("Socket device", func() {
 	var mockSelinux *selinux.MockSELinux
 
 	BeforeEach(func() {
-		var err error
-		workDir := GinkgoT().TempDir()
-		Expect(err).ToNot(HaveOccurred())
+		workDir = GinkgoT().TempDir()
 		sockDevPath = path.Join(workDir, socket)
 		createFile(sockDevPath)
 
@@ -64,8 +62,7 @@ var _ = Describe("Socket device", func() {
 		mockSelinux.EXPECT().IsPermissive().Return(true).AnyTimes()
 		mockPermManager.EXPECT().ChownAtNoFollow(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
-		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, mockPermManager)
-		Expect(err).ToNot(HaveOccurred())
+		dpi = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, mockPermManager)
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
 		createFile(dpi.socketPath)
@@ -119,9 +116,7 @@ var _ = Describe("Socket device", func() {
 		failingMockExec.EXPECT().NewSELinux().Return(nil, false, fmt.Errorf("selinux error")).AnyTimes()
 
 		// Re-create dpi with failing executor
-		var err error
-		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, failingMockExec, mockPermManager)
-		Expect(err).ToNot(HaveOccurred())
+		dpi = NewSocketDevicePlugin("test", workDir, socket, 1, failingMockExec, mockPermManager)
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
 		dpi.stop = stop
@@ -151,7 +146,7 @@ var _ = Describe("Socket device", func() {
 		ctrl := gomock.NewController(GinkgoT())
 		mockExec := selinux.NewMockExecutor(ctrl)
 
-		badDpi, _ := NewSocketDevicePlugin("test", "/nonexistent/dir", "test.sock", 1, mockExec, nil)
+		badDpi := NewSocketDevicePlugin("test", "/nonexistent/dir", "test.sock", 1, mockExec, nil)
 		badDpi.deviceRoot = "/nonexistent/dir"
 
 		watcher, _ := fsnotify.NewWatcher()
