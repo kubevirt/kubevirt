@@ -21,7 +21,6 @@ package launcher_clients
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -191,35 +190,8 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 }
 
 func handleDomainNotifyPipe(ctx context.Context, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
-
-	fdChan := make(chan net.Conn, 100)
-
-	// Close listener and exit when stop encountered
-	go func() {
-		<-ctx.Done()
-		log.Log.Object(vmi).Infof("closing notify pipe listener for vmi")
-		if err := ln.Close(); err != nil {
-			log.Log.Object(vmi).Infof("failed closing notify pipe listener for vmi: %v", err)
-		}
-	}()
-
-	// Listen for new connections,
-	go func(vmi *v1.VirtualMachineInstance, ln net.Listener) {
-		for {
-			fd, err := ln.Accept()
-			if err != nil {
-				if errors.Is(err, net.ErrClosed) {
-					// As Accept blocks, closing it is our mechanism to exit this loop
-					return
-				}
-				log.Log.Reason(err).Error("Domain pipe accept error encountered.")
-				// keep listening until stop invoked
-				time.Sleep(1 * time.Second)
-			} else {
-				fdChan <- fd
-			}
-		}
-	}(vmi, ln)
+	logger := log.Log.Object(vmi)
+	fdChan := pipe.ChanFromListener(ctx, logger, ln)
 
 	// Process new connections
 	// exit when stop encountered
