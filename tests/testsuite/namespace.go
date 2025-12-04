@@ -270,6 +270,20 @@ func CleanNamespaces() {
 		// Remove events
 		Expect(virtCli.CoreV1().Events(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
+		// Remove vmbackups
+		vmbackupList, err := virtCli.VirtualMachineBackup(namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, backup := range vmbackupList.Items {
+			Expect(virtCli.VirtualMachineBackup(namespace).Delete(context.Background(), backup.Name, metav1.DeleteOptions{})).To(Succeed())
+		}
+
+		// Remove vmbackuptrackers
+		vmbackuptrackerList, err := virtCli.VirtualMachineBackupTracker(namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, tracker := range vmbackuptrackerList.Items {
+			Expect(virtCli.VirtualMachineBackupTracker(namespace).Delete(context.Background(), tracker.Name, metav1.DeleteOptions{})).To(Succeed())
+		}
+
 		// Remove vmexports
 		vmexportList, err := virtCli.VirtualMachineExport(namespace).List(context.Background(), metav1.ListOptions{})
 		Expect(err).ToNot(HaveOccurred())
