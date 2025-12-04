@@ -83,7 +83,7 @@ func (dpi *SocketDevicePlugin) setSocketDirectoryPermissions() error {
 	return nil
 }
 
-func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices int, executor selinux.Executor, p PermissionManager) (*SocketDevicePlugin, error) {
+func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices int, executor selinux.Executor, p PermissionManager) *SocketDevicePlugin {
 	dpi := &SocketDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			devs:         []*pluginapi.Device{},
@@ -122,7 +122,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 			return dpi.setSocketPermissions()
 		}
 	}
-	return dpi, nil
+	return dpi
 }
 
 func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
