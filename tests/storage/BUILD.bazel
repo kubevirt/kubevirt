@@ -39,6 +39,7 @@ go_library(
         "//pkg/util:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
+        "//staging/src/kubevirt.io/api/backup:go_default_library",
         "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
