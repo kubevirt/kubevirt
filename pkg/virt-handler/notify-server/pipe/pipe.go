@@ -80,6 +80,21 @@ func InjectNotify(pod isolation.IsolationResult, virtShareDir string,
 }
 
 type connectFunc func() (net.Conn, error)
+type proxyFunc func(net.Conn)
+
+func Pipe(ctx context.Context, pipeChan chan net.Conn, proxy proxyFunc) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case fd, open := <-pipeChan:
+			if !open {
+				return
+			}
+			go proxy(fd)
+		}
+	}
+}
 
 // Proxy is blocking, it proxies pipe connection [pipeConn] to given connection [connect](ultimately to notify server)
 // pipeConn is closed on success or error
