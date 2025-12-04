@@ -181,6 +181,57 @@ var _ = Describe("ChanFromListener", func() {
 
 })
 
+var _ = Describe("Pipe", func() {
+	It("should work", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		connChan := make(chan net.Conn, 1)
+		go func() {
+			Pipe(ctx, connChan, func(c net.Conn) {
+				_, err := c.Write([]byte("Hello"))
+				Expect(err).ToNot(HaveOccurred())
+			})
+		}()
+
+		pipeConn, pipeMirror := net.Pipe()
+		connChan <- pipeConn
+
+		msg, err := readMsg(pipeMirror, 5)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(msg).To(Equal("Hello"))
+	})
+
+	It("should return when ctx is canceled", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		exit := make(chan struct{})
+		go func() {
+			Pipe(ctx, make(chan net.Conn, 1), func(c net.Conn) {})
+			exit <- struct{}{}
+		}()
+		Consistently(exit).ShouldNot(Receive())
+		cancel()
+		Eventually(exit).Should(Receive())
+	})
+
+	It("should return when chanel is closed", func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		exit := make(chan struct{})
+		pipeChan := make(chan net.Conn, 1)
+		go func() {
+			Pipe(ctx, pipeChan, func(c net.Conn) {})
+			exit <- struct{}{}
+		}()
+		Consistently(exit).ShouldNot(Receive())
+		close(pipeChan)
+		Eventually(exit).Should(Receive())
+	})
+})
+
 func readMsg(conn net.Conn, n int) (string, error) {
 	buf := make([]byte, n)
 	_, err := conn.Read(buf)
