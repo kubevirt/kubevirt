@@ -506,7 +506,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
+				clientVMI = libwait.WaitForSuccessfulVMIStart(clientVMI)
+				Eventually(matcher.ThisVMI(clientVMI), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				Expect(console.LoginToFedora(clientVMI)).To(Succeed())
 
 				serverVMI, err := newFedoraMasqueradeIPv6VMI(ports, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
@@ -514,7 +516,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				serverVMI.Labels = map[string]string{"expose": "server"}
 				serverVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
+				serverVMI = libwait.WaitForSuccessfulVMIStart(serverVMI)
+				Eventually(matcher.ThisVMI(serverVMI), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				Expect(console.LoginToFedora(serverVMI)).To(Succeed())
 
 				Expect(serverVMI.Status.Interfaces).To(HaveLen(1))
 				Expect(serverVMI.Status.Interfaces[0].IPs).NotTo(BeEmpty())
