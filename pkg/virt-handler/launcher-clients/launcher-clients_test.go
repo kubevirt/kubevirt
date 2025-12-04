@@ -43,48 +43,64 @@ import (
 )
 
 var _ = Describe("DomainNotifyServer integration", func() {
+	var preparePipe = func() (string, string) {
+		pipeDir := GinkgoT().TempDir()
+		pipePath := filepath.Join(pipeDir, "domain-notify-pipe.sock")
+		err := os.MkdirAll(pipeDir, 0755)
+		Expect(err).ToNot(HaveOccurred())
+		return pipeDir, pipePath
+	}
+
+	var (
+		ctx       context.Context
+		cancel    context.CancelFunc
+		notifyDir string
+	)
+
+	BeforeEach(func() {
+		ctx, cancel = context.WithCancel(context.Background())
+		var err error
+		notifyDir, err = os.MkdirTemp("", "kubevirt-share")
+		Expect(err).ToNot(HaveOccurred())
+
+	})
+
+	AfterEach(func() {
+		cancel()
+		os.RemoveAll(notifyDir)
+	})
+
+	startServer := func(recorder *record.FakeRecorder,
+		vmiStore cache.Store) (chan struct{}, chan struct{}) {
+		serverIsStoppedChan := make(chan struct{})
+		serverStopChan := make(chan struct{})
+
+		recorder.IncludeObject = true
+
+		go func() {
+			notifyserver.RunServer(notifyDir, serverStopChan, make(chan watch.Event, 100), recorder, vmiStore)
+			close(serverIsStoppedChan)
+		}()
+
+		return serverIsStoppedChan, serverStopChan
+	}
+
 	Context("with running Server", func() {
-		var notifyDir string
-		var serverStopChan chan struct{}
-		var serverIsStoppedChan chan struct{}
-		var ctx context.Context
-		var cancel context.CancelFunc
+
 		var recorder *record.FakeRecorder
 		var vmiStore cache.Store
 
 		BeforeEach(func() {
-			var err error
-			serverStopChan = make(chan struct{})
-			ctx, cancel = context.WithCancel(context.Background())
-			serverIsStoppedChan = make(chan struct{})
-			notifyDir, err = os.MkdirTemp("", "kubevirt-share")
-			Expect(err).ToNot(HaveOccurred())
-
-			recorder = record.NewFakeRecorder(10)
-			recorder.IncludeObject = true
 			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 			vmiStore = vmiInformer.GetStore()
 
-			go func(serverIsStoppedChan chan struct{}) {
-				notifyserver.RunServer(notifyDir, serverStopChan, make(chan watch.Event, 100), recorder, vmiStore)
-				close(serverIsStoppedChan)
-			}(serverIsStoppedChan)
-
+			recorder = record.NewFakeRecorder(10)
+			serverIsStoppedChan, serverStopChan := startServer(recorder, vmiStore)
 			time.Sleep(3)
-		})
-
-		var preparePipe = func() (string, string) {
-			pipeDir := GinkgoT().TempDir()
-			pipePath := filepath.Join(pipeDir, "domain-notify-pipe.sock")
-			err := os.MkdirAll(pipeDir, 0755)
-			Expect(err).ToNot(HaveOccurred())
-			return pipeDir, pipePath
-		}
-
-		AfterEach(func() {
-			close(serverStopChan)
-			cancel()
-			os.RemoveAll(notifyDir)
+			DeferCleanup(func() {
+				close(serverStopChan)
+				<-serverIsStoppedChan
+			})
 		})
 
 		It("should get notify events", func() {
@@ -155,7 +171,17 @@ var _ = Describe("DomainNotifyServer integration", func() {
 
 		})
 
+	})
+	Context("", func() {
 		It("should be resilient to notify server restarts", func() {
+			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmiStore := vmiInformer.GetStore()
+
+			recorder := record.NewFakeRecorder(10)
+			serverIsStoppedChan, serverStopChan := startServer(recorder, vmiStore)
+
+			time.Sleep(3)
+
 			vmi := api2.NewMinimalVMI("fake-vmi")
 			vmi.UID = "4321"
 			vmiStore.Add(vmi)
@@ -186,12 +212,7 @@ var _ = Describe("DomainNotifyServer integration", func() {
 				Expect(err).To(HaveOccurred())
 
 				// Restart the server now that it is down.
-				serverStopChan = make(chan struct{})
-				serverIsStoppedChan = make(chan struct{})
-				go func() {
-					notifyserver.RunServer(notifyDir, serverStopChan, make(chan watch.Event, 100), recorder, vmiStore)
-					close(serverIsStoppedChan)
-				}()
+				serverIsStoppedChan, serverStopChan = startServer(recorder, vmiStore)
 
 				// Expect the client to reconnect and succeed despite server restarts
 				client.SetCustomTimeouts(1*time.Second, 1*time.Second, 3*time.Second)
