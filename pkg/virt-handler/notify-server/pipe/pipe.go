@@ -25,10 +25,13 @@
 package pipe
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"path/filepath"
+	"time"
 
 	"kubevirt.io/client-go/log"
 
@@ -110,4 +113,35 @@ func Proxy(logger *log.FilteredLogger, pipeConn net.Conn, connect connectFunc) {
 	} else {
 		logger.Infof("gracefully closed notify pipe connection")
 	}
+}
+
+func ChanFromListener(ctx context.Context, logger *log.FilteredLogger, listener net.Listener) chan net.Conn {
+	connectionChan := make(chan net.Conn, 100)
+	// Close listener and exit when stop encountered
+	go func() {
+		<-ctx.Done()
+		logger.Infof("closing notify pipe listener for vmi")
+		if err := listener.Close(); err != nil {
+			logger.Infof("failed closing notify pipe listener for vmi: %v", err)
+		}
+	}()
+
+	// Listen for new connections,
+	go func() {
+		for {
+			conn, err := listener.Accept()
+			if err != nil {
+				if errors.Is(err, net.ErrClosed) {
+					// As Accept blocks, closing it is our mechanism to exit this loop
+					return
+				}
+				logger.Reason(err).Error("Domain pipe accept error encountered.")
+				// keep listening until stop invoked
+				time.Sleep(1 * time.Second)
+			} else {
+				connectionChan <- conn
+			}
+		}
+	}()
+	return connectionChan
 }
