@@ -1446,6 +1446,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			c.SRIOVDevices,
 		),
 		compute.NewWatchdogDomainConfigurator(architecture),
+		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1787,40 +1788,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			Model:  virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
 			Driver: controllerDriver,
 		})
-
-		var serialPort uint = 0
-		var serialType string = "serial"
-		domain.Spec.Devices.Consoles = []api.Console{
-			{
-				Type: "pty",
-				Target: &api.ConsoleTarget{
-					Type: &serialType,
-					Port: &serialPort,
-				},
-			},
-		}
-
-		socketPath := fmt.Sprintf("%s/%s/virt-serial%d", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)
-		domain.Spec.Devices.Serials = []api.Serial{
-			{
-				Type: "unix",
-				Target: &api.SerialTarget{
-					Port: &serialPort,
-				},
-				Source: &api.SerialSource{
-					Mode: "bind",
-					Path: socketPath,
-				},
-			},
-		}
-
-		if c.SerialConsoleLog {
-			domain.Spec.Devices.Serials[0].Log = &api.SerialLog{
-				File:   fmt.Sprintf("%s-log", socketPath),
-				Append: "on",
-			}
-		}
-
 	}
 
 	// Add Ignition Command Line if present
