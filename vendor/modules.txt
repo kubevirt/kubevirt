@@ -1231,6 +1231,9 @@ k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
+# k8s.io/dynamic-resource-allocation v0.34.2
+## explicit; go 1.24.0
+k8s.io/dynamic-resource-allocation/deviceattribute
 # k8s.io/klog/v2 v2.130.1
 ## explicit; go 1.18
 k8s.io/klog/v2

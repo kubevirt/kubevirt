@@ -93,6 +93,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
@@ -1160,6 +1161,92 @@ func needToCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance) bool {
 	return cbt.CompareCBTState(vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
 }
 
+func (l *LibvirtDomainManager) syncDRAHostDevices(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, dom cli.VirDomain) error {
+	myPodName := os.Getenv("POD_NAME")
+	if myPodName == "" {
+		// Can't determine pod name, skip sync
+		return nil
+	}
+
+	if vmi.Status.DeviceStatus == nil {
+		// No device status yet, nothing to sync
+		return nil
+	}
+
+	// Get currently attached DRA devices
+	currentDRADevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, dra.DRAHostDeviceAliasPrefix)
+
+	var devicesToHotplug []api.HostDevice
+
+	// Check generic host devices
+	if vmi.Status.DeviceStatus.HostDeviceStatuses != nil {
+		for _, hdStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+			if hdStatus.DeviceResourceClaimStatus == nil || hdStatus.DeviceResourceClaimStatus.ResourceClaimName == nil {
+				continue
+			}
+
+			// Check if this device's claim is for this pod (claim name contains pod name)
+			claimName := *hdStatus.DeviceResourceClaimStatus.ResourceClaimName
+			if !strings.Contains(claimName, myPodName) {
+				log.Log.V(4).Infof("Skipping DRA device %s - claim %s not for this pod %s", hdStatus.Name, claimName, myPodName)
+				continue
+			}
+
+			// Check if device is already in domain
+			deviceAlias := dra.DRAHostDeviceAliasPrefix + hdStatus.Name
+			found := false
+			for _, existingDev := range currentDRADevices {
+				if existingDev.Alias.GetName() == deviceAlias {
+					found = true
+					log.Log.V(4).Infof("DRA device %s already in domain", hdStatus.Name)
+					break
+				}
+			}
+			if found {
+				continue
+			}
+
+			// Device is for this pod but not in domain - need to hotplug
+			log.Log.Infof("DRA device %s is for this pod but not in domain, will hotplug", hdStatus.Name)
+
+			// Create device to hotplug
+			if hdStatus.DeviceResourceClaimStatus.Attributes != nil {
+				if hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
+					hostAddr, err := device.NewPciAddressField(*hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress)
+					if err != nil {
+						return fmt.Errorf("failed to create PCI device for %s: %v", hdStatus.Name, err)
+					}
+					devicesToHotplug = append(devicesToHotplug, api.HostDevice{
+						Alias:   api.NewUserDefinedAlias(deviceAlias),
+						Source:  api.HostDeviceSource{Address: hostAddr},
+						Type:    api.HostDevicePCI,
+						Managed: "no",
+					})
+				} else if hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil {
+					devicesToHotplug = append(devicesToHotplug, api.HostDevice{
+						Alias:  api.NewUserDefinedAlias(deviceAlias),
+						Source: api.HostDeviceSource{Address: &api.Address{UUID: *hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID}},
+						Type:   api.HostDeviceMDev,
+						Mode:   "subsystem",
+						Model:  "vfio-pci",
+					})
+				}
+			}
+		}
+	}
+
+	// TODO: Add GPU device hotplug support if needed
+
+	if len(devicesToHotplug) > 0 {
+		log.Log.Object(vmi).Infof("Hotplugging %d DRA host devices", len(devicesToHotplug))
+		if err := hostdevice.AttachHostDevices(dom, devicesToHotplug); err != nil {
+			return fmt.Errorf("failed to hotplug DRA host devices: %v", err)
+		}
+	}
+
+	return nil
+}
+
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -1240,6 +1327,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		domainAttachments = options.GetInterfaceDomainAttachment()
 	}
 	if err := network.Sync(domain, oldSpec, dom, vmi, domainAttachments); err != nil {
+		return nil, err
+	}
+
+	// Sync DRA host devices - hotplug any devices for this pod that are missing from domain
+	if err := l.syncDRAHostDevices(vmi, oldSpec, dom); err != nil {
 		return nil, err
 	}
 
