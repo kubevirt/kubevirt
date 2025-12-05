@@ -1,8 +1,7 @@
-load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "provision_user")
 load("//cmd/virt-handler:passt_macros.bzl", "passt_repair_for_arch")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
@@ -71,62 +70,14 @@ go_binary(
     x_defs = version_x_defs(),
 )
 
-passwd_entry(
-    name = "root-user",
-    gid = 0,
-    home = "/root",
-    info = "root",
-    shell = "/bin/bash",
-    uid = 0,
-    username = "root",
-)
-
-passwd_entry(
-    name = "qemu-user",
+provision_user(
+    name = "user-layer",
     gid = 107,
-    home = "",
+    groupname = "qemu",
+    provision_root_user = True,  # CI requires this user for some reason
     shell = "/bin/bash",
     uid = 107,
     username = "qemu",
-)
-
-passwd_file(
-    name = "passwd",
-    entries = [
-        ":qemu-user",
-        ":root-user",
-    ],
-)
-
-group_entry(
-    name = "qemu-group",
-    gid = 107,
-    groupname = "qemu",
-)
-
-group_entry(
-    name = "root-group",
-    gid = 0,
-    groupname = "root",
-)
-
-group_file(
-    name = "group",
-    entries = [
-        ":qemu-group",
-        ":root-group",
-    ],
-)
-
-pkg_tar(
-    name = "passwd-tar",
-    srcs = [
-        ":group",
-        ":passwd",
-    ],
-    mode = "0644",
-    package_dir = "etc",
-    visibility = ["//visibility:public"],
 )
 
 pkg_tar(
@@ -150,6 +101,16 @@ passt_repair_for_arch("aarch64")
 
 passt_repair_for_arch("s390x")
 
+alias(
+    name = "passt_repair_tar",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": ":passt_repair_tar_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": ":passt_repair_tar_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": ":passt_repair_tar_s390x",
+        "//conditions:default": ":passt_repair_tar_x86_64",
+    }),
+)
+
 pkg_tar(
     name = "virt-handler-tar",
     srcs = [
@@ -166,29 +127,13 @@ oci_image(
         "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
         "//conditions:default": "@go_image_base",
     }),
-    tars = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": [
-            "//rpm:handlerbase_aarch64",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":get-version-tar",
-            ":passt_repair_tar_aarch64",
-        ],
-        "@io_bazel_rules_go//go/platform:linux_s390x": [
-            "//rpm:handlerbase_s390x",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":get-version-tar",
-            ":passt_repair_tar_s390x",
-        ],
-        "//conditions:default": [
-            "//rpm:handlerbase_x86_64",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":get-version-tar",
-            ":passt_repair_tar_x86_64",
-        ],
-    }),
+    tars = [
+        ":user-layer",
+        ":nsswitch-tar",
+        ":get-version-tar",
+        ":passt_repair_tar",
+        "//rpm:handlerbase",
+    ],
 )
 
 oci_image(
