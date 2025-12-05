@@ -53,7 +53,7 @@ const presetDeprecationWarning = "kubevirt.io/v1 VirtualMachineInstancePresets i
 func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) error {
 	// Set VirtualMachineInstance defaults
 	log.Log.Object(newVMI).V(4).Info("Apply defaults")
-	if err := defaults.SetDefaultVirtualMachineInstance(clusterConfig, newVMI); err != nil {
+	if err := defaults.NewDefault(clusterConfig).SetDefaultVirtualMachineInstance(clusterConfig, newVMI); err != nil {
 		return err
 	}
 

@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -223,11 +224,15 @@ func NewVirtualMachineController(
 		permissions = "rwm"
 	}
 
+	// Get the hypervisor device name from cluster config
+	hypervisorName := clusterConfig.GetConfig().HypervisorConfiguration.Name
+	hypervisor := hypervisor.NewHypervisor(hypervisorName)
+
 	c.deviceManagerController = deviceManager.NewDeviceController(
 		c.host,
 		maxDevices,
 		permissions,
-		deviceManager.PermanentHostDevicePlugins(maxDevices, permissions),
+		deviceManager.PermanentHostDevicePlugins(hypervisor.GetDevice(), maxDevices, permissions),
 		clusterConfig,
 		nodeStore)
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
@@ -2064,7 +2069,7 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, fmt.Errorf("failed to configure vmi network: %w", err)
 	}
 
-	if err := c.setupDevicesOwnerships(vmi, c.recorder); err != nil {
+	if err := c.setupDevicesOwnerships(vmi, c.recorder, hypervisor.NewHypervisor(c.clusterConfig.GetHypervisor().Name).GetDevice()); err != nil {
 		return false, err
 	}
 

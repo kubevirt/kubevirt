@@ -66,6 +66,7 @@ import (
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	hv "kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/cache"
@@ -201,6 +202,7 @@ type LibvirtDomainManager struct {
 	cpuSetGetter                  func() ([]int, error)
 	imageVolumeFeatureGateEnabled bool
 	setTimeOnce                   sync.Once
+	hypervisor                    hv.Hypervisor
 }
 
 type pausedVMIs struct {
@@ -228,14 +230,14 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
 	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, hypervisor hv.Hypervisor) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled, hypervisor)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
 	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, hypervisor hv.Hypervisor) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		diskMemoryLimitBytes: diskMemoryLimitBytes,
 		virConn:              connection,
@@ -255,7 +257,10 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		cpuSetGetter:                  cpuSetGetter,
 		setTimeOnce:                   sync.Once{},
 		imageVolumeFeatureGateEnabled: imageVolumeEnabled,
+		hypervisor:                    hypervisor,
 	}
+
+	log.Log.Infof("Domain manager created with %s as the hypervisor", manager.hypervisor)
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
 	manager.memoryDumpInProgress = make(chan struct{}, maxConcurrentMemoryDumps)
@@ -1079,6 +1084,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseLaunchSecurityPV:   kutil.IsSecureExecutionVMI(vmi),
 		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
+		Hypervisor:            l.hypervisor,
 	}
 
 	if options != nil {

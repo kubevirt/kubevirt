@@ -20,360 +20,40 @@
 package defaults
 
 import (
-	"context"
-	"strings"
-
-	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
-	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
-	"kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/util"
+	arch_defaults "kubevirt.io/kubevirt/pkg/defaults/arch"
+	base_defaults "kubevirt.io/kubevirt/pkg/defaults/base"
+	kvm_defaults "kubevirt.io/kubevirt/pkg/defaults/kvm"
+	mshv_defaults "kubevirt.io/kubevirt/pkg/defaults/mshv"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) {
-	setDefaultArchitectureFromDataSource(clusterConfig, vm, virtClient)
-	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)
-	setVMDefaultMachineType(vm, clusterConfig)
+type Defaults interface {
+	SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient)
+	SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) error
+	SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) error
 }
 
-func setVMDefaultMachineType(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) {
-	// Nothing to do, let's the validating webhook fail later
-	if vm.Spec.Template == nil {
-		return
-	}
-
-	if machine := vm.Spec.Template.Spec.Domain.Machine; machine != nil && machine.Type != "" {
-		return
-	}
-
-	if vm.Spec.Template.Spec.Domain.Machine == nil {
-		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{}
-	}
-
-	if vm.Spec.Template.Spec.Domain.Machine.Type == "" {
-		vm.Spec.Template.Spec.Domain.Machine.Type = clusterConfig.GetMachineType(vm.Spec.Template.Spec.Architecture)
-	}
-}
-
-func SetDefaultVirtualMachineInstance(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) error {
-	if err := SetDefaultVirtualMachineInstanceSpec(clusterConfig, &vmi.Spec); err != nil {
-		return err
-	}
-	setDefaultFeatures(&vmi.Spec)
-	v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-	setDefaultHypervFeatureDependencies(&vmi.Spec)
-	setDefaultCPUArch(clusterConfig, &vmi.Spec)
-	setGuestMemoryStatus(vmi)
-	setCurrentCPUTopologyStatus(vmi)
-
-	// Hotplug needs to be enabled on ARM yet
-	if !IsARM64(&vmi.Spec) {
-		setupHotplug(clusterConfig, vmi)
-	}
-
-	return nil
-}
-
-func setupHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
-	if !clusterConfig.IsVMRolloutStrategyLiveUpdate() {
-		return
-	}
-	setupCPUHotplug(clusterConfig, vmi)
-	setupMemoryHotplug(clusterConfig, vmi)
-}
-
-func setupCPUHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		maxSockets := clusterConfig.GetMaximumCpuSockets()
-		if vmi.Spec.Domain.CPU.Sockets > maxSockets && maxSockets != 0 {
-			maxSockets = vmi.Spec.Domain.CPU.Sockets
+func NewDefault(clusterConfig *virtconfig.ClusterConfig) Defaults {
+	switch clusterConfig.GetHypervisor().Name {
+	case v1.HyperVLayeredHypervisorName:
+		mshvDefaults := mshv_defaults.MSHVDefaults{
+			BaseDefaults: *base_defaults.NewBaseDefaults(
+				arch_defaults.NewAmd64ArchDefaults(),
+				arch_defaults.NewArm64ArchDefaults(),
+				arch_defaults.NewS390xArchDefaults(),
+			),
 		}
-		vmi.Spec.Domain.CPU.MaxSockets = maxSockets
-	}
-
-	if vmi.Spec.Domain.CPU.MaxSockets == 0 {
-		// Each machine type will have different maximum for vcpus,
-		// lets choose 512 as upper bound
-		const maxVCPUs = 512
-
-		vmi.Spec.Domain.CPU.MaxSockets = vmi.Spec.Domain.CPU.Sockets * clusterConfig.GetMaxHotplugRatio()
-		totalVCPUs := vmi.Spec.Domain.CPU.MaxSockets * vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads
-		if totalVCPUs > maxVCPUs {
-			adjustedSockets := maxVCPUs / (vmi.Spec.Domain.CPU.Cores * vmi.Spec.Domain.CPU.Threads)
-			vmi.Spec.Domain.CPU.MaxSockets = max(adjustedSockets, vmi.Spec.Domain.CPU.Sockets)
-		}
-	}
-}
-
-func setupMemoryHotplug(clusterConfig *virtconfig.ClusterConfig, vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.Memory.MaxGuest != nil {
-		return
-	}
-
-	var maxGuest *resource.Quantity
-	switch {
-	case clusterConfig.GetMaximumGuestMemory() != nil:
-		maxGuest = clusterConfig.GetMaximumGuestMemory()
-	case vmi.Spec.Domain.Memory.Guest != nil:
-		maxGuest = resource.NewQuantity(vmi.Spec.Domain.Memory.Guest.Value()*int64(clusterConfig.GetMaxHotplugRatio()), resource.BinarySI)
-	}
-
-	if err := memory.ValidateLiveUpdateMemory(&vmi.Spec, maxGuest); err != nil {
-		// memory hotplug is not compatible with this VM configuration
-		log.Log.V(2).Object(vmi).Infof("memory-hotplug disabled: %s", err)
-		return
-	}
-
-	vmi.Spec.Domain.Memory.MaxGuest = maxGuest
-}
-
-func setCurrentCPUTopologyStatus(vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.CPU != nil && vmi.Status.CurrentCPUTopology == nil {
-		vmi.Status.CurrentCPUTopology = &v1.CPUTopology{
-			Sockets: vmi.Spec.Domain.CPU.Sockets,
-			Cores:   vmi.Spec.Domain.CPU.Cores,
-			Threads: vmi.Spec.Domain.CPU.Threads,
-		}
-	}
-}
-
-func setGuestMemoryStatus(vmi *v1.VirtualMachineInstance) {
-	if vmi.Spec.Domain.Memory != nil &&
-		vmi.Spec.Domain.Memory.Guest != nil {
-		vmi.Status.Memory = &v1.MemoryStatus{
-			GuestAtBoot:    vmi.Spec.Domain.Memory.Guest,
-			GuestCurrent:   vmi.Spec.Domain.Memory.Guest,
-			GuestRequested: vmi.Spec.Domain.Memory.Guest,
-		}
-	}
-}
-
-func setDefaultFeatures(spec *v1.VirtualMachineInstanceSpec) {
-	if IsS390X(spec) {
-		setS390xDefaultFeatures(spec)
-	}
-}
-
-func setDefaultCPUArch(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
-	// Do some CPU arch specific setting.
-	switch {
-	case IsARM64(spec):
-		log.Log.V(4).Info("Apply Arm64 specific setting")
-		SetArm64Defaults(spec)
-	case IsS390X(spec):
-		log.Log.V(4).Info("Apply s390x specific setting")
-		SetS390xDefaults(spec)
+		return &mshvDefaults
 	default:
-		SetAmd64Defaults(spec)
-	}
-	setDefaultCPUModel(clusterConfig, spec)
-}
-
-func setDefaultHypervFeatureDependencies(spec *v1.VirtualMachineInstanceSpec) {
-	// In a future, yet undecided, release either libvirt or QEMU are going to check the hyperv dependencies, so we can get rid of this code.
-	// Until that time, we need to handle the hyperv deps to avoid obscure rejections from QEMU later on
-	log.Log.V(4).Info("Set HyperV dependencies")
-	if err := SetHypervFeatureDependencies(spec); err != nil {
-		// HyperV is a special case. If our best-effort attempt fails, we should leave
-		// rejection to be performed later on in the validating webhook, and continue here.
-		// Please note this means that partial changes may have been performed.
-		// This is OK since each dependency must be atomic and independent (in ACID sense),
-		// so the VMI configuration is still legal.
-		log.Log.V(2).Infof("Failed to set HyperV dependencies: %s", err)
-	}
-}
-
-func SetDefaultVirtualMachineInstanceSpec(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) error {
-	setDefaultArchitecture(clusterConfig, spec)
-	setDefaultMachineType(clusterConfig, spec)
-	setDefaultResourceRequests(clusterConfig, spec)
-	setGuestMemory(spec)
-	SetDefaultGuestCPUTopology(clusterConfig, spec)
-	setDefaultPullPoliciesOnContainerDisks(spec)
-	setDefaultEvictionStrategy(clusterConfig, spec)
-	if err := vmispec.SetDefaultNetworkInterface(clusterConfig, spec); err != nil {
-		return err
-	}
-	util.SetDefaultVolumeDisk(spec)
-	return nil
-}
-
-func setDefaultEvictionStrategy(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
-	if spec.EvictionStrategy == nil {
-		spec.EvictionStrategy = clusterConfig.GetConfig().EvictionStrategy
-	}
-}
-
-func setDefaultMachineType(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
-	machineType := clusterConfig.GetMachineType(spec.Architecture)
-
-	if machine := spec.Domain.Machine; machine != nil {
-		if machine.Type == "" {
-			machine.Type = machineType
+		return &kvm_defaults.KVMDefaults{
+			BaseDefaults: *base_defaults.NewBaseDefaults(
+				arch_defaults.NewAmd64ArchDefaults(),
+				arch_defaults.NewArm64ArchDefaults(),
+				arch_defaults.NewS390xArchDefaults(),
+			),
 		}
-	} else {
-		spec.Domain.Machine = &v1.Machine{Type: machineType}
-	}
-
-}
-
-func setDefaultPullPoliciesOnContainerDisks(spec *v1.VirtualMachineInstanceSpec) {
-	for _, volume := range spec.Volumes {
-		if volume.ContainerDisk != nil && volume.ContainerDisk.ImagePullPolicy == "" {
-			if strings.HasSuffix(volume.ContainerDisk.Image, ":latest") || !strings.ContainsAny(volume.ContainerDisk.Image, ":@") {
-				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullAlways
-			} else {
-				volume.ContainerDisk.ImagePullPolicy = k8sv1.PullIfNotPresent
-			}
-		}
-	}
-}
-
-func setGuestMemory(spec *v1.VirtualMachineInstanceSpec) {
-	if spec.Domain.Memory != nil &&
-		spec.Domain.Memory.Guest != nil {
-		return
-	}
-
-	if spec.Domain.Memory == nil {
-		spec.Domain.Memory = &v1.Memory{}
-	}
-
-	switch {
-	case !spec.Domain.Resources.Requests.Memory().IsZero():
-		spec.Domain.Memory.Guest = spec.Domain.Resources.Requests.Memory()
-	case !spec.Domain.Resources.Limits.Memory().IsZero():
-		spec.Domain.Memory.Guest = spec.Domain.Resources.Limits.Memory()
-	case spec.Domain.Memory.Hugepages != nil:
-		if hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize); err == nil {
-			spec.Domain.Memory.Guest = &hugepagesSize
-		}
-	}
-
-}
-
-func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
-	resources := &spec.Domain.Resources
-
-	if !resources.Limits.Cpu().IsZero() && resources.Requests.Cpu().IsZero() {
-		if resources.Requests == nil {
-			resources.Requests = k8sv1.ResourceList{}
-		}
-		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
-	}
-
-	if cpuRequest := clusterConfig.GetCPURequest(); !cpuRequest.Equal(resource.MustParse(virtconfig.DefaultCPURequest)) {
-		if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
-			if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
-				return
-			}
-			if resources.Requests == nil {
-				resources.Requests = k8sv1.ResourceList{}
-			}
-			resources.Requests[k8sv1.ResourceCPU] = *cpuRequest
-		}
-	}
-}
-
-func SetDefaultGuestCPUTopology(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
-	cores := uint32(1)
-	threads := uint32(1)
-	sockets := uint32(1)
-	vmiCPU := spec.Domain.CPU
-	if vmiCPU == nil || (vmiCPU.Cores == 0 && vmiCPU.Sockets == 0 && vmiCPU.Threads == 0) {
-		// create cpu topology struct
-		if spec.Domain.CPU == nil {
-			spec.Domain.CPU = &v1.CPU{}
-		}
-		//if cores, sockets, threads are not set, take value from domain resources request or limits and
-		//set value into sockets, which have best performance (https://bugzilla.redhat.com/show_bug.cgi?id=1653453)
-		resources := spec.Domain.Resources
-		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-			sockets = uint32(cpuLimit.Value())
-		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-			sockets = uint32(cpuRequests.Value())
-		}
-
-		spec.Domain.CPU.Sockets = sockets
-		spec.Domain.CPU.Cores = cores
-		spec.Domain.CPU.Threads = threads
-	}
-}
-
-func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
-	// create cpu topology struct
-	if spec.Domain.CPU == nil {
-		spec.Domain.CPU = &v1.CPU{}
-	}
-
-	// if vmi doesn't have cpu model set
-	if spec.Domain.CPU.Model == "" {
-		if clusterConfigCPUModel := clusterConfig.GetCPUModel(); clusterConfigCPUModel != "" {
-			//set is as vmi cpu model
-			spec.Domain.CPU.Model = clusterConfigCPUModel
-		} else {
-			spec.Domain.CPU.Model = v1.DefaultCPUModel
-		}
-	}
-}
-
-func setDefaultArchitecture(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
-	if spec.Architecture == "" {
-		spec.Architecture = clusterConfig.GetDefaultArchitecture()
-	}
-}
-
-func setDefaultArchitectureFromDataSource(clusterConfig *virtconfig.ClusterConfig, vm *v1.VirtualMachine, virtClient kubecli.KubevirtClient) {
-	const (
-		dataSourceKind        = "datasource"
-		templateArchLabel     = "template.kubevirt.io/architecture"
-		ignoreFailureErrorFmt = "ignoring failure to find datasource during vm mutation: %v"
-		ignoreUnknownArchFmt  = "ignoring unknown architecture %s provided by DataSource %s in namespace %s"
-	)
-	if vm.Spec.Template.Spec.Architecture != "" {
-		return
-	}
-	for _, template := range vm.Spec.DataVolumeTemplates {
-		if template.Spec.SourceRef == nil || !strings.EqualFold(template.Spec.SourceRef.Kind, dataSourceKind) {
-			continue
-		}
-		namespace := vm.Namespace
-		templateNamespace := template.Spec.SourceRef.Namespace
-		if templateNamespace != nil && *templateNamespace != "" {
-			namespace = *templateNamespace
-		}
-		ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(namespace).Get(
-			context.Background(), template.Spec.SourceRef.Name, metav1.GetOptions{})
-		if err != nil {
-			log.Log.Errorf(ignoreFailureErrorFmt, err)
-			continue
-		}
-		if ds.Spec.Source.DataSource != nil {
-			ds, err = virtClient.CdiClient().CdiV1beta1().DataSources(ds.Spec.Source.DataSource.Namespace).Get(
-				context.Background(), ds.Spec.Source.DataSource.Name, metav1.GetOptions{})
-			if err != nil {
-				log.Log.Errorf(ignoreFailureErrorFmt, err)
-				continue
-			}
-		}
-		arch, ok := ds.Labels[templateArchLabel]
-		if !ok {
-			continue
-		}
-		switch arch {
-		case "amd64", "arm64", "s390x":
-			vm.Spec.Template.Spec.Architecture = arch
-		default:
-			log.Log.Warningf(ignoreUnknownArchFmt, arch, ds.Name, ds.Namespace)
-			continue
-		}
-		return
 	}
 }

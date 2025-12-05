@@ -461,12 +461,12 @@ tests:
 
     alert_rule_test:
       - eval_time: 5m
-        alertname: LowKVMNodesCount
+        alertname: LowHypervisorNodesCount
         exp_alerts:
           - exp_annotations:
-              description: "Low number of nodes with KVM resource available."
-              summary: "At least two nodes with kvm resource required for VM live migration."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowKVMNodesCount"
+              description: "Low number of nodes with hypervisor resource available."
+              summary: "At least two nodes with hypervisor resource required for VM live migration."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowHypervisorNodesCount"
             exp_labels:
               severity: "warning"
               operator_health_impact: "warning"
@@ -483,12 +483,12 @@ tests:
 
     alert_rule_test:
       - eval_time: 5m
-        alertname: LowKVMNodesCount
+        alertname: LowHypervisorNodesCount
         exp_alerts:
           - exp_annotations:
-              description: "Low number of nodes with KVM resource available."
-              summary: "At least two nodes with kvm resource required for VM live migration."
-              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowKVMNodesCount"
+              description: "Low number of nodes with hypervisor resource available."
+              summary: "At least two nodes with hypervisor resource required for VM live migration."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowHypervisorNodesCount"
             exp_labels:
               severity: "warning"
               operator_health_impact: "warning"
@@ -505,7 +505,7 @@ tests:
 
     alert_rule_test:
       - eval_time: 5m
-        alertname: LowKVMNodesCount
+        alertname: LowHypervisorNodesCount
         exp_alerts: []
 
   # Test recording rule

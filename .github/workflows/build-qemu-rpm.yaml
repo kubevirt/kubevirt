@@ -1,0 +1,52 @@
+name: Build Custom QEMU RPM
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["ise"]
+    paths:
+      - .github/workflows/build-qemu-rpm.yaml
+
+env:
+  QEMU_REPO: https://github.com/kaizentm/qemu
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/qemu-rpms
+  QEMU_VERSION: 10.1.50.mshv.v5
+  RPM_IMAGE_TAG: qemu-mshv
+
+jobs:
+  build-rpms:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GH_PAT }}
+
+      - name: Build QEMU RPM
+        run: |
+          hack/qemu-mshv/build-qemu-rpms.sh \
+            -r ${{ env.QEMU_REPO }} \
+            -v ${{ env.QEMU_VERSION }}
+
+      - name: Create Container Image
+        run: |
+          hack/qemu-mshv/build-rpms-http-image.sh \
+            -r ${{ env.REGISTRY }} \
+            -i ${{ env.IMAGE_NAME }} \
+            -t ${{ env.RPM_IMAGE_TAG }} \
+            -d rpms-qemu
+
+      - name: Push Container Image
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }}
+
+          echo "Pushed container image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }}"

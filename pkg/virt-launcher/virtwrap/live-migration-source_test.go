@@ -30,6 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
+	hv "kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -56,7 +57,7 @@ var _ = Describe("Live migration source", func() {
 			testEphemeralDiskDir := fmt.Sprintf("fake-ephemeral-disk-%d", GinkgoRandomSeed())
 			ephemeralDiskCreatorMock := &fake.MockEphemeralDiskImageCreator{}
 			metadataCache := metadata.NewCache()
-
+			hypervisor := hv.NewHypervisor(virtconfig.DefaultHypervisorName)
 			manager, _ := NewLibvirtDomainManager(
 				mockConn,
 				testVirtShareDir,
@@ -69,6 +70,7 @@ var _ = Describe("Live migration source", func() {
 				virtconfig.DefaultDiskVerificationMemoryLimitBytes,
 				fakeCpuSetGetter,
 				false, // image volume enabled
+				hypervisor,
 			)
 			libvirtDomainManager = manager.(*LibvirtDomainManager)
 			libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)

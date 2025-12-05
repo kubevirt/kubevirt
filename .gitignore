@@ -45,3 +45,5 @@ hack/builder/manifests/
 .bazeldnf/
 user.bazelrc
 .vscode/
+services.test
+*.test

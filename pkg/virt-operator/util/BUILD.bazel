@@ -35,11 +35,13 @@ go_test(
     srcs = [
         "client_test.go",
         "config_test.go",
+        "hypervisor_config_test.go",
         "util_suite_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//pkg/virt-config/featuregate:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

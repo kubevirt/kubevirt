@@ -93,7 +93,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	// Set VM defaults
 	log.Log.Object(vm).V(4).Info("Apply defaults")
 
-	defaults.SetVirtualMachineDefaults(vm, mutator.ClusterConfig, mutator.virtClient)
+	defaults.NewDefault(mutator.ClusterConfig).SetVirtualMachineDefaults(vm, mutator.ClusterConfig, mutator.virtClient)
 
 	patchBytes, err := patch.New(
 		patch.WithReplace("/spec", vm.Spec),

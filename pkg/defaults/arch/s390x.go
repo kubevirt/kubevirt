@@ -13,7 +13,7 @@
  * Copyright the KubeVirt Authors.
  *
  */
-package defaults
+package arch_defaults
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -70,4 +70,21 @@ func SetS390xWatchdog(spec *v1.VirtualMachineInstanceSpec) {
 			spec.Domain.Devices.Watchdog.Diag288.Action = v1.WatchdogActionReset
 		}
 	}
+}
+
+type S390xDefaults struct {
+	BaseArchDefaults
+}
+
+func NewS390xArchDefaults() ArchDefaults {
+	baseArchDefaults := NewBaseArchDefaults()
+	baseArchDefaults.defaultFeaturesSetter = setS390xDefaultFeatures
+	baseArchDefaults.defaultDisksBusSetter = setDefaultS390xDisksBus
+	baseArchDefaults.defaultWatchdogSetter = SetS390xWatchdog
+
+	s390xDefaults := S390xDefaults{
+		BaseArchDefaults: *baseArchDefaults,
+	}
+
+	return &s390xDefaults
 }

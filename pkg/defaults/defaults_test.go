@@ -84,13 +84,15 @@ var _ = Describe("Defaults", func() {
 						),
 					),
 				)
-				defaults.SetVirtualMachineDefaults(vm, clusterConfig, virtClient)
+				defaultSetter := defaults.NewDefault(clusterConfig)
+				defaultSetter.SetVirtualMachineDefaults(vm, clusterConfig, virtClient)
 				Expect(vm.Spec.Template.Spec.Architecture).To(Equal(configProvidedArch))
 			})
 
 			DescribeTable("should default to", func(createVM func() *v1.VirtualMachine, expectedArch string) {
 				vm := createVM()
-				defaults.SetVirtualMachineDefaults(vm, clusterConfig, virtClient)
+				defaultSetter := defaults.NewDefault(clusterConfig)
+				defaultSetter.SetVirtualMachineDefaults(vm, clusterConfig, virtClient)
 				Expect(vm.Spec.Template.Spec.Architecture).To(Equal(expectedArch))
 			},
 				Entry("user provided value when provided", func() *v1.VirtualMachine {

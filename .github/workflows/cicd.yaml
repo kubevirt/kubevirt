@@ -1,0 +1,86 @@
+name: CICD Pipeline
+
+on:
+  push:
+    branches: ["ise"]
+  workflow_dispatch:
+
+env:
+  DOCKER_PREFIX: ghcr.io/${{ github.repository }}
+  DOCKER_TAG: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+  CUSTOM_LIBVIRT_IMAGE: ${{ format('ghcr.io/{0}/libvirt-rpms:{1}', github.repository, 'qemu-mshv') }}
+  CUSTOM_QEMU_IMAGE: ${{ format('ghcr.io/{0}/qemu-rpms:{1}', github.repository, 'qemu-mshv') }}
+
+jobs:
+  #quality-check:
+  #  uses: ./.github/workflows/pr.yaml
+
+  Build_Push_Images:
+    runs-on: self-hosted
+    permissions: write-all
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Cleanup Docker containers and images
+        run: |
+          # Remove all running containers
+          docker ps -q | xargs -r docker rm -f
+          # Remove stopped containers, unused images, networks, and optionally volumes
+          docker system prune -f -a
+
+      - name: Login to GHCR
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Custom libvirt & qemu RPMs
+        run: |
+          hack/qemu-mshv/setup-custom-libvirt-qemu-rpms.sh \
+            -l ${{ env.CUSTOM_LIBVIRT_IMAGE }} \
+            -q ${{ env.CUSTOM_QEMU_IMAGE }}
+
+      - name: Build Images
+        run: |
+          make bazel-build-images
+
+      - name: Push Images
+        run: |
+          make bazel-push-images
+
+      - name: Cleanup Custom RPM Servers
+        if: always()
+        run: |
+          docker rm -f libvirt-rpms-http-server 2>/dev/null || true
+          docker rm -f qemu-rpms-http-server 2>/dev/null || true
+          echo "Custom RPM HTTP servers cleaned up"
+
+  dev:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: dev
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+      kubevirt_provider: external
+    secrets: inherit
+    needs: [Build_Push_Images]
+
+  test-kvm:
+    uses: ./.github/workflows/deploy.yaml
+    with:
+      environment: test-kvm
+      image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+      kubevirt_provider: k8s-1.32
+      runner_tags: '["self-hosted", "large"]'
+    secrets: inherit
+    needs: [dev]
+
+  test-mshv:
+   uses: ./.github/workflows/deploy.yaml
+   with:
+     environment: test-mshv
+     image_tag: ${{ vars.VERSION }}-l1vh.${{ github.run_number }}
+     kubevirt_provider: external
+   secrets: inherit
+   needs: [dev]

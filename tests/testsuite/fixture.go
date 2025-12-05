@@ -44,7 +44,9 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/hypervisor"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -107,7 +109,7 @@ func SynchronizedBeforeTestSetup() []byte {
 		createFakeKWOKNodes()
 	}
 
-	EnsureKVMPresent()
+	EnsureHypervisorDevice()
 	AdjustKubeVirtResource()
 	EnsureKubevirtReady()
 
@@ -207,8 +209,11 @@ func shouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 	return allowEmulation
 }
 
-func EnsureKVMPresent() {
+func EnsureHypervisorDevice() {
 	virtClient := kubevirt.Client()
+
+	deviceName := hypervisor.GetDevice(virtClient)
+	deviceK8sResource := k8sv1.ResourceName(fmt.Sprintf("%s/%s", device_manager.DeviceNamespace, deviceName))
 
 	if !shouldAllowEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
@@ -222,14 +227,14 @@ func EnsureKVMPresent() {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+				allocatable, ok1 := virtHandlerNode.Status.Allocatable[deviceK8sResource]
 				vhostNetAllocatable, ok2 := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
 				ready = ready && ok1 && ok2
-				ready = ready && (kvmAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
+				ready = ready && (allocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
 			}
 			return ready
 		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
-			"Both KVM devices and vhost-net devices are required for testing, but are not present on cluster nodes")
+			fmt.Sprintf("Both %s and vhost-net devices are required for testing, but are not present on cluster nodes", deviceName))
 	}
 }
 

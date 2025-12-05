@@ -18,12 +18,20 @@
 
 package recordingrules
 
-import "github.com/rhobs/operator-observability-toolkit/pkg/operatorrules"
+import (
+	"github.com/rhobs/operator-observability-toolkit/pkg/operatorrules"
 
-func Register(namespace string) error {
+	v1 "kubevirt.io/api/core/v1"
+)
+
+func Register(namespace string, hypervisorName string) error {
+	if hypervisorName == "" {
+		hypervisorName = v1.KvmHypervisorName // Default to KVM for backwards compatibility
+	}
+
 	return operatorrules.RegisterRecordingRules(
 		apiRecordingRules,
-		nodesRecordingRules,
+		nodesRecordingRules(hypervisorName),
 		operatorRecordingRules,
 		virtRecordingRules(namespace),
 		vmRecordingRules,

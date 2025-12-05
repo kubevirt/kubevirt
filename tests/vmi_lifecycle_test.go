@@ -51,12 +51,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/framework/hypervisor"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -1281,7 +1281,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		Context("VM Accelerated Mode", decorators.WgS390x, func() {
 
-			It("[test_id:1648]Should provide KVM via plugin framework", func() {
+			It("[test_id:1648]Should provide hypervisor via plugin framework", func() {
 				nodeList := libnode.GetAllSchedulableNodes(kubevirt.Client())
 
 				if len(nodeList.Items) == 0 {
@@ -1289,11 +1289,14 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 				node := nodeList.Items[0]
 
-				_, ok := node.Status.Allocatable[services.KvmDevice]
-				Expect(ok).To(BeTrue(), "KVM devices not allocatable on node: %s", node.Name)
+				deviceName := hypervisor.GetDevice(kubevirt.Client())
+				deviceK8sResource := k8sv1.ResourceName(fmt.Sprintf("%s/%s", device_manager.DeviceNamespace, deviceName))
 
-				_, ok = node.Status.Capacity[services.KvmDevice]
-				Expect(ok).To(BeTrue(), "No Capacity for KVM devices on node: %s", node.Name)
+				_, ok := node.Status.Allocatable[deviceK8sResource]
+				Expect(ok).To(BeTrue(), "%s devices not allocatable on node: %s", deviceName, node.Name)
+
+				_, ok = node.Status.Capacity[deviceK8sResource]
+				Expect(ok).To(BeTrue(), "No Capacity for %s devices on node: %s", deviceName, node.Name)
 			})
 		})
 	})
@@ -1388,7 +1391,20 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		const vmiLaunchTimeout = 360
 
 		It("soft reboot vmi with agent connected should succeed", decorators.Conformance, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
+			// NOTE: ACPI is deliberately disabled here (withoutACPI()) to validate the guest-agent-only
+			// soft reboot path (i.e. success without relying on an ACPI reboot event). On the q35
+			// machine type KubeVirt normally attaches virtio devices behind PCIe root ports; enumerating
+			// those ports (and thus seeing the virtio-blk root disk) depends on ACPI tables. With ACPI
+			// disabled the guest failed to discover the boot disk and the test could not even start.
+			// The annotation kubevirt.io/placePCIDevicesOnRootComplex=true forces all virtio devices onto
+			// the legacy root bus (00:xx) so Linux can enumerate them without ACPI, allowing the VM to
+			// boot while still keeping ACPI disabled for the purpose of isolating the agent-based reboot
+			// mechanism. Remove only if q35 topology changes to make ACPI-less enumeration viable again.
+
+			vmi := libvmifact.NewFedora(withoutACPI(),
+				libvmi.WithAnnotation(v1.PlacePCIDevicesOnRootComplex, "true"))
+
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiLaunchTimeout)
 
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -1416,7 +1432,14 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 		})
 
 		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", decorators.Conformance, func() {
-			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(withoutACPI()), vmiLaunchTimeout)
+			// Same enumeration issue as above: place devices on root complex so the Cirros disk is visible
+			// even with ACPI disabled; in this case we want soft reboot to fail because neither ACPI nor
+			// the guest agent is available.
+
+			vmi := libvmifact.NewCirros(withoutACPI(),
+				libvmi.WithAnnotation(v1.PlacePCIDevicesOnRootComplex, "true"))
+
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, vmiLaunchTimeout)
 
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
@@ -1454,6 +1477,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewAlpine(), libvmops.StartupTimeoutSecondsMedium)
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
+
+			time.Sleep(10 * time.Second) // sleep to increase time window between start and pause
 
 			By("Pausing VMI")
 			err := kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Pause(context.Background(), vmi.Name, &v1.PauseOptions{})
@@ -1617,6 +1642,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Creating the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, startupTimeout)
+
+				By("Wait for the login to stabilize the guest")
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				// Delete the VirtualMachineInstance and wait for the confirmation of the delete
 				By("Deleting the VirtualMachineInstance")

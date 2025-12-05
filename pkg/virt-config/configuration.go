@@ -269,6 +269,9 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 			MaxHotplugRatio: DefaultMaxHotplugRatio,
 		},
 		VMRolloutStrategy: pointer.P(DefaultVMRolloutStrategy),
+		HypervisorConfiguration: &v1.HypervisorConfiguration{
+			Name: DefaultHypervisorName,
+		},
 	}
 }
 

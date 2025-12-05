@@ -417,6 +417,21 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	// Bootstrapping. From here on the startup order matters
+
+	factory.Start(stop)
+	go domainSharedInformer.Run(stop)
+
+	cache.WaitForCacheSync(
+		stop,
+		vmiInformer.HasSynced,
+		vmiSourceInformer.HasSynced,
+		vmiTargetInformer.HasSynced,
+		domainSharedInformer.HasSynced,
+		factory.CRD().HasSynced,
+		factory.KubeVirt().HasSynced,
+	)
+
 	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,
 		app.virtCli,

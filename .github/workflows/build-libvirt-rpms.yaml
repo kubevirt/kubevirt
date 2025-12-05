@@ -1,0 +1,54 @@
+name: Build Custom libvirt RPMs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["ise"]
+    paths:
+      - .github/workflows/build-libvirt-rpms.yaml
+
+env:
+  LIBVIRT_REPO: https://github.com/kaizentm/libvirt.git
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/libvirt-rpms
+  LIBVIRT_TAG: qemu_mshv_v1
+  RPM_IMAGE_TAG: qemu-mshv
+
+jobs:
+  build-rpms:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build libvirt RPMs
+        run: |
+          hack/qemu-mshv/build-libvirt-rpms.sh \
+            -r ${{ env.LIBVIRT_REPO }} \
+            -t ${{ env.LIBVIRT_TAG }} \
+            -i ${{ github.run_id }} \
+            -n ${{ github.run_number }}
+
+      - name: Create Container Image
+        run: |
+          hack/qemu-mshv/build-rpms-http-image.sh \
+            -r ${{ env.REGISTRY }} \
+            -i ${{ env.IMAGE_NAME }} \
+            -t ${{ env.RPM_IMAGE_TAG }} \
+            -d rpms-libvirt
+
+      - name: Push Container Image
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }}
+
+          echo "Pushed container image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.RPM_IMAGE_TAG }}"

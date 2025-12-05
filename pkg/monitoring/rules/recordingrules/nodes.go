@@ -22,23 +22,55 @@ import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatorrules"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 )
 
-var nodesRecordingRules = []operatorrules.RecordingRule{
-	{
+func nodesRecordingRules(hypervisorName string) []operatorrules.RecordingRule {
+	rules := []operatorrules.RecordingRule{
+		{
+			MetricsOpts: operatormetrics.MetricOpts{
+				Name: "kubevirt_allocatable_nodes",
+				Help: "The number of allocatable nodes in the cluster.",
+			},
+			MetricType: operatormetrics.GaugeType,
+			Expr:       intstr.FromString("count(count (kube_node_status_allocatable) by (node))"),
+		},
+	}
+
+	// Generate generic hypervisor metric based on the configured hypervisor
+	hypervisorDevice := hypervisor.NewHypervisor(hypervisorName).GetDevice()
+	resourceName := "devices_kubevirt_io_" + hypervisorDevice
+
+	rules = append(rules, operatorrules.RecordingRule{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_allocatable_nodes",
-			Help: "The number of allocatable nodes in the cluster.",
+			Name: "kubevirt_nodes_with_hypervisor",
+			Help: "The number of nodes in the cluster that have the configured hypervisor resource available.",
+			ConstLabels: map[string]string{
+				"hypervisor": hypervisorName,
+			},
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("count(count (kube_node_status_allocatable) by (node))"),
-	},
-	{
-		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_nodes_with_kvm",
-			Help: "The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available.",
-		},
-		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("count(kube_node_status_allocatable{resource=\"devices_kubevirt_io_kvm\"} != 0) or vector(0)"),
-	},
+		Expr:       intstr.FromString("count(kube_node_status_allocatable{resource=\"" + resourceName + "\"} != 0) or vector(0)"),
+	})
+
+	// Keep the older kubevirt_nodes_with_kvm metric for backward compatibility
+	// However mark it as deprecated
+	if hypervisorDevice == v1.KvmHypervisorName {
+		rules = append(rules, operatorrules.RecordingRule{
+			MetricsOpts: operatormetrics.MetricOpts{
+				Name: "kubevirt_nodes_with_kvm",
+				Help: "DEPRECATED: The number of nodes in the cluster that have the KVM hypervisor resource available. Use kubevirt_nodes_with_hypervisor instead.",
+				ConstLabels: map[string]string{
+					"deprecated": "true",
+				},
+			},
+			MetricType: operatormetrics.GaugeType,
+			Expr:       intstr.FromString("count(kube_node_status_allocatable{resource=\"devices_kubevirt_io_kvm\"} != 0) or vector(0)"),
+		})
+	}
+
+	return rules
 }

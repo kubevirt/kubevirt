@@ -22,6 +22,7 @@ go_library(
         "//pkg/dra:go_default_library",
         "//pkg/hooks:go_default_library",
         "//pkg/host-disk:go_default_library",
+        "//pkg/hypervisor:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
         "//pkg/network/downwardapi:go_default_library",
         "//pkg/network/istio:go_default_library",
@@ -63,6 +64,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "container_disk_test.go",
+        "hypervisor_parity_test.go",
         "nodeselectorrenderer_test.go",
         "rendercontainer_test.go",
         "renderresources_test.go",
@@ -72,6 +74,7 @@ go_test(
         "virtiofs_test.go",
     ],
     embed = [":go_default_library"],
+    embedsrcs = ["renderresources.go"],
     race = "on",
     deps = [
         "//pkg/config:go_default_library",
