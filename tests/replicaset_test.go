@@ -459,12 +459,12 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	})
 
 	Context("replicaset with topology spread constraints", decorators.WgS390x, func() {
-		It("Replicas should be spread across nodes", func() {
+		It("Replicas should be spread across nodes", decorators.RequiresTwoSchedulableNodes, func() {
 			nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some schedulable nodes")
 			numNodes := len(nodes.Items)
 			if numNodes < 2 {
-				Skip("Skipping spec if test environment has less than two schedulable nodes")
+				Fail("Test environment has less than two schedulable nodes")
 			}
 			vmLabelKey := "test" + rand.String(5)
 			vmLabelValue := "test" + rand.String(5)

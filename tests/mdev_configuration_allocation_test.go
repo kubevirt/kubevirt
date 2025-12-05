@@ -371,7 +371,6 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		}
 
 		BeforeEach(func() {
-			Skip("Unbinding older NVIDIA GPUs, such as the Tesla T4 found on vgpu lanes, doesn't work reliably")
 			nodes := libnode.GetAllSchedulableNodes(virtClient).Items
 			Expect(nodes).To(HaveLen(1))
 			node = nodes[0].Name
