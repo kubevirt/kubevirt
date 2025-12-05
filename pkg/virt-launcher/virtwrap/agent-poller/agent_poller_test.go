@@ -68,11 +68,12 @@ var _ = Describe("Qemu agent poller", func() {
 	Context("with libvirt API", func() {
 		It("should store the retrieved guest info when requested", func() {
 			guestInfo := &libvirt.DomainGuestInfo{
-				Interfaces: []libvirt.DomainGuestInfoInterface{{Name: "net0"}},
-				OS:         &libvirt.DomainGuestInfoOS{Name: "fedora"},
-				Hostname:   "test-host",
-				TimeZone:   &libvirt.DomainGuestInfoTimeZone{Name: "EST"},
-				Users:      []libvirt.DomainGuestInfoUser{{Name: "admin"}},
+				Interfaces:  []libvirt.DomainGuestInfoInterface{{Name: "net0"}},
+				OS:          &libvirt.DomainGuestInfoOS{Name: "fedora"},
+				Hostname:    "test-host",
+				TimeZone:    &libvirt.DomainGuestInfoTimeZone{Name: "EST"},
+				Users:       []libvirt.DomainGuestInfoUser{{Name: "admin"}},
+				FileSystems: []libvirt.DomainGuestInfoFileSystem{{Name: "tmpfs"}},
 			}
 			agentPoller := &AgentPoller{
 				Connection: mockLibvirt.VirtConnection,
@@ -83,7 +84,9 @@ var _ = Describe("Qemu agent poller", func() {
 				libvirt.DOMAIN_GUEST_INFO_OS |
 				libvirt.DOMAIN_GUEST_INFO_HOSTNAME |
 				libvirt.DOMAIN_GUEST_INFO_TIMEZONE |
-				libvirt.DOMAIN_GUEST_INFO_USERS
+				libvirt.DOMAIN_GUEST_INFO_USERS |
+				libvirt.DOMAIN_GUEST_INFO_FILESYSTEM |
+				libvirt.DOMAIN_GUEST_INFO_DISKS
 
 			mockLibvirt.DomainEXPECT().Free()
 			mockLibvirt.DomainEXPECT().GetGuestInfo(libvirtTypes, uint32(0)).Return(guestInfo, nil)
@@ -102,6 +105,9 @@ var _ = Describe("Qemu agent poller", func() {
 
 			users := agentStore.GetUsers(1)
 			Expect(users[0].Name).To(Equal("admin"))
+
+			filesystems := agentStore.GetFS(1)
+			Expect(filesystems[0].Name).To(Equal("tmpfs"))
 		})
 	})
 
