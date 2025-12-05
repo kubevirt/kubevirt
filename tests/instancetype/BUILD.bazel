@@ -3,9 +3,14 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "inference.go",
         "instancetype.go",
+        "memory_overcommit.go",
         "reference_policy.go",
+        "requirements.go",
+        "revisions.go",
         "upgrade.go",
+        "webhook.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/instancetype",
     visibility = ["//visibility:public"],
@@ -22,7 +27,6 @@ go_library(
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/scheme:go_default_library",
         "//tests/decorators:go_default_library",
         "//tests/framework/kubevirt:go_default_library",

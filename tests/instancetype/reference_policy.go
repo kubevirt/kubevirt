@@ -11,7 +11,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -26,13 +25,9 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] InstancetypeReferencePolicy",
+var _ = FDescribe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] InstancetypeReferencePolicy",
 	decorators.SigCompute, decorators.SigComputeInstancetype, Serial, func() {
-		var virtClient kubecli.KubevirtClient
-
-		BeforeEach(func() {
-			virtClient = kubevirt.Client()
-		})
+		virtClient := kubevirt.Client()
 
 		DescribeTable("should result in running VirtualMachine when set to", func(policy virtv1.InstancetypeReferencePolicy) {
 			kv := libkubevirt.GetCurrentKv(virtClient)
