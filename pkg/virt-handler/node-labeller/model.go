@@ -41,6 +41,7 @@ type HostDomCapabilities struct {
 	SEV             SEVConfiguration             `xml:"features>sev"`
 	SecureExecution SecureExecutionConfiguration `xml:"features>s390-pv"`
 	TDX             TDXConfiguration             `xml:"features>tdx"`
+	CCA             CCAConfiguration             `xml:"features>cca"`
 	LaunchSecurity  LaunchSecurityConfiguration  `xml:"features>launchSecurity"`
 }
 
@@ -101,6 +102,17 @@ type SEVConfiguration struct {
 	SupportedES     string `xml:"-"`
 	SupportedSNP    string `xml:"-"`
 }
+
+type CCAConfiguration struct {
+	Supported       string         `xml:"supported,attr"`
+	MeasurementAlgo DomainCapsEnum `xml:"enum"`
+}
+
+type DomainCapsEnum struct {
+	Name   string   `xml:"name,attr"`
+	Values []string `xml:"value"`
+}
+
 type SecureExecutionConfiguration struct {
 	Supported string `xml:"supported,attr"`
 }

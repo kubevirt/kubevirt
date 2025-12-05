@@ -31,6 +31,9 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 // ValidateVirtualMachineInstanceArm64Setting is a validation function for validating-webhook to filter unsupported setting on Arm64
@@ -150,4 +153,28 @@ func validateSoundDevice(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 			Field:   field.Child("domain", "devices", "sound").String(),
 		})
 	}
+}
+
+func ValidateLaunchSecurityArm64(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	launchSecurity := spec.Domain.LaunchSecurity
+
+	if !config.WorkloadEncryptionCCAEnabled() && launchSecurity.CCA != nil {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.WorkloadEncryptionCCA),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	} else if launchSecurity.CCA != nil {
+		firmware := spec.Domain.Firmware
+		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "CCA requires AAVMF (UEFI)",
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+	}
+
+	return causes
 }

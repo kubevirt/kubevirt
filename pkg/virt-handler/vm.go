@@ -1205,6 +1205,8 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
 	} else if util.IsTDXVMI(vmi) {
 		return newNonMigratableCondition("VMI uses TDX", v1.VirtualMachineInstanceReasonTDXNotMigratable), isBlockMigration
+	} else if util.IsCCAVMI(vmi) {
+		return newNonMigratableCondition("VMI uses CCA", v1.VirtualMachineInstanceReasonCCANotMigratable), isBlockMigration
 	}
 
 	if util.IsSecureExecutionVMI(vmi) {
@@ -1298,6 +1300,8 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonSEVNotMigratable, "VMI uses SEV")
 	} else if util.IsTDXVMI(vmi) {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonTDXNotMigratable, "VMI uses TDX")
+	} else if util.IsCCAVMI(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonCCANotMigratable, "VMI uses CCA")
 	}
 
 	if reservation.HasVMIPersistentReservation(vmi) {
@@ -2076,6 +2080,10 @@ func (c *VirtualMachineController) handleStartingVMI(
 		return false, nil
 	}
 
+	if c.shouldWaitForCCAAttestation(vmi) {
+		return false, nil
+	}
+
 	return true, nil
 }
 
@@ -2093,6 +2101,11 @@ func (c *VirtualMachineController) shouldWaitForSEVAttestation(vmi *v1.VirtualMa
 		// Wait for the session parameters to be provided
 		return sev.Session == "" || sev.DHCert == ""
 	}
+	return false
+}
+
+func (c *VirtualMachineController) shouldWaitForCCAAttestation(vmi *v1.VirtualMachineInstance) bool {
+	// This function is reserved for future use. Now, always returns "false".
 	return false
 }
 

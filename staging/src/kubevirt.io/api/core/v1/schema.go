@@ -785,6 +785,8 @@ type LaunchSecurity struct {
 	SNP *SEVSNP `json:"snp,omitempty"`
 	// Intel Trust Domain Extensions (TDX).
 	TDX *TDX `json:"tdx,omitempty"`
+	// Arm Confidential Compute Architecture (CCA).
+	CCA *CCA `json:"cca,omitempty"`
 }
 
 type SEV struct {
@@ -798,6 +800,12 @@ type SEV struct {
 	Session string `json:"session,omitempty"`
 	// Base64 encoded guest owner's Diffie-Hellman key.
 	DHCert string `json:"dhCert,omitempty"`
+}
+
+type CCA struct {
+	MeasurementAlgo      string `json:"measurementAlgo,omitempty"`
+	MeasurementLog       string `json:"measurementLog,omitempty"`
+	PersonalizationValue string `json:"personalizationValue,omitempty"`
 }
 
 type SEVPolicy struct {

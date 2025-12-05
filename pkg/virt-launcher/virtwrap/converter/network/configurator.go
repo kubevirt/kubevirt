@@ -35,6 +35,7 @@ type DomainConfigurator struct {
 	domainAttachmentByInterfaceName map[string]string
 	useLaunchSecuritySEV            bool
 	useLaunchSecurityPV             bool
+	useLaunchSecurityCCA            bool
 }
 
 type option func(*DomainConfigurator)
@@ -105,12 +106,12 @@ func (d DomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *ap
 			}
 		}
 
-		if d.useLaunchSecuritySEV || d.useLaunchSecurityPV {
+		if d.useLaunchSecuritySEV || d.useLaunchSecurityPV || d.useLaunchSecurityCCA {
 			if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
-				// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
+				// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV, CCA, etc.
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
-			if ifaceType == v1.VirtIO {
+			if ifaceType == v1.VirtIO && !d.useLaunchSecurityCCA {
 				if domainIface.Driver != nil {
 					domainIface.Driver.IOMMU = "on"
 				} else {
@@ -144,6 +145,12 @@ func WithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) option {
 func WithUseLaunchSecurityPV(useLaunchSecurityPV bool) option {
 	return func(d *DomainConfigurator) {
 		d.useLaunchSecurityPV = useLaunchSecurityPV
+	}
+}
+
+func WithUseLaunchSecurityCCA(useLaunchSecurityCCA bool) option {
+	return func(d *DomainConfigurator) {
+		d.useLaunchSecurityCCA = useLaunchSecurityCCA
 	}
 }
 
