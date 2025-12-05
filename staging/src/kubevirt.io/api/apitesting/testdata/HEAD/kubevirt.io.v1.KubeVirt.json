@@ -403,6 +403,10 @@
             }
           ]
         }
+      },
+      "qgs-tdx": {
+        "enabled": true,
+        "qgsSocketPath": "qgsSocketPathValue"
       }
     },
     "infra": {
