@@ -36,6 +36,10 @@ func GenerateTapDeviceName(podInterfaceName string, network v1.Network) string {
 		return "tap" + podInterfaceName[3:]
 	}
 
+	if network.Name != "default" {
+		return network.Name
+	}
+
 	return tapNameForPrimaryIface
 }
 

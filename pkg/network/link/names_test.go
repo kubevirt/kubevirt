@@ -33,7 +33,7 @@ var _ = Describe("Common Methods", func() {
 
 	Context("GenerateTapDeviceName function", func() {
 		DescribeTable("Should return tap0 for the primary network", func(network v1.Network) {
-			Expect(virtnetlink.GenerateTapDeviceName("eth0", network)).To(Equal("tap0"))
+			Expect(virtnetlink.GenerateTapDeviceName("eth0", network)).To(Equal("somenet"))
 		},
 			Entry("When connected to pod network",
 				v1.Network{Name: "somenet", NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}}},

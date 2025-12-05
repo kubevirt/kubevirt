@@ -38,7 +38,7 @@ func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 
 	networkStatuses := multus.NetworkStatusesFromPod(pod)
 
-	interfaceStatuses = append(interfaceStatuses, calculatePrimaryIfaceStatus(vmi, networkStatuses)...)
+	interfaceStatuses = append(interfaceStatuses, calculatePodIfaceStatuses(vmi, networkStatuses)...)
 
 	secondaryIfaceStatuses, err := calculateSecondaryIfaceStatuses(vmi, networkStatuses)
 	if err != nil {
@@ -54,30 +54,52 @@ func UpdateVMIStatus(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) error {
 	return nil
 }
 
-func calculatePrimaryIfaceStatus(
+// calculatePodIfaceStatuses returns interface statuses for all pod networks and multus default networks.
+// This supports multiple pod networks (not just one primary).
+func calculatePodIfaceStatuses(
 	vmi *v1.VirtualMachineInstance,
 	networkStatuses []networkv1.NetworkStatus,
 ) []v1.VirtualMachineInstanceNetworkInterface {
-	primaryNetworkSpec := vmispec.LookUpDefaultNetwork(vmi.Spec.Networks)
-	if primaryNetworkSpec == nil {
-		return nil
-	}
+	var interfaceStatuses []v1.VirtualMachineInstanceNetworkInterface
 
+	// Get primary pod interface name for the first pod/default network
 	primaryPodIfaceName := multus.LookupPodPrimaryIfaceName(networkStatuses)
 	if primaryPodIfaceName == "" {
 		primaryPodIfaceName = namescheme.PrimaryPodInterfaceName
 	}
 
-	primaryIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, primaryNetworkSpec.Name)
-	if primaryIfaceStatus == nil {
-		return []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: primaryNetworkSpec.Name, PodInterfaceName: primaryPodIfaceName},
+	isFirstDefaultNetwork := true
+	for _, network := range vmi.Spec.Networks {
+		// Process pod networks and multus default networks
+		isPodNetwork := network.Pod != nil
+		isMultusDefault := network.Multus != nil && network.Multus.Default
+		if !isPodNetwork && !isMultusDefault {
+			continue
+		}
+
+		var podIfaceName string
+		if isFirstDefaultNetwork {
+			podIfaceName = primaryPodIfaceName
+			isFirstDefaultNetwork = false
+		} else {
+			// For secondary pod networks, use the network name as pod interface name
+			podIfaceName = network.Name
+		}
+
+		ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
+		if ifaceStatus == nil {
+			interfaceStatuses = append(interfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
+				Name:             network.Name,
+				PodInterfaceName: podIfaceName,
+			})
+		} else {
+			ifaceStatusCopy := *ifaceStatus
+			ifaceStatusCopy.PodInterfaceName = podIfaceName
+			interfaceStatuses = append(interfaceStatuses, ifaceStatusCopy)
 		}
 	}
 
-	primaryIfaceStatusCopy := *primaryIfaceStatus
-	primaryIfaceStatusCopy.PodInterfaceName = primaryPodIfaceName
-	return []v1.VirtualMachineInstanceNetworkInterface{primaryIfaceStatusCopy}
+	return interfaceStatuses
 }
 
 func calculateSecondaryIfaceStatuses(
