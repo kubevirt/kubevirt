@@ -1,0 +1,236 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ */
+
+package premigrationhookserver
+
+import (
+	"encoding/json"
+	"encoding/xml"
+	"errors"
+	"fmt"
+	"net"
+	"os"
+	"sync"
+
+	"libvirt.org/go/libvirtxml"
+
+	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
+
+	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	convxml "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
+)
+
+type hookFunc func(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain)
+
+// PreMigrationHookServer handles libvirt premigration hook communication via unix socket
+type PreMigrationHookServer struct {
+	vmi       *v1.VirtualMachineInstance
+	hooks     []hookFunc
+	stopChan  chan struct{}
+	done      chan struct{}
+	startOnce sync.Once
+	socket    net.Listener
+}
+
+// NewPreMigrationHookServer creates a new premigration hook server with registered hooks
+func NewPreMigrationHookServer(stopChan chan struct{}) *PreMigrationHookServer {
+	server := &PreMigrationHookServer{
+		hooks:    []hookFunc{cpuDedicatedHook},
+		stopChan: stopChan,
+	}
+
+	return server
+}
+
+func (h *PreMigrationHookServer) Start(vmi *v1.VirtualMachineInstance) error {
+	// Always update the VMI
+	h.vmi = vmi
+	log.Log.Object(vmi).Info("Hook server updated with VMI")
+
+	var startErr error
+	h.startOnce.Do(func() {
+		socketPath := "/var/run/kubevirt/migration-hook-socket"
+
+		socket, err := net.Listen("unix", socketPath)
+		if err != nil {
+			startErr = fmt.Errorf("failed to listen on unix socket %s: %v", socketPath, err)
+			return
+		}
+		h.socket = socket
+		h.done = make(chan struct{})
+
+		go func() {
+			<-h.stopChan
+			log.Log.Infof("Stopping premigration hook server")
+			if h.socket != nil {
+				err := h.socket.Close()
+				if err != nil {
+					log.Log.Errorf("failed to close premigration hook server socket:%v", err.Error())
+				}
+			}
+			if err := os.Remove(socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				log.Log.Reason(err).Warning("Failed to remove migration hook socket")
+			}
+			close(h.done)
+		}()
+
+		go func() {
+			conn, err := h.socket.Accept()
+			if err != nil {
+				log.Log.Reason(err).Info("Premigration hook server stopped accepting connections")
+				return
+			}
+			h.handleConnection(conn)
+			err = conn.Close()
+			if err != nil {
+				log.Log.Errorf("Failed to close connection: %v", err.Error())
+			}
+			h.vmi = nil // Release VMI memory after processing
+			if err := os.Remove(socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+				log.Log.Reason(err).Warning("Failed to remove migration hook socket")
+			}
+		}()
+
+		log.Log.Infof("Started premigration hook server on %s", socketPath)
+	})
+	return startErr
+}
+
+// Done returns a channel that is closed when the server has stopped.
+// If Start was never called (source pod), returns a pre-closed channel to not block.
+func (h *PreMigrationHookServer) Done() <-chan struct{} {
+	if h.done == nil {
+		// If Start was never called, return a closed channel to not block
+		closed := make(chan struct{})
+		close(closed)
+		return closed
+	}
+	return h.done
+}
+
+func (h *PreMigrationHookServer) handleConnection(conn net.Conn) {
+	var domain libvirtxml.Domain
+	decoder := xml.NewDecoder(conn)
+	if err := decoder.Decode(&domain); err != nil {
+		log.Log.Errorf("Failed to decode XML from connection:%v", err.Error())
+		return
+	}
+
+	for _, hook := range h.hooks {
+		hook(h.vmi, &domain)
+	}
+
+	encoder := xml.NewEncoder(conn)
+	encoder.Indent("", "  ")
+	if err := encoder.Encode(&domain); err != nil {
+		log.Log.Errorf("Failed to encode XML to connection:%v", err.Error())
+		return
+	}
+
+	log.Log.Infof("Hook Server successfully processed and returned XML")
+}
+
+func cpuDedicatedHook(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) {
+	if !vmi.IsCPUDedicated() {
+		return
+	}
+	// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
+	// assigned in the source node with the new CPUs assigned in the target node
+	xmlstr, err := domain.Marshal()
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to marshal domain to XML")
+		return
+	}
+
+	var apiDomainSpec api.DomainSpec
+	err = xml.Unmarshal([]byte(xmlstr), &apiDomainSpec)
+	if err != nil {
+		log.Log.Errorf("Failed to unmarshal XML to api.Domain: %v", err.Error())
+		return
+	}
+
+	processedDomain, err := generateDomainForTargetCPUSetAndTopology(vmi, &apiDomainSpec)
+	if err != nil {
+		log.Log.Errorf("Failed to generate domain for target CPU set and topology: %v", err.Error())
+		return
+	}
+
+	if err = convertCPUDedicatedFields(processedDomain, domain); err != nil {
+		log.Log.Errorf("Failed to convert CPU dedicated fields: %v", err.Error())
+		return
+	}
+
+	log.Log.Object(vmi).Info("cpuDedicatedHook: CPU dedicated processing completed")
+}
+
+func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
+	var targetTopology cmdv1.Topology
+
+	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
+	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetNodeTopology), &targetTopology)
+	if err != nil {
+		return nil, err
+	}
+
+	useIOThreads := false
+	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
+		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
+			useIOThreads = true
+			break
+		}
+	}
+
+	domain := api.NewMinimalDomain(vmi.Name)
+	domain.Spec = *domSpec
+	cpuTopology := vcpu.GetCPUTopology(vmi)
+	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
+
+	// update cpu count to maximum hot plugable CPUs
+	vmiCPU := vmi.Spec.Domain.CPU
+	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
+		cpuTopology.Sockets = vmiCPU.MaxSockets
+		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
+	}
+	domain.Spec.CPU.Topology = cpuTopology
+	domain.Spec.VCPU = &api.VCPU{
+		Placement: "static",
+		CPUs:      cpuCount,
+	}
+	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet, useIOThreads)
+	if err != nil {
+		return nil, err
+	}
+
+	return domain, err
+}
+
+func convertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) error {
+	if domcfg.CPU == nil {
+		domcfg.CPU = &libvirtxml.DomainCPU{}
+	}
+	domcfg.CPU.Topology = convxml.ConvertKubeVirtCPUTopologyToDomainCPUTopology(domain.Spec.CPU.Topology)
+	domcfg.VCPU = convxml.ConvertKubeVirtVCPUToDomainVCPU(domain.Spec.VCPU)
+	domcfg.CPUTune = convxml.ConvertKubeVirtCPUTuneToDomainCPUTune(domain.Spec.CPUTune)
+	domcfg.NUMATune = convxml.ConvertKubeVirtNUMATuneToDomainNUMATune(domain.Spec.NUMATune)
+	domcfg.Features = convxml.ConvertKubeVirtFeaturesToDomainFeatureList(domain.Spec.Features)
+
+	return nil
+}
