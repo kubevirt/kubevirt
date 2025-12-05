@@ -302,7 +302,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+					Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
 				}
 			})
 
@@ -378,7 +378,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
 			})
 
 			It("should accurately aggregate DataVolume conditions from many DVs", func() {
