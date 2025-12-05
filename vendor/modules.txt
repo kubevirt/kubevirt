@@ -1315,8 +1315,8 @@ mvdan.cc/sh/v3/cmd/shfmt
 mvdan.cc/sh/v3/fileutil
 mvdan.cc/sh/v3/syntax
 mvdan.cc/sh/v3/syntax/typedjson
-# sigs.k8s.io/controller-runtime v0.20.2
-## explicit; go 1.23.0
+# sigs.k8s.io/controller-runtime v0.22.4
+## explicit; go 1.24.0
 sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue
 sigs.k8s.io/controller-runtime/pkg/internal/metrics
 sigs.k8s.io/controller-runtime/pkg/metrics

@@ -9,6 +9,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -141,18 +142,18 @@ func ActiveMigrationExistsForVMI(migrationIndexer cache.Indexer, vmi *v1.Virtual
 	return false, nil
 }
 
-func PriorityFromMigration(migration *v1.VirtualMachineInstanceMigration) int {
+func PriorityFromMigration(migration *v1.VirtualMachineInstanceMigration) *int {
 	if migration.Spec.Priority == nil {
-		return QueuePriorityDefault
+		return pointer.P(QueuePriorityDefault)
 	}
 	switch *migration.Spec.Priority {
 	case v1.PrioritySystemCritical:
-		return QueuePrioritySystemCritical
+		return pointer.P(QueuePrioritySystemCritical)
 	case v1.PriorityUserTriggered:
-		return QueuePriorityUserTriggered
+		return pointer.P(QueuePriorityUserTriggered)
 	case v1.PrioritySystemMaintenance:
-		return QueuePrioritySystemMaintenance
+		return pointer.P(QueuePrioritySystemMaintenance)
 	default:
-		return QueuePriorityDefault
+		return pointer.P(QueuePriorityDefault)
 	}
 }
