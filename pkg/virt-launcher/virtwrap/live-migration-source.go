@@ -688,7 +688,7 @@ func (m *migrationMonitor) startMonitor() {
 		if stats == nil {
 			stats, err = dom.GetJobStats(0)
 			if err != nil {
-				logger.Reason(err).Warning("failed to get domain job info, will retry")
+				logger.Reason(err).V(3).Info("failed to get domain job info, will retry")
 				continue
 			}
 		}
@@ -1088,7 +1088,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		return fmt.Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)
 	}
 
-	log.Log.Object(vmi).Errorf("migration completed successfully")
+	log.Log.Object(vmi).Info("migration completed successfully")
 	l.setMigrationResult(false, "", "")
 
 	return nil
