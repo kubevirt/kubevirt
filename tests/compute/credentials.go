@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("Guest Access Credentials", func() {
+var _ = Describe(SIG("Guest Access Credentials", decorators.WgS390x, func() {
 
 	const (
 		fedoraRunningTimeout     = libvmops.StartupTimeoutSecondsLarge

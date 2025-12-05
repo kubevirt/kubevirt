@@ -81,7 +81,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 	})
 
 	Context("with a live-migrate eviction strategy set", func() {
-		Context("[ref_id:2293] with a VMI running with an eviction strategy set", func() {
+		Context("[ref_id:2293] with a VMI running with an eviction strategy set", decorators.WgS390x, func() {
 
 			It("[test_id:3242]should block the eviction api and migrate", decorators.Conformance, func() {
 				vmi := libvmops.RunVMIAndExpectLaunch(alpineVMIWithEvictionStrategy(), libvmops.StartupTimeoutSecondsXLarge)
@@ -500,7 +500,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 		})
 	})
 
-	Describe(" with a cluster-wide live-migrate eviction strategy set", Serial, func() {
+	Describe(" with a cluster-wide live-migrate eviction strategy set", Serial, decorators.WgS390x, func() {
 		var originalKV *v1.KubeVirt
 
 		BeforeEach(func() {

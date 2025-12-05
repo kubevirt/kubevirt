@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -44,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 )
 
-var _ = Describe(SIG("Eviction", func() {
+var _ = Describe(SIG("Eviction", decorators.WgS390x, func() {
 
 	It("should not shutdown VM", func() {
 		vmi := libvmifact.NewAlpine(
