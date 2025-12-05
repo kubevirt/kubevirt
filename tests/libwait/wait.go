@@ -206,17 +206,20 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFu
 	return vmi
 }
 
-// WaitForVirtualMachineToDisappearWithTimeout blocks for the passed seconds until the specified VirtualMachineInstance disappears
-func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
+// WaitForVirtualMachineToDisappearWithTimeout blocks for the passed duration until the specified VirtualMachineInstance disappears
+func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, timeout time.Duration) error {
 	virtClient, err := kubecli.GetKubevirtClient()
-	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
-	gomega.EventuallyWithOffset(1, func() error {
-		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		return err
-	}, seconds, 1*time.Second).Should(gomega.SatisfyAll(
-		gomega.HaveOccurred(),
-		gomega.WithTransform(errors.IsNotFound, gomega.BeTrue())),
-		"The VMI should be gone within the given timeout")
+	if err != nil {
+		return fmt.Errorf("failed to get kubevirt client: %w", err)
+	}
+
+	return waitForObjectToDisappear(
+		vmi.Name,
+		vmi.ResourceVersion,
+		timeout,
+		virtClient.VirtualMachineInstance(vmi.Namespace).Get,
+		virtClient.VirtualMachineInstance(vmi.Namespace).Watch,
+	)
 }
 
 // WaitForMigrationToDisappearWithTimeout blocks for the passed duration until the specified VirtualMachineInstanceMigration disappears
@@ -228,6 +231,7 @@ func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstance
 
 	return waitForObjectToDisappear(
 		migration.Name,
+		migration.ResourceVersion,
 		timeout,
 		virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get,
 		virtClient.VirtualMachineInstanceMigration(migration.Namespace).Watch,
@@ -237,6 +241,7 @@ func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstance
 // waitForObjectToDisappear is a generic function that waits for any Kubernetes object to disappear using watch
 func waitForObjectToDisappear[T metav1.Object](
 	name string,
+	resourceVersion string,
 	timeout time.Duration,
 	getFn func(ctx context.Context, name string, opts metav1.GetOptions) (T, error),
 	watchFn func(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error),
@@ -246,7 +251,8 @@ func waitForObjectToDisappear[T metav1.Object](
 
 	// Set up watch with field selector for the specific object
 	watchOpts := metav1.ListOptions{
-		FieldSelector: fmt.Sprintf("metadata.name=%s", name),
+		FieldSelector:   fmt.Sprintf("metadata.name=%s", name),
+		ResourceVersion: resourceVersion,
 	}
 
 	w, err := watchFn(ctx, watchOpts)
@@ -254,16 +260,6 @@ func waitForObjectToDisappear[T metav1.Object](
 		return fmt.Errorf("failed to create watch for %s: %w", name, err)
 	}
 	defer w.Stop()
-
-	// Check if the object already doesn't exist (after watch is established to avoid race)
-	_, err = getFn(ctx, name, metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		// Object already gone, success
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("failed to check %s existence: %w", name, err)
-	}
 
 	for {
 		select {
