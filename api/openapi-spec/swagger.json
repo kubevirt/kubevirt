@@ -14826,6 +14826,26 @@
      "name": {
       "description": "Name is the name of resource",
       "type": "string"
+     },
+     "resources": {
+      "description": "InstancetypeStatusResources provides a way for users to see which resources are provided by the referenced instance type without the need to run the VM, fetch the instance type or call expand-spec",
+      "$ref": "#/definitions/v1.InstancetypeStatusResources"
+     }
+    }
+   },
+   "v1.InstancetypeStatusResources": {
+    "type": "object",
+    "required": [
+     "cpu",
+     "memory"
+    ],
+    "properties": {
+     "cpu": {
+      "default": {},
+      "$ref": "#/definitions/v1.CPUTopology"
+     },
+     "memory": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },
