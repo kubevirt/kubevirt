@@ -58,6 +58,10 @@ const (
 
 	processingWaitInterval = 2 * time.Second
 	processingWaitTotal    = 10 * time.Minute
+
+	// labelApplyStorageProfile is a label used by the CDI mutating webhook
+	// to modify the PVC according to the storage profile.
+	labelApplyStorageProfile = "cdi.kubevirt.io/applyStorageProfile"
 )
 
 var (
@@ -169,10 +173,15 @@ func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *
 }
 
 func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string) (*k8sv1.PersistentVolumeClaim, error) {
+	labels := map[string]string{
+		labelApplyStorageProfile: "true",
+	}
+
 	pvc := &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      claimName,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			Resources: k8sv1.VolumeResourceRequirements{

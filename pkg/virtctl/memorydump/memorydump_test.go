@@ -59,6 +59,8 @@ import (
 
 const vmName = "test-vm"
 
+const labelApplyStorageProfile = "cdi.kubevirt.io/applyStorageProfile"
+
 var _ = Describe("MemoryDump", func() {
 	const (
 		pvcName = "test-pvc"
@@ -242,6 +244,8 @@ var _ = Describe("MemoryDump", func() {
 		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(defaultFSOverheadSize)))
+		// This label is applied by default to all memorydump-created PVCs
+		Expect(pvc.ObjectMeta.Labels).To(HaveKeyWithValue(labelApplyStorageProfile, "true"))
 	})
 
 	It("should create pvc for memory dump and call subresource with storageclass flag", func() {
