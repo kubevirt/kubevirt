@@ -203,7 +203,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 			By("Delete VMIs")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240*time.Second)).To(Succeed())
 		})
 
 		It("Should correctly update metrics on failing VMIM", func() {
@@ -232,7 +232,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 			By("Deleting the VMI")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240*time.Second)).To(Succeed())
 		})
 	})
 
@@ -335,7 +335,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 			By("Deleting the VirtualMachineInstance")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240*time.Second)).To(Succeed())
 
 			By("Starting the same VirtualMachineInstance")
 			vmi = libvmifact.NewAlpine()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -60,7 +61,7 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 				testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, deleteTimeout)
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, deleteTimeout*time.Second)).To(Succeed())
 		})
 
 		Context("with usb storage", func() {

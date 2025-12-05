@@ -92,7 +92,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					Expect(err).ToNot(HaveOccurred())
 
 					By("Waiting until the VirtualMachineInstance is gone")
-					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+					Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
 				}
 			})
 		})

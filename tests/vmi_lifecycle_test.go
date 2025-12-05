@@ -1253,7 +1253,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
 				watcher.New(vmi).Timeout(60*time.Second).SinceWatchedObjectResourceVersion().WaitFor(ctx, watcher.NormalEvent, v1.Deleted)
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
 
 				// Check if the stop event was logged
 				By("Checking that virt-handler logs VirtualMachineInstance deletion")

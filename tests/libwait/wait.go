@@ -206,17 +206,19 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFu
 	return vmi
 }
 
-// WaitForVirtualMachineToDisappearWithTimeout blocks for the passed seconds until the specified VirtualMachineInstance disappears
-func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
+// WaitForVirtualMachineToDisappearWithTimeout blocks for the passed duration until the specified VirtualMachineInstance disappears
+func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, timeout time.Duration) error {
 	virtClient, err := kubecli.GetKubevirtClient()
-	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
-	gomega.EventuallyWithOffset(1, func() error {
-		_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-		return err
-	}, seconds, 1*time.Second).Should(gomega.SatisfyAll(
-		gomega.HaveOccurred(),
-		gomega.WithTransform(errors.IsNotFound, gomega.BeTrue())),
-		"The VMI should be gone within the given timeout")
+	if err != nil {
+		return fmt.Errorf("failed to get kubevirt client: %w", err)
+	}
+
+	return waitForObjectToDisappear(
+		vmi.Name,
+		timeout,
+		virtClient.VirtualMachineInstance(vmi.Namespace).Get,
+		virtClient.VirtualMachineInstance(vmi.Namespace).Watch,
+	)
 }
 
 // WaitForMigrationToDisappearWithTimeout blocks for the passed duration until the specified VirtualMachineInstanceMigration disappears
