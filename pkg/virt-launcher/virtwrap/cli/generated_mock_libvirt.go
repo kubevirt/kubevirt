@@ -130,6 +130,20 @@ func (mr *MockConnectionMockRecorder) DomainEventDeviceRemovedRegister(callback 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventDeviceRemovedRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventDeviceRemovedRegister), callback)
 }
 
+// DomainEventJobCompletedRegister mocks base method.
+func (m *MockConnection) DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DomainEventJobCompletedRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DomainEventJobCompletedRegister indicates an expected call of DomainEventJobCompletedRegister.
+func (mr *MockConnectionMockRecorder) DomainEventJobCompletedRegister(callback any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventJobCompletedRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventJobCompletedRegister), callback)
+}
+
 // DomainEventLifecycleRegister mocks base method.
 func (m *MockConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error {
 	m.ctrl.T.Helper()
@@ -466,6 +480,20 @@ func (m *MockVirDomain) AuthorizedSSHKeysSet(user string, keys []string, flags l
 func (mr *MockVirDomainMockRecorder) AuthorizedSSHKeysSet(user, keys, flags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizedSSHKeysSet", reflect.TypeOf((*MockVirDomain)(nil).AuthorizedSSHKeysSet), user, keys, flags)
+}
+
+// BackupBegin mocks base method.
+func (m *MockVirDomain) BackupBegin(backupXML, checkpointXML string, flags libvirt.DomainBackupBeginFlags) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BackupBegin", backupXML, checkpointXML, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BackupBegin indicates an expected call of BackupBegin.
+func (mr *MockVirDomainMockRecorder) BackupBegin(backupXML, checkpointXML, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackupBegin", reflect.TypeOf((*MockVirDomain)(nil).BackupBegin), backupXML, checkpointXML, flags)
 }
 
 // BlockResize mocks base method.

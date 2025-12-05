@@ -14,6 +14,7 @@ import (
 	time "time"
 
 	gomock "go.uber.org/mock/gomock"
+	v1alpha1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
 	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -44,6 +45,20 @@ func NewMockDomainManager(ctrl *gomock.Controller) *MockDomainManager {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDomainManager) EXPECT() *MockDomainManagerMockRecorder {
 	return m.recorder
+}
+
+// BackupVirtualMachine mocks base method.
+func (m *MockDomainManager) BackupVirtualMachine(arg0 *v1.VirtualMachineInstance, arg1 *v1alpha1.BackupOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BackupVirtualMachine", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BackupVirtualMachine indicates an expected call of BackupVirtualMachine.
+func (mr *MockDomainManagerMockRecorder) BackupVirtualMachine(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackupVirtualMachine", reflect.TypeOf((*MockDomainManager)(nil).BackupVirtualMachine), arg0, arg1)
 }
 
 // CancelVMIMigration mocks base method.

@@ -20,6 +20,7 @@ import (
 
 	migrationsv1 "kubevirt.io/api/migrations/v1alpha1"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -300,6 +301,8 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 	migrationUpdatePath := MigrationUpdateValidatePath
 	vmSnapshotValidatePath := VMSnapshotValidatePath
 	vmRestoreValidatePath := VMRestoreValidatePath
+	vmBackupValidatePath := VMBackupValidatePath
+	vmBackupTrackerValidatePath := VMBackupTrackerValidatePath
 	vmExportValidatePath := VMExportValidatePath
 	VmInstancetypeValidatePath := VMInstancetypeValidatePath
 	VmClusterInstancetypeValidatePath := VMClusterInstancetypeValidatePath
@@ -637,6 +640,56 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				},
 			},
 			{
+				Name:                    "virtualmachinebackup-validator.backup.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{backupv1.SchemeGroupVersion.Group},
+						APIVersions: []string{backupv1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachinebackups"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmBackupValidatePath,
+					},
+				},
+			},
+			{
+				Name:                    "virtualmachinebackuptracker-validator.backup.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1"},
+				FailurePolicy:           &failurePolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				SideEffects:             &sideEffectNone,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+						admissionregistrationv1.Update,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{backupv1.SchemeGroupVersion.Group},
+						APIVersions: []string{backupv1.SchemeGroupVersion.Version},
+						Resources:   []string{"virtualmachinebackuptrackers"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &vmBackupTrackerValidatePath,
+					},
+				},
+			},
+			{
 				Name:                    "virtualmachineexport-validator.export.kubevirt.io",
 				AdmissionReviewVersions: []string{"v1"},
 				FailurePolicy:           &failurePolicy,
@@ -901,6 +954,10 @@ const KubeVirtOperatorValidatingWebhookName = "virt-operator-validator"
 const VMSnapshotValidatePath = "/virtualmachinesnapshots-validate"
 
 const VMRestoreValidatePath = "/virtualmachinerestores-validate"
+
+const VMBackupValidatePath = "/virtualmachinebackups-validate"
+
+const VMBackupTrackerValidatePath = "/virtualmachinebackuptrackers-validate"
 
 const VMExportValidatePath = "/virtualmachineexports-validate"
 
