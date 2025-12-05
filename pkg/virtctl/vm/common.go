@@ -34,7 +34,6 @@ const (
 	dryRunArg      = "dry-run"
 	forceArg       = "force"
 	gracePeriodArg = "grace-period"
-	persistArg     = "persist"
 
 	YAML = "yaml"
 	JSON = "json"
@@ -44,7 +43,6 @@ var (
 	forceRestart bool
 	gracePeriod  int64
 	volumeName   string
-	persist      bool
 	dryRun       bool
 )
 
