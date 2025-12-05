@@ -52,3 +52,31 @@ func ValidateVMIandPodIPMatch(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod)
 
 	return nil
 }
+
+// AssertAllPodIPsReportedOnVMI checks that each Pod IP is present in the VMI reported IPs
+func AssertAllPodIPsReportedOnVMI(vmi *v1.VirtualMachineInstance, vmiPod *k8sv1.Pod) error {
+	if vmi.Status.Interfaces[0].IP != vmiPod.Status.PodIP {
+		return fmt.Errorf("VMI Status.Interfaces[0].IP %s does not equal pod's Status.PodIP %s",
+			vmi.Status.Interfaces[0].IP, vmiPod.Status.PodIP)
+	}
+
+	// Ensure each Pod IP is present in the VMI reported IP set.
+	vmiIPSet := ipSliceToSet(vmi.Status.Interfaces[0].IPs)
+	for _, podIP := range vmiPod.Status.PodIPs {
+		if _, exists := vmiIPSet[podIP.IP]; !exists {
+			return fmt.Errorf("pod IP %q to be present in VMI IPs %v",
+				podIP.IP, vmi.Status.Interfaces[0].IPs)
+		}
+	}
+
+	return nil
+}
+
+// Convert the VMI reported IPs list into a set for efficient lookups.
+func ipSliceToSet(ips []string) map[string]struct{} {
+	set := make(map[string]struct{}, len(ips))
+	for _, ip := range ips {
+		set[ip] = struct{}{}
+	}
+	return set
+}
