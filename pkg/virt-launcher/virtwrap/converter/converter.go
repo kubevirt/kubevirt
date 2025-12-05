@@ -1141,13 +1141,6 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		return nil
 	}
 
-	domain.Spec.SysInfo.System = []api.Entry{
-		{
-			Name:  "uuid",
-			Value: string(firmware.UUID),
-		},
-	}
-
 	if vmi.IsBootloaderEFI() {
 		domain.Spec.OS.BootLoader = &api.Loader{
 			Path:     c.EFIConfiguration.EFICode,
@@ -1174,13 +1167,6 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 				UseSerial: "yes",
 			}
 		}
-	}
-
-	if len(firmware.Serial) > 0 {
-		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, api.Entry{
-			Name:  "serial",
-			Value: firmware.Serial,
-		})
 	}
 
 	if util.HasKernelBootContainerImage(vmi) {
@@ -1447,6 +1433,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.NewWatchdogDomainConfigurator(architecture),
 		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
+		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1482,8 +1469,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	domain.Spec.SysInfo = &api.SysInfo{}
-
 	err = Convert_v1_Firmware_To_related_apis(vmi, domain, c)
 	if err != nil {
 		return err
@@ -1495,60 +1480,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if c.SMBios != nil {
-		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
-			api.Entry{
-				Name:  "manufacturer",
-				Value: c.SMBios.Manufacturer,
-			},
-			api.Entry{
-				Name:  "family",
-				Value: c.SMBios.Family,
-			},
-			api.Entry{
-				Name:  "product",
-				Value: c.SMBios.Product,
-			},
-			api.Entry{
-				Name:  "sku",
-				Value: c.SMBios.Sku,
-			},
-			api.Entry{
-				Name:  "version",
-				Value: c.SMBios.Version,
-			},
-		)
-	}
-
 	// Take SMBios values from the VirtualMachineOptions
 	if c.Architecture.IsSMBiosNeeded() {
 		domain.Spec.OS.SMBios = &api.SMBios{
 			Mode: "sysinfo",
-		}
-	}
-
-	if vmi.Spec.Domain.Chassis != nil {
-		domain.Spec.SysInfo.Chassis = []api.Entry{
-			{
-				Name:  "manufacturer",
-				Value: vmi.Spec.Domain.Chassis.Manufacturer,
-			},
-			{
-				Name:  "version",
-				Value: vmi.Spec.Domain.Chassis.Version,
-			},
-			{
-				Name:  "serial",
-				Value: vmi.Spec.Domain.Chassis.Serial,
-			},
-			{
-				Name:  "asset",
-				Value: vmi.Spec.Domain.Chassis.Asset,
-			},
-			{
-				Name:  "sku",
-				Value: vmi.Spec.Domain.Chassis.Sku,
-			},
 		}
 	}
 
@@ -1974,5 +1909,19 @@ func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Do
 	domain.Spec.VCPU = &api.VCPU{
 		Placement: "static",
 		CPUs:      cpuCount,
+	}
+}
+
+func convertCmdv1SMBIOSToComputeSMBIOS(input *cmdv1.SMBios) *compute.SMBIOS {
+	if input == nil {
+		return nil
+	}
+
+	return &compute.SMBIOS{
+		Manufacturer: input.Manufacturer,
+		Product:      input.Product,
+		Version:      input.Version,
+		SKU:          input.Sku,
+		Family:       input.Family,
 	}
 }
