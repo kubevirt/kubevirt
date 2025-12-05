@@ -210,6 +210,7 @@ type DomainSpec struct {
 	Clock          *Clock          `xml:"clock,omitempty"`
 	Resource       *Resource       `xml:"resource,omitempty"`
 	QEMUCmd        *Commandline    `xml:"qemu:commandline,omitempty"`
+	QEMUOverride   *Override       `xml:"qemu:override,omitempty"`
 	Metadata       Metadata        `xml:"metadata,omitempty"`
 	Features       *Features       `xml:"features,omitempty"`
 	CPU            CPU             `xml:"cpu"`
@@ -420,6 +421,35 @@ type GracePeriodMetadata struct {
 	DeletionGracePeriodSeconds int64        `xml:"deletionGracePeriodSeconds"`
 	DeletionTimestamp          *metav1.Time `xml:"deletionTimestamp,omitempty"`
 	MarkedForGracefulShutdown  *bool        `xml:"markedForGracefulShutdown,omitempty"`
+}
+
+type Override struct {
+	QEMUDevice []QemuDevice `xml:"qemu:device,omitempty"`
+}
+
+type QemuDevice struct {
+	Alias        string       `xml:"alias,attr"`
+	QEMUFrontend QemuFrontend `xml:"qemu:frontend,omitempty"`
+}
+
+type QemuFrontend struct {
+	QEMUProperty []QemuProperty `xml:"qemu:property,omitempty"`
+}
+
+type OverrideType string
+
+const (
+	OverrideBool     OverrideType = "bool"
+	OverrideUnsigned OverrideType = "unsigned"
+	OverrideRemove   OverrideType = "remove"
+	OverrideString   OverrideType = "string"
+	OverrideSigned   OverrideType = "signed"
+)
+
+type QemuProperty struct {
+	Name  string       `xml:"name,attr"`
+	Value string       `xml:"value,attr"`
+	Type  OverrideType `xml:"type,attr"`
 }
 
 type Commandline struct {
