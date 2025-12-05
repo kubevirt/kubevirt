@@ -22,6 +22,7 @@ package compute
 import (
 	"strconv"
 
+	"k8s.io/utils/ptr"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -34,7 +35,7 @@ func (c ClockDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domai
 	if vmi.Spec.Domain.Clock != nil {
 		clock := vmi.Spec.Domain.Clock
 		newClock := &api.Clock{}
-		err := convert_v1_Clock_To_api_Clock(clock, newClock)
+		err := convertV1ClockToAPIClock(clock, newClock)
 		if err != nil {
 			return err
 		}
@@ -55,7 +56,7 @@ func (c ClockDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domai
 	return nil
 }
 
-func convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
+func convertV1ClockToAPIClock(source *v1.Clock, clock *api.Clock) error {
 	if source.UTC != nil {
 		clock.Offset = "utc"
 		if source.UTC.OffsetSeconds != nil {
@@ -70,53 +71,74 @@ func convert_v1_Clock_To_api_Clock(source *v1.Clock, clock *api.Clock) error {
 
 	if source.Timer != nil {
 		if source.Timer.RTC != nil {
-			newTimer := api.Timer{Name: "rtc"}
-			newTimer.Track = string(source.Timer.RTC.Track)
-			newTimer.TickPolicy = string(source.Timer.RTC.TickPolicy)
-			newTimer.Present = boolToYesNo(source.Timer.RTC.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
+			clock.Timer = append(clock.Timer, rtcToTimer(source.Timer.RTC))
 		}
 		if source.Timer.PIT != nil {
-			newTimer := api.Timer{Name: "pit"}
-			newTimer.Present = boolToYesNo(source.Timer.PIT.Enabled, true)
-			newTimer.TickPolicy = string(source.Timer.PIT.TickPolicy)
-			clock.Timer = append(clock.Timer, newTimer)
+			clock.Timer = append(clock.Timer, pitToTimer(source.Timer.PIT))
 		}
 		if source.Timer.KVM != nil {
-			newTimer := api.Timer{Name: "kvmclock"}
-			newTimer.Present = boolToYesNo(source.Timer.KVM.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
+			clock.Timer = append(clock.Timer, kvmToTimer(source.Timer.KVM))
 		}
 		if source.Timer.HPET != nil {
-			newTimer := api.Timer{Name: "hpet"}
-			newTimer.Present = boolToYesNo(source.Timer.HPET.Enabled, true)
-			newTimer.TickPolicy = string(source.Timer.HPET.TickPolicy)
-			clock.Timer = append(clock.Timer, newTimer)
+			clock.Timer = append(clock.Timer, hpetToTimer(source.Timer.HPET))
 		}
 		if source.Timer.Hyperv != nil {
-			newTimer := api.Timer{Name: "hypervclock"}
-			newTimer.Present = boolToYesNo(source.Timer.Hyperv.Enabled, true)
-			clock.Timer = append(clock.Timer, newTimer)
+			clock.Timer = append(clock.Timer, hypervToTimer(source.Timer.Hyperv))
 		}
 	}
 
 	return nil
 }
 
-func boolToYesNo(value *bool, defaultYes bool) string {
-	return boolToString(value, defaultYes, "yes", "no")
+func hypervToTimer(source *v1.HypervTimer) api.Timer {
+	newTimer := api.Timer{
+		Name:    "hypervclock",
+		Present: setPresentField(source.Enabled, true),
+	}
+
+	return newTimer
 }
 
-func boolToString(value *bool, defaultPositive bool, positive string, negative string) string {
-	toString := func(value bool) string {
-		if value {
-			return positive
-		}
-		return negative
+func hpetToTimer(source *v1.HPETTimer) api.Timer {
+	newTimer := api.Timer{
+		Name:    "hpet",
+		Present: setPresentField(source.Enabled, true),
 	}
 
-	if value == nil {
-		return toString(defaultPositive)
+	newTimer.TickPolicy = string(source.TickPolicy)
+	return newTimer
+}
+
+func kvmToTimer(source *v1.KVMTimer) api.Timer {
+	newTimer := api.Timer{
+		Name:    "kvmclock",
+		Present: setPresentField(source.Enabled, true),
 	}
-	return toString(*value)
+
+	return newTimer
+}
+
+func pitToTimer(source *v1.PITTimer) api.Timer {
+	newTimer := api.Timer{
+		Name:    "pit",
+		Present: setPresentField(source.Enabled, true),
+	}
+
+	newTimer.TickPolicy = string(source.TickPolicy)
+	return newTimer
+}
+
+func rtcToTimer(source *v1.RTCTimer) api.Timer {
+	newTimer := api.Timer{
+		Name:    "rtc",
+		Present: setPresentField(source.Enabled, true),
+	}
+	newTimer.Track = string(source.Track)
+	newTimer.TickPolicy = string(source.TickPolicy)
+
+	return newTimer
+}
+
+func setPresentField(value *bool, defVal bool) *api.YesNoAttr {
+	return ptr.To(api.YesNoAttr(ptr.Deref(value, defVal)))
 }
