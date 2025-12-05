@@ -297,23 +297,27 @@ func (m *volumeMounter) mountHotplugVolume(
 	record *vmiMountTargetRecord,
 	mountDirectory bool,
 	cgroupManager cgroup.Manager,
-) error {
+) (*devices.Rule, error) {
 	logger := log.DefaultLogger()
 	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
 	if sourceUID != "" {
 		if m.isBlockVolume(&vmi.Status, volumeName) {
-			logger.V(3).Infof("Mounting block volume: %s", volumeName)
-			if err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, record, cgroupManager); err != nil {
-				return fmt.Errorf("failed to mount block hotplug volume %s: %w", volumeName, err)
+			logger.V(4).Infof("Mounting block volume: %s", volumeName)
+			deviceRule, err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, record, cgroupManager)
+			if err != nil {
+				if !errors.Is(err, os.ErrNotExist) {
+					return nil, fmt.Errorf("failed to mount block hotplug volume %s: %v", volumeName, err)
+				}
 			}
+			return deviceRule, nil
 		} else {
 			logger.V(3).Infof("Mounting file system volume: %s", volumeName)
 			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record, mountDirectory); err != nil {
-				return fmt.Errorf("failed to mount filesystem hotplug volume %s: %w", volumeName, err)
+					return nil, fmt.Errorf("failed to mount filesystem hotplug volume %s: %v", volumeName, err)
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (m *volumeMounter) Mount(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
@@ -329,6 +333,10 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 	if err != nil {
 		return err
 	}
+
+	// Collect all device rules first
+	var deviceRules []*devices.Rule
+
 	for _, volumeStatus := range vmi.Status.VolumeStatus {
 		if volumeStatus.HotplugVolume == nil || volumeStatus.ContainerDiskVolume != nil {
 			// Skip non hotplug volumes
@@ -341,10 +349,33 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		if sourceUID == "" {
 			sourceUID = volumeStatus.HotplugVolume.AttachPodUID
 		}
-		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory, cgroupManager); err != nil {
+		deviceRule, err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory, cgroupManager)
+		if err != nil {
 			return err
 		}
+		if deviceRule != nil {
+			deviceRules = append(deviceRules, deviceRule)
+		}
 	}
+
+	// Call Set only once with all collected device rules
+	if len(deviceRules) > 0 {
+		if cgroupManager == nil {
+			return fmt.Errorf("failed to apply device rules: cgroup manager is nil")
+		}
+
+		err := cgroupManager.Set(&configs.Resources{
+			Devices: deviceRules,
+		})
+
+		if err != nil {
+			log.Log.Errorf("cgroup %s had failed to set device rules. error: %v. rules count: %d", cgroupManager.GetCgroupVersion(), err, len(deviceRules))
+			return err
+		} else {
+			log.Log.Infof("cgroup %s device rules are set successfully. rules count: %d", cgroupManager.GetCgroupVersion(), len(deviceRules))
+		}
+	}
+
 	return nil
 }
 
@@ -391,55 +422,64 @@ func (m *volumeMounter) mountBlockHotplugVolume(
 	sourceUID types.UID,
 	record *vmiMountTargetRecord,
 	cgroupManager cgroup.Manager,
-) error {
+) (*devices.Rule, error) {
 	virtlauncherUID := m.findVirtlauncherUID(vmi)
 	if virtlauncherUID == "" {
 		// This is not the node the pod is running on.
-		return nil
+		return nil, nil
 	}
 	targetPath, err := m.hotplugDiskManager.GetHotplugTargetPodPathOnHost(virtlauncherUID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if _, err := safepath.JoinNoFollow(targetPath, volume); errors.Is(err, os.ErrNotExist) {
 		dev, permissions, err := m.getSourceMajorMinor(sourceUID, volume)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		if err := m.writePathToMountRecord(filepath.Join(unsafepath.UnsafeAbsolute(targetPath.Raw()), volume), vmi, record); err != nil {
-			return err
+			return nil, err
 		}
 
 		if err := m.createBlockDeviceFile(targetPath, volume, dev, permissions); err != nil && !os.IsExist(err) {
-			return err
+			return nil, err
 		}
 		log.DefaultLogger().V(1).Infof("successfully created block device %v", volume)
 	} else if err != nil {
-		return err
+		return nil, err
 	}
 
 	devicePath, err := safepath.JoinNoFollow(targetPath, volume)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if isBlockExists, err := isBlockDevice(devicePath); err != nil {
-		return err
+		return nil, err
 	} else if !isBlockExists {
-		return fmt.Errorf("target device %v exists but it is not a block device", devicePath)
+		return nil, fmt.Errorf("target device %v exists but it is not a block device", devicePath)
 	}
 
 	dev, _, err := m.getBlockFileMajorMinor(devicePath, statDevice)
 	if err != nil {
-		return err
-	}
-	// allow block devices
-	if err := m.allowBlockMajorMinor(dev, cgroupManager); err != nil {
-		return err
+		return nil, err
 	}
 
-	return m.ownershipManager.SetFileOwnership(devicePath)
+	if err := m.ownershipManager.SetFileOwnership(devicePath); err != nil {
+		return nil, err
+	}
+
+	// Return device rule instead of calling allowBlockMajorMinor immediately
+	deviceRule := &devices.Rule{
+		Type:        devices.BlockDevice,
+		Major:       int64(unix.Major(dev)),
+		Minor:       int64(unix.Minor(dev)),
+		Permissions: "rwm",
+		Allow:       true,
+	}
+
+	return deviceRule, nil
 }
 
 func (m *volumeMounter) getSourceMajorMinor(sourceUID types.UID, volumeName string) (uint64, os.FileMode, error) {
@@ -695,6 +735,10 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 		newRecord := vmiMountTargetRecord{
 			MountTargetEntries: make([]vmiMountTargetEntry, 0),
 		}
+
+		// Collect all device rules for removal first
+		var deviceRules []*devices.Rule
+
 		for _, entry := range record.MountTargetEntries {
 			fd, err := safepath.NewFileNoFollow(entry.TargetFile)
 			if err != nil {
@@ -707,8 +751,12 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 				if blockDevice, err := isBlockDevice(diskPath); err != nil {
 					return err
 				} else if blockDevice {
-					if err := m.unmountBlockHotplugVolumes(diskPath, cgroupManager); err != nil {
+					deviceRule, err := m.unmountBlockHotplugVolumes(diskPath, cgroupManager)
+					if err != nil {
 						return err
+					}
+					if deviceRule != nil {
+						deviceRules = append(deviceRules, deviceRule)
 					}
 				} else if err := m.unmountFileSystemHotplugVolumes(diskPath); err != nil {
 					return err
@@ -720,6 +768,25 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 				})
 			}
 		}
+
+		// Call Set only once with all collected device rules for removal
+		if len(deviceRules) > 0 {
+			if cgroupManager == nil {
+				return fmt.Errorf("failed to apply device rules: cgroup manager is nil")
+			}
+
+			err := cgroupManager.Set(&configs.Resources{
+				Devices: deviceRules,
+			})
+
+			if err != nil {
+				log.Log.Errorf("cgroup %s had failed to set device rules for removal. error: %v. rules count: %d", cgroupManager.GetCgroupVersion(), err, len(deviceRules))
+				return err
+			} else {
+				log.Log.Infof("cgroup %s device rules for removal are set successfully. rules count: %d", cgroupManager.GetCgroupVersion(), len(deviceRules))
+			}
+		}
+
 		if len(newRecord.MountTargetEntries) > 0 {
 			err = m.setMountTargetRecord(vmi, &newRecord)
 		} else {
@@ -749,17 +816,27 @@ func (m *volumeMounter) unmountFileSystemHotplugVolumes(diskPath *safepath.Path)
 	return nil
 }
 
-func (m *volumeMounter) unmountBlockHotplugVolumes(diskPath *safepath.Path, cgroupManager cgroup.Manager) error {
+func (m *volumeMounter) unmountBlockHotplugVolumes(diskPath *safepath.Path, cgroupManager cgroup.Manager) (*devices.Rule, error) {
 	// Get major and minor so we can deny the container.
 	dev, _, err := m.getBlockFileMajorMinor(diskPath, statDevice)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// Delete block device file
 	if err := safepath.UnlinkAtNoFollow(diskPath); err != nil {
-		return err
+		return nil, err
 	}
-	return m.removeBlockMajorMinor(dev, cgroupManager)
+
+	// Return device rule instead of calling removeBlockMajorMinor immediately
+	deviceRule := &devices.Rule{
+		Type:        devices.BlockDevice,
+		Major:       int64(unix.Major(dev)),
+		Minor:       int64(unix.Minor(dev)),
+		Permissions: "rwm",
+		Allow:       false,
+	}
+
+	return deviceRule, nil
 }
 
 // UnmountAll unmounts all hotplug disks of a given VMI.
@@ -776,6 +853,9 @@ func (m *volumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance, cgroupManager
 			return nil
 		}
 
+		// Collect all device rules for removal first
+		var deviceRules []*devices.Rule
+
 		for _, entry := range record.MountTargetEntries {
 			diskPath, err := safepath.NewFileNoFollow(entry.TargetFile)
 			if err != nil {
@@ -790,9 +870,12 @@ func (m *volumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance, cgroupManager
 			if isBlock, err := isBlockDevice(diskPath.Path()); err != nil {
 				logger.Warningf("Unable to unmount volume at path %s: %v", diskPath, err)
 			} else if isBlock {
-				if err := m.unmountBlockHotplugVolumes(diskPath.Path(), cgroupManager); err != nil {
+				deviceRule, err := m.unmountBlockHotplugVolumes(diskPath.Path(), cgroupManager)
+				if err != nil {
 					logger.Warningf("Unable to remove block device at path %s: %v", diskPath, err)
 					// Don't return error, try next.
+				} else if deviceRule != nil {
+					deviceRules = append(deviceRules, deviceRule)
 				}
 			} else {
 				if err := m.unmountFileSystemHotplugVolumes(diskPath.Path()); err != nil {
@@ -801,6 +884,25 @@ func (m *volumeMounter) UnmountAll(vmi *v1.VirtualMachineInstance, cgroupManager
 				}
 			}
 		}
+
+		// Call Set only once with all collected device rules for removal
+		if len(deviceRules) > 0 {
+			if cgroupManager == nil {
+				logger.Warningf("cgroup manager is nil, skipping device rules removal")
+			} else {
+				err := cgroupManager.Set(&configs.Resources{
+					Devices: deviceRules,
+				})
+
+				if err != nil {
+					logger.Warningf("cgroup %s had failed to set device rules for removal. error: %v. rules count: %d", cgroupManager.GetCgroupVersion(), err, len(deviceRules))
+					// Don't return error, continue with cleanup
+				} else {
+					logger.Infof("cgroup %s device rules for removal are set successfully. rules count: %d", cgroupManager.GetCgroupVersion(), len(deviceRules))
+				}
+			}
+		}
+
 		err = m.deleteMountTargetRecord(vmi)
 		if err != nil {
 			return err
