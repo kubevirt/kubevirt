@@ -59,7 +59,7 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		checks.SkipIfPrometheusRuleIsNotEnabled(virtClient)
+		checks.FailTestIfPrometheusRuleIsNotEnabled(virtClient)
 	})
 
 	Context("Kubevirt alert rules", func() {

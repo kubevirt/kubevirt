@@ -39,7 +39,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 	)
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		checks.SkipIfRunningOnKindInfra("Skip Network Policy tests till issue https://github.com/kubevirt/kubevirt/issues/4081 is fixed")
+		checks.FailTestIfRunningOnKindInfra("Fail Network Policy tests till issue https://github.com/kubevirt/kubevirt/issues/4081 is fixed")
 
 		serverVMILabels = map[string]string{"type": "test"}
 	})
