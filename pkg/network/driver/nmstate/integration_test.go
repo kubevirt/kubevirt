@@ -63,7 +63,6 @@ var _ = Describe("NMState", integrationLabel, func() {
 			bridgeMac  = "02:ff:ff:ff:ff:01"
 			bridgeMTU  = 1000
 		)
-		ethtoolWithTxChecksumOff := nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}}
 		spec := nmstate.Spec{Interfaces: []nmstate.Interface{
 			{
 				Name:       bridgeName,
@@ -71,7 +70,6 @@ var _ = Describe("NMState", integrationLabel, func() {
 				State:      nmstate.IfaceStateUp,
 				MTU:        bridgeMTU,
 				MacAddress: bridgeMac,
-				Ethtool:    ethtoolWithTxChecksumOff,
 			},
 		}}
 
@@ -92,7 +90,6 @@ var _ = Describe("NMState", integrationLabel, func() {
 			TypeName:   nmstate.TypeBridge,
 			MacAddress: bridgeMac,
 			MTU:        bridgeMTU,
-			Ethtool:    ethtoolWithTxChecksumOff,
 			IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 			IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 			LinuxStack: nmstate.LinuxIfaceStack{
@@ -109,12 +106,10 @@ var _ = Describe("NMState", integrationLabel, func() {
 			bridgeMTU  = 1000
 		)
 		var (
-			ethtoolWithTxChecksumOff nmstate.Ethtool
-			spec                     nmstate.Spec
+			spec nmstate.Spec
 		)
 
 		BeforeEach(func() {
-			ethtoolWithTxChecksumOff = nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}}
 			spec = nmstate.Spec{Interfaces: []nmstate.Interface{
 				{
 					Name:       bridgeName,
@@ -122,7 +117,6 @@ var _ = Describe("NMState", integrationLabel, func() {
 					State:      nmstate.IfaceStateUp,
 					MTU:        bridgeMTU,
 					MacAddress: bridgeMac,
-					Ethtool:    ethtoolWithTxChecksumOff,
 				},
 			}}
 			Expect(nmState.Apply(&spec)).To(Succeed())
@@ -150,7 +144,6 @@ var _ = Describe("NMState", integrationLabel, func() {
 				TypeName:   nmstate.TypeBridge,
 				MacAddress: bridgeMac,
 				MTU:        bridgeMTU,
-				Ethtool:    ethtoolWithTxChecksumOff,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{primaryIP4Address()},
@@ -183,7 +176,6 @@ var _ = Describe("NMState", integrationLabel, func() {
 				TypeName:   nmstate.TypeBridge,
 				MacAddress: bridgeMac,
 				MTU:        bridgeMTU,
-				Ethtool:    ethtoolWithTxChecksumOff,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{primaryIP4Address(), secondaryIP4Address()},
@@ -216,7 +208,6 @@ var _ = Describe("NMState", integrationLabel, func() {
 				TypeName:   nmstate.TypeBridge,
 				MacAddress: bridgeMac,
 				MTU:        bridgeMTU,
-				Ethtool:    ethtoolWithTxChecksumOff,
 				IPv4: nmstate.IP{
 					Enabled: pointer.P(true),
 					Address: []nmstate.IPAddress{primaryIP4Address()},
