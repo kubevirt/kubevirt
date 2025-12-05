@@ -238,11 +238,11 @@ func configureConsole(expecter expect.Expecter, shouldSudo bool) error {
 		sudoString = "sudo "
 	}
 	batch := []expect.Batcher{
-		&expect.BSnd{S: "stty cols 500 rows 500\n"},
+		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
 		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: RetValueWithPrompt("0")},
-		&expect.BSnd{S: fmt.Sprintf("%sdmesg -n 1\n", sudoString)},
+		&expect.BSnd{S: "stty cols 500 rows 500\n"},
 		&expect.BExp{R: PromptExpression},
 		&expect.BSnd{S: "echo $?\n"},
 		&expect.BExp{R: RetValueWithPrompt("0")},
