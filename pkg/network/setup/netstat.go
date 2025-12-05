@@ -22,6 +22,7 @@ package network
 import (
 	"fmt"
 	"net"
+	"net/netip"
 	"slices"
 	"strings"
 	"sync"
@@ -113,7 +114,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 	}
 
 	// Guest Agent information will add and conditionally override data gathered from the cache.
-	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces)
+	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces, vmiInterfacesSpecByName)
 
 	if primaryNetwork := netvmispec.LookupPodNetwork(vmi.Spec.Networks); primaryNetwork != nil {
 		interfacesStatus = restorePrimaryIfaceStatus(interfacesStatus, vmi.Status.Interfaces, primaryNetwork.Name)
@@ -320,10 +321,15 @@ func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfa
 	return vmiStatusIfaces
 }
 
-func ifacesStatusFromGuestAgent(vmiIfacesStatus []v1.VirtualMachineInstanceNetworkInterface, guestAgentInterfaces []api.InterfaceStatus) []v1.VirtualMachineInstanceNetworkInterface {
+func ifacesStatusFromGuestAgent(
+	vmiIfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
+	guestAgentInterfaces []api.InterfaceStatus,
+	vmiInterfacesSpecByName map[string]v1.Interface,
+) []v1.VirtualMachineInstanceNetworkInterface {
 	for _, guestAgentInterface := range guestAgentInterfaces {
 		if vmiIfaceStatus := netvmispec.LookupInterfaceStatusByMac(vmiIfacesStatus, guestAgentInterface.Mac); vmiIfaceStatus != nil {
-			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceStatus, guestAgentInterface)
+			vmiIfaceSpec := vmiInterfacesSpecByName[vmiIfaceStatus.Name]
+			updateVMIIfaceStatusWithGuestAgentData(vmiIfaceSpec, vmiIfaceStatus, guestAgentInterface)
 			if !isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface) {
 				vmiIfaceStatus.InfoSource = netvmispec.InfoSourceDomainAndGA
 			}
@@ -345,7 +351,7 @@ func isGuestAgentIfaceOriginatedFromOldVirtLauncher(guestAgentInterface api.Inte
 	return guestAgentInterface.InterfaceName == ""
 }
 
-func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus) {
+func updateVMIIfaceStatusWithGuestAgentData(ifaceSpec v1.Interface, ifaceStatus *v1.VirtualMachineInstanceNetworkInterface, guestAgentIface api.InterfaceStatus) {
 	ifaceStatus.InterfaceName = guestAgentIface.InterfaceName
 	// IP data from the Guest Agent overrides previous iface status information in the following cases:
 	// - No status IPs existed before, i.e. GA data is adding new information.
@@ -354,6 +360,13 @@ func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstan
 	// However, in case GA does not include IP data, it will clear IP status data (guest is not reachable by any IP).
 	ifaceStatusIPv4, ifaceStatusIPv6 := splitIPByFamiliy(ifaceStatus.IPs)
 	guestAgentIfaceIPv4, guestAgentIfaceIPv6 := splitIPByFamiliy(guestAgentIface.IPs)
+
+	// When using masquerade binding, guest-defined IPv6 Link-Local Addresses (LLAs) are unreachable from the pod network.
+	// These addresses remain internal to the guest and are outside the scope of KubeVirt's NAT translation rules.
+	if ifaceSpec.Masquerade != nil {
+		guestAgentIfaceIPv6 = filterOutLinkLocalAddresses(guestAgentIfaceIPv6)
+	}
+
 	if len(ifaceStatusIPv4) == 0 || len(guestAgentIfaceIPv4) == 0 {
 		ifaceStatusIPv4 = guestAgentIfaceIPv4
 	}
@@ -371,6 +384,17 @@ func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstan
 	if len(ifaceStatus.IPs) > 0 {
 		ifaceStatus.IP = ifaceStatus.IPs[0]
 	}
+}
+
+func filterOutLinkLocalAddresses(ipv6Addresses []string) []string {
+	return slices.DeleteFunc(ipv6Addresses, func(s string) bool {
+		addr, err := netip.ParseAddr(s)
+		if err != nil {
+			return true
+		}
+
+		return addr.IsLinkLocalUnicast()
+	})
 }
 
 func newVMIIfaceStatusFromGuestAgentData(guestAgentInterface api.InterfaceStatus) v1.VirtualMachineInstanceNetworkInterface {
