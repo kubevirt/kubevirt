@@ -2136,7 +2136,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			noDedicatedCPUVMI := func() *v1.VirtualMachineInstance {
 				return libvmifact.NewFedora(
 					libvmi.WithCPUCount(2, 0, 0),
-					libvmi.WithDedicatedCPUPlacement(),
 					libvmi.WithMemoryRequest("512M"),
 					libvmi.WithNodeSelectorFor(node),
 				)
