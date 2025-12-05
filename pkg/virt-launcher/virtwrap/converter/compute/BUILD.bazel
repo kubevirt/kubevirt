@@ -9,6 +9,7 @@ go_library(
         "console.go",
         "graphics.go",
         "host_device.go",
+        "hypervisor_features.go",
         "input_device.go",
         "launch_security.go",
         "rng.go",

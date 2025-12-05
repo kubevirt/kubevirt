@@ -45,17 +45,10 @@ func (d *Defaulter) setDefaults_SysInfo(sysinfo *SysInfo) {
 	}
 }
 
-func (d *Defaulter) setDefaults_Features(spec *DomainSpec) {
-	if spec.Features == nil {
-		spec.Features = &Features{}
-	}
-}
-
 func (d *Defaulter) SetObjectDefaults_Domain(in *Domain) {
 	d.setDefaults_DomainSpec(&in.Spec)
 	d.setDefaults_OSType(&in.Spec.OS.Type)
 	if in.Spec.SysInfo != nil {
 		d.setDefaults_SysInfo(in.Spec.SysInfo)
 	}
-	d.setDefaults_Features(&in.Spec)
 }
