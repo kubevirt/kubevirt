@@ -9,6 +9,7 @@ go_library(
         "console.go",
         "graphics.go",
         "host_device.go",
+        "hypervisor.go",
         "input_device.go",
         "launch_security.go",
         "rng.go",
@@ -29,6 +30,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/converter/virtio:go_default_library",
         "//pkg/virt-launcher/virtwrap/launchsecurity:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
     ],
 )
 
@@ -42,6 +44,7 @@ go_test(
         "console_test.go",
         "graphics_test.go",
         "host_device_test.go",
+        "hypervisor_test.go",
         "input_device_test.go",
         "launch_security_test.go",
         "rng_test.go",
