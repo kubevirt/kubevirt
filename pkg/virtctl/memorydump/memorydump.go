@@ -169,10 +169,15 @@ func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *
 }
 
 func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string) (*k8sv1.PersistentVolumeClaim, error) {
+	labels := map[string]string{
+		storagetypes.LabelApplyStorageProfile: "true",
+	}
+
 	pvc := &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      claimName,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			Resources: k8sv1.VolumeResourceRequirements{
@@ -200,17 +205,6 @@ func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, ac
 	} else {
 		pvc.Spec.AccessModes = []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}
 	}
-
-	labels := map[string]string{
-		// Adding this label to allow the PVC to be processed by the CDI WebhookPvcRendering mutating webhook,
-		// which must be enabled in the CDI CR via feature gate.
-		// This mutating webhook processes the PVC based on its associated StorageProfile.
-		// For example, a profile can define a minimum supported volume size via the annotation:
-		// cdi.kubevirt.io/minimumSupportedPvcSize: 4Gi
-		storagetypes.LabelApplyStorageProfile: "true",
-	}
-
-	pvc.ObjectMeta.Labels = labels
 
 	return pvc, nil
 }

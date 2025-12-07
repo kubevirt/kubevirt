@@ -243,6 +243,8 @@ var _ = Describe("MemoryDump", func() {
 		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(defaultFSOverheadSize)))
+		// This label is applied by default to all memorydump-created PVCs
+		Expect(pvc.ObjectMeta.Labels).To(HaveKeyWithValue(storagetypes.LabelApplyStorageProfile, "true"))
 	})
 
 	It("should create pvc for memory dump and call subresource with storageclass flag", func() {
