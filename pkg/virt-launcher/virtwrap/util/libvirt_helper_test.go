@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	launcherconfig "kubevirt.io/kubevirt/pkg/virt-launcher/config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
@@ -324,20 +325,20 @@ var _ = Describe("LibvirtHelper", func() {
 	})
 
 	Context("configureQemuConf()", func() {
-		DescribeTable("should set shared_filesystem on qemu.conf according to env", func(envInput string, expected string) {
+		DescribeTable("should set shared_filesystem on qemu.conf according to config", func(sharedPaths string, expected string) {
 			confPath := filepath.Join(GinkgoT().TempDir(), "qemu.conf")
 			file, err := os.Create(confPath)
 			Expect(err).ToNot(HaveOccurred())
 			// Random content to ensure we append properly
 			file.WriteString("dummy = 1\n")
 			Expect(file.Close()).To(Succeed())
-			Expect(os.Setenv(services.ENV_VAR_SHARED_FILESYSTEM_PATHS, envInput)).To(Succeed())
-			DeferCleanup(func() {
-				Expect(os.Unsetenv(services.ENV_VAR_SHARED_FILESYSTEM_PATHS)).To(Succeed())
-				Expect(os.RemoveAll(confPath)).To(Succeed())
-			})
 
-			Expect(configureQemuConf(confPath)).To(Succeed())
+			// Use configureQemuConfWithConfig directly with explicit config
+			cfg := &launcherconfig.Config{
+				SharedFilesystemPaths: sharedPaths,
+			}
+
+			Expect(configureQemuConfWithConfig(confPath, cfg)).To(Succeed())
 
 			file, err = os.OpenFile(confPath, os.O_RDONLY, 0644)
 			Expect(err).ToNot(HaveOccurred())

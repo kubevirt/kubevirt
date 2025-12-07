@@ -26,7 +26,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -52,6 +51,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	virtlauncher "kubevirt.io/kubevirt/pkg/virt-launcher"
+	launcherconfig "kubevirt.io/kubevirt/pkg/virt-launcher/config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/standalone"
@@ -365,14 +365,15 @@ func main() {
 
 	log.InitializeLogging("virt-launcher")
 
-	// check if virt-launcher verbosity should be changed
-	if verbosityStr, ok := os.LookupEnv("VIRT_LAUNCHER_LOG_VERBOSITY"); ok {
-		if verbosity, err := strconv.Atoi(verbosityStr); err == nil {
-			log.Log.SetVerbosityLevel(verbosity)
-			log.Log.V(2).Infof("set log verbosity to %d", verbosity)
-		} else {
-			log.Log.Warningf("failed to set log verbosity. The value of logVerbosity label should be an integer, got %s instead.", verbosityStr)
-		}
+	// Initialize centralized configuration from environment variables.
+	// This reads all supported environment variables at the application's top level,
+	// providing clear visibility of configuration and consistent behavior.
+	cfg := launcherconfig.NewConfig()
+
+	// Set up log verbosity from centralized config
+	if cfg.IsLogVerbositySet() {
+		log.Log.SetVerbosityLevel(cfg.LogVerbosity)
+		log.Log.V(2).Infof("set log verbosity to %d", cfg.LogVerbosity)
 	}
 
 	// Initialize local and shared directories

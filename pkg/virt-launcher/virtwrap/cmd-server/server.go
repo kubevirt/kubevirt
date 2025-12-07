@@ -36,13 +36,18 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	launcherconfig "kubevirt.io/kubevirt/pkg/virt-launcher/config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	launcherErrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 )
 
 const (
-	receivedEarlyExitSignalEnvVar = "VIRT_LAUNCHER_TARGET_POD_EXIT_SIGNAL"
+	// receivedEarlyExitSignalEnvVar is used as a runtime signal mechanism
+	// for inter-process communication during migration cleanup.
+	// This is intentionally kept as an environment variable (set/read pattern)
+	// rather than using the config package, as it's not a static configuration value.
+	receivedEarlyExitSignalEnvVar = launcherconfig.EnvVarTargetPodExitSignal
 )
 
 type ServerOptions struct {
@@ -145,7 +150,9 @@ func (l *Launcher) SignalTargetPodCleanup(_ context.Context, request *cmdv1.VMIR
 		return response, nil
 	}
 
-	myPodName := os.Getenv("POD_NAME")
+	// Use centralized config for POD_NAME instead of reading env var directly
+	cfg := launcherconfig.GetGlobalConfig()
+	myPodName := cfg.PodName
 
 	if myPodName != "" && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetPod == myPodName {
 		os.Setenv(receivedEarlyExitSignalEnvVar, "")

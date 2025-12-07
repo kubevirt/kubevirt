@@ -21,32 +21,41 @@ package standalone
 
 import (
 	"encoding/json"
-	"os"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"sigs.k8s.io/yaml"
 
+	launcherconfig "kubevirt.io/kubevirt/pkg/virt-launcher/config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 )
 
 // HandleStandaloneMode checks for STANDALONE_VMI env var and syncs if present.
+// Uses the global config which was initialized at application startup.
 func HandleStandaloneMode(domainManager virtwrap.DomainManager) {
-	if vmiObjStr, ok := os.LookupEnv("STANDALONE_VMI"); ok {
-		var vmi v1.VirtualMachineInstance
-		// Try YAML unmarshal
-		if err := yaml.Unmarshal([]byte(vmiObjStr), &vmi); err != nil {
-			// Fallback to JSON if YAML fails
-			if jsonErr := json.Unmarshal([]byte(vmiObjStr), &vmi); jsonErr != nil {
-				log.Log.Reason(err).Error("Failed to unmarshal VMI from STANDALONE_VMI as YAML/JSON")
-				panic(err)
-			}
-		}
+	HandleStandaloneModeWithConfig(domainManager, launcherconfig.GetGlobalConfig())
+}
 
-		log.Log.Object(&vmi).Infof("Standalone mode: syncing VMI")
-		if _, err := domainManager.SyncVMI(&vmi, true, nil); err != nil {
-			log.Log.Object(&vmi).Reason(err).Error("Failed to sync VMI, quitting")
+// HandleStandaloneModeWithConfig checks the provided config for standalone VMI and syncs if present.
+// This allows for explicit dependency injection of configuration values.
+func HandleStandaloneModeWithConfig(domainManager virtwrap.DomainManager, cfg *launcherconfig.Config) {
+	if cfg == nil || !cfg.IsStandaloneMode() {
+		return
+	}
+
+	var vmi v1.VirtualMachineInstance
+	// Try YAML unmarshal
+	if err := yaml.Unmarshal([]byte(cfg.StandaloneVMI), &vmi); err != nil {
+		// Fallback to JSON if YAML fails
+		if jsonErr := json.Unmarshal([]byte(cfg.StandaloneVMI), &vmi); jsonErr != nil {
+			log.Log.Reason(err).Error("Failed to unmarshal VMI from STANDALONE_VMI as YAML/JSON")
 			panic(err)
 		}
+	}
+
+	log.Log.Object(&vmi).Infof("Standalone mode: syncing VMI")
+	if _, err := domainManager.SyncVMI(&vmi, true, nil); err != nil {
+		log.Log.Object(&vmi).Reason(err).Error("Failed to sync VMI, quitting")
+		panic(err)
 	}
 }
