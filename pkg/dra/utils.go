@@ -97,3 +97,18 @@ func IsGPUDRA(gpu v1.GPU) bool {
 func IsHostDeviceDRA(hd v1.HostDevice) bool {
 	return hd.DeviceName == "" && hd.ClaimRequest != nil
 }
+
+// IsNetworkDRA returns true if the Network is a DRA network
+func IsNetworkDRA(net v1.Network) bool {
+	return net.NetworkSource.ResourceClaim != nil
+}
+
+// HasNetworkDRA returns true if the VMI has any DRA networks
+func HasNetworkDRA(vmi *v1.VirtualMachineInstance) bool {
+	for _, net := range vmi.Spec.Networks {
+		if IsNetworkDRA(net) {
+			return true
+		}
+	}
+	return false
+}

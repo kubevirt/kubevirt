@@ -199,6 +199,47 @@ var _ = Describe("DRA Status Controller", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(Equal(expectedErr))
 		})
+
+		It("should update VMI status when network DRA status has changed", func() {
+			vmi.Spec.Networks = []v1.Network{
+				{
+					Name: "red",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   ptr.To("claim1"),
+							RequestName: ptr.To("request1"),
+						},
+					},
+				},
+			}
+			vmi.Status.DeviceStatus = nil
+
+			pod.Spec.NodeName = "testnode"
+			pod.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+				{
+					Name:              "claim1",
+					ResourceClaimName: ptr.To("claim1"),
+				},
+			}
+			pod.Status.ResourceClaimStatuses = []k8sv1.PodResourceClaimStatus{
+				{
+					Name:              "claim1",
+					ResourceClaimName: ptr.To("claim1"),
+				},
+			}
+
+			vmiClient.EXPECT().
+				Patch(gomock.Any(), "testvmi", gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(vmi, nil)
+
+			kubeClient.EXPECT().VirtualMachineInstance(gomock.Any()).Return(vmiClient).MaxTimes(1)
+
+			draController := testDRAStatusController(kubeClient, vmi, pod,
+				getTestResourceClaim("claim1", "default", "request1", "device1", "driver1"),
+				getTestResourceSlice("resourceslice1", "testnode", "device1", "driver1"))
+			err := draController.updateStatus(logger, vmi, pod)
+			Expect(err).ToNot(HaveOccurred())
+		})
 	})
 
 	Context("isAllDRAGPUsReconciled", func() {
