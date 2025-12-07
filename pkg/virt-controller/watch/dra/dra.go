@@ -418,13 +418,21 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *v1.V
 		}
 	}
 
+	// TODO create new FG for DRA networks
 	if c.clusterConfig.HostDevicesWithDRAEnabled() {
 		hostDeviceInfo, err := c.getHostDevicesFromVMISpec(vmi)
 		if err != nil {
 			return err
 		}
 
-		hostDeviceStatuses, err = c.getHostDeviceStatuses(hostDeviceInfo, pod)
+		networkInfo, err := c.getNetworksFromVMISpec(vmi)
+		if err != nil {
+			return err
+		}
+
+		// Combine host devices and networks into hostDeviceStatuses
+		allDeviceInfo := append(hostDeviceInfo, networkInfo...)
+		hostDeviceStatuses, err = c.getHostDeviceStatuses(allDeviceInfo, pod)
 		if err != nil {
 			return err
 		}
@@ -659,6 +667,24 @@ func (c *DRAStatusController) getHostDevicesFromVMISpec(vmi *v1.VirtualMachineIn
 		})
 	}
 	return hostDevices, nil
+}
+
+func (c *DRAStatusController) getNetworksFromVMISpec(vmi *v1.VirtualMachineInstance) ([]DeviceInfo, error) {
+	var networks []DeviceInfo
+	for _, network := range vmi.Spec.Networks {
+		if !drautil.IsNetworkDRA(network) {
+			continue
+		}
+		networks = append(networks, DeviceInfo{
+			VMISpecClaimName:   *network.NetworkSource.ResourceClaim.ClaimName,
+			VMISpecRequestName: *network.NetworkSource.ResourceClaim.RequestName,
+			DeviceStatusInfo: &v1.DeviceStatusInfo{
+				Name:                      network.Name,
+				DeviceResourceClaimStatus: nil,
+			},
+		})
+	}
+	return networks, nil
 }
 
 func (c *DRAStatusController) getHostDeviceStatuses(hostDeviceInfos []DeviceInfo, pod *k8sv1.Pod) ([]v1.DeviceStatusInfo, error) {
