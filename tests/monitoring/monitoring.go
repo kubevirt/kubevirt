@@ -30,6 +30,7 @@ import (
 
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	k8sv1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -40,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -52,14 +52,14 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring, func() {
+var _ = Describe("[sig-monitoring]Monitoring", decorators.SigMonitoring, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var prometheusRule *promv1.PrometheusRule
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		checks.SkipIfPrometheusRuleIsNotEnabled(virtClient)
+		requirePrometheusRuleCRD(virtClient)
 	})
 
 	Context("Kubevirt alert rules", func() {
@@ -117,6 +117,16 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 		})
 	})
 
+})
+
+var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring, func() {
+	var virtClient kubecli.KubevirtClient
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+		requirePrometheusRuleCRD(virtClient)
+	})
+
 	Context("System Alerts", func() {
 		var originalKv *v1.KubeVirt
 
@@ -151,7 +161,7 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			vmi := libvmifact.NewCirros()
 			vmi.APIVersion = "v1alpha3"
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the alert exists")
@@ -237,4 +247,12 @@ func checkRequiredLabels(rule promv1.Rule) {
 		"%s kubernetes_operator_part_of label is missing or not valid", rule.Alert)
 	ExpectWithOffset(1, rule.Labels).To(HaveKeyWithValue("kubernetes_operator_component", "kubevirt"),
 		"%s kubernetes_operator_component label is missing or not valid", rule.Alert)
+}
+
+func requirePrometheusRuleCRD(virtClient kubecli.KubevirtClient) {
+	_, err := virtClient.ExtensionsClient().ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "prometheusrules.monitoring.coreos.com", metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		Skip("PrometheusRule CRD prometheusrules.monitoring.coreos.com is required for monitoring tests")
+	}
+	Expect(err).ToNot(HaveOccurred())
 }
