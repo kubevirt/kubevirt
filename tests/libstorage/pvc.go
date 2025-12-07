@@ -35,6 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -44,10 +45,6 @@ import (
 const (
 	DefaultPvcMountPath                = "/pvc"
 	StorageClassHostPathSeparateDevice = "host-path-sd"
-
-	// LabelApplyStorageProfile is a label used by the CDI mutating webhook
-	// to modify the PVC according to the storage profile.
-	LabelApplyStorageProfile = "cdi.kubevirt.io/applyStorageProfile"
 )
 
 type Option func(pvc *k8sv1.PersistentVolumeClaim)
@@ -141,7 +138,7 @@ func WithStorageProfile() Option {
 		if pvc.Labels == nil {
 			pvc.Labels = map[string]string{}
 		}
-		pvc.Labels[LabelApplyStorageProfile] = "true"
+		pvc.Labels[storagetypes.LabelApplyStorageProfile] = "true"
 	}
 }
 
