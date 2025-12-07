@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -83,6 +84,50 @@ var _ = Describe("Validate network source", func() {
 		causes := validator.Validate()
 		Expect(causes).To(HaveLen(1))
 		Expect(causes[0].Message).To(Equal("should have a network type"))
+	})
+
+	It("should accept resourceClaim network type", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{
+			{Name: "default", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+		}
+		spec.Networks = []v1.Network{
+			{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   ptr.To("claim1"),
+						RequestName: ptr.To("request1"),
+					},
+				},
+			},
+		}
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, stubClusterConfigChecker{})
+		causes := validator.Validate()
+		Expect(causes).To(BeEmpty())
+	})
+
+	It("should reject when resourceClaim is combined with another network type", func() {
+		spec := &v1.VirtualMachineInstanceSpec{}
+		spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
+		spec.Networks = []v1.Network{
+			{
+				Name: "default",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   ptr.To("claim1"),
+						RequestName: ptr.To("request1"),
+					},
+					Pod: &v1.PodNetwork{},
+				},
+			},
+		}
+
+		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
+		validator := admitter.NewValidator(k8sfield.NewPath("fake"), spec, clusterConfig)
+		causes := validator.Validate()
+		Expect(causes).To(HaveLen(1))
+		Expect(causes[0].Message).To(Equal("should have only one network type"))
 	})
 
 	It("should reject multus network source without networkName", func() {
