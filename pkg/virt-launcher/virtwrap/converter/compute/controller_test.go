@@ -177,31 +177,33 @@ var _ = Describe("Controller Domain Configurator", func() {
 			Entry("arm64", "arm64", "qemu-xhci"),
 		)
 
-		Context("on amd64", func() {
-			DescribeTable("should configure IOMMU driver when launch security is enabled", func(opt compute.ControllerOption) {
-				vmi := libvmi.New()
-				var domain api.Domain
+		DescribeTable("should configure IOMMU driver when launch security is enabled", func(architecture, expectedUSBModel, expectedSCSIModel string, opt compute.ControllerOption) {
+			vmi := libvmi.New()
+			var domain api.Domain
 
-				Expect(compute.NewControllerDomainConfigurator(
-					compute.WithArchitecture("amd64"),
-					opt,
-				).Configure(vmi, &domain)).To(Succeed())
+			Expect(compute.NewControllerDomainConfigurator(
+				compute.WithArchitecture(architecture),
+				opt,
+			).Configure(vmi, &domain)).To(Succeed())
 
-				expectedDomain := api.Domain{
-					Spec: api.DomainSpec{
-						Devices: api.Devices{
-							Controllers: []api.Controller{
-								{Type: "usb", Index: "0", Model: "none"},
-								{Type: "scsi", Index: "0", Model: "virtio-non-transitional", Driver: &api.ControllerDriver{IOMMU: "on"}},
-							},
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Controllers: []api.Controller{
+							{Type: "usb", Index: "0", Model: expectedUSBModel},
+							{Type: "scsi", Index: "0", Model: expectedSCSIModel, Driver: &api.ControllerDriver{IOMMU: "on"}},
 						},
 					},
-				}
-				Expect(domain).To(Equal(expectedDomain))
-			},
-				Entry("SEV", compute.WithUseLaunchSecuritySEV(true)),
-				Entry("PV", compute.WithUseLaunchSecurityPV(true)),
-			)
-		})
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		},
+			Entry("amd64 with SEV", "amd64", "none", "virtio-non-transitional", compute.WithUseLaunchSecuritySEV(true)),
+			Entry("amd64 with PV", "amd64", "none", "virtio-non-transitional", compute.WithUseLaunchSecurityPV(true)),
+			Entry("arm64 with SEV", "arm64", "qemu-xhci", "virtio-non-transitional", compute.WithUseLaunchSecuritySEV(true)),
+			Entry("arm64 with PV", "arm64", "qemu-xhci", "virtio-non-transitional", compute.WithUseLaunchSecurityPV(true)),
+			Entry("s390x with SEV", "s390x", "none", "virtio-scsi", compute.WithUseLaunchSecuritySEV(true)),
+			Entry("s390x with PV", "s390x", "none", "virtio-scsi", compute.WithUseLaunchSecurityPV(true)),
+		)
 	})
 })
