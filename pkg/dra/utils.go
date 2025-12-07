@@ -59,20 +59,30 @@ func IsAllDRAGPUsReconciled(vmi *v1.VirtualMachineInstance, status *v1.DeviceSta
 // with either a PCI address (e.g., SR-IOV) or an mdev UUID when mediated devices are used. It mirrors the semantics of
 // IsAllDRAGPUsReconciled but operates on spec.domain.devices.hostDevices instead of GPUs.
 func IsAllDRAHostDevicesReconciled(vmi *v1.VirtualMachineInstance, status *v1.DeviceStatus) bool {
-	draHostDeviceNames := make(map[string]struct{})
+	draDeviceNames := make(map[string]struct{})
+
+	// Collect DRA host devices
 	for _, hd := range vmi.Spec.Domain.Devices.HostDevices {
 		if hd.ClaimRequest != nil {
-			draHostDeviceNames[hd.Name] = struct{}{}
+			draDeviceNames[hd.Name] = struct{}{}
 		}
 	}
-	if len(draHostDeviceNames) == 0 {
+
+	// Collect DRA networks
+	for _, net := range vmi.Spec.Networks {
+		if IsNetworkDRA(net) {
+			draDeviceNames[net.Name] = struct{}{}
+		}
+	}
+
+	if len(draDeviceNames) == 0 {
 		return true
 	}
 
 	reconciledCount := 0
 	if status != nil {
 		for _, hdStatus := range status.HostDeviceStatuses {
-			if _, isDRAHostDev := draHostDeviceNames[hdStatus.Name]; !isDRAHostDev {
+			if _, isDRADev := draDeviceNames[hdStatus.Name]; !isDRADev {
 				continue
 			}
 			if hdStatus.DeviceResourceClaimStatus != nil &&
@@ -85,7 +95,7 @@ func IsAllDRAHostDevicesReconciled(vmi *v1.VirtualMachineInstance, status *v1.De
 			}
 		}
 	}
-	return reconciledCount == len(draHostDeviceNames)
+	return reconciledCount == len(draDeviceNames)
 }
 
 // IsGPUDRA returns true if the GPU is a DRA GPU
