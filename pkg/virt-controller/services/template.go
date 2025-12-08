@@ -1550,7 +1550,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 				return t.clusterConfig.HostDevicesWithDRAEnabled() && isHostDevVMIDRA(vmi)
 			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
-				return t.clusterConfig.HostDevicesWithDRAEnabled() && drautil.HasNetworkDRA(vmi)
+				return t.clusterConfig.DRANetworkDevicesEnabled() && drautil.HasNetworkDRA(vmi.Spec.Networks)
 			}, WithNetworksDRA(vmi.Spec.Networks)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),

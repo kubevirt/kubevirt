@@ -108,6 +108,14 @@ const (
 	// HostDevicesWithDRAGate allows users to create VMIs with DRA provisioned Host devices
 	HostDevicesWithDRAGate = "HostDevicesWithDRA"
 
+	// Owner: @oshoval
+	// Alpha: v1.7.0
+	//
+	// DRANetworkDevicesGate allows users to create VMIs with DRA provisioned Network devices
+	// specified in spec.networks with resourceClaim type. This enables DRA-managed network
+	// resources like SR-IOV NICs to be attached to VMs using the natural networks API.
+	DRANetworkDevicesGate = "DRANetworkDevices"
+
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
 
 	// Owner: sig-storage / @alromeros
@@ -225,6 +233,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DRANetworkDevicesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: Beta})

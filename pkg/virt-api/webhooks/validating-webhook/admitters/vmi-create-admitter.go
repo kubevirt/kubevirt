@@ -38,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+	"kubevirt.io/kubevirt/pkg/dra"
 	draadmitter "kubevirt.io/kubevirt/pkg/dra/admitter"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
@@ -228,6 +229,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateLiveMigration(field, spec, config)...)
 	causes = append(causes, validateMDEVRamFB(field, spec)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
+	causes = append(causes, validateDRANetworkDevicesEnabled(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 	causes = append(causes, validateVSOCK(field, spec, config)...)
@@ -553,6 +555,19 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.Vi
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "Host Devices feature gate is not enabled in kubevirt-config",
 			Field:   field.Child("HostDevices").String(),
+		})
+	}
+	return causes
+}
+
+func validateDRANetworkDevicesEnabled(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if dra.HasNetworkDRA(spec.Networks) && !config.DRANetworkDevicesEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "DRA Network Devices feature gate is not enabled in kubevirt-config",
+			Field:   field.Child("networks").String(),
 		})
 	}
 	return causes
