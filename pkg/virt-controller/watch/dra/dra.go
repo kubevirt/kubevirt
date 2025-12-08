@@ -675,9 +675,15 @@ func (c *DRAStatusController) getNetworksFromVMISpec(vmi *v1.VirtualMachineInsta
 		if !drautil.IsNetworkDRA(network) {
 			continue
 		}
+
+		requestName := ""
+		if network.NetworkSource.ResourceClaim.RequestName != nil {
+			requestName = *network.NetworkSource.ResourceClaim.RequestName
+		}
+
 		networks = append(networks, DeviceInfo{
-			VMISpecClaimName:   *network.NetworkSource.ResourceClaim.ClaimName,
-			VMISpecRequestName: *network.NetworkSource.ResourceClaim.RequestName,
+			VMISpecClaimName:   network.NetworkSource.ResourceClaim.ClaimName,
+			VMISpecRequestName: requestName,
 			DeviceStatusInfo: &v1.DeviceStatusInfo{
 				Name:                      network.Name,
 				DeviceResourceClaimStatus: nil,
