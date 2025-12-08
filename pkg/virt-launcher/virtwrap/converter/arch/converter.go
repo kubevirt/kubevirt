@@ -35,7 +35,6 @@ type Converter interface {
 	IsROMTuningSupported() bool
 	RequiresMPXCPUValidation() bool
 	ShouldVerboseLogsBeEnabled() bool
-	SupportPCIHole64Disabling() bool
 }
 
 func NewConverter(arch string) Converter {

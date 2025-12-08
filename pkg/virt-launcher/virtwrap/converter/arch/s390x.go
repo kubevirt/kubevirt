@@ -56,7 +56,3 @@ func (converterS390X) ShouldVerboseLogsBeEnabled() bool {
 func (converterS390X) HasVMPort() bool {
 	return false
 }
-
-func (converterS390X) SupportPCIHole64Disabling() bool {
-	return false
-}

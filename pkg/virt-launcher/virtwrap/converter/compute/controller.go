@@ -125,19 +125,20 @@ func (c ControllerDomainConfigurator) configureVirtioSerialController(vmi *v1.Vi
 }
 
 func (c ControllerDomainConfigurator) configurePCIController(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	// Only amd64 supports PCIHole64 disabling
 	if c.architecture == "amd64" && shouldDisablePCIHole64(vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers,
-			api.Controller{
-				Type:  "pci",
-				Index: "0",
-				Model: "pcie-root",
-				PCIHole64: &api.PCIHole64{
-					Value: 0,
-					Unit:  "KiB",
-				},
-			},
-		)
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, pciControllerWithDisabledPCIHole64())
+	}
+}
+
+func pciControllerWithDisabledPCIHole64() api.Controller {
+	return api.Controller{
+		Type:  "pci",
+		Index: "0",
+		Model: "pcie-root",
+		PCIHole64: &api.PCIHole64{
+			Value: 0,
+			Unit:  "KiB",
+		},
 	}
 }
 
