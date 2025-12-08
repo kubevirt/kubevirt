@@ -606,6 +606,10 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 		return nil, nil
 	}
 
+	if requestName == "" && len(resourceClaim.Status.Allocation.Devices.Results) == 1 {
+		return resourceClaim.Status.Allocation.Devices.Results[0].DeepCopy(), nil
+	}
+
 	for _, status := range resourceClaim.Status.Allocation.Devices.Results {
 		if status.Request == requestName {
 			return status.DeepCopy(), nil
