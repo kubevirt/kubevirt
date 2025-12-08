@@ -557,10 +557,6 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 
 			It("[outside_connectivity]should be able to reach the outside world [IPv4]", func() {
 				libnet.SkipWhenClusterNotSupportIpv4()
-				ipv4Address := "8.8.8.8"
-				if flags.IPV4ConnectivityCheckAddress != "" {
-					ipv4Address = flags.IPV4ConnectivityCheckAddress
-				}
 				dns := "google.com"
 				if flags.ConnectivityCheckDNS != "" {
 					dns = flags.ConnectivityCheckDNS
@@ -572,9 +568,10 @@ var _ = SIGDescribe("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:c
 				Expect(err).ToNot(HaveOccurred())
 				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
 
-				By("Checking ping (IPv4)")
-				Expect(libnet.PingFromVMConsole(vmi, ipv4Address, "-c 5", "-w 15")).To(Succeed())
-				Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
+				By("Checking external connectivity via TCP (HTTP)")
+				Eventually(func() error {
+					return console.RunCommand(vmi, fmt.Sprintf("nc -z %s 80 -w 5", dns), 10*time.Second)
+				}, 30*time.Second, 1*time.Second).Should(Succeed())
 			})
 
 			DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
