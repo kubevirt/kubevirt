@@ -323,7 +323,7 @@ func (c *DRAStatusController) runWorker() {
 var draStatusControllerWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 
 func (c *DRAStatusController) Execute() bool {
-	if !c.clusterConfig.GPUsWithDRAGateEnabled() && !c.clusterConfig.HostDevicesWithDRAEnabled() {
+	if !c.clusterConfig.GPUsWithDRAGateEnabled() && !c.clusterConfig.HostDevicesWithDRAEnabled() && !c.clusterConfig.DRANetworkDevicesEnabled() {
 		return false
 	}
 	key, quit := c.queue.Get()
@@ -418,20 +418,26 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *v1.V
 		}
 	}
 
-	// TODO create new FG for DRA networks
+	// Collect host devices and networks based on their respective feature gates
+	var allDeviceInfo []DeviceInfo
+
 	if c.clusterConfig.HostDevicesWithDRAEnabled() {
 		hostDeviceInfo, err := c.getHostDevicesFromVMISpec(vmi)
 		if err != nil {
 			return err
 		}
+		allDeviceInfo = append(allDeviceInfo, hostDeviceInfo...)
+	}
 
+	if c.clusterConfig.DRANetworkDevicesEnabled() {
 		networkInfo, err := c.getNetworksFromVMISpec(vmi)
 		if err != nil {
 			return err
 		}
+		allDeviceInfo = append(allDeviceInfo, networkInfo...)
+	}
 
-		// Combine host devices and networks into hostDeviceStatuses
-		allDeviceInfo := append(hostDeviceInfo, networkInfo...)
+	if len(allDeviceInfo) > 0 {
 		hostDeviceStatuses, err = c.getHostDeviceStatuses(allDeviceInfo, pod)
 		if err != nil {
 			return err
@@ -453,6 +459,10 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *v1.V
 
 	if c.clusterConfig.HostDevicesWithDRAEnabled() {
 		allReconciled = allReconciled && drautil.IsAllDRAHostDevicesReconciled(vmi, newDeviceStatus)
+	}
+
+	if c.clusterConfig.DRANetworkDevicesEnabled() {
+		allReconciled = allReconciled && drautil.IsAllDRANetworksReconciled(vmi, newDeviceStatus)
 	}
 
 	if reflect.DeepEqual(vmi.Status.DeviceStatus, newDeviceStatus) && allReconciled {

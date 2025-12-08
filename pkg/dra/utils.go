@@ -68,34 +68,53 @@ func IsAllDRAHostDevicesReconciled(vmi *v1.VirtualMachineInstance, status *v1.De
 		}
 	}
 
-	// Collect DRA networks
-	for _, net := range vmi.Spec.Networks {
-		if IsNetworkDRA(net) {
-			draDeviceNames[net.Name] = struct{}{}
-		}
-	}
-
 	if len(draDeviceNames) == 0 {
 		return true
 	}
 
+	return checkDRADevicesReconciled(draDeviceNames, status)
+}
+
+// IsAllDRANetworksReconciled checks if all Networks with DRA in the VMI spec have corresponding status entries populated
+// with either a PCI address or an mdev UUID. It operates on spec.networks with ResourceClaim sources.
+func IsAllDRANetworksReconciled(vmi *v1.VirtualMachineInstance, status *v1.DeviceStatus) bool {
+	draNetworkNames := make(map[string]struct{})
+
+	// Collect DRA networks
+	for _, net := range vmi.Spec.Networks {
+		if IsNetworkDRA(net) {
+			draNetworkNames[net.Name] = struct{}{}
+		}
+	}
+
+	if len(draNetworkNames) == 0 {
+		return true
+	}
+
+	return checkDRADevicesReconciled(draNetworkNames, status)
+}
+
+// checkDRADevicesReconciled is a helper that checks if all devices in the provided map
+// have corresponding status entries with required attributes populated.
+// Assumes deviceNames is not empty.
+func checkDRADevicesReconciled(deviceNames map[string]struct{}, status *v1.DeviceStatus) bool {
 	reconciledCount := 0
 	if status != nil {
-		for _, hdStatus := range status.HostDeviceStatuses {
-			if _, isDRADev := draDeviceNames[hdStatus.Name]; !isDRADev {
+		for _, deviceStatus := range status.HostDeviceStatuses {
+			if _, isDRADevice := deviceNames[deviceStatus.Name]; !isDRADevice {
 				continue
 			}
-			if hdStatus.DeviceResourceClaimStatus != nil &&
-				hdStatus.DeviceResourceClaimStatus.ResourceClaimName != nil &&
-				hdStatus.DeviceResourceClaimStatus.Name != nil &&
-				hdStatus.DeviceResourceClaimStatus.Attributes != nil &&
-				(hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil ||
-					hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil) {
+			if deviceStatus.DeviceResourceClaimStatus != nil &&
+				deviceStatus.DeviceResourceClaimStatus.ResourceClaimName != nil &&
+				deviceStatus.DeviceResourceClaimStatus.Name != nil &&
+				deviceStatus.DeviceResourceClaimStatus.Attributes != nil &&
+				(deviceStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil ||
+					deviceStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil) {
 				reconciledCount++
 			}
 		}
 	}
-	return reconciledCount == len(draDeviceNames)
+	return reconciledCount == len(deviceNames)
 }
 
 // IsGPUDRA returns true if the GPU is a DRA GPU
@@ -108,17 +127,17 @@ func IsHostDeviceDRA(hd v1.HostDevice) bool {
 	return hd.DeviceName == "" && hd.ClaimRequest != nil
 }
 
-// IsNetworkDRA returns true if the Network is a DRA network
-func IsNetworkDRA(net v1.Network) bool {
-	return net.NetworkSource.ResourceClaim != nil
-}
-
-// HasNetworkDRA returns true if the VMI has any DRA networks
-func HasNetworkDRA(vmi *v1.VirtualMachineInstance) bool {
-	for _, net := range vmi.Spec.Networks {
+// HasNetworkDRA returns true if any of the networks are DRA networks
+func HasNetworkDRA(networks []v1.Network) bool {
+	for _, net := range networks {
 		if IsNetworkDRA(net) {
 			return true
 		}
 	}
 	return false
+}
+
+// IsNetworkDRA returns true if the Network is a DRA network
+func IsNetworkDRA(net v1.Network) bool {
+	return net.NetworkSource.ResourceClaim != nil
 }
