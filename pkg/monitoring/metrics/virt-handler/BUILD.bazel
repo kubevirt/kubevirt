@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "machine_type.go",
         "metrics.go",
+        "pipe.go",
         "version_metrics.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler",

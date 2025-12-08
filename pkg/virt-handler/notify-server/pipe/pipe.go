@@ -38,6 +38,8 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 )
 
 func NewConnectToNotifyFunc(virtShareDir string) connectFunc {
@@ -99,9 +101,17 @@ func Pipe(ctx context.Context, pipeChan chan net.Conn, proxy proxyFunc) {
 	}
 }
 
-// Proxy is blocking, it proxies pipe connection [pipeConn] to given connection [connect](ultimately to notify server)
+func Proxy(logger *log.FilteredLogger, connect connectFunc) proxyFunc {
+	return func(c net.Conn) {
+		metrics.IncPipeActiveProxies()
+		defer metrics.DecPipeActiveProxies()
+		proxy(logger, c, connect)
+	}
+}
+
+// proxy is blocking, it proxies pipe connection [pipeConn] to given connection [connect](ultimately to notify server)
 // pipeConn is closed on success or error
-func Proxy(logger *log.FilteredLogger, pipeConn net.Conn, connect connectFunc) {
+func proxy(logger *log.FilteredLogger, pipeConn net.Conn, connect connectFunc) {
 	defer pipeConn.Close()
 
 	// proxy the VMI domain-notify-pipe.sock to the virt-handler domain-notify.sock
