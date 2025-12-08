@@ -225,14 +225,6 @@ func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.Doma
 	if err != nil {
 		return nil, err
 	}
-
-	// Add DRA-based SR-IOV devices
-	sriovDRADevices, err := CreateDRAHostDevices(vmi)
-	if err != nil {
-		return nil, err
-	}
-	sriovDevices = append(sriovDevices, sriovDRADevices...)
-
 	currentAttachedSRIOVHostDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, deviceinfo.SRIOVAliasPrefix)
 
 	sriovHostDevicesToAttach := hostdevice.DifferenceHostDevicesByAlias(sriovDevices, currentAttachedSRIOVHostDevices)
