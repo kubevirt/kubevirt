@@ -19,8 +19,6 @@ package arch
 import (
 	"kubevirt.io/client-go/log"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -33,7 +31,6 @@ const (
 type Converter interface {
 	GetArchitecture() string
 	ScsiController(model string, driver *api.ControllerDriver) api.Controller
-	IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	SupportCPUHotplug() bool
 	IsSMBiosNeeded() bool
 	HasVMPort() bool

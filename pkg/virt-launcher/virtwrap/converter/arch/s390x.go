@@ -17,8 +17,6 @@
 package arch
 
 import (
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -38,10 +36,6 @@ func (converterS390X) ScsiController(_ string, driver *api.ControllerDriver) api
 		Model:  "virtio-scsi",
 		Driver: driver,
 	}
-}
-
-func (converterS390X) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
-	return false
 }
 
 func (converterS390X) SupportCPUHotplug() bool {

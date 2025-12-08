@@ -23,14 +23,11 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
-type usbConfigurator interface {
-	IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool
-}
-
 type ControllerDomainConfigurator struct {
-	usbConfigurator usbConfigurator
+	architecture string
 }
 
 type ControllerOption func(*ControllerDomainConfigurator)
@@ -43,9 +40,9 @@ func NewControllerDomainConfigurator(opts ...ControllerOption) ControllerDomainC
 	return c
 }
 
-func WithUSBConfigurator(usbConfigurator usbConfigurator) ControllerOption {
+func WithArchitecture(architecture string) ControllerOption {
 	return func(c *ControllerDomainConfigurator) {
-		c.usbConfigurator = usbConfigurator
+		c.architecture = architecture
 	}
 }
 
@@ -61,8 +58,35 @@ func (c ControllerDomainConfigurator) configureUSBController(vmi *v1.VirtualMach
 		Index: "0",
 		Model: "none",
 	}
-	if c.usbConfigurator.IsUSBNeeded(vmi) {
+
+	switch c.architecture {
+	case "amd64":
+		if isUSBNeeded(vmi) {
+			usbController.Model = "qemu-xhci"
+		}
+	case "arm64":
 		usbController.Model = "qemu-xhci"
 	}
+
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
+}
+
+func isUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
+	for _, input := range vmi.Spec.Domain.Devices.Inputs {
+		if input.Bus == "usb" {
+			return true
+		}
+	}
+
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.Disk != nil && disk.Disk.Bus == v1.DiskBusUSB {
+			return true
+		}
+	}
+
+	if vmi.Spec.Domain.Devices.ClientPassthrough != nil {
+		return true
+	}
+
+	return device.USBDevicesFound(vmi.Spec.Domain.Devices.HostDevices)
 }

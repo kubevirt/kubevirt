@@ -17,8 +17,6 @@
 package arch
 
 import (
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -33,10 +31,6 @@ func (converterARM64) GetArchitecture() string {
 
 func (converterARM64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
 	return defaultSCSIController(model, driver)
-}
-
-func (converterARM64) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
-	return true
 }
 
 func (converterARM64) SupportCPUHotplug() bool {
