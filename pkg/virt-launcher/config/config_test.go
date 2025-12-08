@@ -21,16 +21,10 @@ package config
 
 import (
 	"os"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-func TestConfig(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Virt-Launcher Config Suite")
-}
 
 var _ = Describe("Config", func() {
 	var originalEnvVars map[string]string
