@@ -26,32 +26,35 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
 var _ = Describe("Controller Domain Configurator", func() {
-	DescribeTable("should configure controllers based on architecture", func(architecture, expectedUSBModel, expectedSCSIModel string) {
-		vmi := libvmi.New()
-		var domain api.Domain
+	DescribeTable("should configure controllers based on architecture",
+		func(arch, usbModel, scsiModel, serialModel string) {
+			vmi := libvmi.New()
+			var domain api.Domain
 
-		Expect(compute.NewControllerDomainConfigurator(compute.WithArchitecture(architecture)).Configure(vmi, &domain)).To(Succeed())
+			Expect(compute.NewControllerDomainConfigurator(compute.WithArchitecture(arch)).Configure(vmi, &domain)).To(Succeed())
 
-		expectedDomain := api.Domain{
-			Spec: api.DomainSpec{
-				Devices: api.Devices{
-					Controllers: []api.Controller{
-						{Type: "usb", Index: "0", Model: expectedUSBModel},
-						{Type: "scsi", Index: "0", Model: expectedSCSIModel},
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Controllers: []api.Controller{
+							{Type: "usb", Index: "0", Model: usbModel},
+							{Type: "scsi", Index: "0", Model: scsiModel},
+							{Type: "virtio-serial", Index: "0", Model: serialModel},
+						},
 					},
 				},
-			},
-		}
-		Expect(domain).To(Equal(expectedDomain))
-	},
-		Entry("amd64", "amd64", "none", "virtio-non-transitional"),
-		Entry("arm64", "arm64", "qemu-xhci", "virtio-non-transitional"),
-		Entry("s390x", "s390x", "none", "virtio-scsi"),
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		},
+		Entry("amd64", "amd64", "none", "virtio-non-transitional", "virtio-non-transitional"),
+		Entry("arm64", "arm64", "qemu-xhci", "virtio-non-transitional", "virtio-non-transitional"),
+		Entry("s390x", "s390x", "none", "virtio-scsi", "virtio"),
 	)
 
 	Context("USB Controller", func() {
@@ -59,6 +62,7 @@ var _ = Describe("Controller Domain Configurator", func() {
 			DescribeTable("should enable USB controller", func(vmiMutator func(*v1.VirtualMachineInstance)) {
 				vmi := libvmi.New()
 				vmi.Spec.Domain.Devices.DisableHotplug = true
+				vmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(false)
 				vmiMutator(vmi)
 				var domain api.Domain
 
@@ -98,58 +102,39 @@ var _ = Describe("Controller Domain Configurator", func() {
 	})
 
 	Context("SCSI Controller", func() {
-		DescribeTable("should not add SCSI controller when hotplug is disabled and no SCSI disks", func(architecture, expectedUSBModel string) {
-			vmi := libvmi.New()
-			vmi.Spec.Domain.Devices.DisableHotplug = true
-			var domain api.Domain
-
-			Expect(compute.NewControllerDomainConfigurator(compute.WithArchitecture(architecture)).Configure(vmi, &domain)).To(Succeed())
-
-			expectedDomain := api.Domain{
-				Spec: api.DomainSpec{
-					Devices: api.Devices{
-						Controllers: []api.Controller{
-							{Type: "usb", Index: "0", Model: expectedUSBModel},
+		DescribeTable("should add SCSI controller when disk uses SCSI bus",
+			func(arch, usbModel, scsiModel, serialModel string) {
+				vmi := libvmi.New()
+				vmi.Spec.Domain.Devices.Disks = []v1.Disk{
+					{
+						Name: "scsi-disk",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
 						},
 					},
-				},
-			}
-			Expect(domain).To(Equal(expectedDomain))
-		},
-			Entry("amd64", "amd64", "none"),
-			Entry("arm64", "arm64", "qemu-xhci"),
-			Entry("s390x", "s390x", "none"),
-		)
+				}
+				var domain api.Domain
 
-		DescribeTable("should add SCSI controller when disk uses SCSI bus", func(architecture, expectedUSBModel, expectedSCSIModel string) {
-			vmi := libvmi.New()
-			vmi.Spec.Domain.Devices.Disks = []v1.Disk{
-				{
-					Name: "scsi-disk",
-					DiskDevice: v1.DiskDevice{
-						Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
-					},
-				},
-			}
-			var domain api.Domain
+				Expect(compute.NewControllerDomainConfigurator(
+					compute.WithArchitecture(arch),
+				).Configure(vmi, &domain)).To(Succeed())
 
-			Expect(compute.NewControllerDomainConfigurator(compute.WithArchitecture(architecture)).Configure(vmi, &domain)).To(Succeed())
-
-			expectedDomain := api.Domain{
-				Spec: api.DomainSpec{
-					Devices: api.Devices{
-						Controllers: []api.Controller{
-							{Type: "usb", Index: "0", Model: expectedUSBModel},
-							{Type: "scsi", Index: "0", Model: expectedSCSIModel},
+				expectedDomain := api.Domain{
+					Spec: api.DomainSpec{
+						Devices: api.Devices{
+							Controllers: []api.Controller{
+								{Type: "usb", Index: "0", Model: usbModel},
+								{Type: "scsi", Index: "0", Model: scsiModel},
+								{Type: "virtio-serial", Index: "0", Model: serialModel},
+							},
 						},
 					},
-				},
-			}
-			Expect(domain).To(Equal(expectedDomain))
-		},
-			Entry("amd64", "amd64", "none", "virtio-non-transitional"),
-			Entry("arm64", "arm64", "qemu-xhci", "virtio-non-transitional"),
-			Entry("s390x", "s390x", "none", "virtio-scsi"),
+				}
+				Expect(domain).To(Equal(expectedDomain))
+			},
+			Entry("amd64", "amd64", "none", "virtio-non-transitional", "virtio-non-transitional"),
+			Entry("arm64", "arm64", "qemu-xhci", "virtio-non-transitional", "virtio-non-transitional"),
+			Entry("s390x", "s390x", "none", "virtio-scsi", "virtio"),
 		)
 
 		DescribeTable("should use virtio-transitional when enabled", func(architecture, expectedUSBModel string) {
@@ -167,6 +152,7 @@ var _ = Describe("Controller Domain Configurator", func() {
 						Controllers: []api.Controller{
 							{Type: "usb", Index: "0", Model: expectedUSBModel},
 							{Type: "scsi", Index: "0", Model: "virtio-transitional"},
+							{Type: "virtio-serial", Index: "0", Model: "virtio-transitional"},
 						},
 					},
 				},
@@ -177,33 +163,104 @@ var _ = Describe("Controller Domain Configurator", func() {
 			Entry("arm64", "arm64", "qemu-xhci"),
 		)
 
-		DescribeTable("should configure IOMMU driver when launch security is enabled", func(architecture, expectedUSBModel, expectedSCSIModel string, opt compute.ControllerOption) {
-			vmi := libvmi.New()
-			var domain api.Domain
+		DescribeTable("should configure IOMMU driver when launch security is enabled",
+			func(arch, usbModel, scsiModel, serialModel string, opt compute.ControllerOption) {
+				vmi := libvmi.New()
+				var domain api.Domain
 
-			Expect(compute.NewControllerDomainConfigurator(
-				compute.WithArchitecture(architecture),
-				opt,
-			).Configure(vmi, &domain)).To(Succeed())
+				Expect(compute.NewControllerDomainConfigurator(
+					compute.WithArchitecture(arch),
+					opt,
+				).Configure(vmi, &domain)).To(Succeed())
 
-			expectedDomain := api.Domain{
-				Spec: api.DomainSpec{
-					Devices: api.Devices{
-						Controllers: []api.Controller{
-							{Type: "usb", Index: "0", Model: expectedUSBModel},
-							{Type: "scsi", Index: "0", Model: expectedSCSIModel, Driver: &api.ControllerDriver{IOMMU: "on"}},
+				iommuDriver := &api.ControllerDriver{IOMMU: "on"}
+				expectedDomain := api.Domain{
+					Spec: api.DomainSpec{
+						Devices: api.Devices{
+							Controllers: []api.Controller{
+								{Type: "usb", Index: "0", Model: usbModel},
+								{Type: "scsi", Index: "0", Model: scsiModel, Driver: iommuDriver},
+								{Type: "virtio-serial", Index: "0", Model: serialModel, Driver: iommuDriver},
+							},
 						},
 					},
-				},
-			}
-			Expect(domain).To(Equal(expectedDomain))
-		},
-			Entry("amd64 with SEV", "amd64", "none", "virtio-non-transitional", compute.WithUseLaunchSecuritySEV(true)),
-			Entry("amd64 with PV", "amd64", "none", "virtio-non-transitional", compute.WithUseLaunchSecurityPV(true)),
-			Entry("arm64 with SEV", "arm64", "qemu-xhci", "virtio-non-transitional", compute.WithUseLaunchSecuritySEV(true)),
-			Entry("arm64 with PV", "arm64", "qemu-xhci", "virtio-non-transitional", compute.WithUseLaunchSecurityPV(true)),
-			Entry("s390x with SEV", "s390x", "none", "virtio-scsi", compute.WithUseLaunchSecuritySEV(true)),
-			Entry("s390x with PV", "s390x", "none", "virtio-scsi", compute.WithUseLaunchSecurityPV(true)),
+				}
+				Expect(domain).To(Equal(expectedDomain))
+			},
+			Entry("amd64 with SEV",
+				"amd64", "none", "virtio-non-transitional", "virtio-non-transitional",
+				compute.WithUseLaunchSecuritySEV(true)),
+			Entry("amd64 with PV",
+				"amd64", "none", "virtio-non-transitional", "virtio-non-transitional",
+				compute.WithUseLaunchSecurityPV(true)),
+			Entry("arm64 with SEV",
+				"arm64", "qemu-xhci", "virtio-non-transitional", "virtio-non-transitional",
+				compute.WithUseLaunchSecuritySEV(true)),
+			Entry("arm64 with PV",
+				"arm64", "qemu-xhci", "virtio-non-transitional", "virtio-non-transitional",
+				compute.WithUseLaunchSecurityPV(true)),
+			Entry("s390x with SEV",
+				"s390x", "none", "virtio-scsi", "virtio",
+				compute.WithUseLaunchSecuritySEV(true)),
+			Entry("s390x with PV",
+				"s390x", "none", "virtio-scsi", "virtio",
+				compute.WithUseLaunchSecurityPV(true)),
+		)
+	})
+
+	Context("should not add controllers", func() {
+		DescribeTable("SCSI when hotplug disabled and no SCSI disks",
+			func(arch, usbModel, serialModel string) {
+				vmi := libvmi.New()
+				vmi.Spec.Domain.Devices.DisableHotplug = true
+				var domain api.Domain
+
+				Expect(compute.NewControllerDomainConfigurator(
+					compute.WithArchitecture(arch),
+				).Configure(vmi, &domain)).To(Succeed())
+
+				expectedDomain := api.Domain{
+					Spec: api.DomainSpec{
+						Devices: api.Devices{
+							Controllers: []api.Controller{
+								{Type: "usb", Index: "0", Model: usbModel},
+								{Type: "virtio-serial", Index: "0", Model: serialModel},
+							},
+						},
+					},
+				}
+				Expect(domain).To(Equal(expectedDomain))
+			},
+			Entry("amd64", "amd64", "none", "virtio-non-transitional"),
+			Entry("arm64", "arm64", "qemu-xhci", "virtio-non-transitional"),
+			Entry("s390x", "s390x", "none", "virtio"),
+		)
+
+		DescribeTable("virtio-serial when AutoattachSerialConsole disabled",
+			func(arch, usbModel, scsiModel string) {
+				vmi := libvmi.New()
+				vmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(false)
+				var domain api.Domain
+
+				Expect(compute.NewControllerDomainConfigurator(
+					compute.WithArchitecture(arch),
+				).Configure(vmi, &domain)).To(Succeed())
+
+				expectedDomain := api.Domain{
+					Spec: api.DomainSpec{
+						Devices: api.Devices{
+							Controllers: []api.Controller{
+								{Type: "usb", Index: "0", Model: usbModel},
+								{Type: "scsi", Index: "0", Model: scsiModel},
+							},
+						},
+					},
+				}
+				Expect(domain).To(Equal(expectedDomain))
+			},
+			Entry("amd64", "amd64", "none", "virtio-non-transitional"),
+			Entry("arm64", "arm64", "qemu-xhci", "virtio-non-transitional"),
+			Entry("s390x", "s390x", "none", "virtio-scsi"),
 		)
 	})
 })
