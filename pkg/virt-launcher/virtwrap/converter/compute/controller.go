@@ -75,6 +75,19 @@ func (c ControllerDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, 
 	return nil
 }
 
+func (c ControllerDomainConfigurator) iommuDriver() *api.ControllerDriver {
+	if c.useLaunchSecuritySEV || c.useLaunchSecurityPV {
+		return &api.ControllerDriver{
+			IOMMU: "on",
+		}
+	}
+	return nil
+}
+
+func (c ControllerDomainConfigurator) virtioModel() string {
+	return virtio.InterpretTransitionalModelType(&c.useVirtioTransitional, c.architecture)
+}
+
 func (c ControllerDomainConfigurator) configureUSBController(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	// USB controller is disabled by default
 	usbController := api.Controller{
@@ -97,39 +110,28 @@ func (c ControllerDomainConfigurator) configureUSBController(vmi *v1.VirtualMach
 
 func (c ControllerDomainConfigurator) configureSCSIController(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if needsSCSIController(vmi) {
-		var controllerDriver *api.ControllerDriver
-		if c.useLaunchSecuritySEV || c.useLaunchSecurityPV {
-			controllerDriver = &api.ControllerDriver{
-				IOMMU: "on",
-			}
-		}
-
-		scsiController := c.scsiController(controllerDriver)
+		scsiController := c.scsiController()
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
 	}
 }
 
 func (c ControllerDomainConfigurator) configureVirtioSerialController(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole {
-		var controllerDriver *api.ControllerDriver
-		if c.useLaunchSecuritySEV || c.useLaunchSecurityPV {
-			controllerDriver = &api.ControllerDriver{
-				IOMMU: "on",
-			}
-		}
-
-		// Add mandatory console device
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
-			Type:   "virtio-serial",
-			Index:  "0",
-			Model:  virtio.InterpretTransitionalModelType(&c.useVirtioTransitional, c.architecture),
-			Driver: controllerDriver,
-		})
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, c.virtioSerialController())
 	}
 }
 
-func (c ControllerDomainConfigurator) scsiController(driver *api.ControllerDriver) api.Controller {
-	model := virtio.InterpretTransitionalModelType(&c.useVirtioTransitional, c.architecture)
+func (c ControllerDomainConfigurator) virtioSerialController() api.Controller {
+	return api.Controller{
+		Type:   "virtio-serial",
+		Index:  "0",
+		Model:  c.virtioModel(),
+		Driver: c.iommuDriver(),
+	}
+}
+
+func (c ControllerDomainConfigurator) scsiController() api.Controller {
+	model := c.virtioModel()
 
 	// s390x always uses "virtio-scsi" as the model since "virtio-transitional"
 	// and "virtio-non-transitional" are PCI devices that don't work on s390x.
@@ -141,7 +143,7 @@ func (c ControllerDomainConfigurator) scsiController(driver *api.ControllerDrive
 		Type:   "scsi",
 		Index:  "0",
 		Model:  model,
-		Driver: driver,
+		Driver: c.iommuDriver(),
 	}
 }
 
