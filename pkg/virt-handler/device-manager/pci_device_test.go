@@ -55,8 +55,10 @@ const (
 )
 
 var _ = Describe("PCI Device", func() {
-	var fakePermittedHostDevices v1.PermittedHostDevices
-	var fakeNodeStore cache.Store
+	var (
+		fakePermittedHostDevices v1.PermittedHostDevices
+		fakeNodeStore            cache.Store
+	)
 
 	BeforeEach(func() {
 		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
@@ -197,19 +199,19 @@ pciHostDevices:
 })
 
 var _ = Describe("PCI Device Health check validation", func() {
-	var workDir string
-	var dpi *PCIDevicePlugin
-	var stop chan struct{}
-	var vfioDeviceDir string
+	var (
+		workDir       string
+		dpi           *PCIDevicePlugin
+		stop          chan struct{}
+		vfioDeviceDir string
+	)
 
 	BeforeEach(func() {
-		var err error
-		workDir, err = os.MkdirTemp("", "kubevirt-test")
-		Expect(err).ToNot(HaveOccurred())
+		workDir = GinkgoT().TempDir()
 
 		// Create fake vfio device directory structure
 		vfioDeviceDir = filepath.Join(workDir, "dev", "vfio")
-		err = os.MkdirAll(vfioDeviceDir, 0755)
+		err := os.MkdirAll(vfioDeviceDir, 0755)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Create fake vfio device file
@@ -237,25 +239,26 @@ var _ = Describe("PCI Device Health check validation", func() {
 
 	AfterEach(func() {
 		close(stop)
-		os.RemoveAll(workDir)
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
 		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
 
 		errChan := make(chan error, 1)
-		go func(errChan chan error) {
-			errChan <- dpi.healthCheck()
-		}(errChan)
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go func() {
+			errChan <- dpi.healthCheck(healthCheckContext)
+		}()
 
 		By("waiting for initial healthchecks to send Healthy message for each device")
-		for i := 0; i < len(dpi.devs); i++ {
+		for range dpi.devs {
 			Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 		}
 
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
-		Expect(<-errChan).ToNot(HaveOccurred())
+		Eventually(errChan, 5*time.Second).Should(Receive(Not(HaveOccurred())))
 	})
 
 	It("Should monitor health of device node", func() {
@@ -266,17 +269,18 @@ var _ = Describe("PCI Device Health check validation", func() {
 		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
 
 		By("waiting for initial healthchecks to send Healthy message")
-		go dpi.healthCheck()
-		for i := 0; i < len(dpi.devs); i++ {
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go dpi.healthCheck(healthCheckContext)
+		for range dpi.devs {
 			Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 		}
 
-		time.Sleep(1 * time.Second)
 		By("Removing a (fake) vfio device node")
 		os.Remove(vfioDevicePath)
 
 		By("waiting for healthcheck to send Unhealthy message")
-		for i := 0; i < len(dpi.devs); i++ {
+		for range dpi.devs {
 			Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Unhealthy))))
 		}
 
@@ -284,7 +288,7 @@ var _ = Describe("PCI Device Health check validation", func() {
 		createFile(vfioDevicePath)
 
 		By("waiting for healthcheck to send Healthy message")
-		for i := 0; i < len(dpi.devs); i++ {
+		for range dpi.devs {
 			Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 		}
 	})
@@ -308,7 +312,7 @@ var _ = Describe("PCI Device Health check validation", func() {
 		Expect(watcher.WatchList()).To(ContainElement(vfioDir))
 	})
 
-	It("Should return error if parent directory cannot be watched", func() {
+	It("Should return error if device directory cannot be watched", func() {
 		dpi := NewPCIDevicePlugin([]*PCIDevice{{iommuGroup: "0"}}, fakeName)
 		dpi.deviceRoot = "/nonexistent"
 		dpi.devicePath = "/dev/vfio"
@@ -317,7 +321,7 @@ var _ = Describe("PCI Device Health check validation", func() {
 		defer watcher.Close()
 
 		err := dpi.SetupMonitoredDevicesFunc(watcher, make(map[string]string))
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("failed to add device directory")))
 	})
 
 	It("Should allocate the device", func() {

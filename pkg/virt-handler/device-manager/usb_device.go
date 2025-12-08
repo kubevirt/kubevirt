@@ -118,7 +118,7 @@ func (plugin *USBDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watch
 			usbDeviceDirPath := filepath.Dir(usbDevicePath)
 			if _, exists := watchedDirs[usbDeviceDirPath]; !exists {
 				if err := watcher.Add(usbDeviceDirPath); err != nil {
-					return fmt.Errorf("failed to watch device %s parent directory: %s", usbDevicePath, err)
+					return fmt.Errorf("failed to watch device %s's directory: %s", usbDevicePath, err)
 				}
 				watchedDirs[usbDeviceDirPath] = struct{}{}
 			}
@@ -151,7 +151,7 @@ func (plugin *USBDevicePlugin) HandleReportHealthFunc(deviceID string, devicePat
 }
 
 // Interface to allocate requested Device, exported by ListAndWatch
-func (plugin *USBDevicePlugin) Allocate(_ context.Context, allocRequest *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (plugin *USBDevicePlugin) AllocateDPFunc(_ context.Context, allocRequest *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	allocResponse := new(pluginapi.AllocateResponse)
 	env := make(map[string]string)
 	for _, request := range allocRequest.ContainerRequests {
@@ -167,6 +167,15 @@ func (plugin *USBDevicePlugin) Allocate(_ context.Context, allocRequest *plugina
 
 			deviceSpecs := []*pluginapi.DeviceSpec{}
 			for _, dev := range pluginDevices.Devices {
+				spath, err := safepath.JoinAndResolveWithRelativeRoot(plugin.deviceRoot, dev.DevicePath)
+				if err != nil {
+					return nil, fmt.Errorf("error opening the device %s: %v", dev.DevicePath, err)
+				}
+				err = plugin.ConfigurePermissions(spath)
+				if err != nil {
+					return nil, fmt.Errorf("error configuring the permission the device %s during allocation: %v", dev.DevicePath, err)
+				}
+
 				// We might have more than one USB device per resource name
 				key := util.ResourceNameToEnvVar(v1.USBResourcePrefix, plugin.resourceName)
 				value := fmt.Sprintf("%d:%d", dev.Bus, dev.DeviceNumber)
@@ -425,6 +434,8 @@ func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []
 			return nil
 		}
 	}
+	// todo this is dirty, make this NOT a usb method so we can call it directory from constrctor
+	usb.AllocateDP = usb.AllocateDPFunc
 	usb.devs = usb.devicesToKubeVirtDevicePlugin()
 	return usb
 }

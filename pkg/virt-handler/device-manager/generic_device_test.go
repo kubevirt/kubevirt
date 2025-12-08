@@ -37,14 +37,14 @@ import (
 )
 
 var _ = Describe("Generic Device", func() {
-	var workDir string
-	var dpi *GenericDevicePlugin
-	var devicePath string
+	var (
+		workDir    string
+		dpi        *GenericDevicePlugin
+		devicePath string
+	)
 
 	BeforeEach(func() {
-		var err error
-		workDir, err = os.MkdirTemp("", "kubevirt-test")
-		Expect(err).ToNot(HaveOccurred())
+		workDir = GinkgoT().TempDir()
 
 		devicePath = path.Join(workDir, "foo")
 		createFile(devicePath)
@@ -57,7 +57,6 @@ var _ = Describe("Generic Device", func() {
 		dpi.stop = stop
 		DeferCleanup(func() {
 			close(stop)
-			os.RemoveAll(workDir)
 		})
 
 	})
@@ -66,16 +65,18 @@ var _ = Describe("Generic Device", func() {
 		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
 
 		errChan := make(chan error, 1)
-		go func(errChan chan error) {
-			errChan <- dpi.healthCheck()
-		}(errChan)
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go func() {
+			errChan <- dpi.healthCheck(healthCheckContext)
+		}()
 
 		By("waiting for initial healthcheck to send Healthy message")
 		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
-		Expect(<-errChan).ToNot(HaveOccurred())
+		Eventually(errChan, 5*time.Second).Should(Receive(Not(HaveOccurred())))
 	})
 
 	It("Should monitor health of device node", func() {
@@ -86,7 +87,9 @@ var _ = Describe("Generic Device", func() {
 		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
 
 		By("waiting for initial healthcheck to send Healthy message")
-		go dpi.healthCheck()
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go dpi.healthCheck(healthCheckContext)
 		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 
 		By("Removing a (fake) device node")
@@ -111,7 +114,9 @@ var _ = Describe("Generic Device", func() {
 		}
 
 		By("waiting for initial healthcheck to send Unhealthy message due to permission failure")
-		go dpi.healthCheck()
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go dpi.healthCheck(healthCheckContext)
 		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Unhealthy))))
 	})
 
@@ -136,7 +141,7 @@ var _ = Describe("Generic Device", func() {
 		defer watcher.Close()
 
 		err := badDpi.SetupMonitoredDevicesFunc(watcher, make(map[string]string))
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("no such file or directory")))
 	})
 
 	It("Should allocate the device", func() {
