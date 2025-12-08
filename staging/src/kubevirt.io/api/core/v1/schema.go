@@ -1700,8 +1700,7 @@ type MultusNetwork struct {
 type ResourceClaimNetworkSource struct {
 	// ClaimName references the name of a ResourceClaim in the
 	// VMI's namespace that provides the network resource.
-	// +optional
-	ClaimName *string `json:"claimName,omitempty"`
+	ClaimName string `json:"claimName"`
 
 	// RequestName (optional) specifies which request from the
 	// ResourceClaim.spec.devices.requests array this network

@@ -7373,6 +7373,8 @@ var CRDsValidation map[string]string = map[string]string{
                               source corresponds to. This is necessary if a single
                               claim provides multiple network devices.
                             type: string
+                        required:
+                        - claimName
                         type: object
                     required:
                     - name
@@ -13025,6 +13027,8 @@ var CRDsValidation map[string]string = map[string]string{
                       source corresponds to. This is necessary if a single
                       claim provides multiple network devices.
                     type: string
+                required:
+                - claimName
                 type: object
             required:
             - name
@@ -19336,6 +19340,8 @@ var CRDsValidation map[string]string = map[string]string{
                               source corresponds to. This is necessary if a single
                               claim provides multiple network devices.
                             type: string
+                        required:
+                        - claimName
                         type: object
                     required:
                     - name
@@ -24366,6 +24372,8 @@ var CRDsValidation map[string]string = map[string]string{
                                       source corresponds to. This is necessary if a single
                                       claim provides multiple network devices.
                                     type: string
+                                required:
+                                - claimName
                                 type: object
                             required:
                             - name
@@ -29828,6 +29836,8 @@ var CRDsValidation map[string]string = map[string]string{
                                           source corresponds to. This is necessary if a single
                                           claim provides multiple network devices.
                                         type: string
+                                    required:
+                                    - claimName
                                     type: object
                                 required:
                                 - name

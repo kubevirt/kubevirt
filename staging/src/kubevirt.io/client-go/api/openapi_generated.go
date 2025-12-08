@@ -24846,6 +24846,7 @@ func schema_kubevirtio_api_core_v1_ResourceClaimNetworkSource(ref common.Referen
 					"claimName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ClaimName references the name of a ResourceClaim in the VMI's namespace that provides the network resource.",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -24858,6 +24859,7 @@ func schema_kubevirtio_api_core_v1_ResourceClaimNetworkSource(ref common.Referen
 						},
 					},
 				},
+				Required: []string{"claimName"},
 			},
 		},
 	}
