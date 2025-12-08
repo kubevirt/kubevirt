@@ -194,9 +194,7 @@ func handleDomainNotifyPipe(ctx context.Context, ln net.Listener, virtShareDir s
 
 	// Process new connections
 	// exit when stop encountered
-	go pipe.Pipe(ctx, fdChan, func(conn net.Conn) {
-		pipe.Proxy(logger, conn, pipe.NewConnectToNotifyFunc(virtShareDir))
-	})
+	go pipe.Pipe(ctx, fdChan, pipe.Proxy(logger, pipe.NewConnectToNotifyFunc(virtShareDir)))
 }
 
 func (l *launcherClientsManager) startDomainNotifyPipe(domainPipeStopChan chan struct{}, vmi *v1.VirtualMachineInstance) error {
