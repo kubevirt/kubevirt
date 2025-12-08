@@ -71,6 +71,7 @@ func WithUseLaunchSecurityPV(useLaunchSecurityPV bool) ControllerOption {
 func (c ControllerDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	c.configureUSBController(vmi, domain)
 	c.configureSCSIController(vmi, domain)
+	c.configureVirtioSerialController(vmi, domain)
 	return nil
 }
 
@@ -105,6 +106,25 @@ func (c ControllerDomainConfigurator) configureSCSIController(vmi *v1.VirtualMac
 
 		scsiController := c.scsiController(controllerDriver)
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
+	}
+}
+
+func (c ControllerDomainConfigurator) configureVirtioSerialController(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole {
+		var controllerDriver *api.ControllerDriver
+		if c.useLaunchSecuritySEV || c.useLaunchSecurityPV {
+			controllerDriver = &api.ControllerDriver{
+				IOMMU: "on",
+			}
+		}
+
+		// Add mandatory console device
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
+			Type:   "virtio-serial",
+			Index:  "0",
+			Model:  virtio.InterpretTransitionalModelType(&c.useVirtioTransitional, c.architecture),
+			Driver: controllerDriver,
+		})
 	}
 }
 

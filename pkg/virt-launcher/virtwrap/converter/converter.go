@@ -1393,8 +1393,6 @@ func setIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 }
 
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
-	var controllerDriver *api.ControllerDriver
-
 	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
 	precond.MustNotBeNil(c)
@@ -1484,12 +1482,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	err = Convert_v1_Firmware_To_related_apis(vmi, domain, c)
 	if err != nil {
 		return err
-	}
-
-	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
-		controllerDriver = &api.ControllerDriver{
-			IOMMU: "on",
-		}
 	}
 
 	if c.SMBios != nil {
@@ -1757,16 +1749,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
-	}
-
-	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole {
-		// Add mandatory console device
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, api.Controller{
-			Type:   "virtio-serial",
-			Index:  "0",
-			Model:  virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
-			Driver: controllerDriver,
-		})
 	}
 
 	// Add Ignition Command Line if present
