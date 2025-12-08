@@ -63,13 +63,26 @@ type DevicePluginBase struct {
 	initialized           bool
 	lock                  *sync.Mutex
 	deregistered          chan struct{}
-	deviceRoot            string                                                                       // Root directory where the device is located
-	devicePath            string                                                                       // Relative path to the device from the device root
-	SetupMonitoredDevices func(*fsnotify.Watcher, map[string]string) error                             // REQUIRED function to set up the devices that are being monitored and update map such that key contains absolute paths to watch, and value contains the device id.
-	SetupDevicePlugin     func() error                                                                 // Optional function to perform additional setup steps that are not covered by the default implementation
-	GetIDDeviceName       func(string) string                                                          // Optional function to convert device id to a human readable name for logging
-	ConfigurePermissions  func(*safepath.Path) error                                                   // Optional function to configure permissions for the device if needed. When present, device being marked healthy is contingent on the hook exiting with out error.
-	CustomReportHealth    func(deviceID string, absoluteDevicePath string, healthy bool) (bool, error) // Optional function for plugin devices that require custom logic to handle health reports.
+	deviceRoot            string                                                                                 // Root directory where the device is located
+	devicePath            string                                                                                 // Relative path to the device from the device root
+	SetupMonitoredDevices func(*fsnotify.Watcher, map[string]string) error                                       // REQUIRED function to set up the devices that are being monitored and update map such that key contains absolute paths to watch, and value contains the device id.
+	AllocateDP            func(context.Context, *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) // REQUIRED function to allocate the device.
+	SetupDevicePlugin     func() error                                                                           // Optional function to perform additional setup steps that are not covered by the default implementation
+	GetIDDeviceName       func(string) string                                                                    // Optional function to convert device id to a human readable name for logging
+	ConfigurePermissions  func(*safepath.Path) error                                                             // Optional function to configure permissions for the device if needed. When present, device being marked healthy is contingent on the hook exiting with out error.
+	CustomReportHealth    func(deviceID string, absoluteDevicePath string, healthy bool) (bool, error)           // Optional function for plugin devices that require custom logic to handle health reports.
+}
+
+type healthCheckContext struct {
+	// key: device path, value: corresponding device ID
+	// Used to track the devices that are being monitored
+	// When a corresponding device ID is empty (i.e. "") it means this device path represents ALL device IDs
+	monitoredDevices map[string]string
+	// key: device path, value: last known health
+	// used to track the health of the devices
+	lastKnownHealth map[string]string
+	// watcher for the device plugin socket and the device directory
+	watcher *fsnotify.Watcher
 }
 
 func (dpi *DevicePluginBase) GetResourceName() string {
@@ -110,18 +123,23 @@ func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 		errChan <- dpi.server.Serve(sock)
 	}()
 
-	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
-	if err != nil {
+	if err = waitForGRPCServer(dpi.socketPath, connectionTimeout); err != nil {
 		return fmt.Errorf("error starting the GRPC server: %v", err)
 	}
 
-	err = dpi.register()
-	if err != nil {
+	if err = dpi.register(); err != nil {
 		return fmt.Errorf("error registering with device plugin manager: %v", err)
 	}
 
+	// synchronously setup the health check context before
+	// we mark device initialized so we don't miss any events
+	healthCheckContext, err := dpi.setupHealthCheckContext()
+	if err != nil {
+		return fmt.Errorf("error setting up health check context: %v", err)
+	}
+
 	go func() {
-		errChan <- dpi.healthCheck()
+		errChan <- dpi.healthCheck(healthCheckContext)
 	}()
 
 	dpi.setInitialized(true)
@@ -169,43 +187,55 @@ func (dpi *DevicePluginBase) getFriendlyName(deviceID string) string {
 	return dpi.GetIDDeviceName(deviceID)
 }
 
-func (dpi *DevicePluginBase) healthCheck() error {
-	logger := log.DefaultLogger()
-
-	// key: device path, value: corresponding device ID
-	// Used to track the devices that are being monitored
-	// When a corresponding device ID is empty it means this device path represents ALL device IDs
-	monitoredDevices := make(map[string]string)
-	// key: device path, value: last known health
-	lastKnownHealth := make(map[string]string)
+func (dpi *DevicePluginBase) setupHealthCheckContext() (healthCheckContext, error) {
+	healthCtx := healthCheckContext{
+		monitoredDevices: make(map[string]string),
+		lastKnownHealth:  make(map[string]string),
+		watcher:          nil,
+	}
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("failed to create a fsnotify watcher: %v", err)
+		return healthCtx, fmt.Errorf("failed to create a fsnotify watcher: %v", err)
 	}
-	defer watcher.Close()
-
-	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
-	deviceDirPath := filepath.Dir(devicePath)
+	healthCtx.watcher = watcher
 
 	// Set up monitored device paths
 	// Should watch before stat'ing the device path to avoid race conditions
 	if dpi.SetupMonitoredDevices == nil {
-		return fmt.Errorf("SetupMonitoredDevices is not implemented")
+		watcher.Close()
+		return healthCtx, fmt.Errorf("SetupMonitoredDevices is not implemented")
 	}
-	err = dpi.SetupMonitoredDevices(watcher, monitoredDevices)
+	err = dpi.SetupMonitoredDevices(watcher, healthCtx.monitoredDevices)
 	if err != nil {
-		return err
+		watcher.Close()
+		return healthCtx, err
 	}
 
 	// Check the device plugin socket to ensure we can communicate with it
 	dirName := filepath.Dir(dpi.socketPath)
 	if err = watcher.Add(dirName); err != nil {
-		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
+		watcher.Close()
+		return healthCtx, fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
 	}
 	if _, err = os.Stat(dpi.socketPath); err != nil {
-		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
+		watcher.Close()
+		return healthCtx, fmt.Errorf("failed to stat the device-plugin socket: %v", err)
 	}
+
+	return healthCtx, nil
+}
+
+func (dpi *DevicePluginBase) healthCheck(healthCtx healthCheckContext) error {
+	logger := log.DefaultLogger()
+
+	monitoredDevices := healthCtx.monitoredDevices
+	watcher := healthCtx.watcher
+	lastKnownHealth := healthCtx.lastKnownHealth
+	defer watcher.Close()
+
+	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
+	deviceDirPath := filepath.Dir(devicePath)
 
 	// Do initial health check by stat'ing the device paths
 	if err := dpi.performInitialHealthCheck(monitoredDevices, lastKnownHealth); err != nil {
@@ -274,6 +304,9 @@ func (dpi *DevicePluginBase) GetDevicePluginOptions(_ context.Context, _ *plugin
 }
 
 func (dpi *DevicePluginBase) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+	if dpi.AllocateDP != nil {
+		return dpi.AllocateDP(ctx, r)
+	}
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -314,34 +347,33 @@ func (dpi *DevicePluginBase) setInitialized(initialized bool) {
 	dpi.lock.Unlock()
 }
 
-// configurePermissionsAndReportSuccess configures permissions for a device and reports success
 func (dpi *DevicePluginBase) configurePermissionsAndReportSuccess(devicePath string) bool {
 	logger := log.DefaultLogger()
-	success := true
 	// If the ConfigurePermissions hook is not implemented, we consider the operation successful
-	if dpi.ConfigurePermissions != nil {
-		logger.V(4).Infof("ensuring permissions for device %s", devicePath)
-		// Since devicePath is an absolute path, we need to get the relative path from deviceRoot to enforce containment
-		relPath, err := filepath.Rel(dpi.deviceRoot, devicePath)
-		if err != nil {
-			logger.Reason(err).Warningf("failed to get relative path for device %s", devicePath)
-			return false
-		}
-		// Use JoinAndResolveWithRelativeRoot to ensure path stays within deviceRoot
-		dp, err := safepath.JoinAndResolveWithRelativeRoot("/", dpi.deviceRoot, relPath)
-		if err != nil {
-			logger.Reason(err).Warningf("failed to create safepath for device %s", devicePath)
-			return false
-		}
-		if err := dpi.ConfigurePermissions(dp); err != nil {
-			logger.Reason(err).Warningf("failed to ensure permissions for device %s", devicePath)
-			success = false
-		}
+	if dpi.ConfigurePermissions == nil {
+		return true
 	}
-	return success
+
+	logger.V(4).Infof("ensuring permissions for device %s", devicePath)
+	// Since devicePath is an absolute path, we need to get the relative path from deviceRoot to enforce containment
+	relPath, err := filepath.Rel(dpi.deviceRoot, devicePath)
+	if err != nil {
+		logger.Reason(err).Warningf("failed to get relative path for device %s", devicePath)
+		return false
+	}
+	// Use JoinAndResolveWithRelativeRoot to ensure path stays within deviceRoot
+	dp, err := safepath.JoinAndResolveWithRelativeRoot("/", dpi.deviceRoot, relPath)
+	if err != nil {
+		logger.Reason(err).Warningf("failed to create safepath for device %s", devicePath)
+		return false
+	}
+	if err := dpi.ConfigurePermissions(dp); err != nil {
+		logger.Reason(err).Warningf("failed to ensure permissions for device %s", devicePath)
+		return false
+	}
+	return true
 }
 
-// reportHealth reports the health of a device
 func (dpi *DevicePluginBase) reportHealth(devFriendlyName string, deviceID string, absoluteDevicePath string, healthy bool, lastKnownHealth map[string]string) {
 	logger := log.DefaultLogger()
 	if dpi.CustomReportHealth != nil {
@@ -349,7 +381,6 @@ func (dpi *DevicePluginBase) reportHealth(devFriendlyName string, deviceID strin
 		healthy, err = dpi.CustomReportHealth(deviceID, absoluteDevicePath, healthy)
 		if err != nil {
 			logger.Reason(err).Warningf("failed to report health for device %s", devFriendlyName)
-			healthy = false
 		}
 	}
 	newHealthStatus := pluginapi.Unhealthy

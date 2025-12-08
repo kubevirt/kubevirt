@@ -63,7 +63,6 @@ func (dpi *SocketDevicePlugin) setSocketPermissions() error {
 }
 
 func (dpi *SocketDevicePlugin) setSocketDirectoryPermissions() error {
-	// deviceRoot points to the directory this socket lives in
 	dir, err := safepath.JoinAndResolveWithRelativeRoot("/", dpi.deviceRoot)
 	if err != nil {
 		return fmt.Errorf("error opening the socket dir %s: %v", dpi.deviceRoot, err)
@@ -101,7 +100,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 		executor: executor,
 	}
 
-	for i := 0; i < maxDevices; i++ {
+	for i := range maxDevices {
 		deviceId := socketName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,
@@ -122,10 +121,11 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 			return dpi.setSocketPermissions()
 		}
 	}
+	dpi.AllocateDP = dpi.AllocateDPFunc
 	return dpi
 }
 
-func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *SocketDevicePlugin) AllocateDPFunc(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Socket Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Socket Allocate: request: %v", r.ContainerRequests)
 

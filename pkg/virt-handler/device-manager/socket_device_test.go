@@ -38,14 +38,16 @@ import (
 )
 
 var _ = Describe("Socket device", func() {
-	var workDir string
-	var dpi *SocketDevicePlugin
-	var stop chan struct{}
-	var sockDevPath string
+	var (
+		workDir         string
+		dpi             *SocketDevicePlugin
+		stop            chan struct{}
+		sockDevPath     string
+		mockExec        *selinux.MockExecutor
+		mockPermManager *MockPermissionManager
+		mockSelinux     *selinux.MockSELinux
+	)
 	const socket = "fake-test.sock"
-	var mockExec *selinux.MockExecutor
-	var mockPermManager *MockPermissionManager
-	var mockSelinux *selinux.MockSELinux
 
 	BeforeEach(func() {
 		workDir = GinkgoT().TempDir()
@@ -69,22 +71,23 @@ var _ = Describe("Socket device", func() {
 		dpi.done = make(chan struct{})
 		stop = make(chan struct{})
 		dpi.stop = stop
-		DeferCleanup(func() { close(stop) })
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
 
 		errChan := make(chan error, 1)
-		go func(errChan chan error) {
-			errChan <- dpi.healthCheck()
-		}(errChan)
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go func() {
+			errChan <- dpi.healthCheck(healthCheckContext)
+		}()
 
 		By("waiting for initial healthcheck to send Healthy message")
 		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
-		Expect(<-errChan).ToNot(HaveOccurred())
+		Eventually(errChan, 5*time.Second).Should(Receive(Not(HaveOccurred())))
 	})
 
 	It("Should monitor health of device node", func() {
@@ -92,7 +95,9 @@ var _ = Describe("Socket device", func() {
 		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
 
 		By("waiting for initial healthcheck to send Healthy message")
-		go dpi.healthCheck()
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go dpi.healthCheck(healthCheckContext)
 		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 
 		By("Removing a (fake) device node")
@@ -123,7 +128,9 @@ var _ = Describe("Socket device", func() {
 
 		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
 
-		go dpi.healthCheck()
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go dpi.healthCheck(healthCheckContext)
 
 		By("Confirming that the device reports unhealthy due to SELinux failure")
 		Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Unhealthy))))
@@ -153,7 +160,7 @@ var _ = Describe("Socket device", func() {
 		defer watcher.Close()
 
 		err := badDpi.SetupMonitoredDevicesFunc(watcher, make(map[string]string))
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("failed to add the device parent directory")))
 	})
 
 	It("Should allocate the device", func() {
