@@ -24,7 +24,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
@@ -49,11 +48,10 @@ var (
 )
 
 type Notifier struct {
-	v1client         notifyv1.NotifyClient
-	conn             *grpc.ClientConn
-	connLock         sync.Mutex
-	pipeSocketPath   string
-	legacySocketPath string
+	v1client       notifyv1.NotifyClient
+	conn           *grpc.ClientConn
+	connLock       sync.Mutex
+	pipeSocketPath string
 
 	intervalTimeout time.Duration
 	sendTimeout     time.Duration
@@ -71,13 +69,12 @@ type libvirtEvent struct {
 
 func NewNotifier(virtShareDir string) *Notifier {
 	return &Notifier{
-		pipeSocketPath:   filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
-		legacySocketPath: filepath.Join(virtShareDir, "domain-notify.sock"),
-		intervalTimeout:  defaultIntervalTimeout,
-		sendTimeout:      defaultSendTimeout,
-		totalTimeout:     defaultTotalTimeout,
-		firstAdd:         &sync.Once{},
-		firstDelete:      &sync.Once{},
+		pipeSocketPath:  filepath.Join(virtShareDir, "domain-notify-pipe.sock"),
+		intervalTimeout: defaultIntervalTimeout,
+		sendTimeout:     defaultSendTimeout,
+		totalTimeout:    defaultTotalTimeout,
+		firstAdd:        &sync.Once{},
+		firstDelete:     &sync.Once{},
 	}
 }
 
@@ -128,15 +125,6 @@ func (n *Notifier) SetCustomTimeouts(interval, send, total time.Duration) {
 }
 
 func (n *Notifier) detectSocketPath() string {
-
-	// use the legacy domain socket if it exists. This would
-	// occur if the vmi was started with a hostPath shared mount
-	// using our old method for virt-handler to virt-launcher communication
-	exists, _ := diskutils.FileExists(n.legacySocketPath)
-	if exists {
-		return n.legacySocketPath
-	}
-
 	// default to using the new pipe socket
 	return n.pipeSocketPath
 }

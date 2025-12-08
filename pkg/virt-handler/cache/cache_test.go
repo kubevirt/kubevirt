@@ -180,6 +180,10 @@ var _ = Describe("Domain informer", func() {
 
 			ctrl = gomock.NewController(GinkgoT())
 			domainManager = virtwrap.NewMockDomainManager(ctrl)
+			// mimic pipe
+			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
+			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
+			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 		})
 
 		AfterEach(func() {

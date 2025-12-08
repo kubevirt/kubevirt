@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/wait:go_default_library",
-        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/handler-launcher-com:go_default_library",
         "//pkg/handler-launcher-com/notify/info:go_default_library",
         "//pkg/handler-launcher-com/notify/v1:go_default_library",
