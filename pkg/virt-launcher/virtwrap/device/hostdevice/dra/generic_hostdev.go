@@ -122,7 +122,7 @@ func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, er
 	return hostDevices, nil
 }
 
-// isNetworkDevice checks if a device status name corresponds to a network (not a hostDevice)
+// isNetworkDevice checks if a device status name corresponds to a network
 func isNetworkDevice(vmi *v1.VirtualMachineInstance, deviceName string) bool {
 	// Check if this name matches a network name
 	for _, net := range vmi.Spec.Networks {
