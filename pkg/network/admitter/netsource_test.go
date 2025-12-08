@@ -96,7 +96,7 @@ var _ = Describe("Validate network source", func() {
 				Name: "default",
 				NetworkSource: v1.NetworkSource{
 					ResourceClaim: &v1.ResourceClaimNetworkSource{
-						ClaimName:   ptr.To("claim1"),
+						ClaimName:   "claim1",
 						RequestName: ptr.To("request1"),
 					},
 				},
@@ -115,7 +115,7 @@ var _ = Describe("Validate network source", func() {
 				Name: "default",
 				NetworkSource: v1.NetworkSource{
 					ResourceClaim: &v1.ResourceClaimNetworkSource{
-						ClaimName:   ptr.To("claim1"),
+						ClaimName:   "claim1",
 						RequestName: ptr.To("request1"),
 					},
 					Pod: &v1.PodNetwork{},
