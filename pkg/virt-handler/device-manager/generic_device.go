@@ -59,7 +59,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		permissions: permissions,
 	}
 
-	for i := 0; i < maxDevices; i++ {
+	for i := range maxDevices {
 		deviceId := deviceName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,
@@ -69,6 +69,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 	dpi.GetIDDeviceName = dpi.GetIDDeviceNameFunc
 	dpi.SetupMonitoredDevices = dpi.SetupMonitoredDevicesFunc
 	dpi.SetupDevicePlugin = dpi.SetupDevicePluginFunc
+	dpi.AllocateDP = dpi.AllocateDPFunc
 	return dpi
 }
 
@@ -79,15 +80,14 @@ func (dpi *GenericDevicePlugin) SetupDevicePluginFunc() error {
 	if dpi.preOpen {
 		devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
 		devnode, err := os.Open(devicePath)
-		if err != nil {
-			return fmt.Errorf("error opening the device node %s: %v", devicePath, err)
+		if err == nil {
+			devnode.Close()
 		}
-		defer devnode.Close()
 	}
 	return nil
 }
 
-func (dpi *GenericDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *GenericDevicePlugin) AllocateDPFunc(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
 	response := pluginapi.AllocateResponse{}

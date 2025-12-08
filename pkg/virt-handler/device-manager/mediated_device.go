@@ -78,6 +78,7 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 	}
 	dpi.SetupMonitoredDevices = dpi.SetupMonitoredDevicesFunc
 	dpi.GetIDDeviceName = dpi.GetIDDeviceNameFunc
+	dpi.AllocateDP = dpi.AllocateDPFunc
 	return dpi
 }
 
@@ -101,7 +102,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 	return
 }
 
-func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *MediatedDevicePlugin) AllocateDPFunc(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Allocate: iommuMap: %v", dpi.iommuToMDEVMap)
 	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.MDevResourcePrefix, dpi.resourceName)
@@ -198,6 +199,7 @@ func (dpi *MediatedDevicePlugin) GetIDDeviceNameFunc(monDevId string) string {
 }
 
 func (dpi *MediatedDevicePlugin) SetupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+	// setupVFIOMonitoredDevices is a helper function defined in pci_device.go
 	return setupVFIOMonitoredDevices(dpi.deviceRoot, dpi.devicePath, dpi.devs, watcher, monitoredDevices)
 }
 

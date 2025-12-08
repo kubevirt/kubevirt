@@ -56,12 +56,14 @@ const (
 )
 
 var _ = Describe("Mediated Device", func() {
-	var mockPCI *MockDeviceHandler
-	var fakePermittedHostDevicesConfig string
-	var fakePermittedHostDevices v1.PermittedHostDevices
-	var ctrl *gomock.Controller
-	var fakeSupportedTypesPath string
-	var fakeNodeStore cache.Store
+	var (
+		mockPCI                        *MockDeviceHandler
+		fakePermittedHostDevicesConfig string
+		fakePermittedHostDevices       v1.PermittedHostDevices
+		ctrl                           *gomock.Controller
+		fakeSupportedTypesPath         string
+		fakeNodeStore                  cache.Store
+	)
 	resourceNameToTypeName := func(rawName string) string {
 		typeNameStr := strings.Replace(rawName, " ", "_", -1)
 		typeNameStr = strings.TrimSpace(typeNameStr)
@@ -266,13 +268,11 @@ var _ = Describe("Mediated Device Health check validation", func() {
 	var vfioDeviceDir string
 
 	BeforeEach(func() {
-		var err error
-		workDir, err = os.MkdirTemp("", "kubevirt-test")
-		Expect(err).ToNot(HaveOccurred())
+		workDir = GinkgoT().TempDir()
 
 		// Create fake vfio device directory structure
 		vfioDeviceDir = filepath.Join(workDir, "dev", "vfio")
-		err = os.MkdirAll(vfioDeviceDir, 0755)
+		err := os.MkdirAll(vfioDeviceDir, 0755)
 		Expect(err).ToNot(HaveOccurred())
 
 		// Create fake vfio device file
@@ -300,25 +300,26 @@ var _ = Describe("Mediated Device Health check validation", func() {
 
 	AfterEach(func() {
 		close(stop)
-		os.RemoveAll(workDir)
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
 		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
 
 		errChan := make(chan error, 1)
-		go func(errChan chan error) {
-			errChan <- dpi.healthCheck()
-		}(errChan)
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go func() {
+			errChan <- dpi.healthCheck(healthCheckContext)
+		}()
 
 		By("waiting for initial healthchecks to send Healthy message for each device")
-		for i := 0; i < len(dpi.devs); i++ {
+		for range dpi.devs {
 			Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 		}
 
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
-		Expect(<-errChan).ToNot(HaveOccurred())
+		Eventually(errChan, 5*time.Second).Should(Receive(Not(HaveOccurred())))
 	})
 
 	It("Should monitor health of device node", func() {
@@ -329,17 +330,18 @@ var _ = Describe("Mediated Device Health check validation", func() {
 		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
 
 		By("waiting for initial healthchecks to send Healthy message")
-		go dpi.healthCheck()
-		for i := 0; i < len(dpi.devs); i++ {
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go dpi.healthCheck(healthCheckContext)
+		for range dpi.devs {
 			Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 		}
 
-		time.Sleep(1 * time.Second)
 		By("Removing a (fake) vfio device node")
 		os.Remove(vfioDevicePath)
 
 		By("waiting for healthcheck to send Unhealthy message")
-		for i := 0; i < len(dpi.devs); i++ {
+		for range dpi.devs {
 			Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Unhealthy))))
 		}
 
@@ -347,13 +349,12 @@ var _ = Describe("Mediated Device Health check validation", func() {
 		createFile(vfioDevicePath)
 
 		By("waiting for healthcheck to send Healthy message")
-		for i := 0; i < len(dpi.devs); i++ {
+		for range dpi.devs {
 			Eventually(dpi.health, 5*time.Second).Should(Receive(HaveField("Health", Equal(pluginapi.Healthy))))
 		}
 	})
 
 	It("Should setup watcher for VFIO mediated devices", func() {
-		workDir := GinkgoT().TempDir()
 		vfioDir := filepath.Join(workDir, "dev", "vfio")
 		Expect(os.MkdirAll(vfioDir, 0755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(vfioDir, "0"), []byte{}, 0644)).To(Succeed())
@@ -371,7 +372,7 @@ var _ = Describe("Mediated Device Health check validation", func() {
 		Expect(watcher.WatchList()).To(ContainElement(vfioDir))
 	})
 
-	It("Should return error if parent directory cannot be watched", func() {
+	It("Should return error if device directory cannot be watched", func() {
 		dpi := NewMediatedDevicePlugin([]*MDEV{{iommuGroup: "0"}}, fakeMdevResourceName)
 		dpi.deviceRoot = "/nonexistent"
 		dpi.devicePath = "/dev/vfio"
@@ -380,7 +381,7 @@ var _ = Describe("Mediated Device Health check validation", func() {
 		defer watcher.Close()
 
 		err := dpi.SetupMonitoredDevicesFunc(watcher, make(map[string]string))
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(MatchError(ContainSubstring("failed to add device directory")))
 	})
 
 	It("Should allocate the device", func() {
@@ -420,7 +421,6 @@ var _ = Describe("Mediated Device Health check validation", func() {
 		}
 
 		_, err := dpi.Allocate(context.Background(), allocateRequest)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring(fmt.Sprintf("failed to allocate resource %s", fakeMdevResourceName)))
+		Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("failed to allocate resource %s", fakeMdevResourceName))))
 	})
 })
