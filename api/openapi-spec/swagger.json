@@ -17244,10 +17244,14 @@
    "v1.ResourceClaimNetworkSource": {
     "description": "ResourceClaimNetworkSource represents a network resource requested via a Kubernetes ResourceClaim.",
     "type": "object",
+    "required": [
+     "claimName"
+    ],
     "properties": {
      "claimName": {
       "description": "ClaimName references the name of a ResourceClaim in the VMI's namespace that provides the network resource.",
-      "type": "string"
+      "type": "string",
+      "default": ""
      },
      "requestName": {
       "description": "RequestName (optional) specifies which request from the ResourceClaim.spec.devices.requests array this network source corresponds to. This is necessary if a single claim provides multiple network devices.",
