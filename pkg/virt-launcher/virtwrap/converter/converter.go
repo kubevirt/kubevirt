@@ -1663,20 +1663,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	if c.Architecture.SupportPCIHole64Disabling() && shouldDisablePCIHole64(vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers,
-			api.Controller{
-				Type:  "pci",
-				Index: "0",
-				Model: "pcie-root",
-				PCIHole64: &api.PCIHole64{
-					Value: 0,
-					Unit:  "KiB",
-				},
-			},
-		)
-	}
-
 	if vmi.Spec.Domain.Features != nil {
 		domain.Spec.Features = &api.Features{}
 		err := Convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, c)
@@ -1813,13 +1799,6 @@ func boolToString(value *bool, defaultPositive bool, positive string, negative s
 		return toString(defaultPositive)
 	}
 	return toString(*value)
-}
-
-func shouldDisablePCIHole64(vmi *v1.VirtualMachineInstance) bool {
-	if val, ok := vmi.Annotations[v1.DisablePCIHole64]; ok {
-		return strings.EqualFold(val, "true")
-	}
-	return false
 }
 
 func getPrefixFromBus(bus v1.DiskBus) string {

@@ -20,6 +20,8 @@
 package compute
 
 import (
+	"strings"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -72,6 +74,7 @@ func (c ControllerDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, 
 	c.configureUSBController(vmi, domain)
 	c.configureSCSIController(vmi, domain)
 	c.configureVirtioSerialController(vmi, domain)
+	c.configurePCIController(vmi, domain)
 	return nil
 }
 
@@ -119,6 +122,30 @@ func (c ControllerDomainConfigurator) configureVirtioSerialController(vmi *v1.Vi
 	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole {
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, c.virtioSerialController())
 	}
+}
+
+func (c ControllerDomainConfigurator) configurePCIController(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	// Only amd64 supports PCIHole64 disabling
+	if c.architecture == "amd64" && shouldDisablePCIHole64(vmi) {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers,
+			api.Controller{
+				Type:  "pci",
+				Index: "0",
+				Model: "pcie-root",
+				PCIHole64: &api.PCIHole64{
+					Value: 0,
+					Unit:  "KiB",
+				},
+			},
+		)
+	}
+}
+
+func shouldDisablePCIHole64(vmi *v1.VirtualMachineInstance) bool {
+	if val, ok := vmi.Annotations[v1.DisablePCIHole64]; ok {
+		return strings.EqualFold(val, "true")
+	}
+	return false
 }
 
 func (c ControllerDomainConfigurator) virtioSerialController() api.Controller {
