@@ -208,6 +208,39 @@ var _ = Describe("Controller Domain Configurator", func() {
 		)
 	})
 
+	Context("PCI Controller", func() {
+		It("should add PCI controller on amd64 when DisablePCIHole64 annotation is set", func() {
+			vmi := libvmi.New()
+			vmi.Annotations = map[string]string{
+				v1.DisablePCIHole64: "true",
+			}
+			var domain api.Domain
+
+			Expect(compute.NewControllerDomainConfigurator(
+				compute.WithArchitecture("amd64"),
+			).Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Controllers: []api.Controller{
+							{Type: "usb", Index: "0", Model: "none"},
+							{Type: "scsi", Index: "0", Model: "virtio-non-transitional"},
+							{Type: "virtio-serial", Index: "0", Model: "virtio-non-transitional"},
+							{
+								Type:      "pci",
+								Index:     "0",
+								Model:     "pcie-root",
+								PCIHole64: &api.PCIHole64{Value: 0, Unit: "KiB"},
+							},
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+	})
+
 	Context("should not add controllers", func() {
 		DescribeTable("SCSI when hotplug disabled and no SCSI disks",
 			func(arch, usbModel, serialModel string) {
@@ -215,9 +248,7 @@ var _ = Describe("Controller Domain Configurator", func() {
 				vmi.Spec.Domain.Devices.DisableHotplug = true
 				var domain api.Domain
 
-				Expect(compute.NewControllerDomainConfigurator(
-					compute.WithArchitecture(arch),
-				).Configure(vmi, &domain)).To(Succeed())
+				Expect(compute.NewControllerDomainConfigurator(compute.WithArchitecture(arch)).Configure(vmi, &domain)).To(Succeed())
 
 				expectedDomain := api.Domain{
 					Spec: api.DomainSpec{
@@ -242,9 +273,7 @@ var _ = Describe("Controller Domain Configurator", func() {
 				vmi.Spec.Domain.Devices.AutoattachSerialConsole = pointer.P(false)
 				var domain api.Domain
 
-				Expect(compute.NewControllerDomainConfigurator(
-					compute.WithArchitecture(arch),
-				).Configure(vmi, &domain)).To(Succeed())
+				Expect(compute.NewControllerDomainConfigurator(compute.WithArchitecture(arch)).Configure(vmi, &domain)).To(Succeed())
 
 				expectedDomain := api.Domain{
 					Spec: api.DomainSpec{
@@ -261,6 +290,33 @@ var _ = Describe("Controller Domain Configurator", func() {
 			Entry("amd64", "amd64", "none", "virtio-non-transitional"),
 			Entry("arm64", "arm64", "qemu-xhci", "virtio-non-transitional"),
 			Entry("s390x", "s390x", "none", "virtio-scsi"),
+		)
+
+		DescribeTable("PCI when DisablePCIHole64 annotation is not set or on non-amd64",
+			func(arch, usbModel, scsiModel, serialModel string) {
+				vmi := libvmi.New()
+				vmi.Annotations = map[string]string{
+					v1.DisablePCIHole64: "true",
+				}
+				var domain api.Domain
+
+				Expect(compute.NewControllerDomainConfigurator(compute.WithArchitecture(arch)).Configure(vmi, &domain)).To(Succeed())
+
+				expectedDomain := api.Domain{
+					Spec: api.DomainSpec{
+						Devices: api.Devices{
+							Controllers: []api.Controller{
+								{Type: "usb", Index: "0", Model: usbModel},
+								{Type: "scsi", Index: "0", Model: scsiModel},
+								{Type: "virtio-serial", Index: "0", Model: serialModel},
+							},
+						},
+					},
+				}
+				Expect(domain).To(Equal(expectedDomain))
+			},
+			Entry("arm64", "arm64", "qemu-xhci", "virtio-non-transitional", "virtio-non-transitional"),
+			Entry("s390x", "s390x", "none", "virtio-scsi", "virtio"),
 		)
 	})
 })
