@@ -981,38 +981,6 @@ func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainD
 	return nil
 }
 
-func convertPanicDevices(panicDevices []v1.PanicDevice) []api.PanicDevice {
-	var domainPanicDevices []api.PanicDevice
-
-	for _, panicDevice := range panicDevices {
-		domainPanicDevices = append(domainPanicDevices, api.PanicDevice{Model: panicDevice.Model})
-	}
-
-	return domainPanicDevices
-}
-
-func Convert_v1_Sound_To_api_Sound(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) {
-	sound := vmi.Spec.Domain.Devices.Sound
-
-	// Default is to not have any Sound device
-	if sound == nil {
-		return
-	}
-
-	model := "ich9"
-	if sound.Model == "ac97" {
-		model = "ac97"
-	}
-
-	soundCards := make([]api.SoundCard, 1)
-	soundCards[0] = api.SoundCard{
-		Alias: api.NewUserDefinedAlias(sound.Name),
-		Model: model,
-	}
-
-	domainDevices.SoundCards = soundCards
-}
-
 func convertFeatureState(source *v1.FeatureState) *api.FeatureState {
 	if source != nil {
 		return &api.FeatureState{
@@ -1462,6 +1430,15 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
 		),
 		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
+		compute.SoundDomainConfigurator{},
+		compute.NewHostDeviceDomainConfigurator(
+			c.GenericHostDevices,
+			c.GPUHostDevices,
+			c.SRIOVDevices,
+		),
+		compute.NewWatchdogDomainConfigurator(architecture),
+		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
+		compute.PanicDevicesDomainConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1684,19 +1661,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	// Handle virtioFS
 	domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, convertFileSystems(vmi.Spec.Domain.Devices.Filesystems)...)
 
-	domain.Spec.Devices.PanicDevices = append(domain.Spec.Devices.PanicDevices, convertPanicDevices(vmi.Spec.Domain.Devices.PanicDevices)...)
-
-	Convert_v1_Sound_To_api_Sound(vmi, &domain.Spec.Devices, c)
-
-	if vmi.Spec.Domain.Devices.Watchdog != nil {
-		newWatchdog := &api.Watchdog{}
-		err := c.Architecture.ConvertWatchdog(vmi.Spec.Domain.Devices.Watchdog, newWatchdog)
-		if err != nil {
-			return err
-		}
-		domain.Spec.Devices.Watchdogs = append(domain.Spec.Devices.Watchdogs, *newWatchdog)
-	}
-
 	err = Convert_v1_Usbredir_To_api_Usbredir(vmi, &domain.Spec.Devices, c)
 	if err != nil {
 		return err
@@ -1802,9 +1766,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GenericHostDevices...)
-	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.GPUHostDevices...)
-
 	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
 		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
@@ -1817,43 +1778,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			Model:  virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
 			Driver: controllerDriver,
 		})
-
-		var serialPort uint = 0
-		var serialType string = "serial"
-		domain.Spec.Devices.Consoles = []api.Console{
-			{
-				Type: "pty",
-				Target: &api.ConsoleTarget{
-					Type: &serialType,
-					Port: &serialPort,
-				},
-			},
-		}
-
-		socketPath := fmt.Sprintf("%s/%s/virt-serial%d", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)
-		domain.Spec.Devices.Serials = []api.Serial{
-			{
-				Type: "unix",
-				Target: &api.SerialTarget{
-					Port: &serialPort,
-				},
-				Source: &api.SerialSource{
-					Mode: "bind",
-					Path: socketPath,
-				},
-			},
-		}
-
-		if c.SerialConsoleLog {
-			domain.Spec.Devices.Serials[0].Log = &api.SerialLog{
-				File:   fmt.Sprintf("%s-log", socketPath),
-				Append: "on",
-			}
-		}
-
 	}
-
-	domain.Spec.Devices.HostDevices = append(domain.Spec.Devices.HostDevices, c.SRIOVDevices...)
 
 	// Add Ignition Command Line if present
 	ignitiondata := vmi.Annotations[v1.IgnitionAnnotation]

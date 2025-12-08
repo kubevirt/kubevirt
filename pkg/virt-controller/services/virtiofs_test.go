@@ -49,7 +49,6 @@ var _ = Describe("virtiofs container", func() {
 
 	BeforeEach(func() {
 		enableFeatureGate(featuregate.VirtIOFSStorageVolumeGate)
-		enableFeatureGate(featuregate.VirtIOFSConfigVolumesGate)
 	})
 
 	AfterEach(func() {
