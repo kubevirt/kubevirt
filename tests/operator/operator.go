@@ -1407,13 +1407,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled", func() {
-
-		BeforeEach(func() {
-			if serviceMonitorEnabled() {
-				Skip("Test applies on when ServiceMonitor is not defined")
-			}
-		})
+	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled", decorators.RequiresNoPrometheus, func() {
 
 		It("[test_id:3154]Should not create RBAC Role or RoleBinding for ServiceMonitor", func() {
 			rbacClient := virtClient.RbacV1()
@@ -1429,13 +1423,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("With PrometheusRule Enabled", func() {
-
-		BeforeEach(func() {
-			if !prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is defined")
-			}
-		})
+	Context("With PrometheusRule Enabled", decorators.SigMonitoring, func() {
 
 		It("[test_id:4614]Checks if the kubevirt PrometheusRule cr exists and verify it's spec", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
@@ -1448,13 +1436,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("With PrometheusRule Disabled", func() {
-
-		BeforeEach(func() {
-			if prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is not defined")
-			}
-		})
+	Context("With PrometheusRule Disabled", decorators.RequiresNoPrometheus, func() {
 
 		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
@@ -1463,13 +1445,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", func() {
-
-		BeforeEach(func() {
-			if !serviceMonitorEnabled() {
-				Skip("Test requires ServiceMonitor to be valid")
-			}
-		})
+	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", decorators.SigMonitoring, func() {
 
 		It("[test_id:2936]Should allow Prometheus to scrape KubeVirt endpoints", func() {
 			coreClient := virtClient.CoreV1()
@@ -2435,26 +2411,6 @@ func patchCRD(orig *extv1.CustomResourceDefinition, modified *extv1.CustomResour
 	patch, err := jsonpatch.CreateMergePatch(origCRDByte, crdByte)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return patch
-}
-
-// prometheusRuleEnabled returns true if the PrometheusRule CRD is enabled
-// and false otherwise.
-func prometheusRuleEnabled() bool {
-	virtClient := kubevirt.Client()
-
-	prometheusRuleEnabled, err := util.IsPrometheusRuleEnabled(virtClient)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to verify PrometheusRule CRD")
-
-	return prometheusRuleEnabled
-}
-
-func serviceMonitorEnabled() bool {
-	virtClient := kubevirt.Client()
-
-	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(virtClient)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to verify ServiceMonitor CRD")
-
-	return serviceMonitorEnabled
 }
 
 // verifyOperatorWebhookCertificate can be used when inside tests doing reinstalls of kubevirt, to ensure that virt-operator already got the new certificate.
