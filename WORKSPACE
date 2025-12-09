@@ -1619,33 +1619,6 @@ rpm(
 )
 
 rpm(
-    name = "ethtool-2__6.15-1.el9.aarch64",
-    sha256 = "9a9ed274e3991f6dde60a086c253a2c18b02d65cd6529e8cc7d091a5773d53e4",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/aarch64/os/Packages/ethtool-6.15-1.el9.aarch64.rpm",
-        "https://storage.googleapis.com/builddeps/9a9ed274e3991f6dde60a086c253a2c18b02d65cd6529e8cc7d091a5773d53e4",
-    ],
-)
-
-rpm(
-    name = "ethtool-2__6.15-1.el9.s390x",
-    sha256 = "a8db9f23cec8ee373691dbf4b20e3c7d7c26faab911d58de29d6e1a964b557db",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/s390x/os/Packages/ethtool-6.15-1.el9.s390x.rpm",
-        "https://storage.googleapis.com/builddeps/a8db9f23cec8ee373691dbf4b20e3c7d7c26faab911d58de29d6e1a964b557db",
-    ],
-)
-
-rpm(
-    name = "ethtool-2__6.15-1.el9.x86_64",
-    sha256 = "255d4a3cd216303e65b8d7953af198ccd4eb555e0820ed9c071e9a00fc9c1403",
-    urls = [
-        "http://mirror.stream.centos.org/9-stream/BaseOS/x86_64/os/Packages/ethtool-6.15-1.el9.x86_64.rpm",
-        "https://storage.googleapis.com/builddeps/255d4a3cd216303e65b8d7953af198ccd4eb555e0820ed9c071e9a00fc9c1403",
-    ],
-)
-
-rpm(
     name = "expat-0__2.5.0-4.el9.x86_64",
     sha256 = "360ed994ea2af5b3a7f37694dfdf2249d97e5e5ec2492c9223a2aec72ff8f480",
     urls = [
