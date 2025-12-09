@@ -20,6 +20,8 @@
 package annotations
 
 import (
+	"fmt"
+
 	k8scorev1 "k8s.io/api/core/v1"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -56,11 +58,18 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
+
+	var applyOrdinal, exists bool
+	if _, exists = vmi.Annotations["apply-ordinal"]; exists {
+		applyOrdinal = true
+	}
+
 	multusAnnotation, err := multus.GenerateCNIAnnotation(
 		vmi.Namespace,
 		nonAbsentIfaces,
 		nonAbsentNets,
 		g.clusterConfigurer.GetNetworkBindings(),
+		applyOrdinal,
 	)
 	if err != nil {
 		return nil, err
@@ -92,7 +101,9 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 // GenerateFromSource generates ordinal pod interfaces naming scheme for a migration target in case the migration source pod uses it
 func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8scorev1.Pod) (map[string]string, error) {
-	if !namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(sourcePod)) {
+	fmt.Printf("DEBUG: GenerateFromSource: PodHasOrdinalInterfaceName %v,\n", namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(sourcePod)))
+
+	if namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(sourcePod)) {
 		return nil, nil
 	}
 

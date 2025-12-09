@@ -21,6 +21,7 @@ go_library(
         "//pkg/hooks:go_default_library",
         "//pkg/hotplug-disk:go_default_library",
         "//pkg/ignition:go_default_library",
+        "//pkg/network/ifacehook:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",

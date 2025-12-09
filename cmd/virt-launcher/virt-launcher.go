@@ -30,6 +30,7 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/network/ifacehook"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/cpuhook"
 
 	"github.com/spf13/pflag"
@@ -432,7 +433,7 @@ func main() {
 	metadataCache := metadata.NewCache()
 
 	signalStopChan := make(chan struct{})
-	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(stopChan, cpuhook.CPUDedicatedHook)
+	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(stopChan, cpuhook.CPUDedicatedHook, ifacehook.HasheIfaceNameHook)
 
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, preMigrationHookServer)
 	if err != nil {

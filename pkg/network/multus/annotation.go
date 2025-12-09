@@ -47,12 +47,22 @@ func GenerateCNIAnnotation(
 	interfaces []v1.Interface,
 	networks []v1.Network,
 	registeredBindingPlugins map[string]v1.InterfaceBindingPlugin,
+	applyOrdinal bool,
 ) (string, error) {
+
+	var namingSceheme map[string]string
+	if applyOrdinal {
+		namingSceheme = namescheme.CreateOrdinalNetworkNameScheme(networks)
+	} else {
+		namingSceheme = namescheme.CreateHashedNetworkNameScheme(networks)
+	}
+
+	fmt.Printf("DEBUG v2: GenerateCNIAnnotation with %+v\n", namingSceheme)
 	return GenerateCNIAnnotationFromNameScheme(
 		namespace,
 		interfaces,
 		networks,
-		namescheme.CreateHashedNetworkNameScheme(networks),
+		namingSceheme,
 		registeredBindingPlugins,
 	)
 }
