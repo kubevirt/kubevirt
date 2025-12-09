@@ -275,6 +275,25 @@ func (e eventNotifier) UpdateEvents(event watch.Event) {
 	e.client.updateEvents(event, e.domain, e.events)
 }
 
+func isPrematureShutoffUnknownEvent(d cli.VirDomain, domain *api.Domain, libvirtEvent libvirtEvent) bool {
+	if domain.Status.Status != api.Shutoff || domain.Status.Reason != api.ReasonUnknown ||
+	   libvirtEvent.Event == nil || libvirtEvent.Event.Event != libvirt.DOMAIN_EVENT_DEFINED ||
+	   libvirt.DomainEventDefinedDetailType(libvirtEvent.Event.Detail) != libvirt.DOMAIN_EVENT_DEFINED_ADDED {
+		return false
+	}
+
+	/* we can check if it was never running but need to add GetInfo to the cli.VirDomain
+	info, err := d.GetInfo()
+	if err != nil {
+		log.Log.Reason(err).Errorf("Failed to get domain info for %s", domain.ObjectMeta.Name)
+		return false
+	}
+	if info != nil && info.CpuTime == 0 {
+		return true
+	}*/
+	return false
+}
+
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
 	metadataCache *metadata.Cache) {
@@ -322,6 +341,24 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 
 		e.printStatus(&domain.Status)
 		e.updateStatus(&domain.Status)
+
+		// If the domain got virDomainShutoffReason right after domain definition we can re-evaluate and skip to not confuse the virt-handler
+		if isPrematureShutoffUnknownEvent(d, domain, libvirtEvent) {
+			log.Log.V(3).Infof("Ignoring shutoff(unknown) event for newly defined domain %s; retrying after backoff", domain.ObjectMeta.Name)
+				time.Sleep(2 * time.Second)
+
+				status, reason, err = d.GetState()
+				if err == nil {
+					domain.SetState(util.ConvState(status), util.ConvReason(status, reason))
+				} else {
+					log.Log.Reason(err).Error("Could not fetch the Domain state.")
+					return
+				}
+				// Skip the eevnt
+				if domain.Status.Status == api.Shutoff && domain.Status.Reason == api.ReasonUnknown {
+					return
+				}
+		}
 	}
 
 	switch domain.Status.Reason {
