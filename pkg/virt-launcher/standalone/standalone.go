@@ -21,6 +21,7 @@ package standalone
 
 import (
 	"encoding/json"
+	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -48,7 +49,7 @@ func HandleStandaloneModeWithConfig(domainManager virtwrap.DomainManager, cfg *l
 	if err := yaml.Unmarshal([]byte(cfg.StandaloneVMI), &vmi); err != nil {
 		// Fallback to JSON if YAML fails
 		if jsonErr := json.Unmarshal([]byte(cfg.StandaloneVMI), &vmi); jsonErr != nil {
-			log.Log.Reason(err).Error("Failed to unmarshal VMI from STANDALONE_VMI as YAML/JSON")
+			log.Log.Reason(err).Error(fmt.Sprintf("Failed to unmarshal VMI from %s as YAML/JSON", launcherconfig.EnvVarStandaloneVMI))
 			panic(err)
 		}
 	}

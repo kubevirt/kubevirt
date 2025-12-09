@@ -369,6 +369,7 @@ func main() {
 	// This reads all supported environment variables at the application's top level,
 	// providing clear visibility of configuration and consistent behavior.
 	cfg := launcherconfig.NewConfig()
+	launcherconfig.SetGlobalConfig(cfg)
 
 	// Set up log verbosity from centralized config
 	if cfg.IsLogVerbositySet() {
