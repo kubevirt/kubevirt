@@ -65,7 +65,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -1194,7 +1193,7 @@ var _ = Describe(SIG("Export", func() {
 		})
 	})
 
-	Context("Route", func() {
+	Context("Route", decorators.OpenShift, func() {
 		getExportRoute := func() *routev1.Route {
 			route, err := virtClient.RouteClient().Routes(flags.KubeVirtInstallNamespace).Get(context.Background(), components.VirtExportProxyServiceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1205,9 +1204,6 @@ var _ = Describe(SIG("Export", func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Fail("Fail test when Filesystem storage is not present")
-			}
-			if !checks.IsOpenShift() {
-				Skip("Not on openshift")
 			}
 			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 			checkExportSecretRef(vmExport)
