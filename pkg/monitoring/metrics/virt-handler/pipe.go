@@ -23,12 +23,20 @@ import "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 var (
 	pipeMetrics = []operatormetrics.Metric{
 		pipeActiveProxies,
+		activePipes,
 	}
 
 	pipeActiveProxies = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_pipe_active_proxies",
 			Help: "The number of running proxied pipe connections",
+		},
+	)
+
+	activePipes = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_active_pipes",
+			Help: "The number of running pipes",
 		},
 	)
 )
@@ -39,4 +47,12 @@ func IncPipeActiveProxies() {
 
 func DecPipeActiveProxies() {
 	pipeActiveProxies.Dec()
+}
+
+func IncActivePipes() {
+	activePipes.Inc()
+}
+
+func DecActivePipes() {
+	activePipes.Dec()
 }

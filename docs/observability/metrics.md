@@ -2,6 +2,7 @@
 
 | Name | Kind | Type | Description |
 |------|------|------|-------------|
+| kubevirt_active_pipes | Metric | Gauge | The number of running pipes |
 | kubevirt_configuration_emulation_enabled | Metric | Gauge | Indicates whether the Software Emulation is enabled in the configuration. |
 | kubevirt_console_active_connections | Metric | Gauge | Amount of active Console connections, broken down by namespace and vmi name. |
 | kubevirt_info | Metric | Gauge | Version information. |
