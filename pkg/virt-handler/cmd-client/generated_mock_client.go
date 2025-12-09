@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
+	v1alpha1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
 	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -516,6 +517,20 @@ func (m *MockLauncherClient) UnpauseVirtualMachine(vmi *v1.VirtualMachineInstanc
 func (mr *MockLauncherClientMockRecorder) UnpauseVirtualMachine(vmi any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpauseVirtualMachine", reflect.TypeOf((*MockLauncherClient)(nil).UnpauseVirtualMachine), vmi)
+}
+
+// VirtualMachineBackup mocks base method.
+func (m *MockLauncherClient) VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *v1alpha1.BackupOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VirtualMachineBackup", vmi, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// VirtualMachineBackup indicates an expected call of VirtualMachineBackup.
+func (mr *MockLauncherClientMockRecorder) VirtualMachineBackup(vmi, options any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineBackup", reflect.TypeOf((*MockLauncherClient)(nil).VirtualMachineBackup), vmi, options)
 }
 
 // VirtualMachineMemoryDump mocks base method.

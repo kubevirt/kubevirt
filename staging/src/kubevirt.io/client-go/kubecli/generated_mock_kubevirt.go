@@ -80,15 +80,17 @@ import (
 	v1beta116 "k8s.io/client-go/kubernetes/typed/storage/v1beta1"
 	v1alpha17 "k8s.io/client-go/kubernetes/typed/storagemigration/v1alpha1"
 	rest "k8s.io/client-go/rest"
+	v1alpha18 "kubevirt.io/api/backup/v1alpha1"
 	v122 "kubevirt.io/api/core/v1"
 	containerizeddataimporter "kubevirt.io/client-go/containerizeddataimporter"
 	externalsnapshotter "kubevirt.io/client-go/externalsnapshotter"
 	kubevirt "kubevirt.io/client-go/kubevirt"
+	v1alpha19 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
 	v1beta117 "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
 	v123 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	v1beta118 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
 	v1beta119 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
-	v1alpha18 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
+	v1alpha110 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	v1beta120 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
 	v1beta121 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
 	networkattachmentdefinitionclient "kubevirt.io/client-go/networkattachmentdefinitionclient"
@@ -765,10 +767,10 @@ func (mr *MockKubevirtClientMockRecorder) KubernetesSnapshotClient() *gomock.Cal
 }
 
 // MigrationPolicy mocks base method.
-func (m *MockKubevirtClient) MigrationPolicy() v1alpha18.MigrationPolicyInterface {
+func (m *MockKubevirtClient) MigrationPolicy() v1alpha110.MigrationPolicyInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MigrationPolicy")
-	ret0, _ := ret[0].(v1alpha18.MigrationPolicyInterface)
+	ret0, _ := ret[0].(v1alpha110.MigrationPolicyInterface)
 	return ret0
 }
 
@@ -779,10 +781,10 @@ func (mr *MockKubevirtClientMockRecorder) MigrationPolicy() *gomock.Call {
 }
 
 // MigrationPolicyClient mocks base method.
-func (m *MockKubevirtClient) MigrationPolicyClient() *v1alpha18.MigrationsV1alpha1Client {
+func (m *MockKubevirtClient) MigrationPolicyClient() *v1alpha110.MigrationsV1alpha1Client {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MigrationPolicyClient")
-	ret0, _ := ret[0].(*v1alpha18.MigrationsV1alpha1Client)
+	ret0, _ := ret[0].(*v1alpha110.MigrationsV1alpha1Client)
 	return ret0
 }
 
@@ -1213,6 +1215,20 @@ func (mr *MockKubevirtClientMockRecorder) VirtualMachine(namespace any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachine", reflect.TypeOf((*MockKubevirtClient)(nil).VirtualMachine), namespace)
 }
 
+// VirtualMachineBackup mocks base method.
+func (m *MockKubevirtClient) VirtualMachineBackup(namespace string) v1alpha19.VirtualMachineBackupInterface {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VirtualMachineBackup", namespace)
+	ret0, _ := ret[0].(v1alpha19.VirtualMachineBackupInterface)
+	return ret0
+}
+
+// VirtualMachineBackup indicates an expected call of VirtualMachineBackup.
+func (mr *MockKubevirtClientMockRecorder) VirtualMachineBackup(namespace any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineBackup", reflect.TypeOf((*MockKubevirtClient)(nil).VirtualMachineBackup), namespace)
+}
+
 // VirtualMachineClone mocks base method.
 func (m *MockKubevirtClient) VirtualMachineClone(namespace string) v1beta117.VirtualMachineCloneInterface {
 	m.ctrl.T.Helper()
@@ -1431,6 +1447,20 @@ func (m *MockVirtualMachineInstanceInterface) AddVolume(ctx context.Context, nam
 func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) AddVolume(ctx, name, addVolumeOptions any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddVolume", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).AddVolume), ctx, name, addVolumeOptions)
+}
+
+// Backup mocks base method.
+func (m *MockVirtualMachineInstanceInterface) Backup(ctx context.Context, name string, backupOptions *v1alpha18.BackupOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Backup", ctx, name, backupOptions)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Backup indicates an expected call of Backup.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) Backup(ctx, name, backupOptions any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Backup", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).Backup), ctx, name, backupOptions)
 }
 
 // Create mocks base method.

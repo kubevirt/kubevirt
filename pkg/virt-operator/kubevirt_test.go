@@ -88,9 +88,23 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 87
-	patchCount    = 55
+	resourceCount = 88
+	patchCount    = 56
 	updateCount   = 33
+)
+
+var (
+	crdFunctions = []func() (*extv1.CustomResourceDefinition, error){
+		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
+		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
+		components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
+		components.NewVirtualMachineExportCrd, components.NewVirtualMachineBackupCrd,
+		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineInstancetypeCrd,
+		components.NewVirtualMachineClusterInstancetypeCrd, components.NewVirtualMachinePoolCrd,
+		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
+		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd,
+	}
+	numCRDs = len(crdFunctions)
 )
 
 type KubeVirtTestData struct {
@@ -111,10 +125,11 @@ type KubeVirtTestData struct {
 	promClient     *promclientfake.Clientset
 	routeClient    *routev1fake.FakeRouteV1
 
-	totalAdds       int
-	totalUpdates    int
-	totalPatches    int
-	totalDeletions  int
+	totalAdds      int
+	totalUpdates   int
+	totalPatches   int
+	totalDeletions int
+
 	resourceChanges map[string]map[string]int
 
 	deleteFromCache bool
@@ -1236,17 +1251,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, rbac.GetAllSynchronizationController(NAMESPACE)...)
 
 	// crds
-	functions := []func() (*extv1.CustomResourceDefinition, error){
-		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
-		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
-		components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
-		components.NewVirtualMachineExportCrd,
-		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineInstancetypeCrd,
-		components.NewVirtualMachineClusterInstancetypeCrd, components.NewVirtualMachinePoolCrd,
-		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
-		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd,
-	}
-	for _, f := range functions {
+	for _, f := range crdFunctions {
 		crd, err := f()
 		if err != nil {
 			panic(fmt.Errorf("This should not happen, %v", err))
@@ -2478,7 +2483,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(8))
 			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(6))
 			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(6))
-			Expect(kvTestData.controller.stores.OperatorCrdCache.List()).To(HaveLen(16))
+			Expect(kvTestData.controller.stores.OperatorCrdCache.List()).To(HaveLen(numCRDs))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(BeEmpty())

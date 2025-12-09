@@ -388,6 +388,7 @@ type KubeVirtMetadata struct {
 	UID              types.UID                 `xml:"uid"`
 	GracePeriod      *GracePeriodMetadata      `xml:"graceperiod,omitempty"`
 	Migration        *MigrationMetadata        `xml:"migration,omitempty"`
+	Backup           *BackupMetadata           `xml:"backup,omitempty"`
 	AccessCredential *AccessCredentialMetadata `xml:"accessCredential,omitempty"`
 	MemoryDump       *MemoryDumpMetadata       `xml:"memoryDump,omitempty"`
 }
@@ -416,10 +417,63 @@ type MigrationMetadata struct {
 	Mode           v1.MigrationMode `xml:"mode,omitempty"`
 }
 
+type BackupMetadata struct {
+	Name           string       `xml:"name,omitempty"`
+	SkipQuiesce    bool         `xml:"skipQuiesce,omitempty"`
+	StartTimestamp *metav1.Time `xml:"startTimestamp,omitempty"`
+	EndTimestamp   *metav1.Time `xml:"endTimestamp,omitempty"`
+	Completed      bool         `xml:"completed,omitempty"`
+	BackupMsg      string       `xml:"backupMsg,omitempty"`
+}
+
 type GracePeriodMetadata struct {
 	DeletionGracePeriodSeconds int64        `xml:"deletionGracePeriodSeconds"`
 	DeletionTimestamp          *metav1.Time `xml:"deletionTimestamp,omitempty"`
 	MarkedForGracefulShutdown  *bool        `xml:"markedForGracefulShutdown,omitempty"`
+}
+
+// DomainBackup mirroring libvirt XML under https://libvirt.org/formatbackup.html#backup-xml-format
+type DomainBackup struct {
+	XMLName     xml.Name     `xml:"domainbackup"`
+	Mode        string       `xml:"mode,attr"`
+	BackupDisks *BackupDisks `xml:"disks"`
+}
+
+type BackupDisks struct {
+	Disks []BackupDisk `xml:"disk"`
+}
+
+type BackupDisk struct {
+	Name   string        `xml:"name,attr"`
+	Backup string        `xml:"backup,attr"`
+	Type   string        `xml:"type,attr,omitempty"`
+	Target *BackupTarget `xml:"target,omitempty"`
+}
+
+type BackupTarget struct {
+	File string `xml:"file,attr,omitempty"`
+}
+
+// DomainCheckpoint mirroring libvirt XML under https://libvirt.org/formatcheckpoint.html#checkpoint-xml
+type DomainCheckpoint struct {
+	XMLName         xml.Name          `xml:"domaincheckpoint"`
+	Name            string            `xml:"Name"`
+	CheckpointDisks *CheckpointDisks  `xml:"disks"`
+	CreationTime    *uint64           `xml:"creationTime"`
+	Parent          *CheckpointParent `xml:"parent"`
+}
+
+type CheckpointDisks struct {
+	Disks []CheckpointDisk `xml:"disk"`
+}
+
+type CheckpointDisk struct {
+	Name       string `xml:"name,attr"`
+	Checkpoint string `xml:"checkpoint,attr"`
+}
+
+type CheckpointParent struct {
+	Name string `xml:"name"`
 }
 
 type Commandline struct {

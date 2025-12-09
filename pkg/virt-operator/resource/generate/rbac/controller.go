@@ -343,6 +343,19 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					"backup.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinebackups",
+					"virtualmachinebackups/status",
+					"virtualmachinebackups/finalizers",
+				},
+				Verbs: []string{
+					"get", "list", "watch", "create", "update", "delete", "patch",
+				},
+			},
+			{
+				APIGroups: []string{
 					"pool.kubevirt.io",
 				},
 				Resources: []string{
@@ -394,6 +407,7 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachines/stop",
 					"virtualmachineinstances/addvolume",
 					"virtualmachineinstances/removevolume",
+					"virtualmachineinstances/backup",
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/reset",

@@ -66,6 +66,7 @@ var MigrationGroupVersionResource = metav1.GroupVersionResource{
 type Informers struct {
 	VMIPresetInformer  cache.SharedIndexInformer
 	VMRestoreInformer  cache.SharedIndexInformer
+	VMBackupInformer   cache.SharedIndexInformer
 	DataSourceInformer cache.SharedIndexInformer
 	NamespaceInformer  cache.SharedIndexInformer
 }
