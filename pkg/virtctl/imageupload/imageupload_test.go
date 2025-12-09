@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virtctl/imageupload"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -63,7 +64,6 @@ const (
 	deleteAfterCompletionAnnotation = "cdi.kubevirt.io/storage.deleteAfterCompletion"
 	UsePopulatorAnnotation          = "cdi.kubevirt.io/storage.usePopulator"
 	PVCPrimeNameAnnotation          = "cdi.kubevirt.io/storage.populator.pvcPrime"
-	labelApplyStorageProfile        = "cdi.kubevirt.io/applyStorageProfile"
 )
 
 const (
@@ -429,7 +429,7 @@ var _ = Describe("ImageUpload", func() {
 		Expect(err).ToNot(HaveOccurred())
 		validateDefaultInstancetypeLabels(pvc.ObjectMeta.Labels)
 		// This label is applied by default to all imageupload-created PVCs
-		Expect(pvc.ObjectMeta.Labels).To(HaveKeyWithValue(labelApplyStorageProfile, "true"))
+		Expect(pvc.ObjectMeta.Labels).To(HaveKeyWithValue(storagetypes.LabelApplyStorageProfile, "true"))
 	}
 
 	validateDataVolumeDefaultInstancetypeLabels := func() {
