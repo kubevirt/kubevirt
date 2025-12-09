@@ -20,16 +20,11 @@
 package storage
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
-	"strings"
-	"syscall"
 
-	"golang.org/x/sys/unix"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -41,10 +36,8 @@ import (
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
@@ -66,11 +59,14 @@ type DiskConfigurator struct {
 	vcpus                 uint
 	volumesDiscardIgnore  []string
 	ephemeralDiskCreator  ephemeraldisk.EphemeralDiskCreatorInterface
+	blockIOInspector      BlockIOInspector
 }
 
 const (
 	deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
 )
+
+var FormatDeviceName = formatDeviceName
 
 type option func(*DiskConfigurator)
 
@@ -79,6 +75,10 @@ func NewDiskConfigurator(options ...option) DiskConfigurator {
 
 	for _, f := range options {
 		f(&configurator)
+	}
+
+	if configurator.blockIOInspector == nil {
+		configurator.blockIOInspector = &LinuxBlockIOInspector{}
 	}
 
 	return configurator
@@ -128,7 +128,7 @@ func (d DiskConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.
 			return err
 		}
 
-		if err := Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk); err != nil {
+		if err := d.Convert_v1_BlockSize_To_api_BlockIO(&disk, &newDisk); err != nil {
 			return err
 		}
 
@@ -504,26 +504,7 @@ func (d *DiskConfigurator) Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volu
 	return nil
 }
 
-func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
-	disk.Type = "block"
-	setDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
-	disk.Source.Name = volumeName
-	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
-	return nil
-}
-
-// Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
-func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
-	disk.Type = "file"
-	setDiskDriver(disk, "raw", false)
-	disk.Source.File = GetFilesystemVolumePath(volumeName)
-	if !slices.Contains(volumesDiscardIgnore, volumeName) {
-		disk.Driver.Discard = "unmap"
-	}
-	return nil
-}
-
-func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk) error {
+func (d *DiskConfigurator) Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk) error {
 	if source.BlockSize == nil {
 		return nil
 	}
@@ -540,11 +521,39 @@ func Convert_v1_BlockSize_To_api_BlockIO(source *v1.Disk, disk *api.Disk) error 
 			disk.BlockIO.DiscardGranularity = pointer.P(*blockSize.DiscardGranularity)
 		}
 	} else if matchFeature := source.BlockSize.MatchVolume; matchFeature != nil && (matchFeature.Enabled == nil || *matchFeature.Enabled) {
-		blockIO, err := getOptimalBlockIO(disk)
+		blockIO, err := d.getOptimalBlockIO(disk)
 		if err != nil {
 			return fmt.Errorf("failed to configure disk with block size detection enabled: %v", err)
 		}
 		disk.BlockIO = blockIO
+	}
+	return nil
+}
+
+func (d *DiskConfigurator) getOptimalBlockIO(disk *api.Disk) (*api.BlockIO, error) {
+	if disk.Source.Dev != "" {
+		return d.blockIOInspector.GetDevBlockIO(disk.Source.Dev)
+	} else if disk.Source.File != "" {
+		return d.blockIOInspector.GetFileBlockIO(disk.Source.File)
+	}
+	return nil, fmt.Errorf("disk is neither a block device nor a file")
+}
+
+func Convert_v1_BlockVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
+	disk.Type = "block"
+	setDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
+	disk.Source.Name = volumeName
+	disk.Source.Dev = GetBlockDeviceVolumePath(volumeName)
+	return nil
+}
+
+// Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
+func Convert_v1_FilesystemVolumeSource_To_api_Disk(volumeName string, disk *api.Disk, volumesDiscardIgnore []string) error {
+	disk.Type = "file"
+	setDiskDriver(disk, "raw", false)
+	disk.Source.File = GetFilesystemVolumePath(volumeName)
+	if !slices.Contains(volumesDiscardIgnore, volumeName) {
+		disk.Driver.Discard = "unmap"
 	}
 	return nil
 }
@@ -653,6 +662,12 @@ func WithVcpus(count uint) option {
 		if d.vcpus == 0 {
 			d.vcpus = 1
 		}
+	}
+}
+
+func WithBlockIoInspector(blockIOInspector BlockIOInspector) option {
+	return func(d *DiskConfigurator) {
+		d.blockIOInspector = blockIOInspector
 	}
 }
 
@@ -806,115 +821,4 @@ func setErrorPolicy(diskDevice *v1.Disk, apiDisk *api.Disk) error {
 		return fmt.Errorf("error policy %s not recognized", *diskDevice.ErrorPolicy)
 	}
 	return nil
-}
-
-func getOptimalBlockIO(disk *api.Disk) (*api.BlockIO, error) {
-	if disk.Source.Dev != "" {
-		return getOptimalBlockIOForDevice(disk.Source.Dev)
-	} else if disk.Source.File != "" {
-		return getOptimalBlockIOForFile(disk.Source.File)
-	}
-	return nil, fmt.Errorf("disk is neither a block device nor a file")
-}
-
-func getOptimalBlockIOForDevice(path string) (*api.BlockIO, error) {
-	safePath, err := safepath.JoinAndResolveWithRelativeRoot("/", path)
-	if err != nil {
-		return nil, err
-	}
-	fd, err := safepath.OpenAtNoFollow(safePath)
-	if err != nil {
-		return nil, fmt.Errorf("could not open file %s. Reason: %w", safePath, err)
-	}
-	defer util.CloseIOAndCheckErr(fd, nil)
-
-	f, err := os.OpenFile(fd.SafePath(), os.O_RDONLY, 0)
-	if err != nil {
-		return nil, err
-	}
-	defer util.CloseIOAndCheckErr(f, &err)
-
-	logicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKSSZGET)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get logical block size from device %s: %w", path, err)
-	}
-	physicalSize, err := unix.IoctlGetUint32(int(f.Fd()), unix.BLKPBSZGET)
-	if err != nil {
-		return nil, fmt.Errorf("unable to get physical block size from device %s: %w", path, err)
-	}
-
-	log.Log.Infof("Detected logical size of %d and physical size of %d for device %s", logicalSize, physicalSize, path)
-
-	if logicalSize == 0 && physicalSize == 0 {
-		return nil, fmt.Errorf("block sizes returned by device %v are 0", path)
-	}
-
-	discardGranularity, err := getDiscardGranularity(safePath)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Log.Infof("Detected discard granularity of %d for device %v", discardGranularity, path)
-
-	blockIO := &api.BlockIO{
-		LogicalBlockSize:   uint(logicalSize),
-		PhysicalBlockSize:  uint(physicalSize),
-		DiscardGranularity: pointer.P(uint(discardGranularity)),
-	}
-	if logicalSize == 0 || physicalSize == 0 {
-		if logicalSize > physicalSize {
-			log.Log.Infof("Invalid physical size %d. Matching it to the logical size %d", physicalSize, logicalSize)
-			blockIO.PhysicalBlockSize = uint(logicalSize)
-		} else {
-			log.Log.Infof("Invalid logical size %d. Matching it to the physical size %d", logicalSize, physicalSize)
-			blockIO.LogicalBlockSize = uint(physicalSize)
-		}
-	}
-	if *blockIO.DiscardGranularity%blockIO.LogicalBlockSize != 0 {
-		log.Log.Infof("Invalid discard granularity %d. Matching it to physical size %d", *blockIO.DiscardGranularity, blockIO.PhysicalBlockSize)
-		blockIO.DiscardGranularity = pointer.P(uint(physicalSize))
-	}
-	return blockIO, nil
-}
-
-func getDiscardGranularity(safePath *safepath.Path) (uint64, error) {
-	fileInfo, err := safepath.StatAtNoFollow(safePath)
-	if err != nil {
-		return 0, fmt.Errorf("could not stat file %s. Reason: %w", safePath.String(), err)
-	}
-	stat := fileInfo.Sys().(*syscall.Stat_t)
-	rdev := uint64(stat.Rdev) //nolint:unconvert // Rdev is uint32 on e.g. MIPS.
-	major := unix.Major(rdev)
-	minor := unix.Minor(rdev)
-
-	raw, err := os.ReadFile(fmt.Sprintf("/sys/dev/block/%d:%d/queue/discard_granularity", major, minor))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			// On the off chance that we can't stat the discard granularity, set it to disabled.
-			return 0, nil
-		}
-		return 0, fmt.Errorf("cannot read discard granularity for device %s: %w", safePath.String(), err)
-	}
-	discardGranularity, err := strconv.ParseUint(strings.TrimSpace(string(raw)), 10, 0)
-	if err != nil {
-		return 0, err
-	}
-
-	return discardGranularity, err
-}
-
-// getOptimalBlockIOForFile determines the optimal sizes based on the filesystem settings
-// the VM's disk image is residing on. A filesystem does not differentiate between sizes.
-// The physical size will always match the logical size. The rest is up to the filesystem.
-func getOptimalBlockIOForFile(path string) (*api.BlockIO, error) {
-	var statfs unix.Statfs_t
-	if err := unix.Statfs(path, &statfs); err != nil {
-		return nil, fmt.Errorf("failed to stat file %v: %v", path, err)
-	}
-	blockSize := uint(statfs.Bsize)
-	return &api.BlockIO{
-		LogicalBlockSize:   blockSize,
-		PhysicalBlockSize:  blockSize,
-		DiscardGranularity: &blockSize,
-	}, nil
 }
