@@ -43,10 +43,6 @@ import (
 )
 
 const (
-	// receivedEarlyExitSignalEnvVar is used as a runtime signal mechanism
-	// for inter-process communication during migration cleanup.
-	// This is intentionally kept as an environment variable (set/read pattern)
-	// rather than using the config package, as it's not a static configuration value.
 	receivedEarlyExitSignalEnvVar = launcherconfig.EnvVarTargetPodExitSignal
 )
 

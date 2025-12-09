@@ -22,15 +22,6 @@
 // stored in the Config struct, which is then passed to components that need
 // access to these values.
 //
-// This package serves as a single source of truth for all environment variables
-// that virt-launcher supports. By reading all environment variables at startup
-// and storing them in the Config struct, we gain:
-//
-//   - Clear visibility of all supported configuration options
-//   - Easier testing through dependency injection
-//   - Consistent behavior across the application
-//   - Single point of documentation for environment variables
-//
 // Usage:
 //
 //	cfg := config.NewConfig()
