@@ -91,6 +91,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	storageconvert "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
@@ -1044,6 +1045,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseLaunchSecuritySEV:  kutil.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
 		UseLaunchSecurityTDX:  kutil.IsTDXVMI(vmi),
 		UseLaunchSecurityPV:   kutil.IsSecureExecutionVMI(vmi),
+		UseBlkMQ:              vmi.Spec.Domain.Devices.BlockMultiQueue != nil && *vmi.Spec.Domain.Devices.BlockMultiQueue,
 		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
 	}
@@ -1536,7 +1538,7 @@ func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 var isHotplugBlockDeviceVolume = isHotplugBlockDeviceVolumeFunc
 
 func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
-	path := converter.GetHotplugBlockDeviceVolumePath(volumeName)
+	path := storageconvert.GetHotplugBlockDeviceVolumePath(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {
 		if (fileInfo.Mode() & os.ModeDevice) != 0 {
@@ -1550,7 +1552,7 @@ func isHotplugBlockDeviceVolumeFunc(volumeName string) bool {
 var isBlockDeviceVolume = isBlockDeviceVolumeFunc
 
 func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
-	path := converter.GetBlockDeviceVolumePath(volumeName)
+	path := storageconvert.GetBlockDeviceVolumePath(volumeName)
 	fileInfo, err := os.Stat(path)
 	if err == nil {
 		if (fileInfo.Mode() & os.ModeDevice) != 0 {
@@ -1560,7 +1562,7 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 	}
 	if errors.Is(err, os.ErrNotExist) {
 		// cross check: is it a filesystem volume
-		path = converter.GetFilesystemVolumePath(volumeName)
+		path = storageconvert.GetFilesystemVolumePath(volumeName)
 		fileInfo, err := os.Stat(path)
 		if err == nil {
 			if fileInfo.Mode().IsRegular() {

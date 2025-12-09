@@ -34,6 +34,7 @@ import (
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
 )
 
 func IsChangedBlockTrackingEnabled(vmi *v1.VirtualMachineInstance) bool {
@@ -140,10 +141,10 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *converter.Conv
 		var imagePath string
 		blockDev := false
 		if c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName] {
-			imagePath = converter.GetBlockDeviceVolumePath(volumeName)
+			imagePath = storage.GetBlockDeviceVolumePath(volumeName)
 			blockDev = true
 		} else {
-			imagePath = converter.GetFilesystemVolumePath(volumeName)
+			imagePath = storage.GetFilesystemVolumePath(volumeName)
 		}
 
 		err := CreateQCOW2Overlay(overlayPath, imagePath, blockDev)
