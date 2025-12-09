@@ -80,6 +80,8 @@ type connectF func() (net.Conn, error)
 type proxyFunc func(net.Conn)
 
 func Pipe(ctx context.Context, pipeChan chan net.Conn, proxy proxyFunc) {
+	metrics.IncActivePipes()
+	defer metrics.DecActivePipes()
 	for {
 		select {
 		case <-ctx.Done():
