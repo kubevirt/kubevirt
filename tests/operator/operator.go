@@ -1358,13 +1358,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 		})
 
-		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
-
-			BeforeEach(func() {
-				if !checks.IsOpenShift() {
-					Skip("OpenShift operator tests should not be started on k8s")
-				}
-			})
+		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", decorators.OpenShift, func() {
 
 			It("[test_id:2910]Should have kubevirt SCCs created", func() {
 				const OpenShiftSCCLabel = "openshift.io/scc"
