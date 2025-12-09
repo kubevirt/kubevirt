@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "attribute.go",
+        "pci_linux.go",
+        "sysfs_linux.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/k8s.io/dynamic-resource-allocation/deviceattribute",
+    importpath = "k8s.io/dynamic-resource-allocation/deviceattribute",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/k8s.io/api/resource/v1:go_default_library"],
+)

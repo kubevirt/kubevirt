@@ -1197,10 +1197,6 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonCPUModeNotMigratable), isBlockMigration
 	}
 
-	if vmiContainsPCIHostDevice(vmi) {
-		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
-	}
-
 	if util.IsSEVVMI(vmi) {
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
 	} else if util.IsTDXVMI(vmi) {
@@ -2056,6 +2052,14 @@ func (c *VirtualMachineController) handleStartingVMI(
 		if !drautil.IsAllDRAGPUsReconciled(vmi, vmi.Status.DeviceStatus) {
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "WaitingForDRAGPUAttributes",
 				"Waiting for Dynamic Resource Allocation GPU attributes to be reconciled")
+			return false, nil
+		}
+	}
+
+	if c.clusterConfig.HostDevicesWithDRAEnabled() {
+		if !drautil.IsAllDRAHostDevicesReconciled(vmi, vmi.Status.DeviceStatus) {
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "WaitingForDRAHostDeviceAttributes",
+				"Waiting for Dynamic Resource Allocation HostDevice attributes to be reconciled")
 			return false, nil
 		}
 	}

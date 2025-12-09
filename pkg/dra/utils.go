@@ -97,3 +97,58 @@ func IsGPUDRA(gpu v1.GPU) bool {
 func IsHostDeviceDRA(hd v1.HostDevice) bool {
 	return hd.DeviceName == "" && hd.ClaimRequest != nil
 }
+
+/*
+// IsAllDRAHostDevicesReconciledForPod validates that DRA host device status matches the given pod's resource claims.
+// This is used during migration to ensure the deviceStatus has been updated for the new target pod.
+func IsAllDRAHostDevicesReconciledForPod(vmi *v1.VirtualMachineInstance, status *v1.DeviceStatus, podResourceClaimNames map[string]string) bool {
+	if !IsAllDRAHostDevicesReconciled(vmi, status) {
+		return false
+	}
+
+	// Build map of DRA host devices from VMI spec
+	draHostDeviceNames := make(map[string]string) // device name -> claim name from spec
+	for _, hd := range vmi.Spec.Domain.Devices.HostDevices {
+		if hd.ClaimRequest != nil && hd.ClaimRequest.ClaimName != nil {
+			draHostDeviceNames[hd.Name] = *hd.ClaimRequest.ClaimName
+		}
+	}
+
+	if len(draHostDeviceNames) == 0 {
+		return true
+	}
+
+	// Verify each device status has the correct resource claim name for the current pod
+	if status == nil {
+		return false
+	}
+
+	for _, hdStatus := range status.HostDeviceStatuses {
+		specClaimName, isDRAHostDev := draHostDeviceNames[hdStatus.Name]
+		if !isDRAHostDev {
+			continue
+		}
+
+		// Check if the status has a resource claim name
+		if hdStatus.DeviceResourceClaimStatus == nil ||
+			hdStatus.DeviceResourceClaimStatus.ResourceClaimName == nil {
+			return false
+		}
+
+		statusClaimName := *hdStatus.DeviceResourceClaimStatus.ResourceClaimName
+
+		// Verify the claim name in status matches the pod's actual resource claim
+		podClaimName, podHasClaim := podResourceClaimNames[specClaimName]
+		if !podHasClaim {
+			// Pod doesn't have this claim yet
+			return false
+		}
+
+		if statusClaimName != podClaimName {
+			// Status has wrong claim name (e.g., from old pod during migration)
+			return false
+		}
+	}
+
+	return true
+}*/

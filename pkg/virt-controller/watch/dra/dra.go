@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
+	"k8s.io/dynamic-resource-allocation/deviceattribute"
 	"k8s.io/utils/trace"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -53,7 +54,7 @@ const (
 	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 
 	indexByNodeName              = "byNodeName"
-	PCIAddressDeviceAttributeKey = "resource.kubernetes.io/pcieRoot"
+	PCIAddressDeviceAttributeKey = deviceattribute.StandardDeviceAttributePrefix + "pciAddress"
 	MDevUUIDDeviceAttributeKey   = "resource.kubernetes.io/mDevUUID"
 )
 
@@ -138,10 +139,20 @@ func NewDRAStatusController(
 func (c *DRAStatusController) enqueueVirtualMachine(obj interface{}) {
 	vmi := obj.(*v1.VirtualMachineInstance)
 	logger := log.Log.Object(vmi)
-	if vmi.Status.Phase == v1.Running {
-		logger.V(6).Infof("skipping enqueing vmi to dra status controller queue")
-		return
-	}
+
+	// TODO: Optimization - skip Running VMIs if deviceStatus is already reconciled
+	// Currently we always enqueue Running VMIs to handle migration scenarios where
+	// deviceStatus needs to be updated for the new target pod. In the future, we could:
+	// 1. Compare deviceStatus.resourceClaimName against all active pods' claims
+	// 2. Only enqueue if there's a mismatch (indicating stale data from migration)
+	// 3. This would reduce unnecessary processing of stable Running VMIs
+	// * maybe we need to have both, this way virt-launcher will able to pick the right one even
+	// when target pod starts, in the initial xml creation
+
+	//if vmi.Status.Phase == v1.Running {
+	//    logger.V(6).Infof("skipping enqueing vmi to dra status controller queue")
+	//    return
+	//}
 
 	key, err := controller.KeyFunc(vmi)
 	if err != nil {
@@ -241,6 +252,15 @@ func (c *DRAStatusController) updatePod(old interface{}, cur interface{}) {
 	}
 	if curPod.Status.Phase == k8sv1.PodRunning || curPod.Status.Phase == k8sv1.PodFailed ||
 		curPod.Status.Phase == k8sv1.PodSucceeded {
+		// if equality.Semantic.DeepEqual(curPod.Status.ResourceClaimStatuses, oldPod.Status.ResourceClaimStatuses) {
+		// 	return
+		// }
+
+		// curControllerRef := metav1.GetControllerOf(curPod)
+		// vmi := c.resolveControllerRef(curPod.Namespace, curControllerRef)
+		// if vmi != nil {
+		// 	c.enqueueVirtualMachine(vmi)
+		// }
 		return
 	}
 
@@ -398,7 +418,7 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *v1.V
 
 	if !isPodResourceClaimStatusFilled(logger, pod) {
 		logger.Infof("waiting for pod %s/%s resource claim status to be filled", pod.Namespace, pod.Name)
-		return nil
+		return fmt.Errorf("waiting for pod %s/%s resource claim status to be filled", pod.Namespace, pod.Name)
 	}
 
 	var (

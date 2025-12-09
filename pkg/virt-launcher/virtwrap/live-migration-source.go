@@ -51,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	convxml "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
@@ -138,9 +139,21 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 		if err != nil {
 			return err
 		}
+
+		// Detach DRA host devices (dra-hostdevice- prefix)
+		err = detachDRAHostDevices(domainSpec, domainEvent, dom, waitForDetachTimeout)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
+
+func detachDRAHostDevices(domainSpec *api.DomainSpec, eventDetach hostdevice.EventRegistrar, dom hostdevice.DeviceDetacher, timeout time.Duration) error {
+	draDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, dra.DRAHostDeviceAliasPrefix)
+	return hostdevice.SafelyDetachHostDevices(draDevices, eventDetach, dom, timeout)
+}
+
 func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
 	var targetTopology cmdv1.Topology
 	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet

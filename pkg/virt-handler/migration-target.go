@@ -727,6 +727,35 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 		return err
 	}
 
+	// Wait for DRA device status to be populated and match the current target pod before accepting migration
+	// if c.clusterConfig.HostDevicesWithDRAEnabled() {
+	// 	// Get the launcher pod name from VMI
+	// 	podName := vmi.Namespace + "_" + vmi.Name
+	// 	podName = strings.Replace(podName, "_", "-", -1)
+	// 	podName = "virt-launcher-" + podName
+
+	// 	// Get pod to validate deviceStatus matches this pod's resource claims
+	// 	pod, err := c.clientset.CoreV1().Pods(vmi.Namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to get pod %s for DRA validation: %v", podName, err)
+	// 	}
+
+	// 	// Build map of pod's resource claim statuses: claim name -> actual claim name
+	// 	podResourceClaimNames := make(map[string]string)
+	// 	for _, claimStatus := range pod.Status.ResourceClaimStatuses {
+	// 		if claimStatus.ResourceClaimName != nil {
+	// 			podResourceClaimNames[claimStatus.Name] = *claimStatus.ResourceClaimName
+	// 		}
+	// 	}
+
+	// 	if !drautil.IsAllDRAHostDevicesReconciledForPod(vmi, vmi.Status.DeviceStatus, podResourceClaimNames) {
+	// 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, "WaitingForDRAHostDeviceAttributes",
+	// 			"Waiting for Dynamic Resource Allocation HostDevice attributes to be reconciled for target pod")
+	// 		c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
+	// 		return fmt.Errorf("waiting for DRA HostDevice attributes to be reconciled for target pod")
+	// 	}
+	// }
+
 	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 
