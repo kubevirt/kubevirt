@@ -2299,6 +2299,9 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 
 			expectVMI(running, paused)
 
+			vm := newVirtualMachineWithRunning(pointer.P(Running))
+			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vm, nil)
+
 			bytesRepresentation, _ := json.Marshal(unpauseOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
 
@@ -2313,8 +2316,27 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 			Entry("a not running VMI with dry-run option", NotRunning, UnPaused, &v1.UnpauseOptions{DryRun: getDryRunOption()}),
 		)
 
-		DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions) {
+		It("Should fail unpausing when snapshot in progress", func() {
 
+			request.PathParameters()["name"] = testVMIName
+			request.PathParameters()["namespace"] = k8smetav1.NamespaceDefault
+
+			vm := newVirtualMachineWithRunning(pointer.P(Running))
+			vm.Status.SnapshotInProgress = &[]string{"test-snapshot"}[0]
+
+			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vm, nil)
+
+			unpauseOptions := &v1.UnpauseOptions{}
+			bytesRepresentation, _ := json.Marshal(unpauseOptions)
+			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
+
+			app.UnpauseVMIRequestHandler(request, response)
+
+			ExpectStatusErrorWithCode(recorder, http.StatusConflict)
+			Expect(recorder.Body.String()).To(ContainSubstring(vmSnapshotInprogress))
+		})
+
+		DescribeTable("Should unpause a running, paused VMI according to options", func(unpauseOptions *v1.UnpauseOptions) {
 			backend.AppendHandlers(
 				ghttp.CombineHandlers(
 					ghttp.VerifyRequest("PUT", "/v1/namespaces/default/virtualmachineinstances/testvmi/unpause"),
@@ -2322,6 +2344,8 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 				),
 			)
 			expectVMI(Running, Paused)
+			vm := newVirtualMachineWithRunning(pointer.P(Running))
+			vmClient.EXPECT().Get(context.Background(), testVMIName, k8smetav1.GetOptions{}).Return(vm, nil)
 
 			bytesRepresentation, _ := json.Marshal(unpauseOptions)
 			request.Request.Body = io.NopCloser(bytes.NewReader(bytesRepresentation))
