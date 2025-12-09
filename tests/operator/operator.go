@@ -651,7 +651,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			if updateOperator && flags.OperatorManifestPath == "" {
-				Skip("Skip operator update test when operator manifest path isn't configured")
+				Fail("operator manifest path must be configured for update tests")
 			}
 
 			// This test should run fine on single-node setups as long as no VM is created pre-update
