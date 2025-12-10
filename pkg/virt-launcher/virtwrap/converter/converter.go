@@ -1772,6 +1772,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domain.Spec.OS.Type.Machine = machine.Type
 	}
 
+	setIOThreads(vmi, domain, vcpus)
+
 	if vmi.Spec.Domain.CPU != nil {
 		// Set VM CPU model and vendor
 		if vmi.Spec.Domain.CPU.Model != "" {
@@ -1985,8 +1987,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			Timeout: pointer.P(bootMenuTimeoutMS),
 		}
 	}
-
-	setIOThreads(vmi, domain, vcpus)
 
 	return nil
 }
