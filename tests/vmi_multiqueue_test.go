@@ -76,10 +76,9 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			By("Creating and starting the VMI")
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
 			By("Checking if we can login")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			By("Checking QueueCount has the expected value")
 			Expect(vmi.Status.Interfaces[0].QueueCount).To(Equal(expectedQueueCount))

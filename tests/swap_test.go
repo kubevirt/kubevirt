@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
 const (
@@ -110,8 +111,9 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			vmi.Spec.Domain.Memory = &virtv1.Memory{Guest: &vmiMemSizeMi}
 
 			By("Starting the VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 			By("Consume more memory than the node's memory")
 			err = fillMemWithStressFedoraVMI(vmi, memToUseInTheVmKib)
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -164,8 +166,9 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			vmiToFillTargetNodeMem.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
 
 			By("Starting the VirtualMachineInstance")
-			vmiToFillTargetNodeMem = libvmops.RunVMIAndExpectLaunch(vmiToFillTargetNodeMem, libvmops.StartupTimeoutSecondsHuge)
-			Expect(console.LoginToFedora(vmiToFillTargetNodeMem)).To(Succeed())
+			vmiToFillTargetNodeMem, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiToFillTargetNodeMem)).Create(context.Background(), vmiToFillTargetNodeMem, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmiToFillTargetNodeMem = libwait.WaitUntilVMIReady(vmiToFillTargetNodeMem, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 
 			By("reaching memory overcommitment in the target node")
 			err = fillMemWithStressFedoraVMI(vmiToFillTargetNodeMem, memToUseInTargetNodeVmKib)
@@ -181,8 +184,9 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			//add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
 
 			By("Starting the VirtualMachineInstance that we should migrate to the target node")
-			vmiToMigrate = libvmops.RunVMIAndExpectLaunch(vmiToMigrate, libvmops.StartupTimeoutSecondsHuge)
-			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+			vmiToMigrate, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiToMigrate)).Create(context.Background(), vmiToMigrate, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmiToMigrate = libwait.WaitUntilVMIReady(vmiToMigrate, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")

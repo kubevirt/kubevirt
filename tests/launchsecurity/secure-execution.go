@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -80,10 +80,11 @@ var _ = Describe("[sig-compute]IBM Secure Execution", decorators.SecureExecution
 			vmi.Spec.Domain.LaunchSecurity = &kubevirtv1.LaunchSecurity{}
 
 			By("Launching a non-SE VM to convert it to Secure Execution")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Logging in to non-SE VM")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(240))
 
 			By("Mounting the secure execution hostkey iso")
 			Expect(console.RunCommand(vmi, "mount /dev/vdb /mnt/", commandTimeout)).To(Succeed())

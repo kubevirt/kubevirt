@@ -200,9 +200,11 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFu
 	)
 
 	if reflect.ValueOf(console.LoginToFedora).Pointer() == reflect.ValueOf(loginTo).Pointer() {
+		const agentConnectTimeout = 12 * time.Minute
+		const agentConnectPolling = 2 * time.Second
 		gomega.Eventually(matcher.ThisVMI(vmi)).
-			WithTimeout(12 * time.Minute).
-			WithPolling(2 * time.Second).
+			WithTimeout(agentConnectTimeout).
+			WithPolling(agentConnectPolling).
 			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 	}
 

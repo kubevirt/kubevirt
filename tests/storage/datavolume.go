@@ -1073,10 +1073,11 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			By("Making sure the slow Fedora import is complete before creating the VMI")
 			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
 
-			vmi = createAndWaitForVMIReady(vmi, dataVolume)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Expecting the VirtualMachineInstance console")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			imageSizeAfterBoot := getImageSize(vmi, dataVolume)
 			By(fmt.Sprintf("image size after boot is %d", imageSizeAfterBoot))

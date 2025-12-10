@@ -20,14 +20,20 @@
 package tests_test
 
 import (
+	"context"
+
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -50,11 +56,11 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Context("with injected data", func() {
 				It("[test_id:1616]should have injected data under firmware directory", func() {
 					ignitionData := "ignition injected"
-					vmi := libvmops.RunVMIAndExpectLaunch(
-						libvmifact.NewFedora(libvmi.WithAnnotation(v1.IgnitionAnnotation, ignitionData)),
-						libvmops.StartupTimeoutSecondsHuge)
+					vmi := libvmifact.NewFedora(libvmi.WithAnnotation(v1.IgnitionAnnotation, ignitionData))
+					vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
-					Expect(console.LoginToFedora(vmi)).To(Succeed())
+					vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "cat /sys/firmware/qemu_fw_cfg/by_name/opt/com.coreos/config/raw\n"},
 						&expect.BExp{R: ignitionData},
