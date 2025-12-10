@@ -15,10 +15,9 @@ import (
 	"kubevirt.io/client-go/kubecli"
 )
 
-// Deprecated: SkipTestIfNoFeatureGate should be converted to check & fail
-func SkipTestIfNoFeatureGate(featureGate string) {
+func FailTestIfNoFeatureGate(featureGate string) {
 	if !HasFeature(featureGate) {
-		ginkgo.Skip(fmt.Sprintf("the %v feature gate is not enabled.", featureGate))
+		ginkgo.Fail(fmt.Sprintf("the %v feature gate is not enabled.", featureGate))
 	}
 }
 

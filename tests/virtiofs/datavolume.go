@@ -73,7 +73,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		vmi = nil
-		checks.SkipTestIfNoFeatureGate(featuregate.VirtIOFSStorageVolumeGate)
+		checks.FailTestIfNoFeatureGate(featuregate.VirtIOFSStorageVolumeGate)
 	})
 
 	Context("VirtIO-FS with multiple PVCs", func() {
