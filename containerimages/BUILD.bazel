@@ -24,6 +24,9 @@ oci_image(
     os = "linux",
     tars = [":alpine-image-tar"],
     visibility = ["//visibility:public"],
+    labels = {
+        "makethis": "unique",
+    },
 )
 
 pkg_tar(
