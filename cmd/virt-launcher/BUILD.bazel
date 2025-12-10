@@ -150,10 +150,17 @@ pkg_tar(
     package_dir = "/etc",
 )
 
+genrule(
+    name = "libvirt-hook-rename",
+    srcs = ["//cmd/virt-launcher/libvirt-hook-client"],
+    outs = ["qemu"],
+    cmd = "cp $< $@",
+)
+
 pkg_tar(
-    name = "qemu-hook-tar",
+    name = "libvirt-hook-tar",
     srcs = [
-        ":qemu",
+        ":libvirt-hook-rename",
     ],
     mode = "0755",
     package_dir = "/etc/libvirt/hooks",
@@ -207,7 +214,7 @@ oci_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
-            ":qemu-hook-tar",
+            ":libvirt-hook-tar",
             ":qemu-kvm-modules-dir-tar",
         ],
     }),
