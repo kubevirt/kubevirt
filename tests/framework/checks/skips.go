@@ -45,10 +45,3 @@ func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 }
-
-// Deprecated: SkipIfRunningOnKindInfra should be converted to check & fail
-func SkipIfRunningOnKindInfra(message string) {
-	if IsRunningOnKindInfra() {
-		ginkgo.Skip("Skip test on kind infra: " + message)
-	}
-}
