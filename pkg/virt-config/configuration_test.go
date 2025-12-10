@@ -769,4 +769,44 @@ var _ = Describe("test configuration", func() {
 		Entry("reference when InstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, v1.Reference),
 		Entry("expand InstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, v1.Expand),
 	)
+
+	Context("GetHypervisor", func() {
+		var KvmHypervisorConfig = v1.HypervisorConfiguration{
+			Name: v1.KvmHypervisorName,
+		}
+		var HyperVDirectHypervisorConfig = v1.HypervisorConfiguration{
+			Name: v1.HyperVDirectHypervisorName,
+		}
+
+		DescribeTable("should return correct hypervisor name based on feature gate and configuration",
+			func(featureGateEnabled bool, hypervisorConfig *v1.HypervisorConfiguration, expectedName string) {
+				var featureGates []string
+				if featureGateEnabled {
+					featureGates = []string{"ConfigurableHypervisor"}
+				}
+
+				// If no hypervisor config is provided, we test with empty HypervisorConfigurations slice
+				hypervisorConfigs := []v1.HypervisorConfiguration{}
+				if hypervisorConfig != nil {
+					hypervisorConfigs = append(hypervisorConfigs, *hypervisorConfig)
+				}
+
+				clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: featureGates,
+					},
+					Hypervisors: hypervisorConfigs,
+				})
+
+				Expect(clusterConfig.GetHypervisor().Name).To(Equal(expectedName))
+			},
+			Entry("should return kvm when feature gate is disabled and no config", false, nil, v1.KvmHypervisorName),
+			Entry("should return kvm when feature gate is disabled with kvm config", false, &KvmHypervisorConfig, v1.KvmHypervisorName),
+			Entry("should return kvm when feature gate is disabled with hyperv config", false, &HyperVDirectHypervisorConfig, v1.KvmHypervisorName),
+			Entry("should return kvm when feature gate is enabled and no config", true, nil, v1.KvmHypervisorName),
+			Entry("should return kvm when feature gate is enabled with empty config name", true, &v1.HypervisorConfiguration{Name: ""}, v1.KvmHypervisorName),
+			Entry("should return kvm when feature gate is enabled with kvm config", true, &KvmHypervisorConfig, v1.KvmHypervisorName),
+			Entry("should return hyperv-direct when feature gate is enabled with hyperv config", true, &HyperVDirectHypervisorConfig, v1.HyperVDirectHypervisorName),
+		)
+	})
 })
