@@ -22,6 +22,7 @@ package libwait
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/testsuite"
@@ -197,6 +198,14 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFu
 		[]v1.VirtualMachineInstancePhase{v1.Running},
 		opts...,
 	)
+
+	if reflect.ValueOf(console.LoginToFedora).Pointer() == reflect.ValueOf(loginTo).Pointer() {
+		gomega.Eventually(matcher.ThisVMI(vmi)).
+			WithTimeout(12 * time.Minute).
+			WithPolling(2 * time.Second).
+			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+	}
+
 	gomega.Expect(loginTo(vmi)).To(gomega.Succeed())
 
 	var err error
