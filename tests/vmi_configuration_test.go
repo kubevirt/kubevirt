@@ -512,9 +512,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 			By("Starting the VirtualMachineInstance")
-			fedoraWithUefi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(fedoraWithUefi)).Create(context.Background(), fedoraWithUefi, metav1.CreateOptions{})
+			fedoraWithUefi, err := libwait.CreateVMIAndWaitForLogin(fedoraWithUefi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 			Expect(err).ToNot(HaveOccurred())
-			fedoraWithUefi = libwait.WaitUntilVMIReady(fedoraWithUefi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 
 			By("Check if EFI and SecureBoot state")
 			Expect(console.SafeExpectBatch(fedoraWithUefi, []expect.Batcher{
@@ -2151,18 +2150,16 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:829]should start a vm with no cpu pinning after a vm with cpu pinning on same node", func() {
 				cpuvmi := dedicatedCPUVMI()
 				By("Starting a VirtualMachineInstance with dedicated cpus")
-				cpuvmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuvmi)).Create(context.Background(), cpuvmi, metav1.CreateOptions{})
+				cpuvmi, err := libwait.CreateVMIAndWaitForLogin(cpuvmi, console.LoginToFedora)
 				Expect(err).ToNot(HaveOccurred())
-				cpuvmi = libwait.WaitUntilVMIReady(cpuvmi, console.LoginToFedora)
 				node1 := cpuvmi.Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
 				Expect(node1).To(Equal(node))
 
 				By("Starting a VirtualMachineInstance without dedicated cpus")
 				vmi := noDedicatedCPUVMI()
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				node2 := vmi.Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node2)).To(BeTrue())
 				Expect(node2).To(Equal(node))
@@ -2171,18 +2168,16 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			It("[test_id:832]should start a vm with cpu pinning after a vm with no cpu pinning on same node", func() {
 				vmi := noDedicatedCPUVMI()
 				By("Starting a VirtualMachineInstance without dedicated cpus")
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
 				Expect(err).ToNot(HaveOccurred())
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				node2 := vmi.Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node2)).To(BeTrue())
 				Expect(node2).To(Equal(node))
 
 				By("Starting a VirtualMachineInstance with dedicated cpus")
 				cpuvmi := dedicatedCPUVMI()
-				cpuvmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuvmi)).Create(context.Background(), cpuvmi, metav1.CreateOptions{})
+				cpuvmi, err = libwait.CreateVMIAndWaitForLogin(cpuvmi, console.LoginToFedora)
 				Expect(err).ToNot(HaveOccurred())
-				cpuvmi = libwait.WaitUntilVMIReady(cpuvmi, console.LoginToFedora)
 				node1 := cpuvmi.Status.NodeName
 				Expect(isNodeHasCPUManagerLabel(node1)).To(BeTrue())
 				Expect(node1).To(Equal(node))
@@ -2199,11 +2194,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("Starting a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
 			Expect(err).ToNot(HaveOccurred())
-
-			By("Expecting console")
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			By("Check value in VM with dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
@@ -2230,11 +2222,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 			By("Starting a VirtualMachineInstance")
 			vmi := libvmifact.NewFedora()
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
 			Expect(err).ToNot(HaveOccurred())
-
-			By("Expecting console")
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			By("Check values in dmidecode")
 			// Check on the VM, if expected values are there with dmidecode
@@ -2319,9 +2308,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				kvconfig.DisableFeatureGate(featuregate.ExpandDisksGate)
 				assignDisksToSlots(startIndex, vmi)
 			}
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 			Expect(vmi.Spec.Domain.Devices.Disks).Should(HaveLen(numOfDevices))
 
 			err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
@@ -2341,11 +2329,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("Starting a VirtualMachineInstance")
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
 			Expect(err).ToNot(HaveOccurred())
-
-			By("Expecting console")
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			By("Check virt-what-cpuid-helper does not match KVM")
 			Expect(console.ExpectBatch(vmi, []expect.Batcher{
@@ -2367,11 +2352,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		It("should be lower than allocated size", func() {
 			By("Starting a VirtualMachineInstance")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
 			Expect(err).ToNot(HaveOccurred())
-
-			By("Expecting console")
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			By("Running ps in virt-launcher")
 			pods, err := virtClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{

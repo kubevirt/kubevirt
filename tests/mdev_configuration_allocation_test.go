@@ -262,9 +262,8 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			By("Making sure the device is present inside the VMI")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -312,9 +311,8 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			By("Verifying that an expected amount of devices has been created")
 			Eventually(checkAllMDEVCreated(newDesiredMdevTypeName, newExpectedInstancesNum), 3*time.Minute, 15*time.Second).Should(BeInPhase(k8sv1.PodSucceeded))

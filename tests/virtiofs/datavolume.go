@@ -110,11 +110,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 			)
 
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
 			By(checkingVMInstanceConsoleOut)
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			Expect(err).ToNot(HaveOccurred())
 
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvc1)
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -212,11 +210,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libvmi.WithFilesystemPVC(pvcName),
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 			)
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
 			By(checkingVMInstanceConsoleOut)
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			Expect(err).ToNot(HaveOccurred())
 
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvcName)
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -287,22 +283,18 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                                        touch %s
                                `, virtiofsMountPath, dataVolume.Name, virtiofsMountPath, virtiofsTestFile)
 
+			// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
+			// import and start
+			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+
+			By(checkingVMInstanceConsoleOut)
 			vmi = libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommands)),
 				libvmi.WithFilesystemDV(dataVolume.Name),
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 			)
-
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(500))
 			Expect(err).ToNot(HaveOccurred())
-
-			// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
-			// import and start
-			By("Waiting until the DataVolume is ready")
-			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
-
-			By(checkingVMInstanceConsoleOut)
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(500))
 
 			By("Checking that virtio-fs is mounted")
 			listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)

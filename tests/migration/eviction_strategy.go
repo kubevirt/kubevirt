@@ -148,11 +148,10 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 			It("[test_id:3244]should block the eviction api while a slow migration is in progress", func() {
 				By("Starting the VirtualMachineInstance")
 				vmi := fedoraVMIWithEvictionStrategy()
-				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+				Expect(err).ToNot(HaveOccurred())
 
 				runStressTest(vmi, stressDefaultVMSize)
 
@@ -282,11 +281,9 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 					vmi.Spec.Affinity = &k8sv1.Affinity{NodeAffinity: nodeAffinity}
 
 					By("Starting the VirtualMachineInstance")
-					vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
 					By("Checking that the VirtualMachineInstance console has expected output")
-					vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXLarge))
+					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXLarge))
+					Expect(err).ToNot(HaveOccurred())
 
 					// Put VMI under load
 					runStressTest(vmi, stressDefaultVMSize)

@@ -32,7 +32,6 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -317,11 +316,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES bool, withSNP bool, sevstr string) {
 				vmi := newSEVFedora(withES, withSNP)
-				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				By("Create and expect the VirtualMachineInstance console")
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXHuge))
 				Expect(err).ToNot(HaveOccurred())
-
-				By("Expecting the VirtualMachineInstance console")
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXHuge))
 
 				By("Verifying that SEV is enabled in the guest")
 				err = console.SafeExpectBatch(vmi, []expect.Batcher{

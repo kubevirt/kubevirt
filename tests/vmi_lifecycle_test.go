@@ -460,9 +460,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			DescribeTable("should be stopped and have Failed phase when a PanicDevice is provided", func(device v1.PanicDeviceModel) {
 				vmi := libvmifact.NewFedora(libvmi.WithPanicDevice(device))
-				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-				libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
@@ -1400,9 +1399,8 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 		It("soft reboot vmi with ACPI feature enabled should succeed", decorators.Conformance, func() {
 			vmi := libvmifact.NewFedora()
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(vmiLaunchTimeout))
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(vmiLaunchTimeout))
 
 			By("Disable qemu-guest-agent service in the VMI to force ACPI mode reboot")
 			err = console.RunCommand(vmi, "sudo systemctl disable --now qemu-guest-agent", 10*time.Second)
@@ -1594,11 +1592,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				vmi := libvmifact.NewFedora(option)
 
 				By("Creating the VirtualMachineInstance")
-				vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
-
 				By("Wait for the login")
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
+				Expect(err).ToNot(HaveOccurred(), "Should create VMI")
 
 				By("Deleting the VirtualMachineInstance")
 				Expect(kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed(), "Should delete VMI")

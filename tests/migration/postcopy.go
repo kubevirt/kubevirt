@@ -142,11 +142,9 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			}
 
 			By("Starting the VirtualMachineInstance")
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
 			By("Checking that the VirtualMachineInstance console has expected output")
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			Expect(err).ToNot(HaveOccurred())
 
 			runStressTest(vmi, "350M")
 
@@ -297,11 +295,9 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 		AlignPolicyAndVmi(vmi, migrationPolicy)
 		migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
 	}
-	vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-	Expect(err).ToNot(HaveOccurred())
-
 	By("Checking that the VirtualMachineInstance console has expected output")
-	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(180), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+	vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(180), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+	Expect(err).ToNot(HaveOccurred())
 
 	if mode == v1.MigrationPostCopy {
 		By("Running stress test to allow transition to post-copy")

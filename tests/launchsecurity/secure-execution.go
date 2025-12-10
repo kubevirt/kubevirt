@@ -80,11 +80,8 @@ var _ = Describe("[sig-compute]IBM Secure Execution", decorators.SecureExecution
 			vmi.Spec.Domain.LaunchSecurity = &kubevirtv1.LaunchSecurity{}
 
 			By("Launching a non-SE VM to convert it to Secure Execution")
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(240))
 			Expect(err).ToNot(HaveOccurred())
-
-			By("Logging in to non-SE VM")
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora, libwait.WithTimeout(240))
 
 			By("Mounting the secure execution hostkey iso")
 			Expect(console.RunCommand(vmi, "mount /dev/vdb /mnt/", commandTimeout)).To(Succeed())
