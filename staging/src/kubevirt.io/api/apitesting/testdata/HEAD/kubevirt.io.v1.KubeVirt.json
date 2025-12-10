@@ -374,6 +374,11 @@
       "instancetype": {
         "referencePolicy": "referencePolicyValue"
       },
+      "hypervisors": [
+        {
+          "name": "nameValue"
+        }
+      ],
       "changedBlockTrackingLabelSelectors": {
         "namespaceLabelSelector": {
           "matchLabels": {
