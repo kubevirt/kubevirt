@@ -477,3 +477,15 @@ func (c *ClusterConfig) ClusterProfilerEnabled() bool {
 	return c.GetConfig().DeveloperConfiguration.ClusterProfiler ||
 		c.isFeatureGateDefined(featuregate.ClusterProfiler)
 }
+
+// At the moment, we are restricting to a single hypervisor configuration.
+func (c *ClusterConfig) GetHypervisor() *v1.HypervisorConfiguration {
+	if c.ConfigurableHypervisorEnabled() {
+		return &c.GetConfig().HypervisorConfigurations[0]
+	}
+	return &v1.HypervisorConfiguration{
+		Name:             v1.KvmHypervisorName,
+		HypervisorDevice: v1.KvmHypervisorDevice,
+		VirtType:         v1.KvmVirtType,
+	}
+}
