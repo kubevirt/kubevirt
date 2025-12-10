@@ -3063,10 +3063,39 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
 
+	// HypervisorConfigurations holds information regarding the hypervisor configurations supported on this cluster.
+	HypervisorConfigurations []HypervisorConfiguration `json:"hypervisorConfiguration,omitempty"`
+
 	// ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.
 	// Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
+}
+
+const (
+	// KVM is the default and most common hypervisor used with KubeVirt.
+	KvmHypervisorName   string = "kvm"
+	KvmHypervisorDevice string = "kvm"
+	KvmVirtType         string = "kvm"
+
+	// HyperV with Direct Virtualization support.
+	HyperVDirectHypervisorName   string = "hyperv-direct"
+	HyperVDirectHypervisorDevice string = "mshv"
+	HyperVDirectVirtType         string = "hyperv"
+)
+
+// HypervisorConfiguration holds information regarding the hypervisor present on cluster nodes.
+type HypervisorConfiguration struct {
+	// Name is the name of the hypervisor.
+	// Supported values are: "kvm", "hyperv-layered".
+	Name string `json:"name,omitempty"`
+	// HypervisorDevice is the name of the hypervisor device driver.
+	// This device should be present under /dev on all cluster nodes.
+	// E.g., for KVM, the /dev/kvm device is present. Hence, the value should be "kvm".
+	HypervisorDevice string `json:"hypervisorDevice,omitempty"`
+	// VirtType is the libvirt domain type corresponding to the hypervisor.
+	// E.g., for KVM, the libvirt domain type is "kvm".
+	VirtType string `json:"virtType,omitempty"`
 }
 
 type ChangedBlockTrackingSelectors struct {

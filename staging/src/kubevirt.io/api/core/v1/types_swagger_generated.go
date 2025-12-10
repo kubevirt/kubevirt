@@ -902,7 +902,17 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"vmRolloutStrategy":                  "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,\ntolerations, and affinity, are propagated from a VM to its VMI.\n+nullable\n+kubebuilder:validation:Enum=Stage;LiveUpdate",
 		"commonInstancetypesDeployment":      "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources\n+nullable",
 		"instancetype":                       "Instancetype configuration\n+nullable",
+		"hypervisorConfiguration":            "HypervisorConfigurations holds information regarding the hypervisor configurations supported on this cluster.",
 		"changedBlockTrackingLabelSelectors": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.\nEnabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.\n+nullable",
+	}
+}
+
+func (HypervisorConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                 "HypervisorConfiguration holds information regarding the hypervisor present on cluster nodes.",
+		"name":             "Name is the name of the hypervisor.\nSupported values are: \"kvm\", \"hyperv-layered\".",
+		"hypervisorDevice": "HypervisorDevice is the name of the hypervisor device driver.\nThis device should be present under /dev on all cluster nodes.\nE.g., for KVM, the /dev/kvm device is present. Hence, the value should be \"kvm\".",
+		"virtType":         "VirtType is the libvirt domain type corresponding to the hypervisor.\nE.g., for KVM, the libvirt domain type is \"kvm\".",
 	}
 }
 
