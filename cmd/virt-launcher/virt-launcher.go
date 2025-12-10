@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	goflag "flag"
 	"fmt"
 	"os"
@@ -349,6 +350,7 @@ func main() {
 	allowEmulation := pflag.Bool("allow-emulation", false, "Allow use of software emulation as fallback")
 	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run virtqemud with the 'virt' user")
 	imageVolumeEnabled := pflag.Bool("image-volume", false, "Generated with ImageVolume instead of containerDisk") //remove this once ImageVolume is GAed
+	libvirtHooksServerAndClientEnabled := pflag.Bool("libvirt-hook-server-and-client", false, "Enable pre-migration hooks on the target virt-launcher pod")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	diskMemoryLimitBytes := pflag.Int64("disk-memory-limit", virtconfig.DefaultDiskVerificationMemoryLimitBytes, "Memory limit for disk verification")
 	ovmfPath := pflag.String("ovmf-path", "/usr/share/OVMF", "The directory that contains the EFI roms (like OVMF_CODE.fd)")
@@ -433,6 +435,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	if *libvirtHooksServerAndClientEnabled {
+		// TODO: replaceQemuHookWithCustomClient This code should be removed once the LibvirtHooksServerAndClient feature is GA.
+		// Instead of overriding the script at runtime, we can include the custom binary in the launcher image at build time.
+		if err := replaceQemuHookWithCustomClient(); err != nil {
+			panic(err)
+		}
+	}
 
 	// Start the virt-launcher command service.
 	// Clients can use this service to tell virt-launcher
@@ -513,4 +522,32 @@ func main() {
 	<-cmdServerDone
 
 	log.Log.Info("Exiting...")
+}
+
+const (
+	// libvirtQemuHookPath is the path where libvirt expects the qemu hook script
+	libvirtQemuHookPath = "/etc/libvirt/hooks/qemu"
+	// libvirtHookClientPath is the Go binary that replaces the shell script
+	libvirtHookClientPath = "/usr/bin/libvirt-hook-client"
+)
+
+// replaceQemuHookWithCustomClient replaces the default qemu hook shell script
+// with the Go binary that can communicate with the pre-migration hook server.
+func replaceQemuHookWithCustomClient() error {
+	// Check if the Go binary exists
+	if _, err := os.Stat(libvirtHookClientPath); err != nil {
+		return fmt.Errorf("libvirt hook client binary not found at %s: %w", libvirtHookClientPath, err)
+	}
+
+	// Remove the existing hook script
+	if err := os.Remove(libvirtQemuHookPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to remove existing qemu hook: %w", err)
+	}
+
+	// Create a symlink from the qemu hook path to the Go binary
+	if err := os.Symlink(libvirtHookClientPath, libvirtQemuHookPath); err != nil {
+		return fmt.Errorf("failed to create symlink for qemu hook: %w", err)
+	}
+
+	return nil
 }
