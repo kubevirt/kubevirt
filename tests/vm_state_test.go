@@ -56,8 +56,13 @@ var _ = Describe("[sig-compute]VM state", func() {
 			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
+			By("Ensuring the firmware is done so we don't send any keystroke to it")
+			// Wait for cloud init to finish and start the agent inside the vmi.
+			Eventually(matcher.ThisVMI(vmi)).WithTimeout(4 * time.Minute).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
 			By("Logging in as root")
-			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+			err = console.LoginToFedora(vmi)
+			Expect(err).ToNot(HaveOccurred())
 		}
 
 		migrateVMI := func(vmi *v1.VirtualMachineInstance) {
