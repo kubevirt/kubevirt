@@ -45,6 +45,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
         "//vendor/sigs.k8s.io/randfill:go_default_library",
     ],
 )
