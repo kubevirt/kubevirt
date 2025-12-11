@@ -43,7 +43,7 @@ var _ = Describe(SIG("downwardMetrics", func() {
 
 	DescribeTable("should start a vmi and get the metrics", func(via libvmi.Option, metricsGetter libinfra.MetricsGetter) {
 		vmi := libvmifact.NewFedora(via)
-		vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(vmiStartTimeout))
+		vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(vmiStartTimeout))
 		Expect(err).ToNot(HaveOccurred())
 
 		metrics, err := metricsGetter(vmi)
@@ -65,7 +65,7 @@ var _ = Describe(SIG("downwardMetrics", func() {
 
 	It("metric ResourceProcessorLimit should be present", func() {
 		vmi := libvmifact.NewFedora(libvmi.WithCPUCount(1, 1, 1), libvmi.WithDownwardMetricsVolume("vhostmd"))
-		vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(vmiStartTimeout))
+		vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(vmiStartTimeout))
 		Expect(err).ToNot(HaveOccurred())
 
 		metrics, err := libinfra.GetDownwardMetricsDisk(vmi)

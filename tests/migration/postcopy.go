@@ -143,7 +143,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 
 			By("Starting the VirtualMachineInstance")
 			By("Checking that the VirtualMachineInstance console has expected output")
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 			Expect(err).ToNot(HaveOccurred())
 
 			runStressTest(vmi, "350M")
@@ -296,7 +296,7 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 		migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
 	}
 	By("Checking that the VirtualMachineInstance console has expected output")
-	vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(180), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+	vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(180), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
 	Expect(err).ToNot(HaveOccurred())
 
 	if mode == v1.MigrationPostCopy {

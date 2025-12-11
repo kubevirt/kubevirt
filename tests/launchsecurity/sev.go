@@ -317,7 +317,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			func(withES bool, withSNP bool, sevstr string) {
 				vmi := newSEVFedora(withES, withSNP)
 				By("Create and expect the VirtualMachineInstance console")
-				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXHuge))
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXHuge))
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying that SEV is enabled in the guest")

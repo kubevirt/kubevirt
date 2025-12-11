@@ -1074,7 +1074,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
 
 			By("Expecting the VirtualMachineInstance console")
-			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent)
 			Expect(err).ToNot(HaveOccurred())
 
 			imageSizeAfterBoot := getImageSize(vmi, dataVolume)

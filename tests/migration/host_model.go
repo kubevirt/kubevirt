@@ -268,7 +268,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				NodeAffinity: nodeAffinityRule,
 			}
 			By("Starting the VirtualMachineInstance")
-			vmiToMigrate, err = libwait.CreateVMIAndWaitForLogin(vmiToMigrate, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			vmiToMigrate, err = libwait.CreateVMIAndWaitForLogin(vmiToMigrate, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
 
@@ -332,7 +332,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				NodeAffinity: nodeAffinityRule,
 			}
 			By("Starting the VirtualMachineInstance")
-			vmiToMigrate, err = libwait.CreateVMIAndWaitForLogin(vmiToMigrate, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			vmiToMigrate, err = libwait.CreateVMIAndWaitForLogin(vmiToMigrate, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
 

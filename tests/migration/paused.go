@@ -121,7 +121,7 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 						}
 
 						By("Starting the VirtualMachineInstance")
-						vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+						vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 						Expect(err).ToNot(HaveOccurred())
 
 						runStressTest(vmi, "350M")

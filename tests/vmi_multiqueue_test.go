@@ -70,7 +70,7 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = interfaceModel
 
 			By("Creating and starting the VMI")
-			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking QueueCount has the expected value")

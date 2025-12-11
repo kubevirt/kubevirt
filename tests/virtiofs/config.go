@@ -78,7 +78,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				libvmi.WithConfigMapFs(configMapName, configMapName),
 			)
 			By("Logging into the VMI")
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking if ConfigMap has been attached to the pod")
@@ -135,7 +135,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				libvmi.WithSecretFs(secretName, secretName),
 			)
 			By("Logging into the VMI")
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking if Secret has been attached to the pod")
@@ -177,7 +177,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				libvmi.WithServiceAccountFs("default", serviceAccountVolumeName),
 			)
 			By("Logging into the VMI")
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking if ServiceAccount has been attached to the pod")
@@ -235,7 +235,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 				libvmi.WithDownwardAPIFs(downwardAPIName),
 			)
 			By("Logging into the VMI")
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking if DownwardAPI has been attached to the pod")

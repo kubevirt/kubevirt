@@ -46,7 +46,7 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
 				libnet.WithMasqueradeNetworking(),
 				libvmi.WithTPM(false),
 			)
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsSmall))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsSmall))
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring a TPM device is present")

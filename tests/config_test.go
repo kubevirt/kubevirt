@@ -468,7 +468,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					}
 				}
 
-				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsMedium))
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsMedium))
 				Expect(err).ToNot(HaveOccurred())
 
 				CheckIsoVolumeSizes(vmi)

@@ -112,7 +112,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			)
 
 			By(checkingVMInstanceConsoleOut)
-			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
 			Expect(err).ToNot(HaveOccurred())
 
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvc1)
@@ -212,7 +212,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 			)
 			By(checkingVMInstanceConsoleOut)
-			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
 			Expect(err).ToNot(HaveOccurred())
 
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvcName)

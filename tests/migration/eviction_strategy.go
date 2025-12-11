@@ -150,7 +150,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 				vmi := fedoraVMIWithEvictionStrategy()
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 				Expect(err).ToNot(HaveOccurred())
 
 				runStressTest(vmi, stressDefaultVMSize)
@@ -282,7 +282,7 @@ var _ = Describe(SIG("Live Migration", decorators.RequiresTwoSchedulableNodes, f
 
 					By("Starting the VirtualMachineInstance")
 					By("Checking that the VirtualMachineInstance console has expected output")
-					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXLarge))
+					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXLarge))
 					Expect(err).ToNot(HaveOccurred())
 
 					// Put VMI under load

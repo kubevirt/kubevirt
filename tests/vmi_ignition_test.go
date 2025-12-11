@@ -52,7 +52,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				It("[test_id:1616]should have injected data under firmware directory", func() {
 					ignitionData := "ignition injected"
 					vmi := libvmifact.NewFedora(libvmi.WithAnnotation(v1.IgnitionAnnotation, ignitionData))
-					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 					Expect(err).ToNot(HaveOccurred())
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "cat /sys/firmware/qemu_fw_cfg/by_name/opt/com.coreos/config/raw\n"},

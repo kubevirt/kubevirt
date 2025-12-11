@@ -240,7 +240,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 				libvmi.WithNodeAffinityFor(node),
 			)
 			By("Requesting SCSI persistent reservation")
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithFailOnWarnings(false), libwait.WithTimeout(180))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithFailOnWarnings(false), libwait.WithTimeout(180))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(checkResultCommand(vmi, "sg_persist -i -k /dev/sda",
 				"there are NO registered reservation keys")).To(BeTrue())
@@ -292,7 +292,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 			)
 
 			By("Requesting SCSI persistent reservation from the first VM")
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithFailOnWarnings(false), libwait.WithTimeout(180))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithFailOnWarnings(false), libwait.WithTimeout(180))
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(checkResultCommand(vmi, "sg_persist -i -k /dev/sda",
@@ -316,7 +316,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
 				libvmi.WithNodeAffinityFor(node),
 			)
-			vmi2, err = libwait.CreateVMIAndWaitForLogin(vmi2, console.LoginToFedora, libwait.WithFailOnWarnings(false), libwait.WithTimeout(180))
+			vmi2, err = libwait.CreateVMIAndWaitForLogin(vmi2, console.LoginToFedoraWaitAgent, libwait.WithFailOnWarnings(false), libwait.WithTimeout(180))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(checkResultCommand(vmi2, "sg_persist -i -k /dev/sda",
 				"1 registered reservation key follows:\r\n    0x12345678\r\n")).To(BeTrue())

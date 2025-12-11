@@ -80,7 +80,7 @@ var _ = Describe("[sig-compute]IBM Secure Execution", decorators.SecureExecution
 			vmi.Spec.Domain.LaunchSecurity = &kubevirtv1.LaunchSecurity{}
 
 			By("Launching a non-SE VM to convert it to Secure Execution")
-			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(240))
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(240))
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Mounting the secure execution hostkey iso")

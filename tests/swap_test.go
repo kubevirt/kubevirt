@@ -110,7 +110,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			vmi.Spec.Domain.Memory = &virtv1.Memory{Guest: &vmiMemSizeMi}
 
 			By("Starting the VirtualMachineInstance")
-			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 			Expect(err).ToNot(HaveOccurred())
 			By("Consume more memory than the node's memory")
 			err = fillMemWithStressFedoraVMI(vmi, memToUseInTheVmKib)
@@ -164,7 +164,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			vmiToFillTargetNodeMem.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
 
 			By("Starting the VirtualMachineInstance")
-			vmiToFillTargetNodeMem, err = libwait.CreateVMIAndWaitForLogin(vmiToFillTargetNodeMem, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			vmiToFillTargetNodeMem, err = libwait.CreateVMIAndWaitForLogin(vmiToFillTargetNodeMem, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 			Expect(err).ToNot(HaveOccurred())
 
 			By("reaching memory overcommitment in the target node")
@@ -181,7 +181,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			//add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
 
 			By("Starting the VirtualMachineInstance that we should migrate to the target node")
-			vmiToMigrate, err = libwait.CreateVMIAndWaitForLogin(vmiToMigrate, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			vmiToMigrate, err = libwait.CreateVMIAndWaitForLogin(vmiToMigrate, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 			Expect(err).ToNot(HaveOccurred())
 
 			// execute a migration, wait for finalized state

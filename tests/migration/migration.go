@@ -416,7 +416,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					via,
 				)
-				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXLarge))
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXLarge))
 				Expect(err).ToNot(HaveOccurred())
 
 				By("starting the migration")
@@ -769,7 +769,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 				By("Starting the VirtualMachineInstance")
-				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 				Expect(err).ToNot(HaveOccurred())
 
 				runStressTest(vmi, stressDefaultVMSize)
@@ -789,7 +789,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				By("Starting the VirtualMachineInstance")
 				By("Checking that the VirtualMachineInstance console has expected output")
-				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Set wrong time on the guest")
@@ -904,7 +904,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				By("Starting the VirtualMachineInstance")
 				By("Checking that the VirtualMachineInstance console has expected output")
-				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Stressing the VMI")
@@ -1300,7 +1300,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 					By("Starting the VirtualMachineInstance")
 					// Run
-					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 					Expect(err).ToNot(HaveOccurred())
 
 					runStressTest(vmi, stressDefaultVMSize)
@@ -1372,7 +1372,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 					By("Starting the VirtualMachineInstance")
 					// Run
-					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 					Expect(err).ToNot(HaveOccurred())
 
 					// execute a migration, wait for finalized state
@@ -1477,7 +1477,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 					By("Starting the VirtualMachineInstance")
 					By("Checking that the VirtualMachineInstance console has expected output")
-					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 					Expect(err).ToNot(HaveOccurred())
 
 					runStressTest(vmi, stressLargeVMSize)
@@ -1498,7 +1498,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 				By("Starting the VirtualMachineInstance")
 				By("Checking that the VirtualMachineInstance console has expected output")
-				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 				Expect(err).ToNot(HaveOccurred())
 
 				domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
@@ -2237,7 +2237,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			By("Starting the VirtualMachineInstance")
 			By("Checking that the VirtualMachineInstance console has expected output")
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
 			Expect(err).ToNot(HaveOccurred())
 
 			// execute a migration, wait for finalized state
@@ -2819,7 +2819,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			)
 
 			By("Starting VMI")
-			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXLarge))
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXLarge))
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Starting the migration")

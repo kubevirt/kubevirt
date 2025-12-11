@@ -262,7 +262,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Making sure the device is present inside the VMI")
@@ -311,7 +311,7 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 				},
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
-			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora)
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying that an expected amount of devices has been created")

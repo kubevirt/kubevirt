@@ -68,7 +68,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = &useVirtioTransitional
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsSmall))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsSmall))
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
@@ -167,7 +167,7 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		)
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
 		By("Logging in as root")
-		vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(libvmops.StartupTimeoutSecondsSmall))
+		vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsSmall))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("copying the guest agent binary")
