@@ -112,6 +112,44 @@ func memBalloonWithModelAndPeriod(model string, period int) string {
 
 }
 
+var _ = Describe("domain emulation selection", func() {
+	It("fails when emulation is disallowed and kvm is absent", func() {
+		domainType, err := decideDomainType(false, func() error { return os.ErrNotExist })
+		Expect(domainType).To(BeEmpty())
+		Expect(err).To(MatchError(ContainSubstring("hardware emulation device")))
+	})
+
+	It("propagates unexpected probe errors and emulation is disallowed", func() {
+		domainType, err := decideDomainType(false, func() error { return fmt.Errorf("some err") })
+		Expect(domainType).To(BeEmpty())
+		Expect(errors.Is(err, errKVM)).To(BeTrue())
+	})
+
+	It("propagates unexpected probe errors", func() {
+		domainType, err := decideDomainType(true, func() error { return fmt.Errorf("some err") })
+		Expect(domainType).To(BeEmpty())
+		Expect(errors.Is(err, errKVM)).To(BeTrue())
+	})
+
+	It("uses kvm when available and emulation is disallowed", func() {
+		domainType, err := decideDomainType(false, func() error { return nil })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainType).To(Equal("kvm"))
+	})
+
+	It("falls back to qemu when allowed and kvm is absent", func() {
+		domainType, err := decideDomainType(true, func() error { return os.ErrNotExist })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainType).To(Equal("qemu"))
+	})
+
+	It("keeps using kvm when allowed and kvm is present", func() {
+		domainType, err := decideDomainType(true, func() error { return nil })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainType).To(Equal("kvm"))
+	})
+})
+
 var _ = Describe("Converter", func() {
 
 	TestSmbios := &cmdv1.SMBios{}
@@ -644,6 +682,54 @@ var _ = Describe("Converter", func() {
 				SerialConsoleLog:                true,
 				DomainAttachmentByInterfaceName: map[string]string{"default": string(v1.Tap)},
 			}
+		})
+
+		Context("domain emulation selection in converter", func() {
+			var originalProbe func() error
+
+			BeforeEach(func() {
+				originalProbe = probeKVM
+			})
+
+			AfterEach(func() {
+				probeKVM = originalProbe
+			})
+
+			It("fails when kvm is missing and emulation is disallowed", func() {
+				probeKVM = func() error { return os.ErrNotExist }
+				c.AllowEmulation = false
+
+				domain := &api.Domain{}
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				Expect(err).To(MatchError(ContainSubstring("hardware emulation device")))
+			})
+
+			It("falls back to qemu when emulation is allowed and kvm is missing", func() {
+				probeKVM = func() error { return os.ErrNotExist }
+				c.AllowEmulation = true
+
+				domain := &api.Domain{}
+				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+				Expect(domain.Spec.Type).To(Equal("qemu"))
+			})
+
+			It("propagates unexpected probe errors", func() {
+				probeKVM = func() error { return fmt.Errorf("boom") }
+				c.AllowEmulation = true
+
+				domain := &api.Domain{}
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				Expect(errors.Is(err, errKVM)).To(BeTrue())
+			})
+
+			It("uses kvm when available", func() {
+				probeKVM = func() error { return nil }
+				c.AllowEmulation = true
+
+				domain := &api.Domain{}
+				Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+				Expect(domain.Spec.Type).To(Equal("kvm"))
+			})
 		})
 
 		DescribeTable("should use virtio-transitional models if requested", func(arch string) {
