@@ -19,6 +19,7 @@ package arch
 import (
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -71,4 +72,16 @@ func (converterARM64) HasVMPort() bool {
 
 func (converterARM64) SupportPCIHole64Disabling() bool {
 	return false
+}
+
+func (converterARM64) LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
+	if util.IsCCAVMI(vmi) {
+		return &api.LaunchSecurity{
+			Type:                 "cca",
+			MeasurementAlgo:      vmi.Spec.Domain.LaunchSecurity.CCA.MeasurementAlgo,
+			MeasurementLog:       vmi.Spec.Domain.LaunchSecurity.CCA.MeasurementLog,
+			PersonalizationValue: vmi.Spec.Domain.LaunchSecurity.CCA.PersonalizationValue,
+		}
+	}
+	return nil
 }

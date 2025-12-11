@@ -36,6 +36,8 @@ const (
 	EFICodeSNP           = "OVMF.amdsev.fd"
 	EFICodeTDX           = "OVMF.inteltdx.fd"
 	EFICodeTDXSecureBoot = "OVMF.inteltdx.secboot.fd"
+	EFICodeAARCH64CCA    = "AAVMF_CODE.cca.fd"
+	EFIVarsAARCH64CCA    = "AAVMF_VARS.cca.fd"
 )
 
 type EFIEnvironment struct {
@@ -48,6 +50,8 @@ type EFIEnvironment struct {
 	codeSNP           string
 	codeTDX           string
 	codeTDXSecureBoot string
+	codeCCA           string
+	varsCCA           string
 }
 
 type SecureVMType int
@@ -57,6 +61,7 @@ const (
 	SEV                      // AMD SEV/SEV-ES VM
 	SNP                      // AMD SNP VM
 	TDX                      // Intel TDX VM
+	CCA                      // ARM CCA VM
 )
 
 func (e *EFIEnvironment) Bootable(secureBoot bool, vmType SecureVMType) bool {
@@ -81,6 +86,8 @@ func (e *EFIEnvironment) Bootable(secureBoot bool, vmType SecureVMType) bool {
 		} else {
 			return e.codeTDX != ""
 		}
+	case CCA:
+		return e.varsCCA != "" && e.codeCCA != ""
 	default:
 		if secureBoot {
 			return e.varsSecureBoot != "" && e.codeSecureBoot != ""
@@ -112,6 +119,8 @@ func (e *EFIEnvironment) EFICode(secureBoot bool, vmType SecureVMType) string {
 		} else {
 			return e.codeTDX
 		}
+	case CCA:
+		return e.codeCCA
 	default:
 		if secureBoot {
 			return e.codeSecureBoot
@@ -133,6 +142,8 @@ func (e *EFIEnvironment) EFIVars(secureBoot bool, vmType SecureVMType) string {
 	case SNP, TDX:
 		// Both SNP and TDX use stateless firmware
 		return ""
+	case CCA:
+		return e.varsCCA
 	default:
 		if secureBoot {
 			return e.varsSecureBoot
@@ -146,10 +157,14 @@ func DetectEFIEnvironment(arch, ovmfPath string) *EFIEnvironment {
 	if arch == "arm64" {
 		codeArm64 := getEFIBinaryIfExists(ovmfPath, EFICodeAARCH64)
 		varsArm64 := getEFIBinaryIfExists(ovmfPath, EFIVarsAARCH64)
+		codeArm64WithCCA := getEFIBinaryIfExists(ovmfPath, EFICodeAARCH64CCA)
+		varsArm64WithCCA := getEFIBinaryIfExists(ovmfPath, EFIVarsAARCH64CCA)
 
 		return &EFIEnvironment{
-			code: codeArm64,
-			vars: varsArm64,
+			code:    codeArm64,
+			vars:    varsArm64,
+			codeCCA: codeArm64WithCCA,
+			varsCCA: varsArm64WithCCA,
 		}
 	}
 
