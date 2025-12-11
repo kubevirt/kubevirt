@@ -2345,6 +2345,12 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			case api.ReasonMigrated:
 				// if the domain migrated, we no longer know the phase.
 				return vmi.Status.Phase, nil
+			case api.ReasonUnknown:
+				// I think we can be more reselient - but I'm not sure if this approach is acceptiable.
+				if vmi.Status.Phase == v1.Scheduled && time.Since(vmi.CreationTimestamp.Time) < 10*time.Second {
+					return v1.Scheduled, nil
+				}
+				return v1.Failed, nil
 			}
 		case api.Paused:
 			switch domain.Status.Reason {
