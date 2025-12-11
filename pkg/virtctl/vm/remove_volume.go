@@ -45,16 +45,17 @@ func NewRemoveVolumeCommand() *cobra.Command {
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	cmd.Flags().StringVar(&volumeName, volumeNameArg, "", "name used in volumes section of spec")
 	cmd.MarkFlagRequired(volumeNameArg)
-	cmd.Flags().BoolVar(&persist, persistArg, false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+	cmd.Flags().BoolVar(&persist, persistArg, false, "[deprecated] this flag has no effect and will be removed in a future release")
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	return cmd
 }
 
 func usageRemoveVolume() string {
-	return `  #Remove volume that was dynamically attached to a running VM.
+	return `  #Remove volume dynamically attached to a running VM and persisting it in the VM spec.
   {{ProgramName}} removevolume fedora-dv --volume-name=example-dv
-
-  #Remove volume dynamically attached to a running VM and persisting it in the VM spec.
+  
+  #[deprecated] Remove volume dynamically attached to a running VM and persisting it in the VM spec.
+  --persist flag has no effect and will be removed in future release. New default behavior will be to persist in VM spec even if flag is not provided.
   {{ProgramName}} removevolume fedora-dv --volume-name=example-dv --persist
   `
 }
@@ -71,17 +72,10 @@ func (o *Command) removeVolumeRun(cmd *cobra.Command, args []string) error {
 	dryRunOption := setDryRunOption(dryRun)
 	retry := 0
 	for retry < maxRetries {
-		if !persist {
-			err = virtClient.VirtualMachineInstance(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
-				Name:   volumeName,
-				DryRun: dryRunOption,
-			})
-		} else {
-			err = virtClient.VirtualMachine(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
-				Name:   volumeName,
-				DryRun: dryRunOption,
-			})
-		}
+		err = virtClient.VirtualMachine(namespace).RemoveVolume(context.Background(), vmiName, &v1.RemoveVolumeOptions{
+			Name:   volumeName,
+			DryRun: dryRunOption,
+		})
 
 		if err != nil && err.Error() != concurrentError {
 			return fmt.Errorf("error removing volume, %v", err)
