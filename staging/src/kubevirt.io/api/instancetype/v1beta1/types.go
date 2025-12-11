@@ -135,6 +135,7 @@ type CPUInstancetype struct {
 	// Required number of vCPUs to expose to the guest.
 	//
 	// The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.
+	// +kubebuilder:validation:Minimum=1
 	Guest uint32 `json:"guest"`
 
 	// Model specifies the CPU model inside the VMI.
@@ -164,6 +165,7 @@ type CPUInstancetype struct {
 	Realtime *v1.Realtime `json:"realtime,omitempty"`
 
 	// MaxSockets specifies the maximum amount of sockets that can be hotplugged
+	// +kubebuilder:validation:Minimum=1
 	// +optional
 	MaxSockets *uint32 `json:"maxSockets,omitempty"`
 }
@@ -362,6 +364,7 @@ type CPUPreferences struct {
 	// PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.
 	//
 	//+optional
+	// +kubebuilder:validation:Enum=preferCores;preferSockets;preferThreads;preferSpread;preferAny;cores;sockets;threads;spread;any
 	PreferredCPUTopology *PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
 
 	//
@@ -392,6 +395,7 @@ type SpreadOptions struct {
 	// Default: SocketsCores
 	//
 	//+optional
+	// +kubebuilder:validation:Enum=SocketsCoresThreads;SocketsCores;CoresThreads
 	Across *SpreadAcross `json:"across,omitempty"`
 
 	// Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:
@@ -403,6 +407,7 @@ type SpreadOptions struct {
 	// Default: 2
 	//
 	//+optional
+	// +kubebuilder:validation:Minimum=1
 	Ratio *uint32 `json:"ratio,omitempty"`
 }
 
