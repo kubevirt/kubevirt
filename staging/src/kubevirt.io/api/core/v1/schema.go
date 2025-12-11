@@ -159,6 +159,15 @@ type CloudInitNoCloudSource struct {
 	// NetworkData contains NoCloud inline cloud-init networkdata.
 	// + optional
 	NetworkData string `json:"networkData,omitempty"`
+	// VendorDataSecretRef references a k8s secret that contains NoCloud vendordata.
+	// + optional
+	VendorDataSecretRef *v1.LocalObjectReference `json:"vendorDataSecretRef,omitempty"`
+	// VendorDataBase64 contains NoCloud cloud-init vendordata as a base64 encoded string.
+	// + optional
+	VendorDataBase64 string `json:"vendorDataBase64,omitempty"`
+	// VendorData contains NoCloud inline cloud-init vendordata.
+	// + optional
+	VendorData string `json:"vendorData,omitempty"`
 }
 
 // Represents a cloud-init config drive user data source.
