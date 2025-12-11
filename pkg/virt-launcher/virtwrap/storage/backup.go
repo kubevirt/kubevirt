@@ -158,6 +158,10 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 		return err
 	}
 
+	m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
+		backupMetadata.CheckpointName = domainCheckpoint.Name
+	})
+
 	frozenFS := false
 	if !backupOptions.SkipQuiesce {
 		logger.Info("Freezing VMI to capture backup state")
@@ -189,6 +193,10 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath string) (*api.DomainBackup, *api.DomainCheckpoint) {
 	domainBackup := &api.DomainBackup{
 		Mode: string(backupOptions.Mode),
+	}
+	if isIncrementalBackup(backupOptions) {
+		log.Log.Infof("Generating incremental backup %s from checkpoint: %s", backupOptions.BackupName, *backupOptions.Incremental)
+		domainBackup.Incremental = backupOptions.Incremental
 	}
 	backupDisks := &api.BackupDisks{}
 	checkpointDisks := &api.CheckpointDisks{}
@@ -244,6 +252,10 @@ func targetQCOW2File(pushPath, backupName, volumeName string) string {
 
 func backupTimeFormatted(time *metav1.Time) string {
 	return time.UTC().Format(backupTimeXMLFormat)
+}
+
+func isIncrementalBackup(backupOptions *backupv1.BackupOptions) bool {
+	return backupOptions.Incremental != nil && *backupOptions.Incremental != ""
 }
 
 func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache) {

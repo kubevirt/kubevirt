@@ -182,6 +182,34 @@ var _ = Describe("Backup", func() {
 			Expect(newMetadata.Name).To(Equal("test-backup"))
 			Expect(newMetadata.StartTimestamp).To(Equal(backupOptions.BackupStartTime))
 		})
+
+		It("incremental backup should store checkpoint name in metadata", func() {
+			backupOptions.Incremental = pointer.P("previous-checkpoint")
+
+			domainXML := `<domain type='kvm'>
+				<devices>
+					<disk type='file' device='disk'>
+						<driver name='qemu' type='qcow2'/>
+						<source file='/path/to/disk.qcow2'/>
+						<target dev='vda' bus='virtio'/>
+						<alias name='ua-disk0'/>
+					</disk>
+				</devices>
+			</domain>`
+
+			mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+			mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			mockDomain.EXPECT().Free().Return(nil)
+
+			err := manager.BackupVirtualMachine(vmi, backupOptions)
+			Expect(err).ToNot(HaveOccurred())
+
+			backupMetadata, exists := metadataCache.Backup.Load()
+			Expect(exists).To(BeTrue())
+			Expect(backupMetadata.CheckpointName).ToNot(BeEmpty())
+			Expect(backupMetadata.CheckpointName).To(ContainSubstring("test-backup"))
+		})
 	})
 
 	Describe("backup with freeze/thaw", func() {
@@ -218,6 +246,8 @@ var _ = Describe("Backup", func() {
 				Expect(exists).To(BeTrue())
 				Expect(backupMetadata.Name).To(Equal("test-backup"))
 				Expect(backupMetadata.StartTimestamp).To(Equal(backupOptions.BackupStartTime))
+				Expect(backupMetadata.CheckpointName).ToNot(BeEmpty())
+				Expect(backupMetadata.CheckpointName).To(ContainSubstring("test-backup"))
 			})
 		})
 
@@ -316,6 +346,7 @@ var _ = Describe("Backup", func() {
 
 			Expect(domainBackup).ToNot(BeNil())
 			Expect(domainBackup.Mode).To(Equal(string(backupv1.PushMode)))
+			Expect(domainBackup.Incremental).To(BeNil())
 			Expect(domainBackup.BackupDisks).ToNot(BeNil())
 			Expect(domainBackup.BackupDisks.Disks).To(HaveLen(1))
 			Expect(domainBackup.BackupDisks.Disks[0].Name).To(Equal("vda"))
@@ -347,6 +378,39 @@ var _ = Describe("Backup", func() {
 			Expect(domainBackup.BackupDisks.Disks).To(HaveLen(1))
 			Expect(domainBackup.BackupDisks.Disks[0].Backup).To(Equal("no"))
 			Expect(domainCheckpoint.CheckpointDisks.Disks[0].Checkpoint).To(Equal("no"))
+		})
+		It("should handle incremental backups", func() {
+			incremental := "previous-checkpoint"
+			backupOptions.Incremental = &incremental
+
+			disks := []api.Disk{
+				{
+					Target: api.DiskTarget{Device: "vda"},
+					Source: api.DiskSource{DataStore: &api.DataStore{}},
+					Alias:  api.NewUserDefinedAlias("disk0"),
+				},
+			}
+
+			domainBackup, _ := generateDomainBackup(disks, backupOptions, tempDir)
+
+			Expect(domainBackup.Incremental).ToNot(BeNil())
+			Expect(*domainBackup.Incremental).To(Equal("previous-checkpoint"))
+		})
+
+		It("should not set incremental field when Incremental is empty string", func() {
+			backupOptions.Incremental = pointer.P("")
+
+			disks := []api.Disk{
+				{
+					Target: api.DiskTarget{Device: "vda"},
+					Source: api.DiskSource{DataStore: &api.DataStore{}},
+					Alias:  api.NewUserDefinedAlias("disk0"),
+				},
+			}
+
+			domainBackup, _ := generateDomainBackup(disks, backupOptions, tempDir)
+
+			Expect(domainBackup.Incremental).To(BeNil())
 		})
 	})
 

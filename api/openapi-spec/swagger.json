@@ -17870,6 +17870,10 @@
       "description": "BackupName is the name of the executed backup",
       "type": "string"
      },
+     "checkpointName": {
+      "description": "CheckpointName is the name of the checkpoint created for the backup",
+      "type": "string"
+     },
      "completed": {
       "description": "Completed indicates the backup completed",
       "type": "boolean"
@@ -19737,6 +19741,9 @@
      "cmd": {
       "type": "string"
      },
+     "incremental": {
+      "type": "string"
+     },
      "mode": {
       "type": "string"
      },
@@ -19953,6 +19960,9 @@
    "v1alpha1.VirtualMachineBackupSpec": {
     "description": "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource",
     "type": "object",
+    "required": [
+     "source"
+    ],
     "properties": {
      "forceFullBackup": {
       "description": "ForceFullBackup indicates that a full backup is desired",
@@ -19971,7 +19981,8 @@
       "type": "boolean"
      },
      "source": {
-      "description": "Source specifies the VM to backup If not provided, a reference to a VirtualMachineBackupTracker must be specified instead",
+      "description": "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
+      "default": {},
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
      }
     }
@@ -19981,6 +19992,10 @@
     "type": "object",
     "nullable": true,
     "properties": {
+     "checkpointName": {
+      "description": "CheckpointName the name of the checkpoint created for the current backup",
+      "type": "string"
+     },
      "conditions": {
       "type": "array",
       "items": {
