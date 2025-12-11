@@ -206,7 +206,9 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFu
 	return vmi
 }
 
-func CreateVMIAndWaitForLogin(vmi *v1.VirtualMachineInstance, loginFunc console.LoginToFunction, opts ...Option) (*v1.VirtualMachineInstance, error) {
+func CreateVMIAndWaitForLogin(
+	vmi *v1.VirtualMachineInstance, loginFunc console.LoginToFunction, opts ...Option,
+) (*v1.VirtualMachineInstance, error) {
 	createdVMI, err := kubevirt.Client().VirtualMachineInstance(
 		testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	if err != nil {

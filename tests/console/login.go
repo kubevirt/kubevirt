@@ -21,8 +21,10 @@ import (
 )
 
 const (
-	connectionTimeout = 10 * time.Second
-	promptTimeout     = 5 * time.Second
+	connectionTimeout   = 10 * time.Second
+	promptTimeout       = 5 * time.Second
+	agentConnectTimeout = 12 * time.Minute
+	agentConnectPolling = 2 * time.Second
 )
 
 // LoginToFunction represents any of the LoginTo* functions
@@ -128,7 +130,8 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 // LoginToFedoraWaitAgent waits for the guest agent to connect
 // and then performs a console login to a Fedora base VM
 func LoginToFedoraWaitAgent(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
-	gomega.Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+	gomega.Eventually(matcher.ThisVMI(vmi), agentConnectTimeout, agentConnectPolling).Should(
+		matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 	return LoginToFedora(vmi, timeout...)
 }
 
