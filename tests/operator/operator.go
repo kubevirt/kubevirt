@@ -2513,17 +2513,21 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 		Timeout: 5 * time.Second,
 	})
 
-	var err error
-	var releases []*github.RepositoryRelease
+	targetTag := getTagHint()
+	// Parse target version
+	targetVersionStr := strings.TrimPrefix(targetTag, "v")
+	targetVersion, err := semver.NewVersion(targetVersionStr)
+	if err != nil {
+		return "", fmt.Errorf("invalid target tag: %w", err)
+	}
 
-	Eventually(func() error {
-		releases, _, err = client.Repositories.ListReleases(context.Background(), "kubevirt", "kubevirt", &github.ListOptions{PerPage: 10000})
+	// Fetch all releases
+	releases, _, err := client.Repositories.ListReleases(context.Background(), "kubevirt", "kubevirt", &github.ListOptions{PerPage: 100})
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch releases: %w", err)
+	}
 
-		return err
-	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-	var vs []*semver.Version
-
+	var previousMinorReleases []*semver.Version
 	for _, release := range releases {
 		if *release.Draft ||
 			*release.Prerelease ||
@@ -2531,42 +2535,40 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 
 			continue
 		}
-		tagName := strings.TrimPrefix(*release.TagName, "v")
-		v, err := semver.NewVersion(tagName)
-		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to parse latest release tag")
-		vs = append(vs, v)
-	}
 
-	if len(vs) == 0 {
-		return "", fmt.Errorf("no kubevirt releases found")
-	}
+		tagName := release.GetTagName()
+		if tagName == "" {
+			continue
+		}
 
-	// descending order from most recent.
-	sort.Sort(sort.Reverse(semver.Versions(vs)))
+		versionStr := strings.TrimPrefix(tagName, "v")
+		v, err := semver.NewVersion(versionStr)
+		if err != nil {
+			continue
+		}
 
-	// most recent tag
-	tag := fmt.Sprintf("v%v", vs[0])
+		// If the targetVersion is preRelease (alpha/beta) then use the targetVersion because it is
+		// the previous version.
+		if targetVersion.PreRelease != "" && v.Major == targetVersion.Major && v.Minor == targetVersion.Minor {
+			return tagName, nil
+		}
 
-	// tag hint gives us information about the most recent tag in the current branch
-	// this is executing in. We want to make sure we are using the previous most
-	// recent official release from the branch we're in if possible. Note that this is
-	// all best effort. If a tag hint can't be detected, we move on with the most
-	// recent release from master.
-	tagHint := strings.TrimPrefix(getTagHint(), "v")
-	hint, err := semver.NewVersion(tagHint)
-
-	if tagHint != "" && err == nil {
-		for _, v := range vs {
-			if v.LessThan(*hint) || v.Equal(*hint) {
-				tag = fmt.Sprintf("v%v", v)
-				By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
-				break
-			}
+		// Only include releases from the previous minor version
+		// Same major version, minor version is exactly 1 less
+		if (v.Major == targetVersion.Major && v.Minor == targetVersion.Minor-1) || v.Major < targetVersion.Major {
+			previousMinorReleases = append(previousMinorReleases, v)
 		}
 	}
 
-	By(fmt.Sprintf("By detecting latest upstream official tag %s for current branch", tag))
-	return tag, nil
+	if len(previousMinorReleases) == 0 {
+		return "", fmt.Errorf("no previous minor release found for %s", targetTag)
+	}
+
+	// Sort by version and get the latest (last one)
+	sort.Sort(semver.Versions(previousMinorReleases))
+
+	By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", previousMinorReleases[len(previousMinorReleases)-1].String(), targetTag))
+	return previousMinorReleases[len(previousMinorReleases)-1].String(), nil
 }
 
 func getTagHint() string {
