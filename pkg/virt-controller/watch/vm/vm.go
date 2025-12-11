@@ -3014,6 +3014,16 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		lastSeenVM.Spec.Template.Spec.Networks = currentVM.Spec.Template.Spec.Networks
 	}
 
+	// Neutralize firmware UUID changes if the VMI's UUID matches the VM's UUID.
+	// This happens when the firmware synchronizer persists the UUID to a VM that didn't have one.
+	if vmi != nil && vmi.Spec.Domain.Firmware != nil && currentVM.Spec.Template.Spec.Domain.Firmware != nil &&
+		vmi.Spec.Domain.Firmware.UUID == currentVM.Spec.Template.Spec.Domain.Firmware.UUID {
+		if lastSeenVM.Spec.Template.Spec.Domain.Firmware == nil {
+			lastSeenVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{}
+		}
+		lastSeenVM.Spec.Template.Spec.Domain.Firmware.UUID = currentVM.Spec.Template.Spec.Domain.Firmware.UUID
+	}
+
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
 		setRestartRequired(vm, "a non-live-updatable field was changed in the template spec")
 		return true
