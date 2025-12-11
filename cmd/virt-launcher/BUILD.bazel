@@ -27,6 +27,8 @@ go_library(
         "//pkg/virt-launcher:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
+        "//pkg/virt-launcher/premigration-hook-server:go_default_library",
+        "//pkg/virt-launcher/premigration-hook-server/cpuhook:go_default_library",
         "//pkg/virt-launcher/standalone:go_default_library",
         "//pkg/virt-launcher/virtwrap:go_default_library",
         "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",
@@ -150,10 +152,17 @@ pkg_tar(
     package_dir = "/etc",
 )
 
+genrule(
+    name = "libvirt-hook-rename",
+    srcs = ["//cmd/virt-launcher/libvirt-hook-client"],
+    outs = ["qemu"],
+    cmd = "cp $< $@",
+)
+
 pkg_tar(
-    name = "qemu-hook-tar",
+    name = "libvirt-hook-tar",
     srcs = [
-        ":qemu",
+        ":libvirt-hook-rename",
     ],
     mode = "0755",
     package_dir = "/etc/libvirt/hooks",
@@ -191,6 +200,7 @@ oci_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
+            ":libvirt-hook-tar",
             ":qemu-kvm-modules-dir-tar",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
@@ -199,6 +209,7 @@ oci_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
+            ":libvirt-hook-tar",
             ":qemu-kvm-modules-dir-tar",
         ],
         "//conditions:default": [
@@ -207,7 +218,7 @@ oci_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
-            ":qemu-hook-tar",
+            ":libvirt-hook-tar",
             ":qemu-kvm-modules-dir-tar",
         ],
     }),
