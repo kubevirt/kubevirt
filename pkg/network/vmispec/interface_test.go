@@ -24,6 +24,8 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "kubevirt.io/api/core/v1"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 )
@@ -233,6 +235,50 @@ var _ = Describe("VMI network spec", func() {
 				interfaceWithBindingPlugin("net2", deviceInfoPlugin),
 			}
 			Expect(netvmispec.BindingPluginNetworkWithDeviceInfoExist(ifaces, bindingPlugins)).To(BeTrue())
+		})
+	})
+
+	const (
+		memLockPlugin         = "memlock"
+		memLockPluginZeroReqs = "memlock_zeroed"
+		nonMemLockPlugin      = "non_memlock"
+	)
+
+	memLockPlugins := map[string]v1.InterfaceBindingPlugin{
+		memLockPlugin: {
+			MemoryLockLimits: &v1.MemoryLockLimitRequirements{LockGuestMemory: true},
+		},
+		memLockPluginZeroReqs: {
+			MemoryLockLimits: &v1.MemoryLockLimitRequirements{
+				Offset: resource.NewScaledQuantity(0, resource.Kilo),
+			},
+		},
+		nonMemLockPlugin: {},
+	}
+	Context("network binding plugin with memory lock limit requirements", func() {
+		It("returns false given non binding-plugin interface", func() {
+			Expect(netvmispec.BindingPluginNetworkNeedsMemLockLimitConfig(
+				[]v1.Interface{libvmi.InterfaceDeviceWithBridgeBinding("net1")},
+				memLockPlugins,
+			)).To(BeFalse())
+		})
+		It("returns false when interface binding is not plugin with memlock requirements", func() {
+			Expect(netvmispec.BindingPluginNetworkNeedsMemLockLimitConfig(
+				[]v1.Interface{interfaceWithBindingPlugin("net1", nonMemLockPlugin)},
+				memLockPlugins,
+			)).To(BeFalse())
+		})
+		It("returns false when interface binding plugin with zeroed memlock requirements", func() {
+			Expect(netvmispec.BindingPluginNetworkNeedsMemLockLimitConfig(
+				[]v1.Interface{interfaceWithBindingPlugin("net1", memLockPluginZeroReqs)},
+				memLockPlugins,
+			)).To(BeFalse())
+		})
+		It("returns true when interface binding is plugin with memory lock requirements", func() {
+			Expect(netvmispec.BindingPluginNetworkNeedsMemLockLimitConfig(
+				[]v1.Interface{interfaceWithBindingPlugin("net1", memLockPlugin)},
+				memLockPlugins,
+			)).To(BeTrue())
 		})
 	})
 })
