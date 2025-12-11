@@ -1029,11 +1029,23 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 	}
 
+	// Check KVM device availability
+	const kvmPath = "/dev/kvm"
+	kvmAvailable := true
+	if _, err := os.Stat(kvmPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			kvmAvailable = false
+		} else {
+			return nil, fmt.Errorf("failed to stat KVM device %s: %w", kvmPath, err)
+		}
+	}
+
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
 		Architecture:          arch.NewConverter(runtime.GOARCH),
 		VirtualMachine:        vmi,
 		AllowEmulation:        allowEmulation,
+		KvmAvailable:          kvmAvailable,
 		CPUSet:                podCPUSet,
 		IsBlockPVC:            isBlockPVCMap,
 		IsBlockDV:             isBlockDVMap,
