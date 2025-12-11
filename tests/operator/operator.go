@@ -675,15 +675,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				By(fmt.Sprintf("By Using user defined tag %s for previous kubevirt", previousImageTag))
 			}
 
-			previousUtilityTag := flags.PreviousUtilityTag
-			previousUtilityRegistry := flags.PreviousUtilityRegistry
-			if previousUtilityTag == "" {
-				previousUtilityTag = previousImageTag
-				By(fmt.Sprintf("By Using detected tag %s for previous utility containers", previousUtilityTag))
-			} else {
-				By(fmt.Sprintf("By Using user defined tag %s for previous utility containers", previousUtilityTag))
-			}
-
 			curVersion := originalKv.Status.ObservedKubeVirtVersion
 			curRegistry := originalKv.Status.ObservedKubeVirtRegistry
 
@@ -779,7 +770,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			var vmYamls map[string]*vmYamlDefinition
 			if createVMs {
-				vmYamls, err = generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag)
+				vmYamls, err = generatePreviousVersionVmYamls(workDir)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(generatePreviousVersionVmsnapshotYamls(vmYamls, workDir)).To(Succeed())
 			}
@@ -2960,7 +2951,7 @@ func deleteAllKvAndWait(ignoreOriginal bool, originalKvName string) {
 	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 }
 
-func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag string) (map[string]*vmYamlDefinition, error) {
+func generatePreviousVersionVmYamls(workDir string) (map[string]*vmYamlDefinition, error) {
 	virtClient := kubevirt.Client()
 	vmYamls := make(map[string]*vmYamlDefinition)
 	ext, err := extclient.NewForConfig(virtClient.Config())
@@ -2979,15 +2970,13 @@ func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUt
 		supportedVersions = append(supportedVersions, version.Name)
 	}
 
-	imageName := fmt.Sprintf("%s/%s-container-disk-demo:%s", previousUtilityRegistry, cd.ContainerDiskAlpine, previousUtilityTag)
-
 	for i, version := range supportedVersions {
 		yamlFileName := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
 
 		err = resourcefiles.WriteFile(yamlFileName, resourcefiles.VMInfo{
 			Version:   version,
 			Index:     i,
-			ImageName: imageName,
+			ImageName: cd.ContainerDiskFor(cd.ContainerDiskAlpine),
 		})
 		if err != nil {
 			return nil, err
