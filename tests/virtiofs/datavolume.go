@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -283,18 +284,26 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
                                        touch %s
                                `, virtiofsMountPath, dataVolume.Name, virtiofsMountPath, virtiofsTestFile)
 
-			// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
-			// import and start
-			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
-
-			By(checkingVMInstanceConsoleOut)
 			vmi = libvmifact.NewFedora(
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData(mountVirtiofsCommands)),
 				libvmi.WithFilesystemDV(dataVolume.Name),
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 			)
-			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedora, libwait.WithTimeout(500))
+
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
+			// with WFFC the run actually starts the import and then runs VM, so the timeout has to include both
+			// import and start
+			By("Waiting until the DataVolume is ready")
+			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
+			By("Waiting until the VirtualMachineInstance starts")
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running}, libwait.WithTimeout(500))
+			// Wait for cloud init to finish and start the agent inside the vmi.
+			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By(checkingVMInstanceConsoleOut)
+			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
 
 			By("Checking that virtio-fs is mounted")
 			listVirtioFSDisk := fmt.Sprintf("ls -l %s/*disk* | wc -l\n", virtiofsMountPath)
