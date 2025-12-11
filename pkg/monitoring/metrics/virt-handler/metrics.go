@@ -38,7 +38,7 @@ func SetupMetrics(nodeName string, MaxRequestsInFlight int, vmiInformer cache.Sh
 		return err
 	}
 
-	if err := operatormetrics.RegisterMetrics(versionMetrics, machineTypeMetrics); err != nil {
+	if err := operatormetrics.RegisterMetrics(versionMetrics, machineTypeMetrics, pipeMetrics); err != nil {
 		return err
 	}
 	SetVersionInfo()
