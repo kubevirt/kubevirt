@@ -449,11 +449,52 @@ var _ = Describe("CloudInit", func() {
 					})
 
 					It("should fail if both userdata and network data does not exist", func() {
-						testVolume := createCloudInitSecretRefVolume("test-volume", "test-secret")
+						testVolume := &v1.Volume{
+							Name: "test-volume",
+							VolumeSource: v1.VolumeSource{
+								CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+									UserDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+									NetworkDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+									MetaDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+								},
+							},
+						}
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
 						_, err := resolveNoCloudSecrets(vmi, tmpDir)
 						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
+					})
+
+					It("should resolve MetaDataSecretRef from volume", func() {
+						testVolume := &v1.Volume{
+							Name: "test-volume",
+							VolumeSource: v1.VolumeSource{
+								CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+									MetaDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+								},
+							},
+						}
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+
+						fakeVolumeMountDir("test-secret", map[string]string{
+							"app_name":    "my-app",
+							"environment": "production",
+						})
+
+						_, err := resolveNoCloudSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitNoCloud.MetaData).To(Equal(map[string]string{
+							"app_name":    "my-app",
+							"environment": "production",
+						}))
 					})
 				})
 			})
@@ -576,13 +617,79 @@ var _ = Describe("CloudInit", func() {
 					})
 
 					It("should fail if both userdata and network data does not exist", func() {
-						testVolume := createCloudInitConfigDriveVolume("test-volume", "test-secret")
+						testVolume := &v1.Volume{
+							Name: "test-volume",
+							VolumeSource: v1.VolumeSource{
+								CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+									UserDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+									NetworkDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+									MetaDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+								},
+							},
+						}
 						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
 						keys, err := resolveConfigDriveSecrets(vmi, tmpDir)
 						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
 						Expect(keys).To(BeEmpty())
+					})
 
+					It("should resolve MetaDataSecretRef from volume", func() {
+						testVolume := &v1.Volume{
+							Name: "test-volume",
+							VolumeSource: v1.VolumeSource{
+								CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+									MetaDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+								},
+							},
+						}
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+
+						fakeVolumeMountDir("test-secret", map[string]string{
+							"app_name":    "my-app",
+							"environment": "production",
+						})
+
+						_, err := resolveConfigDriveSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitConfigDrive.MetaData).To(Equal(map[string]string{
+							"app_name":    "my-app",
+							"environment": "production",
+						}))
+					})
+
+					It("should resolve camel-case MetaDataSecretRef from volume", func() {
+						testVolume := &v1.Volume{
+							Name: "test-volume",
+							VolumeSource: v1.VolumeSource{
+								CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+									MetaDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: "test-secret",
+									},
+								},
+							},
+						}
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+
+						fakeVolumeMountDir("test-secret", map[string]string{
+							"app_name":    "my-app",
+							"environment": "production",
+						})
+
+						_, err := resolveConfigDriveSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitConfigDrive.MetaData).To(Equal(map[string]string{
+							"app_name":    "my-app",
+							"environment": "production",
+						}))
 					})
 				})
 			})
@@ -609,6 +716,90 @@ var _ = Describe("CloudInit", func() {
 			Expect(err).NotTo(HaveOccurred())
 			err = GenerateLocalData(vmi, instancetype, cloudInitData)
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should include custom metadata in NoCloud metadata", func() {
+			instancetype := "fake-instancetype"
+			userData := "fake\nuser\ndata\n"
+			customMetaData := map[string]string{
+				"app_name":    "my-application",
+				"environment": "production",
+				"cost_center": "12345",
+				"team":        "platform-engineering",
+			}
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "fake-domain",
+					Namespace: "fake-namespace",
+				},
+			}
+			source := &v1.CloudInitNoCloudSource{
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+				MetaData:       customMetaData,
+			}
+			cloudInitData, err := readCloudInitNoCloudSource(source)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cloudInitData.NoCloudMetaData).NotTo(BeNil())
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata).NotTo(BeNil())
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata["app_name"]).To(Equal("my-application"))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata["environment"]).To(Equal("production"))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata["cost_center"]).To(Equal("12345"))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata["team"]).To(Equal("platform-engineering"))
+
+			err = GenerateLocalData(vmi, instancetype, cloudInitData)
+			Expect(err).NotTo(HaveOccurred())
+
+			isoFile := filepath.Join(tmpDir, "fake-namespace", "fake-domain", "noCloud.iso")
+			_, err = os.Stat(isoFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata["app_name"]).To(Equal("my-application"))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata["environment"]).To(Equal("production"))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata["cost_center"]).To(Equal("12345"))
+			Expect(cloudInitData.NoCloudMetaData.CustomMetadata["team"]).To(Equal("platform-engineering"))
+		})
+
+		It("should include custom metadata in ConfigDrive metadata", func() {
+			instancetype := "fake-instancetype"
+			userData := "fake\nuser\ndata\n"
+			customMetaData := map[string]string{
+				"app_name":    "my-application",
+				"environment": "production",
+				"cost_center": "12345",
+				"team":        "platform-engineering",
+			}
+
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "fake-domain",
+					Namespace: "fake-namespace",
+				},
+			}
+			source := &v1.CloudInitConfigDriveSource{
+				UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+				MetaData:       customMetaData,
+			}
+			cloudInitData, err := readCloudInitConfigDriveSource(source)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(cloudInitData.ConfigDriveMetaData).NotTo(BeNil())
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata).NotTo(BeNil())
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata["app_name"]).To(Equal("my-application"))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata["environment"]).To(Equal("production"))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata["cost_center"]).To(Equal("12345"))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata["team"]).To(Equal("platform-engineering"))
+
+			err = GenerateLocalData(vmi, instancetype, cloudInitData)
+			Expect(err).NotTo(HaveOccurred())
+
+			isoFile := filepath.Join(tmpDir, "fake-namespace", "fake-domain", "configdrive.iso")
+			_, err = os.Stat(isoFile)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata["app_name"]).To(Equal("my-application"))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata["environment"]).To(Equal("production"))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata["cost_center"]).To(Equal("12345"))
+			Expect(cloudInitData.ConfigDriveMetaData.CustomMetadata["team"]).To(Equal("platform-engineering"))
 		})
 	})
 
