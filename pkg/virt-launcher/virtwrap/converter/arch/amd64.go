@@ -16,13 +16,6 @@
 
 package arch
 
-import (
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
-)
-
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
 var _ = Converter(&converterAMD64{})
 
@@ -30,36 +23,6 @@ type converterAMD64 struct{}
 
 func (converterAMD64) GetArchitecture() string {
 	return amd64
-}
-
-func (converterAMD64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
-	return defaultSCSIController(model, driver)
-}
-
-func (converterAMD64) IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
-	for i := range vmi.Spec.Domain.Devices.Inputs {
-		if vmi.Spec.Domain.Devices.Inputs[i].Bus == "usb" {
-			return true
-		}
-	}
-
-	for i := range vmi.Spec.Domain.Devices.Disks {
-		disk := vmi.Spec.Domain.Devices.Disks[i].Disk
-
-		if disk != nil && disk.Bus == v1.DiskBusUSB {
-			return true
-		}
-	}
-
-	if vmi.Spec.Domain.Devices.ClientPassthrough != nil {
-		return true
-	}
-
-	if device.USBDevicesFound(vmi.Spec.Domain.Devices.HostDevices) {
-		return true
-	}
-
-	return false
 }
 
 func (converterAMD64) SupportCPUHotplug() bool {
@@ -87,9 +50,5 @@ func (converterAMD64) ShouldVerboseLogsBeEnabled() bool {
 }
 
 func (converterAMD64) HasVMPort() bool {
-	return true
-}
-
-func (converterAMD64) SupportPCIHole64Disabling() bool {
 	return true
 }

@@ -16,12 +16,6 @@
 
 package arch
 
-import (
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-)
-
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
 var _ = Converter(&converterARM64{})
 
@@ -29,14 +23,6 @@ type converterARM64 struct{}
 
 func (converterARM64) GetArchitecture() string {
 	return arm64
-}
-
-func (converterARM64) ScsiController(model string, driver *api.ControllerDriver) api.Controller {
-	return defaultSCSIController(model, driver)
-}
-
-func (converterARM64) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
-	return true
 }
 
 func (converterARM64) SupportCPUHotplug() bool {
@@ -66,9 +52,5 @@ func (converterARM64) ShouldVerboseLogsBeEnabled() bool {
 }
 
 func (converterARM64) HasVMPort() bool {
-	return false
-}
-
-func (converterARM64) SupportPCIHole64Disabling() bool {
 	return false
 }
