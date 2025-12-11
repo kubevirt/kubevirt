@@ -94,6 +94,10 @@ type netconf interface {
 	Teardown(vmi *v1.VirtualMachineInstance) error
 }
 
+type networkController interface {
+	Run(*v1.VirtualMachineInstance, bool, func(*v1.VirtualMachineInstance) (string, error)) error
+}
+
 type BaseController struct {
 	logger                      *log.FilteredLogger
 	host                        string
@@ -107,6 +111,7 @@ type BaseController struct {
 	migrationProxy              migrationproxy.ProxyManager
 	virtLauncherFSRunDirPattern string
 	netStat                     netstat
+	passtRepairController       networkController
 	recorder                    record.EventRecorder
 	hasSynced                   func() bool
 }
