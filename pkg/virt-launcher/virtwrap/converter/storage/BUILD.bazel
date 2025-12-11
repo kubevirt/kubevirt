@@ -1,0 +1,55 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "blockio.go",
+        "devicenamer.go",
+        "disk.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/cloud-init:go_default_library",
+        "//pkg/config:go_default_library",
+        "//pkg/container-disk:go_default_library",
+        "//pkg/emptydisk:go_default_library",
+        "//pkg/ephemeral-disk:go_default_library",
+        "//pkg/host-disk:go_default_library",
+        "//pkg/os/disk:go_default_library",
+        "//pkg/pointer:go_default_library",
+        "//pkg/safepath:go_default_library",
+        "//pkg/storage/reservation:go_default_library",
+        "//pkg/storage/types:go_default_library",
+        "//pkg/util:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/virtio:go_default_library",
+        "//pkg/virt-launcher/virtwrap/device:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "disk_test.go",
+        "storage_suite_test.go",
+    ],
+    race = "on",
+    deps = [
+        ":go_default_library",
+        "//pkg/ephemeral-disk/fake:go_default_library",
+        "//pkg/libvmi:go_default_library",
+        "//pkg/libvmi/status:go_default_library",
+        "//pkg/pointer:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+    ],
+)
