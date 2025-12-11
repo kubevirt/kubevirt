@@ -38,6 +38,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )
@@ -256,6 +257,20 @@ func formatVFIODeviceSpecs(devID string) []*v1beta1.DeviceSpec {
 }
 
 type deviceHealth struct {
-	DevId  string
+	DevId  string // Note, when DevId is empty, it means the device is all devices
 	Health string
+}
+
+type PermissionManager interface {
+	ChownAtNoFollow(path *safepath.Path, uid, gid int) error
+}
+
+type permissionManager struct{}
+
+func NewPermissionManager() PermissionManager {
+	return &permissionManager{}
+}
+
+func (p *permissionManager) ChownAtNoFollow(path *safepath.Path, uid, gid int) error {
+	return safepath.ChownAtNoFollow(path, uid, gid)
 }
