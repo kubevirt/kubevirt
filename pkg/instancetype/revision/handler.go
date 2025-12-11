@@ -29,6 +29,7 @@ type revisionHandler struct {
 	clusterInstancetypeStore cache.Store
 	preferenceStore          cache.Store
 	clusterPreferenceStore   cache.Store
+	revisionStore            cache.Store
 	virtClient               kubecli.KubevirtClient
 }
 
@@ -36,7 +37,8 @@ func New(
 	instancetypeStore,
 	clusterInstancetypeStore,
 	preferenceStore,
-	clusterPreferenceStore cache.Store,
+	clusterPreferenceStore,
+	revisionStore cache.Store,
 	virtClient kubecli.KubevirtClient,
 ) *revisionHandler {
 	return &revisionHandler{
@@ -44,6 +46,7 @@ func New(
 		clusterInstancetypeStore: clusterInstancetypeStore,
 		preferenceStore:          preferenceStore,
 		clusterPreferenceStore:   clusterPreferenceStore,
+		revisionStore:            revisionStore,
 		virtClient:               virtClient,
 	}
 }
