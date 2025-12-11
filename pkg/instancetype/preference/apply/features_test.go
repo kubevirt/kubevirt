@@ -110,4 +110,16 @@ var _ = Describe("Preference.Features", func() {
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 		Expect(vmi.Spec.Domain.Features.Hyperv.EVMCS.Enabled).To(HaveValue(BeFalse()))
 	})
+
+	It("should not apply HyperV preferences when HypervPassthrough is enabled by the user", func() {
+		vmi.Spec.Domain.Features = &virtv1.Features{
+			HypervPassthrough: &virtv1.HyperVPassthrough{
+				Enabled: pointer.P(true),
+			},
+		}
+
+		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
+		Expect(vmi.Spec.Domain.Features.Hyperv).To(BeNil())
+		Expect(vmi.Spec.Domain.Features.HypervPassthrough.Enabled).To(HaveValue(BeTrue()))
+	})
 })
