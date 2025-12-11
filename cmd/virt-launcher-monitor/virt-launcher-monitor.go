@@ -68,6 +68,13 @@ func main() {
 
 	log.InitializeLogging("virt-launcher-monitor")
 
+	// Create marker file to signal other containers when virt-launcher-monitor exits
+	markerFile := "/debug/virt-launcher-monitor.pid"
+	if err := os.WriteFile(markerFile, []byte(fmt.Sprintf("%d", os.Getpid())), 0644); err != nil {
+		log.Log.Reason(err).Error("Failed to create marker file")
+	} else {
+		log.Log.Infof("Created marker file: %s", markerFile)
+	}
 	// check if virt-launcher verbosity should be changed
 	if verbosityStr, ok := os.LookupEnv("VIRT_LAUNCHER_LOG_VERBOSITY"); ok {
 		if verbosity, err := strconv.Atoi(verbosityStr); err == nil {
@@ -88,8 +95,14 @@ func main() {
 		log.Log.Reason(err).Error("monitoring virt-launcher failed")
 		os.Exit(1)
 	}
-	log.Log.Info("virt-launcher-monitor: Exiting...")
 
+	if err := os.Remove(markerFile); err != nil {
+		log.Log.Reason(err).Error("Failed to remove marker file on exit")
+	} else {
+		log.Log.Infof("Removed marker file on exit: %s", markerFile)
+	}
+
+	log.Log.Info("virt-launcher-monitor: Exiting...")
 	os.Exit(exitCode)
 }
 
