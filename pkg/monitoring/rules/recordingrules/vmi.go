@@ -57,4 +57,12 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 		MetricType: operatormetrics.GaugeType,
 		Expr:       intstr.FromString("clamp_min(kubevirt_vmi_guest_load_1m - vmi:kubevirt_vmi_vcpu:count, 0)"),
 	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_data_total_bytes",
+			Help: "[Deprecated] Replaced by kubevirt_vmi_migration_data_bytes_total.",
+		},
+		MetricType: operatormetrics.CounterType,
+		Expr:       intstr.FromString("kubevirt_vmi_migration_data_bytes_total"),
+	},
 }
