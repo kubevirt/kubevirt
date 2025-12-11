@@ -359,7 +359,7 @@ func Execute() {
 
 	app.reInitChan = make(chan string, 10)
 	app.hasCDI = app.clusterConfig.HasDataVolumeAPI()
-	app.isDRAEnabled = app.clusterConfig.GPUsWithDRAGateEnabled() || app.clusterConfig.HostDevicesWithDRAEnabled()
+	app.isDRAEnabled = app.clusterConfig.GPUsWithDRAGateEnabled() || app.clusterConfig.HostDevicesWithDRAEnabled() || app.clusterConfig.DRANetworkDevicesEnabled()
 	app.clusterConfig.SetConfigModifiedCallback(app.configModificationCallback)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
@@ -518,7 +518,7 @@ func (vca *VirtControllerApp) configModificationCallback() {
 		vca.reInitChan <- "reinit"
 		return
 	}
-	newIsDRAEnabled := vca.clusterConfig.GPUsWithDRAGateEnabled() || vca.clusterConfig.HostDevicesWithDRAEnabled()
+	newIsDRAEnabled := vca.clusterConfig.GPUsWithDRAGateEnabled() || vca.clusterConfig.HostDevicesWithDRAEnabled() || vca.clusterConfig.DRANetworkDevicesEnabled()
 	if newIsDRAEnabled != vca.isDRAEnabled {
 		if newIsDRAEnabled {
 			log.Log.Infof("Reinitialize virt-controller, DRA integration has been introduced")
