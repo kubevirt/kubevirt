@@ -2556,11 +2556,21 @@ func detectLatestUpstreamOfficialTag() (string, error) {
 	hint, err := semver.NewVersion(tagHint)
 
 	if tagHint != "" && err == nil {
-		for _, v := range vs {
-			if v.LessThan(*hint) || v.Equal(*hint) {
-				tag = fmt.Sprintf("v%v", v)
-				By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
-				break
+		// - alpha/beta tag are created from main
+		// - rc and release tags are created from the release branch.
+		// If we are in a branch from main, the hint tag will be alpha/beta (based on the stage of the release cycle)
+		// If we are in a branch from a release branch, the hint will be rc or empty (based on the stage of the release cycle)
+		// In the former case we have to skip the tag hint influence because otherwise we are going to return the n-2 release.
+		if len(hint.PreRelease) != 0 && !strings.HasPrefix(string(hint.PreRelease), "rc") {
+			tag = fmt.Sprintf("v%v", vs[0])
+			By(fmt.Sprintf("Choosing tag %s ignoring tag hint %s", tag, tagHint))
+		} else {
+			for _, v := range vs {
+				if v.LessThan(*hint) || v.Equal(*hint) {
+					tag = fmt.Sprintf("v%v", v)
+					By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
+					break
+				}
 			}
 		}
 	}
