@@ -223,6 +223,9 @@ spec:
         selectors:
         - product: productValue
           vendor: vendorValue
+    qgs-tdx:
+      enabled: true
+      qgsSocketPath: qgsSocketPathValue
     seccompConfiguration:
       virtualMachineInstanceProfile:
         customProfile:
