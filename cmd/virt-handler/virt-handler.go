@@ -162,20 +162,18 @@ type virtHandlerApp struct {
 	virtCli   kubecli.KubevirtClient
 	namespace string
 
-	migrationServerTLSConfig    *tls.Config
-	serverTLSConfig             *tls.Config
-	migrationOldClientTLSConfig *tls.Config
-	migrationClientTLSConfig    *tls.Config
-	consoleServerPort           int
-	clientcertmanager           certificate.Manager
-	vsockClientCertManager      certificate.Manager
-	servercertmanager           certificate.Manager
-	migrationCertManager        certificate.Manager
-	promTLSConfig               *tls.Config
-	clusterConfig               *virtconfig.ClusterConfig
-	reloadableRateLimiter       *ratelimiter.ReloadableRateLimiter
-	caManager                   kvtls.ClientCAManager
-	enableNodeLabeller          bool
+	migrationServerTLSConfig *tls.Config
+	serverTLSConfig          *tls.Config
+	migrationClientTLSConfig *tls.Config
+	consoleServerPort        int
+	vsockClientCertManager   certificate.Manager
+	servercertmanager        certificate.Manager
+	migrationCertManager     certificate.Manager
+	promTLSConfig            *tls.Config
+	clusterConfig            *virtconfig.ClusterConfig
+	reloadableRateLimiter    *ratelimiter.ReloadableRateLimiter
+	caManager                kvtls.ClientCAManager
+	enableNodeLabeller       bool
 }
 
 var (
@@ -184,7 +182,6 @@ var (
 )
 
 func (app *virtHandlerApp) prepareCertManager() (err error) {
-	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
 	app.vsockClientCertManager = bootstrap.NewFileCertificateManager(app.vsockClientCertFilePath, app.vsockClientKeyFilePath)
 	app.servercertmanager = bootstrap.NewFileCertificateManager(app.serverCertFilePath, app.serverKeyFilePath)
 	app.migrationCertManager = bootstrap.NewFileCertificateManager(app.migrationCertFilePath, app.migrationKeyFilePath)
@@ -311,7 +308,7 @@ func (app *virtHandlerApp) Run() {
 
 	app.clusterConfig.SetConfigModifiedCallback(vsockConfigCallback)
 
-	migrationProxy := migrationproxy.NewMigrationProxyManager(app.migrationServerTLSConfig, app.migrationOldClientTLSConfig, app.migrationClientTLSConfig, app.clusterConfig)
+	migrationProxy := migrationproxy.NewMigrationProxyManager(app.migrationServerTLSConfig, app.migrationClientTLSConfig, app.clusterConfig)
 
 	stop := make(chan struct{})
 	defer close(stop)
@@ -451,7 +448,6 @@ func (app *virtHandlerApp) Run() {
 		app.VirtShareDir,
 	)
 
-	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()
 	go app.migrationCertManager.Start()
 	go app.vsockClientCertManager.Start()
@@ -744,7 +740,6 @@ func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) erro
 	app.promTLSConfig = kvtls.SetupPromTLS(app.servercertmanager, app.clusterConfig)
 	app.serverTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, []string{"virt-handler"})
 	app.migrationServerTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, app.migrationCNTypes)
-	app.migrationOldClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
 	app.migrationClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.migrationCertManager, app.externallyManaged)
 
 	return nil
