@@ -543,6 +543,31 @@ spec:
                             type: object
                         type: object
                     type: object
+                  hypervisorConfiguration:
+                    description: HypervisorConfigurations holds information regarding
+                      the hypervisor configurations supported on this cluster.
+                    items:
+                      description: HypervisorConfiguration holds information regarding
+                        the hypervisor present on cluster nodes.
+                      properties:
+                        hypervisorDevice:
+                          description: |-
+                            HypervisorDevice is the name of the hypervisor device driver.
+                            This device should be present under /dev on all cluster nodes.
+                            E.g., for KVM, the /dev/kvm device is present. Hence, the value should be "kvm".
+                          type: string
+                        name:
+                          description: |-
+                            Name is the name of the hypervisor.
+                            Supported values are: "kvm", "hyperv-layered".
+                          type: string
+                        virtType:
+                          description: |-
+                            VirtType is the libvirt domain type corresponding to the hypervisor.
+                            E.g., for KVM, the libvirt domain type is "kvm".
+                          type: string
+                      type: object
+                    type: array
                   imagePullPolicy:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
@@ -3931,6 +3956,31 @@ spec:
                             type: object
                         type: object
                     type: object
+                  hypervisorConfiguration:
+                    description: HypervisorConfigurations holds information regarding
+                      the hypervisor configurations supported on this cluster.
+                    items:
+                      description: HypervisorConfiguration holds information regarding
+                        the hypervisor present on cluster nodes.
+                      properties:
+                        hypervisorDevice:
+                          description: |-
+                            HypervisorDevice is the name of the hypervisor device driver.
+                            This device should be present under /dev on all cluster nodes.
+                            E.g., for KVM, the /dev/kvm device is present. Hence, the value should be "kvm".
+                          type: string
+                        name:
+                          description: |-
+                            Name is the name of the hypervisor.
+                            Supported values are: "kvm", "hyperv-layered".
+                          type: string
+                        virtType:
+                          description: |-
+                            VirtType is the libvirt domain type corresponding to the hypervisor.
+                            E.g., for KVM, the libvirt domain type is "kvm".
+                          type: string
+                      type: object
+                    type: array
                   imagePullPolicy:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image

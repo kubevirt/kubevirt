@@ -374,6 +374,13 @@
       "instancetype": {
         "referencePolicy": "referencePolicyValue"
       },
+      "hypervisorConfiguration": [
+        {
+          "name": "nameValue",
+          "hypervisorDevice": "hypervisorDeviceValue",
+          "virtType": "virtTypeValue"
+        }
+      ],
       "changedBlockTrackingLabelSelectors": {
         "namespaceLabelSelector": {
           "matchLabels": {

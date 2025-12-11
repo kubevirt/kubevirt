@@ -12,6 +12,7 @@ API rule violation: list_type_missing,kubevirt.io/api/core/v1,Devices,PanicDevic
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,DownwardAPIVolumeSource,Fields
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,Interface,Ports
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtConfiguration,EmulatedMachines
+API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtConfiguration,HypervisorConfigurations
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtConfiguration,SupportedGuestAgentVersions
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,KubeVirtStatus,Conditions
 API rule violation: list_type_missing,kubevirt.io/api/core/v1,NodePlacement,Tolerations
@@ -126,6 +127,7 @@ API rule violation: names_match,kubevirt.io/api/core/v1,InterfaceBindingMethod,D
 API rule violation: names_match,kubevirt.io/api/core/v1,InterfaceBindingMethod,DeprecatedSlirp
 API rule violation: names_match,kubevirt.io/api/core/v1,KVMTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,DeprecatedMinCPUModel
+API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,HypervisorConfigurations
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,MigrationConfiguration
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,NetworkConfiguration
 API rule violation: names_match,kubevirt.io/api/core/v1,KubeVirtConfiguration,SELinuxLauncherType
