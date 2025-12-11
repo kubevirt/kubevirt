@@ -133,4 +133,17 @@ var (
 
 	// Swap decorator is used in case a swap is required on a node.
 	Swap = Label("SwapTest")
+
+	/* Platform */
+
+	// OpenShift decorator is used for tests that can only run on OpenShift clusters
+	// (e.g., tests requiring SecurityContextConstraints, Routes)
+	OpenShift = Label("OpenShift")
+
+	/* Monitoring */
+
+	// RequiresNoPrometheus decorator is used for tests that verify behavior when
+	// Prometheus/monitoring stack is NOT deployed. These tests are mutually exclusive
+	// with sig-monitoring tests and should only run in non-monitoring lanes.
+	RequiresNoPrometheus = Label("RequiresNoPrometheus")
 )

@@ -556,6 +556,15 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     add_to_label_filter '(!RequiresRWXFsVMStateStorageClass)' '&&'
   fi
 
+  # Handle monitoring-related test filtering based on Prometheus Operator presence.
+  # - If monitoring stack IS installed: filter out RequiresNoPrometheus
+  # - If monitoring stack is NOT installed: filter out sig-monitoring
+  if kubectl get crd -o name 2>/dev/null | grep -q monitoring.coreos.com; then
+    add_to_label_filter '(!RequiresNoPrometheus)' '&&'
+  else
+    add_to_label_filter '(!sig-monitoring)' '&&'
+  fi
+
 fi
 
 # Single-node single-replica test lanes obviously can't run live migrations,
@@ -594,6 +603,10 @@ fi
 if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
   add_to_label_filter '(!SwapTest)' '&&'
 fi
+
+# OpenShift-specific tests require features not available in KubeVirtCI
+# (SecurityContextConstraints, Routes). Filter them out for all lanes.
+add_to_label_filter '(!OpenShift)' '&&'
 
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
