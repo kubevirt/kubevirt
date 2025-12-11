@@ -507,6 +507,11 @@ var _ = Describe("CBT", func() {
 				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: []api.Disk{diskWithDataStore("pvc1", true)}}}}
 				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
 			}, v1.ChangedBlockTrackingUndefined),
+			Entry("VMI CBT status is disabled", func() {
+				vmi.Status.ChangedBlockTracking.State = v1.ChangedBlockTrackingDisabled
+				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: []api.Disk{diskWithDataStore("pvc1", true)}}}}
+				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+			}, v1.ChangedBlockTrackingDisabled),
 		)
 	})
 })

@@ -284,7 +284,7 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 }
 
 func SetChangedBlockTrackingOnVMIFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	if domain == nil || vmi.Status.ChangedBlockTracking == nil {
+	if domain == nil || vmi.Status.ChangedBlockTracking == nil || cbtStateDisabled(vmi.Status.ChangedBlockTracking) {
 		return
 	}
 
