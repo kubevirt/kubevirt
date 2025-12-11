@@ -8,8 +8,6 @@ import (
 	"github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kubevirt.io/client-go/kubecli"
@@ -28,19 +26,6 @@ func RecycleImageOrFail(virtClient kubecli.KubevirtClient, imageName string) {
 	} else if windowsPv.Status.Phase == k8sv1.VolumeReleased {
 		windowsPv.Spec.ClaimRef = nil
 		_, err = virtClient.CoreV1().PersistentVolumes().Update(context.Background(), windowsPv, metav1.UpdateOptions{})
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	}
-}
-
-// Deprecated: SkipIfPrometheusRuleIsNotEnabled should be converted to check & fail
-func SkipIfPrometheusRuleIsNotEnabled(virtClient kubecli.KubevirtClient) {
-	ext, err := clientset.NewForConfig(virtClient.Config())
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-	_, err = ext.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "prometheusrules.monitoring.coreos.com", metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		ginkgo.Skip("Skip monitoring tests when PrometheusRule CRD is not available in the cluster")
-	} else if err != nil {
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 }
