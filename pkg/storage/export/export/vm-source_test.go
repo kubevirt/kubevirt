@@ -48,6 +48,9 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/libdv"
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 
@@ -324,6 +327,29 @@ var _ = Describe("PVC source", func() {
 				},
 			},
 		})
+		return vm
+	}
+
+	createVMWithDataVolumeTemplates := func(pvcName string) *virtv1.VirtualMachine {
+		vmi := libvmi.New(
+			libvmi.WithName(testVmName),
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithDataVolume("datavolumedisk1", pvcName),
+			libvmi.WithCloudInitNoCloud(
+				cloudinit.WithNoCloudUserData("#cloud-config\npassword: fedora\nchpasswd: { expire: False }\n"),
+			),
+		)
+		dv := libdv.NewDataVolume(
+			libdv.WithName(pvcName),
+			libdv.WithNamespace(testNamespace),
+			libdv.WithHttpSource("https://some-image-url"),
+			libdv.WithStorage(
+				libdv.StorageWithReadWriteManyAccessMode(),
+			),
+		)
+		vm := libvmi.NewVirtualMachine(vmi,
+			libvmi.WithDataVolumeTemplate(dv),
+		)
 		return vm
 	}
 
@@ -629,4 +655,27 @@ var _ = Describe("PVC source", func() {
 		testutils.ExpectEvent(recorder, serviceCreatedEvent)
 		testutils.ExpectEvent(recorder, exporterPodFailedOrCompletedEvent)
 	})
+
+	It("Should correctly handle PVCs that have dots in their names", func() {
+		testVMExport := createVMVMExport()
+		controller.VMInformer.GetStore().Add(createVMWithDataVolumeTemplates("mydisk.example.local"))
+		controller.PVCInformer.GetStore().Add(createPVC("mydisk.example.local", "kubevirt"))
+		controller.VMExportInformer.GetStore().Add(testVMExport)
+
+		expectExporterCreate(k8sClient, k8sv1.PodRunning)
+
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			verifyInternalLinkHasVolume(vmExport, "mydisk.example.local")
+			return true, vmExport, nil
+		})
+
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+	})
+
 })
