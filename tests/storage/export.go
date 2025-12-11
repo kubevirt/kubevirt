@@ -93,9 +93,10 @@ const (
 
 	certificates = "certificates"
 
-	pvcNotFoundReason = "PVCNotFound"
-	podReadyReason    = "PodReady"
-	inUseReason       = "InUse"
+	pvcNotFoundReason         = "PVCNotFound"
+	podReadyReason            = "PodReady"
+	inUseReason               = "InUse"
+	volumesNotPopulatedReason = "VolumesNotPopulated"
 
 	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
 
@@ -977,7 +978,7 @@ var _ = Describe(SIG("Export", func() {
 			Type:    exportv1.ConditionPVC,
 			Status:  k8sv1.ConditionFalse,
 			Reason:  pvcNotFoundReason,
-			Message: fmt.Sprintf("pvc %s/%s not found", testsuite.GetTestNamespace(nil), name),
+			Message: fmt.Sprintf("PersistentVolumeClaim %s/%s not found", testsuite.GetTestNamespace(nil), name),
 		})
 
 		Eventually(func() []exportv1.Condition {
@@ -1552,7 +1553,7 @@ var _ = Describe(SIG("Export", func() {
 			Type:    exportv1.ConditionReady,
 			Status:  k8sv1.ConditionFalse,
 			Reason:  inUseReason,
-			Message: fmt.Sprintf("pvc %s/%s is in use", namespace, name),
+			Message: fmt.Sprintf("PersistentVolumeClaim %s/%s is in use", namespace, name),
 		})
 	}
 
@@ -1560,7 +1561,7 @@ var _ = Describe(SIG("Export", func() {
 		return MatchConditionIgnoreTimeStamp(exportv1.Condition{
 			Type:    exportv1.ConditionReady,
 			Status:  k8sv1.ConditionFalse,
-			Reason:  inUseReason,
+			Reason:  volumesNotPopulatedReason,
 			Message: fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", namespace, name),
 		})
 	}
