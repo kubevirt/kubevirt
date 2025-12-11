@@ -56,9 +56,9 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 const (
@@ -111,13 +111,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 			)
 
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
-
-			// Wait for cloud init to finish and start the agent inside the vmi.
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
 			By(checkingVMInstanceConsoleOut)
-			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			Expect(err).ToNot(HaveOccurred())
 
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvc1)
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
@@ -215,13 +211,9 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 				libvmi.WithFilesystemPVC(pvcName),
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
-
-			// Wait for cloud init to finish and start the agent inside the vmi.
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
 			By(checkingVMInstanceConsoleOut)
-			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(300), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+			Expect(err).ToNot(HaveOccurred())
 
 			virtioFsFileTestCmd := fmt.Sprintf("test -f /run/kubevirt-private/vmi-disks/%s/virtiofs_test && echo exist", pvcName)
 			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)

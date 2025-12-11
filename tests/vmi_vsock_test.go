@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators.VSOCK, func() {
@@ -67,7 +68,8 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			vmi.Spec.Domain.Devices.UseVirtioTransitional = &useVirtioTransitional
 			vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsSmall))
+			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Status.VSOCKCID).NotTo(BeNil())
 
 			By("creating valid libvirt domain")
@@ -76,10 +78,6 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			Expect(err).ToNot(HaveOccurred())
 			Expect(domSpec.Devices.VSOCK.CID.Auto).To(Equal("no"))
 			Expect(domSpec.Devices.VSOCK.CID.Address).To(Equal(*vmi.Status.VSOCKCID))
-
-			By("Logging in as root")
-			err = console.LoginToFedora(vmi)
-			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring a vsock device is present")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
@@ -168,10 +166,8 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 		vmi.Spec.Domain.Devices.AutoattachVSOCK = pointer.P(true)
-		vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
-
 		By("Logging in as root")
-		err = console.LoginToFedora(vmi)
+		vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsSmall))
 		Expect(err).ToNot(HaveOccurred())
 
 		By("copying the guest agent binary")

@@ -26,6 +26,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
@@ -50,11 +51,9 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Context("with injected data", func() {
 				It("[test_id:1616]should have injected data under firmware directory", func() {
 					ignitionData := "ignition injected"
-					vmi := libvmops.RunVMIAndExpectLaunch(
-						libvmifact.NewFedora(libvmi.WithAnnotation(v1.IgnitionAnnotation, ignitionData)),
-						libvmops.StartupTimeoutSecondsHuge)
-
-					Expect(console.LoginToFedora(vmi)).To(Succeed())
+					vmi := libvmifact.NewFedora(libvmi.WithAnnotation(v1.IgnitionAnnotation, ignitionData))
+					vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+					Expect(err).ToNot(HaveOccurred())
 					Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "cat /sys/firmware/qemu_fw_cfg/by_name/opt/com.coreos/config/raw\n"},
 						&expect.BExp{R: ignitionData},
