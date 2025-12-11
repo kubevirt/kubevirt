@@ -487,7 +487,7 @@ var _ = Describe("CBT", func() {
 			Entry("only non-eligible volumes",
 				[]v1.Volume{{Name: "container-disk", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{Image: "test:latest"}}}},
 				[]api.Disk{diskWithDataStore("container-disk", false)},
-				v1.ChangedBlockTrackingEnabled),
+				v1.ChangedBlockTrackingInitializing),
 			Entry("eligible volume with no matching disk",
 				[]v1.Volume{pvcVolume("pvc1", "test-pvc")},
 				[]api.Disk{diskWithDataStore("different-disk", true)},

@@ -288,29 +288,32 @@ func SetChangedBlockTrackingOnVMIFromDomain(vmi *v1.VirtualMachineInstance, doma
 		return
 	}
 
-	cbtSet := true
+	foundEligibleVolume := false
 	for _, volume := range vmi.Spec.Volumes {
 		if !IsCBTEligibleVolume(&volume) {
 			continue
 		}
+
+		foundEligibleVolume = true
 		found := false
+
 		for _, disk := range domain.Spec.Devices.Disks {
 			if disk.Alias.GetName() == volume.Name {
 				found = true
+				// No datastore, can't enable CBT
 				if disk.Source.DataStore == nil {
-					cbtSet = false
+					return
 				}
 				break
 			}
 		}
 		// If we didn't find a matching disk for an eligible volume, disable CBT
 		if !found {
-			cbtSet = false
-			break
+			return
 		}
 	}
 
-	if cbtSet {
+	if foundEligibleVolume {
 		SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 	}
 }
