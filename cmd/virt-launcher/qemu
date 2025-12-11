@@ -1,5 +1,13 @@
 #!/bin/bash
-if [ "$2" != "release" ] || [ "$3" != "end" ] || [ "$4" != "migrated" ]; then
-	exit
+
+if [ "$2" = "migrate" ] && [ "$3" = "begin" ]; then
+    ncat -U /var/run/kubevirt/migration-hook-socket 2>/dev/null
+    exit 0
 fi
-touch /run/kubevirt-private/backend-storage-meta/migrated
+
+if [ "$2" = "release" ] && [ "$3" = "end" ] && [ "$4" = "migrated" ]; then
+    touch /run/kubevirt-private/backend-storage-meta/migrated
+    exit 0
+fi
+
+exit 0
