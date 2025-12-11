@@ -43,6 +43,9 @@ import (
 func NewConnectToNotifyFunc(virtShareDir string) connectFunc {
 	return func() (net.Conn, error) {
 		conn, err := net.Dial("unix", filepath.Join(virtShareDir, "domain-notify.sock"))
+		if err != nil {
+			return nil, fmt.Errorf("error connecting to domain-notify.sock: %w", err)
+		}
 		return conn, err
 	}
 }
@@ -105,7 +108,7 @@ func Proxy(logger *log.FilteredLogger, pipeConn net.Conn, connect connectFunc) {
 	// so virt-handler receives notifications from the VMI
 	notifyConn, err := connect()
 	if err != nil {
-		logger.Reason(err).Error("error connecting to domain-notify.sock for proxy connection")
+		logger.Reason(err).Error("error connecting for proxy connection")
 		return
 	}
 	defer notifyConn.Close()
