@@ -6710,6 +6710,56 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
 				)
 			})
+
+			It("should not raise RestartRequired when VM and VMI UUIDs match", func() {
+				By("Creating a VM without firmware UUID")
+				vm.Spec.Template.Spec.Domain.Firmware = nil
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with the calculated legacy UUID")
+				vmi = SetupVMIFromVM(vm)
+				controller.vmiIndexer.Add(vmi)
+
+				By("Simulating firmware sync by adding the UUID to VM spec")
+				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
+					UUID: CalculateLegacyUUID(vm.Name),
+				}
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				By("Executing the controller expecting the RestartRequired condition NOT to appear")
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.Conditions).NotTo(restartRequiredMatcher(k8sv1.ConditionTrue))
+			})
+
+			It("should raise RestartRequired when VM and VMI UUIDs differ", func() {
+
+				By("Creating a VM without firmware UUID")
+				vm.Spec.Template.Spec.Domain.Firmware = nil
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with the calculated legacy UUID")
+				vmi = SetupVMIFromVM(vm)
+				controller.vmiIndexer.Add(vmi)
+
+				By("Setting a different UUID in VM spec than what VMI has")
+				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
+					UUID: "different-uuid-than-vmi",
+				}
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				By("Executing the controller expecting the RestartRequired condition to appear")
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm.Status.Conditions).To(restartRequiredMatcher(k8sv1.ConditionTrue),
+					"RestartRequired should be raised when UUID differs between VM and VMI")
+			})
 		})
 
 		clearExpectations := func(vm *v1.VirtualMachine) {
