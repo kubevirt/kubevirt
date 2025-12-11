@@ -62,7 +62,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 
 	})
 
-	Context("with requests without topology", func() {
+	Context("with requests without topology", decorators.WgS390x, func() {
 
 		It("should be able to start", func() {
 			By("Kubevirt CR with default MaxHotplugRatio set to 4")
@@ -79,7 +79,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 		})
 	})
 
-	Context("with Kubevirt CR declaring MaxCpuSockets", func() {
+	Context("with Kubevirt CR declaring MaxCpuSockets", decorators.WgS390x, func() {
 
 		It("should be able to start", func() {
 			By("Kubevirt CR with MaxCpuSockets set to 2")

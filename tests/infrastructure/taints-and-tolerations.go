@@ -49,7 +49,7 @@ var _ = Describe(SIGSerial("[rfe_id:4126][crit:medium][vendor:cnv-qe@redhat.com]
 		virtClient = kubevirt.Client()
 	})
 
-	Context("CriticalAddonsOnly taint set on a node", decorators.RequiresDedicatedWorkerNodes, func() {
+	Context("CriticalAddonsOnly taint set on a node", decorators.RequiresDedicatedWorkerNodes, decorators.WgS390x, func() {
 		var (
 			possiblyTaintedNodeName string
 			kubevirtPodsOnNode      []string

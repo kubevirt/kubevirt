@@ -59,7 +59,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			availableCPUs = libnode.GetHighestCPUNumberAmongNodes(virtClient)
 		})
 
-		It("[test_id:4122]Should honor shared ioThreadsPolicy for single disk", func() {
+		It("[test_id:4122]Should honor shared ioThreadsPolicy for single disk", decorators.WgS390x, func() {
 			vmi := libvmifact.NewAlpine(libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyShared))
 
 			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -82,7 +82,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			Expect(newVMI.Spec.Domain.Devices.Disks).To(HaveLen(1))
 		})
 
-		It("[test_id:864][ref_id:2065] Should honor a mix of shared and dedicated ioThreadsPolicy", func() {
+		It("[test_id:864][ref_id:2065] Should honor a mix of shared and dedicated ioThreadsPolicy", decorators.WgS390x, func() {
 			containerDiskAlpine := cd.ContainerDiskFor(cd.ContainerDiskAlpine)
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithIOThreadsPolicy(v1.IOThreadsPolicyShared),
@@ -129,7 +129,7 @@ var _ = Describe("[sig-compute]IOThreads", decorators.SigCompute, func() {
 			Expect(*disk0.Driver.IOThread).ToNot(Equal(*disk1.Driver.IOThread))
 		})
 
-		DescribeTable("[ref_id:2065] should honor auto ioThreadPolicy", func(numCpus int, expectedIOThreads int) {
+		DescribeTable("[ref_id:2065] should honor auto ioThreadPolicy", decorators.WgS390x, func(numCpus int, expectedIOThreads int) {
 			Expect(numCpus).To(BeNumerically("<=", availableCPUs),
 				fmt.Sprintf("Testing environment only has nodes with %d CPUs available, but required are %d CPUs", availableCPUs, numCpus),
 			)
