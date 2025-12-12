@@ -38,17 +38,20 @@ func NewHypervisorFeaturesDomainConfigurator(hasVMPort, useLaunchSecurityTDX boo
 }
 
 func (h HypervisorFeaturesDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Features != nil {
-		domain.Spec.Features = &api.Features{}
-		err := convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
+	domain.Spec.Features = &api.Features{}
 
-		if h.hasVMPort {
-			domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
-		}
+	if vmi.Spec.Domain.Features == nil {
+		return nil
+	}
 
-		if err != nil {
-			return err
-		}
+	err := convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
+
+	if h.hasVMPort {
+		domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
+	}
+
+	if err != nil {
+		return err
 	}
 
 	return nil
