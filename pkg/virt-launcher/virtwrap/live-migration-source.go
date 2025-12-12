@@ -489,7 +489,7 @@ func (m *migrationMonitor) shouldTriggerTimeout(elapsed int64) bool {
 }
 
 func (m *migrationMonitor) shouldAssistMigrationToComplete(elapsed int64) bool {
-	return m.shouldTriggerTimeout(elapsed) && m.options.AllowWorkloadDisruption
+	return m.options.AllowWorkloadDisruption && m.shouldTriggerTimeout(elapsed)
 }
 
 func (m *migrationMonitor) isMigrationProgressing() bool {
