@@ -688,26 +688,26 @@ func (m *migrationMonitor) startMonitor() {
 			return
 		}
 
-		stats := completedJobInfo
-		if stats == nil {
-			stats, err = dom.GetJobStats(0)
+		jobStats := completedJobInfo
+		if jobStats == nil {
+			jobStats, err = dom.GetJobStats(0)
 			if err != nil {
 				logger.Reason(err).Warning("failed to get domain job info, will retry")
 				continue
 			}
 		}
 
-		if stats.DataRemainingSet {
-			m.remainingData = stats.DataRemaining
+		if jobStats.DataRemainingSet {
+			m.remainingData = jobStats.DataRemaining
 		}
 
 		migrationUID := vmi.Status.MigrationState.MigrationUID
 		if vmi.Status.MigrationState.SourceState != nil {
 			migrationUID = vmi.Status.MigrationState.SourceState.MigrationUID
 		}
-		switch stats.Type {
+		switch jobStats.Type {
 		case libvirt.DOMAIN_JOB_UNBOUNDED:
-			aborted := m.processInflightMigration(dom, stats)
+			aborted := m.processInflightMigration(dom, jobStats)
 			if aborted != nil {
 				logger.Errorf("Live migration abort detected with reason: %s", aborted.message)
 				m.l.setMigrationResult(true, aborted.message, aborted.abortStatus)
@@ -715,7 +715,7 @@ func (m *migrationMonitor) startMonitor() {
 			}
 			logInterval++
 			if logInterval%monitorLogInterval == 0 {
-				logMigrationInfo(logger, string(migrationUID), stats)
+				logMigrationInfo(logger, string(migrationUID), jobStats)
 			}
 		case libvirt.DOMAIN_JOB_NONE:
 			completedJobInfo = m.determineNonRunningMigrationStatus(dom)
@@ -758,12 +758,12 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 			return
 		}
 		defer dom.Free()
-		stats, err := dom.GetJobInfo()
+		jobInfo, err := dom.GetJobInfo()
 		if err != nil {
 			log.Log.Object(vmi).Reason(err).Error("failed to get domain job info")
 			return
 		}
-		if stats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
+		if jobInfo.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
 			err := dom.AbortJob()
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Error("failed to cancel migration")
