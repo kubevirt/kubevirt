@@ -376,3 +376,84 @@ type VirtualMachineRestoreList struct {
 
 	Items []VirtualMachineRestore `json:"items"`
 }
+
+// VirtualMachineSnapshotSchedule defines the operation of scheduled snapshotting of VMs
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachineSnapshotSchedule struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec VirtualMachineSnapshotScheduleSpec `json:"spec"`
+
+	// +optional
+	Status *VirtualMachineSnapshotScheduleStatus `json:"status,omitempty"`
+}
+
+// VirtualMachineSnapshotScheduleSpec is the spec for a VirtualMachineSnapshotSchedule resource
+type VirtualMachineSnapshotScheduleSpec struct {
+	// +optional
+	ClaimSelector *metav1.LabelSelector `json:"claimSelector,omitempty"`
+
+	// +optional
+	Disabled *bool `json:"disabled,omitempty"`
+
+	Retention VirtualMachineSnapshotScheduleRetention `json:"retention"`
+
+	// The cronspec (https://en.wikipedia.org/wiki/Cron#Overview)
+	// that defines the schedule. It is interpreted with
+	// respect to the UTC timezone. The following pre-defined
+	// shortcuts are also supported: @hourly, @daily, @weekly,
+	// @monthly, and @yearly
+	Schedule string `json:"schedule"`
+
+	SnapshotTemplate VirtualMachineSnapshotScheduleTemplate `json:"snapshotTemplate"`
+}
+
+// VirtualMachineSnapshotScheduleRetention defines retention policy for snapshots
+type VirtualMachineSnapshotScheduleRetention struct {
+	// The length of time a given snapshot should be
+	// retained, specified in hours. (168h = 1 week)
+	// +optional
+	Expires *metav1.Duration `json:"expires,omitempty"`
+
+	// The maximum number of snapshots per VM to keep
+	// +optional
+	MaxCount *int32 `json:"maxCount,omitempty"`
+}
+
+// VirtualMachineSnapshotScheduleTemplate defines the template for creating snapshots
+type VirtualMachineSnapshotScheduleTemplate struct {
+	// A set of labels can be added to each
+	// VirtualMachineSnapshot object
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// +optional
+	Spec VirtualMachineSnapshotSpec `json:"spec,omitempty"`
+}
+
+// VirtualMachineSnapshotScheduleStatus is the status for a VirtualMachineSnapshotSchedule resource
+type VirtualMachineSnapshotScheduleStatus struct {
+	// +optional
+	// +listType=atomic
+	Conditions []Condition `json:"conditions,omitempty"`
+
+	// +optional
+	LastSnapshotTime *metav1.Time `json:"lastSnapshotTime,omitempty"`
+
+	// +optional
+	NextSnapshotTime *metav1.Time `json:"nextSnapshotTime,omitempty"`
+}
+
+// VirtualMachineSnapshotScheduleList is a list of VirtualMachineSnapshotSchedule resources
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type VirtualMachineSnapshotScheduleList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []VirtualMachineSnapshotSchedule `json:"items"`
+}
