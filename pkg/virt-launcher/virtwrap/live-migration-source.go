@@ -22,6 +22,7 @@ package virtwrap
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -309,7 +310,7 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	// This method collects all VMI disks that needs to be copied during live migration
 	// and returns a list of its target device names.
 	// Shared volues are being excluded.
-	copyDisks := []string{}
+	var copyDisks []string
 	migrationVols := classifyVolumesForMigration(vmi)
 	disks, err := util.GetAllDomainDisks(dom)
 	if err != nil {
@@ -362,12 +363,12 @@ func (l *LibvirtDomainManager) initializeMigrationMetadata(vmi *v1.VirtualMachin
 		if migrationMetadata.EndTimestamp == nil {
 			// don't stop on currently executing migrations
 			return true, nil
-		} else {
-			// Don't allow the same migration UID to be executed twice.
-			// Migration attempts are like pods. One shot.
-			return false, fmt.Errorf("migration job %v already executed, finished at %v, failed: %t, abortStatus: %s",
-				migrationMetadata.UID, *migrationMetadata.EndTimestamp, migrationMetadata.Failed, migrationMetadata.AbortStatus)
 		}
+
+		// Don't allow the same migration UID to be executed twice.
+		// Migration attempts are like pods. One shot.
+		return false, fmt.Errorf("migration job %v already executed, finished at %v, failed: %t, abortStatus: %s",
+			migrationMetadata.UID, *migrationMetadata.EndTimestamp, migrationMetadata.Failed, migrationMetadata.AbortStatus)
 	}
 
 	now := metav1.Now()
@@ -388,7 +389,7 @@ func (l *LibvirtDomainManager) cancelMigration(vmi *v1.VirtualMachineInstance) e
 	}
 
 	if err := l.setMigrationAbortStatus(v1.MigrationAbortInProgress); err != nil {
-		if err == domainerrors.MigrationAbortInProgressError {
+		if errors.Is(err, domainerrors.MigrationAbortInProgressError) {
 			return nil
 		}
 		return err
