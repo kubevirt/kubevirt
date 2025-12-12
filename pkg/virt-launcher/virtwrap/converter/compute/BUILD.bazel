@@ -10,6 +10,7 @@ go_library(
         "graphics.go",
         "host_device.go",
         "hypervisor.go",
+        "hypervisor_features.go",
         "input_device.go",
         "launch_security.go",
         "panic_devices.go",
