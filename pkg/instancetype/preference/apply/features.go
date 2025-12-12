@@ -42,7 +42,9 @@ func applyFeaturePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpe
 		vmiSpec.Domain.Features.APIC = preferenceSpec.Features.PreferredApic.DeepCopy()
 	}
 
-	if preferenceSpec.Features.PreferredHyperv != nil {
+	if preferenceSpec.Features.PreferredHyperv != nil && (vmiSpec.Domain.Features.HypervPassthrough == nil ||
+		vmiSpec.Domain.Features.HypervPassthrough.Enabled == nil ||
+		!*vmiSpec.Domain.Features.HypervPassthrough.Enabled) {
 		applyHyperVFeaturePreferences(preferenceSpec, vmiSpec)
 	}
 
