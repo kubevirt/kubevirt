@@ -583,7 +583,6 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 			}
 			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
 		} else {
-
 			logger.Info("Pausing the guest to allow migration to complete")
 			// if a migration has stalled too long, the guest will be paused
 			// to complete the migration when allowPostCopy is disabled
@@ -602,9 +601,10 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		}
 
 	case !m.isMigrationProgressing():
-		// check if the migration is still progressing
-		// a stuck migration will get terminated when post copy
-		// isn't enabled
+		// The migration is completely stuck.
+		// It usually indicates a problem with the network or qemu's connection handling.
+		// In this case, we abort the migration directly without trying to pause/post-copy,
+		// since the problem is highly unlikely to be caused by a high dirty rate.
 		err := dom.AbortJob()
 		if err != nil {
 			logger.Reason(err).Error("failed to abort migration")
@@ -621,7 +621,6 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		// if the total migration time exceeds an acceptable
 		// limit, then the migration will get aborted, but
 		// only if post copy migration hasn't been enabled
-
 		err := dom.AbortJob()
 		if err != nil {
 			logger.Reason(err).Error("failed to abort migration")
