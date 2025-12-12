@@ -76,13 +76,13 @@ func (q *queue) startPolling() {
 
 	ticker := time.NewTicker(pollingInterval)
 	go func() {
-		for range ticker.C {
+		for {
 			select {
 			case <-q.ctx.Done():
 				log.Log.Infof("stopping domain stats collection for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
 				ticker.Stop()
 				return
-			default:
+			case <-ticker.C:
 				log.Log.Infof("collecting domain stats for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
 				q.collect()
 			}
