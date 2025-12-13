@@ -613,6 +613,60 @@ func NewVirtualMachineRestoreCrd() (*extv1.CustomResourceDefinition, error) {
 	return crd, nil
 }
 
+func NewVirtualMachineSnapshotScheduleCrd() (*extv1.CustomResourceDefinition, error) {
+	crd := newBlankCrd()
+
+	crd.ObjectMeta.Name = "virtualmachinesnapshotschedules." + snapshotv1beta1.SchemeGroupVersion.Group
+	crd.Spec = extv1.CustomResourceDefinitionSpec{
+		Group: snapshotv1beta1.SchemeGroupVersion.Group,
+		Versions: []extv1.CustomResourceDefinitionVersion{
+			{
+				Name:    snapshotv1alpha1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: false,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+			},
+			{
+				Name:    snapshotv1beta1.SchemeGroupVersion.Version,
+				Served:  true,
+				Storage: true,
+				Subresources: &extv1.CustomResourceSubresources{
+					Status: &extv1.CustomResourceSubresourceStatus{},
+				},
+			},
+		},
+		Scope: "Namespaced",
+		Conversion: &extv1.CustomResourceConversion{
+			Strategy: extv1.NoneConverter,
+		},
+		Names: extv1.CustomResourceDefinitionNames{
+			Plural:     "virtualmachinesnapshotschedules",
+			Singular:   "virtualmachinesnapshotschedule",
+			Kind:       "VirtualMachineSnapshotSchedule",
+			ShortNames: []string{"vmsnapshotschedule", "vmsnapshotschedules"},
+			Categories: []string{
+				"all",
+			},
+		},
+	}
+	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
+		{Name: "Schedule", Type: "string", JSONPath: ".spec.schedule"},
+		{Name: "Disabled", Type: "boolean", JSONPath: ".spec.disabled"},
+		{Name: "NextRun", Type: "date", JSONPath: ".status.nextSnapshotTime"},
+		{Name: "LastRun", Type: "date", JSONPath: ".status.lastSnapshotTime"},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err = patchValidationForAllVersions(crd); err != nil {
+		return nil, err
+	}
+	return crd, nil
+}
+
 func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
 	crd := newBlankCrd()
 

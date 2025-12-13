@@ -125,6 +125,29 @@ func (ctrl *VMSnapshotScheduleController) handleVMSnapshotSchedule(obj interface
 func (ctrl *VMSnapshotScheduleController) updateVMSnapshotSchedule(schedule *snapshotv1.VirtualMachineSnapshotSchedule) error {
 	log.Log.V(3).Infof("Updating VirtualMachineSnapshotSchedule %s/%s", schedule.Namespace, schedule.Name)
 
+	// Handle deletion
+	if schedule.DeletionTimestamp != nil {
+		if controller.HasFinalizer(schedule, vmSnapshotScheduleFinalizer) {
+			// Perform cleanup (e.g., delete associated snapshots if needed)
+			// ... (add cleanup logic here if required)
+			controller.RemoveFinalizer(schedule, vmSnapshotScheduleFinalizer)
+			_, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(schedule.Namespace).Update(context.TODO(), schedule, metav1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Add finalizer if not present
+	if !controller.HasFinalizer(schedule, vmSnapshotScheduleFinalizer) {
+		controller.AddFinalizer(schedule, vmSnapshotScheduleFinalizer)
+		_, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(schedule.Namespace).Update(context.TODO(), schedule, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
 	// Check if schedule is disabled
 	if schedule.Spec.Disabled != nil && *schedule.Spec.Disabled {
 		log.Log.V(3).Infof("VirtualMachineSnapshotSchedule %s/%s is disabled", schedule.Namespace, schedule.Name)
@@ -163,6 +186,11 @@ func (ctrl *VMSnapshotScheduleController) updateScheduleStatus(schedule *snapsho
 		return fmt.Errorf("failed to calculate next run: %v", err)
 	}
 
+	// Initialize status if nil
+	if schedule.Status == nil {
+		schedule.Status = &snapshotv1.VirtualMachineSnapshotScheduleStatus{}
+	}
+
 	// Update the status
 	schedule.Status.NextSnapshotTime = &metav1.Time{Time: nextRun}
 
@@ -187,8 +215,12 @@ func (ctrl *VMSnapshotScheduleController) updateScheduleStatus(schedule *snapsho
 		schedule.Status.LastSnapshotTime = latestSnapshotTime
 	}
 
-	// TODO: Update the schedule status in the cluster
-	// For now, we'll just log it
+	// Persist the status update to the cluster
+	_, err = ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(schedule.Namespace).UpdateStatus(context.TODO(), schedule, metav1.UpdateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to update schedule status: %v", err)
+	}
+
 	log.Log.V(3).Infof("Updated schedule %s/%s status: next=%v, last=%v", schedule.Namespace, schedule.Name, nextRun, latestSnapshotTime)
 
 	return nil
