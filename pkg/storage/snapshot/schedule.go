@@ -36,6 +36,7 @@ import (
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 
 	"github.com/robfig/cron/v3"
@@ -356,6 +357,7 @@ func (ctrl *VMSnapshotScheduleController) calculateNextRun(schedule string, from
 func (ctrl *VMSnapshotScheduleController) createSnapshot(schedule *snapshotv1.VirtualMachineSnapshotSchedule, vm *kubevirtv1.VirtualMachine) error {
 	snapshotName := fmt.Sprintf("%s-%s-%d", schedule.Name, vm.Name, time.Now().Unix())
 
+	apiGroup := "kubevirt.io"
 	snapshot := &snapshotv1.VirtualMachineSnapshot{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      snapshotName,
@@ -368,9 +370,9 @@ func (ctrl *VMSnapshotScheduleController) createSnapshot(schedule *snapshotv1.Vi
 		},
 		Spec: snapshotv1.VirtualMachineSnapshotSpec{
 			Source: corev1.TypedLocalObjectReference{
-				APIVersion: "kubevirt.io/v1",
-				Kind:       "VirtualMachine",
-				Name:       vm.Name,
+				APIGroup: &apiGroup,
+				Kind:     "VirtualMachine",
+				Name:     vm.Name,
 			},
 		},
 	}

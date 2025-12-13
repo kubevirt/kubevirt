@@ -31648,4 +31648,205 @@ var CRDsValidation map[string]string = map[string]string{
   - spec
   type: object
 `,
+	"virtualmachinesnapshotschedule": `openAPIV3Schema:
+  description: VirtualMachineSnapshotSchedule defines the operation of scheduled snapshotting
+    of VMs
+  properties:
+    apiVersion:
+      description: |-
+        APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      type: string
+    kind:
+      description: |-
+        Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated.
+        In CamelCase.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      type: string
+    metadata:
+      type: object
+    spec:
+      description: VirtualMachineSnapshotScheduleSpec is the spec for a VirtualMachineSnapshotSchedule
+        resource
+      properties:
+        claimSelector:
+          description: |-
+            A label selector is a label query over a set of resources. The result of matchLabels and
+            matchExpressions are ANDed. An empty label selector matches all objects. A null
+            label selector matches no objects.
+          properties:
+            matchExpressions:
+              description: matchExpressions is a list of label selector requirements.
+                The requirements are ANDed.
+              items:
+                description: |-
+                  A label selector requirement is a selector that contains values, a key, and an operator that
+                  relates the key and values.
+                properties:
+                  key:
+                    description: key is the label key that the selector applies to.
+                    type: string
+                  operator:
+                    description: |-
+                      operator represents a key's relationship to a set of values.
+                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                    type: string
+                  values:
+                    description: |-
+                      values is an array of string values. If the operator is In or NotIn,
+                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                      the values array must be empty. This array is replaced during a strategic
+                      merge patch.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - key
+                - operator
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+            matchLabels:
+              additionalProperties:
+                type: string
+              description: |-
+                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                operator is "In", and the values array contains only "value". The requirements are ANDed.
+              type: object
+          type: object
+          x-kubernetes-map-type: atomic
+        disabled:
+          type: boolean
+        retention:
+          description: VirtualMachineSnapshotScheduleRetention defines retention policy
+            for snapshots
+          properties:
+            expires:
+              description: |-
+                The length of time a given snapshot should be
+                retained, specified in hours. (168h = 1 week)
+              type: string
+            maxCount:
+              description: The maximum number of snapshots per VM to keep
+              format: int32
+              type: integer
+          type: object
+        schedule:
+          description: |-
+            The cronspec (https://en.wikipedia.org/wiki/Cron#Overview)
+            that defines the schedule. It is interpreted with
+            respect to the UTC timezone. The following pre-defined
+            shortcuts are also supported: @hourly, @daily, @weekly,
+            @monthly, and @yearly
+          type: string
+        snapshotTemplate:
+          description: VirtualMachineSnapshotScheduleTemplate defines the template
+            for creating snapshots
+          properties:
+            annotations:
+              additionalProperties:
+                type: string
+              type: object
+            labels:
+              additionalProperties:
+                type: string
+              description: |-
+                A set of labels can be added to each
+                VirtualMachineSnapshot object
+              type: object
+            spec:
+              description: VirtualMachineSnapshotSpec is the spec for a VirtualMachineSnapshot
+                resource
+              properties:
+                deletionPolicy:
+                  description: |-
+                    DeletionPolicy defines that to do with VirtualMachineSnapshot
+                    when VirtualMachineSnapshot is deleted
+                  type: string
+                failureDeadline:
+                  description: |-
+                    This time represents the number of seconds we permit the vm snapshot
+                    to take. In case we pass this deadline we mark this snapshot
+                    as failed.
+                    Defaults to DefaultFailureDeadline - 5min
+                  type: string
+                source:
+                  description: |-
+                    TypedLocalObjectReference contains enough information to let you locate the
+                    typed referenced object inside the same namespace.
+                  properties:
+                    apiGroup:
+                      description: |-
+                        APIGroup is the group for the resource being referenced.
+                        If APIGroup is not specified, the specified Kind must be in the core API group.
+                        For any other third-party types, APIGroup is required.
+                      type: string
+                    kind:
+                      description: Kind is the type of resource being referenced
+                      type: string
+                    name:
+                      description: Name is the name of resource being referenced
+                      type: string
+                  required:
+                  - kind
+                  - name
+                  type: object
+                  x-kubernetes-map-type: atomic
+              required:
+              - source
+              type: object
+          type: object
+      required:
+      - retention
+      - schedule
+      - snapshotTemplate
+      type: object
+    status:
+      description: VirtualMachineSnapshotScheduleStatus is the status for a VirtualMachineSnapshotSchedule
+        resource
+      properties:
+        conditions:
+          items:
+            description: Condition defines conditions
+            properties:
+              lastProbeTime:
+                format: date-time
+                nullable: true
+                type: string
+              lastTransitionTime:
+                format: date-time
+                nullable: true
+                type: string
+              message:
+                type: string
+              reason:
+                type: string
+              status:
+                type: string
+              type:
+                description: ConditionType is the const type for Conditions
+                type: string
+            required:
+            - status
+            - type
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
+        lastSnapshotTime:
+          format: date-time
+          type: string
+        nextSnapshotTime:
+          format: date-time
+          type: string
+      type: object
+  required:
+  - spec
+  type: object
+`,
 }

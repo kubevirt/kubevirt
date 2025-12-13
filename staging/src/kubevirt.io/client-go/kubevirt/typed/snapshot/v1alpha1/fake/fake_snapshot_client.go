@@ -42,6 +42,10 @@ func (c *FakeSnapshotV1alpha1) VirtualMachineSnapshotContents(namespace string) 
 	return newFakeVirtualMachineSnapshotContents(c, namespace)
 }
 
+func (c *FakeSnapshotV1alpha1) VirtualMachineSnapshotSchedules(namespace string) v1alpha1.VirtualMachineSnapshotScheduleInterface {
+	return newFakeVirtualMachineSnapshotSchedules(c, namespace)
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeSnapshotV1alpha1) RESTClient() rest.Interface {

@@ -474,6 +474,9 @@ github.com/rhobs/operator-observability-toolkit/pkg/testutil
 # github.com/rivo/uniseg v0.4.7
 ## explicit; go 1.18
 github.com/rivo/uniseg
+# github.com/robfig/cron/v3 v3.0.1
+## explicit; go 1.12
+github.com/robfig/cron/v3
 # github.com/seccomp/libseccomp-golang v0.10.0
 ## explicit; go 1.14
 github.com/seccomp/libseccomp-golang

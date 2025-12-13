@@ -8,6 +8,7 @@ go_library(
         "fake_virtualmachinerestore.go",
         "fake_virtualmachinesnapshot.go",
         "fake_virtualmachinesnapshotcontent.go",
+        "fake_virtualmachinesnapshotschedule.go",
     ],
     importpath = "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1/fake",
     visibility = ["//visibility:public"],

@@ -25,3 +25,5 @@ type VirtualMachineRestoreExpansion interface{}
 type VirtualMachineSnapshotExpansion interface{}
 
 type VirtualMachineSnapshotContentExpansion interface{}
+
+type VirtualMachineSnapshotScheduleExpansion interface{}

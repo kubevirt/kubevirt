@@ -9,6 +9,7 @@ go_library(
         "virtualmachinerestore.go",
         "virtualmachinesnapshot.go",
         "virtualmachinesnapshotcontent.go",
+        "virtualmachinesnapshotschedule.go",
     ],
     importpath = "kubevirt.io/client-go/kubevirt/typed/snapshot/v1alpha1",
     visibility = ["//visibility:public"],
