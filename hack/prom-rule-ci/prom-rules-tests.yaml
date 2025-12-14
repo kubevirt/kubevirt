@@ -627,6 +627,29 @@ tests:
           - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
             value: 234329980
 
+  # Mass Failed virt-launcher pods should trigger critical alert after 10m
+  - interval: 1m
+    input_series:
+      # Single series at value 200 so the sum() recording rule reaches threshold for 10m
+      - series: 'kube_pod_status_phase{pod="virt-launcher-test", phase="Failed"}'
+        values: '200x11'
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: VirtLauncherPodsStuckFailed
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: VirtLauncherPodsStuckFailed
+        exp_alerts:
+          - exp_annotations:
+              summary: "At least 200 virt-launcher pods are stuck in Failed state and not deleted for 10 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtLauncherPodsStuckFailed"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
   # Excessive VMI Migrations in a period of time
   - interval: 1h
     input_series:
