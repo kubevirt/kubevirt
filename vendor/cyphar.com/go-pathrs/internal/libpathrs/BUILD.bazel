@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "error_unix.go",
+        "libpathrs_linux.go",
+    ],
+    cgo = True,
+    importmap = "kubevirt.io/kubevirt/vendor/cyphar.com/go-pathrs/internal/libpathrs",
+    importpath = "cyphar.com/go-pathrs/internal/libpathrs",
+    visibility = ["//vendor/cyphar.com/go-pathrs:__subpackages__"],
+)
