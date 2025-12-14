@@ -154,13 +154,12 @@ func SyncVMChangedBlockTrackingState(vm *v1.VirtualMachine, vmi *v1.VirtualMachi
 		return
 	}
 	vmMatchesSelector := vmMatchesChangedBlockTrackingSelectors(vm, clusterConfig, nsStore)
+	if !clusterConfig.IncrementalBackupEnabled() {
+		handleChangedBlockTrackingFGDisabled(vm, vmi, vmMatchesSelector)
+		return
+	}
+
 	if vmMatchesSelector {
-		// If vm matches the labelSelector but IncrementalBackupGate is not enabled
-		// update the status and return
-		if !clusterConfig.IncrementalBackupEnabled() {
-			SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingFGDisabled)
-			return
-		}
 		enableChangedBlockTracking(vm, vmi)
 	} else {
 		disableChangedBlockTracking(vm, vmi)
@@ -258,6 +257,22 @@ func disableChangedBlockTracking(vm *v1.VirtualMachine, vmi *v1.VirtualMachineIn
 	}
 }
 
+func handleChangedBlockTrackingFGDisabled(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, vmMatchesSelector bool) {
+	if vmi == nil || cbtStateDisabled(vmi.Status.ChangedBlockTracking) {
+		if vmMatchesSelector {
+			SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingFGDisabled)
+		} else {
+			vm.Status.ChangedBlockTracking = nil
+		}
+		return
+	}
+
+	// VMI exists with CBT enabled - need to go through restart first
+	if HasCBTStateEnabled(vm.Status.ChangedBlockTracking) {
+		SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingPendingRestart)
+	}
+}
+
 func resetInvalidState(vm *v1.VirtualMachine) {
 	log.Log.Object(vm).Warningf("invalid changedBlockTracking state %s, resetting to undefined", vm.Status.ChangedBlockTracking.State)
 	SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingUndefined)
@@ -265,7 +280,6 @@ func resetInvalidState(vm *v1.VirtualMachine) {
 
 func SetChangedBlockTrackingOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, nsStore cache.Store) {
 	if !clusterConfig.IncrementalBackupEnabled() {
-		SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingUndefined)
 		return
 	}
 
