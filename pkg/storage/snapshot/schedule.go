@@ -74,6 +74,7 @@ func (ctrl *VMSnapshotScheduleController) Run(threadiness int, stopCh <-chan str
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVMSnapshotSchedule,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMSnapshotSchedule(newObj) },
+			DeleteFunc: ctrl.handleVMSnapshotSchedule,
 		},
 		ctrl.ResyncPeriod,
 	)
@@ -83,12 +84,20 @@ func (ctrl *VMSnapshotScheduleController) Run(threadiness int, stopCh <-chan str
 	}
 
 	// Process existing schedules
-	for _, obj := range ctrl.VMSnapshotScheduleInformer.GetStore().List() {
+	schedules := ctrl.VMSnapshotScheduleInformer.GetStore().List()
+	log.Log.Infof("Initial processing of %d snapshot schedules", len(schedules))
+	for _, obj := range schedules {
 		ctrl.handleVMSnapshotSchedule(obj)
 	}
 
-	// Use a ticker for periodic processing
-	ticker := time.NewTicker(ctrl.ResyncPeriod)
+	// Use a ticker for periodic processing - use 1 minute intervals for snapshot schedules
+	// since cron schedules can be as frequent as every minute
+	tickerPeriod := ctrl.ResyncPeriod
+	if tickerPeriod > time.Minute {
+		tickerPeriod = time.Minute
+	}
+	log.Log.Infof("Snapshot schedule controller will check schedules every %v", tickerPeriod)
+	ticker := time.NewTicker(tickerPeriod)
 	defer ticker.Stop()
 
 	for {
@@ -97,7 +106,9 @@ func (ctrl *VMSnapshotScheduleController) Run(threadiness int, stopCh <-chan str
 			return
 		case <-ticker.C:
 			// Process all schedules periodically
-			for _, obj := range ctrl.VMSnapshotScheduleInformer.GetStore().List() {
+			schedules := ctrl.VMSnapshotScheduleInformer.GetStore().List()
+			log.Log.Infof("Processing %d snapshot schedules", len(schedules))
+			for _, obj := range schedules {
 				ctrl.handleVMSnapshotSchedule(obj)
 			}
 		}
@@ -106,8 +117,12 @@ func (ctrl *VMSnapshotScheduleController) Run(threadiness int, stopCh <-chan str
 
 // handleVMSnapshotSchedule handles changes to VirtualMachineSnapshotSchedule resources
 func (ctrl *VMSnapshotScheduleController) handleVMSnapshotSchedule(obj interface{}) {
-	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
-		obj = unknown.Obj
+	// Handle deleted objects - nothing to do, object is already gone
+	if _, ok := obj.(cache.DeletedFinalStateUnknown); ok {
+		// Object was deleted and we missed the delete event
+		// The object is already gone from the API server, nothing to process
+		log.Log.V(3).Infof("Received DeletedFinalStateUnknown for VirtualMachineSnapshotSchedule, skipping")
+		return
 	}
 
 	schedule, ok := obj.(*snapshotv1.VirtualMachineSnapshotSchedule)
@@ -117,22 +132,40 @@ func (ctrl *VMSnapshotScheduleController) handleVMSnapshotSchedule(obj interface
 	}
 
 	if err := ctrl.updateVMSnapshotSchedule(schedule); err != nil {
-		log.Log.Errorf("Failed to update VirtualMachineSnapshotSchedule %s/%s: %v", schedule.Namespace, schedule.Name, err)
+		// Don't log "not found" errors as they're expected when object is deleted
+		if !errors.IsNotFound(err) {
+			log.Log.Errorf("Failed to update VirtualMachineSnapshotSchedule %s/%s: %v", schedule.Namespace, schedule.Name, err)
+		}
 	}
 }
 
 // updateVMSnapshotSchedule processes a VirtualMachineSnapshotSchedule
 func (ctrl *VMSnapshotScheduleController) updateVMSnapshotSchedule(schedule *snapshotv1.VirtualMachineSnapshotSchedule) error {
-	log.Log.V(3).Infof("Updating VirtualMachineSnapshotSchedule %s/%s", schedule.Namespace, schedule.Name)
+	log.Log.Infof("Processing VirtualMachineSnapshotSchedule %s/%s", schedule.Namespace, schedule.Name)
+
+	// First, fetch the latest version from the API server to ensure object still exists
+	// This handles the case where the informer cache has stale data
+	current, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(schedule.Namespace).Get(context.TODO(), schedule.Name, metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Object no longer exists, nothing to do
+			log.Log.V(3).Infof("VirtualMachineSnapshotSchedule %s/%s no longer exists, skipping", schedule.Namespace, schedule.Name)
+			return nil
+		}
+		return err
+	}
+
+	// Use the fresh copy from API server
+	schedule = current
 
 	// Handle deletion
 	if schedule.DeletionTimestamp != nil {
 		if controller.HasFinalizer(schedule, vmSnapshotScheduleFinalizer) {
 			// Perform cleanup (e.g., delete associated snapshots if needed)
-			// ... (add cleanup logic here if required)
-			controller.RemoveFinalizer(schedule, vmSnapshotScheduleFinalizer)
-			_, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(schedule.Namespace).Update(context.TODO(), schedule, metav1.UpdateOptions{})
-			if err != nil {
+			scheduleCopy := schedule.DeepCopy()
+			controller.RemoveFinalizer(scheduleCopy, vmSnapshotScheduleFinalizer)
+			_, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(scheduleCopy.Namespace).Update(context.TODO(), scheduleCopy, metav1.UpdateOptions{})
+			if err != nil && !errors.IsNotFound(err) {
 				return err
 			}
 		}
@@ -141,11 +174,14 @@ func (ctrl *VMSnapshotScheduleController) updateVMSnapshotSchedule(schedule *sna
 
 	// Add finalizer if not present
 	if !controller.HasFinalizer(schedule, vmSnapshotScheduleFinalizer) {
-		controller.AddFinalizer(schedule, vmSnapshotScheduleFinalizer)
-		_, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(schedule.Namespace).Update(context.TODO(), schedule, metav1.UpdateOptions{})
+		scheduleCopy := schedule.DeepCopy()
+		controller.AddFinalizer(scheduleCopy, vmSnapshotScheduleFinalizer)
+		updatedSchedule, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(scheduleCopy.Namespace).Update(context.TODO(), scheduleCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
+		// Use the updated schedule for the rest of the processing
+		schedule = updatedSchedule
 	}
 
 	// Check if schedule is disabled
@@ -154,16 +190,13 @@ func (ctrl *VMSnapshotScheduleController) updateVMSnapshotSchedule(schedule *sna
 		return nil
 	}
 
-	// Update status with next run time
-	if err := ctrl.updateScheduleStatus(schedule); err != nil {
-		log.Log.Errorf("Failed to update status for schedule %s/%s: %v", schedule.Namespace, schedule.Name, err)
-	}
-
 	// Get VMs that match the selector
 	vms, err := ctrl.getMatchingVMs(schedule)
 	if err != nil {
 		return err
 	}
+
+	log.Log.Infof("Found %d VMs matching schedule %s/%s selector", len(vms), schedule.Namespace, schedule.Name)
 
 	// Process each matching VM
 	for _, vm := range vms {
@@ -173,36 +206,78 @@ func (ctrl *VMSnapshotScheduleController) updateVMSnapshotSchedule(schedule *sna
 		}
 	}
 
+	// Update status after processing
+	if err := ctrl.updateScheduleStatus(context.TODO(), schedule); err != nil {
+		log.Log.Errorf("Failed to update status for schedule %s/%s: %v", schedule.Namespace, schedule.Name, err)
+	}
+
 	return nil
 }
 
 // updateScheduleStatus updates the schedule status with next run time
-func (ctrl *VMSnapshotScheduleController) updateScheduleStatus(schedule *snapshotv1.VirtualMachineSnapshotSchedule) error {
+func (ctrl *VMSnapshotScheduleController) updateScheduleStatus(ctx context.Context, schedule *snapshotv1.VirtualMachineSnapshotSchedule) error {
+	const maxRetries = 3
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		err := ctrl.tryUpdateScheduleStatus(ctx, schedule)
+		if err == nil {
+			return nil
+		}
+
+		// If it's a conflict error, retry
+		if errors.IsConflict(err) {
+			log.Log.V(3).Infof("Conflict updating schedule %s/%s status, retrying (attempt %d/%d)", schedule.Namespace, schedule.Name, attempt+1, maxRetries)
+			continue
+		}
+
+		// For non-conflict errors, return immediately
+		return err
+	}
+
+	return fmt.Errorf("failed to update schedule status after %d retries due to conflicts", maxRetries)
+}
+
+// tryUpdateScheduleStatus attempts a single update of the schedule status
+func (ctrl *VMSnapshotScheduleController) tryUpdateScheduleStatus(ctx context.Context, schedule *snapshotv1.VirtualMachineSnapshotSchedule) error {
+	// Fetch the latest version to avoid update conflicts
+	current, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(schedule.Namespace).Get(ctx, schedule.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
 	now := time.Now().UTC()
 
-	// Calculate next run from now
-	nextRun, err := ctrl.calculateNextRun(schedule.Spec.Schedule, now)
+	// Use last snapshot time as base, or now if none
+	var baseTime time.Time
+	if current.Status != nil && current.Status.LastSnapshotTime != nil {
+		baseTime = current.Status.LastSnapshotTime.Time
+	} else {
+		baseTime = now
+	}
+
+	// Calculate next run from base time
+	nextRun, err := ctrl.calculateNextRun(current.Spec.Schedule, baseTime)
 	if err != nil {
 		return fmt.Errorf("failed to calculate next run: %v", err)
 	}
 
 	// Initialize status if nil
-	if schedule.Status == nil {
-		schedule.Status = &snapshotv1.VirtualMachineSnapshotScheduleStatus{}
+	if current.Status == nil {
+		current.Status = &snapshotv1.VirtualMachineSnapshotScheduleStatus{}
 	}
 
 	// Update the status
-	schedule.Status.NextSnapshotTime = &metav1.Time{Time: nextRun}
+	current.Status.NextSnapshotTime = &metav1.Time{Time: nextRun}
 
 	// Update last snapshot time if we have snapshots
-	vms, err := ctrl.getMatchingVMs(schedule)
+	vms, err := ctrl.getMatchingVMs(current)
 	if err != nil {
 		return err
 	}
 
 	var latestSnapshotTime *metav1.Time
 	for _, vm := range vms {
-		snapshots, err := ctrl.getSnapshotsForSchedule(schedule, &vm)
+		snapshots, err := ctrl.getSnapshotsForSchedule(current, &vm)
 		if err != nil {
 			continue
 		}
@@ -212,18 +287,15 @@ func (ctrl *VMSnapshotScheduleController) updateScheduleStatus(schedule *snapsho
 	}
 
 	if latestSnapshotTime != nil {
-		schedule.Status.LastSnapshotTime = latestSnapshotTime
+		current.Status.LastSnapshotTime = latestSnapshotTime
 	}
 
 	// Persist the status update to the cluster
-	_, err = ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(schedule.Namespace).UpdateStatus(context.TODO(), schedule, metav1.UpdateOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to update schedule status: %v", err)
+	_, err = ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(schedule.Namespace).UpdateStatus(ctx, current, metav1.UpdateOptions{})
+	if err == nil {
+		log.Log.V(3).Infof("Updated schedule %s/%s status: next=%v, last=%v", current.Namespace, current.Name, current.Status.NextSnapshotTime, latestSnapshotTime)
 	}
-
-	log.Log.V(3).Infof("Updated schedule %s/%s status: next=%v, last=%v", schedule.Namespace, schedule.Name, nextRun, latestSnapshotTime)
-
-	return nil
+	return err
 }
 
 // getMatchingVMs returns VMs that match the schedule's selector
@@ -269,17 +341,24 @@ func (ctrl *VMSnapshotScheduleController) getMatchingVMs(schedule *snapshotv1.Vi
 
 // processVMSnapshotSchedule processes snapshot creation and cleanup for a specific VM
 func (ctrl *VMSnapshotScheduleController) processVMSnapshotSchedule(schedule *snapshotv1.VirtualMachineSnapshotSchedule, vm *kubevirtv1.VirtualMachine) error {
+	log.Log.Infof("Processing snapshot schedule for VM %s/%s", vm.Namespace, vm.Name)
+
 	// Get existing snapshots for this VM and schedule
 	snapshots, err := ctrl.getSnapshotsForSchedule(schedule, vm)
 	if err != nil {
 		return err
 	}
 
+	log.Log.Infof("Found %d existing snapshots for VM %s/%s from schedule %s", len(snapshots), vm.Namespace, vm.Name, schedule.Name)
+
 	// Check if we need to create a new snapshot
 	if ctrl.shouldCreateSnapshot(schedule, snapshots) {
+		log.Log.Infof("Creating new snapshot for VM %s/%s", vm.Namespace, vm.Name)
 		if err := ctrl.createSnapshot(schedule, vm); err != nil {
 			return err
 		}
+	} else {
+		log.Log.Infof("No new snapshot needed for VM %s/%s (not time yet)", vm.Namespace, vm.Name)
 	}
 
 	// Clean up old snapshots based on retention policy
@@ -449,10 +528,10 @@ func (ctrl *VMSnapshotScheduleController) cleanupSnapshots(schedule *snapshotv1.
 	var toDelete []*snapshotv1.VirtualMachineSnapshot
 
 	// Check max count
+	// Snapshots are sorted newest-first, so we keep the first MaxCount and delete the rest (oldest)
 	if schedule.Spec.Retention.MaxCount != nil && len(snapshots) > int(*schedule.Spec.Retention.MaxCount) {
-		// Delete oldest snapshots beyond the limit
-		excess := len(snapshots) - int(*schedule.Spec.Retention.MaxCount)
-		toDelete = append(toDelete, snapshots[excess:]...)
+		// Delete oldest snapshots beyond the limit (those after index MaxCount-1)
+		toDelete = append(toDelete, snapshots[int(*schedule.Spec.Retention.MaxCount):]...)
 	}
 
 	// Check expiration

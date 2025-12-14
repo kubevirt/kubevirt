@@ -654,8 +654,10 @@ func NewVirtualMachineSnapshotScheduleCrd() (*extv1.CustomResourceDefinition, er
 	err := addFieldsToAllVersions(crd, []extv1.CustomResourceColumnDefinition{
 		{Name: "Schedule", Type: "string", JSONPath: ".spec.schedule"},
 		{Name: "Disabled", Type: "boolean", JSONPath: ".spec.disabled"},
-		{Name: "NextRun", Type: "date", JSONPath: ".status.nextSnapshotTime"},
+		{Name: "MaxCount", Type: "integer", JSONPath: ".spec.retention.maxCount"},
+		{Name: "NextRun", Type: "string", JSONPath: ".status.nextSnapshotTime"},
 		{Name: "LastRun", Type: "date", JSONPath: ".status.lastSnapshotTime"},
+		{Name: "Age", Type: "date", JSONPath: creationTimestampJSONPath},
 	})
 	if err != nil {
 		return nil, err
