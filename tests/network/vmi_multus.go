@@ -360,9 +360,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 				)
-				vmiTwo, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiTwo)).Create(context.Background(), vmiTwo, metav1.CreateOptions{})
+				_, err = libwait.CreateVMIAndWaitForLogin(vmiTwo, console.LoginToFedoraWaitAgent)
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitUntilVMIReady(vmiTwo, console.LoginToFedora)
 			})
 
 			It("[test_id:676]should configure valid custom MAC address on Linux bridge CNI interface.", func() {
@@ -387,11 +386,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 				)
 
-				vmiOne, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiOne)).Create(context.Background(), vmiOne, metav1.CreateOptions{})
+				vmiOne, err = libwait.CreateVMIAndWaitForLogin(vmiOne, console.LoginToFedoraWaitAgent)
 				Expect(err).ToNot(HaveOccurred())
-
-				vmiOne = libwait.WaitUntilVMIReady(vmiOne, console.LoginToFedora)
-				Eventually(matcher.ThisVMI(vmiOne), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 				By("Verifying the desired custom MAC is the one that were actually configured on the interface.")
 				vmiIfaceStatusByName := indexInterfaceStatusByName(vmiOne)
@@ -483,10 +479,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 					libvmi.WithNetwork(&linuxBridgeNetwork),
 				)
 
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+				vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent)
 				Expect(err).ToNot(HaveOccurred())
-
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 				Expect(getPodInterfaceMtu(vmi)).To(Equal(getVmiInterfaceMtu(vmi)))
 			})
 		})
@@ -542,7 +536,7 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
 						libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 					)
-					vmiUnderTest, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmiUnderTest)).Create(context.Background(), vmiUnderTest, metav1.CreateOptions{})
+					vmiUnderTest, err = libwait.CreateVMIAndWaitForLogin(vmiUnderTest, console.LoginToFedoraWaitAgent)
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
 					By("Creating a target VM with Linux bridge CNI network interface and default MAC address.")
@@ -559,11 +553,8 @@ var _ = Describe(SIG("Multus", Serial, decorators.Multus, func() {
 						libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(targetNetworkData)),
 						libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
 					)
-					targetVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(targetVmi)).Create(context.Background(), targetVmi, metav1.CreateOptions{})
+					_, err = libwait.CreateVMIAndWaitForLogin(targetVmi, console.LoginToFedoraWaitAgent)
 					ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-					vmiUnderTest = libwait.WaitUntilVMIReady(vmiUnderTest, console.LoginToFedora)
-					libwait.WaitUntilVMIReady(targetVmi, console.LoginToFedora)
 
 					Expect(libnet.PingFromVMConsole(vmiUnderTest, targetVMIPAddress)).To(Succeed(), "Ping target IP with original MAC should succeed")
 

@@ -215,7 +215,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(10 * time.Second).WithPolling(time.Second).Should(matcher.Exist())
 				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedoraWaitAgent)
 				instanceId, err := getInstanceId(vmi)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(instanceId).ToNot(BeEmpty())
@@ -227,7 +227,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				By("Get VM cloud-init instance-id after restart")
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedoraWaitAgent)
 				newInstanceId, err := getInstanceId(vmi)
 				Expect(err).ToNot(HaveOccurred())
 

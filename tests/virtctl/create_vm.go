@@ -690,7 +690,7 @@ chpasswd: { expire: False }`
 		Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
 		vmi, err := virtClient.VirtualMachineInstance(secret.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+		libwait.WaitUntilVMIReady(vmi, console.LoginToFedoraWaitAgent)
 
 		Eventually(func(g Gomega) {
 			vmi, err := virtClient.VirtualMachineInstance(secret.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})

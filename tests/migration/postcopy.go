@@ -221,10 +221,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				applyKubevirtCR()
 
 				By("Waiting for the VirtualMachine to be ready")
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
-
-				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedoraWaitAgent)
 
 				runStressTest(vmi, "350M")
 

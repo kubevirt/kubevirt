@@ -414,7 +414,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Eventually(ThisVMI(vmi), 30*time.Second, time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 			By("Waiting for the VirtualMachineInstance to become ready")
-			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToFedoraWaitAgent)
 		})
 	})
 })

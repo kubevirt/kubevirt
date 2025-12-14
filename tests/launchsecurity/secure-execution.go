@@ -101,7 +101,7 @@ var _ = Describe("[sig-compute]IBM Secure Execution", decorators.SecureExecution
 
 		It("Should launch a Secure Execution VM", func() {
 			By("Verifying that the VM is running in Secure Execution Mode")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			Expect(console.LoginToFedoraWaitAgent(vmi)).To(Succeed())
 			output, err := console.RunCommandAndStoreOutput(vmi, "cat /sys/firmware/uv/prot_virt_guest", commandTimeout)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(output).To(Equal("1"))
