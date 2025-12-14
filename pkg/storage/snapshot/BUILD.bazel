@@ -58,6 +58,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "restore_test.go",
+        "schedule_test.go",
         "snapshot_suite_test.go",
         "snapshot_test.go",
     ],
