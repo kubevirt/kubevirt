@@ -303,7 +303,6 @@ var _ = Describe("Converter", func() {
 	Context("with v1.VirtualMachineInstance", func() {
 
 		var vmi *v1.VirtualMachineInstance
-		const domainType = "kvm"
 
 		BeforeEach(func() {
 
@@ -589,28 +588,28 @@ var _ = Describe("Converter", func() {
 			vmi.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 		})
 
-		var convertedDomain = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateX86_64, domainType, "%s"))
+		var convertedDomain = strings.TrimSpace(embedDomainTemplateX86_64)
 		var convertedDomainWith5Period = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
 		var convertedDomainWith0Period = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
 		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomain = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
-		var convertedDomainarm64 = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateARM64, domainType, "%s"))
+		var convertedDomainarm64 = strings.TrimSpace(embedDomainTemplateARM64)
 		var convertedDomainarm64With5Period = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 5))
 		var convertedDomainarm64With0Period = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 0))
 		var convertedDomainarm64WithFalseAutoattach = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
-		var convertedDomains390x = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateS390X, domainType, "%s"))
+		var convertedDomains390x = strings.TrimSpace(embedDomainTemplateS390X)
 		var convertedDomains390xWith5Period = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 5))
 		var convertedDomains390xWith0Period = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 0))
 		var convertedDomains390xWithFalseAutoattach = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomains390x = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 10))
 
-		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(fmt.Sprintf(embedDomainTemplateRootBus, domainType))
+		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(embedDomainTemplateRootBus)
 
 		var c *ConverterContext
 
@@ -739,11 +738,6 @@ var _ = Describe("Converter", func() {
 			Entry("when Autoattach memballoon device is false for arm64", arm64, convertedDomainarm64WithFalseAutoattach),
 			Entry("when Autoattach memballoon device is false for s390x", s390x, convertedDomains390xWithFalseAutoattach),
 		)
-
-		It("should use kvm if present", func() {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			Expect(vmiToDomainXMLToDomainSpec(vmi, c).Type).To(Equal(domainType))
-		})
 
 		Context("when all addresses should be placed at the root complex", func() {
 			It("should be converted to a libvirt Domain with vmi defaults set", func() {
