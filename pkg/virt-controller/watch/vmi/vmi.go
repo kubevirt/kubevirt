@@ -156,6 +156,15 @@ func NewController(templateService services.TemplateService,
 		return nil, err
 	}
 
+	// NOTE: this is temporary to support ephemeral hotplug volume metrics
+	// will be removed once DeclarativeHotplugVolumes feature gate is enabled by default
+	_, err = vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateVM,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -2342,6 +2351,31 @@ func statusOfReadyCondition(conditions []cdiv1.DataVolumeCondition) k8sv1.Condit
 		}
 	}
 	return k8sv1.ConditionUnknown
+}
+
+// updateVM handles updates to a VM, enqueuing affected VMI only when VM's volumes update.
+// NOTE: this is temporary to support ephemeral hotplug volume metrics
+// will be removed once DeclarativeHotplugVolumes feature gate is enabled by default
+func (c *Controller) updateVM(prev, curr interface{}) {
+	currVM := curr.(*virtv1.VirtualMachine)
+	prevVM := prev.(*virtv1.VirtualMachine)
+	if currVM.ResourceVersion == prevVM.ResourceVersion {
+		return
+	}
+	// only requeue VMI if VM's volumes have changed
+	if !equality.Semantic.DeepEqual(currVM.Spec.Template.Spec.Volumes, prevVM.Spec.Template.Spec.Volumes) {
+		vmiKey := controller.NamespacedKey(currVM.Namespace, currVM.Name)
+		obj, exists, err := c.vmiIndexer.GetByKey(vmiKey)
+		if err != nil || !exists {
+			return
+		}
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		controllerRef := v1.GetControllerOf(vmi)
+		if controllerRef != nil && controllerRef.UID == currVM.UID {
+			log.Log.V(4).Object(currVM).Infof("VM volumes updated for vmi %s", vmi.Name)
+			c.enqueueVirtualMachine(vmi)
+		}
+	}
 }
 
 func (c *Controller) checkEphemeralHotplugVolumes(vmi *virtv1.VirtualMachineInstance) {
