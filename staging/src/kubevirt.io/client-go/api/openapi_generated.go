@@ -22660,6 +22660,13 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref:         ref("kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors"),
 						},
 					},
+					"aggregateToDefaultRoles": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AggregateToDefaultRoles controls whether RBAC cluster roles should be aggregated to the default Kubernetes roles (admin, edit, view). When set to true (default) or not specified, the aggregate-to-* labels are added to the cluster roles. When set to false, the labels are not added, and roles will not be aggregated to the default roles.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

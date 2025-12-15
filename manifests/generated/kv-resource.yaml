@@ -109,6 +109,14 @@ spec:
                       by node pressures, but would mean that fewer VMs could be scheduled to a node.
                       If not set, the default is 1.
                     type: string
+                  aggregateToDefaultRoles:
+                    description: |-
+                      AggregateToDefaultRoles controls whether RBAC cluster roles should be aggregated
+                      to the default Kubernetes roles (admin, edit, view).
+                      When set to true (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
+                      When set to false, the labels are not added, and roles will not be aggregated to the default roles.
+                    nullable: true
+                    type: boolean
                   apiConfiguration:
                     description: |-
                       ReloadableComponentConfiguration holds all generic k8s configuration options which can
@@ -3497,6 +3505,14 @@ spec:
                       by node pressures, but would mean that fewer VMs could be scheduled to a node.
                       If not set, the default is 1.
                     type: string
+                  aggregateToDefaultRoles:
+                    description: |-
+                      AggregateToDefaultRoles controls whether RBAC cluster roles should be aggregated
+                      to the default Kubernetes roles (admin, edit, view).
+                      When set to true (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
+                      When set to false, the labels are not added, and roles will not be aggregated to the default roles.
+                    nullable: true
+                    type: boolean
                   apiConfiguration:
                     description: |-
                       ReloadableComponentConfiguration holds all generic k8s configuration options which can

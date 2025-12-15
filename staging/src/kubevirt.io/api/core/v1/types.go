@@ -3088,6 +3088,13 @@ type KubeVirtConfiguration struct {
 	// Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
+
+	// AggregateToDefaultRoles controls whether RBAC cluster roles should be aggregated
+	// to the default Kubernetes roles (admin, edit, view).
+	// When set to true (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
+	// When set to false, the labels are not added, and roles will not be aggregated to the default roles.
+	// +nullable
+	AggregateToDefaultRoles *bool `json:"aggregateToDefaultRoles,omitempty"`
 }
 
 type ChangedBlockTrackingSelectors struct {

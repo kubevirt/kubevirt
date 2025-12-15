@@ -2991,6 +2991,11 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 		*out = new(ChangedBlockTrackingSelectors)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.AggregateToDefaultRoles != nil {
+		in, out := &in.AggregateToDefaultRoles, &out.AggregateToDefaultRoles
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
