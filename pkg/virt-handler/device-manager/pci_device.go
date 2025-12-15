@@ -40,22 +40,25 @@ import (
 )
 
 const (
-	vfioDevicePath = "/dev/vfio/"
-	vfioMount      = "/dev/vfio/vfio"
-	pciBasePath    = "/sys/bus/pci/devices"
+	vfioDevicePath   = "/dev/vfio/"
+	vfioMount        = "/dev/vfio/vfio"
+	vfioCDevBasePath = "/dev/vfio/devices"
+	pciBasePath      = "/sys/bus/pci/devices"
 )
 
 type PCIDevice struct {
-	pciID      string
-	driver     string
-	pciAddress string
-	iommuGroup string
-	numaNode   int
+	pciID        string
+	driver       string
+	pciAddress   string
+	iommuGroup   string
+	numaNode     int
+	vfioCDevName string
 }
 
 type PCIDevicePlugin struct {
 	*DevicePluginBase
-	iommuToPCIMap map[string]string
+	iommuToPCIMap      map[string]string
+	iommuToVFIOCDevMap map[string]string
 }
 
 func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
@@ -107,8 +110,9 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
 	serverSock := SocketPath(strings.Replace(resourceName, "/", "-", -1))
 	iommuToPCIMap := make(map[string]string)
+	iommuToVFIOCDevMap := make(map[string]string)
 
-	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
+	devs := constructDPIdevices(pciDevices, iommuToPCIMap, iommuToVFIOCDevMap)
 
 	dpi := &PCIDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
@@ -123,14 +127,18 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 			done:         make(chan struct{}),
 			deregistered: make(chan struct{}),
 		},
-		iommuToPCIMap: iommuToPCIMap,
+		iommuToPCIMap:      iommuToPCIMap,
+		iommuToVFIOCDevMap: iommuToVFIOCDevMap,
 	}
 	return dpi
 }
 
-func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]string) (devs []*pluginapi.Device) {
+func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]string, iommuToVFIOCDevMap map[string]string) (devs []*pluginapi.Device) {
 	for _, pciDevice := range pciDevices {
 		iommuToPCIMap[pciDevice.iommuGroup] = pciDevice.pciAddress
+		if pciDevice.vfioCDevName != "" {
+			iommuToVFIOCDevMap[pciDevice.iommuGroup] = pciDevice.vfioCDevName
+		}
 		dpiDev := &pluginapi.Device{
 			ID:     pciDevice.iommuGroup,
 			Health: pluginapi.Healthy,
@@ -164,6 +172,10 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 			}
 			allocatedDevices = append(allocatedDevices, devPCIAddress)
 			deviceSpecs = append(deviceSpecs, formatVFIODeviceSpecs(devID)...)
+			vfioCDevName, cDevExist := dpi.iommuToVFIOCDevMap[devID]
+			if cDevExist {
+				deviceSpecs = append(deviceSpecs, formatVFIOCDevSpec(vfioCDevName))
+			}
 		}
 		containerResponse.Devices = deviceSpecs
 		envVar := make(map[string]string)
@@ -280,6 +292,10 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 				return nil
 			}
 			pcidev.iommuGroup = iommuGroup
+			vfioCDevName, err := handler.GetDeviceVFIOCDevName(pciBasePath, info.Name())
+			if err == nil {
+				pcidev.vfioCDevName = vfioCDevName
+			}
 			pcidev.driver = driver
 			pcidev.numaNode = handler.GetDeviceNumaNode(pciBasePath, info.Name())
 			pciDevicesMap[resourceName] = append(pciDevicesMap[resourceName], pcidev)
