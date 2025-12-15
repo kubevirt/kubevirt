@@ -618,6 +618,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.RuntimeUser = 0
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -636,6 +637,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -672,6 +674,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -770,6 +773,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi := newVirtualMachine("testvmi", virtv1.Running)
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -910,6 +914,7 @@ var _ = Describe("Migration watcher", func() {
 
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -978,6 +983,7 @@ var _ = Describe("Migration watcher", func() {
 
 			migration := newMigrationWithAddedNodeSelector("testmigration", vmi.Name, virtv1.MigrationPending, addedNodeSelector)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -2105,6 +2111,77 @@ var _ = Describe("Migration watcher", func() {
 		})
 	})
 
+	Context("CPU vendor label constraints", func() {
+		const nodeName = "testNode"
+		const intelVendorLabel = v1.CPUModelVendorLabel + "Intel"
+		const amdVendorLabel = v1.CPUModelVendorLabel + "AMD"
+
+		DescribeTable("should add CPU vendor label from source node", func(vendorLabel string) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			node := newNode(nodeName)
+			if vendorLabel != "" {
+				node.Labels = map[string]string{vendorLabel: "true"}
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(node)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			targetPod, err := getTargetPod(kubeClient, vmi.Namespace, vmi.UID, migration.UID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(targetPod).ToNot(BeNil())
+
+			if vendorLabel != "" {
+				Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(vendorLabel, "true"))
+			} else {
+				Expect(targetPod.Spec.NodeSelector).NotTo(HaveKey(HavePrefix(v1.CPUModelVendorLabel)))
+			}
+		},
+			Entry("Intel vendor", intelVendorLabel),
+			Entry("AMD vendor", amdVendorLabel),
+			Entry("no vendor label", ""),
+		)
+
+		It("should add CPU vendor label from source node for decentralized migration", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				SourceNode: nodeName,
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:           nodeName,
+						SelinuxContext: "none",
+					},
+					NodeSelectors: map[string]string{
+						intelVendorLabel: "true",
+					},
+				},
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s,%s=%s", v1.MigrationJobLabel, string(migration.UID), v1.CreatedByLabel, string(vmi.UID)),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+			Expect(pods.Items[0].Spec.NodeSelector).To(HaveKeyWithValue(intelVendorLabel, "true"))
+		})
+	})
+
 	Context("Migration abortion before hand-off to virt-handler", func() {
 		var vmi *virtv1.VirtualMachineInstance
 		var migration *virtv1.VirtualMachineInstanceMigration
@@ -2178,6 +2255,7 @@ var _ = Describe("Migration watcher", func() {
 			}
 			pendingMigration.CreationTimestamp = metav1.NewTime(failedMigration.CreationTimestamp.Add(time.Second * 1))
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(pendingMigration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -2208,6 +2286,7 @@ var _ = Describe("Migration watcher", func() {
 			successfulMigration.CreationTimestamp = metav1.NewTime(failedMigration.CreationTimestamp.Add(time.Second * 1))
 			pendingMigration.CreationTimestamp = metav1.NewTime(successfulMigration.CreationTimestamp.Add(time.Second * 1))
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(pendingMigration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -2247,6 +2326,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -2268,6 +2348,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
