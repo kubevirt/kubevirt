@@ -1,0 +1,34 @@
+---
+apiVersion: kubevirt.io/v1
+kind: KubeVirt
+metadata:
+  name: kubevirt
+  namespace: kubevirt
+spec:
+  # Example configuration for Kubernetes distributions with non-standard kubelet directories
+  # Uncomment and set the appropriate kubelet root directory for your distribution:
+  
+  # For k3s:
+  # configuration:
+  #   kubeletRootDir: "/var/lib/rancher/k3s/agent/kubelet"
+  
+  # For k0s:
+  # configuration:
+  #   kubeletRootDir: "/var/lib/k0s/kubelet"
+  
+  # For MicroK8s (newer versions use standard path):
+  # configuration:
+  #   kubeletRootDir: "/var/lib/kubelet"
+  
+  # Default (if not specified):
+  # configuration:
+  #   kubeletRootDir: "/var/lib/kubelet"
+  
+  # Example with k3s:
+  configuration:
+    kubeletRootDir: "/var/lib/rancher/k3s/agent/kubelet"
+  
+  certificateRotateStrategy: {}
+  imagePullPolicy: IfNotPresent
+  workloadUpdateStrategy: {}
+

@@ -21,7 +21,6 @@ import (
 
 const (
 	VirtHandlerName                = "virt-handler"
-	kubeletPodsPath                = util.KubeletRoot + "/pods"
 	runtimesPath                   = "/var/run/kubevirt-libvirt-runtimes"
 	PrHelperName                   = "pr-helper"
 	prVolumeName                   = "pr-helper-socket-vol"
@@ -66,7 +65,7 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 	}
 }
 
-func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool) *appsv1.DaemonSet {
+func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool, kubeletRootDir string) *appsv1.DaemonSet {
 
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
@@ -205,6 +204,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		"8186",
 		"--graceful-shutdown-seconds",
 		fmt.Sprintf("%d", handlerGracePeriod),
+		"--kubelet-root",
+		kubeletRootDir,
+		"--kubelet-pods-dir",
+		kubeletRootDir + "/pods",
 		"-v",
 		verbosity,
 	}
@@ -291,12 +294,13 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	// Socket files fail when their path is longer than 108 characters,
 	//   so that shortened volume path is to allow domain socket connections.
 	// It's ridiculous to have to account for that, but that's the situation we're in.
+	kubeletPodsPath := kubeletRootDir + "/pods"
 	volumes := []volume{
 		{"libvirt-runtimes", runtimesPath, runtimesPath, nil},
 		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
 		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
 		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
-		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},
+		{"kubelet", kubeletRootDir, kubeletRootDir, &bidi},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
 	}
 

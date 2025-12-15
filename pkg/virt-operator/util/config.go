@@ -195,6 +195,9 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 			}
 		}
 	}
+	if kv.Spec.Configuration.KubeletRootDir != "" {
+		additionalProperties["KubeletRootDir"] = kv.Spec.Configuration.KubeletRootDir
+	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
 	return getConfig(kv.Spec.ImageRegistry,
@@ -608,6 +611,14 @@ func (c *KubeVirtDeploymentConfig) GetProductVersion() string {
 		return c.GetKubeVirtVersion()
 	}
 	return productVersion
+}
+
+func (c *KubeVirtDeploymentConfig) GetKubeletRootDir() string {
+	kubeletRootDir, ok := c.AdditionalProperties["KubeletRootDir"]
+	if !ok || kubeletRootDir == "" {
+		return "/var/lib/kubelet"
+	}
+	return kubeletRootDir
 }
 
 func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
