@@ -143,6 +143,15 @@ func NewController(templateService services.TemplateService,
 		return nil, err
 	}
 
+	// NOTE: this is temporary to support ephemeral hotplug volume metrics
+	// will be removed once DeclarativeHotplugVolumes feature gate is enabled by default
+	_, err = vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateVM,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 

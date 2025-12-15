@@ -92,6 +92,31 @@ func (c *Controller) updatePVC(old, cur interface{}) {
 	}
 }
 
+// updateVM handles updates to a VM, enqueuing affected VMI only when VM's volumes update.
+// NOTE: this is temporary to support ephemeral hotplug volume metrics
+// will be removed once DeclarativeHotplugVolumes feature gate is enabled by default
+func (c *Controller) updateVM(prev, curr interface{}) {
+	currVM := curr.(*virtv1.VirtualMachine)
+	prevVM := prev.(*virtv1.VirtualMachine)
+	if currVM.ResourceVersion == prevVM.ResourceVersion {
+		return
+	}
+	// only requeue VMI if VM's volumes have changed
+	if !equality.Semantic.DeepEqual(currVM.Spec.Template.Spec.Volumes, prevVM.Spec.Template.Spec.Volumes) {
+		vmiKey := controller.NamespacedKey(currVM.Namespace, currVM.Name)
+		obj, exists, err := c.vmiIndexer.GetByKey(vmiKey)
+		if err != nil || !exists {
+			return
+		}
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		controllerRef := v1.GetControllerOf(vmi)
+		if controllerRef != nil && controllerRef.UID == currVM.UID {
+			log.Log.V(4).Object(currVM).Infof("VM volumes updated for vmi %s", vmi.Name)
+			c.enqueueVirtualMachine(vmi)
+		}
+	}
+}
+
 // listVMIsMatchingDV finds all VMIs referencing a given DataVolume or PVC name.
 func (c *Controller) listVMIsMatchingDV(namespace, dvName string) ([]*virtv1.VirtualMachineInstance, error) {
 	// TODO - refactor if/when dv/pvc do not have the same name
