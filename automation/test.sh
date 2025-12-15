@@ -444,6 +444,9 @@ spec:
   nfs:
     server: "nfs"
     path: /
+  # W/A https://issues.redhat.com/browse/RHEL-129836
+  mountOptions:
+    - nfsvers=4.1
   storageClassName: windows
 EOF
 fi
@@ -615,6 +618,9 @@ spec:
   nfs:
     server: "nfs"
     path: /
+  # W/A https://issues.redhat.com/browse/RHEL-129836
+  mountOptions:
+    - nfsvers=4.1
   storageClassName: rhel
 EOF
 fi
