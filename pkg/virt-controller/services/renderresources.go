@@ -165,7 +165,7 @@ func WithGPUsDRA(gpus []v1.GPU) ResourceRendererOption {
 	return func(r *ResourceRenderer) {
 		res := r.ResourceRequirements()
 		for _, g := range gpus {
-			if g.DeviceName == "" && g.ClaimRequest != nil {
+			if g.DeviceName == "" && g.ClaimRequest != nil && g.ClaimRequest.ClaimName != nil && g.ClaimRequest.RequestName != nil {
 				requestResourceClaims(&res, &k8sv1.ResourceClaim{
 					Name:    *g.ClaimRequest.ClaimName,
 					Request: *g.ClaimRequest.RequestName,
