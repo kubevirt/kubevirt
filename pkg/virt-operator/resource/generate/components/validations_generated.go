@@ -31673,55 +31673,8 @@ var CRDsValidation map[string]string = map[string]string{
       description: VirtualMachineSnapshotScheduleSpec is the spec for a VirtualMachineSnapshotSchedule
         resource
       properties:
-        claimSelector:
-          description: |-
-            A label selector is a label query over a set of resources. The result of matchLabels and
-            matchExpressions are ANDed. An empty label selector matches all objects. A null
-            label selector matches no objects.
-          properties:
-            matchExpressions:
-              description: matchExpressions is a list of label selector requirements.
-                The requirements are ANDed.
-              items:
-                description: |-
-                  A label selector requirement is a selector that contains values, a key, and an operator that
-                  relates the key and values.
-                properties:
-                  key:
-                    description: key is the label key that the selector applies to.
-                    type: string
-                  operator:
-                    description: |-
-                      operator represents a key's relationship to a set of values.
-                      Valid operators are In, NotIn, Exists and DoesNotExist.
-                    type: string
-                  values:
-                    description: |-
-                      values is an array of string values. If the operator is In or NotIn,
-                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
-                      the values array must be empty. This array is replaced during a strategic
-                      merge patch.
-                    items:
-                      type: string
-                    type: array
-                    x-kubernetes-list-type: atomic
-                required:
-                - key
-                - operator
-                type: object
-              type: array
-              x-kubernetes-list-type: atomic
-            matchLabels:
-              additionalProperties:
-                type: string
-              description: |-
-                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
-                map is equivalent to an element of matchExpressions, whose key field is "key", the
-                operator is "In", and the values array contains only "value". The requirements are ANDed.
-              type: object
-          type: object
-          x-kubernetes-map-type: atomic
         disabled:
+          description: Indicates whether the schedule is disabled
           type: boolean
         retention:
           description: VirtualMachineSnapshotScheduleRetention defines retention policy
@@ -31752,6 +31705,9 @@ var CRDsValidation map[string]string = map[string]string{
             annotations:
               additionalProperties:
                 type: string
+              description: |-
+                A set of annotations can be added to each
+                VirtualMachineSnapshot object
               type: object
             labels:
               additionalProperties:
@@ -31802,6 +31758,51 @@ var CRDsValidation map[string]string = map[string]string{
               - source
               type: object
           type: object
+        vmSelector:
+          description: A label selector to select the virtual machines to be snapshotted
+          properties:
+            matchExpressions:
+              description: matchExpressions is a list of label selector requirements.
+                The requirements are ANDed.
+              items:
+                description: |-
+                  A label selector requirement is a selector that contains values, a key, and an operator that
+                  relates the key and values.
+                properties:
+                  key:
+                    description: key is the label key that the selector applies to.
+                    type: string
+                  operator:
+                    description: |-
+                      operator represents a key's relationship to a set of values.
+                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                    type: string
+                  values:
+                    description: |-
+                      values is an array of string values. If the operator is In or NotIn,
+                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                      the values array must be empty. This array is replaced during a strategic
+                      merge patch.
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                required:
+                - key
+                - operator
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+            matchLabels:
+              additionalProperties:
+                type: string
+              description: |-
+                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                operator is "In", and the values array contains only "value". The requirements are ANDed.
+              type: object
+          type: object
+          x-kubernetes-map-type: atomic
       required:
       - retention
       - schedule

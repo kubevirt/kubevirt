@@ -287,7 +287,7 @@ var _ = Describe("VMSnapshotSchedule controller", func() {
 					Namespace: "default",
 				},
 				Spec: snapshotv1.VirtualMachineSnapshotScheduleSpec{
-					ClaimSelector: nil,
+					VMSelector: nil,
 				},
 			}
 
@@ -326,7 +326,7 @@ var _ = Describe("VMSnapshotSchedule controller", func() {
 					Namespace: "default",
 				},
 				Spec: snapshotv1.VirtualMachineSnapshotScheduleSpec{
-					ClaimSelector: &metav1.LabelSelector{
+					VMSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"backup": "enabled",
 						},

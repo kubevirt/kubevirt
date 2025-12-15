@@ -474,9 +474,11 @@ type VirtualMachineSnapshotSchedule struct {
 
 // VirtualMachineSnapshotScheduleSpec is the spec for a VirtualMachineSnapshotSchedule resource
 type VirtualMachineSnapshotScheduleSpec struct {
+	// A label selector to select the virtual machines to be snapshotted
 	// +optional
-	ClaimSelector *metav1.LabelSelector `json:"claimSelector,omitempty"`
+	VMSelector *metav1.LabelSelector `json:"vmSelector,omitempty"`
 
+	// Indicates whether the schedule is disabled
 	// +optional
 	Disabled *bool `json:"disabled,omitempty"`
 
@@ -511,6 +513,8 @@ type VirtualMachineSnapshotScheduleTemplate struct {
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 
+	// A set of annotations can be added to each
+	// VirtualMachineSnapshot object
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 

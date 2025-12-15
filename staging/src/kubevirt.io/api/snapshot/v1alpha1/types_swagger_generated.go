@@ -187,10 +187,10 @@ func (VirtualMachineSnapshotSchedule) SwaggerDoc() map[string]string {
 
 func (VirtualMachineSnapshotScheduleSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":              "VirtualMachineSnapshotScheduleSpec is the spec for a VirtualMachineSnapshotSchedule resource",
-		"claimSelector": "+optional",
-		"disabled":      "+optional",
-		"schedule":      "The cronspec (https://en.wikipedia.org/wiki/Cron#Overview)\nthat defines the schedule. It is interpreted with\nrespect to the UTC timezone. The following pre-defined\nshortcuts are also supported: @hourly, @daily, @weekly,\n@monthly, and @yearly",
+		"":           "VirtualMachineSnapshotScheduleSpec is the spec for a VirtualMachineSnapshotSchedule resource",
+		"vmSelector": "A label selector to select the virtual machines to be snapshotted\n+optional",
+		"disabled":   "Indicates whether the schedule is disabled\n+optional",
+		"schedule":   "The cronspec (https://en.wikipedia.org/wiki/Cron#Overview)\nthat defines the schedule. It is interpreted with\nrespect to the UTC timezone. The following pre-defined\nshortcuts are also supported: @hourly, @daily, @weekly,\n@monthly, and @yearly",
 	}
 }
 
@@ -206,7 +206,7 @@ func (VirtualMachineSnapshotScheduleTemplate) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":            "VirtualMachineSnapshotScheduleTemplate defines the template for creating snapshots",
 		"labels":      "A set of labels can be added to each\nVirtualMachineSnapshot object\n+optional",
-		"annotations": "+optional",
+		"annotations": "A set of annotations can be added to each\nVirtualMachineSnapshot object\n+optional",
 		"spec":        "+optional",
 	}
 }

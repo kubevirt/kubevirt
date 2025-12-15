@@ -632,9 +632,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the snapshot controller: %v", err)
 			}
 		}()
-		go func() {
-			vca.snapshotScheduleController.Run(vca.snapshotControllerThreads, stop)
-		}()
+		go vca.snapshotScheduleController.Run(vca.snapshotControllerThreads, stop)
 		go func() {
 			if err := vca.restoreController.Run(vca.restoreControllerThreads, stop); err != nil {
 				log.Log.Warningf("error running the restore controller: %v", err)

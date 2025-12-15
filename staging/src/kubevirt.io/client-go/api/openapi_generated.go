@@ -34132,15 +34132,17 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotScheduleSpec(
 				Description: "VirtualMachineSnapshotScheduleSpec is the spec for a VirtualMachineSnapshotSchedule resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"claimSelector": {
+					"vmSelector": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+							Description: "A label selector to select the virtual machines to be snapshotted",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
 						},
 					},
 					"disabled": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "Indicates whether the schedule is disabled",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"retention": {
@@ -34240,7 +34242,8 @@ func schema_kubevirtio_api_snapshot_v1alpha1_VirtualMachineSnapshotScheduleTempl
 					},
 					"annotations": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
+							Description: "A set of annotations can be added to each VirtualMachineSnapshot object",
+							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
 								Schema: &spec.Schema{
@@ -35444,15 +35447,17 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotScheduleSpec(r
 				Description: "VirtualMachineSnapshotScheduleSpec is the spec for a VirtualMachineSnapshotSchedule resource",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"claimSelector": {
+					"vmSelector": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+							Description: "A label selector to select the virtual machines to be snapshotted",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
 						},
 					},
 					"disabled": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "Indicates whether the schedule is disabled",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"retention": {
@@ -35552,7 +35557,8 @@ func schema_kubevirtio_api_snapshot_v1beta1_VirtualMachineSnapshotScheduleTempla
 					},
 					"annotations": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
+							Description: "A set of annotations can be added to each VirtualMachineSnapshot object",
+							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
 								Schema: &spec.Schema{

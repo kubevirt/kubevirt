@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
@@ -164,7 +165,13 @@ func (ctrl *VMSnapshotScheduleController) updateVMSnapshotSchedule(schedule *sna
 			// Perform cleanup (e.g., delete associated snapshots if needed)
 			scheduleCopy := schedule.DeepCopy()
 			controller.RemoveFinalizer(scheduleCopy, vmSnapshotScheduleFinalizer)
-			_, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(scheduleCopy.Namespace).Update(context.TODO(), scheduleCopy, metav1.UpdateOptions{})
+
+			patchPayload, err := generateFinalizerPatch(schedule.Finalizers, scheduleCopy.Finalizers)
+			if err != nil {
+				return err
+			}
+
+			_, err = ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(scheduleCopy.Namespace).Patch(context.TODO(), scheduleCopy.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
 			if err != nil && !errors.IsNotFound(err) {
 				return err
 			}
@@ -176,7 +183,13 @@ func (ctrl *VMSnapshotScheduleController) updateVMSnapshotSchedule(schedule *sna
 	if !controller.HasFinalizer(schedule, vmSnapshotScheduleFinalizer) {
 		scheduleCopy := schedule.DeepCopy()
 		controller.AddFinalizer(scheduleCopy, vmSnapshotScheduleFinalizer)
-		updatedSchedule, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(scheduleCopy.Namespace).Update(context.TODO(), scheduleCopy, metav1.UpdateOptions{})
+
+		patchPayload, err := generateFinalizerPatch(schedule.Finalizers, scheduleCopy.Finalizers)
+		if err != nil {
+			return err
+		}
+
+		updatedSchedule, err := ctrl.Client.GeneratedKubeVirtClient().SnapshotV1beta1().VirtualMachineSnapshotSchedules(scheduleCopy.Namespace).Patch(context.TODO(), scheduleCopy.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
 		if err != nil {
 			return err
 		}
@@ -302,7 +315,7 @@ func (ctrl *VMSnapshotScheduleController) tryUpdateScheduleStatus(ctx context.Co
 func (ctrl *VMSnapshotScheduleController) getMatchingVMs(schedule *snapshotv1.VirtualMachineSnapshotSchedule) ([]kubevirtv1.VirtualMachine, error) {
 	var vms []kubevirtv1.VirtualMachine
 
-	if schedule.Spec.ClaimSelector == nil {
+	if schedule.Spec.VMSelector == nil {
 		// If no selector, get all VMs in the same namespace
 		objs := ctrl.VMInformer.GetStore().List()
 		for _, obj := range objs {
@@ -316,7 +329,7 @@ func (ctrl *VMSnapshotScheduleController) getMatchingVMs(schedule *snapshotv1.Vi
 		}
 	} else {
 		// Use selector to filter VMs
-		selector, err := metav1.LabelSelectorAsSelector(schedule.Spec.ClaimSelector)
+		selector, err := metav1.LabelSelectorAsSelector(schedule.Spec.VMSelector)
 		if err != nil {
 			return nil, err
 		}
