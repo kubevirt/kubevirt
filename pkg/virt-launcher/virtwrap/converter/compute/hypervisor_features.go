@@ -41,13 +41,12 @@ func (h HypervisorFeaturesDomainConfigurator) Configure(vmi *v1.VirtualMachineIn
 	if vmi.Spec.Domain.Features != nil {
 		domain.Spec.Features = &api.Features{}
 		err := convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, h.useLaunchSecurityTDX)
+		if err != nil {
+			return err
+		}
 
 		if h.hasVMPort {
 			domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
-		}
-
-		if err != nil {
-			return err
 		}
 	}
 
