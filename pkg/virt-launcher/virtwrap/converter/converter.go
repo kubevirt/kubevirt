@@ -1440,27 +1440,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewWatchdogDomainConfigurator(architecture),
 		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
 		compute.PanicDevicesDomainConfigurator{},
+		compute.NewCpuConfigurator(architecture, c.Architecture.SupportCPUHotplug()),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
 	}
 
-	// Set VM CPU cores
-	// CPU topology will be created everytime, because user can specify
-	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
-	// in vmi.Spec.Domain.CPU
 	cpuTopology := vcpu.GetCPUTopology(vmi)
 	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-
-	domain.Spec.CPU.Topology = cpuTopology
-	domain.Spec.VCPU = &api.VCPU{
-		Placement: "static",
-		CPUs:      cpuCount,
-	}
-	// set the maximum number of sockets here to allow hot-plug CPUs
-	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.Architecture.SupportCPUHotplug() {
-		domainVCPUTopologyForHotplug(vmi, domain)
-	}
 
 	domain.Spec.SysInfo = &api.SysInfo{}
 
