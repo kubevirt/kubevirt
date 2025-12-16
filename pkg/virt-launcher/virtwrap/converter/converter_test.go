@@ -64,14 +64,14 @@ import (
 )
 
 var (
-	//go:embed testdata/domain_x86_64.xml.tmpl
-	embedDomainTemplateX86_64 string
-	//go:embed testdata/domain_arm64.xml.tmpl
-	embedDomainTemplateARM64 string
-	//go:embed testdata/domain_s390x.xml.tmpl
-	embedDomainTemplateS390X string
-	//go:embed testdata/domain_x86_64_root.xml.tmpl
-	embedDomainTemplateRootBus string
+	//go:embed testdata/domain_x86_64.xml
+	embedDomainX86_64 string
+	//go:embed testdata/domain_arm64.xml
+	embedDomainARM64 string
+	//go:embed testdata/domain_s390x.xml
+	embedDomainS390X string
+	//go:embed testdata/domain_x86_64_root.xml
+	embedDomainRootBus string
 )
 
 const (
@@ -93,22 +93,6 @@ func MultiArchEntry(text string, args ...interface{}) []TableEntry {
 		Entry(fmt.Sprintf("%s on %s", text, arm64), append([]interface{}{arm64}, args...)...),
 		Entry(fmt.Sprintf("%s on %s", text, s390x), append([]interface{}{s390x}, args...)...),
 	}
-}
-
-func memBalloonWithModelAndPeriod(model string, period int) string {
-	const argMemBalloonFmt = `<memballoon model="%s" freePageReporting="on">%s</memballoon>`
-	if model == "none" {
-		return `<memballoon model="none"></memballoon>`
-	}
-
-	if period == 0 {
-		return fmt.Sprintf(argMemBalloonFmt, model, "")
-	}
-
-	return fmt.Sprintf(argMemBalloonFmt, model, fmt.Sprintf(`
-      <stats period="%d"></stats>
-    `, period))
-
 }
 
 var _ = Describe("Converter", func() {
@@ -588,17 +572,10 @@ var _ = Describe("Converter", func() {
 			vmi.ObjectMeta.UID = "f4686d2c-6e8d-4335-b8fd-81bee22f4814"
 		})
 
-		var convertedDomain = strings.TrimSpace(embedDomainTemplateX86_64)
-		convertedDomain = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
-
-		var convertedDomainarm64 = strings.TrimSpace(embedDomainTemplateARM64)
-		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
-
-		var convertedDomains390x = strings.TrimSpace(embedDomainTemplateS390X)
-
-		convertedDomains390x = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 10))
-
-		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(embedDomainTemplateRootBus)
+		var convertedDomain = strings.TrimSpace(embedDomainX86_64)
+		var convertedDomainarm64 = strings.TrimSpace(embedDomainARM64)
+		var convertedDomains390x = strings.TrimSpace(embedDomainS390X)
+		var convertedDomainWithDevicesOnRootBus = strings.TrimSpace(embedDomainRootBus)
 
 		var c *ConverterContext
 
