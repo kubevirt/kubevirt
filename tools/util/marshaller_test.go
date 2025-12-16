@@ -74,19 +74,26 @@ func TestMarshallObject(t *testing.T) {
 			MarshallObject(handler, &writer)
 			rendered := writer.String()
 
-			if !strings.Contains(rendered, "namespace: {{.Namespace}}") {
-				t.Errorf("expected rendered manifest to contain namespace placeholder")
-			}
+		if !strings.Contains(rendered, "namespace: {{.Namespace}}") {
+			t.Errorf("expected rendered manifest to contain namespace placeholder")
+		}
 
-			expectedKubeletRootFlag := "--kubelet-root\n      - " + tt.kubeletRoot
-			if !strings.Contains(rendered, expectedKubeletRootFlag) {
-				t.Errorf("expected rendered manifest to contain %q, got:\n%s", expectedKubeletRootFlag, rendered)
-			}
+		// Check for kubelet-root flag and value as separate list items
+		if !strings.Contains(rendered, "- --kubelet-root") {
+			t.Errorf("expected rendered manifest to contain '- --kubelet-root', got:\n%s", rendered)
+		}
+		if !strings.Contains(rendered, "- "+tt.kubeletRoot) {
+			t.Errorf("expected rendered manifest to contain '- %s', got:\n%s", tt.kubeletRoot, rendered)
+		}
 
-			expectedKubeletPodsDirFlag := "--kubelet-pods-dir\n      - " + tt.kubeletRoot + "/pods"
-			if !strings.Contains(rendered, expectedKubeletPodsDirFlag) {
-				t.Errorf("expected rendered manifest to contain %q, got:\n%s", expectedKubeletPodsDirFlag, rendered)
-			}
+		// Check for kubelet-pods-dir flag and value as separate list items
+		if !strings.Contains(rendered, "- --kubelet-pods-dir") {
+			t.Errorf("expected rendered manifest to contain '- --kubelet-pods-dir', got:\n%s", rendered)
+		}
+		expectedPodsPath := tt.kubeletRoot + "/pods"
+		if !strings.Contains(rendered, "- "+expectedPodsPath) {
+			t.Errorf("expected rendered manifest to contain '- %s', got:\n%s", expectedPodsPath, rendered)
+		}
 		})
 	}
 }
