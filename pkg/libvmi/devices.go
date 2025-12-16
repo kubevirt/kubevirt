@@ -44,6 +44,12 @@ func WithAutoattachGraphicsDevice(enable bool) Option {
 	}
 }
 
+func WithAutoattachMemBalloon(enable bool) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.AutoattachMemBalloon = &enable
+	}
+}
+
 // WithRng adds `rng` to the vmi devices.
 func WithRng() Option {
 	return func(vmi *v1.VirtualMachineInstance) {
