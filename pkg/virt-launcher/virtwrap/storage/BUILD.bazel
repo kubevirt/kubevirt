@@ -41,7 +41,6 @@ go_test(
     ],
     embed = [":go_default_library"],
     race = "on",
-    tags = ["cov"],
     deps = [
         "//pkg/pointer:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
