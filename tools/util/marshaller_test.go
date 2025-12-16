@@ -28,16 +28,65 @@ import (
 )
 
 func TestMarshallObject(t *testing.T) {
-	var imagePullSecret []v1.LocalObjectReference
-	handler := components.NewHandlerDaemonSet("{{.Namespace}}", "", "{{.DockerPrefix}}", "{{.DockerTag}}", "", "", "", "", "", "", "", "", "", "", v1.PullIfNotPresent, imagePullSecret, nil, "2", nil, false, "/var/lib/kubelet")
-	writer := strings.Builder{}
+	imagePullSecret := []v1.LocalObjectReference{}
 
-	MarshallObject(handler, &writer)
-
-	result := writer.String()
-
-	if !strings.Contains(result, "namespace: {{.Namespace}}") {
-		t.Fail()
+	tests := []struct {
+		name        string
+		kubeletRoot string
+	}{
+		{
+			name:        "default kubelet root",
+			kubeletRoot: "/var/lib/kubelet",
+		},
+		{
+			name:        "non-default kubelet root",
+			kubeletRoot: "/var/lib/rancher/k3s/agent/kubelet",
+		},
 	}
 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := components.NewHandlerDaemonSet(
+				"{{.Namespace}}",
+				"",
+				"{{.DockerPrefix}}",
+				"{{.DockerTag}}",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				v1.PullIfNotPresent,
+				imagePullSecret,
+				nil,
+				"2",
+				nil,
+				false,
+				tt.kubeletRoot,
+			)
+
+			var writer strings.Builder
+			MarshallObject(handler, &writer)
+			rendered := writer.String()
+
+			if !strings.Contains(rendered, "namespace: {{.Namespace}}") {
+				t.Errorf("expected rendered manifest to contain namespace placeholder")
+			}
+
+			expectedKubeletRootFlag := "--kubelet-root\n      - " + tt.kubeletRoot
+			if !strings.Contains(rendered, expectedKubeletRootFlag) {
+				t.Errorf("expected rendered manifest to contain %q, got:\n%s", expectedKubeletRootFlag, rendered)
+			}
+
+			expectedKubeletPodsDirFlag := "--kubelet-pods-dir\n      - " + tt.kubeletRoot + "/pods"
+			if !strings.Contains(rendered, expectedKubeletPodsDirFlag) {
+				t.Errorf("expected rendered manifest to contain %q, got:\n%s", expectedKubeletPodsDirFlag, rendered)
+			}
+		})
+	}
 }

@@ -189,7 +189,7 @@ Apply it:
 sudo k0s kubectl apply -f kubevirt-k0s.yaml
 ```
 
-### Step 3-6: Same as k3s
+### Steps 3-6: Same as k3s
 
 Follow the same verification and testing steps as outlined for k3s, but use `sudo k0s kubectl` instead of `kubectl`.
 

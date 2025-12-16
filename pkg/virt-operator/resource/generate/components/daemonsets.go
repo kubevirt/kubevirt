@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"path/filepath"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -187,6 +188,9 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	handlerGracePeriod := podGracePeriod - 15
 	podTemplateSpec.Spec.TerminationGracePeriodSeconds = &podGracePeriod
 
+	// Calculate kubelet pods path early for use in both args and volumes
+	kubeletPodsPath := filepath.Join(kubeletRootDir, "pods")
+
 	container := &pod.Containers[0]
 	container.Command = []string{
 		VirtHandlerName,
@@ -207,7 +211,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		"--kubelet-root",
 		kubeletRootDir,
 		"--kubelet-pods-dir",
-		kubeletRootDir + "/pods",
+		kubeletPodsPath,
 		"-v",
 		verbosity,
 	}
@@ -294,7 +298,6 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	// Socket files fail when their path is longer than 108 characters,
 	//   so that shortened volume path is to allow domain socket connections.
 	// It's ridiculous to have to account for that, but that's the situation we're in.
-	kubeletPodsPath := kubeletRootDir + "/pods"
 	volumes := []volume{
 		{"libvirt-runtimes", runtimesPath, runtimesPath, nil},
 		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},

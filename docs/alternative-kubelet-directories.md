@@ -62,7 +62,7 @@ spec:
 
 ## Verification
 
-After applying the KubeVirt CR with the custom kubelet directory, you can verify that the virt-handler daemonset has been configured correctly:
+After applying the KubeVirt CR with the custom kubelet directory, you can verify that the virt-handler DaemonSet has been configured correctly:
 
 1. Check that the virt-handler pods are running:
    ```bash
@@ -71,7 +71,7 @@ After applying the KubeVirt CR with the custom kubelet directory, you can verify
 
 2. Verify the kubelet directory configuration in the virt-handler container:
    ```bash
-   kubectl get daemonset virt-handler -n kubevirt -o yaml | grep -A 2 "kubelet-root"
+   kubectl get DaemonSet virt-handler -n kubevirt -o yaml | grep -A 2 "kubelet-root"
    ```
 
    You should see arguments like:
@@ -84,7 +84,7 @@ After applying the KubeVirt CR with the custom kubelet directory, you can verify
 
 3. Check the volume mounts:
    ```bash
-   kubectl get daemonset virt-handler -n kubevirt -o yaml | grep -A 5 "volumeMounts:" | grep kubelet
+   kubectl get DaemonSet virt-handler -n kubevirt -o yaml | grep -A 5 "volumeMounts:" | grep kubelet
    ```
 
 ## Troubleshooting
@@ -106,7 +106,7 @@ If the virt-handler pods fail to start after configuring a custom kubelet direct
 
 If VMIs fail to start after changing the kubelet directory:
 
-1. **Verify the configuration was applied**: Check that the virt-handler daemonset has been updated with the new configuration.
+1. **Verify the configuration was applied**: Check that the virt-handler DaemonSet has been updated with the new configuration.
 
 2. **Check for stale configurations**: If you previously installed KubeVirt without the custom kubelet directory, you may need to restart the virt-handler pods:
    ```bash
@@ -118,7 +118,7 @@ If VMIs fail to start after changing the kubelet directory:
 If you were previously using a workaround such as creating a symlink from `/var/lib/kubelet` to your distribution's kubelet directory, you can now remove that workaround:
 
 1. Update your KubeVirt CR with the appropriate `kubeletRootDir` configuration.
-2. Wait for the virt-handler daemonset to be updated.
+2. Wait for the virt-handler DaemonSet to be updated.
 3. Remove the symlink from your nodes (optional, but recommended for cleanliness).
 
 ## Related Issues
@@ -130,9 +130,9 @@ This feature addresses the following GitHub issues:
 ## Technical Details
 
 When you configure `kubeletRootDir`, KubeVirt automatically:
-- Updates the virt-handler daemonset to mount the correct kubelet directory
+- Updates the virt-handler DaemonSet to mount the correct kubelet directory
 - Passes the `--kubelet-root` and `--kubelet-pods-dir` flags to the virt-handler container
 - Configures the seccomp profile installation path correctly
 
-The configuration is propagated from the KubeVirt CR to the operator, which then generates the appropriate daemonset configuration.
+The configuration is propagated from the KubeVirt CR to the operator, which then generates the appropriate DaemonSet configuration.
 

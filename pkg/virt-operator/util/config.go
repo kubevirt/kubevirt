@@ -25,6 +25,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -38,6 +39,7 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -616,7 +618,7 @@ func (c *KubeVirtDeploymentConfig) GetProductVersion() string {
 func (c *KubeVirtDeploymentConfig) GetKubeletRootDir() string {
 	kubeletRootDir, ok := c.AdditionalProperties["KubeletRootDir"]
 	if !ok || kubeletRootDir == "" {
-		return "/var/lib/kubelet"
+		return util.KubeletRoot
 	}
 	return kubeletRootDir
 }
