@@ -18,37 +18,7 @@ If you don't have k3s installed, install it:
 curl -sfL https://get.k3s.io | sh -
 ```
 
-### Step 2: Deploy KubeVirt with custom kubelet directory
-
-Create a KubeVirt CR with the k3s kubelet directory:
-
-```yaml
-# kubevirt-k3s.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kubevirt
----
-apiVersion: kubevirt.io/v1
-kind: KubeVirt
-metadata:
-  name: kubevirt
-  namespace: kubevirt
-spec:
-  configuration:
-    kubeletRootDir: "/var/lib/rancher/k3s/agent/kubelet"
-  certificateRotateStrategy: {}
-  imagePullPolicy: IfNotPresent
-  workloadUpdateStrategy: {}
-```
-
-Apply it:
-
-```bash
-kubectl apply -f kubevirt-k3s.yaml
-```
-
-### Step 3: Deploy the KubeVirt operator
+### Step 2: Deploy the KubeVirt operator
 
 ```bash
 # Download and apply the latest KubeVirt operator manifest
@@ -64,7 +34,45 @@ make cluster-up
 make cluster-sync
 ```
 
-### Step 4: Verify the configuration
+### Step 3: Configure kubelet root directory
+
+Set the `KUBELET_ROOT_DIR` environment variable on the virt-operator deployment:
+
+```bash
+kubectl set env deployment/virt-operator -n kubevirt \
+  KUBELET_ROOT_DIR="/var/lib/rancher/k3s/agent/kubelet"
+```
+
+Wait for the operator to restart:
+
+```bash
+kubectl rollout status deployment/virt-operator -n kubevirt
+```
+
+### Step 4: Deploy KubeVirt CR
+
+Create and apply a KubeVirt CR:
+
+```yaml
+# kubevirt-k3s.yaml
+apiVersion: kubevirt.io/v1
+kind: KubeVirt
+metadata:
+  name: kubevirt
+  namespace: kubevirt
+spec:
+  certificateRotateStrategy: {}
+  imagePullPolicy: IfNotPresent
+  workloadUpdateStrategy: {}
+```
+
+Apply it:
+
+```bash
+kubectl apply -f kubevirt-k3s.yaml
+```
+
+### Step 5: Verify the configuration
 
 1. Check that virt-handler pods are running:
    ```bash
@@ -93,12 +101,17 @@ make cluster-sync
      name: kubelet
    ```
 
-4. Check the logs for any errors:
+4. Verify the environment variable is set on virt-operator:
+   ```bash
+   kubectl get deployment virt-operator -n kubevirt -o yaml | grep -A 2 KUBELET_ROOT_DIR
+   ```
+
+5. Check the logs for any errors:
    ```bash
    kubectl logs -n kubevirt -l kubevirt.io=virt-handler --tail=50
    ```
 
-### Step 5: Test VMI Creation
+### Step 6: Test VMI Creation
 
 Create a test VMI:
 
@@ -140,7 +153,7 @@ kubectl get vmi
 kubectl get vmi testvmi-ephemeral -o yaml
 ```
 
-### Step 6: Clean up
+### Step 7: Clean up
 
 ```bash
 kubectl delete vmi testvmi-ephemeral
@@ -159,25 +172,41 @@ sudo k0s install controller --single
 sudo k0s start
 ```
 
-### Step 2: Deploy KubeVirt with custom kubelet directory
+### Step 2: Deploy the KubeVirt operator
 
-Create a KubeVirt CR with the k0s kubelet directory:
+```bash
+# Download and apply the latest KubeVirt operator manifest
+export RELEASE=$(curl -s https://api.github.com/repos/kubevirt/kubevirt/releases/latest | jq -r .tag_name)
+sudo k0s kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
+```
+
+### Step 3: Configure kubelet root directory
+
+Set the `KUBELET_ROOT_DIR` environment variable on the virt-operator deployment:
+
+```bash
+sudo k0s kubectl set env deployment/virt-operator -n kubevirt \
+  KUBELET_ROOT_DIR="/var/lib/k0s/kubelet"
+```
+
+Wait for the operator to restart:
+
+```bash
+sudo k0s kubectl rollout status deployment/virt-operator -n kubevirt
+```
+
+### Step 4: Deploy KubeVirt CR
+
+Create and apply a KubeVirt CR:
 
 ```yaml
 # kubevirt-k0s.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: kubevirt
----
 apiVersion: kubevirt.io/v1
 kind: KubeVirt
 metadata:
   name: kubevirt
   namespace: kubevirt
 spec:
-  configuration:
-    kubeletRootDir: "/var/lib/k0s/kubelet"
   certificateRotateStrategy: {}
   imagePullPolicy: IfNotPresent
   workloadUpdateStrategy: {}
@@ -189,7 +218,7 @@ Apply it:
 sudo k0s kubectl apply -f kubevirt-k0s.yaml
 ```
 
-### Steps 3-6: Same as k3s
+### Steps 5-7: Same as k3s
 
 Follow the same verification and testing steps as outlined for k3s, but use `sudo k0s kubectl` instead of `kubectl`.
 
@@ -197,7 +226,16 @@ Follow the same verification and testing steps as outlined for k3s, but use `sud
 
 To ensure backward compatibility, test that the default behavior still works:
 
-### Step 1: Deploy without specifying kubeletRootDir
+### Step 1: Deploy without setting KUBELET_ROOT_DIR
+
+Deploy the operator without setting the environment variable:
+
+```bash
+export RELEASE=$(curl -s https://api.github.com/repos/kubevirt/kubevirt/releases/latest | jq -r .tag_name)
+kubectl apply -f https://github.com/kubevirt/kubevirt/releases/download/${RELEASE}/kubevirt-operator.yaml
+```
+
+### Step 2: Deploy KubeVirt CR
 
 ```yaml
 # kubevirt-default.yaml
@@ -212,7 +250,7 @@ spec:
   workloadUpdateStrategy: {}
 ```
 
-### Step 2: Verify default path is used
+### Step 3: Verify default path is used
 
 ```bash
 kubectl get daemonset virt-handler -n kubevirt -o yaml | grep -A 2 "kubelet-root"
@@ -248,6 +286,11 @@ You should see the default path:
    kubectl get daemonset virt-handler -n kubevirt -o yaml
    ```
 
+4. Verify the environment variable is set correctly:
+   ```bash
+   kubectl get deployment virt-operator -n kubevirt -o yaml | grep -A 2 KUBELET_ROOT_DIR
+   ```
+
 ### Issue: VMIs fail to start
 
 **Check:**
@@ -265,6 +308,17 @@ You should see the default path:
    ```bash
    ls -la <kubelet-root-dir>/pods
    ```
+
+### Issue: Configuration not applied
+
+If the virt-handler DaemonSet doesn't reflect the custom kubelet path:
+
+1. Check if the environment variable was set before creating the KubeVirt CR
+2. Restart the virt-operator to force reconciliation:
+   ```bash
+   kubectl rollout restart deployment/virt-operator -n kubevirt
+   ```
+3. Delete and recreate the KubeVirt CR
 
 ### Issue: Seccomp profile errors
 
@@ -320,6 +374,7 @@ If you encounter any issues while testing:
    ```bash
    kubectl get all -n kubevirt
    kubectl get kubevirt -n kubevirt -o yaml
+   kubectl get deployment virt-operator -n kubevirt -o yaml | grep -A 2 KUBELET_ROOT_DIR
    kubectl logs -n kubevirt -l kubevirt.io=virt-handler
    kubectl describe daemonset virt-handler -n kubevirt
    ```

@@ -3019,12 +3019,6 @@ type KubeVirtConfiguration struct {
 	OVMFPath            string `json:"ovmfPath,omitempty"`
 	SELinuxLauncherType string `json:"selinuxLauncherType,omitempty"`
 	DefaultRuntimeClass string `json:"defaultRuntimeClass,omitempty"`
-	// KubeletRootDir specifies the root directory for the kubelet on the node.
-	// Defaults to "/var/lib/kubelet" if not specified.
-	// This is useful for Kubernetes distributions that use non-standard kubelet directories
-	// (e.g., k3s uses "/var/lib/rancher/k3s/agent/kubelet", k0s uses "/var/lib/k0s/kubelet").
-	// +optional
-	KubeletRootDir            string               `json:"kubeletRootDir,omitempty"`
 	SMBIOSConfig              *SMBiosConfiguration `json:"smbios,omitempty"`
 	ArchitectureConfiguration *ArchConfiguration   `json:"architectureConfiguration,omitempty"`
 	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be

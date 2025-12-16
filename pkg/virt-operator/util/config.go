@@ -25,7 +25,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -59,6 +58,7 @@ const (
 	PrHelperImageEnvName                      = "PR_HELPER_IMAGE"
 	SidecarShimImageEnvName                   = "SIDECAR_SHIM_IMAGE"
 	RunbookURLTemplate                        = "RUNBOOK_URL_TEMPLATE"
+	KubeletRootDirEnvName                     = "KUBELET_ROOT_DIR"
 
 	KubeVirtVersionEnvName = "KUBEVIRT_VERSION"
 	// Deprecated, use TargetDeploymentConfig instead
@@ -197,9 +197,6 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 			}
 		}
 	}
-	if kv.Spec.Configuration.KubeletRootDir != "" {
-		additionalProperties["KubeletRootDir"] = kv.Spec.Configuration.KubeletRootDir
-	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
 	return getConfig(kv.Spec.ImageRegistry,
@@ -335,6 +332,12 @@ func getConfig(providedRegistry, providedTag, namespace string, additionalProper
 	GsImage := envVarManager.Getenv(GsImageEnvName)
 	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 	SidecarShimImage := envVarManager.Getenv(SidecarShimImageEnvName)
+
+	// Read kubelet root directory from environment variable
+	kubeletRootDir := envVarManager.Getenv(KubeletRootDirEnvName)
+	if kubeletRootDir != "" {
+		additionalProperties["KubeletRootDir"] = kubeletRootDir
+	}
 
 	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv)
 }

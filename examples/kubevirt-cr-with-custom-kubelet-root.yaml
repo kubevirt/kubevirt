@@ -1,33 +1,30 @@
 ---
+# Example: Configuring KubeVirt for Kubernetes distributions with non-standard kubelet directories
+#
+# KubeVirt requires access to the kubelet directory. By default, it expects /var/lib/kubelet.
+# However, some distributions use different paths:
+#   - k3s: /var/lib/rancher/k3s/agent/kubelet
+#   - k0s: /var/lib/k0s/kubelet
+#
+# To configure a custom kubelet directory, set the KUBELET_ROOT_DIR environment variable
+# on the virt-operator deployment BEFORE creating the KubeVirt CR.
+#
+# Example for k3s:
+#   kubectl set env deployment/virt-operator -n kubevirt \
+#     KUBELET_ROOT_DIR="/var/lib/rancher/k3s/agent/kubelet"
+#
+# Example for k0s:
+#   kubectl set env deployment/virt-operator -n kubevirt \
+#     KUBELET_ROOT_DIR="/var/lib/k0s/kubelet"
+#
+# After setting the environment variable, apply this CR:
+
 apiVersion: kubevirt.io/v1
 kind: KubeVirt
 metadata:
   name: kubevirt
   namespace: kubevirt
 spec:
-  # Example configuration for Kubernetes distributions with non-standard kubelet directories
-  # Uncomment and set the appropriate kubelet root directory for your distribution:
-  
-  # For k3s:
-  # configuration:
-  #   kubeletRootDir: "/var/lib/rancher/k3s/agent/kubelet"
-  
-  # For k0s:
-  # configuration:
-  #   kubeletRootDir: "/var/lib/k0s/kubelet"
-  
-  # For MicroK8s (newer versions use standard path):
-  # configuration:
-  #   kubeletRootDir: "/var/lib/kubelet"
-  
-  # Default (if not specified):
-  # configuration:
-  #   kubeletRootDir: "/var/lib/kubelet"
-  
-  # Example with k3s:
-  configuration:
-    kubeletRootDir: "/var/lib/rancher/k3s/agent/kubelet"
-  
   certificateRotateStrategy: {}
   imagePullPolicy: IfNotPresent
   workloadUpdateStrategy: {}
