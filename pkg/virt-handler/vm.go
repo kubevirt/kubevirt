@@ -1545,6 +1545,8 @@ func (c *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 	return c.helperVmShutdown(vmi, domain, tryGracefully)
 }
 
+const firstGracefulShutdownAttempt = -1
+
 // Determines if a domain's grace period has expired during shutdown.
 // If the grace period has started but not expired, timeLeft represents
 // the time in seconds left until the period expires.
@@ -1575,7 +1577,7 @@ func (c *VirtualMachineController) hasGracePeriodExpired(terminationGracePeriod 
 	if startTime == 0 {
 		// If gracePeriod > 0, then the shutdown signal needs to be sent
 		// and the gracePeriod start time needs to be set.
-		timeLeft = -1
+		timeLeft = firstGracefulShutdownAttempt
 		return hasExpired, timeLeft
 	}
 
@@ -1649,8 +1651,17 @@ func (c *VirtualMachineController) shutdownVMI(vmi *v1.VirtualMachineInstance, c
 
 	log.Log.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
 
+	// Only create a VMIGracefulShutdown event for the first attempt as we can
+	// easily hit the default burst limit of 25 for the
+	// EventSourceObjectSpamFilter when gracefully shutting down VMIs with a
+	// large TerminationGracePeriodSeconds value set. Hitting this limit can
+	// result in the eventual VMIShutdown event being dropped.
+	if timeLeft == firstGracefulShutdownAttempt {
+		c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), VMIGracefulShutdown)
+	}
+
 	// Make sure that we don't hot-loop in case we send the first domain notification
-	if timeLeft == -1 {
+	if timeLeft == firstGracefulShutdownAttempt {
 		timeLeft = 5
 		if vmi.Spec.TerminationGracePeriodSeconds != nil && *vmi.Spec.TerminationGracePeriodSeconds < timeLeft {
 			timeLeft = *vmi.Spec.TerminationGracePeriodSeconds
@@ -1664,7 +1675,6 @@ func (c *VirtualMachineController) shutdownVMI(vmi *v1.VirtualMachineInstance, c
 
 	// pending graceful shutdown.
 	c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(timeLeft)*time.Second)
-	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), VMIGracefulShutdown)
 	return nil
 }
 
