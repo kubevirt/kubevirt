@@ -589,17 +589,12 @@ var _ = Describe("Converter", func() {
 		})
 
 		var convertedDomain = strings.TrimSpace(embedDomainTemplateX86_64)
-		var convertedDomainWithFalseAutoattach = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("none", 0))
-
 		convertedDomain = fmt.Sprintf(convertedDomain, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
 		var convertedDomainarm64 = strings.TrimSpace(embedDomainTemplateARM64)
-		var convertedDomainarm64WithFalseAutoattach = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("none", 0))
-
 		convertedDomainarm64 = fmt.Sprintf(convertedDomainarm64, memBalloonWithModelAndPeriod("virtio-non-transitional", 10))
 
 		var convertedDomains390x = strings.TrimSpace(embedDomainTemplateS390X)
-		var convertedDomains390xWithFalseAutoattach = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("none", 0))
 
 		convertedDomains390x = fmt.Sprintf(convertedDomains390x, memBalloonWithModelAndPeriod("virtio", 10))
 
@@ -702,19 +697,6 @@ var _ = Describe("Converter", func() {
 			Entry("for amd64", amd64, convertedDomain),
 			Entry("for arm64", arm64, convertedDomainarm64),
 			Entry("for s390x", s390x, convertedDomains390x),
-		)
-
-		DescribeTable("should be converted to a libvirt Domain", func(arch string, domain string) {
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-			vmi.Spec.Domain.Devices.Rng = &v1.Rng{}
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = pointer.P(false)
-			c.Architecture = archconverter.NewConverter(arch)
-			vmiArchMutate(arch, vmi, c)
-			Expect(vmiToDomainXML(vmi, c)).To(Equal(domain))
-		},
-			Entry("when Autoattach memballoon device is false for amd64", amd64, convertedDomainWithFalseAutoattach),
-			Entry("when Autoattach memballoon device is false for arm64", arm64, convertedDomainarm64WithFalseAutoattach),
-			Entry("when Autoattach memballoon device is false for s390x", s390x, convertedDomains390xWithFalseAutoattach),
 		)
 
 		Context("when all addresses should be placed at the root complex", func() {

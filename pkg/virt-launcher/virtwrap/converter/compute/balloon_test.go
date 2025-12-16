@@ -252,4 +252,26 @@ var _ = Describe("Balloon Domain Configurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 	})
+
+	Context("with AutoattachMemBalloon false", func() {
+		It("should configure memballoon with model none", func() {
+			vmi := libvmi.New(libvmi.WithAutoattachMemBalloon(false))
+			var domain api.Domain
+
+			configurator := compute.NewBalloonDomainConfigurator()
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Ballooning: &api.MemBalloon{
+							Model: "none",
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+	})
 })
