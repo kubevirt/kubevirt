@@ -40,7 +40,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -59,7 +58,6 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-		checks.SkipIfPrometheusRuleIsNotEnabled(virtClient)
 	})
 
 	Context("Kubevirt alert rules", func() {
@@ -145,7 +143,7 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 		})
 	})
 
-	Context("Deprecation Alerts", decorators.SigComputeMigrations, func() {
+	Context("Deprecation Alerts", decorators.SigMonitoring, func() {
 		It("KubeVirtDeprecatedAPIRequested should be triggered when a deprecated API is requested", func() {
 			By("Creating a VMI with deprecated API version")
 			vmi := libvmifact.NewCirros()
