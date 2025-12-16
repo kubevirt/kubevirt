@@ -55,10 +55,10 @@ go_test(
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
     embedsrcs = [
-        "testdata/domain_x86_64.xml.tmpl",
-        "testdata/domain_arm64.xml.tmpl",
-        "testdata/domain_x86_64_root.xml.tmpl",
-        "testdata/domain_s390x.xml.tmpl",
+        "testdata/domain_x86_64.xml",
+        "testdata/domain_arm64.xml",
+        "testdata/domain_x86_64_root.xml",
+        "testdata/domain_s390x.xml",
     ],
     race = "on",
     deps = [
