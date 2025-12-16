@@ -26,11 +26,8 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups:go_default_library",
-        "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/devices:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fscommon:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
-        "//vendor/github.com/opencontainers/runc/libcontainer/devices:go_default_library",
-        "//vendor/github.com/opencontainers/runc/libcontainer/userns:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/utils:go_default_library",
         "//vendor/github.com/sirupsen/logrus:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
