@@ -981,108 +981,6 @@ func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainD
 	return nil
 }
 
-func convertFeatureState(source *v1.FeatureState) *api.FeatureState {
-	if source != nil {
-		return &api.FeatureState{
-			State: boolToOnOff(source.Enabled, true),
-		}
-	}
-	return nil
-}
-
-func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Features, c *ConverterContext) error {
-	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
-		features.ACPI = &api.FeatureEnabled{}
-	}
-	if source.SMM != nil {
-		if source.SMM.Enabled == nil || *source.SMM.Enabled {
-			features.SMM = &api.FeatureEnabled{}
-		}
-	}
-	if source.APIC != nil {
-		if source.APIC.Enabled == nil || *source.APIC.Enabled {
-			features.APIC = &api.FeatureEnabled{}
-		}
-	}
-	if source.Hyperv != nil {
-		features.Hyperv = &api.FeatureHyperv{}
-		err := Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source.Hyperv, features.Hyperv)
-		if err != nil {
-			return nil
-		}
-	} else if source.HypervPassthrough != nil && *source.HypervPassthrough.Enabled {
-		features.Hyperv = &api.FeatureHyperv{
-			Mode: api.HypervModePassthrough,
-		}
-	}
-	if source.KVM != nil {
-		features.KVM = &api.FeatureKVM{
-			Hidden: &api.FeatureState{
-				State: boolToOnOff(&source.KVM.Hidden, false),
-			},
-		}
-	}
-	if source.Pvspinlock != nil {
-		features.PVSpinlock = &api.FeaturePVSpinlock{
-			State: boolToOnOff(source.Pvspinlock.Enabled, true),
-		}
-	}
-
-	if c.UseLaunchSecurityTDX {
-		features.PMU = &api.FeatureState{
-			State: "off",
-		}
-	}
-
-	return nil
-}
-
-func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyperv *api.FeatureHyperv) error {
-	if source.Spinlocks != nil {
-		hyperv.Spinlocks = &api.FeatureSpinlocks{
-			State:   boolToOnOff(source.Spinlocks.Enabled, true),
-			Retries: source.Spinlocks.Retries,
-		}
-	}
-	if source.VendorID != nil {
-		hyperv.VendorID = &api.FeatureVendorID{
-			State: boolToOnOff(source.VendorID.Enabled, true),
-			Value: source.VendorID.VendorID,
-		}
-	}
-
-	hyperv.Relaxed = convertFeatureState(source.Relaxed)
-	hyperv.Reset = convertFeatureState(source.Reset)
-	hyperv.Runtime = convertFeatureState(source.Runtime)
-	hyperv.SyNIC = convertFeatureState(source.SyNIC)
-	hyperv.SyNICTimer = convertV1ToAPISyNICTimer(source.SyNICTimer)
-	hyperv.VAPIC = convertFeatureState(source.VAPIC)
-	hyperv.VPIndex = convertFeatureState(source.VPIndex)
-	hyperv.Frequencies = convertFeatureState(source.Frequencies)
-	hyperv.Reenlightenment = convertFeatureState(source.Reenlightenment)
-	hyperv.TLBFlush = convertFeatureState(source.TLBFlush)
-	hyperv.IPI = convertFeatureState(source.IPI)
-	hyperv.EVMCS = convertFeatureState(source.EVMCS)
-	return nil
-}
-
-func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
-	if syNICTimer == nil {
-		return nil
-	}
-
-	result := &api.SyNICTimer{
-		State: boolToOnOff(syNICTimer.Enabled, true),
-	}
-
-	if syNICTimer.Direct != nil {
-		result.Direct = &api.FeatureState{
-			State: boolToOnOff(syNICTimer.Direct.Enabled, true),
-		}
-	}
-	return result
-}
-
 func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 	if domain.Spec.QEMUCmd == nil {
 		domain.Spec.QEMUCmd = &api.Commandline{}
@@ -1440,6 +1338,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewWatchdogDomainConfigurator(architecture),
 		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
 		compute.PanicDevicesDomainConfigurator{},
+		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1684,19 +1583,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		)
 	}
 
-	if vmi.Spec.Domain.Features != nil {
-		domain.Spec.Features = &api.Features{}
-		err := Convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, c)
-
-		if c.Architecture.HasVMPort() {
-			domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
-		}
-
-		if err != nil {
-			return err
-		}
-	}
-
 	if machine := vmi.Spec.Domain.Machine; machine != nil {
 		domain.Spec.OS.Type.Machine = machine.Type
 	}
@@ -1808,10 +1694,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	return nil
-}
-
-func boolToOnOff(value *bool, defaultOn bool) string {
-	return boolToString(value, defaultOn, "on", "off")
 }
 
 func boolToYesNo(value *bool, defaultYes bool) string {
