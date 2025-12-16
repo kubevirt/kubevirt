@@ -3016,9 +3016,9 @@ type KubeVirtConfiguration struct {
 	MachineType          string                `json:"machineType,omitempty"`
 	NetworkConfiguration *NetworkConfiguration `json:"network,omitempty"`
 	// Deprecated. Use architectureConfiguration instead.
-	OVMFPath            string `json:"ovmfPath,omitempty"`
-	SELinuxLauncherType string `json:"selinuxLauncherType,omitempty"`
-	DefaultRuntimeClass string `json:"defaultRuntimeClass,omitempty"`
+	OVMFPath                  string               `json:"ovmfPath,omitempty"`
+	SELinuxLauncherType       string               `json:"selinuxLauncherType,omitempty"`
+	DefaultRuntimeClass       string               `json:"defaultRuntimeClass,omitempty"`
 	SMBIOSConfig              *SMBiosConfiguration `json:"smbios,omitempty"`
 	ArchitectureConfiguration *ArchConfiguration   `json:"architectureConfiguration,omitempty"`
 	// EvictionStrategy defines at the cluster level if the VirtualMachineInstance should be

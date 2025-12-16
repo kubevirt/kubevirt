@@ -188,9 +188,6 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 	handlerGracePeriod := podGracePeriod - 15
 	podTemplateSpec.Spec.TerminationGracePeriodSeconds = &podGracePeriod
 
-	// Calculate kubelet pods path early for use in both args and volumes
-	kubeletPodsPath := filepath.Join(kubeletRootDir, "pods")
-
 	container := &pod.Containers[0]
 	container.Command = []string{
 		VirtHandlerName,
@@ -211,7 +208,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		"--kubelet-root",
 		kubeletRootDir,
 		"--kubelet-pods-dir",
-		kubeletPodsPath,
+		filepath.Join(kubeletRootDir, "pods"),
 		"-v",
 		verbosity,
 	}
@@ -302,7 +299,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		{"libvirt-runtimes", runtimesPath, runtimesPath, nil},
 		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
 		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
-		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
+		{"kubelet-pods", filepath.Join(kubeletRootDir, "pods"), "/pods", nil},
 		{"kubelet", kubeletRootDir, kubeletRootDir, &bidi},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
 	}
