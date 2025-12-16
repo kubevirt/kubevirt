@@ -28,7 +28,9 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	policy "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -51,19 +53,52 @@ var _ = SIGMigrationDescribe("VM Live Migration triggered by evacuation", decora
 			vmi := libvmifact.NewCirros(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 			)
 			By("Starting the VirtualMachineInstance")
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
-			migration := libmigration.New(vmi.Name, vmi.Namespace)
-			setEvacuationAnnotation(migration)
-			_ = libmigration.RunMigration(kubevirt.Client(), migration)
+			virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
 
+			By("Triggering an eviction by evict API")
+			ctx := context.Background()
+			err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      virtLauncherPod.Name,
+					Namespace: virtLauncherPod.Namespace,
+				},
+			})
+			Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
+
+			By("Waiting for the eviction-in-progress annotation to be added to the source pod")
 			Eventually(func() map[string]string {
-				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				virtLauncherPod, err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).Get(ctx, virtLauncherPod.Name, metav1.GetOptions{})
 				Expect(err).NotTo(HaveOccurred())
 				return virtLauncherPod.GetAnnotations()
-			}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).Should(HaveKeyWithValue("descheduler.alpha.kubernetes.io/eviction-in-progress", "kubevirt"))
+			}).WithTimeout(20 * time.Second).WithPolling(1 * time.Second).Should(HaveKey("descheduler.alpha.kubernetes.io/eviction-in-progress"))
+
+			By("Waiting for a migration to be scheduled and to succeed")
+			labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
+			Expect(err).ToNot(HaveOccurred())
+			listOptions := metav1.ListOptions{
+				LabelSelector: labelSelector.String(),
+			}
+
+			Eventually(func(g Gomega) {
+				migrations, err := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).List(ctx, listOptions)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(migrations.Items).To(HaveLen(1))
+				g.Expect(migrations.Items[0].Status.Phase).To(Equal(v1.MigrationSucceeded))
+			}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+
+			By("Ensuring for the eviction-in-progress annotation is not present on the final pod")
+			vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			targetVirtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(targetVirtLauncherPod.Name).ToNot(Equal(virtLauncherPod.Name))
+			Expect(targetVirtLauncherPod.GetAnnotations()).ToNot(HaveKey("descheduler.alpha.kubernetes.io/eviction-in-progress"))
 		})
 
 		Context("when evacuating fails", func() {
@@ -73,33 +108,57 @@ var _ = SIGMigrationDescribe("VM Live Migration triggered by evacuation", decora
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithAnnotation(v1.FuncTestForceLauncherMigrationFailureAnnotation, ""),
+					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate),
 				)
 			})
 
-			It("should remove eviction-in-progress annotation to source virt-launcher pod", func() {
+			It("should not remove eviction-in-progress annotation from source virt-launcher pod", func() {
 				By("Starting the VirtualMachineInstance")
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
 
-				// Manually adding the eviction-in-progress annotation to the virt-launcher pod
-				// to avoid flakiness between annotation addition and removal
 				virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				patchBytes, err := patch.New(
-					patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer("descheduler.alpha.kubernetes.io/eviction-in-progress")), "kubevirt"),
-				).GeneratePayload()
-				Expect(err).NotTo(HaveOccurred())
-				_, err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).Patch(context.Background(), virtLauncherPod.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-				Expect(err).NotTo(HaveOccurred())
 
-				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				setEvacuationAnnotation(migration)
-				_ = libmigration.RunMigrationAndExpectFailure(migration, libmigration.MigrationWaitTime)
+				By("Triggering an eviction by evict API")
+				ctx := context.Background()
+				err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).EvictV1(ctx, &policy.Eviction{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      virtLauncherPod.Name,
+						Namespace: virtLauncherPod.Namespace,
+					},
+				})
+				Expect(err).To(MatchError(ContainSubstring("Eviction triggered evacuation of VMI")))
 
-				Eventually(func() map[string]string {
-					virtLauncherPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+				By("Waiting for a migration to be scheduled and fail")
+				labelSelector, err := labels.Parse(fmt.Sprintf("%s in (%s)", v1.MigrationSelectorLabel, vmi.Name))
+				Expect(err).ToNot(HaveOccurred())
+				listOptions := metav1.ListOptions{
+					LabelSelector: labelSelector.String(),
+				}
+				Eventually(func(g Gomega) {
+					migrations, err := kubevirt.Client().VirtualMachineInstanceMigration(vmi.Namespace).List(ctx, listOptions)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(migrations.Items).ToNot(BeEmpty())
+					for _, migration := range migrations.Items {
+						g.Expect(migration.Status.Phase).To(Equal(v1.MigrationFailed))
+					}
+				}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+
+				By("Ensuring eviction-in-progress annotation is not removed from the source pod")
+				Consistently(func() map[string]string {
+					virtLauncherPod, err = kubevirt.Client().CoreV1().Pods(virtLauncherPod.Namespace).Get(ctx, virtLauncherPod.Name, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
 					return virtLauncherPod.GetAnnotations()
-				}).WithTimeout(60 * time.Second).WithPolling(1 * time.Second).ShouldNot(HaveKey("descheduler.alpha.kubernetes.io/eviction-in-progress"))
+				}).WithTimeout(30 * time.Second).WithPolling(1 * time.Second).Should(HaveKey("descheduler.alpha.kubernetes.io/eviction-in-progress"))
+
+				By("Ensuring eviction-in-progress annotation is not set on the target pod")
+				vmi, err = kubevirt.Client().VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.MigrationState).ToNot(BeNil())
+				Expect(vmi.Status.MigrationState.TargetPod).ToNot(Equal(""))
+				targetPod, err := kubevirt.Client().CoreV1().Pods(vmi.Namespace).Get(ctx, vmi.Status.MigrationState.TargetPod, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(targetPod.GetAnnotations()).ToNot(HaveKey("descheduler.alpha.kubernetes.io/eviction-in-progress"))
 			})
 
 			It("retrying immediately should be blocked by the migration backoff", func() {
