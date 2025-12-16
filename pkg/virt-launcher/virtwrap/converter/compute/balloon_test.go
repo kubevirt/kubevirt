@@ -152,4 +152,32 @@ var _ = Describe("Balloon Domain Configurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 	})
+
+	Context("with AutoattachMemBalloon false", func() {
+		DescribeTable("should configure memballoon with model none", func(arch string) {
+			vmi := libvmi.New(libvmi.WithAutoattachMemBalloon(false))
+			var domain api.Domain
+
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithArchitecture(arch),
+			)
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Ballooning: &api.MemBalloon{
+							Model: "none",
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		},
+			Entry("for amd64", "amd64"),
+			Entry("for arm64", "arm64"),
+			Entry("for s390x", "s390x"),
+		)
+	})
 })
