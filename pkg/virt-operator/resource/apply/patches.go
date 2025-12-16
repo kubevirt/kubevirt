@@ -79,9 +79,17 @@ func flagsToArray(flags map[string]string) []string {
 	sort.Strings(fnames)
 
 	for _, flag := range fnames {
-		farr = append(farr, fmt.Sprintf("--%s", strings.ToLower(flag)))
-		if flags[flag] != "" {
-			farr = append(farr, flags[flag])
+		flagName := strings.ToLower(flag)
+		val := strings.ToLower(flags[flag])
+
+		switch val {
+		case "":
+			farr = append(farr, fmt.Sprintf("--%s", flagName))
+		case "true", "false":
+			farr = append(farr, fmt.Sprintf("--%s=%s", flagName, val))
+		default:
+			farr = append(farr, fmt.Sprintf("--%s", flagName))
+			farr = append(farr, val)
 		}
 	}
 
