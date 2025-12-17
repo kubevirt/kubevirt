@@ -110,7 +110,7 @@ func (DeviceResourceClaimStatus) SwaggerDoc() map[string]string {
 		"":                  "DeviceResourceClaimStatus has to be before SyncVMI call from virt-handler to virt-launcher",
 		"name":              "Name is the name of actual device on the host provisioned by the driver as reflected in resourceclaim.status\n+optional",
 		"resourceClaimName": "ResourceClaimName is the name of the resource claims object used to provision this resource\n+optional",
-		"attributes":        "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more\nabout the device, like pciAddress or mdevUUID\n+optional",
+		"attributes":        "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more\nabout the device, like pciBusID or mdevUUID\n+optional",
 	}
 }
 

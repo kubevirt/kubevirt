@@ -597,7 +597,7 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 	return nil, nil
 }
 
-// getDeviceAttributes returns the pciAddress and mdevUUID of the device. It will return both if found, otherwise it will return empty strings
+// getDeviceAttributes returns the pciBusID and mdevUUID of the device. It will return both if found, otherwise it will return empty strings
 func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, driverName string) (string, string, error) {
 	resourceSlices, err := c.resourceSliceIndexer.ByIndex(indexByNodeName, nodeName)
 	if err != nil {
@@ -622,7 +622,7 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, d
 						}
 					}
 					if pciAddress == "" && mdevUUID == "" {
-						return "", "", fmt.Errorf("neither pciAddress nor mdevUUIDa attribute found for device %s", deviceName)
+						return "", "", fmt.Errorf("neither pciBusID nor mdevUUID attribute found for device %s", deviceName)
 					}
 					return pciAddress, mdevUUID, nil
 				}

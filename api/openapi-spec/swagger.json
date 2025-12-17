@@ -14425,7 +14425,7 @@
     "type": "object",
     "properties": {
      "attributes": {
-      "description": "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more about the device, like pciAddress or mdevUUID",
+      "description": "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more about the device, like pciBusID or mdevUUID",
       "$ref": "#/definitions/v1.DeviceAttribute"
      },
      "name": {

@@ -19859,7 +19859,7 @@ func schema_kubevirtio_api_core_v1_DeviceResourceClaimStatus(ref common.Referenc
 					},
 					"attributes": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more about the device, like pciAddress or mdevUUID",
+							Description: "Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more about the device, like pciBusID or mdevUUID",
 							Ref:         ref("kubevirt.io/api/core/v1.DeviceAttribute"),
 						},
 					},

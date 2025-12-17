@@ -367,7 +367,7 @@ type DeviceResourceClaimStatus struct {
 	// +optional
 	ResourceClaimName *string `json:"resourceClaimName,omitempty"`
 	// Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more
-	// about the device, like pciAddress or mdevUUID
+	// about the device, like pciBusID or mdevUUID
 	// +optional
 	Attributes *DeviceAttribute `json:"attributes,omitempty"`
 }

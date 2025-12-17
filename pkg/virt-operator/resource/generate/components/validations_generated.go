@@ -14046,7 +14046,7 @@ var CRDsValidation map[string]string = map[string]string{
                       attributes:
                         description: |-
                           Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more
-                          about the device, like pciAddress or mdevUUID
+                          about the device, like pciBusID or mdevUUID
                         properties:
                           mDevUUID:
                             description: MDevUUID is the mediated device uuid of the
@@ -14088,7 +14088,7 @@ var CRDsValidation map[string]string = map[string]string{
                       attributes:
                         description: |-
                           Attributes are properties of the device that could be used by kubevirt and other copmonents to learn more
-                          about the device, like pciAddress or mdevUUID
+                          about the device, like pciBusID or mdevUUID
                         properties:
                           mDevUUID:
                             description: MDevUUID is the mediated device uuid of the
