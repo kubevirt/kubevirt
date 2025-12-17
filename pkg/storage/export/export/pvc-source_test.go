@@ -220,6 +220,11 @@ var _ = Describe("PVC source", func() {
 			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
 			Expect(ok).To(BeTrue())
 			verifyLinksEmpty(vmExport)
+
+			pvcCond := getCondition(vmExport.Status.Conditions, exportv1.ConditionPVC)
+			Expect(pvcCond).ToNot(BeNil(), "PVC Condition should be present")
+			Expect(pvcCond.Reason).To(Equal(pvcNotFoundReason))
+			Expect(pvcCond.Status).To(Equal(k8sv1.ConditionFalse))
 			return true, vmExport, nil
 		})
 
@@ -244,6 +249,11 @@ var _ = Describe("PVC source", func() {
 			Expect(vmExport.Status.Links).ToNot(BeNil())
 			Expect(vmExport.Status.Links.External).To(BeNil())
 			verifyArchiveInternal(vmExport, vmExport.Name, testNamespace, testVMExport.Spec.Source.Name)
+
+			pvcCond := getCondition(vmExport.Status.Conditions, exportv1.ConditionPVC)
+			Expect(pvcCond).ToNot(BeNil(), "PVC Condition should be present")
+			Expect(pvcCond.Reason).To(Equal(pvcBoundReason))
+			Expect(pvcCond.Status).To(Equal(k8sv1.ConditionTrue))
 			return true, vmExport, nil
 		})
 		retry, err := controller.updateVMExport(testVMExport)
@@ -409,3 +419,12 @@ var _ = Describe("PVC source", func() {
 		Entry("PVC pending", k8sv1.ClaimPending, k8sv1.ConditionFalse, pvcPendingReason, ""),
 	)
 })
+
+func getCondition(conditions []exportv1.Condition, condType exportv1.ConditionType) *exportv1.Condition {
+	for _, c := range conditions {
+		if c.Type == condType {
+			return &c
+		}
+	}
+	return nil
+}

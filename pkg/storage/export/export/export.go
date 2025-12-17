@@ -1302,7 +1302,6 @@ func populateInitialVMExportStatus(vmExport *exportv1.VirtualMachineExport) {
 		Phase: exportv1.Pending,
 		Conditions: []exportv1.Condition{
 			newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
-			newPvcCondition(corev1.ConditionFalse, unknownReason, ""),
 		},
 		TTLExpirationTime: &expireAt,
 	}
