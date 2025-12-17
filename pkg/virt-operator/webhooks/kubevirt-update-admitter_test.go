@@ -40,7 +40,6 @@ import (
 )
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
-
 	test := field.NewPath("test")
 	vmProfileField := test.Child("virtualMachineInstanceProfile")
 
@@ -50,7 +49,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		for _, cause := range causes {
 			Expect(cause.Field).To(BeElementOf(expectedFields))
 		}
-
 	},
 		Entry("don't specifying custom ", &v1.SeccompConfiguration{
 			VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
@@ -115,7 +113,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				field = fmt.Sprintf("%s#%d", field, indexInField)
 			}
 			Expect(causes[0].Field).To(Equal(field))
-
 		},
 			Entry("with unspecified minTLSVersion but non empty ciphers",
 				&v1.TLSConfiguration{Ciphers: []string{tls.CipherSuiteName(tls.TLS_AES_256_GCM_SHA384)}},
@@ -156,7 +153,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		)
 
 		DescribeTable("valid values", func(validRatio string) {
-
 		},
 			Entry("1.0", "1.0"),
 			Entry("5", "5"),
@@ -214,7 +210,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			} else {
 				Expect(response.Warnings).To(BeEmpty())
 			}
-
 		},
 			Entry("should warn if used", warn, &v1.MediatedDevicesConfiguration{
 				MediatedDevicesTypes: []string{"test1", "test2"},
@@ -338,6 +333,96 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		},
 			Entry("should warn when archConfig is set for ppc64le", true, &v1.ArchConfiguration{Ppc64le: &v1.ArchSpecificConfiguration{}}),
 			Entry("should not warn when archConfig is not set for ppc64le", false, &v1.ArchConfiguration{}),
+		)
+	})
+
+	FContext("Feature Gate Validation", func() {
+		var admitter *KubeVirtUpdateAdmitter
+
+		BeforeEach(func() {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			admitter = NewKubeVirtUpdateAdmitter(nil, clusterConfig)
+		})
+
+		admitUpdate := func(devConfig *v1.DeveloperConfiguration) *admissionv1.AdmissionResponse {
+			currKV := &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+			newKV := currKV.DeepCopy()
+			newKV.Spec.Configuration.DeveloperConfiguration = devConfig
+
+			currKVBytes, err := json.Marshal(currKV)
+			Expect(err).ToNot(HaveOccurred())
+			newKVBytes, err := json.Marshal(newKV)
+			Expect(err).ToNot(HaveOccurred())
+
+			request := &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{
+					Resource:  KubeVirtGroupVersionResource,
+					Operation: admissionv1.Update,
+					OldObject: runtime.RawExtension{Raw: currKVBytes},
+					Object:    runtime.RawExtension{Raw: newKVBytes},
+				},
+			}
+			return admitter.Admit(context.Background(), request)
+		}
+
+		DescribeTable("should reject conflicting feature gates", func(enabledGates, disabledGates []string, expectedConflictingGates ...string) {
+			var devConfig *v1.DeveloperConfiguration
+			if enabledGates != nil || disabledGates != nil {
+				devConfig = &v1.DeveloperConfiguration{
+					FeatureGates:         enabledGates,
+					DisabledFeatureGates: disabledGates,
+				}
+			}
+
+			response := admitUpdate(devConfig)
+
+			if len(expectedConflictingGates) == 0 {
+				Expect(response.Allowed).To(BeTrue())
+			} else {
+				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Details.Causes).To(HaveLen(len(expectedConflictingGates)))
+				for _, gate := range expectedConflictingGates {
+					Expect(response.Result.Details.Causes).To(ContainElement(And(
+						HaveField("Message", fmt.Sprintf(`feature gate "%s" exists on both "FeatureGates" and "DisabledFeatureGates"`, gate)),
+						HaveField("Type", metav1.CauseTypeForbidden),
+						HaveField("Field", field.NewPath("spec", "configuration", "developerConfiguration", "featureGates").String()),
+					)), `Expected to find conflict for gate: %s`, gate)
+				}
+			}
+		},
+			Entry("no conflict - both lists empty",
+				[]string{},
+				[]string{}),
+
+			Entry("no conflict - only enabled gates",
+				[]string{"Gate1", "Gate2"},
+				[]string{}),
+
+			Entry("no conflict - only disabled gates",
+				[]string{},
+				[]string{"Gate1", "Gate2"}),
+
+			Entry("no conflict - different gates",
+				[]string{"EnabledGate1", "EnabledGate2"},
+				[]string{"DisabledGate1", "DisabledGate2"}),
+
+			Entry("no conflict - nil DeveloperConfiguration",
+				nil, nil),
+
+			Entry("single conflict - same gate in both lists",
+				[]string{"ConflictGate", "ValidGate1"},
+				[]string{"ConflictGate", "ValidGate2"},
+				"ConflictGate"),
+
+			Entry("multiple conflicts",
+				[]string{"Conflict1", "Conflict2", "ValidGate"},
+				[]string{"Conflict1", "Conflict2", "AnotherValid"},
+				"Conflict1", "Conflict2"),
+
+			Entry("all gates conflict",
+				[]string{"Gate1", "Gate2", "Gate3"},
+				[]string{"Gate1", "Gate2", "Gate3"},
+				"Gate1", "Gate2", "Gate3"),
 		)
 	})
 })

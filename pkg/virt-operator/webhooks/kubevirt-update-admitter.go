@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -109,6 +110,10 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 
 	if newKV.Spec.Infra != nil {
 		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
+	}
+
+	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
+		results = append(results, validateFeatureGates(newKV.Spec.Configuration.DeveloperConfiguration)...)
 	}
 
 	response := validating_webhooks.NewAdmissionResponse(results)
@@ -493,4 +498,30 @@ func validateGuestToRequestHeadroom(ratioStrPtr *string) (causes []metav1.Status
 	}
 
 	return
+}
+
+func validateFeatureGates(devConfig *v1.DeveloperConfiguration) (causes []metav1.StatusCause) {
+	if devConfig == nil {
+		return
+	}
+
+	enabledFGs := devConfig.FeatureGates
+	disabledFGs := devConfig.DisabledFeatureGates
+
+	if len(enabledFGs) == 0 || len(disabledFGs) == 0 {
+		return
+	}
+
+	// check that the same feature doesn't appear in both FeatureGates and DisabledFeatureGates, emit error otherwise
+	for _, enabledFG := range enabledFGs {
+		if slices.Contains(disabledFGs, enabledFG) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeForbidden,
+				Message: fmt.Sprintf(`feature gate "%s" exists on both "FeatureGates" and "DisabledFeatureGates"`, enabledFG),
+				Field:   field.NewPath("spec", "configuration", "developerConfiguration", "featureGates").String(),
+			})
+		}
+	}
+
+	return causes
 }
