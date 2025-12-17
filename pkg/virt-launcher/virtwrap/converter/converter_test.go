@@ -3475,6 +3475,75 @@ var _ = Describe("Converter", func() {
 		})
 	})
 
+	Context("with ARM CCA LaunchSecurity", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				*v1.DefaultBridgeNetworkInterface(),
+			}
+			vmi.Spec.Networks = []v1.Network{
+				*v1.DefaultPodNetwork(),
+			}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{},
+				},
+			}
+			c = &ConverterContext{
+				Architecture:     archconverter.NewConverter(arm64),
+				AllowEmulation:   true,
+				EFIConfiguration: &EFIConfiguration{
+					EFICode:      "AAVMF_CODE.cca.fd",
+					SecureLoader: false,
+				},
+			}
+		})
+
+		It("should set LaunchSecurity domain element", func() {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				CCA: &v1.CCA{},
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity).ToNot(BeNil())
+			Expect(domain.Spec.LaunchSecurity.Type).To(Equal("cca"))
+			Expect(domain.Spec.LaunchSecurity.MeasurementAlgo).To(Equal(vmi.Spec.Domain.LaunchSecurity.CCA.MeasurementAlgo))
+			Expect(domain.Spec.LaunchSecurity.MeasurementLog).To(Equal(vmi.Spec.Domain.LaunchSecurity.CCA.MeasurementLog))
+			Expect(domain.Spec.LaunchSecurity.PersonalizationValue).To(Equal(vmi.Spec.Domain.LaunchSecurity.CCA.PersonalizationValue))
+		})
+
+		It("should disable the iPXE option ROM", func() {
+			d := vmiToDomain(vmi, c)
+			Expect(d.Spec.Devices.Interfaces[0].Rom).To(BeNil())
+
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				CCA: &v1.CCA{},
+			}
+			c.UseLaunchSecurityCCA = true
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces[0].Rom).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Interfaces[0].Rom.Enabled).To(Equal("no"))
+		})
+
+		It("should the EFI type be configured with 'rom'", func() {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				CCA: &v1.CCA{},
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.OS.BootLoader.Type).To(Equal("rom"))
+			Expect(domain.Spec.OS.NVRam).To(BeNil())
+		})
+	})
+
 	Context("with Secure Execution LaunchSecurity", func() {
 		var (
 			vmi *v1.VirtualMachineInstance

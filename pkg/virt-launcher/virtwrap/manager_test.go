@@ -1549,6 +1549,63 @@ var _ = Describe("Manager", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
+		Context("with ARM CCA LaunchSecurity", func() {
+			var (
+				vmi     *v1.VirtualMachineInstance
+				manager *LibvirtDomainManager
+				c       *converter.ConverterContext
+				err     error
+			)
+			allowEmulation := true
+			options := &cmdv1.VirtualMachineOptions{}
+			isMigrationTarget := false
+
+			BeforeEach(func() {
+				vmi = newVMI(testNamespace, testVmName)
+				manager = &LibvirtDomainManager{
+					cpuSetGetter: fakeCpuSetGetter,
+				}
+				vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+					CCA: &v1.CCA{},
+				}
+				vmi.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: virtpointer.P(false),
+						},
+					},
+				}
+			})
+
+			It("should not add EFI configuration", func() {
+				manager.efiEnvironment = efi.DetectEFIEnvironment("arm64", "test")
+				Expect(manager.efiEnvironment.EFICode(false, efi.CCA)).To(BeEmpty())
+
+				c, err = manager.generateConverterContext(vmi, allowEmulation, options, isMigrationTarget)
+				Expect(err).To(HaveOccurred())
+				Expect(c).To(BeNil())
+			})
+
+			It("should add EFI configuration", func() {
+				var testPath string
+				var f *os.File
+
+				testPath, err = os.MkdirTemp("", "ccatest")
+				Expect(err).ToNot(HaveOccurred())
+				f, err = os.Create(filepath.Join(testPath, efi.EFICodeAARCH64CCA))
+				Expect(err).ToNot(HaveOccurred())
+				f.Close()
+				defer os.RemoveAll(testPath)
+
+				manager.efiEnvironment = efi.DetectEFIEnvironment("arm64", testPath)
+				Expect(manager.efiEnvironment.EFICode(false, efi.CCA)).To(ContainSubstring("AAVMF_CODE.cca.fd"))
+
+				c, err = manager.generateConverterContext(vmi, allowEmulation, options, isMigrationTarget)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(c.EFIConfiguration.EFICode).To(ContainSubstring("AAVMF_CODE.cca.fd"))
+			})
+		})
+
 		Context("Memory hotplug", func() {
 			var vmi *v1.VirtualMachineInstance
 			var manager *LibvirtDomainManager

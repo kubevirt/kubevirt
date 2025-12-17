@@ -114,6 +114,7 @@ type ConverterContext struct {
 	UseLaunchSecuritySEV            bool // For AMD SEV/ES/SNP
 	UseLaunchSecurityTDX            bool // For Intel TDX
 	UseLaunchSecurityPV             bool // For IBM SE(s390-pv)
+	UseLaunchSecurityCCA            bool // For ARM CCA
 	FreePageReporting               bool
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
@@ -1037,8 +1038,8 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
 		}
 
-		if util.IsSEVSNPVMI(vmi) || util.IsTDXVMI(vmi) {
-			// Use stateless firmware for the TDX/SNP VMs
+		if util.IsSEVSNPVMI(vmi) || util.IsTDXVMI(vmi) || util.IsCCAVMI(vmi) {
+			// Use stateless firmware for the TDX/SNP/CCA VMs
 			domain.Spec.OS.BootLoader.Type = "rom"
 			domain.Spec.OS.NVRam = nil
 		} else {
@@ -1292,6 +1293,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			network.WithDomainAttachmentByInterfaceName(c.DomainAttachmentByInterfaceName),
 			network.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+			network.WithUseLaunchSecurityCCA(c.UseLaunchSecurityCCA),
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},

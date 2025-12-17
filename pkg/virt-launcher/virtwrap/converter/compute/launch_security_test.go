@@ -82,12 +82,40 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		}
 		Expect(domain).To(Equal(expectedDomain))
 	})
+
+	It("should configure LaunchSecurity when specified in the VMI on arm64", func() {
+		vmi := libvmi.New(withCCA())
+		var domain api.Domain
+
+		configurator := compute.NewLaunchSecurityDomainConfigurator("arm64")
+		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+		expectedDomain := api.Domain{
+			Spec: api.DomainSpec{
+				LaunchSecurity: &api.LaunchSecurity{
+					Type:                 "cca",
+					MeasurementAlgo:      vmi.Spec.Domain.LaunchSecurity.CCA.MeasurementAlgo,
+					MeasurementLog:       vmi.Spec.Domain.LaunchSecurity.CCA.MeasurementLog,
+					PersonalizationValue: vmi.Spec.Domain.LaunchSecurity.CCA.PersonalizationValue,
+				},
+			},
+		}
+		Expect(domain).To(Equal(expectedDomain))
+	})
 })
 
 func withTDX() libvmi.Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 			TDX: &v1.TDX{},
+		}
+	}
+}
+
+func withCCA() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+			CCA: &v1.CCA{},
 		}
 	}
 }
