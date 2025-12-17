@@ -39,16 +39,7 @@ func (d *Defaulter) setDefaults_DomainSpec(spec *DomainSpec) {
 	}
 }
 
-func (d *Defaulter) setDefaults_SysInfo(sysinfo *SysInfo) {
-	if sysinfo.Type == "" {
-		sysinfo.Type = "smbios"
-	}
-}
-
 func (d *Defaulter) SetObjectDefaults_Domain(in *Domain) {
 	d.setDefaults_DomainSpec(&in.Spec)
 	d.setDefaults_OSType(&in.Spec.OS.Type)
-	if in.Spec.SysInfo != nil {
-		d.setDefaults_SysInfo(in.Spec.SysInfo)
-	}
 }
