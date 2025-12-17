@@ -2465,6 +2465,11 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 		return
 	}
 	backupMetadata := domain.Spec.Metadata.KubeVirt.Backup
+	// Handle the case where a new backupStatus was initiated but
+	// the backupMetadata wasnt reinitialized yet
+	if vmi.Status.ChangedBlockTracking.BackupStatus.BackupName != backupMetadata.Name {
+		return
+	}
 	vmi.Status.ChangedBlockTracking.BackupStatus.Completed = backupMetadata.Completed
 	if backupMetadata.StartTimestamp != nil {
 		vmi.Status.ChangedBlockTracking.BackupStatus.StartTimestamp = backupMetadata.StartTimestamp
