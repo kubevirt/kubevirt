@@ -26,7 +26,6 @@ import (
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
@@ -35,6 +34,7 @@ type DomainConfigurator struct {
 	domainAttachmentByInterfaceName map[string]string
 	useLaunchSecuritySEV            bool
 	useLaunchSecurityPV             bool
+	isROMTuningSupported            bool
 }
 
 type option func(*DomainConfigurator)
@@ -100,13 +100,13 @@ func (d DomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *ap
 			domainIface.Type = "ethernet"
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-			} else if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
+			} else if d.isROMTuningSupported {
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
 		}
 
 		if d.useLaunchSecuritySEV || d.useLaunchSecurityPV {
-			if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
+			if d.isROMTuningSupported {
 				// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
@@ -144,6 +144,12 @@ func WithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) option {
 func WithUseLaunchSecurityPV(useLaunchSecurityPV bool) option {
 	return func(d *DomainConfigurator) {
 		d.useLaunchSecurityPV = useLaunchSecurityPV
+	}
+}
+
+func WithROMTuningSupport(isROMTuningSupported bool) option {
+	return func(d *DomainConfigurator) {
+		d.isROMTuningSupported = isROMTuningSupported
 	}
 }
 

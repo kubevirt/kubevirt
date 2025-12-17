@@ -1470,12 +1470,17 @@ var _ = Describe("Converter", func() {
 			Expect(domain.Spec.Devices.Interfaces[0].Model.Type).To(Equal("e1000"))
 		})
 
-		It("should set rom to off when no boot order is specified", func() {
+		DescribeTable("should set rom to off when no boot order is specified", func(arch string, expectedRom *api.Rom) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Interfaces[0].BootOrder = nil
+			c.Architecture = archconverter.NewConverter(arch)
 			domain := vmiToDomain(vmi, c)
-			Expect(domain.Spec.Devices.Interfaces[0].Rom.Enabled).To(Equal("no"))
-		})
+			Expect(domain.Spec.Devices.Interfaces[0].Rom).To(Equal(expectedRom))
+		},
+			Entry("on amd64", amd64, &api.Rom{Enabled: "no"}),
+			Entry("on arm64", arm64, &api.Rom{Enabled: "no"}),
+			Entry("on s390x", s390x, nil),
+		)
 
 		When("NIC PCI address is specified on VMI", func() {
 			const pciAddress = "0000:81:01.0"
