@@ -1144,15 +1144,15 @@ func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) USBRedir(arg0 interface
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "USBRedir", arg0)
 }
 
-func (_m *MockVirtualMachineInstanceInterface) VNC(name string) (v122.StreamInterface, error) {
-	ret := _m.ctrl.Call(_m, "VNC", name)
+func (_m *MockVirtualMachineInstanceInterface) VNC(name string, preserveSession bool) (v122.StreamInterface, error) {
+	ret := _m.ctrl.Call(_m, "VNC", name, preserveSession)
 	ret0, _ := ret[0].(v122.StreamInterface)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) VNC(arg0 interface{}) *gomock.Call {
-	return _mr.mock.ctrl.RecordCall(_mr.mock, "VNC", arg0)
+func (_mr *_MockVirtualMachineInstanceInterfaceRecorder) VNC(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "VNC", arg0, arg1)
 }
 
 func (_m *MockVirtualMachineInstanceInterface) Screenshot(ctx context.Context, name string, options *v121.ScreenshotOptions) ([]byte, error) {
