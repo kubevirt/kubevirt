@@ -50,7 +50,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -591,7 +590,9 @@ var _ = Describe(SIG("Hotplug", func() {
 			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n")))
+			vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace,
+				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+			)
 
 			By("Creating VirtualMachine")
 			vm, err = virtClient.VirtualMachine(vmi.Namespace).Create(context.Background(), libvmi.NewVirtualMachine(vmi), metav1.CreateOptions{})
@@ -1353,7 +1354,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				hookSidecarsValue := fmt.Sprintf(`[{"args": ["--version", "v1alpha2"], "image": "%s", "imagePullPolicy": "IfNotPresent"}]`,
 					libregistry.GetUtilityImageFromRegistry(hookSidecarImage))
 				vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace,
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n")),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 					libvmi.WithAnnotation("hooks.kubevirt.io/hookSidecars", hookSidecarsValue),
 					libvmi.WithAnnotation("diskimage.vm.kubevirt.io/bootImageName", newDiskImgName),
 				)
