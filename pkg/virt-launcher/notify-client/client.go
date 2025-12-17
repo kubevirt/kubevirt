@@ -275,6 +275,16 @@ func (e eventNotifier) UpdateEvents(event watch.Event) {
 	e.client.updateEvents(event, e.domain, e.events)
 }
 
+func isPrematureShutoffUnknownEvent(domain *api.Domain, libvirtEvent libvirtEvent) bool {
+	if domain.Status.Status != api.Shutoff || domain.Status.Reason != api.ReasonUnknown ||
+		libvirtEvent.Event == nil || libvirtEvent.Event.Event != libvirt.DOMAIN_EVENT_DEFINED ||
+		libvirt.DomainEventDefinedDetailType(libvirtEvent.Event.Detail) != libvirt.DOMAIN_EVENT_DEFINED_ADDED {
+		return false
+	}
+
+	return true
+}
+
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
 	metadataCache *metadata.Cache) {
@@ -322,6 +332,13 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 
 		e.printStatus(&domain.Status)
 		e.updateStatus(&domain.Status)
+
+		// If the domain got virDomainShutoffReason right after domain definition we can re-evaluate and skip to not confuse the virt-handler
+		if isPrematureShutoffUnknownEvent(domain, libvirtEvent) {
+			log.Log.V(3).Infof("Ignoring shutoff(unknown) event for newly defined domain %s", domain.ObjectMeta.Name)
+			// Skip the event
+			return
+		}
 	}
 
 	switch domain.Status.Reason {
