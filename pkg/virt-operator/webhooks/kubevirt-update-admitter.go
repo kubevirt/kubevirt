@@ -445,13 +445,12 @@ func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) bool {
 
 	if (currDevConfig == nil && newDevConfig == nil) || (currDevConfig != nil && newDevConfig == nil) {
 		return false
+	} else if currDevConfig == nil && newDevConfig != nil {
+		return true
 	}
 
-	if currDevConfig == nil && newDevConfig != nil {
-		return len(newDevConfig.FeatureGates) > 0
-	}
-
-	return !equality.Semantic.DeepEqual(currDevConfig.FeatureGates, newDevConfig.FeatureGates)
+	return !slices.Equal(currDevConfig.FeatureGates, newDevConfig.FeatureGates) ||
+		!slices.Equal(currDevConfig.DisabledFeatureGates, newDevConfig.DisabledFeatureGates)
 }
 
 func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
