@@ -64,13 +64,18 @@ func CreateHostDevicesFromPools(vmiGPUs []v1.GPU, pciAddressPool, mdevAddressPoo
 
 func createHostDevicesMetadata(vmiGPUs []v1.GPU) []hostdevice.HostDeviceMetaData {
 	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
+
 	for _, dev := range vmiGPUs {
-		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
+		hostDeviceMetaData := hostdevice.HostDeviceMetaData{
 			AliasPrefix:       AliasPrefix,
 			Name:              dev.Name,
 			ResourceName:      dev.DeviceName,
 			VirtualGPUOptions: dev.VirtualGPUOptions,
-		})
+		}
+		if dev.IOMMUFD != nil {
+			hostDeviceMetaData.UseIOMMUFD = true
+		}
+		hostDevicesMetaData = append(hostDevicesMetaData, hostDeviceMetaData)
 	}
 	return hostDevicesMetaData
 }

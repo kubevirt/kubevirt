@@ -73,12 +73,17 @@ func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, 
 
 func createHostDevicesMetadata(vmiHostDevices []v1.HostDevice) []hostdevice.HostDeviceMetaData {
 	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
+
 	for _, dev := range vmiHostDevices {
-		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
+		hostDeviceMetaData := hostdevice.HostDeviceMetaData{
 			AliasPrefix:  AliasPrefix,
 			Name:         dev.Name,
 			ResourceName: dev.DeviceName,
-		})
+		}
+		if dev.IOMMUFD != nil {
+			hostDeviceMetaData.UseIOMMUFD = true
+		}
+		hostDevicesMetaData = append(hostDevicesMetaData, hostDeviceMetaData)
 	}
 	return hostDevicesMetaData
 }

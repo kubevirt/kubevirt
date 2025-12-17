@@ -37,6 +37,7 @@ type HostDeviceMetaData struct {
 	Name              string
 	ResourceName      string
 	VirtualGPUOptions *v1.VGPUOptions
+	UseIOMMUFD        bool
 	// DecorateHook is a function pointer that may be used to mutate the domain host-device
 	// with additional specific parameters. E.g. guest PCI address.
 	DecorateHook func(hostDevice *api.HostDevice) error
@@ -133,6 +134,9 @@ func createPCIHostDevice(hostDeviceData HostDeviceMetaData, hostPCIAddress strin
 		Type:    api.HostDevicePCI,
 		Managed: "no",
 	}
+	if hostDeviceData.UseIOMMUFD {
+		domainHostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+	}
 	return domainHostDevice, nil
 }
 
@@ -166,6 +170,9 @@ func createMDEVHostDevice(hostDeviceData HostDeviceMetaData, mdevUUID string) (*
 		Type:  api.HostDeviceMDev,
 		Mode:  "subsystem",
 		Model: "vfio-pci",
+	}
+	if hostDeviceData.UseIOMMUFD {
+		domainHostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
 	}
 	return domainHostDevice, nil
 }
