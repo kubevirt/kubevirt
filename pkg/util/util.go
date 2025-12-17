@@ -84,6 +84,27 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+// Check if a VMI spec requests a IOMMUFD device
+// return true if any of the HostDevices, GPUs or SRIOV Interfaces requires a IOMMUFD device
+func IsIOMMUFDVMI(vmi *v1.VirtualMachineInstance) bool {
+	for _, hd := range vmi.Spec.Domain.Devices.HostDevices {
+		if hd.IOMMUFD != nil {
+			return true
+		}
+	}
+	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
+		if gpu.IOMMUFD != nil {
+			return true
+		}
+	}
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.SRIOV != nil && iface.SRIOV.IOMMUFD != nil {
+			return true
+		}
+	}
+	return false
+}
+
 func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi) || IsTDXVMI(vmi)
 }
