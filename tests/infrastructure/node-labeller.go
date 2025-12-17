@@ -160,41 +160,18 @@ var _ = DescribeInfra("Node-labeller", func() {
 
 		It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", func() {
 			for _, node := range nodesWithKVM {
-				Expect(err).ToNot(HaveOccurred())
-				cpuModelLabelPresent := false
-				cpuFeatureLabelPresent := false
-				hyperVLabelPresent := false
-				hostCpuModelPresent := false
-				hostCpuRequiredFeaturesPresent := false
-				for key := range node.Labels {
-					if strings.Contains(key, v1.CPUModelLabel) {
-						cpuModelLabelPresent = true
-					}
-					if strings.Contains(key, v1.CPUFeatureLabel) {
-						cpuFeatureLabelPresent = true
-					}
-					if strings.Contains(key, v1.HypervLabel) {
-						hyperVLabelPresent = true
-					}
-					if strings.Contains(key, v1.HostModelCPULabel) {
-						hostCpuModelPresent = true
-					}
-					if strings.Contains(key, v1.HostModelRequiredFeaturesLabel) {
-						hostCpuRequiredFeaturesPresent = true
-					}
-
-					if cpuModelLabelPresent && cpuFeatureLabelPresent && hyperVLabelPresent && hostCpuModelPresent &&
-						hostCpuRequiredFeaturesPresent {
-						break
-					}
-				}
-
 				errorMessageTemplate := "node " + node.Name + " does not contain %s label"
-				Expect(cpuModelLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "cpu"))
-				Expect(cpuFeatureLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "feature"))
-				Expect(hyperVLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "hyperV"))
-				Expect(hostCpuModelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
-				Expect(hostCpuRequiredFeaturesPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu required featuers"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelLabel)), fmt.Sprintf(errorMessageTemplate, "cpu"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUFeatureLabel)), fmt.Sprintf(errorMessageTemplate, "feature"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HypervLabel)), fmt.Sprintf(errorMessageTemplate, "hyperV"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelCPULabel)), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelRequiredFeaturesLabel)),
+					fmt.Sprintf(errorMessageTemplate, "host cpu required features"))
+				if node.Labels[k8sv1.LabelArchStable] == "amd64" {
+					Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelVendorLabel)), fmt.Sprintf(errorMessageTemplate, "vendor"))
+				} else {
+					Expect(node.Labels).ToNot(HaveKey(HavePrefix(v1.CPUModelVendorLabel)))
+				}
 			}
 		})
 

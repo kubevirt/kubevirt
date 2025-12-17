@@ -765,6 +765,21 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 		}
 	}
 
+	// Ensure migration happens only between nodes with the same CPU vendor
+	// This prevents migrations between AMD and Intel nodes which are not supported
+	vendorLabelKey := getCPUVendorLabelKey(templatePod.Spec.NodeSelector)
+	if vendorLabelKey == "" {
+		node, err := c.getNodeForVMI(vmi)
+		if err != nil {
+			return err
+		}
+
+		vendorLabelKey = getCPUVendorLabelKey(node.Labels)
+		if vendorLabelKey != "" {
+			templatePod.Spec.NodeSelector[vendorLabelKey] = "true"
+		}
+	}
+
 	matchLevelOnTarget := c.clusterConfig.GetMigrationConfiguration().MatchSELinuxLevelOnMigration
 	if matchLevelOnTarget == nil || *matchLevelOnTarget {
 		err = setTargetPodSELinuxLevel(templatePod, vmi.Status.SelinuxContext)
@@ -2123,6 +2138,15 @@ func isNodeSuitableForHostModelMigration(node *k8sv1.Node, requiredNodeLabels ma
 	}
 
 	return true
+}
+
+func getCPUVendorLabelKey(labels map[string]string) string {
+	for key := range labels {
+		if strings.HasPrefix(key, virtv1.CPUModelVendorLabel) {
+			return key
+		}
+	}
+	return ""
 }
 
 func (c *Controller) matchMigrationPolicy(vmi *virtv1.VirtualMachineInstance, clusterMigrationConfiguration *virtv1.MigrationConfiguration) error {
