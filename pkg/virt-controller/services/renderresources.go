@@ -498,6 +498,8 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 	if util.IsVFIOVMI(vmi) {
 		overhead.Add(resource.MustParse("1Gi"))
 	}
+	// TODO: calculate overhead for mixed assignment
+	// TODO: calculate overhead for CVMs
 
 	// DownardMetrics volumes are using emptyDirs backed by memory.
 	// the max. disk size is only 256Ki.
