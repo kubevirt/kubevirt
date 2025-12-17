@@ -630,6 +630,9 @@ type GPU struct {
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
+	// If set, IOMMUFD will be used instead of the legacy VFIO_IOMMU_TYPE1 as the backend for GPU device assignment.
+	// +optional
+	IOMMUFD *IOMMUFDOptions `json:"iommufd,omitempty"`
 }
 
 type ClaimRequest struct {
@@ -642,6 +645,8 @@ type ClaimRequest struct {
 	// +optional
 	RequestName *string `json:"requestName,omitempty"`
 }
+
+type IOMMUFDOptions struct{}
 
 type VGPUOptions struct {
 	Display *VGPUDisplayOptions `json:"display,omitempty"`
@@ -679,6 +684,9 @@ type HostDevice struct {
 	// If specified, the virtual network interface address and its tag will be provided to the guest via config drive
 	// +optional
 	Tag string `json:"tag,omitempty"`
+	// If set, IOMMUFD will be used instead of the legacy VFIO_IOMMU_TYPE1 as the backend for PCI/MDEV device assignment.
+	// +optional
+	IOMMUFD *IOMMUFDOptions `json:"iommufd,omitempty"`
 }
 
 type Disk struct {
@@ -1464,7 +1472,11 @@ type DeprecatedInterfaceSlirp struct{}
 type InterfaceMasquerade struct{}
 
 // InterfaceSRIOV connects to a given network by passing-through an SR-IOV PCI device via vfio.
-type InterfaceSRIOV struct{}
+type InterfaceSRIOV struct {
+	// If set, IOMMUFD will be used instead of the legacy VFIO_IOMMU_TYPE1 as the backend for SR-IOV PCI device assignment.
+	// +optional
+	IOMMUFD *IOMMUFDOptions `json:"iommufd,omitempty"`
+}
 
 // DeprecatedInterfaceMacvtap is an alias to the deprecated InterfaceMacvtap
 // that connects to a given network by extending the Kubernetes node's L2 networks via a macvtap interface.
