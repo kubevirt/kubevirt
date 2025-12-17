@@ -550,7 +550,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi)) {
-		initContainerCommand := []string{"/usr/bin/cp",
+		initContainerCommand := []string{"/usr/bin/cp", "--preserve=all",
 			"/usr/bin/container-disk",
 			"/init/usr/bin/container-disk",
 		}
