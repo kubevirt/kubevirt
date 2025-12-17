@@ -48,7 +48,7 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 	case "amd64":
 		domain.Spec.LaunchSecurity = amd64LaunchSecurity(vmi)
 	case "arm64":
-		domain.Spec.LaunchSecurity = nil
+		domain.Spec.LaunchSecurity = arm64LaunchSecurity(vmi)
 	case "s390x":
 		// We would want to set launchsecurity with type "s390-pv" here, but this does not work in privileged pod.
 		// Instead, virt-launcher will set iommu=on for all devices manually, which is the same action as what libvirt
@@ -85,6 +85,20 @@ func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 	} else if launchSec.TDX != nil {
 		return &api.LaunchSecurity{
 			Type: "tdx",
+		}
+	}
+
+	return nil
+}
+
+func arm64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
+	launchSec := vmi.Spec.Domain.LaunchSecurity
+	if launchSec.CCA != nil {
+		return &api.LaunchSecurity{
+			Type:                 "cca",
+			MeasurementAlgo:      launchSec.CCA.MeasurementAlgo,
+			MeasurementLog:       launchSec.CCA.MeasurementLog,
+			PersonalizationValue: launchSec.CCA.PersonalizationValue,
 		}
 	}
 
