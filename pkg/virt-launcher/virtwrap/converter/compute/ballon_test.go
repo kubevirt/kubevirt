@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	kvapi "kubevirt.io/client-go/api"
+
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
@@ -101,7 +102,7 @@ var _ = Describe("Balloon Domain Configurator", func() {
 		})
 	})
 
-	Context("with FreePageReporting", func() {
+	Context("with memballoon device", func() {
 		var (
 			vmi *v1.VirtualMachineInstance
 			c   *converter.ConverterContext
@@ -128,26 +129,13 @@ var _ = Describe("Balloon Domain Configurator", func() {
 			Entry("when true", true, "on"),
 			Entry("when false", false, "off"),
 		)
-	})
 
-	Context("with memballoon device", func() {
-		var (
-			vmi *v1.VirtualMachineInstance
-			c   *converter.ConverterContext
-		)
-
-		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
+		DescribeTable("should unconditionally set Ballooning device", func(isAutoattachMemballoon *bool) {
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = isAutoattachMemballoon
 			c = &converter.ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
 				AllowEmulation: true,
 			}
-		})
-
-		DescribeTable("should unconditionally set Ballooning device", func(isAutoattachMemballoon *bool) {
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = isAutoattachMemballoon
 
 			domain := vmiToDomain(vmi, c)
 			Expect(domain).ToNot(BeNil())
