@@ -1557,6 +1557,18 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), spec, config)
 			Expect(causes).To(HaveLen(1))
 		})
+
+		It("should reject reservedOverhead when feature gate is disabled", func() {
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				ReservedOverhead: &v1.ReservedOverhead{},
+			}
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.memory.reservedOverhead"))
+		})
+
 	})
 
 	Context("with cpu pinning", func() {
