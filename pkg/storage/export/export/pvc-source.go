@@ -36,6 +36,55 @@ import (
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
+type PVCSource struct {
+	sourceVolumes *sourceVolumes
+}
+
+func NewPVCSource(sourceVolumes *sourceVolumes) *PVCSource {
+	return &PVCSource{
+		sourceVolumes: sourceVolumes,
+	}
+}
+
+func (s *PVCSource) IsSourceAvailable() bool {
+	return s.sourceVolumes.isSourceAvailable()
+}
+
+func (s *PVCSource) HasContent() bool {
+	return s.sourceVolumes.hasContent()
+}
+
+func (s *PVCSource) SourceCondition() exportv1.Condition {
+	return s.sourceVolumes.sourceCondition
+}
+
+func (s *PVCSource) ReadyCondition() exportv1.Condition {
+	return s.sourceVolumes.readyCondition
+}
+
+func (s *PVCSource) ServicePorts() []corev1.ServicePort {
+	return []corev1.ServicePort{exportPort()}
+}
+
+func (s *PVCSource) ConfigurePod(pod *corev1.Pod) {
+	s.sourceVolumes.configurePodVolumes(pod)
+}
+
+func (s *PVCSource) ConfigureExportLink(exportLink *exportv1.VirtualMachineExportLink, paths *ServerPaths, vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, hostAndBase, scheme string) {
+	s.sourceVolumes.populateLink(exportLink, paths, pod, hostAndBase, scheme, defaultVolumeNamer)
+}
+
+func (s *PVCSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error) {
+	var requeue time.Duration
+	if !s.IsSourceAvailable() && s.HasContent() {
+		log.Log.V(4).Infof("Source is not available %s, requeuing", s.SourceCondition().Message)
+		requeue = requeueTime
+	}
+
+	vmExport.Status.Conditions = updateCondition(vmExport.Status.Conditions, s.SourceCondition())
+	return requeue, nil
+}
+
 func (ctrl *VMExportController) handlePVC(obj interface{}) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
@@ -137,26 +186,4 @@ func (ctrl *VMExportController) isPVCInUse(vmExport *exportv1.VirtualMachineExpo
 		}
 		return false, nil
 	}
-}
-
-func (ctrl *VMExportController) updateVMExportPvcStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) (time.Duration, error) {
-	var requeue time.Duration
-
-	if !sourceVolumes.isSourceAvailable() && len(sourceVolumes.volumes) > 0 {
-		log.Log.V(4).Infof("Source is not available %s, requeuing", sourceVolumes.sourceCondition.Message)
-		requeue = requeueTime
-	}
-
-	vmExportCopy := vmExport.DeepCopy()
-
-	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes, getVolumeName); err != nil {
-		return requeue, err
-	}
-
-	vmExportCopy.Status.Conditions = updateCondition(vmExportCopy.Status.Conditions, sourceVolumes.sourceCondition)
-
-	if err := ctrl.updateVMExportStatus(vmExport, vmExportCopy); err != nil {
-		return requeue, err
-	}
-	return requeue, nil
 }

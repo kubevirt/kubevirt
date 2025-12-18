@@ -38,6 +38,60 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 )
 
+type VMSource struct {
+	sourceVolumes *sourceVolumes
+}
+
+func NewVMSource(sourceVolumes *sourceVolumes) *VMSource {
+	return &VMSource{
+		sourceVolumes: sourceVolumes,
+	}
+}
+
+func (s *VMSource) IsSourceAvailable() bool {
+	return s.sourceVolumes.isSourceAvailable()
+}
+
+func (s *VMSource) HasContent() bool {
+	return s.sourceVolumes.hasContent()
+}
+
+func (s *VMSource) SourceCondition() exportv1.Condition {
+	return s.sourceVolumes.sourceCondition
+}
+
+func (s *VMSource) ReadyCondition() exportv1.Condition {
+	return s.sourceVolumes.readyCondition
+}
+
+func (s *VMSource) ServicePorts() []corev1.ServicePort {
+	return []corev1.ServicePort{exportPort()}
+}
+
+func (s *VMSource) ConfigurePod(pod *corev1.Pod) {
+	s.sourceVolumes.configurePodVolumes(pod)
+}
+
+func (s *VMSource) ConfigureExportLink(exportLink *exportv1.VirtualMachineExportLink, paths *ServerPaths, vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, hostAndBase, scheme string) {
+	s.sourceVolumes.populateLink(exportLink, paths, pod, hostAndBase, scheme, defaultVolumeNamer)
+}
+
+func (s *VMSource) UpdateStatus(vmExport *exportv1.VirtualMachineExport, pod *corev1.Pod, svc *corev1.Service) (time.Duration, error) {
+	var requeue time.Duration
+
+	vmExport.Status.VirtualMachineName = pointer.P(vmExport.Spec.Source.Name)
+
+	if !s.HasContent() {
+		vmExport.Status.Phase = exportv1.Skipped
+	}
+
+	if !s.sourceVolumes.isPopulated && s.ReadyCondition().Reason != vmNotFoundReason {
+		requeue = requeueTime
+	}
+
+	return requeue, nil
+}
+
 func (ctrl *VMExportController) handleVMExport(obj interface{}) {
 	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
 		obj = unknown.Obj
@@ -250,28 +304,6 @@ func (ctrl *VMExportController) getPVCsFromVM(vm *virtv1.VirtualMachine) ([]*cor
 		}
 	}
 	return pvcs, allPopulated, nil
-}
-
-func (ctrl *VMExportController) updateVMExportVMStatus(vmExport *exportv1.VirtualMachineExport, exporterPod *corev1.Pod, service *corev1.Service, sourceVolumes *sourceVolumes) (time.Duration, error) {
-	var requeue time.Duration
-
-	vmExportCopy := vmExport.DeepCopy()
-	vmExportCopy.Status.VirtualMachineName = pointer.P(vmExport.Spec.Source.Name)
-
-	if err := ctrl.updateCommonVMExportStatusFields(vmExport, vmExportCopy, exporterPod, service, sourceVolumes, getVolumeName); err != nil {
-		return requeue, err
-	}
-
-	if len(sourceVolumes.volumes) == 0 {
-		vmExportCopy.Status.Phase = exportv1.Skipped
-	}
-	if !sourceVolumes.isPopulated && sourceVolumes.readyCondition.Reason != vmNotFoundReason {
-		requeue = requeueTime
-	}
-	if err := ctrl.updateVMExportStatus(vmExport, vmExportCopy); err != nil {
-		return requeue, err
-	}
-	return requeue, nil
 }
 
 func (ctrl *VMExportController) isSourceVM(source *exportv1.VirtualMachineExportSpec) bool {

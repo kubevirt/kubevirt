@@ -33,7 +33,6 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 
 	exportv1 "kubevirt.io/api/export/v1beta1"
-	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -55,26 +54,26 @@ const (
 	external              = "external"
 )
 
-func (ctrl *VMExportController) getInteralLinks(volumes []sourceVolume, exporterPod *corev1.Pod, service *corev1.Service, getVolumeName getExportVolumeName, export *exportv1.VirtualMachineExport) (*exportv1.VirtualMachineExportLink, error) {
+func (ctrl *VMExportController) getInteralLinks(exporterPod *corev1.Pod, service *corev1.Service, export *exportv1.VirtualMachineExport, source exportSource) (*exportv1.VirtualMachineExportLink, error) {
 	internalCert, err := ctrl.internalExportCa()
 	if err != nil {
 		return nil, err
 	}
 	host := fmt.Sprintf("%s.%s.svc", service.Name, service.Namespace)
-	return ctrl.getLinks(volumes, exporterPod, export, host, internal, internalCert, getVolumeName)
+	return ctrl.getLinks(exporterPod, export, host, internal, internalCert, source)
 }
 
-func (ctrl *VMExportController) getExternalLinks(volumes []sourceVolume, exporterPod *corev1.Pod, getVolumeName getExportVolumeName, export *exportv1.VirtualMachineExport) (*exportv1.VirtualMachineExportLink, error) {
+func (ctrl *VMExportController) getExternalLinks(exporterPod *corev1.Pod, export *exportv1.VirtualMachineExport, source exportSource) (*exportv1.VirtualMachineExportLink, error) {
 	urlPath := fmt.Sprintf(externalUrlLinkFormat, export.Namespace, export.Name)
 	externalLinkHost, cert := ctrl.getExternalLinkHostAndCert()
 	if externalLinkHost != "" {
 		hostAndBase := path.Join(externalLinkHost, urlPath)
-		return ctrl.getLinks(volumes, exporterPod, export, hostAndBase, external, cert, getVolumeName)
+		return ctrl.getLinks(exporterPod, export, hostAndBase, external, cert, source)
 	}
 	return nil, nil
 }
 
-func (ctrl *VMExportController) getLinks(volumes []sourceVolume, exporterPod *corev1.Pod, export *exportv1.VirtualMachineExport, hostAndBase, linkType, cert string, getVolumeName getExportVolumeName) (*exportv1.VirtualMachineExportLink, error) {
+func (ctrl *VMExportController) getLinks(exporterPod *corev1.Pod, export *exportv1.VirtualMachineExport, hostAndBase, linkType, cert string, source exportSource) (*exportv1.VirtualMachineExportLink, error) {
 	const scheme = "https://"
 	if exporterPod == nil {
 		return nil, nil
@@ -98,54 +97,7 @@ func (ctrl *VMExportController) getLinks(volumes []sourceVolume, exporterPod *co
 		})
 	}
 
-	for _, volume := range volumes {
-		pvc := volume.pvc
-		if pvc == nil || exporterPod.Status.Phase != corev1.PodRunning {
-			continue
-		}
-
-		volumeInfo := paths.GetVolumeInfo(pvc.Name)
-		if volumeInfo == nil {
-			log.Log.Warningf("Volume %s not found in paths", pvc.Name)
-			continue
-		}
-
-		ev := exportv1.VirtualMachineExportVolume{
-			Name: getVolumeName(pvc, export),
-		}
-
-		if volumeInfo.RawURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtRaw,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.RawURI),
-			})
-		}
-		if volumeInfo.RawGzURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.KubeVirtGz,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.RawGzURI),
-			})
-		}
-		if volumeInfo.DirURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.Dir,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.DirURI),
-			})
-		}
-		if volumeInfo.ArchiveURI != "" {
-			ev.Formats = append(ev.Formats, exportv1.VirtualMachineExportVolumeFormat{
-				Format: exportv1.ArchiveGz,
-				Url:    scheme + path.Join(hostAndBase, volumeInfo.ArchiveURI),
-			})
-		}
-
-		if len(ev.Formats) == 0 {
-			log.Log.Warningf("No formats found for volume %s", pvc.Name)
-			continue
-		}
-
-		exportLink.Volumes = append(exportLink.Volumes, ev)
-	}
+	source.ConfigureExportLink(exportLink, paths, export, exporterPod, hostAndBase, scheme)
 
 	return exportLink, nil
 }
