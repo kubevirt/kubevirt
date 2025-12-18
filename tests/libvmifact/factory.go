@@ -98,6 +98,27 @@ func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInst
 }
 
 func NewGuestless(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
+	if isS390X() {
+		// We need to use KernelBoot to boot into this container with a kernel
+		// guest operating system only running a few lines of C loop
+		microKernelOpts := []libvmi.Option{
+			func(vmi *kvirtv1.VirtualMachineInstance) {
+				if vmi.Spec.Domain.Firmware == nil {
+					vmi.Spec.Domain.Firmware = &kvirtv1.Firmware{}
+				}
+				vmi.Spec.Domain.Firmware.KernelBoot = &kvirtv1.KernelBoot{
+					Container: &kvirtv1.KernelBootContainer{
+						Image:      cd.ContainerDiskFor(cd.KernelBootS390xGuestless),
+						KernelPath: "/boot/kernel",
+					},
+				}
+			},
+			libvmi.WithMemoryRequest("16Mi"),
+		}
+		microKernelOpts = append(microKernelOpts, opts...)
+		vmi := libvmi.New(microKernelOpts...)
+		return vmi
+	}
 	opts = append(
 		[]libvmi.Option{libvmi.WithMemoryRequest(qemuMinimumMemory())},
 		opts...)
