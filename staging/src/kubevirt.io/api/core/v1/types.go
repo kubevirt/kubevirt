@@ -688,6 +688,13 @@ func (v *VirtualMachineInstance) IsDecentralizedMigration() bool {
 			(v.Status.MigrationState.SourceState.SyncAddress != nil && v.Status.MigrationState.TargetState.SyncAddress == nil))
 }
 
+func (v *VirtualMachineInstance) RequiresMemoryOverheadReservation() bool {
+
+	return v.Spec.Domain.Memory != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead.AddedOverhead != nil
+}
+
 type VirtualMachineInstanceConditionType string
 
 // These are valid conditions of VMIs.
