@@ -525,13 +525,13 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	}
 
 	options := &cmdclient.MigrationOptions{
-		Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
-		ProgressTimeout:         *migrationConfiguration.ProgressTimeout,
-		CompletionTimeoutPerGiB: *migrationConfiguration.CompletionTimeoutPerGiB,
-		UnsafeMigration:         *migrationConfiguration.UnsafeMigrationOverride,
-		AllowAutoConverge:       *migrationConfiguration.AllowAutoConverge,
-		AllowPostCopy:           *migrationConfiguration.AllowPostCopy,
-		AllowWorkloadDisruption: *migrationConfiguration.AllowWorkloadDisruption,
+		Bandwidth:               derefOrDefault(migrationConfiguration.BandwidthPerMigration),
+		ProgressTimeout:         derefOrDefault(migrationConfiguration.ProgressTimeout),
+		CompletionTimeoutPerGiB: derefOrDefault(migrationConfiguration.CompletionTimeoutPerGiB),
+		UnsafeMigration:         derefOrDefault(migrationConfiguration.UnsafeMigrationOverride),
+		AllowAutoConverge:       derefOrDefault(migrationConfiguration.AllowAutoConverge),
+		AllowPostCopy:           derefOrDefault(migrationConfiguration.AllowPostCopy),
+		AllowWorkloadDisruption: derefOrDefault(migrationConfiguration.AllowWorkloadDisruption),
 	}
 
 	configureParallelMigrationThreads(options, vmi)
@@ -561,6 +561,14 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	}
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrating.String(), VMIMigrating)
 	return nil
+}
+
+func derefOrDefault[T any](v *T) T {
+	if v == nil {
+		var defaultT T
+		return defaultT
+	}
+	return *v
 }
 
 func (c *MigrationSourceController) passtSocketDirOnHostMigrationSource(vmi *v1.VirtualMachineInstance) (string, error) {
