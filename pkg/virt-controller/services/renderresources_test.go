@@ -6,6 +6,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -830,6 +831,39 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		)
 	})
 
+	When("reservedOverhead value is provided", func() {
+		DescribeTable("should be considered as a resource overhead", func(overhead *resource.Quantity) {
+			cpuArch := "amd64"
+			kv := &v1.KubeVirt{}
+			config, _, kvStore := testutils.NewFakeClusterConfigUsingKVWithCPUArch(kv, cpuArch)
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{featuregate.ReservedOverheadMemlock},
+						},
+					},
+				},
+			})
+
+			vmi.Spec.Domain.Memory = &v1.Memory{}
+			vmi.Spec.Domain.Memory.ReservedOverhead = &v1.ReservedOverhead{
+				AddedOverhead: overhead,
+			}
+			expected := resource.NewScaledQuantity(0, resource.Kilo)
+			expected.Add(*baseOverhead)
+			expected.Add(*staticOverhead)
+			expected.Add(*videoRAMOverhead)
+			expected.Add(*coresOverhead)
+			expected.Add(*overhead)
+			result := GetMemoryOverhead(vmi, cpuArch, nil, config)
+			Expect(result.Value()).To(BeEquivalentTo(expected.Value()))
+
+		},
+			Entry("with some value", resource.NewScaledQuantity(100, resource.Giga)),
+			Entry("with zero value", &resource.Quantity{}),
+		)
+	})
 })
 
 func addResources(firstQuantity resource.Quantity, resources ...resource.Quantity) resource.Quantity {
