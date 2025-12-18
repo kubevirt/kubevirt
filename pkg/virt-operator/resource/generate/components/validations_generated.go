@@ -7151,6 +7151,34 @@ var CRDsValidation map[string]string = map[string]string{
                             The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
+                        reservedOverhead:
+                          description: |-
+                            ReservedOverhead configures the memory overhead applied to a VM
+                            and its characteristics.
+                          properties:
+                            addedOverhead:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: |-
+                                AddedOverhead determines the memory overhead that will be reserved
+                                for the VM. It increases the virt-launcher pod memory limit.
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            memLock:
+                              description: |-
+                                RequiresLock determines whether the VM's and its overhead memory
+                                need to be locked or not. It is a common practice to enable this
+                                if vDPA, VFIO or any other specialized hardware that depends on
+                                DMA is being used by the VM.
+                                False - (Default) memory lock RLimits are not modified.
+                                True - Memory lock RLimits will be updated to consider VM memory
+                                       size and memory overhead
+                              enum:
+                              - NotRequired
+                              - Required
+                              type: string
+                          type: object
                       type: object
                     resources:
                       description: Resources describes the Compute Resources required
@@ -12904,6 +12932,34 @@ var CRDsValidation map[string]string = map[string]string{
                     The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
+                reservedOverhead:
+                  description: |-
+                    ReservedOverhead configures the memory overhead applied to a VM
+                    and its characteristics.
+                  properties:
+                    addedOverhead:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: |-
+                        AddedOverhead determines the memory overhead that will be reserved
+                        for the VM. It increases the virt-launcher pod memory limit.
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    memLock:
+                      description: |-
+                        RequiresLock determines whether the VM's and its overhead memory
+                        need to be locked or not. It is a common practice to enable this
+                        if vDPA, VFIO or any other specialized hardware that depends on
+                        DMA is being used by the VM.
+                        False - (Default) memory lock RLimits are not modified.
+                        True - Memory lock RLimits will be updated to consider VM memory
+                               size and memory overhead
+                      enum:
+                      - NotRequired
+                      - Required
+                      type: string
+                  type: object
               type: object
             resources:
               description: Resources describes the Compute Resources required by this
@@ -16701,6 +16757,34 @@ var CRDsValidation map[string]string = map[string]string{
                     The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
+                reservedOverhead:
+                  description: |-
+                    ReservedOverhead configures the memory overhead applied to a VM
+                    and its characteristics.
+                  properties:
+                    addedOverhead:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      description: |-
+                        AddedOverhead determines the memory overhead that will be reserved
+                        for the VM. It increases the virt-launcher pod memory limit.
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    memLock:
+                      description: |-
+                        RequiresLock determines whether the VM's and its overhead memory
+                        need to be locked or not. It is a common practice to enable this
+                        if vDPA, VFIO or any other specialized hardware that depends on
+                        DMA is being used by the VM.
+                        False - (Default) memory lock RLimits are not modified.
+                        True - Memory lock RLimits will be updated to consider VM memory
+                               size and memory overhead
+                      enum:
+                      - NotRequired
+                      - Required
+                      type: string
+                  type: object
               type: object
             resources:
               description: Resources describes the Compute Resources required by this
@@ -19200,6 +19284,34 @@ var CRDsValidation map[string]string = map[string]string{
                             The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
+                        reservedOverhead:
+                          description: |-
+                            ReservedOverhead configures the memory overhead applied to a VM
+                            and its characteristics.
+                          properties:
+                            addedOverhead:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              description: |-
+                                AddedOverhead determines the memory overhead that will be reserved
+                                for the VM. It increases the virt-launcher pod memory limit.
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            memLock:
+                              description: |-
+                                RequiresLock determines whether the VM's and its overhead memory
+                                need to be locked or not. It is a common practice to enable this
+                                if vDPA, VFIO or any other specialized hardware that depends on
+                                DMA is being used by the VM.
+                                False - (Default) memory lock RLimits are not modified.
+                                True - Memory lock RLimits will be updated to consider VM memory
+                                       size and memory overhead
+                              enum:
+                              - NotRequired
+                              - Required
+                              type: string
+                          type: object
                       type: object
                     resources:
                       description: Resources describes the Compute Resources required
@@ -24212,6 +24324,34 @@ var CRDsValidation map[string]string = map[string]string{
                                     The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
+                                reservedOverhead:
+                                  description: |-
+                                    ReservedOverhead configures the memory overhead applied to a VM
+                                    and its characteristics.
+                                  properties:
+                                    addedOverhead:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      description: |-
+                                        AddedOverhead determines the memory overhead that will be reserved
+                                        for the VM. It increases the virt-launcher pod memory limit.
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    memLock:
+                                      description: |-
+                                        RequiresLock determines whether the VM's and its overhead memory
+                                        need to be locked or not. It is a common practice to enable this
+                                        if vDPA, VFIO or any other specialized hardware that depends on
+                                        DMA is being used by the VM.
+                                        False - (Default) memory lock RLimits are not modified.
+                                        True - Memory lock RLimits will be updated to consider VM memory
+                                               size and memory overhead
+                                      enum:
+                                      - NotRequired
+                                      - Required
+                                      type: string
+                                  type: object
                               type: object
                             resources:
                               description: Resources describes the Compute Resources
@@ -29654,6 +29794,34 @@ var CRDsValidation map[string]string = map[string]string{
                                         The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
+                                    reservedOverhead:
+                                      description: |-
+                                        ReservedOverhead configures the memory overhead applied to a VM
+                                        and its characteristics.
+                                      properties:
+                                        addedOverhead:
+                                          anyOf:
+                                          - type: integer
+                                          - type: string
+                                          description: |-
+                                            AddedOverhead determines the memory overhead that will be reserved
+                                            for the VM. It increases the virt-launcher pod memory limit.
+                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                          x-kubernetes-int-or-string: true
+                                        memLock:
+                                          description: |-
+                                            RequiresLock determines whether the VM's and its overhead memory
+                                            need to be locked or not. It is a common practice to enable this
+                                            if vDPA, VFIO or any other specialized hardware that depends on
+                                            DMA is being used by the VM.
+                                            False - (Default) memory lock RLimits are not modified.
+                                            True - Memory lock RLimits will be updated to consider VM memory
+                                                   size and memory overhead
+                                          enum:
+                                          - NotRequired
+                                          - Required
+                                          type: string
+                                      type: object
                                   type: object
                                 resources:
                                   description: Resources describes the Compute Resources
