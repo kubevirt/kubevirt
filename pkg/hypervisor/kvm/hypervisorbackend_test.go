@@ -306,6 +306,28 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		)
 	})
 
+	When("reservedOverhead value is provided", func() {
+		DescribeTable("should be considered as a resource overhead", func(overhead *resource.Quantity) {
+			cpuArch := "amd64"
+			vmi.Spec.Domain.Memory = &v1.Memory{}
+			vmi.Spec.Domain.Memory.ReservedOverhead = &v1.ReservedOverhead{
+				AddedOverhead: overhead,
+			}
+			expected := resource.NewScaledQuantity(0, resource.Kilo)
+			expected.Add(*baseOverhead)
+			expected.Add(*staticOverhead)
+			expected.Add(*videoRAMOverhead)
+			expected.Add(*coresOverhead)
+			expected.Add(*overhead)
+			result := NewKvmHypervisorBackend().GetMemoryOverhead(vmi, cpuArch, nil)
+			Expect(result.Value()).To(BeEquivalentTo(expected.Value()))
+
+		},
+			Entry("with some value", resource.NewScaledQuantity(100, resource.Giga)),
+			Entry("with zero value", &resource.Quantity{}),
+		)
+	})
+
 	Context("Template with guest-to-request memory headroom", func() {
 		defaultArch := "amd64"
 		newVmi := func() *v1.VirtualMachineInstance {
