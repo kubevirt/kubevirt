@@ -522,7 +522,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
       label_filter='(sig-operator)'
     fi
   elif [[ $TARGET =~ sriov.* ]]; then
-    label_filter='(SRIOV)'
+    export KUBEVIRT_USE_DRA=true
+    # Enable DRANetworkDevices feature gate for DRA SR-IOV tests
+    kubectl patch kubevirt -n kubevirt kubevirt --type=merge -p='{"spec":{"configuration":{"developerConfiguration":{"featureGates":["DRANetworkDevices"]}}}}'
+    label_filter='(DRA-Network)'
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
   else
