@@ -999,7 +999,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.InitContainers).To(HaveLen(3))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath).To(Equal("/init/usr/bin"))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].Name).To(Equal("virt-bin-share-dir"))
-				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp",
+				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp", "--preserve=all",
 					"/usr/bin/container-disk",
 					"/init/usr/bin/container-disk",
 				}))
