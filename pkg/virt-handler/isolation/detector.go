@@ -92,7 +92,7 @@ func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (Isolation
 
 func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
 	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
+	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
 		return nil
 	}
 
@@ -145,7 +145,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 // virt-launcher pod on the given VMI according to its spec.
 // Only VMI's with VFIO devices (e.g: SRIOV, GPU), SEV or RealTime workloads require QEMU process MEMLOCK adjustment.
 func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
+	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
 		return nil
 	}
 
