@@ -6818,6 +6818,27 @@ var _ = Describe("VirtualMachine", func() {
 				Entry("Manual", v1.RunStrategyManual),
 			)
 
+			It("should delete VMI when guest shuts down with Manual runStrategy", func() {
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyManual)
+				vmi.Status.Phase = v1.Succeeded
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.TODO(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				controller.vmiIndexer.Add(vmi)
+
+				sanityExecute(vm)
+
+				testutils.ExpectEvent(recorder, common.SuccessfulDeleteVirtualMachineReason)
+
+				_, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
+			})
+
 			PIt("The VM should get restarted when doing RerunOnFailure -> Halted -> RerunOnFailure", func() {
 				vm, _ := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Running = nil
