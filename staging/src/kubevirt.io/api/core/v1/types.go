@@ -695,6 +695,14 @@ func (v *VirtualMachineInstance) RequiresMemoryOverheadReservation() bool {
 		v.Spec.Domain.Memory.ReservedOverhead.AddedOverhead != nil
 }
 
+func (v *VirtualMachineInstance) RequiresLockingMemory() bool {
+
+	return v.Spec.Domain.Memory != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead.MemLock != nil &&
+		*v.Spec.Domain.Memory.ReservedOverhead.MemLock == MemLockRequired
+}
+
 type VirtualMachineInstanceConditionType string
 
 // These are valid conditions of VMIs.
