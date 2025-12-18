@@ -438,6 +438,10 @@ type Memory struct {
 	// MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.
 	// The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.
 	MaxGuest *resource.Quantity `json:"maxGuest,omitempty"`
+	// ReservedOverhead configures the memory overhead applied to a VM
+	// and its characteristics.
+	// +optional
+	ReservedOverhead *ReservedOverhead `json:"reservedOverhead,omitempty"`
 }
 
 type MemoryStatus struct {
@@ -457,6 +461,36 @@ type Hugepages struct {
 	// PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.
 	PageSize string `json:"pageSize,omitempty"`
 }
+
+type ReservedOverhead struct {
+	// AddedOverhead determines the memory overhead that will be reserved
+	// for the VM. It increases the virt-launcher pod memory limit.
+	// +optional
+	AddedOverhead *resource.Quantity `json:"addedOverhead,omitempty"`
+	// RequiresLock determines whether the VM's and its overhead memory
+	// need to be locked or not. It is a common practice to enable this
+	// if vDPA, VFIO or any other specialized hardware that depends on
+	// DMA is being used by the VM.
+	// False - (Default) memory lock RLimits are not modified.
+	// True - Memory lock RLimits will be updated to consider VM memory
+	//        size and memory overhead
+	// +optional
+	// +kubebuilder:validation:Enum=NotRequired;Required
+	MemLock *MemLockRequirement `json:"memLock,omitempty"`
+}
+
+// MemLockRequirement describes whether the VM memory and its overhead
+// needs to be locked or not.
+type MemLockRequirement string
+
+const (
+	// MemLockRequired means that the VM memory and its overhead
+	// could be locked by a device or any other condition.
+	MemLockRequired = "Required"
+	// MemLockNotRequired means that the VM memory and its overhead
+	// is not going to be locked.
+	MemLockNotRequired = "NotRequired"
+)
 
 type Machine struct {
 	// QEMU machine type is the actual chipset of the VirtualMachineInstance.

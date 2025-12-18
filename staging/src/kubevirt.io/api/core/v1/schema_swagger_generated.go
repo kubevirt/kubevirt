@@ -209,10 +209,11 @@ func (CPUFeature) SwaggerDoc() map[string]string {
 
 func (Memory) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":          "Memory allows specifying the VirtualMachineInstance memory features.",
-		"hugepages": "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
-		"guest":     "Guest allows to specifying the amount of memory which is visible inside the Guest OS.\nThe Guest must lie between Requests and Limits from the resources section.\nDefaults to the requested memory in the resources section if not specified.\n+ optional",
-		"maxGuest":  "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.\nThe delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
+		"":                 "Memory allows specifying the VirtualMachineInstance memory features.",
+		"hugepages":        "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.\n+optional",
+		"guest":            "Guest allows to specifying the amount of memory which is visible inside the Guest OS.\nThe Guest must lie between Requests and Limits from the resources section.\nDefaults to the requested memory in the resources section if not specified.\n+ optional",
+		"maxGuest":         "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS.\nThe delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
+		"reservedOverhead": "ReservedOverhead configures the memory overhead applied to a VM\nand its characteristics.\n+optional",
 	}
 }
 
@@ -228,6 +229,13 @@ func (Hugepages) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.",
 		"pageSize": "PageSize specifies the hugepage size, for x86_64 architecture valid values are 1Gi and 2Mi.",
+	}
+}
+
+func (ReservedOverhead) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"addedOverhead": "AddedOverhead determines the memory overhead that will be reserved\nfor the VM. It increases the virt-launcher pod memory limit.\n+optional",
+		"memLock":       "RequiresLock determines whether the VM's and its overhead memory\nneed to be locked or not. It is a common practice to enable this\nif vDPA, VFIO or any other specialized hardware that depends on\nDMA is being used by the VM.\nFalse - (Default) memory lock RLimits are not modified.\nTrue - Memory lock RLimits will be updated to consider VM memory\n       size and memory overhead\n+optional\n+kubebuilder:validation:Enum=NotRequired;Required",
 	}
 }
 
