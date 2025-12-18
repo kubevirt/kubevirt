@@ -198,6 +198,13 @@ const (
 	// via virtiofs. This allows VMs to access credentials and tokens injected into pods
 	// by external systems such as AWS IRSA, GKE Workload Identity, or TEE attestation.
 	ContainerPathVolumesGate = "ContainerPathVolumes"
+
+	// Enables using the spec.domain.memory.ReservedOverhead field which
+	// can specify some required memory overhead as well as whether VM
+	// memory (and overhead) needs to be locked or not
+	// Owner: sig-compute / @bgartzi
+	// Alpha: v1.8.0
+	ReservedOverheadMemlock = "ReservedOverheadMemlock"
 )
 
 func init() {
@@ -240,4 +247,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 }
