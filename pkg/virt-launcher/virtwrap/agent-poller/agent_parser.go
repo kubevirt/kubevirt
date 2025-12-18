@@ -20,8 +20,12 @@ var (
 // stripAgentResponse use regex to strip the wrapping item and returns the
 // embedded object.
 // It is a workaround so the amount of copy paste code is limited
-func stripAgentResponse(agentReply string) string {
-	return stripRE.FindStringSubmatch(agentReply)[1]
+func stripAgentResponse(agentReply string) (string, error) {
+	response := stripRE.FindStringSubmatch(agentReply)
+	if len(response) <= 1 {
+		return "", fmt.Errorf("agent reply failed to match: %q", agentReply)
+	}
+	return response[1], nil
 }
 
 // stripAgentStringResponse use regex to stip the wrapping item
@@ -77,9 +81,11 @@ func ParseFSFreezeStatus(agentReply string) (api.FSFreeze, error) {
 // parseFilesystem from the agent response
 func parseFilesystem(agentReply string) ([]api.Filesystem, error) {
 	result := []Filesystem{}
-	response := stripAgentResponse(agentReply)
-
-	err := json.Unmarshal([]byte(response), &result)
+	response, err := stripAgentResponse(agentReply)
+	if err != nil {
+		return []api.Filesystem{}, err
+	}
+	err = json.Unmarshal([]byte(response), &result)
 	if err != nil {
 		return []api.Filesystem{}, err
 	}
@@ -117,9 +123,11 @@ func parseAgent(agentReply string) (AgentInfo, error) {
 	const logLevelDebug = 3
 
 	gaInfo := AgentInfo{}
-	response := stripAgentResponse(agentReply)
-
-	err := json.Unmarshal([]byte(response), &gaInfo)
+	response, err := stripAgentResponse(agentReply)
+	if err != nil {
+		return AgentInfo{}, err
+	}
+	err = json.Unmarshal([]byte(response), &gaInfo)
 	if err != nil {
 		return AgentInfo{}, err
 	}

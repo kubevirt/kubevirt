@@ -22,7 +22,6 @@ package agentpoller
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -60,7 +59,8 @@ var _ = Describe("Qemu agent poller", func() {
 		It("should strip Agent response", func() {
 			jsonInput := `{"return":{"version":"4.1"}}`
 
-			response := stripAgentResponse(jsonInput)
+			response, err := stripAgentResponse(jsonInput)
+			Expect(err).To(BeNil())
 			expectedResponse := `{"version":"4.1"}`
 
 			Expect(response).To(Equal(expectedResponse))
@@ -102,5 +102,13 @@ var _ = Describe("Qemu agent poller", func() {
 			}
 			Expect(parseFilesystem(jsonInput)).To(Equal(expectedFilesystem))
 		})
+		It("should failed parse Filesystem with unconventional agent reply", func() {
+			jsonInput := `{dummy input}`
+
+			_, err := parseFilesystem(jsonInput)
+
+			Expect(err).To(HaveOccurred())
+		})
 	})
 })
+
