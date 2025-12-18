@@ -199,7 +199,7 @@ spec:
       - name: plugin
         securityContext:
           privileged: true
-        image: ghcr.io/k8snetworkplumbingwg/dra-driver-sriov:4889196
+        image: quay.io/oshoval/dra-driver-sriov:mac
         imagePullPolicy: Always
         command:
           # - dlv
