@@ -3860,64 +3860,6 @@ var _ = Describe("Converter", func() {
 		})
 	})
 
-	Context("with FreePageReporting", func() {
-		var (
-			vmi *v1.VirtualMachineInstance
-			c   *ConverterContext
-		)
-
-		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-		})
-
-		DescribeTable("should set freePageReporting attribute of memballooning device, accordingly to the context value", func(freePageReporting bool, expectedValue string) {
-			c = &ConverterContext{
-				Architecture:      archconverter.NewConverter(runtime.GOARCH),
-				FreePageReporting: freePageReporting,
-				AllowEmulation:    true,
-			}
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(BeNil())
-
-			Expect(domain.Spec.Devices).ToNot(BeNil())
-			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
-			Expect(domain.Spec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo(expectedValue))
-		},
-			Entry("when true", true, "on"),
-			Entry("when false", false, "off"),
-		)
-	})
-
-	Context("with memballoon device", func() {
-		var (
-			vmi *v1.VirtualMachineInstance
-			c   *ConverterContext
-		)
-
-		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-			c = &ConverterContext{
-				Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				AllowEmulation: true,
-			}
-		})
-
-		DescribeTable("should unconditionally set Ballooning device", func(isAutoattachMemballoon *bool) {
-			vmi.Spec.Domain.Devices.AutoattachMemBalloon = isAutoattachMemballoon
-
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(BeNil())
-			Expect(domain.Spec.Devices).ToNot(BeNil())
-			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil(), "Ballooning device should be unconditionally present in domain")
-		},
-			Entry("when AutoattachMemballoon is false", pointer.P(false)),
-			Entry("when AutoattachMemballoon is not defined", nil),
-		)
-	})
-
 	Context("with Paused strategy", func() {
 		var (
 			vmi *v1.VirtualMachineInstance

@@ -20,8 +20,14 @@
 package compute_test
 
 import (
+	"runtime"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	kvapi "kubevirt.io/client-go/api"
+	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -94,4 +100,69 @@ var _ = Describe("Balloon Domain Configurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 	})
+
+	Context("with FreePageReporting", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *converter.ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		})
+
+		DescribeTable("should set freePageReporting attribute of memballooning device, accordingly to the context value", func(freePageReporting bool, expectedValue string) {
+			c = &converter.ConverterContext{
+				Architecture:      archconverter.NewConverter(runtime.GOARCH),
+				FreePageReporting: freePageReporting,
+				AllowEmulation:    true,
+			}
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+
+			Expect(domain.Spec.Devices).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo(expectedValue))
+		},
+			Entry("when true", true, "on"),
+			Entry("when false", false, "off"),
+		)
+	})
+
+	Context("with memballoon device", func() {
+		var (
+			vmi *v1.VirtualMachineInstance
+			c   *converter.ConverterContext
+		)
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			c = &converter.ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				AllowEmulation: true,
+			}
+		})
+
+		DescribeTable("should unconditionally set Ballooning device", func(isAutoattachMemballoon *bool) {
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = isAutoattachMemballoon
+
+			domain := vmiToDomain(vmi, c)
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil(), "Ballooning device should be unconditionally present in domain")
+		},
+			Entry("when AutoattachMemballoon is false", pointer.P(false)),
+			Entry("when AutoattachMemballoon is not defined", nil),
+		)
+	})
 })
+
+func vmiToDomain(vmi *v1.VirtualMachineInstance, c *converter.ConverterContext) *api.Domain {
+	domain := &api.Domain{}
+	ExpectWithOffset(1, converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+	api.NewDefaulter(c.Architecture.GetArchitecture()).SetObjectDefaults_Domain(domain)
+	return domain
+}
