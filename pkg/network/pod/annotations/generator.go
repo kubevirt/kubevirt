@@ -216,6 +216,7 @@ func generateDRANetworkMACsAnnotation(vmi *v1.VirtualMachineInstance) string {
 			// This handles the case where multiple networks use the same requestName with different claims
 			requestName := network.Name // Default to network name if requestName not specified
 			if network.NetworkSource.ResourceClaim.RequestName != nil {
+				// TODO fix
 				requestName = *network.NetworkSource.ResourceClaim.RequestName
 			}
 			key := network.NetworkSource.ResourceClaim.ClaimName + "/" + requestName
