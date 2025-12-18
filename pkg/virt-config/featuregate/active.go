@@ -195,6 +195,13 @@ const (
 	// Template enables the deployment of virt-template components by virt-operator.
 	// Alpha: v1.8.0
 	Template = "Template"
+
+	// Enables using the spec.domain.memory.ReservedOverhead field which
+	// can specify some required memory overhead as well as whether VM
+	// memory (and overhead) needs to be locked or not
+	// Owner: sig-compute / @bgartzi
+	// Alpha: v1.8.0
+	ReservedOverheadMemlock = "ReservedOverheadMemlock"
 )
 
 func init() {
@@ -237,4 +244,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DisableNADResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 }

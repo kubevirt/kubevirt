@@ -228,3 +228,7 @@ func (config *ClusterConfig) RebootPolicyEnabled() bool {
 func (config *ClusterConfig) TemplateEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.Template)
 }
+
+func (config *ClusterConfig) ReservedOverheadMemlockEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.ReservedOverheadMemlock)
+}
