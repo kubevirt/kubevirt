@@ -145,7 +145,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			libvmi.WithSecretDisk(secret.Name, secret.Name),
 			libvmi.WithConfigMapDisk(configMapName, configMapName),
 			libvmi.WithEmptyDisk("usb-disk", v1.DiskBusUSB, resource.MustParse("64Mi")),
-			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n")),
+			libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 		}
 		if kernelBootEnabled {
 			opts = append(opts, withKernelBoot())
