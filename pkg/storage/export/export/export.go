@@ -174,11 +174,16 @@ func dirURI(pvc *corev1.PersistentVolumeClaim) string {
 }
 
 type sourceVolumes struct {
-	volumes         []*corev1.PersistentVolumeClaim
+	volumes         []sourceVolume
 	inUse           bool
 	isPopulated     bool
 	readyCondition  exportv1.Condition
 	sourceCondition exportv1.Condition
+}
+
+type sourceVolume struct {
+	pvc                 *corev1.PersistentVolumeClaim
+	kubevirtContentType bool
 }
 
 func (sv *sourceVolumes) isSourceAvailable() bool {
@@ -902,14 +907,14 @@ func (ctrl *VMExportController) getExporterPod(vmExport *exportv1.VirtualMachine
 	}
 }
 
-func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, pvcs []*corev1.PersistentVolumeClaim) (*corev1.Pod, error) {
+func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, volumes []sourceVolume) (*corev1.Pod, error) {
 	log.Log.V(3).Infof("Checking if pod exists: %s/%s", vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	key := controller.NamespacedKey(vmExport.Namespace, ctrl.getExportPodName(vmExport))
 	if obj, exists, err := ctrl.PodInformer.GetStore().GetByKey(key); err != nil {
 		log.Log.Errorf("error %v", err)
 		return nil, err
 	} else if !exists {
-		manifest, err := ctrl.createExporterPodManifest(vmExport, service, pvcs)
+		manifest, err := ctrl.createExporterPodManifest(vmExport, service, volumes)
 		if err != nil {
 			return nil, err
 		}
@@ -927,7 +932,7 @@ func (ctrl *VMExportController) createExporterPod(vmExport *exportv1.VirtualMach
 	}
 }
 
-func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, pvcs []*corev1.PersistentVolumeClaim) (*corev1.Pod, error) {
+func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.VirtualMachineExport, service *corev1.Service, volumes []sourceVolume) (*corev1.Pod, error) {
 	certParams, err := ctrl.getCertParams()
 	if err != nil {
 		return nil, err
@@ -953,8 +958,9 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 		FSGroup:        pointer.P(int64(kvm)),
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
-	for i, pvc := range pvcs {
+	for i, volume := range volumes {
 		var mountPoint string
+		pvc := volume.pvc
 		volumeName := ctrl.getExportPodVolumeName(pvc)
 		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
@@ -978,7 +984,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 				},
 			},
 		})
-		ctrl.addVolumeEnvironmentVariables(&podManifest.Spec.Containers[0], pvc, i, mountPoint)
+		addVolumeEnvironmentVariables(&podManifest.Spec.Containers[0], pvc, i, mountPoint, volume.kubevirtContentType)
 	}
 
 	// Add token and certs ENV variables
@@ -1185,7 +1191,7 @@ func (ctrl *VMExportController) getVmFromExport(vmExport *exportv1.VirtualMachin
 	return nil, nil
 }
 
-func (ctrl *VMExportController) addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev1.PersistentVolumeClaim, index int, mountPoint string) {
+func addVolumeEnvironmentVariables(exportContainer *corev1.Container, pvc *corev1.PersistentVolumeClaim, index int, mountPoint string, isKubevirt bool) {
 	exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 		Name:  fmt.Sprintf("VOLUME%d_EXPORT_PATH", index),
 		Value: mountPoint,
@@ -1199,7 +1205,7 @@ func (ctrl *VMExportController) addVolumeEnvironmentVariables(exportContainer *c
 			Value: rawGzipURI(pvc),
 		})
 	} else {
-		if ctrl.isKubevirtContentType(pvc) {
+		if isKubevirt {
 			exportContainer.Env = append(exportContainer.Env, corev1.EnvVar{
 				Name:  fmt.Sprintf("VOLUME%d_EXPORT_RAW_URI", index),
 				Value: rawURI(pvc),
@@ -1543,4 +1549,18 @@ func (ctrl *VMExportController) createExportHttpDvFromPVC(namespace, name string
 			},
 		},
 	}, nil
+}
+
+func (ctrl *VMExportController) pvcsToSourceVolumes(pvcs ...*corev1.PersistentVolumeClaim) []sourceVolume {
+	if len(pvcs) == 0 {
+		return nil
+	}
+	volumes := make([]sourceVolume, 0, len(pvcs))
+	for _, pvc := range pvcs {
+		volumes = append(volumes, sourceVolume{
+			pvc:                 pvc,
+			kubevirtContentType: ctrl.isKubevirtContentType(pvc),
+		})
+	}
+	return volumes
 }

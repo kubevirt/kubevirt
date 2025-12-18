@@ -160,7 +160,7 @@ func (ctrl *VMExportController) isSourceInUseVM(vmExport *exportv1.VirtualMachin
 
 func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMachineExport) (*sourceVolumes, error) {
 	sourceVolumes := &sourceVolumes{
-		volumes:         []*corev1.PersistentVolumeClaim{},
+		volumes:         []sourceVolume{},
 		inUse:           false,
 		isPopulated:     false,
 		readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
@@ -183,7 +183,6 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 	}
 	log.Log.V(3).Infof("Number of volumes found for VM %s/%s, %d, allPopulated %t", vmExport.Namespace, vmExport.Spec.Source.Name, len(pvcs), allPopulated)
 
-	sourceVolumes.volumes = pvcs
 	sourceVolumes.isPopulated = allPopulated
 
 	if len(pvcs) == 0 {
@@ -204,6 +203,8 @@ func (ctrl *VMExportController) getPVCFromSourceVM(vmExport *exportv1.VirtualMac
 			sourceVolumes.readyCondition = newReadyCondition(corev1.ConditionFalse, inUseReason, availableMessage)
 		}
 	}
+
+	sourceVolumes.volumes = ctrl.pvcsToSourceVolumes(pvcs...)
 
 	return sourceVolumes, nil
 }

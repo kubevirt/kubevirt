@@ -71,7 +71,7 @@ func (ctrl *VMExportController) getPvc(namespace, name string) (*corev1.Persiste
 
 func (ctrl *VMExportController) isSourceAvailablePVC(vmExport *exportv1.VirtualMachineExport, pvc *corev1.PersistentVolumeClaim) (*sourceVolumes, error) {
 	sourceVolumes := &sourceVolumes{
-		volumes:         []*corev1.PersistentVolumeClaim{pvc},
+		volumes:         ctrl.pvcsToSourceVolumes(pvc),
 		inUse:           false,
 		isPopulated:     false,
 		readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),

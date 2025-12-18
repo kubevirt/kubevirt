@@ -86,7 +86,7 @@ func (ctrl *VMExportController) getPVCFromSourceVMSnapshot(vmExport *exportv1.Vi
 		}
 		if len(pvcs) == restoreableSnapshots && restoreableSnapshots > 0 {
 			return &sourceVolumes{
-				volumes:         pvcs,
+				volumes:         ctrl.pvcsToSourceVolumes(pvcs...),
 				inUse:           false,
 				isPopulated:     true,
 				readyCondition:  newReadyCondition(corev1.ConditionFalse, initializingReason, ""),
@@ -237,8 +237,8 @@ func (ctrl *VMExportController) updateVMSnapshotExportStatusConditions(vmExportC
 	condition := newVolumesCreatedCondition(corev1.ConditionFalse, notAllPVCsReady, "Not all PVCs are ready")
 
 	allReady := true
-	for _, pvc := range sourceVolumes.volumes {
-		if pvc.Status.Phase != corev1.ClaimBound {
+	for _, volume := range sourceVolumes.volumes {
+		if volume.pvc.Status.Phase != corev1.ClaimBound {
 			allReady = false
 			break
 		}
