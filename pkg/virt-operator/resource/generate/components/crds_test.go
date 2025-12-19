@@ -42,6 +42,7 @@ var _ = Describe("CRDs", func() {
 		Entry("for VirtualMachinePool", NewVirtualMachinePoolCrd),
 		Entry("for VirtualMachineSnapshot", NewVirtualMachineSnapshotCrd),
 		Entry("for VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd),
+		Entry("for VirtualMachineSnapshotSchedule", NewVirtualMachineSnapshotScheduleCrd),
 		Entry("for VirtualMachineRestore", NewVirtualMachineRestoreCrd),
 		Entry("for VirtualMachineExport", NewVirtualMachineExportCrd),
 		Entry("for VirtualMachineInstancetype", NewVirtualMachineInstancetypeCrd),
@@ -135,6 +136,7 @@ var _ = Describe("CRDs", func() {
 		Entry("for VirtualMachinePool", NewVirtualMachinePoolCrd, "Desired", "Current", "Ready", "Age"),
 		Entry("for VirtualMachineSnapshot", NewVirtualMachineSnapshotCrd, "SourceKind", "SourceName", "Phase", "ReadyToUse", "CreationTime", "Error"),
 		Entry("for VirtualMachineSnapshotContent", NewVirtualMachineSnapshotContentCrd, "ReadyToUse", "CreationTime", "Error"),
+		Entry("for VirtualMachineSnapshotSchedule", NewVirtualMachineSnapshotScheduleCrd, "Schedule", "Disabled", "MaxCount", "NextRun", "LastRun", "Age"),
 		Entry("for VirtualMachineRestore", NewVirtualMachineRestoreCrd, "TargetKind", "TargetName", "Complete", "RestoreTime"),
 		Entry("for VirtualMachineExport", NewVirtualMachineExportCrd, "SourceKind", "SourceName", "Phase"),
 		Entry("for VirtualMachineInstancetype", NewVirtualMachineInstancetypeCrd),
@@ -286,6 +288,25 @@ var _ = Describe("CRDs", func() {
 				},
 			},
 			"false", timestamp, "test-error",
+		),
+		Entry("for VirtualMachineSnapshotSchedule", NewVirtualMachineSnapshotScheduleCrd,
+			snapshotv1beta1.VirtualMachineSnapshotSchedule{
+				ObjectMeta: metav1.ObjectMeta{
+					CreationTimestamp: createTime(),
+				},
+				Spec: snapshotv1beta1.VirtualMachineSnapshotScheduleSpec{
+					Schedule: "0 * * * *",
+					Disabled: pointer.P(false),
+					Retention: snapshotv1beta1.VirtualMachineSnapshotScheduleRetention{
+						MaxCount: pointer.P(int32(5)),
+					},
+				},
+				Status: &snapshotv1beta1.VirtualMachineSnapshotScheduleStatus{
+					NextSnapshotTime: pointer.P(createTime()),
+					LastSnapshotTime: pointer.P(createTime()),
+				},
+			},
+			"0 * * * *", "false", "5", timestamp, timestamp, timestamp,
 		),
 		Entry("for VirtualMachineRestore", NewVirtualMachineRestoreCrd,
 			snapshotv1beta1.VirtualMachineRestore{

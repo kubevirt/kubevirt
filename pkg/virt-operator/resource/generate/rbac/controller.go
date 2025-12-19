@@ -323,6 +323,9 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachinesnapshotcontents/finalizers",
 					"virtualmachinerestores",
 					"virtualmachinerestores/status",
+					"virtualmachinesnapshotschedules",
+					"virtualmachinesnapshotschedules/status",
+					"virtualmachinesnapshotschedules/finalizers",
 				},
 				Verbs: []string{
 					"get", "list", "watch", "create", "update", "delete", "patch",

@@ -140,6 +140,9 @@ type KubeInformerFactory interface {
 	// Watches VirtualMachineSnapshot objects
 	VirtualMachineSnapshot() cache.SharedIndexInformer
 
+	// Watches VirtualMachineSnapshotSchedule objects
+	VirtualMachineSnapshotSchedule() cache.SharedIndexInformer
+
 	// Watches VirtualMachineSnapshot objects
 	VirtualMachineSnapshotContent() cache.SharedIndexInformer
 
@@ -734,6 +737,13 @@ func (f *kubeInformerFactory) VirtualMachineSnapshot() cache.SharedIndexInformer
 	return f.getInformer("vmSnapshotInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1beta1().RESTClient(), "virtualmachinesnapshots", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineSnapshot{}, f.defaultResync, GetVirtualMachineSnapshotInformerIndexers())
+	})
+}
+
+func (f *kubeInformerFactory) VirtualMachineSnapshotSchedule() cache.SharedIndexInformer {
+	return f.getInformer("vmSnapshotScheduleInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().SnapshotV1beta1().RESTClient(), "virtualmachinesnapshotschedules", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &snapshotv1.VirtualMachineSnapshotSchedule{}, f.defaultResync, cache.Indexers{})
 	})
 }
 

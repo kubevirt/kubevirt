@@ -625,6 +625,9 @@ rules:
   - virtualmachinesnapshotcontents/finalizers
   - virtualmachinerestores
   - virtualmachinerestores/status
+  - virtualmachinesnapshotschedules
+  - virtualmachinesnapshotschedules/status
+  - virtualmachinesnapshotschedules/finalizers
   verbs:
   - get
   - list

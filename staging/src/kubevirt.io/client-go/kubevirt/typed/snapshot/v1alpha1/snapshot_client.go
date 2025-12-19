@@ -33,6 +33,7 @@ type SnapshotV1alpha1Interface interface {
 	VirtualMachineRestoresGetter
 	VirtualMachineSnapshotsGetter
 	VirtualMachineSnapshotContentsGetter
+	VirtualMachineSnapshotSchedulesGetter
 }
 
 // SnapshotV1alpha1Client is used to interact with features provided by the snapshot.kubevirt.io group.
@@ -50,6 +51,10 @@ func (c *SnapshotV1alpha1Client) VirtualMachineSnapshots(namespace string) Virtu
 
 func (c *SnapshotV1alpha1Client) VirtualMachineSnapshotContents(namespace string) VirtualMachineSnapshotContentInterface {
 	return newVirtualMachineSnapshotContents(c, namespace)
+}
+
+func (c *SnapshotV1alpha1Client) VirtualMachineSnapshotSchedules(namespace string) VirtualMachineSnapshotScheduleInterface {
+	return newVirtualMachineSnapshotSchedules(c, namespace)
 }
 
 // NewForConfig creates a new SnapshotV1alpha1Client for the given config.

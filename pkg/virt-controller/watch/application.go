@@ -202,12 +202,14 @@ type VirtControllerApp struct {
 	exportServiceInformer        cache.SharedIndexInformer
 	exportController             *export.VMExportController
 	snapshotController           *snapshot.VMSnapshotController
+	snapshotScheduleController   *snapshot.VMSnapshotScheduleController
 	restoreController            *snapshot.VMRestoreController
 	vmExportInformer             cache.SharedIndexInformer
 	routeCache                   cache.Store
 	ingressCache                 cache.Store
 	unmanagedSecretInformer      cache.SharedIndexInformer
 	vmSnapshotInformer           cache.SharedIndexInformer
+	vmSnapshotScheduleInformer   cache.SharedIndexInformer
 	vmSnapshotContentInformer    cache.SharedIndexInformer
 	vmRestoreInformer            cache.SharedIndexInformer
 	storageClassInformer         cache.SharedIndexInformer
@@ -410,6 +412,7 @@ func Execute() {
 	app.vmBackupInformer = app.informerFactory.VirtualMachineBackup()
 	app.vmExportInformer = app.informerFactory.VirtualMachineExport()
 	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
+	app.vmSnapshotScheduleInformer = app.informerFactory.VirtualMachineSnapshotSchedule()
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
 	app.vmRestoreInformer = app.informerFactory.VirtualMachineRestore()
 	app.storageClassInformer = app.informerFactory.StorageClass()
@@ -494,6 +497,7 @@ func Execute() {
 	app.initDisruptionBudgetController()
 	app.initEvacuationController()
 	app.initSnapshotController()
+	app.initSnapshotScheduleController()
 	app.initRestoreController()
 	app.initExportController()
 	app.initWorkloadUpdaterController()
@@ -628,6 +632,7 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the snapshot controller: %v", err)
 			}
 		}()
+		go vca.snapshotScheduleController.Run(vca.snapshotControllerThreads, stop)
 		go func() {
 			if err := vca.restoreController.Run(vca.restoreControllerThreads, stop); err != nil {
 				log.Log.Warningf("error running the restore controller: %v", err)
@@ -910,6 +915,16 @@ func (vca *VirtControllerApp) initSnapshotController() {
 	}
 	if err := vca.snapshotController.Init(); err != nil {
 		panic(err)
+	}
+}
+
+func (vca *VirtControllerApp) initSnapshotScheduleController() {
+	vca.snapshotScheduleController = &snapshot.VMSnapshotScheduleController{
+		VMSnapshotScheduleInformer: vca.vmSnapshotScheduleInformer,
+		VMSnapshotInformer:         vca.vmSnapshotInformer,
+		VMInformer:                 vca.vmInformer,
+		Client:                     vca.clientSet,
+		ResyncPeriod:               vca.snapshotControllerResyncPeriod,
 	}
 }
 
