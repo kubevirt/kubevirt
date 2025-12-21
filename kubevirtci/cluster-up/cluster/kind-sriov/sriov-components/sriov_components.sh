@@ -20,9 +20,6 @@ PATCH_NODE_SELECTOR="${CUSTOM_MANIFESTS}/patch-node-selector.yaml"
 KUBECONFIG="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig"
 KUBECTL="${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubectl --kubeconfig=${KUBECONFIG}"
 
-SRIOV_DRA_MANIFEST="${MANIFESTS_DIR}/dra/sriov_dra.yaml"
-SRIOV_DRA_NAMESPACE="dra-driver-sriov"
-
 function _kubectl() {
     ${KUBECTL} "$@"
 }
@@ -137,13 +134,6 @@ function sriov_components::deploy() {
     "$resource_name" \
     "$drivers"
   _deploy_sriov_components
-
-  return 0
-}
-
-function sriov_components::deploy_dra() {
-  _kubectl create namespace "$SRIOV_DRA_NAMESPACE"
-  _kubectl apply -f "$SRIOV_DRA_MANIFEST"
 
   return 0
 }

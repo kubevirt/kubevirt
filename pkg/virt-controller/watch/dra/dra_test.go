@@ -207,7 +207,7 @@ var _ = Describe("DRA Status Controller", func() {
 					NetworkSource: v1.NetworkSource{
 						ResourceClaim: &v1.ResourceClaimNetworkSource{
 							ClaimName:   "claim1",
-							RequestName: ptr.To("request1"),
+							RequestName: "request1",
 						},
 					},
 				},

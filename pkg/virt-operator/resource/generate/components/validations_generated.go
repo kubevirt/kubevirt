@@ -7365,16 +7365,18 @@ var CRDsValidation map[string]string = map[string]string{
                             description: |-
                               ClaimName references the name of a ResourceClaim in the
                               VMI's namespace that provides the network resource.
+                            minLength: 1
                             type: string
                           requestName:
                             description: |-
-                              RequestName (optional) specifies which request from the
+                              RequestName specifies which request from the
                               ResourceClaim.spec.devices.requests array this network
-                              source corresponds to. This is necessary if a single
-                              claim provides multiple network devices.
+                              source corresponds to.
+                            minLength: 1
                             type: string
                         required:
                         - claimName
+                        - requestName
                         type: object
                     required:
                     - name
@@ -13019,16 +13021,18 @@ var CRDsValidation map[string]string = map[string]string{
                     description: |-
                       ClaimName references the name of a ResourceClaim in the
                       VMI's namespace that provides the network resource.
+                    minLength: 1
                     type: string
                   requestName:
                     description: |-
-                      RequestName (optional) specifies which request from the
+                      RequestName specifies which request from the
                       ResourceClaim.spec.devices.requests array this network
-                      source corresponds to. This is necessary if a single
-                      claim provides multiple network devices.
+                      source corresponds to.
+                    minLength: 1
                     type: string
                 required:
                 - claimName
+                - requestName
                 type: object
             required:
             - name
@@ -19332,16 +19336,18 @@ var CRDsValidation map[string]string = map[string]string{
                             description: |-
                               ClaimName references the name of a ResourceClaim in the
                               VMI's namespace that provides the network resource.
+                            minLength: 1
                             type: string
                           requestName:
                             description: |-
-                              RequestName (optional) specifies which request from the
+                              RequestName specifies which request from the
                               ResourceClaim.spec.devices.requests array this network
-                              source corresponds to. This is necessary if a single
-                              claim provides multiple network devices.
+                              source corresponds to.
+                            minLength: 1
                             type: string
                         required:
                         - claimName
+                        - requestName
                         type: object
                     required:
                     - name
@@ -24364,16 +24370,18 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: |-
                                       ClaimName references the name of a ResourceClaim in the
                                       VMI's namespace that provides the network resource.
+                                    minLength: 1
                                     type: string
                                   requestName:
                                     description: |-
-                                      RequestName (optional) specifies which request from the
+                                      RequestName specifies which request from the
                                       ResourceClaim.spec.devices.requests array this network
-                                      source corresponds to. This is necessary if a single
-                                      claim provides multiple network devices.
+                                      source corresponds to.
+                                    minLength: 1
                                     type: string
                                 required:
                                 - claimName
+                                - requestName
                                 type: object
                             required:
                             - name
@@ -29828,16 +29836,18 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: |-
                                           ClaimName references the name of a ResourceClaim in the
                                           VMI's namespace that provides the network resource.
+                                        minLength: 1
                                         type: string
                                       requestName:
                                         description: |-
-                                          RequestName (optional) specifies which request from the
+                                          RequestName specifies which request from the
                                           ResourceClaim.spec.devices.requests array this network
-                                          source corresponds to. This is necessary if a single
-                                          claim provides multiple network devices.
+                                          source corresponds to.
+                                        minLength: 1
                                         type: string
                                     required:
                                     - claimName
+                                    - requestName
                                     type: object
                                 required:
                                 - name
