@@ -34,12 +34,13 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/tests/compute"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(compute.SIG("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac authorization", func() {
+var _ = Describe(compute.SIG("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.com][level:component] Rbac authorization", decorators.WgS390x, func() {
 	var saClient kubecli.KubevirtClient
 
 	When("correct permissions are provided", func() {

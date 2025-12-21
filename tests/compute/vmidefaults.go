@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
@@ -45,7 +46,7 @@ import (
 
 var _ = Describe(SIG("VMIDefaults", func() {
 
-	Context("Disk defaults", func() {
+	Context("Disk defaults", decorators.WgS390x, func() {
 
 		It("[test_id:4115]Should be applied to VMIs", func() {
 			// create VMI with missing disk target

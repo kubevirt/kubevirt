@@ -36,6 +36,7 @@ import (
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -44,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 )
 
-var _ = Describe(SIGSerial("tls configuration", func() {
+var _ = Describe(SIGSerial("tls configuration", decorators.WgS390x, func() {
 	var virtClient kubecli.KubevirtClient
 
 	// FIPS-compliant so we can test on different platforms (otherwise won't revert properly)

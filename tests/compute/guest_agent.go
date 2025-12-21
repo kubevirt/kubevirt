@@ -46,7 +46,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
+var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, decorators.WgS390x, func() {
 	Context("Readiness Probe", func() {
 		const (
 			period         = 5

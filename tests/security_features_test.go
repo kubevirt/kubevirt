@@ -51,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]SecurityFeatures", decorators.SigCompute, decorators.WgS390x, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 
