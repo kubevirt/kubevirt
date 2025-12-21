@@ -885,6 +885,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				networkNameLinked,
 				driverName,
 				defaultVLAN,
+				libnet.WithLinkState(),
 			)
 			Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
 
@@ -956,6 +957,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 						netName,
 						driverName,
 						vlanID,
+						libnet.WithLinkState(),
 					)
 					Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
 				}
