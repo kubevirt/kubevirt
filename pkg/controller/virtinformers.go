@@ -57,6 +57,7 @@ import (
 	clone "kubevirt.io/api/clone/v1beta1"
 	"kubevirt.io/api/core"
 	kubev1 "kubevirt.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
@@ -133,6 +134,9 @@ type KubeInformerFactory interface {
 
 	// Watches VirtualMachineBackup objects
 	VirtualMachineBackup() cache.SharedIndexInformer
+
+	// Watches VirtualMachineBackupTracker objects
+	VirtualMachineBackupTracker() cache.SharedIndexInformer
 
 	// Watches VirtualMachineExport objects
 	VirtualMachineExport() cache.SharedIndexInformer
@@ -637,12 +641,20 @@ func GetVirtualMachineBackupInformerIndexers() cache.Indexers {
 				return nil, unexpectedObjectError
 			}
 
-			source := backup.Spec.Source
-			if source != nil &&
-				source.APIGroup != nil &&
-				*source.APIGroup == core.GroupName &&
-				source.Kind == "VirtualMachine" {
-				return []string{fmt.Sprintf("%s/%s", backup.Namespace, source.Name)}, nil
+			if backup.Spec.Source.Kind == v1.VirtualMachineGroupVersionKind.Kind {
+				return []string{fmt.Sprintf("%s/%s", backup.Namespace, backup.Spec.Source.Name)}, nil
+			}
+
+			return nil, nil
+		},
+		"backupTracker": func(obj interface{}) ([]string, error) {
+			backup, ok := obj.(*backupv1.VirtualMachineBackup)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if backup.Spec.Source.Kind == backupv1.VirtualMachineBackupTrackerGroupVersionKind.Kind {
+				return []string{fmt.Sprintf("%s/%s", backup.Namespace, backup.Spec.Source.Name)}, nil
 			}
 
 			return nil, nil
@@ -654,6 +666,34 @@ func (f *kubeInformerFactory) VirtualMachineBackup() cache.SharedIndexInformer {
 	return f.getInformer("vmBackupInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().BackupV1alpha1().RESTClient(), "virtualmachinebackups", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &backupv1.VirtualMachineBackup{}, f.defaultResync, GetVirtualMachineBackupInformerIndexers())
+	})
+}
+
+func GetVirtualMachineBackupTrackerInformerIndexers() cache.Indexers {
+	return cache.Indexers{
+		cache.NamespaceIndex: cache.MetaNamespaceIndexFunc,
+		"vmi": func(obj interface{}) ([]string, error) {
+			tracker, ok := obj.(*backupv1.VirtualMachineBackupTracker)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			source := tracker.Spec.Source
+			if source.APIGroup != nil &&
+				*source.APIGroup == core.GroupName &&
+				source.Kind == "VirtualMachine" {
+				return []string{fmt.Sprintf("%s/%s", tracker.Namespace, source.Name)}, nil
+			}
+
+			return nil, nil
+		},
+	}
+}
+
+func (f *kubeInformerFactory) VirtualMachineBackupTracker() cache.SharedIndexInformer {
+	return f.getInformer("vmBackupTrackerInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().BackupV1alpha1().RESTClient(), "virtualmachinebackuptrackers", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &backupv1.VirtualMachineBackupTracker{}, f.defaultResync, GetVirtualMachineBackupTrackerInformerIndexers())
 	})
 }
 

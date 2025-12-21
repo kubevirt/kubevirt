@@ -8333,6 +8333,10 @@ var CRDsValidation map[string]string = map[string]string{
                 backupName:
                   description: BackupName is the name of the executed backup
                   type: string
+                checkpointName:
+                  description: CheckpointName is the name of the checkpoint created
+                    for the backup
+                  type: string
                 completed:
                   description: Completed indicates the backup completed
                   type: boolean
@@ -8976,6 +8980,8 @@ var CRDsValidation map[string]string = map[string]string{
           type: boolean
         mode:
           description: Mode specifies the way the backup output will be recieved
+          enum:
+          - Push
           type: string
         pvcName:
           description: |-
@@ -8988,8 +8994,11 @@ var CRDsValidation map[string]string = map[string]string{
           type: boolean
         source:
           description: |-
-            Source specifies the VM to backup
-            If not provided, a reference to a VirtualMachineBackupTracker must be specified instead
+            Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker.
+            When Kind is VirtualMachine: performs a backup of the specified VM.
+            When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM
+            and the base checkpoint for incremental backup. The tracker will be updated
+            with the new checkpoint after backup completion.
           properties:
             apiGroup:
               description: |-
@@ -9008,11 +9017,36 @@ var CRDsValidation map[string]string = map[string]string{
           - name
           type: object
           x-kubernetes-map-type: atomic
+          x-kubernetes-validations:
+          - message: apiGroup is required
+            rule: has(self.apiGroup)
+          - message: apiGroup must be kubevirt.io or backup.kubevirt.io
+            rule: '!has(self.apiGroup) || self.apiGroup == ''kubevirt.io'' || self.apiGroup
+              == ''backup.kubevirt.io'''
+          - message: kind must be VirtualMachine for kubevirt.io or VirtualMachineBackupTracker
+              for backup.kubevirt.io
+            rule: '!has(self.apiGroup) || (self.apiGroup == ''kubevirt.io'' && self.kind
+              == ''VirtualMachine'') || (self.apiGroup == ''backup.kubevirt.io'' &&
+              self.kind == ''VirtualMachineBackupTracker'')'
+          - message: name is required
+            rule: self.name != ''
+      required:
+      - source
       type: object
+      x-kubernetes-validations:
+      - message: spec is immutable after creation
+        rule: self == oldSelf
+      - message: pvcName must be provided when mode is unset or Push
+        rule: (has(self.mode) && self.mode != 'Push') || (has(self.pvcName) && self.pvcName
+          != "")
     status:
       description: VirtualMachineBackupStatus is the status for a VirtualMachineBackup
         resource
       properties:
+        checkpointName:
+          description: CheckpointName the name of the checkpoint created for the current
+            backup
+          type: string
         conditions:
           items:
             description: Condition defines conditions
@@ -9043,6 +9077,84 @@ var CRDsValidation map[string]string = map[string]string{
         type:
           description: Type indicates if the backup was full or incremental
           type: string
+      type: object
+  required:
+  - spec
+  type: object
+`,
+	"virtualmachinebackuptracker": `openAPIV3Schema:
+  description: |-
+    VirtualMachineBackupTracker defines the way to track the latest checkpoint of
+    a backup solution for a vm
+  properties:
+    apiVersion:
+      description: |-
+        APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      type: string
+    kind:
+      description: |-
+        Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated.
+        In CamelCase.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      type: string
+    metadata:
+      type: object
+    spec:
+      description: VirtualMachineBackupTrackerSpec is the spec for a VirtualMachineBackupTracker
+        resource
+      properties:
+        source:
+          description: Source specifies the VM that this backupTracker is associated
+            with
+          properties:
+            apiGroup:
+              description: |-
+                APIGroup is the group for the resource being referenced.
+                If APIGroup is not specified, the specified Kind must be in the core API group.
+                For any other third-party types, APIGroup is required.
+              type: string
+            kind:
+              description: Kind is the type of resource being referenced
+              type: string
+            name:
+              description: Name is the name of resource being referenced
+              type: string
+          required:
+          - kind
+          - name
+          type: object
+          x-kubernetes-map-type: atomic
+          x-kubernetes-validations:
+          - message: apiGroup must be kubevirt.io
+            rule: has(self.apiGroup) && self.apiGroup == 'kubevirt.io'
+          - message: kind must be VirtualMachine
+            rule: self.kind == 'VirtualMachine'
+          - message: name is required
+            rule: self.name != ''
+      required:
+      - source
+      type: object
+      x-kubernetes-validations:
+      - message: spec is immutable after creation
+        rule: self == oldSelf
+    status:
+      properties:
+        latestCheckpoint:
+          description: |-
+            LatestCheckpoint is the metadata of the checkpoint of
+            the latest preformed backup
+          properties:
+            creationTime:
+              format: date-time
+              type: string
+            name:
+              type: string
+          type: object
       type: object
   required:
   - spec
@@ -13958,6 +14070,10 @@ var CRDsValidation map[string]string = map[string]string{
                   type: string
                 backupName:
                   description: BackupName is the name of the executed backup
+                  type: string
+                checkpointName:
+                  description: CheckpointName is the name of the checkpoint created
+                    for the backup
                   type: string
                 completed:
                   description: Completed indicates the backup completed
@@ -30739,6 +30855,10 @@ var CRDsValidation map[string]string = map[string]string{
                             backupName:
                               description: BackupName is the name of the executed
                                 backup
+                              type: string
+                            checkpointName:
+                              description: CheckpointName is the name of the checkpoint
+                                created for the backup
                               type: string
                             completed:
                               description: Completed indicates the backup completed

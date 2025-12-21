@@ -2196,6 +2196,9 @@ type VirtualMachineInstanceBackupStatus struct {
 	// unfreeze failed etc...
 	// +optional
 	BackupMsg *string `json:"backupMsg,omitempty"`
+	// CheckpointName is the name of the checkpoint created for the backup
+	// +optional
+	CheckpointName *string `json:"checkpointName,omitempty"`
 }
 
 // ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM

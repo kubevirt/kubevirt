@@ -3041,6 +3041,75 @@ var _ = Describe("VirtualMachineInstance", func() {
 			expectEvent("VirtualMachineInstance stopping", true)
 		})
 	})
+
+	Context("updateBackupStatus", func() {
+		DescribeTable("should not update when",
+			func(cbtStatus *v1.ChangedBlockTrackingStatus) {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.ChangedBlockTracking = cbtStatus
+
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Spec.Metadata.KubeVirt.Backup = &api.BackupMetadata{
+					Name:      "test-backup",
+					Completed: true,
+				}
+
+				controller.updateBackupStatus(vmi, domain)
+				Expect(vmi.Status.ChangedBlockTracking).To(Equal(cbtStatus))
+			},
+			Entry("VMI ChangedBlockTracking is nil", nil),
+			Entry("VMI BackupStatus is nil", &v1.ChangedBlockTrackingStatus{State: v1.ChangedBlockTrackingEnabled, BackupStatus: nil}),
+		)
+
+		DescribeTable("should",
+			func(vmiBackupName, domainBackupName string, expectUpdate bool) {
+				startTime := metav1.Now()
+
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+					State: v1.ChangedBlockTrackingEnabled,
+					BackupStatus: &v1.VirtualMachineInstanceBackupStatus{
+						BackupName:     vmiBackupName,
+						StartTimestamp: &startTime,
+					},
+				}
+
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				endTime := metav1.NewTime(startTime.Add(5 * time.Minute))
+				checkpointName := "test-checkpoint"
+				backupMsg := "backup completed successfully"
+				domain.Spec.Metadata.KubeVirt.Backup = &api.BackupMetadata{
+					Name:           domainBackupName,
+					StartTimestamp: &startTime,
+					EndTimestamp:   &endTime,
+					Completed:      true,
+					CheckpointName: checkpointName,
+					BackupMsg:      backupMsg,
+				}
+
+				controller.updateBackupStatus(vmi, domain)
+
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.BackupName).To(Equal(vmiBackupName))
+				if expectUpdate {
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeTrue())
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).ToNot(BeNil())
+					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(Equal(endTime))
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).ToNot(BeNil())
+					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(Equal(checkpointName))
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).ToNot(BeNil())
+					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(backupMsg))
+				} else {
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeFalse())
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(BeNil())
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(BeNil())
+				}
+			},
+			Entry("not update backupStatus when backupStatus name and backupMetadata name do not match (race condition)", "new-backup", "old-backup", false),
+			Entry("update backupStatus when backupStatus name and backupMetadata name match", "test-backup", "test-backup", true),
+		)
+	})
 })
 
 var _ = Describe("CurrentMemory in Libvirt Domain", func() {

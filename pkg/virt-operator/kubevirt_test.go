@@ -88,8 +88,8 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 88
-	patchCount    = 56
+	resourceCount = 89
+	patchCount    = 57
 	updateCount   = 33
 )
 
@@ -103,6 +103,7 @@ var (
 		components.NewVirtualMachineClusterInstancetypeCrd, components.NewVirtualMachinePoolCrd,
 		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
 		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd,
+		components.NewVirtualMachineBackupTrackerCrd,
 	}
 	numCRDs = len(crdFunctions)
 )
