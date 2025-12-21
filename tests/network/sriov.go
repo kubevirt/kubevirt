@@ -689,7 +689,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithGuestMemory(initialGuestMemory),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(sriovNetworkLogicalName)),
-					libvmi.WithNetwork(libvmi.DRANetworkWithRequestName(sriovNetworkLogicalName, claimName, "vf")),
+					libvmi.WithNetwork(libvmi.DRANetwork(sriovNetworkLogicalName, claimName, "vf")),
 					libvmi.WithResourceClaimTemplate(claimName, templateName),
 				)
 				vmi.Spec.Domain.Resources.Requests = nil
@@ -783,10 +783,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(claim1)),
-				libvmi.WithNetwork(libvmi.DRANetworkWithRequestName(claim1, claim1, "vf")),
+				libvmi.WithNetwork(libvmi.DRANetwork(claim1, claim1, "vf")),
 				libvmi.WithResourceClaimTemplate(claim1, template1),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(claim2)),
-				libvmi.WithNetwork(libvmi.DRANetworkWithRequestName(claim2, claim2, "vf")),
+				libvmi.WithNetwork(libvmi.DRANetwork(claim2, claim2, "vf")),
 				libvmi.WithResourceClaimTemplate(claim2, template2),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())),
 			)
@@ -848,7 +848,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			)
 			for i, claimName := range claims {
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(claimName))(vmi)
-				libvmi.WithNetwork(libvmi.DRANetworkWithRequestName(claimName, claimName, "vf"))(vmi)
+				libvmi.WithNetwork(libvmi.DRANetwork(claimName, claimName, "vf"))(vmi)
 				libvmi.WithResourceClaimTemplate(claimName, templates[i])(vmi)
 			}
 			for i := range claims {
@@ -1237,8 +1237,7 @@ func newDRASRIOVVmi(claimNames []string, templateName string, opts ...libvmi.Opt
 	for _, claimName := range claimNames {
 		options = append(options,
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(claimName)),
-			// Use "vf" as requestName to match the ResourceClaimTemplate's request name
-			libvmi.WithNetwork(libvmi.DRANetworkWithRequestName(claimName, claimName, "vf")),
+			libvmi.WithNetwork(libvmi.DRANetwork(claimName, claimName, "vf")),
 		)
 		// Add ResourceClaim reference with template
 		if templateName != "" {

@@ -1753,14 +1753,14 @@ type MultusNetwork struct {
 type ResourceClaimNetworkSource struct {
 	// ClaimName references the name of a ResourceClaim in the
 	// VMI's namespace that provides the network resource.
+	// +kubebuilder:validation:MinLength=1
 	ClaimName string `json:"claimName"`
 
-	// RequestName (optional) specifies which request from the
+	// RequestName specifies which request from the
 	// ResourceClaim.spec.devices.requests array this network
-	// source corresponds to. This is necessary if a single
-	// claim provides multiple network devices.
-	// +optional
-	RequestName *string `json:"requestName,omitempty"`
+	// source corresponds to.
+	// +kubebuilder:validation:MinLength=1
+	RequestName string `json:"requestName"`
 }
 
 // CPUTopology allows specifying the amount of cores, sockets

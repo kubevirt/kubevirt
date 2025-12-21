@@ -209,17 +209,9 @@ func generateDRANetworkMACsAnnotation(vmi *v1.VirtualMachineInstance) string {
 			continue // Not a DRA network
 		}
 
-		// Find the interface for this network
 		iface := vmispec.LookupInterfaceByName(vmi.Spec.Domain.Devices.Interfaces, network.Name)
 		if iface != nil && iface.MacAddress != "" {
-			// Use "claimName/requestName" as key to uniquely identify the device
-			// This handles the case where multiple networks use the same requestName with different claims
-			requestName := network.Name // Default to network name if requestName not specified
-			if network.NetworkSource.ResourceClaim.RequestName != nil {
-				// TODO fix
-				requestName = *network.NetworkSource.ResourceClaim.RequestName
-			}
-			key := network.NetworkSource.ResourceClaim.ClaimName + "/" + requestName
+			key := network.NetworkSource.ResourceClaim.ClaimName + "/" + network.NetworkSource.ResourceClaim.RequestName
 			macMap[key] = iface.MacAddress
 		}
 	}
