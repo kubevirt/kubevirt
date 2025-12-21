@@ -90,7 +90,7 @@ func NewSRIOVResourceClaimTemplate(name, namespace, netAttachDefName, driverName
 
 // NewSriovNetAttachDefWithIPAM creates a SR-IOV NetworkAttachmentDefinition with IPAM configuration
 // matching the format used by DRA SR-IOV drivers
-func NewSriovNetAttachDefWithIPAM(name string, vlanID int) *nadv1.NetworkAttachmentDefinition {
+func NewSriovNetAttachDefWithIPAM(name string, vlanID int, opts ...pluginConfOption) *nadv1.NetworkAttachmentDefinition {
 	config := map[string]interface{}{
 		"cniVersion": "0.4.0",
 		"name":       name,
@@ -112,15 +112,20 @@ func NewSriovNetAttachDefWithIPAM(name string, vlanID int) *nadv1.NetworkAttachm
 		},
 	}
 
+	// Apply plugin configuration options (e.g., WithLinkState)
+	for _, opt := range opts {
+		opt(config)
+	}
+
 	configJSON, _ := json.Marshal(config)
 	return NewNetAttachDef(name, string(configJSON))
 }
 
 // CreateSRIOVNetworkWithDRA creates both a NetworkAttachmentDefinition and ResourceClaimTemplate
 // This matches the real-world DRA SR-IOV setup with proper VfConfig
-func CreateSRIOVNetworkWithDRA(ctx context.Context, namespace, networkName, driverName string, vlanID int) error {
+func CreateSRIOVNetworkWithDRA(ctx context.Context, namespace, networkName, driverName string, vlanID int, opts ...pluginConfOption) error {
 	// Create NetworkAttachmentDefinition with SR-IOV CNI config
-	netAttachDef := NewSriovNetAttachDefWithIPAM(networkName, vlanID)
+	netAttachDef := NewSriovNetAttachDefWithIPAM(networkName, vlanID, opts...)
 	_, err := CreateNetAttachDef(ctx, namespace, netAttachDef)
 	if err != nil {
 		return err
