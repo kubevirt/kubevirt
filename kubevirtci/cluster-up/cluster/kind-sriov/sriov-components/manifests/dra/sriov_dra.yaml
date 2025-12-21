@@ -109,6 +109,9 @@ metadata:
   name: sriov-dra-dra-driver-sriov-chart-role
   namespace: dra-driver-sriov
 rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: ["resource.k8s.io"]
   resources: ["resourceclaims"]
   verbs: ["get"]
