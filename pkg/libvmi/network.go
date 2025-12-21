@@ -122,25 +122,13 @@ func MultusNetwork(name, nadName string) *kvirtv1.Network {
 }
 
 // DRANetwork returns a Network with DRA ResourceClaim binding
-func DRANetwork(name, claimName string) *kvirtv1.Network {
-	return &kvirtv1.Network{
-		Name: name,
-		NetworkSource: kvirtv1.NetworkSource{
-			ResourceClaim: &kvirtv1.ResourceClaimNetworkSource{
-				ClaimName: claimName,
-			},
-		},
-	}
-}
-
-// DRANetworkWithRequestName returns a Network with DRA ResourceClaim binding and specific request name
-func DRANetworkWithRequestName(name, claimName, requestName string) *kvirtv1.Network {
+func DRANetwork(name, claimName, requestName string) *kvirtv1.Network {
 	return &kvirtv1.Network{
 		Name: name,
 		NetworkSource: kvirtv1.NetworkSource{
 			ResourceClaim: &kvirtv1.ResourceClaimNetworkSource{
 				ClaimName:   claimName,
-				RequestName: &requestName,
+				RequestName: requestName,
 			},
 		},
 	}

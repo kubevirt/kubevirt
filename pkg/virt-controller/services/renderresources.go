@@ -217,10 +217,8 @@ func WithNetworksDRA(networks []v1.Network) ResourceRendererOption {
 		for _, net := range networks {
 			if net.NetworkSource.ResourceClaim != nil {
 				claim := &k8sv1.ResourceClaim{
-					Name: net.NetworkSource.ResourceClaim.ClaimName,
-				}
-				if net.NetworkSource.ResourceClaim.RequestName != nil {
-					claim.Request = *net.NetworkSource.ResourceClaim.RequestName
+					Name:    net.NetworkSource.ResourceClaim.ClaimName,
+					Request: net.NetworkSource.ResourceClaim.RequestName,
 				}
 				requestResourceClaims(&resources, claim)
 			}

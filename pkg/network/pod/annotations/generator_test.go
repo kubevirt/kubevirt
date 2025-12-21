@@ -66,7 +66,8 @@ var _ = Describe("Annotations Generator", func() {
 					Name: draNetwork1Name,
 					NetworkSource: v1.NetworkSource{
 						ResourceClaim: &v1.ResourceClaimNetworkSource{
-							ClaimName: "my-claim-1",
+							ClaimName:   "my-claim-1",
+							RequestName: "request1",
 						},
 					},
 				},
@@ -74,7 +75,8 @@ var _ = Describe("Annotations Generator", func() {
 					Name: draNetwork2Name,
 					NetworkSource: v1.NetworkSource{
 						ResourceClaim: &v1.ResourceClaimNetworkSource{
-							ClaimName: "my-claim-2",
+							ClaimName:   "my-claim-2",
+							RequestName: "request2",
 						},
 					},
 				},
@@ -90,10 +92,9 @@ var _ = Describe("Annotations Generator", func() {
 			var macMap map[string]string
 			err = json.Unmarshal([]byte(generatedAnnotations[annotations.DRANetworkMACsAnnotation]), &macMap)
 			Expect(err).NotTo(HaveOccurred())
-			// Key format is "claimName/requestName" (or "claimName/networkName" if requestName not specified)
 			Expect(macMap).To(Equal(map[string]string{
-				"my-claim-1/" + draNetwork1Name: mac1,
-				"my-claim-2/" + draNetwork2Name: mac2,
+				"my-claim-1/request1": mac1,
+				"my-claim-2/request2": mac2,
 			}))
 		})
 
@@ -125,7 +126,8 @@ var _ = Describe("Annotations Generator", func() {
 					Name: draNetworkName,
 					NetworkSource: v1.NetworkSource{
 						ResourceClaim: &v1.ResourceClaimNetworkSource{
-							ClaimName: "my-claim",
+							ClaimName:   "my-claim",
+							RequestName: "request1",
 						},
 					},
 				},
@@ -143,8 +145,8 @@ var _ = Describe("Annotations Generator", func() {
 			const (
 				draNetworkName = "dra-net"
 				mac            = "de:ad:00:00:be:ef"
+				requestName    = "vf"
 			)
-			requestName := "eth0"
 
 			vmi := libvmi.New(
 				libvmi.WithNamespace(testNamespace),
@@ -158,7 +160,7 @@ var _ = Describe("Annotations Generator", func() {
 					NetworkSource: v1.NetworkSource{
 						ResourceClaim: &v1.ResourceClaimNetworkSource{
 							ClaimName:   "my-claim",
-							RequestName: &requestName,
+							RequestName: requestName,
 						},
 					},
 				},
@@ -173,7 +175,6 @@ var _ = Describe("Annotations Generator", func() {
 			var macMap map[string]string
 			err = json.Unmarshal([]byte(generatedAnnotations[annotations.DRANetworkMACsAnnotation]), &macMap)
 			Expect(err).NotTo(HaveOccurred())
-			// Key format is "claimName/requestName"
 			Expect(macMap).To(Equal(map[string]string{
 				"my-claim/" + requestName: mac,
 			}))
