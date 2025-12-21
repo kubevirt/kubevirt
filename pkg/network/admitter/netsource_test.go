@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -97,7 +96,7 @@ var _ = Describe("Validate network source", func() {
 				NetworkSource: v1.NetworkSource{
 					ResourceClaim: &v1.ResourceClaimNetworkSource{
 						ClaimName:   "claim1",
-						RequestName: ptr.To("request1"),
+						RequestName: "request1",
 					},
 				},
 			},
@@ -116,7 +115,7 @@ var _ = Describe("Validate network source", func() {
 				NetworkSource: v1.NetworkSource{
 					ResourceClaim: &v1.ResourceClaimNetworkSource{
 						ClaimName:   "claim1",
-						RequestName: ptr.To("request1"),
+						RequestName: "request1",
 					},
 					Pod: &v1.PodNetwork{},
 				},

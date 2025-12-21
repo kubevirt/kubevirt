@@ -25042,13 +25042,14 @@ func schema_kubevirtio_api_core_v1_ResourceClaimNetworkSource(ref common.Referen
 					},
 					"requestName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RequestName (optional) specifies which request from the ResourceClaim.spec.devices.requests array this network source corresponds to. This is necessary if a single claim provides multiple network devices.",
+							Description: "RequestName specifies which request from the ResourceClaim.spec.devices.requests array this network source corresponds to.",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"claimName"},
+				Required: []string{"claimName", "requestName"},
 			},
 		},
 	}

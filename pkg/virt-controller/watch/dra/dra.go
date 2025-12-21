@@ -606,6 +606,8 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 		return nil, nil
 	}
 
+	// TODO check if we need it since we made requestName on networks mandatory
+	// depends on what we decide for hostDevices and GPU (but basically this is correct)
 	if requestName == "" && len(resourceClaim.Status.Allocation.Devices.Results) == 1 {
 		return resourceClaim.Status.Allocation.Devices.Results[0].DeepCopy(), nil
 	}
@@ -690,14 +692,9 @@ func (c *DRAStatusController) getNetworksFromVMISpec(vmi *v1.VirtualMachineInsta
 			continue
 		}
 
-		requestName := ""
-		if network.NetworkSource.ResourceClaim.RequestName != nil {
-			requestName = *network.NetworkSource.ResourceClaim.RequestName
-		}
-
 		networks = append(networks, DeviceInfo{
 			VMISpecClaimName:   network.NetworkSource.ResourceClaim.ClaimName,
-			VMISpecRequestName: requestName,
+			VMISpecRequestName: network.NetworkSource.ResourceClaim.RequestName,
 			DeviceStatusInfo: &v1.DeviceStatusInfo{
 				Name:                      network.Name,
 				DeviceResourceClaimStatus: nil,
