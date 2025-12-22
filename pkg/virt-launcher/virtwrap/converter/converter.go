@@ -1285,6 +1285,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(c)
 
 	architecture := c.Architecture.GetArchitecture()
+	virtioModel := virtio.InterpretTransitionalModelType(
+		vmi.Spec.Domain.Devices.UseVirtioTransitional,
+		architecture,
+	)
 
 	builder := NewDomainBuilder(
 		metadata.DomainConfigurator{},
@@ -1293,6 +1297,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			network.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 			network.WithROMTuningSupport(c.Architecture.IsROMTuningSupported()),
+			network.WithVirtioModel(virtioModel),
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},

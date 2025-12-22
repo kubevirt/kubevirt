@@ -26,7 +26,6 @@ import (
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
@@ -35,6 +34,7 @@ type DomainConfigurator struct {
 	useLaunchSecuritySEV            bool
 	useLaunchSecurityPV             bool
 	isROMTuningSupported            bool
+	virtioModel                     string
 }
 
 type option func(*DomainConfigurator)
@@ -70,9 +70,15 @@ func (d DomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *ap
 		}
 
 		ifaceType := getInterfaceType(&nonAbsentIfaces[i])
+
+		modelType := ifaceType
+		if ifaceType == v1.VirtIO {
+			modelType = d.virtioModel
+		}
+
 		domainIface := api.Interface{
 			Model: &api.Model{
-				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType, vmi.Spec.Architecture),
+				Type: modelType,
 			},
 			Alias: api.NewUserDefinedAlias(iface.Name),
 		}
@@ -153,6 +159,12 @@ func WithROMTuningSupport(isROMTuningSupported bool) option {
 	}
 }
 
+func WithVirtioModel(virtioModel string) option {
+	return func(d *DomainConfigurator) {
+		d.virtioModel = virtioModel
+	}
+}
+
 func getInterfaceType(iface *v1.Interface) string {
 	if iface.Model != "" {
 		return iface.Model
@@ -173,11 +185,4 @@ func calculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) ui
 		return 0
 	}
 	return NetworkQueuesCapacity(vmi)
-}
-
-func translateModel(useVirtioTransitional *bool, bus string, archString string) string {
-	if bus == v1.VirtIO {
-		return virtio.InterpretTransitionalModelType(useVirtioTransitional, archString)
-	}
-	return bus
 }
