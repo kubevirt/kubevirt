@@ -1024,127 +1024,6 @@ func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 	return nil
 }
 
-func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) error {
-	firmware := vmi.Spec.Domain.Firmware
-	if firmware == nil {
-		return nil
-	}
-
-	if vmi.IsBootloaderEFI() {
-		domain.Spec.OS.BootLoader = &api.Loader{
-			Path:     c.EFIConfiguration.EFICode,
-			ReadOnly: "yes",
-			Secure:   boolToYesNo(&c.EFIConfiguration.SecureLoader, false),
-		}
-
-		if util.IsSEVSNPVMI(vmi) || util.IsTDXVMI(vmi) {
-			// Use stateless firmware for the TDX/SNP VMs
-			domain.Spec.OS.BootLoader.Type = "rom"
-			domain.Spec.OS.NVRam = nil
-		} else {
-			domain.Spec.OS.BootLoader.Type = "pflash"
-			domain.Spec.OS.NVRam = &api.NVRam{
-				Template: c.EFIConfiguration.EFIVars,
-				NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
-			}
-		}
-	}
-
-	if firmware.Bootloader != nil && firmware.Bootloader.BIOS != nil {
-		if firmware.Bootloader.BIOS.UseSerial != nil && *firmware.Bootloader.BIOS.UseSerial {
-			domain.Spec.OS.BIOS = &api.BIOS{
-				UseSerial: "yes",
-			}
-		}
-	}
-
-	if util.HasKernelBootContainerImage(vmi) {
-		kb := firmware.KernelBoot
-
-		log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")
-		if kb.Container.KernelPath != "" {
-			kernelPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
-			log.Log.Object(vmi).Infof("setting kernel path for kernel boot: %s", kernelPath)
-			domain.Spec.OS.Kernel = kernelPath
-		}
-
-		if kb.Container.InitrdPath != "" {
-			initrdPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
-			log.Log.Object(vmi).Infof("setting initrd path for kernel boot: %s", initrdPath)
-			domain.Spec.OS.Initrd = initrdPath
-		}
-
-	}
-
-	// Define custom command-line arguments even if kernel-boot container is not defined
-	if firmware.KernelBoot != nil {
-		log.Log.Object(vmi).Infof("setting custom kernel arguments: %s", firmware.KernelBoot.KernelArgs)
-		domain.Spec.OS.KernelArgs = firmware.KernelBoot.KernelArgs
-	}
-
-	if err := Convert_v1_Firmware_ACPI_To_related_apis(firmware, domain, vmi.Spec.Volumes); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func Convert_v1_Firmware_ACPI_To_related_apis(firmware *v1.Firmware, domain *api.Domain, volumes []v1.Volume) error {
-	if firmware.ACPI == nil {
-		return nil
-	}
-
-	if firmware.ACPI.SlicNameRef == "" && firmware.ACPI.MsdmNameRef == "" {
-		return fmt.Errorf("No ACPI tables were set. Expecting at least one.")
-	}
-
-	if domain.Spec.OS.ACPI == nil {
-		domain.Spec.OS.ACPI = &api.OSACPI{}
-	}
-
-	if val, err := createACPITable("slic", firmware.ACPI.SlicNameRef, volumes); err != nil {
-		return err
-	} else if val != nil {
-		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table, *val)
-	}
-
-	if val, err := createACPITable("msdm", firmware.ACPI.MsdmNameRef, volumes); err != nil {
-		return err
-	} else if val != nil {
-		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table, *val)
-	}
-
-	// if field was set but volume was not found, helper function will return error
-	return nil
-}
-
-func createACPITable(source, volumeName string, volumes []v1.Volume) (*api.ACPITable, error) {
-	if volumeName == "" {
-		return nil, nil
-	}
-
-	for _, volume := range volumes {
-		if volume.Name != volumeName {
-			continue
-		}
-
-		if volume.Secret == nil {
-			// Unsupported. This should have been blocked by webhook, so warn user.
-			return nil, fmt.Errorf("Firmware's volume type is unsupported for %s", source)
-		}
-
-		// Return path to table's binary data
-		sourcePath := config.GetSecretSourcePath(volumeName)
-		sourcePath = filepath.Join(sourcePath, fmt.Sprintf("%s.bin", source))
-		return &api.ACPITable{
-			Type: source,
-			Path: sourcePath,
-		}, nil
-	}
-
-	return nil, fmt.Errorf("Firmware's volume for %s was not found", source)
-}
-
 func hasIOThreads(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.IOThreadsPolicy != nil {
 		return true
@@ -1330,7 +1209,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.PanicDevicesDomainConfigurator{},
 		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
 		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
-		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded()),
+		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), convertEFIConfiguration(c.EFIConfiguration)),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1351,11 +1230,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	// set the maximum number of sockets here to allow hot-plug CPUs
 	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.Architecture.SupportCPUHotplug() {
 		domainVCPUTopologyForHotplug(vmi, domain)
-	}
-
-	err = Convert_v1_Firmware_To_related_apis(vmi, domain, c)
-	if err != nil {
-		return err
 	}
 
 	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
@@ -1769,5 +1643,17 @@ func convertCmdv1SMBIOSToComputeSMBIOS(input *cmdv1.SMBios) *compute.SMBIOS {
 		Version:      input.Version,
 		SKU:          input.Sku,
 		Family:       input.Family,
+	}
+}
+
+func convertEFIConfiguration(input *EFIConfiguration) *compute.EFIConfiguration {
+	if input == nil {
+		return nil
+	}
+
+	return &compute.EFIConfiguration{
+		EFICode:      input.EFICode,
+		EFIVars:      input.EFIVars,
+		SecureLoader: input.SecureLoader,
 	}
 }
