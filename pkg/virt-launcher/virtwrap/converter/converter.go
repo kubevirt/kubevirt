@@ -1306,10 +1306,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.ChannelsDomainConfigurator{},
 		compute.ClockDomainConfigurator{},
 		compute.NewRNGDomainConfigurator(
-			compute.RNGWithArchitecture(architecture),
-			compute.RNGWithUseVirtioTransitional(c.UseVirtioTransitional),
 			compute.RNGWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+			compute.RNGWithVirtioModel(virtioModel),
 		),
 		compute.NewInputDeviceDomainConfigurator(architecture),
 		compute.NewBalloonDomainConfigurator(

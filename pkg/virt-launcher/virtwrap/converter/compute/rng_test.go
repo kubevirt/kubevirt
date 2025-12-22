@@ -31,24 +31,19 @@ import (
 )
 
 var _ = Describe("RNG Domain Configurator", func() {
-	DescribeTable("Should not configure RNG device when RNG is unspecified in VMI", func(architecture string) {
+	It("Should not configure RNG device when RNG is unspecified in VMI", func() {
 		vmi := libvmi.New()
 		var domain api.Domain
 
 		configurator := compute.NewRNGDomainConfigurator(
-			compute.RNGWithArchitecture(architecture),
-			compute.RNGWithUseVirtioTransitional(false),
 			compute.RNGWithUseLaunchSecuritySEV(false),
 			compute.RNGWithUseLaunchSecurityPV(false),
+			compute.RNGWithVirtioModel("virtio"),
 		)
 
 		Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 		Expect(domain).To(Equal(api.Domain{}))
-	},
-		Entry("On amd64", "amd64"),
-		Entry("On arm64", "arm64"),
-		Entry("On s390x", "s390x"),
-	)
+	})
 
 	Context("amd46 with SEV", func() {
 		It("Should set IOMMU attribute of the RngDriver", func() {
@@ -59,10 +54,9 @@ var _ = Describe("RNG Domain Configurator", func() {
 			var domain api.Domain
 
 			configurator := compute.NewRNGDomainConfigurator(
-				compute.RNGWithArchitecture("amd64"),
-				compute.RNGWithUseVirtioTransitional(false),
 				compute.RNGWithUseLaunchSecuritySEV(true),
 				compute.RNGWithUseLaunchSecurityPV(false),
+				compute.RNGWithVirtioModel("virtio-non-transitional"),
 			)
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
@@ -97,10 +91,9 @@ var _ = Describe("RNG Domain Configurator", func() {
 			var domain api.Domain
 
 			configurator := compute.NewRNGDomainConfigurator(
-				compute.RNGWithArchitecture("s390x"),
-				compute.RNGWithUseVirtioTransitional(false),
 				compute.RNGWithUseLaunchSecuritySEV(false),
 				compute.RNGWithUseLaunchSecurityPV(true),
+				compute.RNGWithVirtioModel("virtio"),
 			)
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
