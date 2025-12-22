@@ -11,20 +11,10 @@ oci_image(
         "//conditions:default": "amd64",
     }),
     os = "linux",
-    tars = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": [
-            "//rpm:testimage_aarch64",
-            ":passwd-tar",
-        ],
-        "@io_bazel_rules_go//go/platform:linux_s390x": [
-            "//rpm:testimage_s390x",
-            ":passwd-tar",
-        ],
-        "//conditions:default": [
-            "//rpm:testimage_x86_64",
-            ":passwd-tar",
-        ],
-    }),
+    tars = [
+        "//bazel/compat:testimage",
+        ":passwd-tar",
+    ],
     visibility = ["//visibility:public"],
 )
 
