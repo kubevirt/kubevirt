@@ -53,6 +53,7 @@ go_test(
         "hypervisor_test.go",
         "input_device_test.go",
         "launch_security_test.go",
+        "os_test.go",
         "panic_devices_test.go",
         "rng_test.go",
         "sound_test.go",
@@ -64,6 +65,7 @@ go_test(
     race = "on",
     deps = [
         ":go_default_library",
+        "//pkg/config:go_default_library",
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/status:go_default_library",
