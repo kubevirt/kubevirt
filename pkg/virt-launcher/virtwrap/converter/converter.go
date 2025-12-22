@@ -1330,6 +1330,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.PanicDevicesDomainConfigurator{},
 		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
 		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
+		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded()),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1360,13 +1361,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
-		}
-	}
-
-	// Take SMBios values from the VirtualMachineOptions
-	if c.Architecture.IsSMBiosNeeded() {
-		domain.Spec.OS.SMBios = &api.SMBios{
-			Mode: "sysinfo",
 		}
 	}
 
@@ -1522,10 +1516,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		)
 	}
 
-	if machine := vmi.Spec.Domain.Machine; machine != nil {
-		domain.Spec.OS.Type.Machine = machine.Type
-	}
-
 	setIOThreads(vmi, domain, vcpus)
 
 	if vmi.Spec.Domain.CPU != nil {
@@ -1621,14 +1611,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				api.Arg{Value: fmt.Sprintf("file,id=firmwarelog,path=%s", QEMUSeaBiosDebugPipe)},
 				api.Arg{Value: "-device"},
 				api.Arg{Value: "isa-debugcon,iobase=0x402,chardev=firmwarelog"})
-		}
-	}
-
-	// set bootmenu to give time to access bios
-	if vmi.ShouldStartPaused() {
-		domain.Spec.OS.BootMenu = &api.BootMenu{
-			Enable:  "yes",
-			Timeout: pointer.P(bootMenuTimeoutMS),
 		}
 	}
 
