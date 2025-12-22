@@ -1305,12 +1305,17 @@ func (l *LibvirtDomainManager) syncDisks(
 	// Resize and notify the VM about changed disks
 	for _, disk := range domain.Spec.Devices.Disks {
 		if shouldExpandOnline(dom, disk) {
-			possibleGuestSize, ok := possibleGuestSize(disk)
-			if !ok {
-				logger.Warningf("Failed to get possible guest size from disk %v", disk)
-				break
+			var size uint64 = 0
+			// If block device, pass 0 as size, meaning let libvirt/qemu calculate the size.
+			if isBlock := disk.Source.Dev != ""; !isBlock {
+				possibleGuestSize, ok := possibleGuestSize(disk)
+				if !ok {
+					logger.Warningf("Failed to get possible guest size from disk %v", disk)
+					break
+				}
+				size = uint64(possibleGuestSize)
 			}
-			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES)
+			err := dom.BlockResize(getSourceFile(disk), uint64(size), libvirt.DOMAIN_BLOCK_RESIZE_BYTES)
 			if err != nil {
 				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
 			}
