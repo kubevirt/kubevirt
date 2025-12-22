@@ -1312,12 +1312,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.NewInputDeviceDomainConfigurator(architecture),
 		compute.NewBalloonDomainConfigurator(
-			compute.BalloonWithArchitecture(architecture),
-			compute.BalloonWithUseVirtioTransitional(c.UseVirtioTransitional),
 			compute.BalloonWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.BalloonWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 			compute.BalloonWithFreePageReporting(c.FreePageReporting),
 			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
+			compute.BalloonWithVirtioModel(virtioModel),
 		),
 		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
 		compute.SoundDomainConfigurator{},
