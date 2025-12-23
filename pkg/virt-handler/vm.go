@@ -2081,7 +2081,7 @@ func (c *VirtualMachineController) handleStartingVMI(
 }
 
 func (c *VirtualMachineController) adjustResources(vmi *v1.VirtualMachineInstance) error {
-	err := c.podIsolationDetector.AdjustResources(vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	err := c.podIsolationDetector.AdjustResources(vmi, c.clusterConfig)
 	if err != nil {
 		return fmt.Errorf("failed to adjust resources: %v", err)
 	}

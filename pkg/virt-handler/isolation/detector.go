@@ -38,6 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
@@ -52,7 +53,7 @@ type PodIsolationDetector interface {
 	DetectForSocket(socket string) (IsolationResult, error)
 
 	// Adjust system resources to run the passed VM
-	AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error
+	AdjustResources(vm *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) error
 }
 
 const isolationDialTimeout = 5
@@ -90,7 +91,7 @@ func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (Isolation
 	return NewIsolationResult(pid, ppid), nil
 }
 
-func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
+func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) error {
 	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
 	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
 		return nil
@@ -109,7 +110,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 	}
 
 	// make the best estimate for memory required by libvirt
-	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
+	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
 	// Add base memory requested for the VM
 	var vmiBaseMemory *resource.Quantity
 	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {

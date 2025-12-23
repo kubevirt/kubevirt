@@ -14,6 +14,8 @@ import (
 
 	gomock "go.uber.org/mock/gomock"
 	v1 "kubevirt.io/api/core/v1"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 // MockPodIsolationDetector is a mock of PodIsolationDetector interface.
@@ -41,17 +43,17 @@ func (m *MockPodIsolationDetector) EXPECT() *MockPodIsolationDetectorMockRecorde
 }
 
 // AdjustResources mocks base method.
-func (m *MockPodIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
+func (m *MockPodIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AdjustResources", vm, additionalOverheadRatio)
+	ret := m.ctrl.Call(m, "AdjustResources", vm, clusterConfig)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AdjustResources indicates an expected call of AdjustResources.
-func (mr *MockPodIsolationDetectorMockRecorder) AdjustResources(vm, additionalOverheadRatio any) *gomock.Call {
+func (mr *MockPodIsolationDetectorMockRecorder) AdjustResources(vm, clusterConfig any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdjustResources", reflect.TypeOf((*MockPodIsolationDetector)(nil).AdjustResources), vm, additionalOverheadRatio)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdjustResources", reflect.TypeOf((*MockPodIsolationDetector)(nil).AdjustResources), vm, clusterConfig)
 }
 
 // Detect mocks base method.
