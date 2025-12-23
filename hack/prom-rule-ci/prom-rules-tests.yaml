@@ -1204,3 +1204,45 @@ tests:
               name: "vmi-multi-hotplug"
               namespace: "test-ns"
               volume_name: "ephemeral-vol-1, ephemeral-vol-2"
+
+  # GuestFilesystemAlmostOutOfSpace - Exclusions: fuse.* should be excluded
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="test-vm", namespace="test-ns", disk_name="vdb", mount_point="/mnt/sshfs", file_system_type="fuse.sshfs"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="test-vm", namespace="test-ns", disk_name="vdb", mount_point="/mnt/sshfs", file_system_type="fuse.sshfs"}'
+        values: "96 96 96 96 96 96 96 96 96 96"
+
+    alert_rule_test:
+      # at 3m: usage = 96% -> would normally alert, but excluded by regex fuse(\\..*)?
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+  # GuestFilesystemAlmostOutOfSpace - Exclusions: overlay should be excluded
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="test-vm", namespace="test-ns", disk_name="vdc", mount_point="/", file_system_type="overlay"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="test-vm", namespace="test-ns", disk_name="vdc", mount_point="/", file_system_type="overlay"}'
+        values: "96 96 96 96 96 96 96 96 96 96"
+
+    alert_rule_test:
+      # at 3m: usage = 96% -> would normally alert, but excluded by overlay filter
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+  # GuestFilesystemAlmostOutOfSpace - Exclusions: Windows "System Reserved" mount should be excluded
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="win-vm", namespace="test-ns", disk_name="sda1", mount_point="System Reserved", file_system_type="ntfs"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="win-vm", namespace="test-ns", disk_name="sda1", mount_point="System Reserved", file_system_type="ntfs"}'
+        values: "96 96 96 96 96 96 96 96 96 96"
+
+    alert_rule_test:
+      # at 3m: usage = 96% -> would normally alert, but excluded by mount_point filter
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
