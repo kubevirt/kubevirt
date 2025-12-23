@@ -37,12 +37,11 @@ var _ = Describe("Balloon Domain Configurator", func() {
 			var domain api.Domain
 
 			configurator := compute.NewBalloonDomainConfigurator(
-				compute.BalloonWithArchitecture("amd64"),
-				compute.BalloonWithUseVirtioTransitional(false),
 				compute.BalloonWithUseLaunchSecuritySEV(true),
 				compute.BalloonWithUseLaunchSecurityPV(false),
 				compute.BalloonWithFreePageReporting(false),
 				compute.BalloonWithMemBalloonStatsPeriod(0),
+				compute.BalloonWithVirtioModel("virtio-non-transitional"),
 			)
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
@@ -70,12 +69,11 @@ var _ = Describe("Balloon Domain Configurator", func() {
 			var domain api.Domain
 
 			configurator := compute.NewBalloonDomainConfigurator(
-				compute.BalloonWithArchitecture("amd64"),
-				compute.BalloonWithUseVirtioTransitional(false),
 				compute.BalloonWithUseLaunchSecuritySEV(false),
 				compute.BalloonWithUseLaunchSecurityPV(true),
 				compute.BalloonWithFreePageReporting(false),
 				compute.BalloonWithMemBalloonStatsPeriod(0),
+				compute.BalloonWithVirtioModel("virtio"),
 			)
 
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
@@ -84,7 +82,7 @@ var _ = Describe("Balloon Domain Configurator", func() {
 				Spec: api.DomainSpec{
 					Devices: api.Devices{
 						Ballooning: &api.MemBalloon{
-							Model:             "virtio-non-transitional",
+							Model:             "virtio",
 							Stats:             nil,
 							Address:           nil,
 							Driver:            &api.MemBalloonDriver{IOMMU: "on"},

@@ -205,19 +205,23 @@ var _ = Describe("Patches", func() {
 
 	Describe("Config controller flags", func() {
 		flags := map[string]string{
-			"flag-one":  "1",
-			"flag":      "3",
-			"bool-flag": "",
+			"flag-one":        "1",
+			"flag":            "3",
+			"bool-flag":       "",
+			"bool-flag-true":  "True",
+			"bool-flag-false": "false",
 		}
 		resource := "Deployment"
 
 		It("should return flags in the proper format", func() {
 			fa := flagsToArray(flags)
-			Expect(fa).To(HaveLen(5))
+			Expect(fa).To(HaveLen(7))
 
 			Expect(strings.Join(fa, " ")).To(ContainSubstring("--flag-one 1"))
 			Expect(strings.Join(fa, " ")).To(ContainSubstring("--flag 3"))
 			Expect(strings.Join(fa, " ")).To(ContainSubstring("--bool-flag"))
+			Expect(strings.Join(fa, " ")).To(ContainSubstring("--bool-flag-true=true"))
+			Expect(strings.Join(fa, " ")).To(ContainSubstring("--bool-flag-false=false"))
 		})
 
 		It("should return flags in sorted order", func() {
@@ -225,6 +229,8 @@ var _ = Describe("Patches", func() {
 				return flagsToArray(flags)
 			}).Should(HaveExactElements(
 				"--bool-flag",
+				"--bool-flag-false=false",
+				"--bool-flag-true=true",
 				"--flag",
 				"3",
 				"--flag-one",

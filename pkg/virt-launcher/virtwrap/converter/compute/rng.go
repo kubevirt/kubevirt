@@ -23,14 +23,12 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 )
 
 type RNGDomainConfigurator struct {
-	architecture          string
-	useVirtioTransitional bool
-	useLaunchSecuritySEV  bool
-	useLaunchSecurityPV   bool
+	useLaunchSecuritySEV bool
+	useLaunchSecurityPV  bool
+	virtioModel          string
 }
 
 type rngOption func(*RNGDomainConfigurator)
@@ -52,7 +50,7 @@ func (r RNGDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 
 	newRng := &api.Rng{
 		// default rng model for KVM/QEMU virtualization
-		Model: virtio.InterpretTransitionalModelType(&r.useVirtioTransitional, r.architecture),
+		Model: r.virtioModel,
 		Backend: &api.RngBackend{
 			Model:  "random",       // default backend model, random
 			Source: "/dev/urandom", // the default source for rng is dev urandom
@@ -69,18 +67,6 @@ func (r RNGDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain 
 	return nil
 }
 
-func RNGWithArchitecture(architecture string) rngOption {
-	return func(r *RNGDomainConfigurator) {
-		r.architecture = architecture
-	}
-}
-
-func RNGWithUseVirtioTransitional(useVirtioTransitional bool) rngOption {
-	return func(r *RNGDomainConfigurator) {
-		r.useVirtioTransitional = useVirtioTransitional
-	}
-}
-
 func RNGWithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) rngOption {
 	return func(r *RNGDomainConfigurator) {
 		r.useLaunchSecuritySEV = useLaunchSecuritySEV
@@ -90,5 +76,11 @@ func RNGWithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) rngOption {
 func RNGWithUseLaunchSecurityPV(useLaunchSecurityPV bool) rngOption {
 	return func(r *RNGDomainConfigurator) {
 		r.useLaunchSecurityPV = useLaunchSecurityPV
+	}
+}
+
+func RNGWithVirtioModel(virtioModel string) rngOption {
+	return func(r *RNGDomainConfigurator) {
+		r.virtioModel = virtioModel
 	}
 }

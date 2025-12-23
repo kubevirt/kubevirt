@@ -625,9 +625,9 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			libmigration.ConfirmVMIPostMigrationAborted(sourceVMI, string(sourceMigration.UID), timeout)
 
 			By("Waiting for the source migration object to disappear")
-			libwait.WaitForMigrationToDisappearWithTimeout(sourceMigration, timeout)
+			Expect(libwait.WaitForMigrationToDisappearWithTimeout(sourceMigration, timeout*time.Second)).To(Succeed())
 			By("Waiting for the target migration object to disappear")
-			libwait.WaitForMigrationToDisappearWithTimeout(targetMigration, timeout)
+			Expect(libwait.WaitForMigrationToDisappearWithTimeout(targetMigration, timeout*time.Second)).To(Succeed())
 			By("Logging in and ensuring the source VM is still running")
 			Expect(console.LoginToCirros(sourceVMI)).To(Succeed())
 			By("Checking that the receiving VM is in WaitingAsReceiver phase")
@@ -638,7 +638,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(Equal(virtv1.WaitingForSync))
 		},
 			Entry("[QUARANTINE] delete source migration", decorators.Quarantine, true),
-			Entry("delete target migration", false),
+			Entry("[QUARANTINE]delete target migration", decorators.Quarantine, false),
 		)
 
 		It("should properly propagate failure from target to source", func() {

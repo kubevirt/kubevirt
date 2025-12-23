@@ -311,7 +311,7 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	// Shared volues are being excluded.
 	copyDisks := []string{}
 	migrationVols := classifyVolumesForMigration(vmi)
-	disks, err := getAllDomainDisks(dom)
+	disks, err := util.GetAllDomainDisks(dom)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("failed to parse domain XML to get disks.")
 	}
@@ -333,6 +333,9 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 }
 
 func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
+	if vmi.Status.ChangedBlockTracking != nil && vmi.Status.ChangedBlockTracking.BackupStatus != nil {
+		return fmt.Errorf("cannot migrate VMI until backup %s is completed", vmi.Status.ChangedBlockTracking.BackupStatus.BackupName)
+	}
 	if vmi.Status.MigrationState == nil {
 		return fmt.Errorf("cannot migrate VMI until migrationState is ready")
 	}
@@ -551,7 +554,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	now := time.Now().UTC().UnixNano()
 	elapsed := now - m.start
 
-	m.l.migrateInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
+	m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
 	if (m.progressWatermark == 0) || (m.remainingData < m.progressWatermark) {
 		m.lastProgressUpdate = now
 	}
@@ -642,7 +645,7 @@ func (m *migrationMonitor) startMonitor() {
 
 	logger := log.Log.Object(vmi)
 	defer func() {
-		m.l.migrateInfoStats = &stats.DomainJobInfo{}
+		m.l.domainInfoStats = &stats.DomainJobInfo{}
 	}()
 
 	domName := api.VMINamespaceKeyFunc(vmi)

@@ -26,8 +26,6 @@ import (
 
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
@@ -35,6 +33,8 @@ type DomainConfigurator struct {
 	domainAttachmentByInterfaceName map[string]string
 	useLaunchSecuritySEV            bool
 	useLaunchSecurityPV             bool
+	isROMTuningSupported            bool
+	virtioModel                     string
 }
 
 type option func(*DomainConfigurator)
@@ -70,9 +70,15 @@ func (d DomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *ap
 		}
 
 		ifaceType := getInterfaceType(&nonAbsentIfaces[i])
+
+		modelType := ifaceType
+		if ifaceType == v1.VirtIO {
+			modelType = d.virtioModel
+		}
+
 		domainIface := api.Interface{
 			Model: &api.Model{
-				Type: translateModel(vmi.Spec.Domain.Devices.UseVirtioTransitional, ifaceType, vmi.Spec.Architecture),
+				Type: modelType,
 			},
 			Alias: api.NewUserDefinedAlias(iface.Name),
 		}
@@ -100,13 +106,13 @@ func (d DomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *ap
 			domainIface.Type = "ethernet"
 			if iface.BootOrder != nil {
 				domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-			} else if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
+			} else if d.isROMTuningSupported {
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
 		}
 
 		if d.useLaunchSecuritySEV || d.useLaunchSecurityPV {
-			if arch.NewConverter(vmi.Spec.Architecture).IsROMTuningSupported() {
+			if d.isROMTuningSupported {
 				// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
 				domainIface.Rom = &api.Rom{Enabled: "no"}
 			}
@@ -147,6 +153,18 @@ func WithUseLaunchSecurityPV(useLaunchSecurityPV bool) option {
 	}
 }
 
+func WithROMTuningSupport(isROMTuningSupported bool) option {
+	return func(d *DomainConfigurator) {
+		d.isROMTuningSupported = isROMTuningSupported
+	}
+}
+
+func WithVirtioModel(virtioModel string) option {
+	return func(d *DomainConfigurator) {
+		d.virtioModel = virtioModel
+	}
+}
+
 func getInterfaceType(iface *v1.Interface) string {
 	if iface.Model != "" {
 		return iface.Model
@@ -167,11 +185,4 @@ func calculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) ui
 		return 0
 	}
 	return NetworkQueuesCapacity(vmi)
-}
-
-func translateModel(useVirtioTransitional *bool, bus string, archString string) string {
-	if bus == v1.VirtIO {
-		return virtio.InterpretTransitionalModelType(useVirtioTransitional, archString)
-	}
-	return bus
 }

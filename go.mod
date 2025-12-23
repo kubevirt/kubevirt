@@ -39,7 +39,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.22.1
 	github.com/onsi/gomega v1.36.2
 	github.com/opencontainers/runc v1.1.14
-	github.com/opencontainers/selinux v1.11.0
+	github.com/opencontainers/selinux v1.13.0
 	github.com/openshift/api v0.0.0
 	github.com/openshift/client-go v0.0.0
 	github.com/openshift/library-go v0.0.0-20240502143225-f71afde059ac
@@ -55,13 +55,13 @@ require (
 	github.com/spf13/pflag v1.0.6
 	github.com/vishvananda/netlink v1.3.0
 	go.uber.org/mock v0.5.1
-	golang.org/x/crypto v0.36.0
-	golang.org/x/net v0.38.0
-	golang.org/x/sync v0.12.0
-	golang.org/x/sys v0.31.0
-	golang.org/x/term v0.30.0
+	golang.org/x/crypto v0.45.0
+	golang.org/x/net v0.47.0
+	golang.org/x/sync v0.18.0
+	golang.org/x/sys v0.38.0
+	golang.org/x/term v0.37.0
 	golang.org/x/time v0.9.0
-	golang.org/x/tools v0.28.0
+	golang.org/x/tools v0.38.0
 	google.golang.org/grpc v1.72.1
 	k8s.io/api v0.34.2
 	k8s.io/apiextensions-apiserver v0.34.2
@@ -77,19 +77,20 @@ require (
 	kubevirt.io/qe-tools v0.1.8
 	libvirt.org/go/libvirt v1.11005.0
 	libvirt.org/go/libvirtxml v1.11000.1
-	sigs.k8s.io/controller-runtime v0.20.2
+	sigs.k8s.io/controller-runtime v0.22.4
 	sigs.k8s.io/randfill v1.0.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
+	cyphar.com/go-pathrs v0.2.1 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cilium/ebpf v0.11.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/cyphar/filepath-securejoin v0.3.1 // indirect
+	github.com/cyphar/filepath-securejoin v0.6.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
@@ -144,9 +145,9 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20230203172020-98cc5a0785f9 // indirect
-	golang.org/x/mod v0.22.0 // indirect
+	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
-	golang.org/x/text v0.23.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect

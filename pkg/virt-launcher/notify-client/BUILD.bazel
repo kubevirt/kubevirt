@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/wait:go_default_library",
-        "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/handler-launcher-com:go_default_library",
         "//pkg/handler-launcher-com/notify/info:go_default_library",
         "//pkg/handler-launcher-com/notify/v1:go_default_library",
@@ -19,6 +18,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//pkg/virt-launcher/virtwrap/errors:go_default_library",
+        "//pkg/virt-launcher/virtwrap/storage:go_default_library",
         "//pkg/virt-launcher/virtwrap/util:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",

@@ -1327,7 +1327,15 @@
       }
     },
     "changedBlockTracking": {
-      "state": "stateValue"
+      "state": "stateValue",
+      "backupStatus": {
+        "backupName": "backupNameValue",
+        "startTimestamp": "1986-01-01T01:01:01Z",
+        "endTimestamp": "1988-01-01T01:01:01Z",
+        "completed": true,
+        "backupMsg": "backupMsgValue",
+        "checkpointName": "checkpointNameValue"
+      }
     },
     "instancetypeRef": {
       "name": "nameValue",

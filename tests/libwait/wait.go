@@ -31,6 +31,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -218,14 +219,85 @@ func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance,
 		"The VMI should be gone within the given timeout")
 }
 
-// WaitForMigrationToDisappearWithTimeout blocks for the passed seconds until the specified VirtualMachineInstanceMigration disappears
-func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstanceMigration, seconds int) {
+// WaitForMigrationToDisappearWithTimeout blocks for the passed duration until the specified VirtualMachineInstanceMigration disappears
+func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstanceMigration, timeout time.Duration) error {
 	virtClient, err := kubecli.GetKubevirtClient()
-	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
-	gomega.EventuallyWithOffset(1, func() error {
-		_, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-		return err
-	}, seconds, 1*time.Second).Should(gomega.MatchError(errors.IsNotFound, "k8serrors.IsNotFound"),
-		fmt.Sprintf("migration %s was expected to disappear after %d seconds, but it did not",
-			migration.Name, seconds))
+	if err != nil {
+		return fmt.Errorf("failed to get kubevirt client: %w", err)
+	}
+
+	return waitForObjectToDisappear(
+		migration.Name,
+		timeout,
+		virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get,
+		virtClient.VirtualMachineInstanceMigration(migration.Namespace).Watch,
+	)
+}
+
+// waitForObjectToDisappear is a generic function that waits for any Kubernetes object to disappear using watch
+func waitForObjectToDisappear[T metav1.Object](
+	name string,
+	timeout time.Duration,
+	getFn func(ctx context.Context, name string, opts metav1.GetOptions) (T, error),
+	watchFn func(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error),
+) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	// Set up watch with field selector for the specific object
+	watchOpts := metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("metadata.name=%s", name),
+	}
+
+	w, err := watchFn(ctx, watchOpts)
+	if err != nil {
+		return fmt.Errorf("failed to create watch for %s: %w", name, err)
+	}
+	defer w.Stop()
+
+	// Check if the object already doesn't exist (after watch is established to avoid race)
+	_, err = getFn(ctx, name, metav1.GetOptions{})
+	if errors.IsNotFound(err) {
+		// Object already gone, success
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to check %s existence: %w", name, err)
+	}
+
+	for {
+		select {
+		case event, ok := <-w.ResultChan():
+			if !ok {
+				// Channel closed, check if object still exists
+				_, err := getFn(context.Background(), name, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					return nil // Successfully disappeared
+				}
+				return fmt.Errorf("watch channel closed but %s still exists", name)
+			}
+
+			switch event.Type {
+			case watch.Deleted:
+				// Object was deleted, success!
+				return nil
+			case watch.Error:
+				// Handle watch errors
+				if statusErr, ok := event.Object.(*metav1.Status); ok {
+					const notFoundCode = 404
+					if statusErr.Code == notFoundCode {
+						// Object not found during watch setup, it's already gone
+						return nil
+					}
+				}
+				return fmt.Errorf("watch error for %s: %v", name, event.Object)
+			case watch.Added, watch.Modified, watch.Bookmark:
+				// Explicitly ignore these events, we care about deletion only
+				continue
+			}
+		case <-ctx.Done():
+			// Timeout reached
+			return fmt.Errorf("%s was expected to disappear but it did not", name)
+		}
+	}
 }

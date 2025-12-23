@@ -47,11 +47,13 @@ func CBTState(status *v1.ChangedBlockTrackingStatus) v1.ChangedBlockTrackingStat
 }
 
 func SetCBTState(status **v1.ChangedBlockTrackingStatus, state v1.ChangedBlockTrackingState) {
-	if state == v1.ChangedBlockTrackingUndefined {
-		*status = nil
+	if status == nil {
 		return
 	}
-	*status = &v1.ChangedBlockTrackingStatus{State: state}
+	if *status == nil {
+		*status = &v1.ChangedBlockTrackingStatus{}
+	}
+	(*status).State = state
 }
 
 func CompareCBTState(status *v1.ChangedBlockTrackingStatus, state v1.ChangedBlockTrackingState) bool {
@@ -152,13 +154,12 @@ func SyncVMChangedBlockTrackingState(vm *v1.VirtualMachine, vmi *v1.VirtualMachi
 		return
 	}
 	vmMatchesSelector := vmMatchesChangedBlockTrackingSelectors(vm, clusterConfig, nsStore)
+	if !clusterConfig.IncrementalBackupEnabled() {
+		handleChangedBlockTrackingFGDisabled(vm, vmi, vmMatchesSelector)
+		return
+	}
+
 	if vmMatchesSelector {
-		// If vm matches the labelSelector but IncrementalBackupGate is not enabled
-		// update the status and return
-		if !clusterConfig.IncrementalBackupEnabled() {
-			SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingFGDisabled)
-			return
-		}
 		enableChangedBlockTracking(vm, vmi)
 	} else {
 		disableChangedBlockTracking(vm, vmi)
@@ -256,14 +257,29 @@ func disableChangedBlockTracking(vm *v1.VirtualMachine, vmi *v1.VirtualMachineIn
 	}
 }
 
+func handleChangedBlockTrackingFGDisabled(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, vmMatchesSelector bool) {
+	if vmi == nil || cbtStateDisabled(vmi.Status.ChangedBlockTracking) {
+		if vmMatchesSelector {
+			SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingFGDisabled)
+		} else {
+			vm.Status.ChangedBlockTracking = nil
+		}
+		return
+	}
+
+	// VMI exists with CBT enabled - need to go through restart first
+	if HasCBTStateEnabled(vm.Status.ChangedBlockTracking) {
+		SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingPendingRestart)
+	}
+}
+
 func resetInvalidState(vm *v1.VirtualMachine) {
-	log.Log.Object(vm).Warningf("invalid changedBlockTracking state %s, resetting to undefined", vm.Status.ChangedBlockTracking)
+	log.Log.Object(vm).Warningf("invalid changedBlockTracking state %s, resetting to undefined", vm.Status.ChangedBlockTracking.State)
 	SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingUndefined)
 }
 
 func SetChangedBlockTrackingOnVMI(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig, nsStore cache.Store) {
 	if !clusterConfig.IncrementalBackupEnabled() {
-		SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingUndefined)
 		return
 	}
 
@@ -282,7 +298,7 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 }
 
 func SetChangedBlockTrackingOnVMIFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	if domain == nil || vmi.Status.ChangedBlockTracking == nil {
+	if domain == nil || vmi.Status.ChangedBlockTracking == nil || cbtStateDisabled(vmi.Status.ChangedBlockTracking) {
 		return
 	}
 

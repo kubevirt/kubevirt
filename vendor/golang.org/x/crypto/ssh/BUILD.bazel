@@ -17,6 +17,7 @@ go_library(
         "keys.go",
         "mac.go",
         "messages.go",
+        "mlkem.go",
         "mux.go",
         "server.go",
         "session.go",

@@ -63,7 +63,6 @@ var (
 		componentMetrics,
 		migrationMetrics,
 		perfscaleMetrics,
-		vmiMetrics,
 		vmSnapshotMetrics,
 	}
 

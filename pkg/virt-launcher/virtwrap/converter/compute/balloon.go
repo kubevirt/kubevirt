@@ -23,16 +23,14 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 )
 
 type BalloonDomainConfigurator struct {
-	architecture          string
-	useVirtioTransitional bool
 	useLaunchSecuritySEV  bool
 	useLaunchSecurityPV   bool
 	freePageReporting     bool
 	memBalloonStatsPeriod uint
+	virtioModel           string
 }
 
 type balloonOption func(*BalloonDomainConfigurator)
@@ -56,7 +54,7 @@ func (b BalloonDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 		return nil
 	}
 
-	newBalloon.Model = virtio.InterpretTransitionalModelType(&b.useVirtioTransitional, b.architecture)
+	newBalloon.Model = b.virtioModel
 
 	if b.memBalloonStatsPeriod != 0 {
 		newBalloon.Stats = &api.Stats{Period: b.memBalloonStatsPeriod}
@@ -70,18 +68,6 @@ func (b BalloonDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, dom
 
 	newBalloon.FreePageReporting = boolToOnOff(&b.freePageReporting, false)
 	return nil
-}
-
-func BalloonWithArchitecture(architecture string) balloonOption {
-	return func(b *BalloonDomainConfigurator) {
-		b.architecture = architecture
-	}
-}
-
-func BalloonWithUseVirtioTransitional(useVirtioTranslation bool) balloonOption {
-	return func(b *BalloonDomainConfigurator) {
-		b.useVirtioTransitional = useVirtioTranslation
-	}
 }
 
 func BalloonWithUseLaunchSecuritySEV(useLaunchSecuritySEV bool) balloonOption {
@@ -105,6 +91,12 @@ func BalloonWithFreePageReporting(freePageReporting bool) balloonOption {
 func BalloonWithMemBalloonStatsPeriod(memBalloonStatsPeriod uint) balloonOption {
 	return func(b *BalloonDomainConfigurator) {
 		b.memBalloonStatsPeriod = memBalloonStatsPeriod
+	}
+}
+
+func BalloonWithVirtioModel(virtioModel string) balloonOption {
+	return func(b *BalloonDomainConfigurator) {
+		b.virtioModel = virtioModel
 	}
 }
 

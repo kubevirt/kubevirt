@@ -89,6 +89,7 @@ type EFIConfiguration struct {
 type ConverterContext struct {
 	Architecture                    arch.Converter
 	AllowEmulation                  bool
+	KvmAvailable                    bool
 	Secrets                         map[string]*k8sv1.Secret
 	VirtualMachine                  *v1.VirtualMachineInstance
 	CPUSet                          []int
@@ -980,118 +981,6 @@ func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainD
 	return nil
 }
 
-func convertPanicDevices(panicDevices []v1.PanicDevice) []api.PanicDevice {
-	var domainPanicDevices []api.PanicDevice
-
-	for _, panicDevice := range panicDevices {
-		domainPanicDevices = append(domainPanicDevices, api.PanicDevice{Model: panicDevice.Model})
-	}
-
-	return domainPanicDevices
-}
-
-func convertFeatureState(source *v1.FeatureState) *api.FeatureState {
-	if source != nil {
-		return &api.FeatureState{
-			State: boolToOnOff(source.Enabled, true),
-		}
-	}
-	return nil
-}
-
-func Convert_v1_Features_To_api_Features(source *v1.Features, features *api.Features, c *ConverterContext) error {
-	if source.ACPI.Enabled == nil || *source.ACPI.Enabled {
-		features.ACPI = &api.FeatureEnabled{}
-	}
-	if source.SMM != nil {
-		if source.SMM.Enabled == nil || *source.SMM.Enabled {
-			features.SMM = &api.FeatureEnabled{}
-		}
-	}
-	if source.APIC != nil {
-		if source.APIC.Enabled == nil || *source.APIC.Enabled {
-			features.APIC = &api.FeatureEnabled{}
-		}
-	}
-	if source.Hyperv != nil {
-		features.Hyperv = &api.FeatureHyperv{}
-		err := Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source.Hyperv, features.Hyperv)
-		if err != nil {
-			return nil
-		}
-	} else if source.HypervPassthrough != nil && *source.HypervPassthrough.Enabled {
-		features.Hyperv = &api.FeatureHyperv{
-			Mode: api.HypervModePassthrough,
-		}
-	}
-	if source.KVM != nil {
-		features.KVM = &api.FeatureKVM{
-			Hidden: &api.FeatureState{
-				State: boolToOnOff(&source.KVM.Hidden, false),
-			},
-		}
-	}
-	if source.Pvspinlock != nil {
-		features.PVSpinlock = &api.FeaturePVSpinlock{
-			State: boolToOnOff(source.Pvspinlock.Enabled, true),
-		}
-	}
-
-	if c.UseLaunchSecurityTDX {
-		features.PMU = &api.FeatureState{
-			State: "off",
-		}
-	}
-
-	return nil
-}
-
-func Convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyperv *api.FeatureHyperv) error {
-	if source.Spinlocks != nil {
-		hyperv.Spinlocks = &api.FeatureSpinlocks{
-			State:   boolToOnOff(source.Spinlocks.Enabled, true),
-			Retries: source.Spinlocks.Retries,
-		}
-	}
-	if source.VendorID != nil {
-		hyperv.VendorID = &api.FeatureVendorID{
-			State: boolToOnOff(source.VendorID.Enabled, true),
-			Value: source.VendorID.VendorID,
-		}
-	}
-
-	hyperv.Relaxed = convertFeatureState(source.Relaxed)
-	hyperv.Reset = convertFeatureState(source.Reset)
-	hyperv.Runtime = convertFeatureState(source.Runtime)
-	hyperv.SyNIC = convertFeatureState(source.SyNIC)
-	hyperv.SyNICTimer = convertV1ToAPISyNICTimer(source.SyNICTimer)
-	hyperv.VAPIC = convertFeatureState(source.VAPIC)
-	hyperv.VPIndex = convertFeatureState(source.VPIndex)
-	hyperv.Frequencies = convertFeatureState(source.Frequencies)
-	hyperv.Reenlightenment = convertFeatureState(source.Reenlightenment)
-	hyperv.TLBFlush = convertFeatureState(source.TLBFlush)
-	hyperv.IPI = convertFeatureState(source.IPI)
-	hyperv.EVMCS = convertFeatureState(source.EVMCS)
-	return nil
-}
-
-func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
-	if syNICTimer == nil {
-		return nil
-	}
-
-	result := &api.SyNICTimer{
-		State: boolToOnOff(syNICTimer.Enabled, true),
-	}
-
-	if syNICTimer.Direct != nil {
-		result.Direct = &api.FeatureState{
-			State: boolToOnOff(syNICTimer.Direct.Enabled, true),
-		}
-	}
-	return result
-}
-
 func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 	if domain.Spec.QEMUCmd == nil {
 		domain.Spec.QEMUCmd = &api.Commandline{}
@@ -1141,13 +1030,6 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 		return nil
 	}
 
-	domain.Spec.SysInfo.System = []api.Entry{
-		{
-			Name:  "uuid",
-			Value: string(firmware.UUID),
-		},
-	}
-
 	if vmi.IsBootloaderEFI() {
 		domain.Spec.OS.BootLoader = &api.Loader{
 			Path:     c.EFIConfiguration.EFICode,
@@ -1174,13 +1056,6 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 				UseSerial: "yes",
 			}
 		}
-	}
-
-	if len(firmware.Serial) > 0 {
-		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System, api.Entry{
-			Name:  "serial",
-			Value: firmware.Serial,
-		})
 	}
 
 	if util.HasKernelBootContainerImage(vmi) {
@@ -1410,6 +1285,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	precond.MustNotBeNil(c)
 
 	architecture := c.Architecture.GetArchitecture()
+	virtioModel := virtio.InterpretTransitionalModelType(
+		vmi.Spec.Domain.Devices.UseVirtioTransitional,
+		architecture,
+	)
 
 	builder := NewDomainBuilder(
 		metadata.DomainConfigurator{},
@@ -1417,26 +1296,27 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			network.WithDomainAttachmentByInterfaceName(c.DomainAttachmentByInterfaceName),
 			network.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+			network.WithROMTuningSupport(c.Architecture.IsROMTuningSupported()),
+			network.WithVirtioModel(virtioModel),
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},
+		compute.NewHypervisorDomainConfigurator(c.AllowEmulation, c.KvmAvailable),
 		compute.NewLaunchSecurityDomainConfigurator(architecture),
 		compute.ChannelsDomainConfigurator{},
 		compute.ClockDomainConfigurator{},
 		compute.NewRNGDomainConfigurator(
-			compute.RNGWithArchitecture(architecture),
-			compute.RNGWithUseVirtioTransitional(c.UseVirtioTransitional),
 			compute.RNGWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
+			compute.RNGWithVirtioModel(virtioModel),
 		),
 		compute.NewInputDeviceDomainConfigurator(architecture),
 		compute.NewBalloonDomainConfigurator(
-			compute.BalloonWithArchitecture(architecture),
-			compute.BalloonWithUseVirtioTransitional(c.UseVirtioTransitional),
 			compute.BalloonWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
 			compute.BalloonWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
 			compute.BalloonWithFreePageReporting(c.FreePageReporting),
 			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
+			compute.BalloonWithVirtioModel(virtioModel),
 		),
 		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
 		compute.SoundDomainConfigurator{},
@@ -1446,6 +1326,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			c.SRIOVDevices,
 		),
 		compute.NewWatchdogDomainConfigurator(architecture),
+		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
+		compute.PanicDevicesDomainConfigurator{},
+		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
+		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1468,21 +1352,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		domainVCPUTopologyForHotplug(vmi, domain)
 	}
 
-	kvmPath := "/dev/kvm"
-	if _, err := os.Stat(kvmPath); errors.Is(err, os.ErrNotExist) {
-		if c.AllowEmulation {
-			logger := log.DefaultLogger()
-			logger.Infof("Hardware emulation device '%s' not present. Using software emulation.", kvmPath)
-			domain.Spec.Type = "qemu"
-		} else {
-			return fmt.Errorf("hardware emulation device '%s' not present", kvmPath)
-		}
-	} else if err != nil {
-		return err
-	}
-
-	domain.Spec.SysInfo = &api.SysInfo{}
-
 	err = Convert_v1_Firmware_To_related_apis(vmi, domain, c)
 	if err != nil {
 		return err
@@ -1494,60 +1363,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if c.SMBios != nil {
-		domain.Spec.SysInfo.System = append(domain.Spec.SysInfo.System,
-			api.Entry{
-				Name:  "manufacturer",
-				Value: c.SMBios.Manufacturer,
-			},
-			api.Entry{
-				Name:  "family",
-				Value: c.SMBios.Family,
-			},
-			api.Entry{
-				Name:  "product",
-				Value: c.SMBios.Product,
-			},
-			api.Entry{
-				Name:  "sku",
-				Value: c.SMBios.Sku,
-			},
-			api.Entry{
-				Name:  "version",
-				Value: c.SMBios.Version,
-			},
-		)
-	}
-
 	// Take SMBios values from the VirtualMachineOptions
 	if c.Architecture.IsSMBiosNeeded() {
 		domain.Spec.OS.SMBios = &api.SMBios{
 			Mode: "sysinfo",
-		}
-	}
-
-	if vmi.Spec.Domain.Chassis != nil {
-		domain.Spec.SysInfo.Chassis = []api.Entry{
-			{
-				Name:  "manufacturer",
-				Value: vmi.Spec.Domain.Chassis.Manufacturer,
-			},
-			{
-				Name:  "version",
-				Value: vmi.Spec.Domain.Chassis.Version,
-			},
-			{
-				Name:  "serial",
-				Value: vmi.Spec.Domain.Chassis.Serial,
-			},
-			{
-				Name:  "asset",
-				Value: vmi.Spec.Domain.Chassis.Asset,
-			},
-			{
-				Name:  "sku",
-				Value: vmi.Spec.Domain.Chassis.Sku,
-			},
 		}
 	}
 
@@ -1668,8 +1487,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	// Handle virtioFS
 	domain.Spec.Devices.Filesystems = append(domain.Spec.Devices.Filesystems, convertFileSystems(vmi.Spec.Domain.Devices.Filesystems)...)
 
-	domain.Spec.Devices.PanicDevices = append(domain.Spec.Devices.PanicDevices, convertPanicDevices(vmi.Spec.Domain.Devices.PanicDevices)...)
-
 	err = Convert_v1_Usbredir_To_api_Usbredir(vmi, &domain.Spec.Devices, c)
 	if err != nil {
 		return err
@@ -1705,22 +1522,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		)
 	}
 
-	if vmi.Spec.Domain.Features != nil {
-		domain.Spec.Features = &api.Features{}
-		err := Convert_v1_Features_To_api_Features(vmi.Spec.Domain.Features, domain.Spec.Features, c)
-
-		if c.Architecture.HasVMPort() {
-			domain.Spec.Features.VMPort = &api.FeatureState{State: "off"}
-		}
-
-		if err != nil {
-			return err
-		}
-	}
-
 	if machine := vmi.Spec.Domain.Machine; machine != nil {
 		domain.Spec.OS.Type.Machine = machine.Type
 	}
+
+	setIOThreads(vmi, domain, vcpus)
 
 	if vmi.Spec.Domain.CPU != nil {
 		// Set VM CPU model and vendor
@@ -1787,40 +1593,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			Model:  virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()),
 			Driver: controllerDriver,
 		})
-
-		var serialPort uint = 0
-		var serialType string = "serial"
-		domain.Spec.Devices.Consoles = []api.Console{
-			{
-				Type: "pty",
-				Target: &api.ConsoleTarget{
-					Type: &serialType,
-					Port: &serialPort,
-				},
-			},
-		}
-
-		socketPath := fmt.Sprintf("%s/%s/virt-serial%d", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)
-		domain.Spec.Devices.Serials = []api.Serial{
-			{
-				Type: "unix",
-				Target: &api.SerialTarget{
-					Port: &serialPort,
-				},
-				Source: &api.SerialSource{
-					Mode: "bind",
-					Path: socketPath,
-				},
-			},
-		}
-
-		if c.SerialConsoleLog {
-			domain.Spec.Devices.Serials[0].Log = &api.SerialLog{
-				File:   fmt.Sprintf("%s-log", socketPath),
-				Append: "on",
-			}
-		}
-
 	}
 
 	// Add Ignition Command Line if present
@@ -1860,13 +1632,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	setIOThreads(vmi, domain, vcpus)
-
 	return nil
-}
-
-func boolToOnOff(value *bool, defaultOn bool) string {
-	return boolToString(value, defaultOn, "on", "off")
 }
 
 func boolToYesNo(value *bool, defaultYes bool) string {
@@ -2007,5 +1773,19 @@ func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Do
 	domain.Spec.VCPU = &api.VCPU{
 		Placement: "static",
 		CPUs:      cpuCount,
+	}
+}
+
+func convertCmdv1SMBIOSToComputeSMBIOS(input *cmdv1.SMBios) *compute.SMBIOS {
+	if input == nil {
+		return nil
+	}
+
+	return &compute.SMBIOS{
+		Manufacturer: input.Manufacturer,
+		Product:      input.Product,
+		Version:      input.Version,
+		SKU:          input.Sku,
+		Family:       input.Family,
 	}
 }

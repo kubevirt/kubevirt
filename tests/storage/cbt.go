@@ -82,19 +82,11 @@ var _ = Describe(SIG("CBT", func() {
 		volumeName := vm.Spec.Template.Spec.Volumes[0].Name
 
 		By(fmt.Sprintf("Creating VM %s with CBT label", vm.Name))
-		_, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		vm, err := virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ShouldNot(HaveOccurred())
-		Eventually(func() v1.ChangedBlockTrackingState {
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-			return cbt.CBTState(vm.Status.ChangedBlockTracking)
-		}, 3*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingEnabled))
-
-		Eventually(func() v1.ChangedBlockTrackingState {
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-			return cbt.CBTState(vmi.Status.ChangedBlockTracking)
-		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingEnabled))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
 
 		By("Verify CBT overlay exists")
 		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", volumeName)})
@@ -183,16 +175,9 @@ var _ = Describe(SIG("CBT", func() {
 		err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		Eventually(func() v1.ChangedBlockTrackingState {
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-			return cbt.CBTState(vm.Status.ChangedBlockTracking)
-		}, 3*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingEnabled))
-		Eventually(func() v1.ChangedBlockTrackingState {
-			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-			return cbt.CBTState(vmi.Status.ChangedBlockTracking)
-		}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingEnabled))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
 
 		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", volumeName)})
 		Expect(stdout).To(ContainSubstring(cbt.GetQCOW2OverlayPath(vmi, volumeName)))
@@ -201,7 +186,7 @@ var _ = Describe(SIG("CBT", func() {
 			patch, err := patch.New(patch.WithAdd("/metadata/labels", cbt.CBTLabel)).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
 
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
+			_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 		}),
@@ -315,11 +300,8 @@ var _ = Describe(SIG("CBT", func() {
 		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 		By("Verifying CBT is enabled")
-		Eventually(func() v1.ChangedBlockTrackingState {
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ShouldNot(HaveOccurred())
-			return cbt.CBTState(vm.Status.ChangedBlockTracking)
-		}, 3*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingEnabled))
+
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
 
 		By("Writing data to disk to trigger CBT tracking")
 		writeDataToDisk(vmi)

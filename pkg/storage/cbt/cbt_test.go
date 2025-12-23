@@ -26,9 +26,12 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -308,8 +311,8 @@ var _ = Describe("CBT", func() {
 			},
 				Entry("Initializing if VMI does not exist", false, false, v1.ChangedBlockTrackingInitializing),
 				Entry("PendingRestart if VMI exists and cbtStatus is undefined", true, false, v1.ChangedBlockTrackingPendingRestart),
-				Entry("IncrementalBackupFeatureGateDisabled if FG is disabled VMI does not exist", false, true, v1.ChangedBlockTrackingFGDisabled),
-				Entry("IncrementalBackupFeatureGateDisabled if FG is disabled VMI exist", true, true, v1.ChangedBlockTrackingFGDisabled),
+				Entry("FGDisabled if FG is disabled and VMI does not exist", false, true, v1.ChangedBlockTrackingFGDisabled),
+				Entry("FGDisabled if FG is disabled and VMI exists with no CBT", true, true, v1.ChangedBlockTrackingFGDisabled),
 			)
 
 			It("should set CBT state to enabled if vmi state is enabled", func() {
@@ -340,11 +343,108 @@ var _ = Describe("CBT", func() {
 				cbt.SyncVMChangedBlockTrackingState(vm, vmi, config, nsStore)
 				Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(expectedStatus))
 			},
-				Entry("Initializing  for VM when namespace matches if VMI does not exist", false, false, v1.ChangedBlockTrackingInitializing),
+				Entry("Initializing for VM when namespace matches if VMI does not exist", false, false, v1.ChangedBlockTrackingInitializing),
 				Entry("PendingRestart for VM when namespace matches if VMI exist", true, false, v1.ChangedBlockTrackingPendingRestart),
-				Entry("IncrementalBackupFeatureGateDisabled if FG is disabled VMI does not exist", false, true, v1.ChangedBlockTrackingFGDisabled),
-				Entry("IncrementalBackupFeatureGateDisabled if FG is disabled VMI exist", true, true, v1.ChangedBlockTrackingFGDisabled),
+				Entry("FGDisabled if FG is disabled and VMI does not exist", false, true, v1.ChangedBlockTrackingFGDisabled),
+				Entry("FGDisabled if FG is disabled and VMI exists with no CBT", true, true, v1.ChangedBlockTrackingFGDisabled),
 			)
+		})
+
+		Context("Feature Gate Disabled Transitions", func() {
+			Context("VM matches selector", func() {
+				BeforeEach(setupVMMatchingLabelSelector)
+
+				DescribeTable("should handle FG disabled correctly",
+					func(initialVMState, vmiState v1.ChangedBlockTrackingState, vmiExists bool, expectedVMState v1.ChangedBlockTrackingState) {
+						cbt.SetCBTState(&vm.Status.ChangedBlockTracking, initialVMState)
+						if vmiExists {
+							cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, vmiState)
+						} else {
+							vmi = nil
+						}
+						disableFeatureGate()
+						cbt.SyncVMChangedBlockTrackingState(vm, vmi, config, nsStore)
+						Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(expectedVMState))
+					},
+					// VM is stopped (no VMI) - can mark FGDisabled immediately since no active CBT to clean up
+					Entry("VM had CBT enabled, now stopped -> FGDisabled", v1.ChangedBlockTrackingEnabled, v1.ChangedBlockTrackingUndefined, false, v1.ChangedBlockTrackingFGDisabled),
+					Entry("VM was initializing CBT, now stopped -> FGDisabled", v1.ChangedBlockTrackingInitializing, v1.ChangedBlockTrackingUndefined, false, v1.ChangedBlockTrackingFGDisabled),
+					Entry("VM never had CBT, stopped -> FGDisabled", v1.ChangedBlockTrackingUndefined, v1.ChangedBlockTrackingUndefined, false, v1.ChangedBlockTrackingFGDisabled),
+
+					// VM is running with active CBT - must wait for restart to disable CBT in libvirt
+					Entry("VM and VMI both have CBT active -> PendingRestart", v1.ChangedBlockTrackingEnabled, v1.ChangedBlockTrackingEnabled, true, v1.ChangedBlockTrackingPendingRestart),
+					Entry("VM and VMI both initializing CBT -> PendingRestart", v1.ChangedBlockTrackingInitializing, v1.ChangedBlockTrackingInitializing, true, v1.ChangedBlockTrackingPendingRestart),
+
+					// VM is running but VMI has no active CBT - can mark FGDisabled immediately
+					Entry("VM running but never started CBT -> FGDisabled", v1.ChangedBlockTrackingUndefined, v1.ChangedBlockTrackingUndefined, true, v1.ChangedBlockTrackingFGDisabled),
+				)
+
+				It("should skip processing if already FGDisabled", func() {
+					cbt.SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingFGDisabled)
+					disableFeatureGate()
+					cbt.SyncVMChangedBlockTrackingState(vm, vmi, config, nsStore)
+					Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingFGDisabled))
+				})
+
+				It("should transition from PendingRestart to FGDisabled after VMI is gone", func() {
+					// Simulate: FG disabled while VMI running with CBT
+					cbt.SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+					cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+					disableFeatureGate()
+					cbt.SyncVMChangedBlockTrackingState(vm, vmi, config, nsStore)
+					Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingPendingRestart))
+
+					// Simulate: VMI restarted (no VMI now)
+					cbt.SyncVMChangedBlockTrackingState(vm, nil, config, nsStore)
+					Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingFGDisabled))
+				})
+			})
+
+			Context("VM does not match selector", func() {
+				BeforeEach(setupVMNotMatchingSelector)
+
+				DescribeTable("should handle FG disabled correctly when VM doesn't match selector",
+					func(initialVMState, vmiState v1.ChangedBlockTrackingState, vmiExists bool, expectNil bool) {
+						cbt.SetCBTState(&vm.Status.ChangedBlockTracking, initialVMState)
+						if vmiExists {
+							cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, vmiState)
+						} else {
+							vmi = nil
+						}
+						disableFeatureGate()
+						cbt.SyncVMChangedBlockTrackingState(vm, vmi, config, nsStore)
+						if expectNil {
+							Expect(vm.Status.ChangedBlockTracking).To(BeNil())
+						} else {
+							Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingPendingRestart))
+						}
+					},
+					// No VMI - set to nil
+					Entry("Enabled + no VMI -> nil", v1.ChangedBlockTrackingEnabled, v1.ChangedBlockTrackingUndefined, false, true),
+					Entry("Undefined + no VMI -> nil", v1.ChangedBlockTrackingUndefined, v1.ChangedBlockTrackingUndefined, false, true),
+
+					// VMI exists with CBT enabled - need restart first
+					Entry("Enabled + VMI Enabled -> PendingRestart", v1.ChangedBlockTrackingEnabled, v1.ChangedBlockTrackingEnabled, true, false),
+					Entry("Initializing + VMI Initializing -> PendingRestart", v1.ChangedBlockTrackingInitializing, v1.ChangedBlockTrackingInitializing, true, false),
+
+					// VMI exists but has no CBT - set to nil
+					Entry("Enabled + VMI Undefined -> nil", v1.ChangedBlockTrackingEnabled, v1.ChangedBlockTrackingUndefined, true, true),
+					Entry("Undefined + VMI Undefined -> nil", v1.ChangedBlockTrackingUndefined, v1.ChangedBlockTrackingUndefined, true, true),
+				)
+
+				It("should transition from PendingRestart to nil after VMI is gone", func() {
+					// Simulate: FG disabled while VMI running with CBT
+					cbt.SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+					cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+					disableFeatureGate()
+					cbt.SyncVMChangedBlockTrackingState(vm, vmi, config, nsStore)
+					Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingPendingRestart))
+
+					// Simulate: VMI restarted (no VMI now)
+					cbt.SyncVMChangedBlockTrackingState(vm, nil, config, nsStore)
+					Expect(vm.Status.ChangedBlockTracking).To(BeNil())
+				})
+			})
 		})
 
 		Context("Edge Cases and Error Handling", func() {
@@ -393,31 +493,71 @@ var _ = Describe("CBT", func() {
 	})
 
 	Context("SetChangedBlockTrackingOnVMI", func() {
+		type testCase struct {
+			fgEnabled         bool
+			vmMatchesSelector bool
+			initialVMIState   *v1.ChangedBlockTrackingState
+			initialVMState    *v1.ChangedBlockTrackingState
+			expectedVMIState  v1.ChangedBlockTrackingState
+			expectNil         bool
+		}
+
 		BeforeEach(func() {
 			setupVMNotMatchingSelector()
 		})
-		It("IncrementalBackup featuregate disabled VMI cbt state should be undefined", func() {
-			disableFeatureGate()
-			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
-			vm = libvmi.NewVirtualMachine(vmi, libvmi.WithLabels(cbt.CBTLabel))
-			cbt.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
-			Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingUndefined))
-		})
-		It("VM matches VM Label Selector should set VMI state to Initializing", func() {
-			setupVMMatchingLabelSelector()
-			cbt.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
-			Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingInitializing))
-		})
-		It("VM doesnt match VM Label Selector and VM CBT state exists should set VMI state to Disabled", func() {
-			cbt.SetCBTState(&vm.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
-			cbt.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
-			Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingDisabled))
-		})
 
-		It("VM doesnt match VM Label Selector and VM CBT state doesnt exist shouldn't set VMI CBT state", func() {
-			cbt.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
-			Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingUndefined))
-		})
+		DescribeTable("should handle CBT state based on feature gate and VM selector matching",
+			func(tc testCase) {
+				if tc.vmMatchesSelector {
+					setupVMMatchingLabelSelector()
+				}
+				if tc.initialVMIState != nil {
+					cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, *tc.initialVMIState)
+				}
+				if tc.initialVMState != nil {
+					cbt.SetCBTState(&vm.Status.ChangedBlockTracking, *tc.initialVMState)
+				}
+				if !tc.fgEnabled {
+					disableFeatureGate()
+				}
+
+				cbt.SetChangedBlockTrackingOnVMI(vm, vmi, config, nsStore)
+
+				if tc.expectNil {
+					Expect(vmi.Status.ChangedBlockTracking).To(BeNil())
+				} else {
+					Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(tc.expectedVMIState))
+				}
+			},
+			// Feature gate disabled - VMI status should remain unchanged
+			Entry("FG disabled, VMI has no CBT - status remains nil", testCase{
+				expectNil: true,
+			}),
+			Entry("FG disabled, VMI had CBT enabled - status remains Enabled", testCase{
+				vmMatchesSelector: true,
+				initialVMIState:   pointer.P(v1.ChangedBlockTrackingEnabled),
+				expectedVMIState:  v1.ChangedBlockTrackingEnabled,
+			}),
+			Entry("FG disabled, VMI had CBT initializing - status remains Initializing", testCase{
+				vmMatchesSelector: true,
+				initialVMIState:   pointer.P(v1.ChangedBlockTrackingInitializing),
+				expectedVMIState:  v1.ChangedBlockTrackingInitializing,
+			}),
+			// Feature gate enabled
+			Entry("FG enabled, VM matches selector - VMI state set to Initializing", testCase{
+				fgEnabled:         true,
+				vmMatchesSelector: true,
+				expectedVMIState:  v1.ChangedBlockTrackingInitializing,
+			}),
+			Entry("FG enabled, VM doesn't match, VM has CBT state - VMI state set to Disabled", testCase{
+				fgEnabled:        true,
+				initialVMState:   pointer.P(v1.ChangedBlockTrackingEnabled),
+				expectedVMIState: v1.ChangedBlockTrackingDisabled,
+			}),
+			Entry("FG enabled, VM doesn't match, VM has no CBT state - VMI state Undefined", testCase{
+				fgEnabled: true,
+			}),
+		)
 	})
 
 	Context("IsCBTEligibleVolume", func() {
@@ -507,6 +647,11 @@ var _ = Describe("CBT", func() {
 				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: []api.Disk{diskWithDataStore("pvc1", true)}}}}
 				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
 			}, v1.ChangedBlockTrackingUndefined),
+			Entry("VMI CBT status is disabled", func() {
+				vmi.Status.ChangedBlockTracking.State = v1.ChangedBlockTrackingDisabled
+				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: []api.Disk{diskWithDataStore("pvc1", true)}}}}
+				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+			}, v1.ChangedBlockTrackingDisabled),
 		)
 	})
 })
