@@ -145,7 +145,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 // AdjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside
 // virt-launcher pod on the given VMI according to its spec.
 // Only VMI's with VFIO devices (e.g: SRIOV, GPU), SEV or RealTime workloads require QEMU process MEMLOCK adjustment.
-func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
+func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) error {
 	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
 		return nil
 	}
@@ -161,7 +161,7 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	}
 	qemuProcessID := qemuProcess.Pid()
 	// make the best estimate for memory required by libvirt
-	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
+	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
 	// Add max memory assigned to the VM
 	var vmiBaseMemory *resource.Quantity
 
