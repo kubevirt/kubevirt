@@ -32,7 +32,7 @@ type MemoryConfigurator struct {
 func (r MemoryConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if vmi.Spec.Domain.Memory == nil ||
 		vmi.Spec.Domain.Memory.MaxGuest == nil ||
-		vmi.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.MaxGuest) {
+		(vmi.Spec.Domain.Memory.Guest != nil && vmi.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.MaxGuest)) {
 		var err error
 
 		domain.Spec.Memory, err = vcpu.QuantityToByte(*vcpu.GetVirtualMemory(vmi))
