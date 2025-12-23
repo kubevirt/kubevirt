@@ -32,8 +32,10 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	k8srand "k8s.io/apimachinery/pkg/util/rand"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
@@ -42,6 +44,7 @@ import (
 	kvtesting "kubevirt.io/client-go/testing"
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 )
 
@@ -111,6 +114,10 @@ var _ = Describe("Add volume command", func() {
 	)
 
 	Context("addvolume cmd", func() {
+		defaultNameFunc := func(volumeOptions *v1.AddVolumeOptions) {
+			Expect(volumeOptions.Name).To(Equal(volumeName))
+		}
+
 		expectVMEndpointAddVolumeErrorFunc := func(errFunc func() error, verifyFns ...verifyFn) {
 			kubecli.MockKubevirtClientInstance.
 				EXPECT().
@@ -122,7 +129,6 @@ var _ = Describe("Add volume command", func() {
 				case kvtesting.PutAction[*v1.AddVolumeOptions]:
 					volumeOptions := action.GetOptions()
 					Expect(volumeOptions).ToNot(BeNil())
-					Expect(volumeOptions.Name).To(Equal(volumeName))
 					Expect(volumeOptions.VolumeSource).ToNot(BeNil())
 					for _, verifyFn := range verifyFns {
 						verifyFn(volumeOptions)
@@ -139,11 +145,16 @@ var _ = Describe("Add volume command", func() {
 		}
 
 		expectVMEndpointAddVolume := func(verifyFns ...verifyFn) {
+			verifyFns = append(verifyFns, defaultNameFunc)
 			expectVMEndpointAddVolumeErrorFunc(nil, verifyFns...)
 		}
 
-		runCmd := func(extraArg string) error {
-			args := []string{"addvolume", vmiName, "--volume-name=" + volumeName}
+		runCmd := func(volName *string, extraArg string) error {
+			args := []string{"addvolume", vmiName}
+			if volName == nil {
+				volName = ptr.To(volumeName)
+			}
+			args = append(args, "--volume-name="+*volName)
 			args = append(args, strings.Fields(extraArg)...)
 			cmd := testing.NewRepeatableVirtctlCommand(args...)
 			return cmd()
@@ -166,7 +177,7 @@ var _ = Describe("Add volume command", func() {
 			DescribeTable("should call VM endpoint and", func(arg string, verifyFns ...verifyFn) {
 				verifyFns = append(verifyFns, verifyDVVolumeSource)
 				expectVMEndpointAddVolume(verifyFns...)
-				Expect(runCmd(arg)).To(Succeed())
+				Expect(runCmd(nil, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
@@ -181,8 +192,8 @@ var _ = Describe("Add volume command", func() {
 			)
 
 			It("should fail immediately on non concurrent error", func() {
-				expectVMEndpointAddVolumeErrorFunc(func() error { return fmt.Errorf("fatal error") }, verifyDVVolumeSource)
-				Expect(runCmd("")).To(MatchError(ContainSubstring("fatal error")))
+				expectVMEndpointAddVolumeErrorFunc(func() error { return fmt.Errorf("fatal error") }, defaultNameFunc, verifyDVVolumeSource)
+				Expect(runCmd(nil, "")).To(MatchError(ContainSubstring("fatal error")))
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			})
 
@@ -195,21 +206,21 @@ var _ = Describe("Add volume command", func() {
 					} else {
 						return nil
 					}
-				}, verifyDVVolumeSource)
-				Expect(runCmd("")).To(Succeed())
+				}, defaultNameFunc, verifyDVVolumeSource)
+				Expect(runCmd(nil, "")).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(2))
 			})
 
 			It("should fail after 15 retries", func() {
 				expectVMEndpointAddVolumeErrorFunc(func() error {
 					return errors.New(concurrentErrorAdd)
-				}, verifyDVVolumeSource)
-				Expect(runCmd("")).To(MatchError(ContainSubstring("error adding volume after 15 retries")))
+				}, defaultNameFunc, verifyDVVolumeSource)
+				Expect(runCmd(nil, "")).To(MatchError(ContainSubstring("error adding volume after 15 retries")))
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(15))
 			})
 
 			It("should fail addvolume with LUN and virtio bus", func() {
-				Expect(runCmd("--disk-type=lun --bus=virtio")).To(
+				Expect(runCmd(nil, "--disk-type=lun --bus=virtio")).To(
 					MatchError(ContainSubstring("Invalid bus type 'virtio' for LUN disk. Only 'scsi' bus is supported.")))
 			})
 		})
@@ -232,7 +243,7 @@ var _ = Describe("Add volume command", func() {
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
 				verifyFns = append(verifyFns, verifyPVCVolumeSource)
 				expectVMEndpointAddVolume(verifyFns...)
-				Expect(runCmd(arg)).To(Succeed())
+				Expect(runCmd(nil, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
@@ -245,6 +256,57 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
 				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
 			)
+		})
+
+		Context("add volumes of long names - DV", func() {
+			longVolumeName := k8srand.String(64)
+			BeforeEach(func() {
+				kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
+				_, err := cdiClient.CdiV1beta1().DataVolumes(metav1.NamespaceDefault).Create(
+					context.Background(),
+					&v1beta1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: longVolumeName,
+						},
+					},
+					metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("long name should be shortened", func() {
+				nameFn := func(volumeOptions *v1.AddVolumeOptions) {
+					expectedName := apimachinery.CalculateValidUniqueID(longVolumeName)
+					Expect(volumeOptions.Name).To(Equal(expectedName))
+				}
+				expectVMEndpointAddVolumeErrorFunc(nil, nameFn)
+				Expect(runCmd(&longVolumeName, "")).To(Succeed())
+			})
+		})
+
+		Context("add volumes of long names - PVC", func() {
+			longVolumeName := k8srand.String(64)
+			BeforeEach(func() {
+				kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
+				kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
+				_, err := coreClient.CoreV1().PersistentVolumeClaims(metav1.NamespaceDefault).Create(
+					context.Background(),
+					&k8sv1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: longVolumeName,
+						},
+					},
+					metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("long name should be shortened - "+longVolumeName, func() {
+				nameFn := func(volumeOptions *v1.AddVolumeOptions) {
+					expectedName := apimachinery.CalculateValidUniqueID(longVolumeName)
+					Expect(volumeOptions.Name).To(Equal(expectedName))
+				}
+				expectVMEndpointAddVolumeErrorFunc(nil, nameFn)
+				Expect(runCmd(&longVolumeName, "")).To(Succeed())
+			})
 		})
 	})
 })
