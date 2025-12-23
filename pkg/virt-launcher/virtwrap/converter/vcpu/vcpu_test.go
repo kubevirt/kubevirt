@@ -14,6 +14,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	v12 "kubevirt.io/api/core/v1"
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -355,3 +356,112 @@ func funcName(f interface{}) string {
 	arr := strings.Split(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), ".")
 	return arr[len(arr)-1]
 }
+
+var _ = Describe("AdjustDomainForTopologyAndCPUSet", func() {
+	It("should not panic when MaxSockets is set and domain.Spec.VCPUs is nil", func() {
+		vmi := &v12.VirtualMachineInstance{
+			Spec: v12.VirtualMachineInstanceSpec{
+				Domain: v12.DomainSpec{
+					CPU: &v12.CPU{
+						Cores:                 2,
+						Sockets:               2,
+						MaxSockets:            4,
+						DedicatedCPUPlacement: true,
+					},
+				},
+			},
+		}
+
+		domain := &api.Domain{
+			Spec: api.DomainSpec{
+				CPU: api.CPU{
+					Topology: &api.CPUTopology{
+						Cores:   2,
+						Sockets: 2,
+						Threads: 1,
+					},
+				},
+			},
+		}
+
+		topology := &v1.Topology{
+			NumaCells: []*v1.Cell{
+				{
+					Id: 0,
+					Cpus: []*v1.CPU{
+						{Id: 0, Siblings: []uint32{0, 1}},
+						{Id: 1, Siblings: []uint32{0, 1}},
+						{Id: 2, Siblings: []uint32{2, 3}},
+						{Id: 3, Siblings: []uint32{2, 3}},
+					},
+				},
+			},
+		}
+		cpuset := []int{0, 1, 2, 3}
+
+		// This should not panic
+		err := AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, cpuset, false)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(domain.Spec.CPUTune).ToNot(BeNil())
+		Expect(domain.Spec.CPUTune.VCPUPin).To(HaveLen(4))
+	})
+
+	It("should correctly adjust disabled VCPUs when MaxSockets is set and domain.Spec.VCPUs is not nil", func() {
+		vmi := &v12.VirtualMachineInstance{
+			Spec: v12.VirtualMachineInstanceSpec{
+				Domain: v12.DomainSpec{
+					CPU: &v12.CPU{
+						Cores:                 2,
+						Sockets:               2,
+						MaxSockets:            4,
+						DedicatedCPUPlacement: true,
+					},
+				},
+			},
+		}
+
+		domain := &api.Domain{
+			Spec: api.DomainSpec{
+				CPU: api.CPU{
+					Topology: &api.CPUTopology{
+						Cores:   2,
+						Sockets: 4,
+						Threads: 1,
+					},
+				},
+				VCPUs: &api.VCPUs{
+					VCPU: []api.VCPUsVCPU{
+						{ID: 0, Enabled: "yes"},
+						{ID: 1, Enabled: "yes"},
+						{ID: 2, Enabled: "yes"},
+						{ID: 3, Enabled: "yes"},
+						{ID: 4, Enabled: "no"},
+						{ID: 5, Enabled: "no"},
+						{ID: 6, Enabled: "no"},
+						{ID: 7, Enabled: "no"},
+					},
+				},
+			},
+		}
+
+		topology := &v1.Topology{
+			NumaCells: []*v1.Cell{
+				{
+					Id: 0,
+					Cpus: []*v1.CPU{
+						{Id: 0, Siblings: []uint32{0, 1}},
+						{Id: 1, Siblings: []uint32{0, 1}},
+						{Id: 2, Siblings: []uint32{2, 3}},
+						{Id: 3, Siblings: []uint32{2, 3}},
+					},
+				},
+			},
+		}
+		cpuset := []int{0, 1, 2, 3}
+
+		err := AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, cpuset, false)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(domain.Spec.CPUTune).ToNot(BeNil())
+		Expect(domain.Spec.CPUTune.VCPUPin).To(HaveLen(4))
+	})
+})
