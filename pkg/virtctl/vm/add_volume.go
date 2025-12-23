@@ -34,6 +34,7 @@ import (
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -134,6 +135,9 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
 	}
+
+	volumeName = apimachinery.CalculateValidUniqueID(volumeName)
+
 	hotplugRequest := &v1.AddVolumeOptions{
 		Name: volumeName,
 		Disk: &v1.Disk{
