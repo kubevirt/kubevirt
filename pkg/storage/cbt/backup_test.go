@@ -1489,7 +1489,7 @@ var _ = Describe("Backup Controller", func() {
 				CheckpointName: pointer.P("other-checkpoint"),
 			}
 
-			err := controller.updateSourceBackupInProgress(vmi, backupName)
+			err := controller.updateSourceBackupInProgress(vmi, backupName, metav1.Now())
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("another backup"))
 			Expect(err.Error()).To(ContainSubstring("other-backup"))
@@ -1510,7 +1510,7 @@ var _ = Describe("Backup Controller", func() {
 					return vmi, nil
 				})
 
-			err := controller.updateSourceBackupInProgress(vmi, backupName)
+			err := controller.updateSourceBackupInProgress(vmi, backupName, metav1.Now())
 			Expect(err).ToNot(HaveOccurred())
 			Expect(patched).To(BeTrue())
 		})
@@ -1527,7 +1527,7 @@ var _ = Describe("Backup Controller", func() {
 				Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				Times(0)
 
-			err := controller.updateSourceBackupInProgress(vmi, backupName)
+			err := controller.updateSourceBackupInProgress(vmi, backupName, metav1.Now())
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
