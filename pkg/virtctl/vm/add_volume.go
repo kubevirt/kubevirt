@@ -23,12 +23,14 @@ import (
 	"context"
 	"fmt"
 	"math/rand/v2"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -134,6 +136,9 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	if err != nil {
 		return fmt.Errorf("error adding volume, %v", err)
 	}
+
+	volumeName = CreateDataVolumeName(vmiName, volumeName)
+
 	hotplugRequest := &v1.AddVolumeOptions{
 		Name: volumeName,
 		Disk: &v1.Disk{
@@ -203,4 +208,38 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	}
 	fmt.Printf("Successfully submitted add volume request to VM %s for volume %s\n", vmiName, volumeName)
 	return nil
+}
+
+func GetRandomChars(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[rand.IntN(len(charset))]
+	}
+	return string(b)
+}
+
+// The algorithm is adapted from kubevirt ui
+// https://github.com/kubevirt-ui/kubevirt-plugin/blob/727d1a29cb5e05700f69c9deab236105c334ab02/src/utils/components/DiskModal/utils/helpers.ts#L249
+func CreateDataVolumeName(vmName, originalVolumeName string) string {
+	if len(kvalidation.IsDNS1123Label(originalVolumeName)) == 0 {
+		return originalVolumeName
+	}
+	originalVolumeName = ""
+	if len(kvalidation.IsDNS1123Label(vmName)) > 0 {
+		vmName = ""
+	}
+	middlePart := fmt.Sprintf("%s-%s", vmName, originalVolumeName)
+	if len(middlePart) > 53 {
+		middlePart = middlePart[:53]
+	}
+	if !strings.HasSuffix(middlePart, "-") {
+		middlePart += "-"
+	}
+	// prefix: 2 (dv)
+	// middlePart: max 53
+	// suffix: 6
+	// hyphens: max 2
+	// together: max 63
+	return fmt.Sprintf("dv-%s%s", middlePart, GetRandomChars(6))
 }
