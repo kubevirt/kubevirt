@@ -1239,6 +1239,18 @@ type FeatureVendorID struct {
 	VendorID string `json:"vendorid,omitempty"`
 }
 
+type TLBFlush struct {
+	FeatureState `json:",inline"`
+
+	// Direct allows sending the TLB flush command directly to the hypervisor.
+	// It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+	// +optional
+	Direct *FeatureState `json:"direct,omitempty"`
+	// Extended allows the guest to execute partial TLB flushes. It can be helpful for general purpose workloads.
+	// +optional
+	Extended *FeatureState `json:"extended,omitempty"`
+}
+
 // Hyperv specific features.
 type FeatureHyperv struct {
 	// Relaxed instructs the guest OS to disable watchdog timeouts.
@@ -1287,7 +1299,7 @@ type FeatureHyperv struct {
 	// TLBFlush improves performances in overcommited environments. Requires vpindex.
 	// Defaults to the machine type setting.
 	// +optional
-	TLBFlush *FeatureState `json:"tlbflush,omitempty"`
+	TLBFlush *TLBFlush `json:"tlbflush,omitempty"`
 	// IPI improves performances in overcommited environments. Requires vpindex.
 	// Defaults to the machine type setting.
 	// +optional

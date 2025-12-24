@@ -356,7 +356,7 @@ var _ = Describe("Converter", func() {
 					VendorID:        &v1.FeatureVendorID{Enabled: pointer.P(false), VendorID: "myvendor"},
 					Frequencies:     &v1.FeatureState{Enabled: pointer.P(false)},
 					Reenlightenment: &v1.FeatureState{Enabled: pointer.P(false)},
-					TLBFlush:        &v1.FeatureState{Enabled: pointer.P(true)},
+					TLBFlush:        &v1.TLBFlush{FeatureState: v1.FeatureState{Enabled: pointer.P(true)}},
 					IPI:             &v1.FeatureState{Enabled: pointer.P(true)},
 					EVMCS:           &v1.FeatureState{Enabled: pointer.P(false)},
 				},

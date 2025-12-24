@@ -339,7 +339,7 @@ var _ = Describe("Schema", func() {
 				VendorID:        &v12.FeatureVendorID{Enabled: pointer.BoolPtr(true), VendorID: "vendor"},
 				Frequencies:     &v12.FeatureState{Enabled: pointer.BoolPtr(false)},
 				Reenlightenment: &v12.FeatureState{Enabled: pointer.BoolPtr(false)},
-				TLBFlush:        &v12.FeatureState{Enabled: pointer.BoolPtr(true)},
+				TLBFlush:        &v12.TLBFlush{FeatureState: v12.FeatureState{Enabled: pointer.BoolPtr(true)}},
 			},
 		}
 		exampleVMI.Spec.Domain.Clock = &v12.Clock{
