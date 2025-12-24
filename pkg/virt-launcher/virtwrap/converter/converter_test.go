@@ -2075,6 +2075,19 @@ var _ = Describe("Converter", func() {
 				},
 				VAPIC: &api.FeatureState{State: "on"},
 			}),
+			Entry("Convert TLBFlush with enabled features", &v1.FeatureHyperv{
+				TLBFlush: &v1.TLBFlush{
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
+					Direct:       &v1.FeatureState{Enabled: pointer.P(true)},
+					Extended:     &v1.FeatureState{Enabled: pointer.P(true)},
+				},
+			}, &api.FeatureHyperv{
+				TLBFlush: &api.TLBFlush{
+					State:    "on",
+					Direct:   &api.FeatureState{State: "on"},
+					Extended: &api.FeatureState{State: "on"},
+				},
+			}),
 		)
 
 		It("should convert hyperv passthrough", func() {
