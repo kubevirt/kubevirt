@@ -39,7 +39,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "ballon_test.go",
+        "balloon_test.go",
         "channels_test.go",
         "clock_test.go",
         "compute_suite_test.go",
