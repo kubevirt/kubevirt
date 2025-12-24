@@ -422,7 +422,7 @@ func copyResourceClaims(resources *k8sv1.ResourceRequirements, claims *[]k8sv1.R
 // Note: This is the best estimation we were able to come up with
 //
 //	and is still not 100% accurate
-func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string) resource.Quantity {
+func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string, clusterConfig *virtconfig.ClusterConfig) resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
