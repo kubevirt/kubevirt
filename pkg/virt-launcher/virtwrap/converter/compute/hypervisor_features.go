@@ -126,7 +126,7 @@ func convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 	hyperv.VPIndex = convertFeatureState(source.VPIndex)
 	hyperv.Frequencies = convertFeatureState(source.Frequencies)
 	hyperv.Reenlightenment = convertFeatureState(source.Reenlightenment)
-	hyperv.TLBFlush = convertFeatureState(source.TLBFlush)
+	hyperv.TLBFlush = convertFeatureState(&source.TLBFlush.FeatureState)
 	hyperv.IPI = convertFeatureState(source.IPI)
 	hyperv.EVMCS = convertFeatureState(source.EVMCS)
 	return nil

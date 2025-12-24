@@ -63,7 +63,7 @@ var _ = Describe("Defaults", func() {
 				VendorID:        &v1.FeatureVendorID{},
 				Frequencies:     &v1.FeatureState{},
 				Reenlightenment: &v1.FeatureState{},
-				TLBFlush:        &v1.FeatureState{},
+				TLBFlush:        &v1.TLBFlush{},
 			},
 		}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -110,7 +110,7 @@ var _ = Describe("Defaults", func() {
 				VendorID:        &v1.FeatureVendorID{Enabled: pointer.BoolPtr(true)},
 				Frequencies:     &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
 				Reenlightenment: &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				TLBFlush:        &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				TLBFlush:        &v1.TLBFlush{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(true)}},
 			},
 		}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -150,7 +150,7 @@ var _ = Describe("Defaults", func() {
 				VendorID:        &v1.FeatureVendorID{Enabled: pointer.BoolPtr(false)},
 				Frequencies:     &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
 				Reenlightenment: &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				TLBFlush:        &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				TLBFlush:        &v1.TLBFlush{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(true)}},
 			},
 		}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)

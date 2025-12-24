@@ -74,7 +74,7 @@ var _ = Describe("Preference.Features", func() {
 					},
 					Frequencies:     &virtv1.FeatureState{},
 					Reenlightenment: &virtv1.FeatureState{},
-					TLBFlush:        &virtv1.FeatureState{},
+					TLBFlush:        &virtv1.TLBFlush{},
 					IPI:             &virtv1.FeatureState{},
 					EVMCS:           &virtv1.FeatureState{},
 				},
