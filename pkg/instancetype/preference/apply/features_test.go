@@ -50,27 +50,27 @@ var _ = Describe("Preference.Features", func() {
 			Features: &v1beta1.FeaturePreferences{
 				PreferredAcpi: &virtv1.FeatureState{},
 				PreferredApic: &virtv1.FeatureAPIC{
-					Enabled:        pointer.P(true),
+					FeatureState:   virtv1.FeatureState{Enabled: pointer.P(true)},
 					EndOfInterrupt: false,
 				},
 				PreferredHyperv: &virtv1.FeatureHyperv{
 					Relaxed: &virtv1.FeatureState{},
 					VAPIC:   &virtv1.FeatureState{},
 					Spinlocks: &virtv1.FeatureSpinlocks{
-						Enabled: pointer.P(true),
-						Retries: &spinLockRetries,
+						FeatureState: virtv1.FeatureState{Enabled: pointer.P(true)},
+						Retries:      &spinLockRetries,
 					},
 					VPIndex: &virtv1.FeatureState{},
 					Runtime: &virtv1.FeatureState{},
 					SyNIC:   &virtv1.FeatureState{},
 					SyNICTimer: &virtv1.SyNICTimer{
-						Enabled: pointer.P(true),
-						Direct:  &virtv1.FeatureState{},
+						FeatureState: virtv1.FeatureState{Enabled: pointer.P(true)},
+						Direct:       &virtv1.FeatureState{},
 					},
 					Reset: &virtv1.FeatureState{},
 					VendorID: &virtv1.FeatureVendorID{
-						Enabled:  pointer.P(true),
-						VendorID: "1234",
+						FeatureState: virtv1.FeatureState{Enabled: pointer.P(true)},
+						VendorID:     "1234",
 					},
 					Frequencies:     &virtv1.FeatureState{},
 					Reenlightenment: &virtv1.FeatureState{},

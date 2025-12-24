@@ -4127,7 +4127,7 @@ var _ = Describe("additional tests", func() {
 					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.P(true),
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 				},
 			},
 		}
@@ -4150,7 +4150,7 @@ var _ = Describe("additional tests", func() {
 					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.P(true),
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 				},
 			},
 		}
