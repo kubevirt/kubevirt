@@ -71,7 +71,6 @@ import (
 const (
 	deviceTypeNotCompatibleFmt = "device %s is of type lun. Not compatible with a file based disk"
 	defaultIOThread            = uint(1)
-	bootMenuTimeoutMS          = uint(10000)
 	QEMUSeaBiosDebugPipe       = "/var/run/kubevirt-private/QEMUSeaBiosDebugPipe"
 )
 
