@@ -20,19 +20,14 @@
 package compute_test
 
 import (
-	"runtime"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	kvapi "kubevirt.io/client-go/api"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
-	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvapi "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -103,10 +98,7 @@ var _ = Describe("Balloon Domain Configurator", func() {
 	})
 
 	Context("with memballoon device", func() {
-		var (
-			vmi *v1.VirtualMachineInstance
-			c   *converter.ConverterContext
-		)
+		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
 			vmi = kvapi.NewMinimalVMI("testvmi")
@@ -114,12 +106,13 @@ var _ = Describe("Balloon Domain Configurator", func() {
 		})
 
 		DescribeTable("should set freePageReporting attribute of memballooning device, accordingly to the context value", func(freePageReporting bool, expectedValue string) {
-			c = &converter.ConverterContext{
-				Architecture:      archconverter.NewConverter(runtime.GOARCH),
-				FreePageReporting: freePageReporting,
-				AllowEmulation:    true,
-			}
-			domain := vmiToDomain(vmi, c)
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithVirtioModel("virtio-non-transitional"),
+				compute.BalloonWithFreePageReporting(freePageReporting),
+			)
+
+			var domain api.Domain
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain).ToNot(BeNil())
 
 			Expect(domain.Spec.Devices).ToNot(BeNil())
@@ -132,12 +125,14 @@ var _ = Describe("Balloon Domain Configurator", func() {
 
 		DescribeTable("should unconditionally set Ballooning device", func(isAutoattachMemballoon *bool) {
 			vmi.Spec.Domain.Devices.AutoattachMemBalloon = isAutoattachMemballoon
-			c = &converter.ConverterContext{
-				Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				AllowEmulation: true,
-			}
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithVirtioModel("virtio-non-transitional"),
+			)
 
-			domain := vmiToDomain(vmi, c)
+			var domain api.Domain
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain).ToNot(BeNil())
+
 			Expect(domain).ToNot(BeNil())
 			Expect(domain.Spec.Devices).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil(), "Ballooning device should be unconditionally present in domain")
@@ -147,10 +142,3 @@ var _ = Describe("Balloon Domain Configurator", func() {
 		)
 	})
 })
-
-func vmiToDomain(vmi *v1.VirtualMachineInstance, c *converter.ConverterContext) *api.Domain {
-	domain := &api.Domain{}
-	ExpectWithOffset(1, converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
-	api.NewDefaulter(c.Architecture.GetArchitecture()).SetObjectDefaults_Domain(domain)
-	return domain
-}
