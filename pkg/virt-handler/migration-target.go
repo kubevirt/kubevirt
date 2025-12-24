@@ -918,7 +918,7 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 	}
 
 	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
-	requiredMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
+	requiredMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio, c.clusterConfig)
 	requiredMemory.Add(
 		c.netBindingPluginMemoryCalculator.Calculate(vmi, c.clusterConfig.GetNetworkBindings()),
 	)

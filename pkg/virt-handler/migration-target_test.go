@@ -361,7 +361,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			GuestRequested: &initialMemory,
 		}
 
-		targetPodMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+		targetPodMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil, nil)
 		targetPodMemory.Add(requestedMemory)
 		vmi.Labels = map[string]string{
 			v1.VirtualMachinePodMemoryRequestsLabel: targetPodMemory.String(),
@@ -435,7 +435,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		}
 		vmi.Spec.Architecture = "amd64"
 
-		targetPodMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+		targetPodMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil, nil)
 		targetPodMemory.Add(requestedMemory)
 		vmi.Labels = map[string]string{
 			v1.VirtualMachinePodMemoryRequestsLabel: targetPodMemory.String(),
