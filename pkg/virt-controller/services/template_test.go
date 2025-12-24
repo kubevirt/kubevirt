@@ -1466,7 +1466,7 @@ var _ = Describe("Template", func() {
 										Enabled: pointer.P(true),
 									},
 									SyNICTimer: &v1.SyNICTimer{
-										Enabled: pointer.P(true),
+										FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 									},
 									Frequencies: &v1.FeatureState{
 										Enabled: pointer.P(true),
@@ -1527,8 +1527,8 @@ var _ = Describe("Template", func() {
 										Enabled: &enabled,
 									},
 									Spinlocks: &v1.FeatureSpinlocks{
-										Enabled: &enabled,
-										Retries: &retries,
+										FeatureState: v1.FeatureState{Enabled: &enabled},
+										Retries:      &retries,
 									},
 								},
 							},

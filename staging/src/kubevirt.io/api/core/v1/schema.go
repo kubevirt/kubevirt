@@ -1194,8 +1194,10 @@ type Features struct {
 }
 
 type SyNICTimer struct {
-	Enabled *bool         `json:"enabled,omitempty"`
-	Direct  *FeatureState `json:"direct,omitempty"`
+	FeatureState `json:",inline"`
+
+	// +optional
+	Direct *FeatureState `json:"direct,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.
@@ -1207,10 +1209,8 @@ type FeatureState struct {
 }
 
 type FeatureAPIC struct {
-	// Enabled determines if the feature should be enabled or disabled on the guest.
-	// Defaults to true.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	FeatureState `json:",inline"`
+
 	// EndOfInterrupt enables the end of interrupt notification in the guest.
 	// Defaults to false.
 	// +optional
@@ -1218,10 +1218,8 @@ type FeatureAPIC struct {
 }
 
 type FeatureSpinlocks struct {
-	// Enabled determines if the feature should be enabled or disabled on the guest.
-	// Defaults to true.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	FeatureState `json:",inline"`
+
 	// Retries indicates the number of retries.
 	// Must be a value greater or equal 4096.
 	// Defaults to 4096.
@@ -1230,10 +1228,8 @@ type FeatureSpinlocks struct {
 }
 
 type FeatureVendorID struct {
-	// Enabled determines if the feature should be enabled or disabled on the guest.
-	// Defaults to true.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	FeatureState `json:",inline"`
+
 	// VendorID sets the hypervisor vendor id, visible to the vmi.
 	// String up to twelve characters.
 	VendorID string `json:"vendorid,omitempty"`
