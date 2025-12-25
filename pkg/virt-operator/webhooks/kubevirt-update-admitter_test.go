@@ -339,4 +339,65 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("should not warn when archConfig is not set for ppc64le", false, &v1.ArchConfiguration{}),
 		)
 	})
+
+	DescribeTable("Feature Gate Validation", func(enabledGates, disabledGates []string, expectedConflictingGates ...string) {
+		var devConfig *v1.DeveloperConfiguration
+		if enabledGates != nil || disabledGates != nil {
+			devConfig = &v1.DeveloperConfiguration{
+				FeatureGates:         enabledGates,
+				DisabledFeatureGates: disabledGates,
+			}
+		}
+
+		causes := validateFeatureGates(devConfig)
+		Expect(causes).To(HaveLen(len(expectedConflictingGates)))
+
+		for _, gate := range expectedConflictingGates {
+			found := false
+			expectedMessage := fmt.Sprintf(`feature gate "%s" exists on both "FeatureGates" and "DisabledFeatureGates"`, gate)
+			for _, cause := range causes {
+				if cause.Message == expectedMessage {
+					found = true
+					Expect(cause.Type).To(Equal(metav1.CauseTypeForbidden))
+					Expect(cause.Field).To(Equal(field.NewPath("spec", "configuration", "developerConfiguration", "featureGates").String()))
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "Expected to find conflict for gate: %s", gate)
+		}
+	},
+		Entry("no conflict - both lists empty",
+			[]string{},
+			[]string{}),
+
+		Entry("no conflict - only enabled gates",
+			[]string{"Gate1", "Gate2"},
+			[]string{}),
+
+		Entry("no conflict - only disabled gates",
+			[]string{},
+			[]string{"Gate1", "Gate2"}),
+
+		Entry("no conflict - different gates",
+			[]string{"EnabledGate1", "EnabledGate2"},
+			[]string{"DisabledGate1", "DisabledGate2"}),
+
+		Entry("no conflict - nil DeveloperConfiguration",
+			nil, nil),
+
+		Entry("single conflict - same gate in both lists",
+			[]string{"ConflictGate", "ValidGate1"},
+			[]string{"ConflictGate", "ValidGate2"},
+			"ConflictGate"),
+
+		Entry("multiple conflicts",
+			[]string{"Conflict1", "Conflict2", "ValidGate"},
+			[]string{"Conflict1", "Conflict2", "AnotherValid"},
+			"Conflict1", "Conflict2"),
+
+		Entry("all gates conflict",
+			[]string{"Gate1", "Gate2", "Gate3"},
+			[]string{"Gate1", "Gate2", "Gate3"},
+			"Gate1", "Gate2", "Gate3"),
+	)
 })
