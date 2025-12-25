@@ -25,6 +25,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -335,12 +336,12 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 	return configMap, nil
 }
 
-func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorutil.KubeVirtDeploymentConfig) (namespace string, err error) {
-	for _, ns := range config.GetPotentialMonitorNamespaces() {
+func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, potentionalMonitorNamespaces []string, monitorServiceAccount string) (namespace string, err error) {
+	for _, ns := range potentionalMonitorNamespaces {
 		if nsExists, err := isNamespaceExist(clientset, ns); nsExists {
 			// the monitoring service account must be in the monitoring namespace otherwise
 			// we won't be able to create roleBinding for prometheus operator pods
-			if saExists, err := isServiceAccountExist(clientset, ns, config.GetMonitorServiceAccountName()); saExists {
+			if saExists, err := isServiceAccountExist(clientset, ns, monitorServiceAccount); saExists {
 				return ns, nil
 			} else if err != nil {
 				return "", err
@@ -352,13 +353,30 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 	return "", nil
 }
 
+func GetConfigFromEnv() (*operatorutil.KubeVirtDeploymentConfig, error) {
+	return getConfigFromEnvWithEnvVarManager(operatorutil.EnvVarManagerImpl{})
+}
+
+func getConfigFromEnvWithEnvVarManager(envVarManager operatorutil.EnvVarManager) (*operatorutil.KubeVirtDeploymentConfig, error) {
+	// first check if we have the new deployment config json
+	c := envVarManager.Getenv(operatorutil.TargetDeploymentConfig)
+	if c != "" {
+		config := &operatorutil.KubeVirtDeploymentConfig{}
+		if err := json.Unmarshal([]byte(c), config); err != nil {
+			return nil, err
+		}
+		return config, nil
+	}
+	return nil, fmt.Errorf("no config provided")
+}
+
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
-	config, err := operatorutil.GetConfigFromEnv()
+	config, err := GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
 
-	monitorNamespace, err := getMonitorNamespace(clientset.CoreV1(), config)
+	monitorNamespace, err := getMonitorNamespace(clientset.CoreV1(), config.GetPotentialMonitorNamespaces(), config.GetMonitorServiceAccountName())
 	if err != nil {
 		return err
 	}
@@ -567,21 +585,26 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewOperatorWebhookService(operatorNamespace))
 	strategy.services = append(strategy.services, components.NewExportProxyService(config.GetNamespace()))
-	apiDeployment := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, productComponent, config.VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	apiDeployment := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, productComponent, config.GetComponentImages().VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	controller := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(),
+		config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(),
+		config.GetExportServerVersion(), config.GetSidecarShimVersion(),
+		productName, productVersion, productComponent, config.GetComponentImages().VirtControllerImage,
+		config.GetComponentImages().VirtLauncherImage, config.GetComponentImages().VirtExportServerImage,
+		config.GetComponentImages().SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 	strategy.deployments = append(strategy.deployments, controller)
 
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
 
-	exportProxyDeployment := components.NewExportProxyDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), productName, productVersion, productComponent, config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	exportProxyDeployment := components.NewExportProxyDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), productName, productVersion, productComponent, config.GetComponentImages().VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
 	strategy.deployments = append(strategy.deployments, exportProxyDeployment)
 
-	synchronizationControllerDeployment := components.NewSynchronizationControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetSynchronizationControllerVersion(), productName, productVersion, productComponent, config.VirtSynchronizationControllerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetSynchronizationPort(), config.GetVerbosity(), config.GetExtraEnv())
+	synchronizationControllerDeployment := components.NewSynchronizationControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetSynchronizationControllerVersion(), productName, productVersion, productComponent, config.GetComponentImages().VirtSynchronizationControllerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetSynchronizationPort(), config.GetVerbosity(), config.GetExtraEnv())
 	strategy.deployments = append(strategy.deployments, synchronizationControllerDeployment)
 
-	handler := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
+	handler := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.GetComponentImages().VirtHandlerImage, config.GetComponentImages().VirtLauncherImage, config.GetComponentImages().PrHelperImage, config.GetComponentImages().SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
 
 	strategy.daemonSets = append(strategy.daemonSets, handler)
 	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)

@@ -67,11 +67,11 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 }
 
 func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool) *appsv1.DaemonSet {
-
-	deploymentName := VirtHandlerName
-	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
+	if image == "" {
+		image = fmt.Sprintf("%s/%s%s", repository, fmt.Sprintf("%s%s", imagePrefix, VirtHandlerName), AddVersionSeparatorPrefix(version))
+	}
 	env := operatorutil.NewEnvVarMap(extraEnv)
-	podTemplateSpec := newPodTemplateSpec(deploymentName, imageName, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, nil, env)
+	podTemplateSpec := newPodTemplateSpec(VirtHandlerName, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, nil, env)
 
 	if launcherImage == "" {
 		launcherImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", AddVersionSeparatorPrefix(launcherVersion))
