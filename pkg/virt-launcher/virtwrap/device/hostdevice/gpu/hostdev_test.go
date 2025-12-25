@@ -28,6 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 )
 
@@ -186,6 +187,26 @@ var _ = Describe("GPU HostDevice", func() {
 		Expect(gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)).
 			To(Equal([]api.HostDevice{expectHostDevice1}))
 	})
+	It("creates MDEV with invalid name", func() {
+		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{DeviceName: gpuResource0, Name: gpuInvalidAliasName},
+		}
+		pciPool := newAddressPoolStub()
+		pciPool.AddResource(gpuResource0, gpuPCIAddress0)
+		mdevPool := newAddressPoolStub()
+
+		hostPCIAddress := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		expectHostDevice0 := api.HostDevice{
+			Alias:   api.NewUserDefinedAlias(gpu.AliasPrefix + hostdevice.GenerateEncodedAliasIfNeeded(gpuInvalidAliasName)),
+			Source:  api.HostDeviceSource{Address: &hostPCIAddress},
+			Type:    api.HostDevicePCI,
+			Managed: "no",
+		}
+
+		Expect(gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)).
+			To(Equal([]api.HostDevice{expectHostDevice0}))
+	})
+
 })
 
 type stubAddressPool struct {
