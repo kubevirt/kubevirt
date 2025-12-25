@@ -137,7 +137,7 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMI to disappear")
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240*time.Second)).To(Succeed())
 		})
 
 		It("Migration of vmi to memory overcommited node", func() {
@@ -204,8 +204,8 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			Expect(virtClient.VirtualMachineInstance(vmiToMigrate.Namespace).Delete(context.Background(), vmiToMigrate.Name, metav1.DeleteOptions{})).To(Succeed())
 
 			By("Waiting for VMIs to disappear")
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToFillTargetNodeMem, 240)
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToMigrate, 240)
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToFillTargetNodeMem, 240*time.Second)).To(Succeed())
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiToMigrate, 240*time.Second)).To(Succeed())
 		})
 
 	})
