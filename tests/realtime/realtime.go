@@ -116,7 +116,7 @@ var _ = Describe("[sig-compute-realtime]Realtime", Serial, decorators.SigCompute
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Status.Phase).To(Equal(v1.Running))
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			Expect(console.LoginToFedoraWaitAgent(vmi)).To(Succeed())
 		})
 
 		It("when realtime mask is specified", func() {
@@ -153,7 +153,7 @@ var _ = Describe("[sig-compute-realtime]Realtime", Serial, decorators.SigCompute
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vmi.Status.Phase).To(Equal(v1.Running))
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			Expect(console.LoginToFedoraWaitAgent(vmi)).To(Succeed())
 		})
 	})
 })

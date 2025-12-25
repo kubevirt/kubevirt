@@ -20,25 +20,21 @@
 package tests_test
 
 import (
-	"context"
 	"fmt"
 
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"kubevirt.io/kubevirt/tests/testsuite"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -74,12 +70,8 @@ var _ = Describe("[sig-compute]MultiQueue", decorators.SigCompute, func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = interfaceModel
 
 			By("Creating and starting the VMI")
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Checking if we can login")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Checking QueueCount has the expected value")
 			Expect(vmi.Status.Interfaces[0].QueueCount).To(Equal(expectedQueueCount))

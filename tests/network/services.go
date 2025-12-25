@@ -150,10 +150,8 @@ var _ = Describe(SIG("Services", func() {
 				libvmi.WithHostname("inbound"),
 			)
 			var err error
-			inboundVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), inboundVMI, metav1.CreateOptions{})
+			inboundVMI, err = libwait.CreateVMIAndWaitForLogin(inboundVMI, console.LoginToFedoraWaitAgent)
 			Expect(err).ToNot(HaveOccurred())
-
-			inboundVMI = libwait.WaitUntilVMIReady(inboundVMI, console.LoginToFedora)
 			vmnetserver.StartTCPServer(inboundVMI, servicePort, console.LoginToFedora)
 		})
 

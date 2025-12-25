@@ -5,7 +5,10 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/onsi/gomega"
+
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -18,8 +21,10 @@ import (
 )
 
 const (
-	connectionTimeout = 10 * time.Second
-	promptTimeout     = 5 * time.Second
+	connectionTimeout   = 10 * time.Second
+	promptTimeout       = 5 * time.Second
+	agentConnectTimeout = 12 * time.Minute
+	agentConnectPolling = 2 * time.Second
 )
 
 // LoginToFunction represents any of the LoginTo* functions
@@ -120,6 +125,14 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 		return err
 	}
 	return err
+}
+
+// LoginToFedoraWaitAgent waits for the guest agent to connect
+// and then performs a console login to a Fedora base VM
+func LoginToFedoraWaitAgent(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
+	gomega.Eventually(matcher.ThisVMI(vmi), agentConnectTimeout, agentConnectPolling).Should(
+		matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+	return LoginToFedora(vmi, timeout...)
 }
 
 // LoginToFedora performs a console login to a Fedora base VM
