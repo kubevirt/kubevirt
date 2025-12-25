@@ -38,6 +38,7 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -57,6 +58,7 @@ const (
 	PrHelperImageEnvName                      = "PR_HELPER_IMAGE"
 	SidecarShimImageEnvName                   = "SIDECAR_SHIM_IMAGE"
 	RunbookURLTemplate                        = "RUNBOOK_URL_TEMPLATE"
+	KubeletRootDirEnvName                     = "KUBELET_ROOT_DIR"
 
 	KubeVirtVersionEnvName = "KUBEVIRT_VERSION"
 	// Deprecated, use TargetDeploymentConfig instead
@@ -330,6 +332,12 @@ func getConfig(providedRegistry, providedTag, namespace string, additionalProper
 	GsImage := envVarManager.Getenv(GsImageEnvName)
 	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 	SidecarShimImage := envVarManager.Getenv(SidecarShimImageEnvName)
+
+	// Read kubelet root directory from environment variable
+	kubeletRootDir := envVarManager.Getenv(KubeletRootDirEnvName)
+	if kubeletRootDir != "" {
+		additionalProperties["KubeletRootDir"] = kubeletRootDir
+	}
 
 	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv)
 }
@@ -608,6 +616,14 @@ func (c *KubeVirtDeploymentConfig) GetProductVersion() string {
 		return c.GetKubeVirtVersion()
 	}
 	return productVersion
+}
+
+func (c *KubeVirtDeploymentConfig) GetKubeletRootDir() string {
+	kubeletRootDir, ok := c.AdditionalProperties["KubeletRootDir"]
+	if !ok || kubeletRootDir == "" {
+		return util.KubeletRoot
+	}
+	return kubeletRootDir
 }
 
 func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {

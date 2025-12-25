@@ -3549,7 +3549,8 @@ func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeplo
 		nil,
 		config.GetVerbosity(),
 		config.GetExtraEnv(),
-		false)
+		false,
+		config.GetKubeletRootDir())
 }
 
 func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {

@@ -28,16 +28,72 @@ import (
 )
 
 func TestMarshallObject(t *testing.T) {
-	var imagePullSecret []v1.LocalObjectReference
-	handler := components.NewHandlerDaemonSet("{{.Namespace}}", "", "{{.DockerPrefix}}", "{{.DockerTag}}", "", "", "", "", "", "", "", "", "", "", v1.PullIfNotPresent, imagePullSecret, nil, "2", nil, false)
-	writer := strings.Builder{}
+	imagePullSecret := []v1.LocalObjectReference{}
 
-	MarshallObject(handler, &writer)
-
-	result := writer.String()
-
-	if !strings.Contains(result, "namespace: {{.Namespace}}") {
-		t.Fail()
+	tests := []struct {
+		name        string
+		kubeletRoot string
+	}{
+		{
+			name:        "default kubelet root",
+			kubeletRoot: "/var/lib/kubelet",
+		},
+		{
+			name:        "non-default kubelet root",
+			kubeletRoot: "/var/lib/rancher/k3s/agent/kubelet",
+		},
 	}
 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := components.NewHandlerDaemonSet(
+				"{{.Namespace}}",
+				"",
+				"{{.DockerPrefix}}",
+				"{{.DockerTag}}",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				"",
+				v1.PullIfNotPresent,
+				imagePullSecret,
+				nil,
+				"2",
+				nil,
+				false,
+				tt.kubeletRoot,
+			)
+
+			var writer strings.Builder
+			MarshallObject(handler, &writer)
+			rendered := writer.String()
+
+			if !strings.Contains(rendered, "namespace: {{.Namespace}}") {
+				t.Errorf("expected rendered manifest to contain namespace placeholder")
+			}
+
+			// Check for kubelet-root flag and value as separate list items
+			if !strings.Contains(rendered, "- --kubelet-root") {
+				t.Errorf("expected rendered manifest to contain '- --kubelet-root', got:\n%s", rendered)
+			}
+			if !strings.Contains(rendered, "- "+tt.kubeletRoot) {
+				t.Errorf("expected rendered manifest to contain '- %s', got:\n%s", tt.kubeletRoot, rendered)
+			}
+
+			// Check for kubelet-pods-dir flag and value as separate list items
+			if !strings.Contains(rendered, "- --kubelet-pods-dir") {
+				t.Errorf("expected rendered manifest to contain '- --kubelet-pods-dir', got:\n%s", rendered)
+			}
+			expectedPodsPath := tt.kubeletRoot + "/pods"
+			if !strings.Contains(rendered, "- "+expectedPodsPath) {
+				t.Errorf("expected rendered manifest to contain '- %s', got:\n%s", expectedPodsPath, rendered)
+			}
+		})
+	}
 }
