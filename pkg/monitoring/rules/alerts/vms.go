@@ -19,11 +19,20 @@
 package alerts
 
 import (
+	"fmt"
+
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 )
+
+// excludedFilesystemTypesRegex contains filesystem types that should be ignored by space-usage alerts.
+// Rationale:
+// - Read-only image filesystems often appear 100% used and are not actionable for capacity (iso9660/CDFS, udf, squashfs, cramfs).
+// - Pseudo/kernel/ephemeral filesystems are not meaningful indicators of guest disk pressure (e.g., tmpfs, proc, sysfs, cgroup*, overlay, fuse.*).
+// Keep this list aligned with common node_exporter exclusions to minimize noise in alerts.
+const excludedFilesystemTypesRegex = "CDFS|iso9660|udf|squashfs|cramfs|tmpfs|devtmpfs|proc|sysfs|selinuxfs|securityfs|pstore|debugfs|tracefs|configfs|binfmt_misc|bpf|devpts|mqueue|nsfs|rpc_pipefs|ramfs|rootfs|overlay|cgroup.*|fuse\\\\..*|fusectl"
 
 var (
 	fiftyMB = resource.MustParse("50Mi")
@@ -130,7 +139,7 @@ var (
 		},
 		{
 			Alert: "GuestFilesystemAlmostOutOfSpace",
-			Expr:  intstr.FromString("(kubevirt_vmi_filesystem_used_bytes / kubevirt_vmi_filesystem_capacity_bytes)*100 >= 85 < 95"),
+			Expr:  intstr.FromString(fmt.Sprintf("(kubevirt_vmi_filesystem_used_bytes{file_system_type!~'%s',mount_point!='System Reserved'} / kubevirt_vmi_filesystem_capacity_bytes{file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 85 < 95", excludedFilesystemTypesRegex, excludedFilesystemTypesRegex)),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary":     "Guest filesystem is running out of space",
@@ -143,7 +152,7 @@ var (
 		},
 		{
 			Alert: "GuestFilesystemAlmostOutOfSpace",
-			Expr:  intstr.FromString("(kubevirt_vmi_filesystem_used_bytes / kubevirt_vmi_filesystem_capacity_bytes)*100 >= 95"),
+			Expr:  intstr.FromString(fmt.Sprintf("(kubevirt_vmi_filesystem_used_bytes{file_system_type!~'%s',mount_point!='System Reserved'} / kubevirt_vmi_filesystem_capacity_bytes{file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 95", excludedFilesystemTypesRegex, excludedFilesystemTypesRegex)),
 			Annotations: map[string]string{
 				"summary":     "Guest filesystem is critically low on space",
 				"description": "VirtualMachineInstance {{ $labels.name }} in namespace {{ $labels.namespace }} has filesystem {{ $labels.disk_name }} ({{ $labels.mount_point }}) usage above 95% (current: {{ $value }}%).",
