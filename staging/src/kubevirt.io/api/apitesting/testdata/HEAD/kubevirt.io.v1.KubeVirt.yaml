@@ -46,6 +46,7 @@ spec:
         renewBefore: 1ns
   configuration:
     additionalGuestMemoryOverheadRatio: additionalGuestMemoryOverheadRatioValue
+    aggregateToDefaultRoles: true
     apiConfiguration:
       restClient:
         rateLimiter:

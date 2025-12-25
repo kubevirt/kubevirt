@@ -291,6 +291,9 @@ var _ = Describe("RBAC test", func() {
 
 			if changeExisting {
 				assignRulesToRoles(newFakePolicyRules("policy2"), required)
+				// Inject metadata since createOrUpdateClusterRole now uses DeepCopy
+				// and doesn't modify the original object
+				injectOperatorMetadata(kv, getRbacMetaObject(required), version, imageRegistry, id, true)
 				expectRbacUpdate(required)
 			}
 
@@ -354,6 +357,115 @@ var _ = Describe("RBAC test", func() {
 			Entry("RoleBindings", roleBindingType),
 			Entry("ClusterRoleBinding", clusterRoleBindingType),
 		)
+
+		Context("AggregateToDefaultRoles configuration", func() {
+			newClusterRoleWithAggregateLabels := func() *rbacv1.ClusterRole {
+				return &rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-cluster-role",
+						Labels: map[string]string{
+							"rbac.authorization.k8s.io/aggregate-to-admin": "true",
+							"rbac.authorization.k8s.io/aggregate-to-edit":  "true",
+							"rbac.authorization.k8s.io/aggregate-to-view":  "true",
+						},
+					},
+					Rules: newFakePolicyRules("test"),
+				}
+			}
+
+			It("should keep aggregate labels when AggregateToDefaultRoles is nil", func() {
+				cr := newClusterRoleWithAggregateLabels()
+				reconciler.kv.Spec.Configuration.AggregateToDefaultRoles = nil
+
+				rbacClient.Fake.PrependReactor("create", clusterRoleType, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					create := action.(testing.CreateAction)
+					createdCR := create.GetObject().(*rbacv1.ClusterRole)
+					Expect(createdCR.Labels).To(HaveKey("rbac.authorization.k8s.io/aggregate-to-admin"))
+					Expect(createdCR.Labels).To(HaveKey("rbac.authorization.k8s.io/aggregate-to-edit"))
+					Expect(createdCR.Labels).To(HaveKey("rbac.authorization.k8s.io/aggregate-to-view"))
+					return true, createdCR, nil
+				})
+
+				err := reconciler.createOrUpdateClusterRole(cr, version, imageRegistry, id)
+				Expect(err).ShouldNot(HaveOccurred())
+			})
+
+			It("should keep aggregate labels when AggregateToDefaultRoles is true", func() {
+				cr := newClusterRoleWithAggregateLabels()
+				aggregateTrue := true
+				reconciler.kv.Spec.Configuration.AggregateToDefaultRoles = &aggregateTrue
+
+				rbacClient.Fake.PrependReactor("create", clusterRoleType, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					create := action.(testing.CreateAction)
+					createdCR := create.GetObject().(*rbacv1.ClusterRole)
+					Expect(createdCR.Labels).To(HaveKey("rbac.authorization.k8s.io/aggregate-to-admin"))
+					Expect(createdCR.Labels).To(HaveKey("rbac.authorization.k8s.io/aggregate-to-edit"))
+					Expect(createdCR.Labels).To(HaveKey("rbac.authorization.k8s.io/aggregate-to-view"))
+					return true, createdCR, nil
+				})
+
+				err := reconciler.createOrUpdateClusterRole(cr, version, imageRegistry, id)
+				Expect(err).ShouldNot(HaveOccurred())
+			})
+
+			It("should create ClusterRole without aggregate labels when AggregateToDefaultRoles is false", func() {
+				cr := newClusterRoleWithAggregateLabels()
+				aggregateFalse := false
+				reconciler.kv.Spec.Configuration.AggregateToDefaultRoles = &aggregateFalse
+
+				rbacClient.Fake.PrependReactor("create", clusterRoleType, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					create := action.(testing.CreateAction)
+					createdCR := create.GetObject().(*rbacv1.ClusterRole)
+					// Original labels should be removed
+					Expect(createdCR.Labels).NotTo(HaveKey("rbac.authorization.k8s.io/aggregate-to-admin"))
+					Expect(createdCR.Labels).NotTo(HaveKey("rbac.authorization.k8s.io/aggregate-to-edit"))
+					Expect(createdCR.Labels).NotTo(HaveKey("rbac.authorization.k8s.io/aggregate-to-view"))
+					// Removal markers should NOT be present on create (only on update)
+					Expect(createdCR.Labels).NotTo(HaveKey("rbac.authorization.k8s.io/aggregate-to-admin-"))
+					Expect(createdCR.Labels).NotTo(HaveKey("rbac.authorization.k8s.io/aggregate-to-edit-"))
+					Expect(createdCR.Labels).NotTo(HaveKey("rbac.authorization.k8s.io/aggregate-to-view-"))
+					return true, createdCR, nil
+				})
+
+				err := reconciler.createOrUpdateClusterRole(cr, version, imageRegistry, id)
+				Expect(err).ShouldNot(HaveOccurred())
+			})
+
+			It("should remove aggregate labels from existing ClusterRole when AggregateToDefaultRoles changes to false", func() {
+				// Create an existing ClusterRole with aggregate labels (simulating one already in cluster)
+				existing := &rbacv1.ClusterRole{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-cluster-role",
+						Labels: map[string]string{
+							"rbac.authorization.k8s.io/aggregate-to-admin": "true",
+							"rbac.authorization.k8s.io/aggregate-to-edit":  "true",
+							"rbac.authorization.k8s.io/aggregate-to-view":  "true",
+						},
+					},
+					Rules: newFakePolicyRules("test"),
+				}
+				injectOperatorMetadata(kv, &existing.ObjectMeta, version, imageRegistry, id, true)
+				Expect(stores.ClusterRoleCache.Add(existing)).To(Succeed())
+
+				// Required ClusterRole has same rules (so no spec change)
+				required := newClusterRoleWithAggregateLabels()
+				aggregateFalse := false
+				reconciler.kv.Spec.Configuration.AggregateToDefaultRoles = &aggregateFalse
+
+				rbacClient.Fake.PrependReactor("update", clusterRoleType, func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+					update := action.(testing.UpdateAction)
+					updatedCR := update.GetObject().(*rbacv1.ClusterRole)
+					// Aggregate labels should be removed from the updated object
+					Expect(updatedCR.Labels).NotTo(HaveKey("rbac.authorization.k8s.io/aggregate-to-admin"))
+					Expect(updatedCR.Labels).NotTo(HaveKey("rbac.authorization.k8s.io/aggregate-to-edit"))
+					Expect(updatedCR.Labels).NotTo(HaveKey("rbac.authorization.k8s.io/aggregate-to-view"))
+					return true, updatedCR, nil
+				})
+
+				err := reconciler.createOrUpdateClusterRole(required, version, imageRegistry, id)
+				Expect(err).ShouldNot(HaveOccurred())
+			})
+		})
 
 	})
 })

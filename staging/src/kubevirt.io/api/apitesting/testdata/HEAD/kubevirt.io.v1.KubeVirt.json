@@ -403,7 +403,8 @@
             }
           ]
         }
-      }
+      },
+      "aggregateToDefaultRoles": true
     },
     "infra": {
       "nodePlacement": {
