@@ -1,0 +1,65 @@
+---
+apiVersion: k8s.cni.cncf.io/v1
+kind: NetworkAttachmentDefinition
+metadata:
+  name: ptp-conf
+spec:
+  config: '{"cniVersion":"0.3.1","ipam":{"subnet":"10.1.1.0/24","type":"host-local"},"name":"mynet","type":"ptp"}'
+
+---
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  labels:
+    kubevirt.io/vm: vm-multus-multiple-net
+  name: vm-multus-multiple-net
+spec:
+  runStrategy: Always
+  template:
+    metadata:
+      labels:
+        special: vmi-multus-multiple-net
+        kubevirt.io/vm: vm-multus-multiple-net
+      annotations:
+         apply-ordinal: "true"
+    spec:
+      domain:
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: containerdisk
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          interfaces:
+          - masquerade: {}
+            name: default
+          - bridge: {}
+            name: ptp
+          rng: {}
+        memory:
+          guest: 1024M
+        resources: {}
+      networks:
+      - name: default
+        pod: {}
+      - multus:
+          networkName: ptp-conf
+        name: ptp
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - containerDisk:
+          image: registry:5000/kubevirt/fedora-with-test-tooling-container-disk:devel
+        name: containerdisk
+      - cloudInitNoCloud:
+          networkData: |
+            version: 2
+            ethernets:
+              eth1:
+                dhcp4: true
+          userData: |-
+            #cloud-config
+            password: fedora
+            chpasswd: { expire: False }
+        name: cloudinitdisk
