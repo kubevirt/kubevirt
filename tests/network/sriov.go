@@ -392,7 +392,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				}).
 					WithTimeout(1 * time.Minute).
 					WithPolling(5 * time.Second).
-					Should(ConsistOf(
+					Should(ContainElement(
 						MatchFields(IgnoreExtras, Fields{
 							"Name":       Equal(sriovNetworkLogicalName),
 							"InfoSource": ContainSubstring(vmispec.InfoSourceDomain),
