@@ -204,6 +204,9 @@ The amount of memory which can be reclaimed by balloon without pushing the guest
 ### kubevirt_vmi_memory_used_bytes
 Amount of `used` memory as seen by the domain. Type: Gauge.
 
+### kubevirt_vmi_migration_data_bytes_total
+The total Guest OS data to be migrated to the new VM. Type: Counter.
+
 ### kubevirt_vmi_migration_data_processed_bytes
 The total Guest OS data processed and migrated to the new VM. Type: Gauge.
 
@@ -211,7 +214,7 @@ The total Guest OS data processed and migrated to the new VM. Type: Gauge.
 The remaining guest OS data to be migrated to the new VM. Type: Gauge.
 
 ### kubevirt_vmi_migration_data_total_bytes
-The total Guest OS data to be migrated to the new VM. Type: Counter.
+[Deprecated] Replaced by kubevirt_vmi_migration_data_bytes_total. Type: Counter.
 
 ### kubevirt_vmi_migration_dirty_memory_rate_bytes
 The rate of memory being dirty in the Guest OS. Type: Gauge.
