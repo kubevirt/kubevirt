@@ -77,6 +77,9 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 			Spec: api.DomainSpec{
 				LaunchSecurity: &api.LaunchSecurity{
 					Type: "tdx",
+					QuoteGenerationService: &api.QGS{
+						Path: "/var/run/tdx-qgs/qgs.socket",
+					},
 				},
 			},
 		}
@@ -89,5 +92,9 @@ func withTDX() libvmi.Option {
 		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 			TDX: &v1.TDX{},
 		}
+		if vmi.Annotations == nil {
+			vmi.Annotations = map[string]string{}
+		}
+		vmi.Annotations[v1.QGSSocketPathAnnotation] = "/var/run/tdx-qgs/qgs.socket"
 	}
 }
