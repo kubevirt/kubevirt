@@ -477,3 +477,21 @@ func (c *ClusterConfig) ClusterProfilerEnabled() bool {
 	return c.GetConfig().DeveloperConfiguration.ClusterProfiler ||
 		c.isFeatureGateDefined(featuregate.ClusterProfiler)
 }
+
+// At the moment, we are restricting to a single hypervisor configuration.
+func (c *ClusterConfig) GetHypervisor() *v1.HypervisorConfiguration {
+	if c.ConfigurableHypervisorEnabled() {
+		clusterConfig := c.GetConfig()
+		if len(clusterConfig.Hypervisors) > 0 {
+			// Currently, we are only supporting a single hypervisor configuration,
+			// even though the API allows specification of multiple.
+			// In the future, we will add support for nodes with different hypervisors in the same cluster.
+			return &clusterConfig.Hypervisors[0]
+		}
+	}
+
+	// If no hypervisor configuration is specified, return the default KVM configuration.
+	return &v1.HypervisorConfiguration{
+		Name: v1.KvmHypervisorName,
+	}
+}

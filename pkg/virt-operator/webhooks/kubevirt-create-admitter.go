@@ -58,14 +58,26 @@ func (k *kubeVirtCreateAdmitter) Admit(ctx context.Context, review *admissionv1.
 	}
 	//TODO: Do we want semantic validation
 
-	// Best effort
+	// Enforce singleton KubeVirt CR
 	list, err := k.client.KubeVirt(k8sv1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return webhooks.ToAdmissionResponseError(err)
 	}
-	if len(list.Items) == 0 {
-		fmt.Println("Allowed to create KV")
-		return webhookutils.NewPassingAdmissionResponse()
+	// If there is already a KubeVirt CR, reject the creation of a new one
+	if len(list.Items) > 0 {
+		return webhooks.ToAdmissionResponseError(fmt.Errorf("Kubevirt is already created"))
 	}
-	return webhooks.ToAdmissionResponseError(fmt.Errorf("Kubevirt is already created"))
+
+	fmt.Println("Allowed to create KV")
+
+	// Validate the hypervisors field
+	kv, _, err := getAdmissionReviewKubeVirt(review)
+	if err != nil {
+		return webhooks.ToAdmissionResponseError(err)
+	}
+
+	var results []metav1.StatusCause
+	results = append(results, validateHypervisors(kv.Spec.Configuration.Hypervisors)...)
+
+	return webhookutils.NewAdmissionResponse(results)
 }

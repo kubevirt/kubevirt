@@ -45,15 +45,7 @@ var _ = Describe("Validating KubeVirtCreate Admitter", func() {
 
 		b, err := json.Marshal(newKv)
 		Expect(err).ToNot(HaveOccurred())
-		review := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Namespace: "test",
-				Name:      "kubevirt",
-				Object: runtime.RawExtension{
-					Raw: b,
-				},
-			},
-		}
+		review := createAdmissionReview(b)
 
 		response := admitter.Admit(context.Background(), review)
 		Expect(response.Allowed).To(BeFalse(), "Additional attempts to create Kubevirt should fail")
@@ -71,17 +63,98 @@ var _ = Describe("Validating KubeVirtCreate Admitter", func() {
 
 		b, err := json.Marshal(newKv)
 		Expect(err).ToNot(HaveOccurred())
-		review := &admissionv1.AdmissionReview{
-			Request: &admissionv1.AdmissionRequest{
-				Namespace: "test",
-				Name:      "kubevirt",
-				Object: runtime.RawExtension{
-					Raw: b,
-				},
-			},
-		}
+		review := createAdmissionReview(b)
 
 		response := admitter.Admit(context.Background(), review)
 		Expect(response.Allowed).To(BeTrue(), "Create Kubevirt should be allowed")
 	})
+
+	// Test validation of hypervisors field
+	It("should allow creating Kubevirt with zero hypervisors", func() {
+		kvInterface.EXPECT().List(gomock.Any(), gomock.Any()).
+			Return(&v1.KubeVirtList{Items: []v1.KubeVirt{}}, nil).AnyTimes()
+
+		newKv := v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "New",
+			},
+		}
+
+		b, err := json.Marshal(newKv)
+		Expect(err).ToNot(HaveOccurred())
+		review := createAdmissionReview(b)
+
+		response := admitter.Admit(context.Background(), review)
+		Expect(response.Allowed).To(BeTrue(), "Create Kubevirt with zero hypervisors should be allowed")
+	})
+
+	It("should allow creating Kubevirt with one hypervisor", func() {
+		kvInterface.EXPECT().List(gomock.Any(), gomock.Any()).
+			Return(&v1.KubeVirtList{Items: []v1.KubeVirt{}}, nil).AnyTimes()
+
+		newKv := v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "New",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					Hypervisors: []v1.HypervisorConfiguration{
+						{
+							Name: v1.KvmHypervisorName,
+						},
+					},
+				},
+			},
+		}
+
+		b, err := json.Marshal(newKv)
+		Expect(err).ToNot(HaveOccurred())
+		review := createAdmissionReview(b)
+
+		response := admitter.Admit(context.Background(), review)
+		Expect(response.Allowed).To(BeTrue(), "Create Kubevirt with one hypervisor should be allowed")
+	})
+
+	It("should prevent creating Kubevirt with multiple hypervisors", func() {
+		kvInterface.EXPECT().List(gomock.Any(), gomock.Any()).
+			Return(&v1.KubeVirtList{Items: []v1.KubeVirt{}}, nil).AnyTimes()
+
+		newKv := v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "New",
+			},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					Hypervisors: []v1.HypervisorConfiguration{
+						{
+							Name: v1.KvmHypervisorName,
+						},
+						{
+							Name: v1.HyperVDirectHypervisorName,
+						},
+					},
+				},
+			},
+		}
+
+		b, err := json.Marshal(newKv)
+		Expect(err).ToNot(HaveOccurred())
+		review := createAdmissionReview(b)
+
+		response := admitter.Admit(context.Background(), review)
+		Expect(response.Allowed).To(BeFalse(), "Create Kubevirt with multiple hypervisors should be denied")
+	})
 })
+
+func createAdmissionReview(b []byte) *admissionv1.AdmissionReview {
+	return &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource:  KubeVirtGroupVersionResource,
+			Namespace: "test",
+			Name:      "kubevirt",
+			Object: runtime.RawExtension{
+				Raw: b,
+			},
+		},
+	}
+}

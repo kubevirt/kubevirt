@@ -79,6 +79,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
+	results = append(results, validateHypervisors(newKV.Spec.Configuration.Hypervisors)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -142,7 +143,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 
 func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, KubeVirtGroupVersionResource.Group, KubeVirtGroupVersionResource.Resource) {
-		return nil, nil, fmt.Errorf("expect resource to be '%s'", KubeVirtGroupVersionResource)
+		return nil, nil, fmt.Errorf("expect resource '%s' to be '%s'", ar.Request.Resource, KubeVirtGroupVersionResource)
 	}
 
 	raw := ar.Request.Object.Raw
@@ -493,4 +494,32 @@ func validateGuestToRequestHeadroom(ratioStrPtr *string) (causes []metav1.Status
 	}
 
 	return
+}
+
+func validateHypervisors(hypervisors []v1.HypervisorConfiguration) []metav1.StatusCause {
+	var results []metav1.StatusCause
+	// Enforce only one hypervisor configuration
+	if len(hypervisors) > 1 {
+		results = append(results, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Only one hypervisor configuration is allowed",
+			Field:   "spec.configuration.hypervisorConfigurations",
+		})
+	} else if len(hypervisors) == 1 {
+		// Validate the specified hypervisor
+		hypervisor := hypervisors[0]
+		switch hypervisor.Name {
+		case v1.KvmHypervisorName:
+			// KVM is valid, no further validation needed
+		case v1.HyperVDirectHypervisorName:
+			// Hyper-V Direct is valid, no further validation needed
+		default:
+			results = append(results, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("Unsupported hypervisor: %s. Accepted values are %s and %s", hypervisor.Name, v1.KvmHypervisorName, v1.HyperVDirectHypervisorName),
+				Field:   "spec.configuration.hypervisorConfigurations[0].name",
+			})
+		}
+	}
+	return results
 }
