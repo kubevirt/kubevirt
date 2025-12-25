@@ -24,6 +24,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -212,7 +213,12 @@ var _ = Describe("[sig-compute]VSOCK", Serial, decorators.SigCompute, decorators
 		buf := make([]byte, 1024, 1024)
 		n, err := cliConn.Read(buf)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(string(buf[0:n])).To(Equal(message))
+		response := string(buf[0:n])
+		Expect(response).NotTo(Equal("-1"), "example-guest-agent failed to read the VSOCK context ID")
+		contextID, err := strconv.ParseUint(response, 10, 32)
+		Expect(err).NotTo(HaveOccurred(), "Failed to parse VSOCK context ID from response: %s", response)
+		Expect(vmi.Status.VSOCKCID).NotTo(BeNil(), "VMI Status.VSOCKCID should not be nil")
+		Expect(uint32(contextID)).To(Equal(*vmi.Status.VSOCKCID), "VSOCK context ID from guest should match VMI Status.VSOCKCID")
 
 		select {
 		case err := <-stopChan:
