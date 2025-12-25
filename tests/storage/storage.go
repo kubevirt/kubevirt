@@ -520,24 +520,6 @@ var _ = Describe(SIG("Storage", func() {
 			})
 		})
 
-		Context("With feature gates disabled for", Serial, func() {
-			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
-				config.DisableFeatureGate(featuregate.HostDiskGate)
-				vmi = libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithMemoryRequest("128Mi"),
-					libvmi.WithHostDisk("host-disk", "somepath", v1.HostDiskExistsOrCreate),
-					// hostdisk needs a privileged namespace
-					libvmi.WithNamespace(testsuite.NamespacePrivileged),
-				)
-				virtClient := kubevirt.Client()
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("HostDisk feature gate is not enabled"))
-			})
-		})
-
 		Context("[rfe_id:2298][crit:medium][vendor:cnv-qe@redhat.com][level:component] With HostDisk and PVC initialization", func() {
 
 			BeforeEach(func() {

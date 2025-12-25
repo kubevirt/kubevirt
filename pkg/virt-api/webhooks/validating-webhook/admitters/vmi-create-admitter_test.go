@@ -2095,6 +2095,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("HostDisk feature gate is not enabled"))
 		})
 
 		It("should accept hostDisk volumes if the feature gate is enabled", func() {
