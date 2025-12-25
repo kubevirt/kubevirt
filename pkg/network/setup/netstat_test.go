@@ -20,6 +20,8 @@
 package network_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -840,6 +842,70 @@ var _ = Describe("netstat", func() {
 					LinkState:  linkStateUp,
 				},
 			}))
+		})
+
+		It("does not report all guest interfaces when their count exceeds the limit", func() {
+			expectedInterfaceStatus := []v1.VirtualMachineInstanceNetworkInterface{
+				{
+					Name:             primaryNetworkName,
+					IP:               primaryPodIPv4,
+					MAC:              primaryMAC,
+					IPs:              []string{primaryPodIPv4, primaryPodIPv6},
+					PodInterfaceName: "",
+					InterfaceName:    primaryIfaceName,
+					InfoSource:       netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent),
+					QueueCount:       1,
+					LinkState:        linkStateUp,
+				},
+				{
+					Name:             secondaryNetworkName,
+					IP:               secondaryGaIPv4,
+					MAC:              secondaryMAC,
+					IPs:              []string{secondaryPodIPv4, secondaryPodIPv6},
+					PodInterfaceName: "",
+					InterfaceName:    secondaryIfaceName,
+					InfoSource:       netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceGuestAgent),
+					QueueCount:       1,
+					LinkState:        linkStateUp,
+				},
+			}
+
+			guestAgentIfaces := []api.InterfaceStatus{
+				newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName),
+				newDomainStatusIface([]string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, secondaryIfaceName),
+			}
+
+			const (
+				guestOnlyInterfaceLimit  = 10
+				extraGuestOnlyInterfaces = 15
+			)
+
+			for i := 1; i < (guestOnlyInterfaceLimit + extraGuestOnlyInterfaces); i++ {
+				ifaceName := fmt.Sprintf("br%d", i)
+				ifaceMac := fmt.Sprintf("00:00:00:00:00:%02X", i)
+
+				guestAgentIfaces = append(guestAgentIfaces,
+					newDomainStatusIface(nil, ifaceMac, ifaceName),
+				)
+				if i > guestOnlyInterfaceLimit {
+					continue
+				}
+				expectedInterfaceStatus = append(expectedInterfaceStatus, v1.VirtualMachineInstanceNetworkInterface{
+					IP:               "",
+					MAC:              ifaceMac,
+					Name:             "",
+					IPs:              nil,
+					PodInterfaceName: "",
+					InterfaceName:    ifaceName,
+					InfoSource:       netvmispec.InfoSourceGuestAgent,
+					QueueCount:       0,
+					LinkState:        "",
+				})
+			}
+
+			setup.addGuestAgentInterfaces(guestAgentIfaces...)
+			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+			Expect(setup.Vmi.Status.Interfaces).To(Equal(expectedInterfaceStatus))
 		})
 	})
 
