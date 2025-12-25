@@ -185,7 +185,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Eventually(logs,
 				2*time.Second,
 				500*time.Millisecond).
-				Should(ContainSubstring(`"subcomponent":"libvirt"`))
+				Should(ContainSubstring("Connected to libvirt daemon"))
 		})
 
 		DescribeTable("log libvirtd debug logs should be", func(vmiLabels, vmiAnnotations map[string]string, expectDebugLogs bool) {
