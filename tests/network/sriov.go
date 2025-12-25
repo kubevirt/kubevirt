@@ -318,12 +318,15 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 					initialGuestMemory      = "1Gi"
 					updatedGuestMemory      = "3Gi"
 					sriovNetworkLogicalName = "sriov-network"
+					mac                     = "de:ad:00:00:be:af"
 				)
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libvmi.WithGuestMemory(initialGuestMemory),
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(sriovNetworkLogicalName)),
 					libvmi.WithNetwork(libvmi.MultusNetwork(sriovNetworkLogicalName, sriovnet1)),
 				)
+
+				vmi.Spec.Domain.Devices.Interfaces[0].MacAddress = mac
 				vmi.Spec.Domain.Resources.Requests = nil
 
 				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
@@ -371,6 +374,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 						MatchFields(IgnoreExtras, Fields{
 							"Name":       Equal(sriovNetworkLogicalName),
 							"InfoSource": ContainSubstring(vmispec.InfoSourceDomain),
+							"MAC":        Equal(mac),
 						}),
 					))
 			})
