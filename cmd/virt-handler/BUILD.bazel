@@ -161,34 +161,14 @@ pkg_tar(
 
 oci_image(
     name = "version-container",
-    base = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
-        "//conditions:default": "@go_image_base",
-    }),
-    tars = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": [
-            "//rpm:handlerbase_aarch64",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":get-version-tar",
-            ":passt_repair_tar_aarch64",
-        ],
-        "@io_bazel_rules_go//go/platform:linux_s390x": [
-            "//rpm:handlerbase_s390x",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":get-version-tar",
-            ":passt_repair_tar_s390x",
-        ],
-        "//conditions:default": [
-            "//rpm:handlerbase_x86_64",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":get-version-tar",
-            ":passt_repair_tar_x86_64",
-        ],
-    }),
+    base = "//bazel/compat:go_image_base",
+    tars = [
+        "//bazel/compat:handlerbase",
+        ":passwd-tar",
+        ":nsswitch-tar",
+        ":get-version-tar",
+        "//bazel/compat:passt_tree",
+    ],
 )
 
 oci_image(
