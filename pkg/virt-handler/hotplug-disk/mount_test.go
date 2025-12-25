@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -1077,7 +1078,7 @@ func (i *mockIsolationDetector) Allowlist(_ []string) isolation.PodIsolationDete
 	return i
 }
 
-func (i *mockIsolationDetector) AdjustResources(_ *v1.VirtualMachineInstance, _ *string) error {
+func (i *mockIsolationDetector) AdjustResources(_ *v1.VirtualMachineInstance, _ *virtconfig.ClusterConfig) error {
 	return nil
 }
 

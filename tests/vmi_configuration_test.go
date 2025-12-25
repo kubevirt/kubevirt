@@ -1309,8 +1309,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				requestWithoutHeadroom := getComputeMemoryRequest(vmiWithoutHeadroom)
 				requestWithHeadroom := getComputeMemoryRequest(vmiWithHeadroom)
 
-				overheadWithoutHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, nil)
-				overheadWithHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, pointer.P(ratio))
+				overheadWithoutHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, nil, nil)
+				overheadWithHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, pointer.P(ratio), nil)
 
 				expectedDiffBetweenRequests := overheadWithHeadroom.DeepCopy()
 				expectedDiffBetweenRequests.Sub(overheadWithoutHeadroom)
@@ -1634,7 +1634,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					libvmi.WithCPUCount(1, 1, 1),
 				)
 
-				vmiPodRequest := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+				vmiPodRequest := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil, nil)
 				vmiPodRequest.Add(vmiRequest)
 				value := int64(float64(vmiPodRequest.Value()) * services.DefaultMemoryLimitOverheadRatio)
 
