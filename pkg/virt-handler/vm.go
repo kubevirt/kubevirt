@@ -2345,6 +2345,8 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			case api.ReasonMigrated:
 				// if the domain migrated, we no longer know the phase.
 				return vmi.Status.Phase, nil
+			case api.ReasonUnknown:
+				return v1.Failed, nil
 			}
 		case api.Paused:
 			switch domain.Status.Reason {
