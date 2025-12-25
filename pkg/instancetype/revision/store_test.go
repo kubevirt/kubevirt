@@ -37,6 +37,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
 
@@ -54,6 +55,7 @@ const (
 
 type handler interface {
 	Store(*virtv1.VirtualMachine) error
+	StoreSnapshot(*snapshotv1.VirtualMachineSnapshot, *virtv1.VirtualMachine) error
 }
 
 var _ = Describe("Instancetype and Preferences revision handler", func() {

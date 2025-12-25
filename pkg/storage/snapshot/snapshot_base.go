@@ -40,6 +40,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	snapshotinstancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/snapshot"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -83,6 +84,8 @@ type VMSnapshotController struct {
 	Recorder record.EventRecorder
 
 	ResyncPeriod time.Duration
+
+	SnapshotInstancetypeController snapshotinstancetypecontroller.Controller
 
 	vmSnapshotQueue        workqueue.TypedRateLimitingInterface[string]
 	vmSnapshotContentQueue workqueue.TypedRateLimitingInterface[string]

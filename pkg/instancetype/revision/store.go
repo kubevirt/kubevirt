@@ -31,10 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	api "kubevirt.io/api/instancetype"
 	"kubevirt.io/api/instancetype/v1beta1"
+	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/client-go/log"
 
@@ -61,11 +62,45 @@ func (h *revisionHandler) Store(vm *virtv1.VirtualMachine) error {
 	return h.patchVM(instancetypeStatusRef, preferenceStatusRef, vm)
 }
 
-func syncStatusWithMatcher(
+func (h *revisionHandler) StoreSnapshot(snapshot *snapshotv1.VirtualMachineSnapshot, vm *virtv1.VirtualMachine) error {
+	obj, err := util.GenerateKubeVirtGroupVersionKind(snapshot)
+	if err != nil {
+		log.Log.Errorf("failed to generate GVK for snapshot: %v", err)
+		return err
+	}
+	snapshot, _ = obj.(*snapshotv1.VirtualMachineSnapshot)
+
+	ownerRef := metav1.OwnerReference{
+		APIVersion:         snapshot.GroupVersionKind().GroupVersion().String(),
+		Kind:               snapshot.GroupVersionKind().Kind,
+		Name:               snapshot.Name,
+		UID:                snapshot.UID,
+		BlockOwnerDeletion: ptr.To(true),
+	}
+
+	if vm.Spec.Instancetype != nil && vm.Status.InstancetypeRef.ControllerRevisionRef.Name != "" {
+		err := h.PatchOwnerRef(vm.Namespace, vm.Status.InstancetypeRef.ControllerRevisionRef.Name, &ownerRef)
+		if err != nil {
+			log.Log.Errorf("Failed to patch InstanceType ControllerRevision: %v", err)
+			return err
+		}
+	}
+
+	if vm.Spec.Preference != nil && vm.Status.PreferenceRef.ControllerRevisionRef.Name != "" {
+		err := h.PatchOwnerRef(vm.Namespace, vm.Status.PreferenceRef.ControllerRevisionRef.Name, &ownerRef)
+		if err != nil {
+			log.Log.Errorf("Failed to patch InstanceType ControllerRevision: %v", err)
+			return err
+		}
+	}
+
+	return h.patchSnapshotContent(snapshot, vm)
+}
+
+func (h *revisionHandler) syncStatusWithMatcher(
 	vm *virtv1.VirtualMachine,
 	matcher virtv1.Matcher,
 	statusRef *virtv1.InstancetypeStatusRef,
-	createRevisionFunc func(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error),
 ) error {
 	var clearControllerRevisionRef bool
 	matcherName := matcher.GetName()
@@ -101,18 +136,14 @@ func syncStatusWithMatcher(
 				Name: matcherRevisionName,
 			}
 		}
-	}
-
-	if statusRef.ControllerRevisionRef == nil {
-		storedRevision, err := createRevisionFunc(vm)
-		if err != nil {
+		// Add VM as owner of the existing ControllerRevision (e.g., when restored from snapshot)
+		ownerReference := GenerateOwnerReference(vm)
+		if err := h.PatchOwnerRef(vm.Namespace, matcherRevisionName, &ownerReference); err != nil {
+			log.Log.Object(vm).Reason(err).Errorf("Failed to patch owner reference on ControllerRevision %s", matcherRevisionName)
 			return err
 		}
-
-		statusRef.ControllerRevisionRef = &virtv1.ControllerRevisionRef{
-			Name: storedRevision.Name,
-		}
 	}
+
 	return nil
 }
 
@@ -136,8 +167,19 @@ func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (
 	}
 	statusRef := vm.Status.InstancetypeRef.DeepCopy()
 
-	if err := syncStatusWithMatcher(vm, vm.Spec.Instancetype, statusRef, h.createInstancetypeRevision); err != nil {
+	if err := h.syncStatusWithMatcher(vm, vm.Spec.Instancetype, statusRef); err != nil {
 		return nil, err
+	}
+
+	if statusRef.ControllerRevisionRef == nil {
+		storedRevision, err := h.createInstancetypeRevision(vm)
+		if err != nil {
+			return nil, err
+		}
+
+		statusRef.ControllerRevisionRef = &virtv1.ControllerRevisionRef{
+			Name: storedRevision.Name,
+		}
 	}
 
 	if equality.Semantic.DeepEqual(vm.Status.InstancetypeRef, statusRef) {
@@ -209,8 +251,19 @@ func (h *revisionHandler) storePreferenceRevision(vm *virtv1.VirtualMachine) (*v
 	}
 	statusRef := vm.Status.PreferenceRef.DeepCopy()
 
-	if err := syncStatusWithMatcher(vm, vm.Spec.Preference, statusRef, h.createPreferenceRevision); err != nil {
+	if err := h.syncStatusWithMatcher(vm, vm.Spec.Preference, statusRef); err != nil {
 		return nil, err
+	}
+
+	if statusRef.ControllerRevisionRef == nil {
+		storedRevision, err := h.createPreferenceRevision(vm)
+		if err != nil {
+			return nil, err
+		}
+
+		statusRef.ControllerRevisionRef = &virtv1.ControllerRevisionRef{
+			Name: storedRevision.Name,
+		}
 	}
 
 	if equality.Semantic.DeepEqual(vm.Status.PreferenceRef, statusRef) {
@@ -240,8 +293,18 @@ func (h *revisionHandler) createPreferenceRevision(vm *virtv1.VirtualMachine) (*
 	}
 }
 
-func GenerateName(vmName, resourceName, resourceVersion string, resourceUID types.UID, resourceGeneration int64) string {
-	return fmt.Sprintf("%s-%s-%s-%s-%d", vmName, resourceName, resourceVersion, resourceUID, resourceGeneration)
+func GenerateName(namespace, resourceName, resourceVersion string, resourceUID types.UID, resourceGeneration int64) string {
+	return fmt.Sprintf("%s-%s-%s-%s-%d", namespace, resourceName, resourceVersion, resourceUID, resourceGeneration)
+}
+
+func GenerateOwnerReference(vm *virtv1.VirtualMachine) metav1.OwnerReference {
+	return metav1.OwnerReference{
+		APIVersion:         virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
+		Kind:               virtv1.VirtualMachineGroupVersionKind.Kind,
+		Name:               vm.Name,
+		UID:                vm.UID,
+		BlockOwnerDeletion: ptr.To(true),
+	}
 }
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
@@ -255,7 +318,8 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 	}
 
 	revisionName := GenerateName(
-		vm.Name, metaObj.GetName(),
+		vm.Namespace,
+		metaObj.GetName(),
 		obj.GetObjectKind().GroupVersionKind().Version,
 		metaObj.GetUID(),
 		metaObj.GetGeneration(),
@@ -272,7 +336,7 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            revisionName,
 			Namespace:       vm.Namespace,
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind)},
+			OwnerReferences: []metav1.OwnerReference{GenerateOwnerReference(vm)},
 			Labels: map[string]string{
 				api.ControllerRevisionObjectGenerationLabel: fmt.Sprintf("%d", metaObj.GetGeneration()),
 				api.ControllerRevisionObjectKindLabel:       obj.GetObjectKind().GroupVersionKind().Kind,
@@ -314,6 +378,13 @@ func (h *revisionHandler) storeControllerRevision(vm *virtv1.VirtualMachine, obj
 		if !equal {
 			return nil, fmt.Errorf("found existing ControllerRevision with unexpected data: %s", revision.Name)
 		}
+
+		ownerReference := GenerateOwnerReference(vm)
+		err = h.PatchOwnerRef(existingRevision.Namespace, existingRevision.Name, &ownerReference)
+		if err != nil {
+			return nil, fmt.Errorf("failed to patch ControllerRevision: %w", err)
+		}
+
 		return existingRevision, nil
 	}
 	return createdRevision, nil

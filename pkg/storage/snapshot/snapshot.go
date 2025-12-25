@@ -256,6 +256,11 @@ func (ctrl *VMSnapshotController) updateVMSnapshot(vmSnapshot *snapshotv1.Virtua
 		}
 	}
 
+	err = ctrl.SnapshotInstancetypeController.Sync(vmSnapshot)
+	if err != nil {
+		return 0, err
+	}
+
 	if retry == 0 {
 		return timeUntilDeadline(vmSnapshot), nil
 	}
@@ -647,6 +652,7 @@ func (ctrl *VMSnapshotController) createContent(vmSnapshot *snapshotv1.VirtualMa
 	if err != nil {
 		return err
 	}
+
 	content := &snapshotv1.VirtualMachineSnapshotContent{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       GetVMSnapshotContentName(vmSnapshot),
