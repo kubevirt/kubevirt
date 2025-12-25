@@ -79,12 +79,12 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		vmiTestUUID types.UID
 		podTestUUID types.UID
 
-		sockFile                          string
-		stop                              chan struct{}
-		wg                                *sync.WaitGroup
-		eventChan                         chan watch.Event
-		recorder                          *record.FakeRecorder
-		migrationSourcePasstRepairHandler *stubSourcePasstRepairHandler
+		sockFile                        string
+		stop                            chan struct{}
+		wg                              *sync.WaitGroup
+		eventChan                       chan watch.Event
+		recorder                        *record.FakeRecorder
+		passtMigrationSourceCoordinator *passtMigrationCoordinatorStub
 	)
 
 	const (
@@ -190,7 +190,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
 			Initialized: true,
 		}
-		migrationSourcePasstRepairHandler = &stubSourcePasstRepairHandler{isHandleMigrationSourceCalled: false}
+		passtMigrationSourceCoordinator = &passtMigrationCoordinatorStub{isMigrationSourceRunCalled: false}
 
 		controller, _ = NewMigrationSourceController(
 			recorder,
@@ -204,7 +204,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			migrationProxy,
 			"/tmp/%d",
 			&netStatStub{},
-			migrationSourcePasstRepairHandler,
+			passtMigrationSourceCoordinator,
 		)
 
 		vmiTestUUID = uuid.NewUUID()
@@ -603,18 +603,14 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		client.EXPECT().MigrateVirtualMachine(vmi, options)
 		sanityExecute()
 		testutils.ExpectEvent(recorder, VMIMigrating)
-		Expect(migrationSourcePasstRepairHandler.isHandleMigrationSourceCalled).Should(BeTrue())
 		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(passtMigrationSourceCoordinator.isMigrationSourceRunCalled).Should(BeTrue())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updatedVMI.Status.Interfaces[0].InterfaceName).To(Equal(testIfaceName))
 	})
 })
 
-type stubSourcePasstRepairHandler struct {
-	isHandleMigrationSourceCalled bool
-}
-
-func (s *stubSourcePasstRepairHandler) HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
-	s.isHandleMigrationSourceCalled = true
+func (s *passtMigrationCoordinatorStub) MigrationSourceRun(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	s.isMigrationSourceRunCalled = true
 	return nil
 }
