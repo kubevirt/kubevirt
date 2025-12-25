@@ -35,6 +35,7 @@ import (
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -124,7 +125,7 @@ func (c *BaseController) prepareStorage(vmi *v1.VirtualMachineInstance, res isol
 	return changeOwnershipOfHostDisks(vmi, res)
 }
 
-func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
+func (*BaseController) prepareVFIO(vmi *v1.VirtualMachineInstance, res isolation.IsolationResult) error {
 	vfioBasePath, err := isolation.SafeJoin(res, "dev", "vfio")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -155,12 +156,43 @@ func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
 		if group.Name() == "vfio" {
 			continue
 		}
+		if group.Name() == "devices" {
+			continue
+		}
 		groupPath, err := safepath.JoinNoFollow(vfioBasePath, group.Name())
 		if err != nil {
 			return err
 		}
 		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(groupPath); err != nil {
 			return err
+		}
+	}
+
+	if util.IsIOMMUFDVMI(vmi) {
+		cDevDirPath, err := safepath.JoinNoFollow(vfioBasePath, "devices")
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil
+			}
+		}
+
+		var cDevs []os.DirEntry
+		err = cDevDirPath.ExecuteNoFollow(func(safePath string) (err error) {
+			cDevs, err = os.ReadDir(safePath)
+			return err
+		})
+		if err != nil {
+			return err
+		}
+
+		for _, cDev := range cDevs {
+			cDevPath, err := safepath.JoinNoFollow(cDevDirPath, cDev.Name())
+			if err != nil {
+				return err
+			}
+			if err := diskutils.DefaultOwnershipManager.SetFileOwnership(cDevPath); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -195,7 +227,7 @@ func (c *BaseController) nonRootSetup(vmi *v1.VirtualMachineInstance) error {
 	if err := c.prepareStorage(vmi, res); err != nil {
 		return err
 	}
-	if err := c.prepareVFIO(res); err != nil {
+	if err := c.prepareVFIO(vmi, res); err != nil {
 		return err
 	}
 	if err := c.prepareNetwork(vmi, res); err != nil {

@@ -112,13 +112,18 @@ func CreateHostDevicesFromIfacesAndPool(ifaces []v1.Interface, pool hostdevice.A
 
 func createHostDevicesMetadata(ifaces []v1.Interface) []hostdevice.HostDeviceMetaData {
 	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
+
 	for _, iface := range ifaces {
-		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
+		hostDeviceMetaData := hostdevice.HostDeviceMetaData{
 			AliasPrefix:  deviceinfo.SRIOVAliasPrefix,
 			Name:         iface.Name,
 			ResourceName: iface.Name,
 			DecorateHook: newDecorateHook(iface),
-		})
+		}
+		if iface.InterfaceBindingMethod.SRIOV != nil && iface.InterfaceBindingMethod.SRIOV.IOMMUFD != nil {
+			hostDeviceMetaData.UseIOMMUFD = true
+		}
+		hostDevicesMetaData = append(hostDevicesMetaData, hostDeviceMetaData)
 	}
 	return hostDevicesMetaData
 }

@@ -75,12 +75,17 @@ func getDRAPCIHostDevicesForGPUs(vmi *v1.VirtualMachineInstance) ([]api.HostDevi
 				if err != nil {
 					return nil, fmt.Errorf("failed to create PCI device for %s: %v", gpu.Name, err)
 				}
-				hostDevices = append(hostDevices, api.HostDevice{
+				hostDevice := api.HostDevice{
 					Alias:   api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
 					Source:  api.HostDeviceSource{Address: hostAddr},
 					Type:    api.HostDevicePCI,
 					Managed: "no",
-				})
+				}
+				gpuSpec := getGPUSpecFromName(vmi, gpu.Name)
+				if gpuSpec != nil && gpuSpec.IOMMUFD != nil {
+					hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				}
+				hostDevices = append(hostDevices, hostDevice)
 			}
 		}
 	}
@@ -124,6 +129,9 @@ func getDRAMDEVHostDevicesForGPUs(vmi *v1.VirtualMachineInstance, defaultDisplay
 							}
 						}
 					}
+				}
+				if gpuSpec != nil && gpuSpec.IOMMUFD != nil {
+					hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
 				}
 				hostDevices = append(hostDevices, hostDevice)
 			}

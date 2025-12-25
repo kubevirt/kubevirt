@@ -24,6 +24,7 @@ package device_manager
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -47,6 +48,7 @@ type DeviceHandler interface {
 	GetDeviceDriver(basepath string, pciAddress string) (string, error)
 	GetDeviceNumaNode(basepath string, pciAddress string) (numaNode int)
 	GetDevicePCIID(basepath string, pciAddress string) (string, error)
+	GetDeviceVFIOCDevName(basepath string, pciAddress string) (string, error)
 	GetMdevParentPCIAddr(mdevUUID string) (string, error)
 	CreateMDEVType(mdevType string, parentID string) error
 	RemoveMDEVType(mdevUUID string) error
@@ -118,6 +120,40 @@ func (h *DeviceUtilsHandler) GetDevicePCIID(basepath string, pciAddress string) 
 		}
 	}
 	return "", fmt.Errorf("no pci_id is found")
+}
+
+// GetDeviceVFIOCDevName gets devices vfio (char) device name
+// e.g. /sys/bus/pci/devices/0000\:65\:00.0/vfio-dev/vfio0/uevent: DEVNAME=vfio/devices/vfio0
+func (h *DeviceUtilsHandler) GetDeviceVFIOCDevName(basepath string, pciAddress string) (string, error) {
+	dirPath := filepath.Join(basepath, pciAddress, "vfio-dev")
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", nil
+		}
+		log.DefaultLogger().Reason(err).Errorf("failed to read dir %s for device %s", dirPath, pciAddress)
+		return "", err
+	}
+
+	for _, entry := range entries {
+		file, err := os.Open(filepath.Join(dirPath, entry.Name(), "uevent"))
+		if err != nil {
+			continue
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, "DEVNAME") {
+				equal := strings.Index(line, "=")
+				value := strings.TrimSpace(line[equal+1:])
+				name := value[strings.LastIndex(value, "/")+1:]
+				return name, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no vfio device name is found")
 }
 
 // /sys/class/mdev_bus/0000:00:03.0/53764d0e-85a0-42b4-af5c-2046b460b1dc
@@ -253,6 +289,16 @@ func formatVFIODeviceSpecs(devID string) []*v1beta1.DeviceSpec {
 		Permissions:   "mrw",
 	})
 	return devSpecs
+}
+
+func formatVFIOCDevSpec(cDevName string) *v1beta1.DeviceSpec {
+	vfioCDev := filepath.Join(vfioCDevBasePath, cDevName)
+	devSpec := &v1beta1.DeviceSpec{
+		HostPath:      vfioCDev,
+		ContainerPath: vfioCDev,
+		Permissions:   "mrw",
+	}
+	return devSpec
 }
 
 type deviceHealth struct {
