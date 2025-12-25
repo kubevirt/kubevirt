@@ -709,7 +709,12 @@
             "name": "nameValue"
           },
           "networkDataBase64": "networkDataBase64Value",
-          "networkData": "networkDataValue"
+          "networkData": "networkDataValue",
+          "vendorDataSecretRef": {
+            "name": "nameValue"
+          },
+          "vendorDataBase64": "vendorDataBase64Value",
+          "vendorData": "vendorDataValue"
         },
         "sysprep": {
           "secret": {

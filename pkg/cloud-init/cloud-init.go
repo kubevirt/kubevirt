@@ -275,7 +275,7 @@ func resolveNoCloudSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir strin
 }
 
 // resolveConfigDriveSecrets is looking for CloudInitConfigDriveSource volume source with
-// UserDataSecretRef and NetworkDataSecretRef and resolves the secret from the corresponding
+// UserDataSecretRef, NetworkDataSecretRef and VendorDataSecretRef and resolves the secret from the corresponding
 // VolumeMount.
 //
 // Note: when using this function, make sure that your code can access the secret volumes.
@@ -291,36 +291,59 @@ func resolveConfigDriveSecrets(vmi *v1.VirtualMachineInstance, secretSourceDir s
 	}
 
 	baseDir := filepath.Join(secretSourceDir, volume.Name)
-	var userDataError, networkDataError error
-	var userData, networkData string
+	var userDataError, networkDataError, vendorDataError error
+	var userData, networkData, vendorData string
+	var userDataRequested, networkDataRequested, vendorDataRequested bool
+
 	if volume.CloudInitConfigDrive.UserDataSecretRef != nil {
+		userDataRequested = true
 		userData, userDataError = readFirstFoundFileFromDir(baseDir, []string{"userdata", "userData"})
 	}
 	if volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+		networkDataRequested = true
 		networkData, networkDataError = readFirstFoundFileFromDir(baseDir, []string{"networkdata", "networkData"})
 	}
-	if userDataError != nil && networkDataError != nil {
+	if volume.CloudInitConfigDrive.VendorDataSecretRef != nil {
+		vendorDataRequested = true
+		vendorData, vendorDataError = readFirstFoundFileFromDir(baseDir, []string{"vendordata", "vendorData"})
+	}
+
+	// Check if all requested secrets failed to resolve
+	userDataFailed := userDataRequested && userDataError != nil
+	networkDataFailed := networkDataRequested && networkDataError != nil
+	vendorDataFailed := vendorDataRequested && vendorDataError != nil
+
+	// If at least one secret was requested and all requested secrets failed, return error
+	anyRequested := userDataRequested || networkDataRequested || vendorDataRequested
+	allFailed := (!userDataRequested || userDataFailed) && (!networkDataRequested || networkDataFailed) && (!vendorDataRequested || vendorDataFailed)
+	if anyRequested && allFailed {
 		return keys, fmt.Errorf("no cloud-init data-source found at volume: %s", volume.Name)
 	}
+
 	if userData != "" {
 		volume.CloudInitConfigDrive.UserData = userData
 	}
 	if networkData != "" {
 		volume.CloudInitConfigDrive.NetworkData = networkData
 	}
+	if vendorData != "" {
+		volume.CloudInitConfigDrive.VendorData = vendorData
+	}
 
 	return keys, nil
 }
 
 // findCloudInitConfigDriveSecretVolume loops over a given list of volumes and return a pointer
-// to the first volume with a CloudInitConfigDrive source and UserDataSecretRef field set.
+// to the first volume with a CloudInitConfigDrive source and UserDataSecretRef, NetworkDataSecretRef,
+// or VendorDataSecretRef field set.
 func findCloudInitConfigDriveSecretVolume(volumes []v1.Volume) *v1.Volume {
 	for _, volume := range volumes {
 		if volume.CloudInitConfigDrive == nil {
 			continue
 		}
 		if volume.CloudInitConfigDrive.UserDataSecretRef != nil ||
-			volume.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+			volume.CloudInitConfigDrive.NetworkDataSecretRef != nil ||
+			volume.CloudInitConfigDrive.VendorDataSecretRef != nil {
 			return &volume
 		}
 	}
@@ -423,10 +446,16 @@ func readCloudInitConfigDriveSource(source *v1.CloudInitConfigDriveSource) (*Clo
 		return &CloudInitData{}, err
 	}
 
+	vendorData, err := readRawOrBase64Data(source.VendorData, source.VendorDataBase64)
+	if err != nil {
+		return &CloudInitData{}, err
+	}
+
 	return &CloudInitData{
 		DataSource:  DataSourceConfigDrive,
 		UserData:    userData,
 		NetworkData: networkData,
+		VendorData:  vendorData,
 	}, nil
 }
 
@@ -629,6 +658,7 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		metaFile = fmt.Sprintf("%s/%s", dataPath, "meta_data.json")
 		userFile = fmt.Sprintf("%s/%s", dataPath, "user_data")
 		networkFile = fmt.Sprintf("%s/%s", dataPath, "network_data.json")
+		vendorFile = fmt.Sprintf("%s/%s", dataPath, "vendor_data.json")
 		iso = GetIsoFilePath(DataSourceConfigDrive, vmi.Name, vmi.Namespace)
 		isoStaging = fmt.Sprintf(isoStagingFmt, iso)
 		if data.ConfigDriveMetaData == nil {
@@ -691,7 +721,7 @@ func GenerateLocalData(vmi *v1.VirtualMachineInstance, instanceType string, data
 		defer os.Remove(networkFile)
 	}
 
-	if data.VendorData != "" && data.DataSource == DataSourceNoCloud {
+	if data.VendorData != "" {
 		err = os.WriteFile(vendorFile, []byte(data.VendorData), 0600)
 		if err != nil {
 			return err

@@ -7905,6 +7905,29 @@ var CRDsValidation map[string]string = map[string]string{
                             description: UserDataBase64 contains config drive cloud-init
                               userdata as a base64 encoded string.
                             type: string
+                          vendorData:
+                            description: VendorData contains config drive inline cloud-init
+                              vendordata.
+                            type: string
+                          vendorDataBase64:
+                            description: VendorDataBase64 contains config drive cloud-init
+                              vendordata as a base64 encoded string.
+                            type: string
+                          vendorDataSecretRef:
+                            description: VendorDataSecretRef references a k8s secret
+                              that contains config drive vendordata.
+                            properties:
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                            type: object
+                            x-kubernetes-map-type: atomic
                         type: object
                       cloudInitNoCloud:
                         description: |-
@@ -13436,6 +13459,29 @@ var CRDsValidation map[string]string = map[string]string{
                     description: UserDataBase64 contains config drive cloud-init userdata
                       as a base64 encoded string.
                     type: string
+                  vendorData:
+                    description: VendorData contains config drive inline cloud-init
+                      vendordata.
+                    type: string
+                  vendorDataBase64:
+                    description: VendorDataBase64 contains config drive cloud-init
+                      vendordata as a base64 encoded string.
+                    type: string
+                  vendorDataSecretRef:
+                    description: VendorDataSecretRef references a k8s secret that
+                      contains config drive vendordata.
+                    properties:
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
                 type: object
               cloudInitNoCloud:
                 description: |-
@@ -19728,6 +19774,29 @@ var CRDsValidation map[string]string = map[string]string{
                             description: UserDataBase64 contains config drive cloud-init
                               userdata as a base64 encoded string.
                             type: string
+                          vendorData:
+                            description: VendorData contains config drive inline cloud-init
+                              vendordata.
+                            type: string
+                          vendorDataBase64:
+                            description: VendorDataBase64 contains config drive cloud-init
+                              vendordata as a base64 encoded string.
+                            type: string
+                          vendorDataSecretRef:
+                            description: VendorDataSecretRef references a k8s secret
+                              that contains config drive vendordata.
+                            properties:
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                            type: object
+                            x-kubernetes-map-type: atomic
                         type: object
                       cloudInitNoCloud:
                         description: |-
@@ -24769,6 +24838,30 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: UserDataBase64 contains config drive
                                       cloud-init userdata as a base64 encoded string.
                                     type: string
+                                  vendorData:
+                                    description: VendorData contains config drive
+                                      inline cloud-init vendordata.
+                                    type: string
+                                  vendorDataBase64:
+                                    description: VendorDataBase64 contains config
+                                      drive cloud-init vendordata as a base64 encoded
+                                      string.
+                                    type: string
+                                  vendorDataSecretRef:
+                                    description: VendorDataSecretRef references a
+                                      k8s secret that contains config drive vendordata.
+                                    properties:
+                                      name:
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        type: string
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                 type: object
                               cloudInitNoCloud:
                                 description: |-
@@ -30243,6 +30336,31 @@ var CRDsValidation map[string]string = map[string]string{
                                           drive cloud-init userdata as a base64 encoded
                                           string.
                                         type: string
+                                      vendorData:
+                                        description: VendorData contains config drive
+                                          inline cloud-init vendordata.
+                                        type: string
+                                      vendorDataBase64:
+                                        description: VendorDataBase64 contains config
+                                          drive cloud-init vendordata as a base64
+                                          encoded string.
+                                        type: string
+                                      vendorDataSecretRef:
+                                        description: VendorDataSecretRef references
+                                          a k8s secret that contains config drive
+                                          vendordata.
+                                        properties:
+                                          name:
+                                            default: ""
+                                            description: |-
+                                              Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            type: string
+                                        type: object
+                                        x-kubernetes-map-type: atomic
                                     type: object
                                   cloudInitNoCloud:
                                     description: |-

@@ -82,6 +82,9 @@ func (CloudInitConfigDriveSource) SwaggerDoc() map[string]string {
 		"networkDataSecretRef": "NetworkDataSecretRef references a k8s secret that contains config drive networkdata.\n+ optional",
 		"networkDataBase64":    "NetworkDataBase64 contains config drive cloud-init networkdata as a base64 encoded string.\n+ optional",
 		"networkData":          "NetworkData contains config drive inline cloud-init networkdata.\n+ optional",
+		"vendorDataSecretRef":  "VendorDataSecretRef references a k8s secret that contains config drive vendordata.\n+ optional",
+		"vendorDataBase64":     "VendorDataBase64 contains config drive cloud-init vendordata as a base64 encoded string.\n+ optional",
+		"vendorData":           "VendorData contains config drive inline cloud-init vendordata.\n+ optional",
 	}
 }
 

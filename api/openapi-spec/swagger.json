@@ -13391,6 +13391,18 @@
      "userDataBase64": {
       "description": "UserDataBase64 contains config drive cloud-init userdata as a base64 encoded string.",
       "type": "string"
+     },
+     "vendorData": {
+      "description": "VendorData contains config drive inline cloud-init vendordata.",
+      "type": "string"
+     },
+     "vendorDataBase64": {
+      "description": "VendorDataBase64 contains config drive cloud-init vendordata as a base64 encoded string.",
+      "type": "string"
+     },
+     "vendorDataSecretRef": {
+      "description": "VendorDataSecretRef references a k8s secret that contains config drive vendordata.",
+      "$ref": "#/definitions/k8s.io.api.core.v1.LocalObjectReference"
      }
     }
    },
