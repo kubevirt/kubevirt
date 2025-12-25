@@ -25,6 +25,7 @@ go_library(
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher:go_default_library",
+        "//pkg/virt-launcher/config:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
         "//pkg/virt-launcher/standalone:go_default_library",
