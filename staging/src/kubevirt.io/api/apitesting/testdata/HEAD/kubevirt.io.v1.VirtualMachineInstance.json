@@ -191,7 +191,13 @@
             "enabled": true
           },
           "tlbflush": {
-            "enabled": true
+            "enabled": true,
+            "direct": {
+              "enabled": true
+            },
+            "extended": {
+              "enabled": true
+            }
           },
           "ipi": {
             "enabled": true

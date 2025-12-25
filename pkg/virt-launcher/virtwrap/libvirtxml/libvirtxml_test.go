@@ -13,7 +13,11 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 	const state = "test"
 	fstate := api.FeatureState{State: state}
 	dfstate := libvirtxml.DomainFeatureState{State: state}
-	dfhVTLBFlushState := libvirtxml.DomainFeatureHyperVTLBFlush{DomainFeatureState: libvirtxml.DomainFeatureState{State: state}}
+	dfhVTLBFlushState := libvirtxml.DomainFeatureHyperVTLBFlush{
+		DomainFeatureState: libvirtxml.DomainFeatureState{State: state},
+		Direct:             &libvirtxml.DomainFeatureState{State: state},
+		Extended:           &libvirtxml.DomainFeatureState{State: state},
+	}
 	id := uint(123)
 
 	setDomainFeatureState := func(state string) libvirtxml.DomainFeatureState {
@@ -287,9 +291,13 @@ var _ = Describe("Convert KubeVirt domain types to Libvirtxml", func() {
 				VendorID:        &api.FeatureVendorID{State: "test", Value: "test"},
 				Frequencies:     &fstate,
 				Reenlightenment: &fstate,
-				TLBFlush:        &fstate,
-				IPI:             &fstate,
-				EVMCS:           &fstate,
+				TLBFlush: &api.TLBFlush{
+					State:    fstate.State,
+					Direct:   &fstate,
+					Extended: &fstate,
+				},
+				IPI:   &fstate,
+				EVMCS: &fstate,
 			}, &libvirtxml.DomainFeatureHyperV{
 				Relaxed:   &dfstate,
 				VAPIC:     &dfstate,
