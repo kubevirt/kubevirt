@@ -35,6 +35,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -109,7 +110,7 @@ func getSecretDirs(vmi *v1.VirtualMachineInstance) []string {
 }
 
 func getSecretDir(secretName string) string {
-	return filepath.Join(getSecretBaseDir(), secretName+"-access-cred")
+	return filepath.Join(getSecretBaseDir(), dns.SanitizeAccessCredentialVolumeName(secretName))
 }
 
 func getSecretBaseDir() string {
