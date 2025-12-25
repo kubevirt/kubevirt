@@ -651,7 +651,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			if updateOperator && flags.OperatorManifestPath == "" {
-				Skip("Skip operator update test when operator manifest path isn't configured")
+				Fail("operator manifest path must be configured for update tests")
 			}
 
 			// This test should run fine on single-node setups as long as no VM is created pre-update
@@ -1072,7 +1072,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3148]should be able to create kubevirt install with custom image tag", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			allKvInfraPodsAreReady(originalKv)
@@ -1112,7 +1112,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
 			if flags.ImagePrefixAlt == "" {
-				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
+				Fail("ImagePrefixAlt must be configured for image prefix tests")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1180,7 +1180,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			var vmis []*v1.VirtualMachineInstance
@@ -1264,7 +1264,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1358,13 +1358,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 		})
 
-		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
-
-			BeforeEach(func() {
-				if !checks.IsOpenShift() {
-					Skip("OpenShift operator tests should not be started on k8s")
-				}
-			})
+		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", decorators.OpenShift, func() {
 
 			It("[test_id:2910]Should have kubevirt SCCs created", func() {
 				const OpenShiftSCCLabel = "openshift.io/scc"
@@ -1413,13 +1407,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled", func() {
-
-		BeforeEach(func() {
-			if serviceMonitorEnabled() {
-				Skip("Test applies on when ServiceMonitor is not defined")
-			}
-		})
+	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled", decorators.RequiresNoPrometheus, func() {
 
 		It("[test_id:3154]Should not create RBAC Role or RoleBinding for ServiceMonitor", func() {
 			rbacClient := virtClient.RbacV1()
@@ -1435,13 +1423,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("With PrometheusRule Enabled", func() {
-
-		BeforeEach(func() {
-			if !prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is defined")
-			}
-		})
+	Context("With PrometheusRule Enabled", decorators.SigMonitoring, func() {
 
 		It("[test_id:4614]Checks if the kubevirt PrometheusRule cr exists and verify it's spec", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
@@ -1454,13 +1436,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("With PrometheusRule Disabled", func() {
-
-		BeforeEach(func() {
-			if prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is not defined")
-			}
-		})
+	Context("With PrometheusRule Disabled", decorators.RequiresNoPrometheus, func() {
 
 		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
@@ -1469,13 +1445,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", func() {
-
-		BeforeEach(func() {
-			if !serviceMonitorEnabled() {
-				Skip("Test requires ServiceMonitor to be valid")
-			}
-		})
+	Context("[rfe_id:2937][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Enabled", decorators.SigMonitoring, func() {
 
 		It("[test_id:2936]Should allow Prometheus to scrape KubeVirt endpoints", func() {
 			coreClient := virtClient.CoreV1()
@@ -2441,26 +2411,6 @@ func patchCRD(orig *extv1.CustomResourceDefinition, modified *extv1.CustomResour
 	patch, err := jsonpatch.CreateMergePatch(origCRDByte, crdByte)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return patch
-}
-
-// prometheusRuleEnabled returns true if the PrometheusRule CRD is enabled
-// and false otherwise.
-func prometheusRuleEnabled() bool {
-	virtClient := kubevirt.Client()
-
-	prometheusRuleEnabled, err := util.IsPrometheusRuleEnabled(virtClient)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to verify PrometheusRule CRD")
-
-	return prometheusRuleEnabled
-}
-
-func serviceMonitorEnabled() bool {
-	virtClient := kubevirt.Client()
-
-	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(virtClient)
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Unable to verify ServiceMonitor CRD")
-
-	return serviceMonitorEnabled
 }
 
 // verifyOperatorWebhookCertificate can be used when inside tests doing reinstalls of kubevirt, to ensure that virt-operator already got the new certificate.
