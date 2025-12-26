@@ -102,7 +102,7 @@ var _ = Describe("Qemu agent poller", func() {
 			}
 			Expect(parseFilesystem(jsonInput)).To(Equal(expectedFilesystem))
 		})
-		It("should failed parse Filesystem with unconventional agent reply", func() {
+		It("should fail on malformed filesystem agent reply", func() {
 			jsonInput := `{dummy input}`
 
 			_, err := parseFilesystem(jsonInput)
