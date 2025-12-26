@@ -22,6 +22,7 @@ package agentpoller
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -60,7 +61,7 @@ var _ = Describe("Qemu agent poller", func() {
 			jsonInput := `{"return":{"version":"4.1"}}`
 
 			response, err := stripAgentResponse(jsonInput)
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			expectedResponse := `{"version":"4.1"}`
 
 			Expect(response).To(Equal(expectedResponse))
@@ -111,4 +112,3 @@ var _ = Describe("Qemu agent poller", func() {
 		})
 	})
 })
-
