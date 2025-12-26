@@ -22,6 +22,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -151,6 +152,7 @@ func applyDynamicIfaceRequestOnVMI(
 ) *v1.VirtualMachineInstanceSpec {
 	vmiSpecCopy := vmi.Spec.DeepCopy()
 	vmiIndexedInterfaces := vmispec.IndexInterfaceSpecByName(vmiSpecCopy.Domain.Devices.Interfaces)
+	vmiIndexedNetworks := vmispec.IndexNetworkSpecByName(vmiSpecCopy.Networks)
 	vmIndexedNetworks := vmispec.IndexNetworkSpecByName(vm.Spec.Template.Spec.Networks)
 	for _, vmIface := range vm.Spec.Template.Spec.Domain.Devices.Interfaces {
 		vmiIfaceCopy, existsInVMISpec := vmiIndexedInterfaces[vmIface.Name]
@@ -162,6 +164,20 @@ func applyDynamicIfaceRequestOnVMI(
 		shouldUpdateExistingIfaceState := existsInVMISpec &&
 			vmIface.State != vmiIfaceCopy.State &&
 			vmiIfaceCopy.State != v1.InterfaceStateAbsent
+
+		vmNet, vmNetExists := vmIndexedNetworks[vmIface.Name]
+		vmiNet, vmiNetExists := vmiIndexedNetworks[vmIface.Name]
+
+		if vmiNetExists && vmNetExists && !reflect.DeepEqual(vmNet, vmiNet) {
+			if areNormalizedNetsEqual(vmNet, vmiNet) {
+				for i, n := range vmiSpecCopy.Networks {
+					if n.Name == vmNet.Name {
+						vmiSpecCopy.Networks[i] = *vmNet.DeepCopy()
+						break
+					}
+				}
+			}
+		}
 
 		switch {
 		case shouldHotplugIface:
@@ -176,6 +192,20 @@ func applyDynamicIfaceRequestOnVMI(
 		}
 	}
 	return vmiSpecCopy
+}
+
+func areNormalizedNetsEqual(net1, net2 v1.Network) bool {
+	normalizedNet1 := net1.DeepCopy()
+	if normalizedNet1.Multus != nil {
+		normalizedNet1.Multus.NetworkName = ""
+	}
+
+	normalizedNet2 := net2.DeepCopy()
+	if normalizedNet2.Multus != nil {
+		normalizedNet2.Multus.NetworkName = ""
+	}
+
+	return reflect.DeepEqual(normalizedNet1, normalizedNet2)
 }
 
 func clearDetachedIfacesFromVMI(

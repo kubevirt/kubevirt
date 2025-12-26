@@ -94,6 +94,8 @@ func shouldVMIBeMarkedForAutoMigration(
 
 	ifaceStatusesByName := vmispec.IndexInterfaceStatusByName(ifaceStatuses, nil)
 
+	netsByName := vmispec.IndexNetworkSpecByName(nets)
+
 	for _, iface := range secondaryIfaces {
 		ifaceStatus, ifaceStatusExists := ifaceStatusesByName[iface.Name]
 		if iface.State != v1.InterfaceStateAbsent && !ifaceStatusExists {
@@ -109,6 +111,15 @@ func shouldVMIBeMarkedForAutoMigration(
 			vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus) &&
 			!vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain) {
 			return pendingMigration
+		}
+
+		if iface.State != v1.InterfaceStateAbsent && ifaceStatusExists {
+			net, netExists := netsByName[iface.Name]
+			if netExists && net.Multus != nil {
+				if net.Multus.NetworkName != WHAT??? {
+					return immediateMigration
+				}
+			}
 		}
 	}
 
