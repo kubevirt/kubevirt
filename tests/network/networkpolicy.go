@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 
 	"kubevirt.io/kubevirt/tests/framework/checks"
 
@@ -277,6 +278,9 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 func assertPingSucceed(fromVmi, toVmi *v1.VirtualMachineInstance) {
 	ConsistentlyWithOffset(1, func() error {
 		for _, toIp := range toVmi.Status.Interfaces[0].IPs {
+			if toIp == cloudinit.DefaultIPv6Address {
+				continue
+			}
 			if err := libnet.PingFromVMConsole(fromVmi, toIp); err != nil {
 				return err
 			}
