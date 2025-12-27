@@ -850,7 +850,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("[rfe_id:893][crit:medium][vendor:cnv-qe@redhat.com][level:component]with rng", func() {
+		Context("[rfe_id:893][crit:medium][vendor:cnv-qe@redhat.com][level:component]with rng", decorators.WgS390x, func() {
 			It("[test_id:1674]should have the virtio rng device present when present", func() {
 				rngVmi := libvmifact.NewAlpine(libvmi.WithRng())
 
@@ -863,8 +863,19 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(console.LoginToAlpine(rngVmi)).To(Succeed())
 
 				By("Checking the virtio rng presence")
+				cmd := ""
+				if libnode.GetArch() == "s390x" {
+					//https://www.ibm.com/docs/en/linux-on-systems?topic=security-trng
+					// On s390x, hardware TRNG is always present and listed first in
+					// rng_available, so virtio_rng (if present) will not be the first entry.
+					cmd = "grep -c virtio /sys/devices/virtual/misc/hw_random/rng_available\n"
+				} else {
+					// On non-s390x architectures, virtio_rng can be the preferred RNG and
+					// appear as the first entry in rng_available.
+					cmd = "grep -c ^virtio /sys/devices/virtual/misc/hw_random/rng_available\n"
+				}
 				Expect(console.SafeExpectBatch(rngVmi, []expect.Batcher{
-					&expect.BSnd{S: "grep -c ^virtio /sys/devices/virtual/misc/hw_random/rng_available\n"},
+					&expect.BSnd{S: cmd},
 					&expect.BExp{R: console.RetValue("1")},
 				}, 400)).To(Succeed())
 			})
@@ -879,8 +890,18 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(console.LoginToAlpine(rngVmi)).To(Succeed())
 
 				By("Checking the virtio rng presence")
+				cmd := ""
+				if libnode.GetArch() == "s390x" {
+					// On s390x, hw_random always exists (TRNG),
+					//https://www.ibm.com/docs/en/linux-on-systems?topic=security-trng
+					// so verify virtio RNG is NOT present
+					cmd = "grep -q virtio /sys/devices/virtual/misc/hw_random/rng_available || echo non\n"
+				} else {
+					// On other arches, rng_available may not exist at all
+					cmd = "[[ ! -e /sys/devices/virtual/misc/hw_random/rng_available ]] && echo non\n"
+				}
 				Expect(console.SafeExpectBatch(rngVmi, []expect.Batcher{
-					&expect.BSnd{S: "[[ ! -e /sys/devices/virtual/misc/hw_random/rng_available ]] && echo non\n"},
+					&expect.BSnd{S: cmd},
 					&expect.BExp{R: console.RetValue("non")},
 				}, 400)).To(Succeed())
 			})
