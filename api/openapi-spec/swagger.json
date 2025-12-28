@@ -15653,6 +15653,9 @@
       "description": "DeprecatedPasst is an alias to the deprecated Passt interface, please refer to Kubevirt user guide for alternatives. Deprecated: Removed in v1.3",
       "$ref": "#/definitions/v1.DeprecatedInterfacePasst"
      },
+     "passtBinding": {
+      "$ref": "#/definitions/v1.InterfacePasstBinding"
+     },
      "pciAddress": {
       "description": "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
       "type": "string"
@@ -15726,6 +15729,10 @@
    },
    "v1.InterfaceMasquerade": {
     "description": "InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.",
+    "type": "object"
+   },
+   "v1.InterfacePasstBinding": {
+    "description": "InterfacePasstBinding connects to a given network using passt usermode networking.",
     "type": "object"
    },
    "v1.InterfaceSRIOV": {
