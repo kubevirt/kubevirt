@@ -8,6 +8,7 @@ go_library(
         "discontinued.go",
         "netiface.go",
         "netsource.go",
+        "passt.go",
         "validator.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/admitter",
@@ -32,6 +33,7 @@ go_test(
         "discontinued_test.go",
         "netiface_test.go",
         "netsource_test.go",
+        "passt_test.go",
     ],
     race = "on",
     deps = [
