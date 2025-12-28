@@ -197,6 +197,10 @@ func (config *ClusterConfig) PasstIPStackMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PasstIPStackMigration)
 }
 
+func (config *ClusterConfig) PasstBindingEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.PasstBinding)
+}
+
 func (config *ClusterConfig) DecentralizedLiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
 }
