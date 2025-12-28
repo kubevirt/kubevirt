@@ -9,6 +9,7 @@ go_library(
         "macvtap.go",
         "netiface.go",
         "netsource.go",
+        "passt.go",
         "validator.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/admitter",
@@ -34,6 +35,7 @@ go_test(
         "macvtap_test.go",
         "netiface_test.go",
         "netsource_test.go",
+        "passt_test.go",
     ],
     race = "on",
     deps = [

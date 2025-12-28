@@ -28,6 +28,7 @@ import (
 type clusterConfigChecker interface {
 	IsBridgeInterfaceOnPodNetworkEnabled() bool
 	MacvtapEnabled() bool
+	PasstBindingEnabled() bool
 }
 
 type Validator struct {
