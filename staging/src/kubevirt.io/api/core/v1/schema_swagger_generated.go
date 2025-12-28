@@ -795,6 +795,12 @@ func (DeprecatedInterfacePasst) SwaggerDoc() map[string]string {
 	}
 }
 
+func (InterfacePasstBinding) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "InterfacePasstBinding connects to a given network using passt usermode networking.",
+	}
+}
+
 func (PluginBinding) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":     "PluginBinding represents a binding implemented in a plugin.",
