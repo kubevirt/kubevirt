@@ -455,6 +455,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.InterfaceBindingPlugin":                                                  schema_kubevirtio_api_core_v1_InterfaceBindingPlugin(ref),
 		"kubevirt.io/api/core/v1.InterfaceBridge":                                                         schema_kubevirtio_api_core_v1_InterfaceBridge(ref),
 		"kubevirt.io/api/core/v1.InterfaceMasquerade":                                                     schema_kubevirtio_api_core_v1_InterfaceMasquerade(ref),
+		"kubevirt.io/api/core/v1.InterfacePasstBinding":                                                   schema_kubevirtio_api_core_v1_InterfacePasstBinding(ref),
 		"kubevirt.io/api/core/v1.InterfaceSRIOV":                                                          schema_kubevirtio_api_core_v1_InterfaceSRIOV(ref),
 		"kubevirt.io/api/core/v1.KSMConfiguration":                                                        schema_kubevirtio_api_core_v1_KSMConfiguration(ref),
 		"kubevirt.io/api/core/v1.KVMTimer":                                                                schema_kubevirtio_api_core_v1_KVMTimer(ref),
@@ -22089,6 +22090,11 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 							Ref:         ref("kubevirt.io/api/core/v1.DeprecatedInterfacePasst"),
 						},
 					},
+					"passtBinding": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.InterfacePasstBinding"),
+						},
+					},
 					"binding": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Binding specifies the binding plugin that will be used to connect the interface to the guest. It provides an alternative to InterfaceBindingMethod. version: 1alphav1",
@@ -22162,7 +22168,7 @@ func schema_kubevirtio_api_core_v1_Interface(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfacePasst", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
+			"kubevirt.io/api/core/v1.DHCPOptions", "kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfacePasst", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasstBinding", "kubevirt.io/api/core/v1.InterfaceSRIOV", "kubevirt.io/api/core/v1.PluginBinding", "kubevirt.io/api/core/v1.Port"},
 	}
 }
 
@@ -22206,11 +22212,16 @@ func schema_kubevirtio_api_core_v1_InterfaceBindingMethod(ref common.ReferenceCa
 							Ref:         ref("kubevirt.io/api/core/v1.DeprecatedInterfacePasst"),
 						},
 					},
+					"passtBinding": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.InterfacePasstBinding"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfacePasst", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfaceSRIOV"},
+			"kubevirt.io/api/core/v1.DeprecatedInterfaceMacvtap", "kubevirt.io/api/core/v1.DeprecatedInterfacePasst", "kubevirt.io/api/core/v1.DeprecatedInterfaceSlirp", "kubevirt.io/api/core/v1.InterfaceBridge", "kubevirt.io/api/core/v1.InterfaceMasquerade", "kubevirt.io/api/core/v1.InterfacePasstBinding", "kubevirt.io/api/core/v1.InterfaceSRIOV"},
 	}
 }
 
@@ -22303,6 +22314,17 @@ func schema_kubevirtio_api_core_v1_InterfaceMasquerade(ref common.ReferenceCallb
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.",
+				Type:        []string{"object"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_InterfacePasstBinding(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InterfacePasstBinding connects to a given network using passt usermode networking.",
 				Type:        []string{"object"},
 			},
 		},

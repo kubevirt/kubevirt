@@ -511,6 +511,7 @@ spec:
             model: modelValue
             name: nameValue
             passt: {}
+            passtBinding: {}
             pciAddress: pciAddressValue
             ports:
             - name: nameValue
