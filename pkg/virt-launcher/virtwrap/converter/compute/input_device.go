@@ -40,9 +40,8 @@ func NewInputDeviceDomainConfigurator(architecture string) InputDeviceDomainConf
 func (i InputDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	if vmi.Spec.Domain.Devices.Inputs != nil {
 		inputDevices := make([]api.Input, 0)
-		for i := range vmi.Spec.Domain.Devices.Inputs {
-			inputDevice := api.Input{}
-			err := convert_v1_Input_To_api_InputDevice(&vmi.Spec.Domain.Devices.Inputs[i], &inputDevice)
+		for _, specInput := range vmi.Spec.Domain.Devices.Inputs {
+			inputDevice, err := apiInputDeviceFromV1InputDevice(specInput)
 			if err != nil {
 				return err
 			}
@@ -60,27 +59,33 @@ func (i InputDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	return nil
 }
 
-func convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input) error {
-	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB && input.Bus != "" {
-		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
-	}
+func apiInputDeviceFromV1InputDevice(input v1.Input) (api.Input, error) {
+	var bus v1.InputBus
 
-	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB {
-		input.Bus = v1.InputBusUSB
+	switch input.Bus {
+	case v1.InputBusVirtio, v1.InputBusUSB:
+		bus = input.Bus
+	case "":
+		bus = v1.InputBusUSB
+	default:
+		return api.Input{}, fmt.Errorf("input contains unsupported bus %s", input.Bus)
 	}
 
 	if input.Type != v1.InputTypeTablet {
-		return fmt.Errorf("input contains unsupported type %s", input.Type)
+		return api.Input{}, fmt.Errorf("input contains unsupported type %s", input.Type)
 	}
 
-	inputDevice.Bus = input.Bus
-	inputDevice.Type = input.Type
-	inputDevice.Alias = api.NewUserDefinedAlias(input.Name)
+	inputDevice := api.Input{
+		Bus:   bus,
+		Type:  input.Type,
+		Alias: api.NewUserDefinedAlias(input.Name),
+	}
 
-	if input.Bus == v1.InputBusVirtio {
+	if bus == v1.InputBusVirtio {
 		inputDevice.Model = v1.VirtIO
 	}
-	return nil
+
+	return inputDevice, nil
 }
 
 func (i InputDeviceDomainConfigurator) addArchitectureSpecificInputDevices(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
