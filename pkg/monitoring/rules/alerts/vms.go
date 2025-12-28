@@ -151,6 +151,19 @@ var (
 			},
 		},
 		{
+			Alert: "KubeVirtVMGuestMemoryPressure",
+			Expr:  intstr.FromString("(((vmi:kubevirt_vmi_memory_headroom_ratio:sum < 0.05) and (vmi:kubevirt_vmi_pgmajfaults:rate5m > 5 or (vmi:kubevirt_vmi_swap_traffic_bytes:rate5m > 1048576)) and (vmi:kubevirt_vmi_memory_available_bytes:sum > 0)) * on(name, namespace) group_left(vm) label_replace(label_replace(kubevirt_vmi_info{phase='running'}, 'vm', '$1', 'name', '(.+)'), 'name', '$1', 'vmi_pod', '(.+)'))"),
+			For:   ptr.To(promv1.Duration("5m")),
+			Annotations: map[string]string{
+				"description": "VirtualMachine {{ $labels.vm }} in namespace {{ $labels.namespace }} is under memory pressure: low usable memory with elevated major faults and/or swap IO.",
+				"summary":     "The VirtualMachine is under memory pressure (possible thrashing)",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
 			Alert: "GuestFilesystemAlmostOutOfSpace",
 			Expr:  intstr.FromString(fmt.Sprintf("(kubevirt_vmi_filesystem_used_bytes{file_system_type!~'%s',mount_point!='System Reserved'} / kubevirt_vmi_filesystem_capacity_bytes{file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 95", excludedFilesystemTypesRegex, excludedFilesystemTypesRegex)),
 			Annotations: map[string]string{
@@ -171,6 +184,19 @@ var (
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "KubeVirtVMGuestMemoryAvailableLow",
+			Expr:  intstr.FromString("(((vmi:kubevirt_vmi_memory_headroom_ratio:sum < 0.03) and (vmi:kubevirt_vmi_swap_traffic_bytes:rate30m < 2048) and (vmi:kubevirt_vmi_pgmajfaults:rate30m < 1) and (vmi:kubevirt_vmi_memory_available_bytes:sum > 0)) * on(name, namespace) group_left(vm) label_replace(label_replace(kubevirt_vmi_info{phase='running'}, 'vm', '$1', 'name', '(.+)'), 'name', '$1', 'vmi_pod', '(.+)'))"),
+			For:   ptr.To(promv1.Duration("30m")),
+			Annotations: map[string]string{
+				"description": "VirtualMachine {{ $labels.vm }} in namespace {{ $labels.namespace }} has very low available memory (<3% headroom) for 30 minutes with no meaningful swap IO (likely no swap).",
+				"summary":     "The VirtualMachine has low available memory without swap",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "info",
 				operatorHealthImpactLabelKey: "none",
 			},
 		},

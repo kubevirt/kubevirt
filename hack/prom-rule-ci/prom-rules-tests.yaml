@@ -1246,3 +1246,82 @@ tests:
       - eval_time: 3m
         alertname: GuestFilesystemAlmostOutOfSpace
         exp_alerts: []
+  # VM memory pressure with swap activity
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_memory_available_bytes{name="virt-launcher-vm1", namespace="test-ns"}'
+        values: '1000000000x10'
+      - series: 'kubevirt_vmi_memory_usable_bytes{name="virt-launcher-vm1", namespace="test-ns"}'
+        values: '40000000x10' # 4% usable -> low usable memory
+      - series: 'kubevirt_vmi_memory_swap_in_traffic_bytes{name="virt-launcher-vm1", namespace="test-ns"}'
+        values: '0+100000000x10'
+      - series: 'kubevirt_vmi_memory_swap_out_traffic_bytes{name="virt-launcher-vm1", namespace="test-ns"}'
+        values: '0+100000000x10'
+      - series: 'kubevirt_vmi_info{name="vm1", namespace="test-ns", phase="running", vmi_pod="virt-launcher-vm1"}'
+        values: '1x10'
+
+    alert_rule_test:
+      # should not trigger before 5 minutes pending time elapses
+      - eval_time: 2m
+        alertname: KubeVirtVMGuestMemoryPressure
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: KubeVirtVMGuestMemoryPressure
+        exp_alerts: []
+      # after 5m pending, with low usable mem and swap traffic >1MiB/s
+      - eval_time: 7m
+        alertname: KubeVirtVMGuestMemoryPressure
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachine vm1 in namespace test-ns is under memory pressure: low usable memory with elevated major faults and/or swap IO."
+              summary: "The VirtualMachine is under memory pressure (possible thrashing)"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMGuestMemoryPressure"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "virt-launcher-vm1"
+              vm: "vm1"
+              namespace: "test-ns"
+
+  # VM low available memory without swap and without major faults
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_memory_available_bytes{name="virt-launcher-vm2", namespace="test-ns"}'
+        values: '1000000000x40'
+      - series: 'kubevirt_vmi_memory_usable_bytes{name="virt-launcher-vm2", namespace="test-ns"}'
+        values: '20000000x40' # 2% usable -> below 3% threshold
+      - series: 'kubevirt_vmi_memory_swap_in_traffic_bytes{name="virt-launcher-vm2", namespace="test-ns"}'
+        values: '0x40'
+      - series: 'kubevirt_vmi_memory_swap_out_traffic_bytes{name="virt-launcher-vm2", namespace="test-ns"}'
+        values: '0x40'
+      - series: 'kubevirt_vmi_memory_pgmajfault_total{name="virt-launcher-vm2", namespace="test-ns"}'
+        values: '0x40'
+      - series: 'kubevirt_vmi_info{name="vm2", namespace="test-ns", phase="running", vmi_pod="virt-launcher-vm2"}'
+        values: '1x40'
+
+    alert_rule_test:
+      # should not trigger before 30 minutes pending time elapses
+      - eval_time: 15m
+        alertname: KubeVirtVMGuestMemoryAvailableLow
+        exp_alerts: []
+      - eval_time: 29m
+        alertname: KubeVirtVMGuestMemoryAvailableLow
+        exp_alerts: []
+      # after 30m pending with very low available memory and negligible swap and pgmajfault rates
+      - eval_time: 31m
+        alertname: KubeVirtVMGuestMemoryAvailableLow
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachine vm2 in namespace test-ns has very low available memory (<3% headroom) for 30 minutes with no meaningful swap IO (likely no swap)."
+              summary: "The VirtualMachine has low available memory without swap"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMGuestMemoryAvailableLow"
+            exp_labels:
+              severity: "info"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "virt-launcher-vm2"
+              vm: "vm2"
+              namespace: "test-ns"

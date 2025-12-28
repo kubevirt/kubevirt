@@ -369,6 +369,24 @@ How many seconds of work has done that is in progress and hasn't been observed b
 ### kubevirt_workqueue_work_duration_seconds
 How long in seconds processing an item from workqueue takes. Type: Histogram.
 
+### vmi:kubevirt_vmi_memory_available_bytes:sum
+Sum of available memory bytes per VMI (aggregated by name, namespace). Type: Gauge.
+
+### vmi:kubevirt_vmi_memory_headroom_ratio:sum
+Usable memory to available memory ratio per VMI (aggregated by name, namespace). Type: Gauge.
+
+### vmi:kubevirt_vmi_pgmajfaults:rate30m
+Rate of major page faults over 30 minutes per VMI (aggregated by name, namespace). Type: Gauge.
+
+### vmi:kubevirt_vmi_pgmajfaults:rate5m
+Rate of major page faults over 5 minutes per VMI (aggregated by name, namespace). Type: Gauge.
+
+### vmi:kubevirt_vmi_swap_traffic_bytes:rate30m
+Total swap I/O traffic rate over 30 minutes per VMI (swap in + swap out, aggregated by name, namespace). Type: Gauge.
+
+### vmi:kubevirt_vmi_swap_traffic_bytes:rate5m
+Total swap I/O traffic rate over 5 minutes per VMI (swap in + swap out, aggregated by name, namespace). Type: Gauge.
+
 ### vmi:kubevirt_vmi_vcpu:count
 The number of the VMI vCPUs. Type: Gauge.
 
