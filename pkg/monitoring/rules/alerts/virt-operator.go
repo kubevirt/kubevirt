@@ -49,17 +49,6 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 			},
 		},
 		{
-			Alert: "VirtOperatorRESTErrorsHigh",
-			Expr:  intstr.FromString(getErrorRatio(namespace, "virt-operator", "(4|5)[0-9][0-9]", 60) + " >= 0.05"),
-			Annotations: map[string]string{
-				"summary": getRestCallsFailedWarning(5, "virt-operator", "hour"),
-			},
-			Labels: map[string]string{
-				severityAlertLabelKey:        "warning",
-				operatorHealthImpactLabelKey: "warning",
-			},
-		},
-		{
 			Alert: "VirtOperatorRESTErrorsBurst",
 			Expr:  intstr.FromString(getErrorRatio(namespace, "virt-operator", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
 			For:   ptr.To(promv1.Duration("5m")),
