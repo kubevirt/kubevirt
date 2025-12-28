@@ -331,6 +331,7 @@
                 "sriov": {},
                 "macvtap": {},
                 "passt": {},
+                "passtBinding": {},
                 "binding": {
                   "name": "nameValue"
                 },
