@@ -1296,21 +1296,21 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = v1.InputBus(bus)
 			c.Architecture = archconverter.NewConverter(arch)
 			domain := vmiToDomain(vmi, c)
-			disabled := false
+			enabled := false
 			for _, controller := range domain.Spec.Devices.Controllers {
-				if controller.Type == "usb" && controller.Model == "none" {
-					disabled = true
+				if controller.Type == "usb" && controller.Model != "none" {
+					enabled = true
 				}
 			}
 
-			Expect(disabled).To(matcher, "Expect controller not to be disabled")
+			Expect(enabled).To(matcher, "Expect controller not to be disabled")
 		},
-			Entry("should not be disabled on amd64 usb device is present", amd64, "usb", BeFalse()),
-			Entry("should not be disabled on amd64 when device with no bus is present", amd64, "", BeFalse()),
-			Entry("should not be disabled on arm64 usb device is present", arm64, "usb", BeFalse()),
-			Entry("should not be disabled on arm64 when device with no bus is present", arm64, "", BeFalse()),
-			Entry("should be disabled on s390x when usb device is present", s390x, "usb", BeTrue()),
-			Entry("should be disabled on s390x when device with no bus is present", s390x, "", BeTrue()),
+			Entry("should be enabled on amd64 when usb device is present", amd64, "usb", BeTrue()),
+			Entry("should be disabled on amd64 when device with no bus is present", amd64, "", BeFalse()),
+			Entry("should be enabled on arm64 when usb device is present", arm64, "usb", BeTrue()),
+			Entry("should be enabled on arm64 when device with no bus is present", arm64, "", BeTrue()),
+			Entry("should be disabled on s390x when usb device is present", s390x, "usb", BeFalse()),
+			Entry("should be disabled on s390x when device with no bus is present", s390x, "", BeFalse()),
 		)
 
 		DescribeTable("PCIHole64 on pcie-root Controller should", func(arch, value string, expected bool) {
