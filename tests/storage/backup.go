@@ -142,6 +142,7 @@ var _ = Describe(SIG("Backup", func() {
 		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name)
 		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
 		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
+		Expect(fullBackup.Status.IncludedVolumes).To(HaveLen(1), "Should have one included volume")
 
 		By("Verifying full backup size matches disk size")
 		verifyBackupTargetPVCOutput(virtClient, fullBackupPVC, vm.Name, 1, []int64{expectedDiskSize.Value()})
@@ -167,6 +168,7 @@ var _ = Describe(SIG("Backup", func() {
 		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name)
 		Expect(incrementalBackup.Status.Type).To(Equal(backupv1.Incremental), "Second backup should be Incremental")
 		Expect(incrementalBackup.Status.CheckpointName).ToNot(BeNil())
+		Expect(incrementalBackup.Status.IncludedVolumes).To(HaveLen(1), "Should have one included volume")
 
 		By("Verifying BackupTracker was updated with new checkpoint")
 		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
@@ -238,6 +240,7 @@ var _ = Describe(SIG("Backup", func() {
 		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name)
 		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
 		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
+		Expect(fullBackup.Status.IncludedVolumes).To(HaveLen(2), "Should have two included volumes")
 
 		By("Verifying full backup has 2 qcow2 files with correct sizes")
 		expectedDiskSizes := []int64{expectedBootDiskSize.Value(), expectedBlankDiskSize.Value()}
@@ -268,6 +271,7 @@ var _ = Describe(SIG("Backup", func() {
 		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name)
 		Expect(incrementalBackup.Status.Type).To(Equal(backupv1.Incremental), "Second backup should be Incremental")
 		Expect(incrementalBackup.Status.CheckpointName).ToNot(BeNil())
+		Expect(incrementalBackup.Status.IncludedVolumes).To(HaveLen(2), "Should have two included volumes")
 
 		By("Verifying BackupTracker was updated with new checkpoint")
 		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})

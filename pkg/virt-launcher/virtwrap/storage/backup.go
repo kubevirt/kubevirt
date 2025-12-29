@@ -20,6 +20,7 @@
 package storage
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"os"
@@ -146,7 +147,7 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 			}
 		}(backupPath)
 	}
-	domainBackup, domainCheckpoint := generateDomainBackup(domainDisks, backupOptions, backupPath)
+	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath)
 	backupXML, err := xml.Marshal(domainBackup)
 	if err != nil {
 		logger.Reason(err).Error("marshalling backup xml failed")
@@ -158,8 +159,14 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 		return err
 	}
 
+	volumesJSON, err := json.Marshal(backupVolumesInfo)
+	if err != nil {
+		logger.Reason(err).Error("Failed to marshal backup volumes info")
+		return err
+	}
 	m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
 		backupMetadata.CheckpointName = domainCheckpoint.Name
+		backupMetadata.Volumes = string(volumesJSON)
 	})
 
 	frozenFS := false
@@ -190,7 +197,7 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 	return dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0)
 }
 
-func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath string) (*api.DomainBackup, *api.DomainCheckpoint) {
+func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath string) (*api.DomainBackup, *api.DomainCheckpoint, []backupv1.BackupVolumeInfo) {
 	domainBackup := &api.DomainBackup{
 		Mode: string(backupOptions.Mode),
 	}
@@ -200,6 +207,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 	}
 	backupDisks := &api.BackupDisks{}
 	checkpointDisks := &api.CheckpointDisks{}
+	var backupVolumesInfo []backupv1.BackupVolumeInfo
 	// the name of the volume should match the alias
 	for _, disk := range disks {
 		if disk.Target.Device == "" {
@@ -221,6 +229,10 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 				}
 			}
 			checkpointDisk.Checkpoint = "bitmap"
+			backupVolumesInfo = append(backupVolumesInfo, backupv1.BackupVolumeInfo{
+				VolumeName: volumeName,
+				DiskTarget: disk.Target.Device,
+			})
 		} else {
 			backupDisk.Backup = "no"
 			checkpointDisk.Checkpoint = "no"
@@ -236,7 +248,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 		Name:            checkpointName,
 		CheckpointDisks: checkpointDisks,
 	}
-	return domainBackup, domainCheckpoint
+	return domainBackup, domainCheckpoint, backupVolumesInfo
 }
 
 func getBackupPath(backupOptions *backupv1.BackupOptions, vmiName string) string {
