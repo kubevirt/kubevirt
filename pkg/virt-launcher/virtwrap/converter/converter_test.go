@@ -3915,7 +3915,7 @@ var _ = Describe("Converter", func() {
 			if startPaused {
 				Expect(domain.Spec.OS.BootMenu).ToNot(BeNil())
 				Expect(domain.Spec.OS.BootMenu.Enable).To(Equal("yes"))
-				Expect(*domain.Spec.OS.BootMenu.Timeout).To(Equal(bootMenuTimeoutMS))
+				Expect(*domain.Spec.OS.BootMenu.Timeout).To(Equal(uint(10000)))
 			} else {
 				Expect(domain.Spec.OS.BootMenu).To(BeNil())
 			}
