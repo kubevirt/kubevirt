@@ -587,6 +587,96 @@ var _ = Describe("netstat", func() {
 		}), "the SR-IOV interface should be reported in the status, associated to the network")
 	})
 
+	It("should not report link local addresses for masquerade binding when reported by guest-agent", func() {
+		const (
+			primaryNetworkName = "primary"
+
+			primaryGaIPv4    = "1.1.1.1"
+			primaryGaIPv6    = "fd20:244::8c4c"
+			primaryGaLLAIPv6 = "fe80::a00:27ff:fe8f:5d42"
+
+			primaryMAC     = "1C:CE:C0:01:BE:E7"
+			primaryPodIPv4 = "1.1.1.1"
+		)
+
+		Expect(
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithMasqueradeBinding(primaryNetworkName),
+				newVMISpecPodNetwork(primaryNetworkName),
+				newDomainSpecIface(primaryNetworkName, primaryMAC),
+				primaryPodIPv4,
+			)).To(Succeed())
+
+		setup.addGuestAgentInterfaces(
+			newDomainStatusIface(
+				[]string{primaryGaIPv4, primaryGaIPv6, primaryGaLLAIPv6},
+				primaryMAC,
+				"eth0",
+			),
+		)
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:          primaryNetworkName,
+				InterfaceName: "eth0",
+				IP:            primaryPodIPv4,
+				IPs:           []string{primaryPodIPv4, primaryGaIPv6},
+				MAC:           primaryMAC,
+				InfoSource:    netvmispec.InfoSourceDomainAndGA,
+				QueueCount:    netsetup.DefaultInterfaceQueueCount,
+				LinkState:     linkStateUp,
+			},
+		}))
+	})
+
+	It("should report link local addresses for secondary iface using bridge binding w/o IPAM when reported by guest-agent", func() {
+		const (
+			secondaryNetworkName = "secondary"
+
+			secondaryGaIPv4    = "1.1.1.1"
+			secondaryGaIPv4LLA = "169.254.0.1"
+			secondaryGaIPv6    = "fd20:244::8c4c"
+			secondaryGaLLAIPv6 = "fe80::a00:27ff:fe8f:5d42"
+
+			secondaryMAC = "1C:CE:C0:01:BE:E7"
+		)
+
+		Expect(
+			setup.addNetworkInterface(
+				newVMISpecIfaceWithBridgeBinding(secondaryNetworkName),
+				newVMISpecMultusNetwork(secondaryNetworkName),
+				newDomainSpecIface(secondaryNetworkName, secondaryMAC),
+			)).To(Succeed())
+
+		// The IPv4 configuration reported here is illegal according to
+		// https://datatracker.ietf.org/doc/html/rfc3927#section-2.1
+		// but is used for testing the filtering logic
+		setup.addGuestAgentInterfaces(
+			newDomainStatusIface(
+				[]string{secondaryGaIPv4, secondaryGaIPv4LLA, secondaryGaIPv6, secondaryGaLLAIPv6},
+				secondaryMAC,
+				"eth0",
+			),
+		)
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:          secondaryNetworkName,
+				InterfaceName: "eth0",
+				IP:            secondaryGaIPv4,
+				IPs:           []string{secondaryGaIPv4, secondaryGaIPv4LLA, secondaryGaIPv6, secondaryGaLLAIPv6},
+				MAC:           secondaryMAC,
+				InfoSource:    netvmispec.InfoSourceDomainAndGA,
+				QueueCount:    netsetup.DefaultInterfaceQueueCount,
+				LinkState:     linkStateUp,
+			},
+		}))
+	})
+
 	When("the desired state (VMI spec) is not in sync with the state in the guest (guest-agent)", func() {
 		const (
 			primaryNetworkName = "primary"
@@ -678,13 +768,19 @@ var _ = Describe("netstat", func() {
 		It("reports a new interface that appeared in the guest", func() {
 			const (
 				newGaIPv4    = "3.3.3.3"
+				newGaIPv4LLA = "169.254.0.1"
 				newGaIPv6    = "fd20:333::3333"
+				newGaIPv6LLA = "fe80::a00:27ff:fe8f:5d42"
 				newIfaceName = "eth3"
 			)
+
+			// The IPv4 configuration reported for the guest interface is illegal according to
+			// https://datatracker.ietf.org/doc/html/rfc3927#section-2.1
+			// but is used for testing the filtering logic
 			setup.addGuestAgentInterfaces(
 				newDomainStatusIface([]string{primaryGaIPv4, primaryGaIPv6}, primaryMAC, primaryIfaceName),
 				newDomainStatusIface([]string{secondaryGaIPv4, secondaryGaIPv6}, secondaryMAC, secondaryIfaceName),
-				newDomainStatusIface([]string{newGaIPv4, newGaIPv6}, newMAC1, newIfaceName),
+				newDomainStatusIface([]string{newGaIPv4, newGaIPv4LLA, newGaIPv6, newGaIPv6LLA}, newMAC1, newIfaceName),
 			)
 			Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
 
@@ -713,7 +809,7 @@ var _ = Describe("netstat", func() {
 					Name:          "",
 					InterfaceName: newIfaceName,
 					IP:            newGaIPv4,
-					IPs:           []string{newGaIPv4, newGaIPv6},
+					IPs:           []string{newGaIPv4, newGaIPv4LLA, newGaIPv6, newGaIPv6LLA},
 					MAC:           newMAC1,
 					InfoSource:    netvmispec.InfoSourceGuestAgent,
 					QueueCount:    netsetup.UnknownInterfaceQueueCount,
