@@ -3080,6 +3080,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 				endTime := metav1.NewTime(startTime.Add(5 * time.Minute))
 				checkpointName := "test-checkpoint"
 				backupMsg := "backup completed successfully"
+				volumesJSON := `[{"volumeName":"rootdisk","diskTarget":"vda"},{"volumeName":"datadisk","diskTarget":"vdb"}]`
 				domain.Spec.Metadata.KubeVirt.Backup = &api.BackupMetadata{
 					Name:           domainBackupName,
 					StartTimestamp: &startTime,
@@ -3087,6 +3088,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Completed:      true,
 					CheckpointName: checkpointName,
 					BackupMsg:      backupMsg,
+					Volumes:        volumesJSON,
 				}
 
 				controller.updateBackupStatus(vmi, domain)
@@ -3100,10 +3102,16 @@ var _ = Describe("VirtualMachineInstance", func() {
 					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(Equal(checkpointName))
 					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).ToNot(BeNil())
 					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(backupMsg))
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(HaveLen(2))
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[0].VolumeName).To(Equal("rootdisk"))
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[0].DiskTarget).To(Equal("vda"))
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[1].VolumeName).To(Equal("datadisk"))
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes[1].DiskTarget).To(Equal("vdb"))
 				} else {
 					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeFalse())
 					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(BeNil())
 					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(BeNil())
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Volumes).To(BeNil())
 				}
 			},
 			Entry("not update backupStatus when backupStatus name and backupMetadata name do not match (race condition)", "new-backup", "old-backup", false),

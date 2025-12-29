@@ -277,11 +277,12 @@ func (ctrl *VMBackupController) Execute() bool {
 }
 
 type SyncInfo struct {
-	err            error
-	reason         string
-	event          string
-	checkpointName string
-	backupType     backupv1.BackupType
+	err             error
+	reason          string
+	event           string
+	checkpointName  *string
+	backupType      backupv1.BackupType
+	includedVolumes []backupv1.BackupVolumeInfo
 }
 
 func syncInfoError(err error) *SyncInfo {
@@ -458,9 +459,12 @@ func (ctrl *VMBackupController) updateStatus(backup *backupv1.VirtualMachineBack
 			}
 			updateBackupCondition(backupOut, newProgressingCondition(corev1.ConditionFalse, syncInfo.reason))
 			updateBackupCondition(backupOut, newDoneCondition(corev1.ConditionTrue, syncInfo.reason))
-			if syncInfo.checkpointName != "" {
-				backupOut.Status.CheckpointName = pointer.P(syncInfo.checkpointName)
+			if syncInfo.checkpointName != nil {
+				backupOut.Status.CheckpointName = syncInfo.checkpointName
 			}
+		}
+		if len(syncInfo.includedVolumes) > 0 {
+			backupOut.Status.IncludedVolumes = syncInfo.includedVolumes
 		}
 	}
 
@@ -693,6 +697,11 @@ func (ctrl *VMBackupController) checkBackupCompletion(backup *backupv1.VirtualMa
 
 	backupStatus := vmi.Status.ChangedBlockTracking.BackupStatus
 	if !backupStatus.Completed {
+		if len(backupStatus.Volumes) > 0 && len(backup.Status.IncludedVolumes) == 0 {
+			return &SyncInfo{
+				includedVolumes: backupStatus.Volumes,
+			}
+		}
 		return nil
 	}
 
@@ -732,8 +741,9 @@ func (ctrl *VMBackupController) checkBackupCompletion(backup *backupv1.VirtualMa
 
 	// We allow tracking checkpoints only if BackupTracker is specified
 	if backupTracker != nil {
-		syncInfo.checkpointName = *backupStatus.CheckpointName
+		syncInfo.checkpointName = backupStatus.CheckpointName
 	}
+	syncInfo.includedVolumes = backupStatus.Volumes
 
 	return syncInfo
 }
@@ -745,7 +755,8 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 
 	newCheckpoint := backupv1.BackupCheckpoint{
 		Name:         *backupStatus.CheckpointName,
-		CreationTime: pointer.P(metav1.Now()),
+		CreationTime: backupStatus.StartTimestamp,
+		Volumes:      backupStatus.Volumes,
 	}
 
 	newStatus := &backupv1.VirtualMachineBackupTrackerStatus{
@@ -778,8 +789,8 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 
 	log.Log.Infof("Successfully updated BackupTracker %s/%s with checkpoint %s",
 		namespace, tracker.Name, newCheckpoint.Name)
-	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s",
-		newCheckpoint.Name, newCheckpoint.CreationTime)
+	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s, volumes=%d",
+		newCheckpoint.Name, newCheckpoint.CreationTime, len(newCheckpoint.Volumes))
 
 	return nil
 }
