@@ -3831,6 +3831,20 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(err.Error()).To(ContainSubstring(errMsg))
 			Expect(converterContext.ApplyCBT).To(BeEmpty())
 		})
+
+		DescribeTable("should resolve the metadata overlay path for CBT-enabled volumes", func(isBlock bool) {
+			volName := "test-cbt-block-vol"
+			disk := createDomainDiskWithCBT(volName, isBlock)
+			Expect(getSourceFile(disk)).To(Equal(disk.Source.File))
+			if isBlock {
+				Expect(getBackendSource(disk)).To(Equal(getBlockPath(volName)))
+			} else {
+				Expect(getBackendSource(disk)).To(Equal(getFsImagePath(volName)))
+			}
+		},
+			Entry("with block volume", true),
+			Entry("with file volume", false),
+		)
 	})
 })
 
@@ -3918,6 +3932,62 @@ func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkDa
 func isoCreationFunc(isoOutFile, volumeID string, inDir string) error {
 	_, err := os.Create(isoOutFile)
 	return err
+}
+
+func createDomainDiskWithCBT(volumeName string, block bool) api.Disk {
+	disk := createDomainDisk(volumeName)
+	disk.Driver.Type = "qcow2"
+	disk.Source.File = getCBTImagePath(volumeName)
+	if block {
+		disk.Source.Name = volumeName
+		disk.Source.DataStore = &api.DataStore{
+			Type: "block",
+			Format: &api.DataStoreFormat{
+				Type: "raw",
+			},
+			Source: &api.DiskSource{
+				Dev: getBlockPath(volumeName),
+			},
+		}
+	} else {
+		disk.Source.DataStore = &api.DataStore{
+			Type: "file",
+			Format: &api.DataStoreFormat{
+				Type: "raw",
+			},
+			Source: &api.DiskSource{
+				File: getFsImagePath(volumeName),
+			},
+		}
+	}
+	return disk
+}
+
+func createDomainDisk(volumeName string) api.Disk {
+	return api.Disk{
+		Device: "disk",
+		Type:   "file",
+		Source: api.DiskSource{
+			File: getFsImagePath(volumeName),
+		},
+		Target: api.DiskTarget{
+			Bus:    v1.DiskBusVirtio,
+			Device: "vda",
+		},
+		Driver: &api.DiskDriver{
+			Cache:       string(v1.CacheNone),
+			Name:        "qemu",
+			Type:        "raw",
+			ErrorPolicy: "stop",
+			Discard:     "unmap",
+		},
+		Alias: api.NewUserDefinedAlias(volumeName),
+	}
+}
+
+func getCBTImagePath(name string) string {
+	cbtPath := filepath.Join("/var", "lib", "libvirt", "qemu", "cbt")
+	return filepath.Join(cbtPath, name+".qcow2")
 }
 
 func getFsImagePath(name string) string {
