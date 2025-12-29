@@ -1334,6 +1334,39 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU spec", func() {
 		var nodes *k8sv1.NodeList
+		var s390xCPUModelToMachine = map[string]string{
+			// z196 family
+			"z196":   "2817",
+			"z196.2": "2817",
+			"z114":   "2818",
+
+			// zEC12 family
+			"zEC12":   "2827",
+			"zEC12.2": "2827",
+			"zBC12":   "2828",
+
+			// z13 family
+			"z13":   "2964",
+			"z13.2": "2964",
+			"z13s":  "2965",
+
+			// z14 family
+			"z14":    "3906",
+			"z14.2":  "3906",
+			"z14ZR1": "3907",
+
+			// z15 family (gen15)
+			"gen15a": "8561",
+			"gen15b": "8562",
+
+			//z16 family(gen16)
+			"gen16a": "3931",
+			"gen16b": "3932",
+
+			//z17 family(gen17)
+			"gen17a": "9175",
+			"gen17b": "9176",
+		}
 
 		parseCPUNiceName := func(name string) string {
 			updatedCPUName := strings.Replace(name, "\n", "", -1)
@@ -1355,19 +1388,41 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 			return updatedCPUName
 		}
+		parseCPUNiceNameS390x := func(name string) string {
+			// Example:
+			// "processor 0: version = 00, identification = 32BBF8, machine = 8561"
+
+			for _, field := range strings.Split(name, ",") {
+				field = strings.TrimSpace(field)
+				if strings.HasPrefix(field, "machine") {
+					parts := strings.Split(field, "=")
+					if len(parts) == 2 {
+						return strings.TrimSpace(parts[1])
+					}
+				}
+			}
+			return ""
+		}
 
 		BeforeEach(func() {
 			nodes = libnode.GetAllSchedulableNodes(virtClient)
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some compute node")
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model defined", decorators.WgS390x, func() {
 			It("[test_id:1678]should report defined CPU model", func() {
+				var niceName string
+				var cpuIdentityField string
 				supportedCPUs := libnode.GetSupportedCPUModels(*nodes)
 				Expect(supportedCPUs).ToNot(BeEmpty())
 				cpuVmi := libvmifact.NewAlpine(libvmi.WithCPUModel(supportedCPUs[0]))
+				niceName = parseCPUNiceName(supportedCPUs[0])
+				cpuIdentityField = "model name"
 
-				niceName := parseCPUNiceName(supportedCPUs[0])
+				if libnode.GetArch() == "s390x" {
+					niceName = s390xCPUModelToMachine[strings.TrimSuffix(supportedCPUs[0], "-base")]
+					cpuIdentityField = "machine"
+				}
 
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
@@ -1380,13 +1435,15 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking the CPU model under the guest OS")
 				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep %s /proc/cpuinfo\n", niceName)},
-					&expect.BExp{R: fmt.Sprintf(".*model name.*%s.*", niceName)},
+					&expect.BExp{R: fmt.Sprintf(".*%s.*%s.*", cpuIdentityField, niceName)},
 				}, 10)).To(Succeed())
 			})
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model equals to passthrough", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model equals to passthrough", decorators.WgS390x, func() {
 			It("[test_id:1679]should report exactly the same model as node CPU", func() {
+				var niceName string
+				var cpuIdentityField string
 				cpuVmi := libvmifact.NewAlpine(libvmi.WithCPUModel("host-passthrough"))
 
 				By("Starting a VirtualMachineInstance")
@@ -1395,9 +1452,17 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				libwait.WaitForSuccessfulVMIStart(cpuVmi)
 
 				By("Checking the CPU model under the guest OS")
-				output := libpod.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
 
-				niceName := parseCPUNiceName(output)
+				if libnode.GetArch() == "s390x" {
+					cpuIdentityField = "machine"
+					output := libpod.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", cpuIdentityField, "/proc/cpuinfo"})
+					niceName = parseCPUNiceNameS390x(output)
+
+				} else {
+					cpuIdentityField = "model name"
+					output := libpod.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", cpuIdentityField, "/proc/cpuinfo"})
+					niceName = parseCPUNiceName(output)
+				}
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToAlpine(cpuVmi)).To(Succeed())
@@ -1405,21 +1470,29 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking the CPU model under the guest OS")
 				Expect(console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", niceName)},
-					&expect.BExp{R: fmt.Sprintf(".*model name.*%s.*", niceName)},
+					&expect.BExp{R: fmt.Sprintf(".*%s.*%s.*", cpuIdentityField, niceName)},
 				}, 10)).To(Succeed())
 			})
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model not defined", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]when CPU model not defined", decorators.WgS390x, func() {
 			It("[test_id:1680]should report CPU model from libvirt capabilities", func() {
+				var niceName string
+				var cpuIdentityField string
 				By("Starting a VirtualMachineInstance")
 				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewAlpine(), metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				libwait.WaitForSuccessfulVMIStart(cpuVmi)
+				if libnode.GetArch() == "s390x" {
+					cpuIdentityField = "machine"
+					output := libpod.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", cpuIdentityField, "/proc/cpuinfo"})
+					niceName = parseCPUNiceNameS390x(output)
 
-				output := libpod.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", "model name", "/proc/cpuinfo"})
-
-				niceName := parseCPUNiceName(output)
+				} else {
+					cpuIdentityField = "model name"
+					output := libpod.RunCommandOnVmiPod(cpuVmi, []string{"grep", "-m1", cpuIdentityField, "/proc/cpuinfo"})
+					niceName = parseCPUNiceName(output)
+				}
 
 				By("Expecting the VirtualMachineInstance console")
 				Expect(console.LoginToAlpine(cpuVmi)).To(Succeed())
@@ -1427,7 +1500,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking the CPU model under the guest OS")
 				console.SafeExpectBatch(cpuVmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("grep '%s' /proc/cpuinfo\n", niceName)},
-					&expect.BExp{R: fmt.Sprintf(".*model name.*%s.*", niceName)},
+					&expect.BExp{R: fmt.Sprintf(".*%s.*%s.*", cpuIdentityField, niceName)},
 				}, 10)
 			})
 		})
