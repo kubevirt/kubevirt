@@ -190,6 +190,12 @@ const (
 
 	// ConditionDeleting indicates the backup is deleteing
 	ConditionDeleting ConditionType = "Deleting"
+
+	// ConditionAborting indicates that the backup is being aborted
+	ConditionAborting ConditionType = "Aborting"
+
+	// ConditionFailed indiciates that the backup has failed
+	ConditionFailed ConditionType = "Failed"
 )
 
 // Condition defines conditions

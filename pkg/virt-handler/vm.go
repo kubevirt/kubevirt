@@ -2472,6 +2472,7 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 		return
 	}
 	vmi.Status.ChangedBlockTracking.BackupStatus.Completed = backupMetadata.Completed
+	vmi.Status.ChangedBlockTracking.BackupStatus.Failed = backupMetadata.Failed
 	if backupMetadata.EndTimestamp != nil {
 		vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp = backupMetadata.EndTimestamp
 	}
@@ -2481,5 +2482,7 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 	if backupMetadata.CheckpointName != "" {
 		vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName = &backupMetadata.CheckpointName
 	}
-	// TODO: Handle backup failure (backupMetadata.Failed) and abort status (backupMetadata.AbortStatus)
+	if backupMetadata.AbortStatus != "" {
+		vmi.Status.ChangedBlockTracking.BackupStatus.AbortStatus = v1.BackupAbortStatus(backupMetadata.AbortStatus)
+	}
 }
