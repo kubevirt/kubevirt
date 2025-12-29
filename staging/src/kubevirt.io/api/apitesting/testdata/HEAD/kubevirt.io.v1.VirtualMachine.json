@@ -1334,7 +1334,13 @@
         "endTimestamp": "1988-01-01T01:01:01Z",
         "completed": true,
         "backupMsg": "backupMsgValue",
-        "checkpointName": "checkpointNameValue"
+        "checkpointName": "checkpointNameValue",
+        "volumes": [
+          {
+            "volumeName": "volumeNameValue",
+            "diskTarget": "diskTargetValue"
+          }
+        ]
       }
     },
     "instancetypeRef": {
