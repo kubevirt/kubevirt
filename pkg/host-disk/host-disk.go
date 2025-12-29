@@ -28,6 +28,7 @@ import (
 	"syscall"
 
 	"kubevirt.io/client-go/log"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
@@ -239,8 +240,8 @@ func (hdc *HostDiskImgCreator) setlessPVCSpaceToleration(toleration int) {
 func (hdc *HostDiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if hostDisk := volume.VolumeSource.HostDisk; shouldMountHostDisk(hostDisk) {
-			diskPath := GetMountedHostDiskPath(volume.Name, hostDisk.Path)
-			diskDir := GetMountedHostDiskDir(volume.Name)
+			diskPath := hdc.diskPath(volume.Name, hostDisk.Path)
+			diskDir := hdc.diskDir(volume.Name)
 
 			requestedSize, _ := hostDisk.Capacity.AsInt64()
 			if err := hdc.diskImgCreator.CreateDiskAndSetOwnership(vmi, diskDir, diskPath, volume.Name, requestedSize); err != nil {
@@ -249,6 +250,20 @@ func (hdc *HostDiskImgCreator) Create(vmi *v1.VirtualMachineInstance) error {
 		}
 	}
 	return nil
+}
+
+func (hdc *HostDiskImgCreator) diskPath(volumeName string, hostDiskPath string) string {
+	diskPath := GetMountedHostDiskPath(volumeName, hostDiskPath)
+	root := unsafepath.UnsafeRoot(hdc.mountRoot.Raw())
+
+	return filepath.Join(root, diskPath)
+}
+
+func (hdc *HostDiskImgCreator) diskDir(volumeName string) string {
+	diskDir := GetMountedHostDiskDir(volumeName)
+	root := unsafepath.UnsafeRoot(hdc.mountRoot.Raw())
+
+	return filepath.Join(root, diskDir)
 }
 
 func shouldMountHostDisk(hostDisk *v1.HostDisk) bool {
