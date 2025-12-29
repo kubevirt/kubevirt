@@ -52,7 +52,7 @@ var _ = Describe("migration metrics", func() {
 			crs := parse(vmiStats)
 			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(metric, expectedValue)))
 		},
-			Entry("kubevirt_vmi_migration_data_total_bytes", migrateVMIDataTotal, 3.0),
+			Entry("kubevirt_vmi_migration_data_bytes_total", migrateVMIDataTotal, 3.0),
 			Entry("kubevirt_vmi_migration_data_remaining_bytes", migrateVMIDataRemaining, 1.0),
 			Entry("kubevirt_vmi_migration_data_processed_bytes", migrateVMIDataProcessed, 2.0),
 			Entry("kubevirt_vmi_migration_dirty_memory_rate_bytes", migrateVmiDirtyMemoryRate, 3.0),
