@@ -1022,7 +1022,8 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 				}),
 			},
 			Labels: map[string]string{
-				v1.AppLabel: hotplugDisk,
+				v1.AppLabel:                            hotplugDisk,
+				"security.deckhouse.io/skip-pss-check": "true",
 			},
 		},
 		Spec: k8sv1.PodSpec{
@@ -1079,6 +1080,8 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			Tolerations:                   tmpTolerations,
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
+			HostNetwork:                   true,
+			DNSPolicy:                     k8sv1.DNSClusterFirstWithHostNet,
 		},
 	}
 	first := true
@@ -1196,7 +1199,8 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 				}),
 			},
 			Labels: map[string]string{
-				v1.AppLabel: hotplugDisk,
+				v1.AppLabel:                            hotplugDisk,
+				"security.deckhouse.io/skip-pss-check": "true",
 			},
 			Annotations: annotationsList,
 		},
@@ -1257,6 +1261,8 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 				emptyDirVolume(hotplugDisks),
 			},
 			TerminationGracePeriodSeconds: &zero,
+			HostNetwork:                   true,
+			DNSPolicy:                     k8sv1.DNSClusterFirstWithHostNet,
 		},
 	}
 
