@@ -33,9 +33,21 @@ const (
 	PushMode BackupMode = "Push"
 )
 
+// CheckpointDiskInfo contains information about a disk included in a checkpoint
+type CheckpointDiskInfo struct {
+	// VolumeName is the volume name from VMI spec
+	VolumeName string `json:"volumeName"`
+	// DiskTarget is the disk target device name at backup time
+	DiskTarget string `json:"diskTarget"`
+}
+
 type BackupCheckpoint struct {
 	Name         string       `json:"name,omitempty"`
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
+	// Disks lists volumes and their disk targets at backup time
+	// +optional
+	// +listType=atomic
+	Disks []CheckpointDiskInfo `json:"disks,omitempty"`
 }
 
 // BackupType is the const type for the backup possible types
@@ -95,7 +107,7 @@ type VirtualMachineBackupTrackerSpec struct {
 type VirtualMachineBackupTrackerStatus struct {
 	// +optional
 	// LatestCheckpoint is the metadata of the checkpoint of
-	// the latest preformed backup
+	// the latest performed backup
 	LatestCheckpoint *BackupCheckpoint `json:"latestCheckpoint,omitempty"`
 }
 
@@ -172,6 +184,10 @@ type VirtualMachineBackupStatus struct {
 	// +optional
 	// CheckpointName the name of the checkpoint created for the current backup
 	CheckpointName *string `json:"checkpointName,omitempty"`
+	// +optional
+	// +listType=atomic
+	// IncludedDisks lists the disks that were included in the backup
+	IncludedDisks []CheckpointDiskInfo `json:"includedDisks,omitempty"`
 }
 
 // ConditionType is the const type for Conditions

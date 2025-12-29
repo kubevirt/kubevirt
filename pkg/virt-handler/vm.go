@@ -22,6 +22,7 @@ package virthandler
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	goerror "errors"
 	"fmt"
 	"os"
@@ -47,6 +48,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -2482,6 +2484,12 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 	}
 	if backupMetadata.CheckpointName != "" {
 		vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName = &backupMetadata.CheckpointName
+	}
+	if backupMetadata.Disks != "" {
+		var disks []backupv1.CheckpointDiskInfo
+		if err := json.Unmarshal([]byte(backupMetadata.Disks), &disks); err == nil && len(disks) > 0 {
+			vmi.Status.ChangedBlockTracking.BackupStatus.Disks = disks
+		}
 	}
 	// TODO: Handle backup failure (backupMetadata.Failed) and abort status (backupMetadata.AbortStatus)
 }

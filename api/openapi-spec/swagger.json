@@ -17878,6 +17878,15 @@
       "description": "Completed indicates the backup completed",
       "type": "boolean"
      },
+     "disks": {
+      "description": "Disks lists the disks included in the checkpoint",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.CheckpointDiskInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "endTimestamp": {
       "description": "EndTimestamp is the timestamp when the backup ended",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
@@ -19755,6 +19764,26 @@
      }
     }
    },
+   "v1alpha1.CheckpointDiskInfo": {
+    "description": "CheckpointDiskInfo contains information about a disk included in a checkpoint",
+    "type": "object",
+    "required": [
+     "volumeName",
+     "diskTarget"
+    ],
+    "properties": {
+     "diskTarget": {
+      "description": "DiskTarget is the disk target device name at backup time",
+      "type": "string",
+      "default": ""
+     },
+     "volumeName": {
+      "description": "VolumeName is the volume name from VMI spec",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1alpha1.Condition": {
     "description": "Condition defines conditions",
     "type": "object",
@@ -20001,6 +20030,15 @@
       "items": {
        "default": {},
        "$ref": "#/definitions/v1alpha1.Condition"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "includedDisks": {
+      "description": "IncludedDisks lists the disks that were included in the backup",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.CheckpointDiskInfo"
       },
       "x-kubernetes-list-type": "atomic"
      },

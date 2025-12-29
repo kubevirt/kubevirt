@@ -282,6 +282,7 @@ type SyncInfo struct {
 	event          string
 	checkpointName string
 	backupType     backupv1.BackupType
+	includedDisks  []backupv1.CheckpointDiskInfo
 }
 
 func syncInfoError(err error) *SyncInfo {
@@ -460,6 +461,9 @@ func (ctrl *VMBackupController) updateStatus(backup *backupv1.VirtualMachineBack
 			updateBackupCondition(backupOut, newDoneCondition(corev1.ConditionTrue, syncInfo.reason))
 			if syncInfo.checkpointName != "" {
 				backupOut.Status.CheckpointName = pointer.P(syncInfo.checkpointName)
+			}
+			if len(syncInfo.includedDisks) > 0 {
+				backupOut.Status.IncludedDisks = syncInfo.includedDisks
 			}
 		}
 	}
@@ -698,7 +702,7 @@ func (ctrl *VMBackupController) checkBackupCompletion(backup *backupv1.VirtualMa
 
 	// Update BackupTracker with the new checkpoint if applicable
 	if backupTracker != nil && backupStatus.CheckpointName != nil {
-		if err := ctrl.updateBackupTracker(backup.Namespace, backupTracker, backupStatus); err != nil {
+		if err := ctrl.updateBackupTrackerWithCheckpoint(backup.Namespace, backupTracker, *backupStatus.CheckpointName, backupStatus.Disks); err != nil {
 			log.Log.Object(backup).Reason(err).Error("Failed to update BackupTracker")
 			return syncInfoError(err)
 		}
@@ -730,22 +734,24 @@ func (ctrl *VMBackupController) checkBackupCompletion(backup *backupv1.VirtualMa
 		}
 	}
 
-	// We allow tracking checkpoints only if BackupTracker is specified
-	if backupTracker != nil {
+	// Get checkpoint info from VMI status (populated from metadata)
+	if backupStatus.CheckpointName != nil {
 		syncInfo.checkpointName = *backupStatus.CheckpointName
 	}
+	syncInfo.includedDisks = backupStatus.Disks
 
 	return syncInfo
 }
 
-func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *backupv1.VirtualMachineBackupTracker, backupStatus *v1.VirtualMachineInstanceBackupStatus) error {
+func (ctrl *VMBackupController) updateBackupTrackerWithCheckpoint(namespace string, tracker *backupv1.VirtualMachineBackupTracker, checkpointName string, disks []backupv1.CheckpointDiskInfo) error {
 	if tracker == nil {
 		return nil
 	}
 
 	newCheckpoint := backupv1.BackupCheckpoint{
-		Name:         *backupStatus.CheckpointName,
+		Name:         checkpointName,
 		CreationTime: pointer.P(metav1.Now()),
+		Disks:        disks,
 	}
 
 	newStatus := &backupv1.VirtualMachineBackupTrackerStatus{
@@ -778,8 +784,8 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 
 	log.Log.Infof("Successfully updated BackupTracker %s/%s with checkpoint %s",
 		namespace, tracker.Name, newCheckpoint.Name)
-	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s",
-		newCheckpoint.Name, newCheckpoint.CreationTime)
+	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s, disks=%d",
+		newCheckpoint.Name, newCheckpoint.CreationTime, len(newCheckpoint.Disks))
 
 	return nil
 }

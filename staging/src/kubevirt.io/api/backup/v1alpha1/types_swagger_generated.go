@@ -2,8 +2,18 @@
 
 package v1alpha1
 
+func (CheckpointDiskInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":           "CheckpointDiskInfo contains information about a disk included in a checkpoint",
+		"volumeName": "VolumeName is the volume name from VMI spec",
+		"diskTarget": "DiskTarget is the disk target device name at backup time",
+	}
+}
+
 func (BackupCheckpoint) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"disks": "Disks lists volumes and their disk targets at backup time\n+optional\n+listType=atomic",
+	}
 }
 
 func (BackupOptions) SwaggerDoc() map[string]string {
@@ -28,7 +38,7 @@ func (VirtualMachineBackupTrackerSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineBackupTrackerStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"latestCheckpoint": "+optional\nLatestCheckpoint is the metadata of the checkpoint of\nthe latest preformed backup",
+		"latestCheckpoint": "+optional\nLatestCheckpoint is the metadata of the checkpoint of\nthe latest performed backup",
 	}
 }
 
@@ -70,6 +80,7 @@ func (VirtualMachineBackupStatus) SwaggerDoc() map[string]string {
 		"type":           "+optional\nType indicates if the backup was full or incremental",
 		"conditions":     "+optional\n+listType=atomic",
 		"checkpointName": "+optional\nCheckpointName the name of the checkpoint created for the current backup",
+		"includedDisks":  "+optional\n+listType=atomic\nIncludedDisks lists the disks that were included in the backup",
 	}
 }
 
