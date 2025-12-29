@@ -17908,6 +17908,15 @@
      "startTimestamp": {
       "description": "StartTimestamp is the timestamp when the backup started",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "volumes": {
+      "description": "Volumes lists the volumes included in the backup",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },
@@ -19778,6 +19787,26 @@
      }
     }
    },
+   "v1alpha1.BackupVolumeInfo": {
+    "description": "BackupVolumeInfo contains information about a volume included in a backup",
+    "type": "object",
+    "required": [
+     "volumeName",
+     "diskTarget"
+    ],
+    "properties": {
+     "diskTarget": {
+      "description": "DiskTarget is the disk target device name at backup time",
+      "type": "string",
+      "default": ""
+     },
+     "volumeName": {
+      "description": "VolumeName is the volume name from VMI spec",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1alpha1.Condition": {
     "description": "Condition defines conditions",
     "type": "object",
@@ -20024,6 +20053,15 @@
       "items": {
        "default": {},
        "$ref": "#/definitions/v1alpha1.Condition"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "includedVolumes": {
+      "description": "IncludedVolumes lists the volumes that were included in the backup",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
       },
       "x-kubernetes-list-type": "atomic"
      },
