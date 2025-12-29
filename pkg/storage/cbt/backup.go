@@ -68,6 +68,8 @@ const (
 	backupSourceNameEmptyMsg             = "Source name is empty"
 	backupDeletingMsg                    = "Backup is being deleted"
 	backupDeletingBeforeVMICompletionMsg = "Backup is being deleted before VMI completion, waiting for completion"
+
+	AbortBackupFailedNoBackupErr = "failed to abort backup - vmi is not being backed up"
 )
 
 var (

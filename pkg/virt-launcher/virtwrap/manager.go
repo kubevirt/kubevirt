@@ -2537,6 +2537,8 @@ func (l *LibvirtDomainManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstan
 	switch backupOptions.Cmd {
 	case backupv1.Start:
 		return l.storageManager.BackupVirtualMachine(vmi, backupOptions)
+	case backupv1.Abort:
+		return l.storageManager.AbortVirtualMachineBackup(vmi)
 	default:
 		// TODO: Implement backup abort functionality
 		return fmt.Errorf("recieved unknown backup command")
