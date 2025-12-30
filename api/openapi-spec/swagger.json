@@ -9175,6 +9175,61 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint": {
+    "put": {
+     "description": "Redefine a checkpoint for a VirtualMachineInstance.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1RedefineCheckpoint",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.BackupCheckpoint"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine Instance",
@@ -10948,6 +11003,61 @@
      },
      {
       "$ref": "#/parameters/protocol-B-mX08es"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint": {
+    "put": {
+     "description": "Redefine a checkpoint for a VirtualMachineInstance.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3RedefineCheckpoint",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.BackupCheckpoint"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
      }
     ]
    },
@@ -19757,6 +19867,26 @@
       "description": "Name of the watchdog.",
       "type": "string",
       "default": ""
+     }
+    }
+   },
+   "v1alpha1.BackupCheckpoint": {
+    "type": "object",
+    "properties": {
+     "creationTime": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "name": {
+      "type": "string"
+     },
+     "volumes": {
+      "description": "Volumes lists volumes and their disk targets at backup time",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },

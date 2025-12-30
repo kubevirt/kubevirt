@@ -695,3 +695,20 @@ func (app *SubresourceAPIApp) BackupVMIRequestHandler(request *restful.Request, 
 
 	app.putRequestHandler(request, response, validate, getURL, false)
 }
+
+func (app *SubresourceAPIApp) RedefineCheckpointVMIRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.ChangedBlockTracking == nil ||
+			vmi.Status.ChangedBlockTracking.State != v1.ChangedBlockTrackingEnabled {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name,
+				fmt.Errorf("ChangedBlockTracking is not enabled"))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.RedefineCheckpointURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
