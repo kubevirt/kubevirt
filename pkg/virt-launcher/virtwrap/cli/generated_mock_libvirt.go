@@ -524,6 +524,21 @@ func (mr *MockVirDomainMockRecorder) CoreDumpWithFormat(to, format, flags any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CoreDumpWithFormat", reflect.TypeOf((*MockVirDomain)(nil).CoreDumpWithFormat), to, format, flags)
 }
 
+// CreateCheckpointXML mocks base method.
+func (m *MockVirDomain) CreateCheckpointXML(xmlConfig string, flags libvirt.DomainCheckpointCreateFlags) (*libvirt.DomainCheckpoint, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateCheckpointXML", xmlConfig, flags)
+	ret0, _ := ret[0].(*libvirt.DomainCheckpoint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateCheckpointXML indicates an expected call of CreateCheckpointXML.
+func (mr *MockVirDomainMockRecorder) CreateCheckpointXML(xmlConfig, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCheckpointXML", reflect.TypeOf((*MockVirDomain)(nil).CreateCheckpointXML), xmlConfig, flags)
+}
+
 // CreateWithFlags mocks base method.
 func (m *MockVirDomain) CreateWithFlags(flags libvirt.DomainCreateFlags) error {
 	m.ctrl.T.Helper()
