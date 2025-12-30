@@ -38,6 +38,7 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -354,6 +355,32 @@ var _ = Describe("RBAC test", func() {
 			Entry("RoleBindings", roleBindingType),
 			Entry("ClusterRoleBinding", clusterRoleBindingType),
 		)
+
+		It("should not create ServiceMonitor Role when ServiceMonitor is disabled", func() {
+			reconciler.config = util.OperatorConfig{ServiceMonitorEnabled: false}
+
+			role := &rbacv1.Role{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: rbac.MONITOR_SERVICEACCOUNT_NAME,
+				},
+			}
+
+			err := reconciler.createOrUpdateRole(role, version, imageRegistry, id)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
+
+		It("should not create ServiceMonitor RoleBinding when ServiceMonitor is disabled", func() {
+			reconciler.config = util.OperatorConfig{ServiceMonitorEnabled: false}
+
+			roleBinding := &rbacv1.RoleBinding{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: rbac.MONITOR_SERVICEACCOUNT_NAME,
+				},
+			}
+
+			err := reconciler.createOrUpdateRoleBinding(roleBinding, version, imageRegistry, id)
+			Expect(err).ShouldNot(HaveOccurred())
+		})
 
 	})
 })
