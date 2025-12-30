@@ -38,7 +38,8 @@ func (VirtualMachineBackupTrackerSpec) SwaggerDoc() map[string]string {
 
 func (VirtualMachineBackupTrackerStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"latestCheckpoint": "+optional\nLatestCheckpoint is the metadata of the checkpoint of\nthe latest performed backup",
+		"latestCheckpoint":               "+optional\nLatestCheckpoint is the metadata of the checkpoint of\nthe latest performed backup",
+		"checkpointRedefinitionRequired": "+optional\nCheckpointRedefinitionRequired is set to true by virt-handler when the VM\nrestarts and has a checkpoint that needs to be redefined in libvirt.\nvirt-controller will process this flag, attempt redefinition, and clear it.",
 	}
 }
 

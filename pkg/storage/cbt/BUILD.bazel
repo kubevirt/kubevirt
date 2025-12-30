@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "backup.go",
+        "backuptracker.go",
         "cbt.go",
         "push-target-pvc.go",
     ],
@@ -39,6 +40,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "backup_test.go",
+        "backuptracker_test.go",
         "cbt_suite_test.go",
         "cbt_test.go",
         "push-target-pvc_test.go",
@@ -46,6 +48,7 @@ go_test(
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//pkg/controller:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
