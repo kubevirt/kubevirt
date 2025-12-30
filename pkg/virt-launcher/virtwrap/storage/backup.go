@@ -22,6 +22,7 @@ package storage
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -310,3 +311,70 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 }
 
 // TODO: Implement backup abort functionality for graceful shutdown
+
+// isLibvirtCheckpointInvalidError checks if the libvirt error indicates
+// the checkpoint is invalid/corrupt (bitmap corruption, inconsistent state, etc.)
+func isLibvirtCheckpointInvalidError(err error) bool {
+	var libvirtErr libvirt.Error
+	if errors.As(err, &libvirtErr) {
+		switch libvirtErr.Code {
+		case libvirt.ERR_INVALID_DOMAIN_CHECKPOINT,
+			libvirt.ERR_NO_DOMAIN_CHECKPOINT,
+			libvirt.ERR_CHECKPOINT_INCONSISTENT:
+			return true
+		}
+	}
+	return false
+}
+
+// RedefineCheckpoint redefines a checkpoint from a previous backup session.
+// This is used after VM restart to restore checkpoint metadata in libvirt.
+func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
+	logger := log.Log.With("checkpointName", checkpoint.Name)
+	logger.Info("Redefining checkpoint")
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := m.virConn.LookupDomainByName(domName)
+	if err != nil {
+		return false, fmt.Errorf("failed to lookup domain %s: %v", domName, err)
+	}
+	defer dom.Free()
+
+	checkpointDisks := &api.CheckpointDisks{}
+	for _, vol := range checkpoint.Volumes {
+		checkpointDisks.Disks = append(checkpointDisks.Disks, api.CheckpointDisk{
+			Name:       vol.DiskTarget,
+			Checkpoint: "bitmap",
+		})
+	}
+
+	domainCheckpoint := &api.DomainCheckpoint{
+		Name:            checkpoint.Name,
+		CheckpointDisks: checkpointDisks,
+	}
+
+	if checkpoint.CreationTime != nil {
+		ct := uint64(checkpoint.CreationTime.Unix())
+		domainCheckpoint.CreationTime = &ct
+	}
+
+	checkpointXML, err := xml.Marshal(domainCheckpoint)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal checkpoint XML: %v", err)
+	}
+
+	logger.V(3).Infof("Checkpoint XML for redefinition: %s", string(checkpointXML))
+
+	redefineFlags := libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE | libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE
+	_, err = dom.CreateCheckpointXML(string(checkpointXML), redefineFlags)
+	if err != nil {
+		checkpointInvalid = isLibvirtCheckpointInvalidError(err)
+		if checkpointInvalid {
+			logger.Reason(err).Error("Checkpoint bitmap is invalid/corrupt")
+		}
+		return checkpointInvalid, fmt.Errorf("failed to redefine checkpoint %s: %v", checkpoint.Name, err)
+	}
+
+	logger.Infof("Checkpoint redefined successfully with %d disks", len(checkpoint.Volumes))
+	return false, nil
+}
