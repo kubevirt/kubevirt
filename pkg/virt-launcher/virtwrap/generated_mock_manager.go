@@ -431,6 +431,21 @@ func (mr *MockDomainManagerMockRecorder) PrepareMigrationTarget(arg0, arg1, arg2
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareMigrationTarget", reflect.TypeOf((*MockDomainManager)(nil).PrepareMigrationTarget), arg0, arg1, arg2)
 }
 
+// RedefineCheckpoint mocks base method.
+func (m *MockDomainManager) RedefineCheckpoint(arg0 *v1.VirtualMachineInstance, arg1 *v1alpha1.BackupCheckpoint) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RedefineCheckpoint", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RedefineCheckpoint indicates an expected call of RedefineCheckpoint.
+func (mr *MockDomainManagerMockRecorder) RedefineCheckpoint(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RedefineCheckpoint", reflect.TypeOf((*MockDomainManager)(nil).RedefineCheckpoint), arg0, arg1)
+}
+
 // ResetVMI mocks base method.
 func (m *MockDomainManager) ResetVMI(arg0 *v1.VirtualMachineInstance) error {
 	m.ctrl.T.Helper()
