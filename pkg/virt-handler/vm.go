@@ -115,6 +115,7 @@ type VirtualMachineController struct {
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
 	vmiGlobalStore           cache.Store
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
+	backupTrackerInformer    cache.SharedIndexInformer
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
@@ -141,6 +142,7 @@ func NewVirtualMachineController(
 	hostCpuModel string,
 	netConf netconf,
 	netStat netstat,
+	backupTrackerInformer cache.SharedIndexInformer,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -193,6 +195,7 @@ func NewVirtualMachineController(
 		vmiExpectations:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiGlobalStore:           vmiGlobalStore,
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
+		backupTrackerInformer:    backupTrackerInformer,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -1030,7 +1033,9 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	if err = c.updateMemoryInfo(vmi, domain); err != nil {
 		return err
 	}
-	cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+	if err = cbt.HandleChangedBlockTracking(vmi, domain, c.backupTrackerInformer, c.clientset); err != nil {
+		return err
+	}
 	err = c.netStat.UpdateStatus(vmi, domain)
 	return err
 }

@@ -260,6 +260,7 @@ func (app *virtHandlerApp) Run() {
 	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
+	backupTrackerInformer := factory.VirtualMachineBackupTracker()
 
 	// Wire Domain controller
 	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
@@ -434,6 +435,7 @@ func (app *virtHandlerApp) Run() {
 		hostCpuModel,
 		netConf,
 		netStat,
+		backupTrackerInformer,
 	)
 	if err != nil {
 		panic(err)
