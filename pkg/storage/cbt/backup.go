@@ -83,6 +83,7 @@ type VMBackupController struct {
 	pvcStore              cache.Store
 	recorder              record.EventRecorder
 	backupQueue           workqueue.TypedRateLimitingInterface[string]
+	trackerQueue          workqueue.TypedRateLimitingInterface[string]
 	hasSynced             func() bool
 }
 
@@ -98,6 +99,10 @@ func NewVMBackupController(client kubecli.KubevirtClient,
 		backupQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmbackup"},
+		),
+		trackerQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmbackup-tracker"},
 		),
 		backupInformer:        backupInformer,
 		backupTrackerInformer: backupTrackerInformer,
@@ -221,6 +226,14 @@ func (ctrl *VMBackupController) handleBackupTracker(obj interface{}) {
 	}
 
 	key := cacheKeyFunc(tracker.Namespace, tracker.Name)
+
+	// Enqueue tracker for checkpoint redefinition if needed
+	if trackerNeedsCheckpointRedefinition(tracker) {
+		log.Log.V(3).Infof("enqueued tracker %q for checkpoint redefinition", key)
+		ctrl.trackerQueue.Add(key)
+	}
+
+	// Enqueue related backups
 	backupKeys, err := ctrl.backupInformer.GetIndexer().IndexKeys("backupTracker", key)
 	if err != nil {
 		return
@@ -233,6 +246,7 @@ func (ctrl *VMBackupController) handleBackupTracker(obj interface{}) {
 func (ctrl *VMBackupController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer ctrl.backupQueue.ShutDown()
+	defer ctrl.trackerQueue.ShutDown()
 
 	log.Log.Info("Starting backup controller.")
 	defer log.Log.Info("Shutting down backup controller.")
@@ -246,6 +260,7 @@ func (ctrl *VMBackupController) Run(threadiness int, stopCh <-chan struct{}) err
 
 	for range threadiness {
 		go wait.Until(ctrl.runWorker, time.Second, stopCh)
+		go wait.Until(ctrl.runTrackerWorker, time.Second, stopCh)
 	}
 
 	<-stopCh
