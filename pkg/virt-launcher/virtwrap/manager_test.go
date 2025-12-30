@@ -79,10 +79,7 @@ const (
 )
 
 var (
-	expectedThawedOutput = `{"return":"thawed"}`
-	expectedFrozenOutput = `{"return":"frozen"}`
-	testDumpPath         = "/test/dump/path/vol1.memory.dump"
-	clusterConfig        *virtconfig.ClusterConfig
+	clusterConfig *virtconfig.ClusterConfig
 
 	//go:embed testdata/migration_domain.xml
 	embedMigrationDomain string
