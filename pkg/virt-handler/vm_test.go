@@ -43,6 +43,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
 	"kubevirt.io/client-go/kubecli"
@@ -177,6 +178,8 @@ var _ = Describe("VirtualMachineInstance", func() {
 		}
 		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 		fakeNodeStore := fakeNodeInformer.GetStore()
+		fakeBackupTrackerInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackupTracker{})
+		cbtHandler := NewCBTHandler(virtClient, fakeBackupTrackerInformer)
 		controller, _ = NewVirtualMachineController(
 			recorder,
 			virtClient,
@@ -197,6 +200,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			"",  // host cpu model
 			&netConfStub{},
 			&netStatStub{},
+			cbtHandler,
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
