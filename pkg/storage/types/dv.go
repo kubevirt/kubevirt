@@ -84,9 +84,14 @@ func GetResolvedCloneSource(ctx context.Context, client kubecli.KubevirtClient, 
 			return nil, err
 		}
 
+		resolvedSource := ds.Spec.Source.DeepCopy()
+		if ds.Spec.Source.DataSource != nil {
+			resolvedSource = ds.Status.Source.DeepCopy()
+		}
+
 		source = &cdiv1.DataVolumeSource{
-			PVC:      ds.Spec.Source.PVC,
-			Snapshot: ds.Spec.Source.Snapshot,
+			PVC:      resolvedSource.PVC,
+			Snapshot: resolvedSource.Snapshot,
 		}
 	}
 
