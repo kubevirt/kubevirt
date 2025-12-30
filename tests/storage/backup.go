@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -53,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -285,6 +287,198 @@ var _ = Describe(SIG("Backup", func() {
 		incrementalExpectedSizes := []int64{testDataSizeBytes, testDataSizeBytes}
 		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, incrementalExpectedSizes)
 	})
+
+	It("Incremental Backup after VM shutdown and restart", func() {
+		const (
+			testDataSizeMB    = 50
+			testDataSizeBytes = testDataSizeMB * 1024 * 1024
+		)
+
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+		incrementalBackupPVC := libstorage.CreateFSPVC("incremental-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		expectedDiskSize := resource.MustParse(cd.AlpineVolumeSize)
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Creating first full backup with tracker reference")
+		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name)
+		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
+		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
+
+		By("Verifying full backup size matches disk size")
+		verifyBackupTargetPVCOutput(virtClient, fullBackupPVC, vm.Name, 1, []int64{expectedDiskSize.Value()})
+
+		By("Verifying BackupTracker was updated with first checkpoint")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		firstCheckpoint := tracker.Status.LatestCheckpoint
+		Expect(firstCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after first backup")
+		Expect(firstCheckpoint.Name).To(Equal(*fullBackup.Status.CheckpointName), "First checkpoint should match backup checkpoint")
+		Expect(firstCheckpoint.Volumes).ToNot(BeEmpty(), "Checkpoint should have disk info for redefinition")
+
+		By(fmt.Sprintf("Writing %dMB of data to VM disk before shutdown", testDataSizeMB))
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should be able to login to Alpine VM")
+		err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/root/testfile bs=1M count=%d && sync", testDataSizeMB), 2*time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Listing checkpoints before VM stop")
+		checkpointsBeforeStop := listDomainCheckpoints(vmi)
+		Expect(checkpointsBeforeStop).To(HaveLen(1), "Should have exactly one checkpoint before stop")
+		Expect(checkpointsBeforeStop[0]).To(Equal(firstCheckpoint.Name), "Checkpoint name should match tracker checkpoint")
+
+		By("Stopping the VM gracefully")
+		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for VMI to be deleted (VM stopped)")
+		Eventually(func() error {
+			_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			return err
+		}, 180*time.Second, 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"),
+			"VMI should be deleted after VM stop")
+
+		By("Starting the VM again")
+		err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for VM to be running and guest agent connected")
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Verifying BackupTracker still has the checkpoint after VM restart")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil(), "Tracker should still have checkpoint after VM restart")
+		Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(firstCheckpoint.Name), "Checkpoint should be the same after restart")
+
+		By("Verifying checkpoint was redefined in libvirt after VM restart")
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		checkpointsAfterRestart := listDomainCheckpoints(vmi)
+		Expect(checkpointsAfterRestart).To(Equal(checkpointsBeforeStop),
+			"Checkpoint should be redefined with the same name after VM restart")
+
+		By("Creating second backup after VM restart - this should be incremental")
+		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name)
+		Expect(incrementalBackup.Status.Type).To(Equal(backupv1.Incremental),
+			"Backup after VM restart should be Incremental (checkpoint was redefined)")
+		Expect(incrementalBackup.Status.CheckpointName).ToNot(BeNil())
+		Expect(incrementalBackup.Status.IncludedVolumes).To(HaveLen(1), "Should have one included disk")
+
+		By("Verifying BackupTracker was updated with new checkpoint")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after second backup")
+		Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(*incrementalBackup.Status.CheckpointName), "Second checkpoint should match backup checkpoint")
+		Expect(tracker.Status.LatestCheckpoint.Name).ToNot(Equal(firstCheckpoint.Name), "Second checkpoint should have a different name")
+
+		By("Verifying incremental backup size matches the amount of data written")
+		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
+	})
+
+	It("Backup falls back to Full when checkpoint is corrupted", func() {
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+		secondBackupPVC := libstorage.CreateFSPVC("second-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		expectedDiskSize := resource.MustParse(cd.AlpineVolumeSize)
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Creating first full backup")
+		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name)
+		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
+		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
+		checkpointName := *fullBackup.Status.CheckpointName
+
+		By("Verifying BackupTracker has checkpoint")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil())
+		Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(checkpointName))
+
+		By("Stopping the VM to access the disk")
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		pvcName := backendstorage.CurrentPVCName(vmi)
+		Expect(pvcName).ToNot(BeEmpty(), "Backend storage PVC name should not be empty")
+		volumeName := vm.Spec.Template.Spec.Volumes[0].Name
+		cbtOverlayPath := fmt.Sprintf("/cbt/%s.qcow2", volumeName)
+
+		err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() error {
+			_, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			return err
+		}, 180*time.Second, 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+
+		By("Corrupting the checkpoint by deleting the QCOW2 overlay")
+		corruptBitmap(virtClient, vm.Namespace, pvcName, cbtOverlayPath)
+
+		By("Starting the VM again")
+		err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Verifying CheckpointRedefinitionFailed event was emitted on the tracker")
+		events.ExpectEvent(tracker, corev1.EventTypeWarning, "CheckpointRedefinitionFailed")
+
+		By("Verifying checkpoint redefinition failed and checkpoint was cleared")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint).To(BeNil(),
+			"BackupTracker checkpoint should be cleared after bitmap corruption detected")
+
+		By("Creating second backup - should be Full since checkpoint was corrupted")
+		secondBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, secondBackupPVC.Name, tracker.Name)
+		Expect(secondBackup.Status.Type).To(Equal(backupv1.Full),
+			"Backup should fall back to Full when checkpoint was corrupted")
+
+		By("Verifying second backup is a full backup")
+		verifyBackupTargetPVCOutput(virtClient, secondBackupPVC, vm.Name, 1, []int64{expectedDiskSize.Value()})
+	})
 }))
 
 func backupName(vmName string) string {
@@ -430,6 +624,46 @@ func createExecutorPod(targetPVC *corev1.PersistentVolumeClaim) *corev1.Pod {
 	return runPodAndExpectPhase(pod, corev1.PodRunning)
 }
 
+func corruptBitmap(virtClient kubecli.KubevirtClient, namespace, pvcName, cbtOverlayPath string) {
+	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	executorPod := createExecutorPod(pvc)
+
+	fullPath := fmt.Sprintf("%s%s", libstorage.DefaultPvcMountPath, cbtOverlayPath)
+
+	By("Listing backend storage PVC contents before deletion")
+	lsOutput, err := exec.ExecuteCommandOnPod(
+		executorPod,
+		executorPod.Spec.Containers[0].Name,
+		[]string{"/bin/sh", "-c", fmt.Sprintf("find %s -type f -name '*.qcow2' 2>/dev/null || ls -laR %s", libstorage.DefaultPvcMountPath, libstorage.DefaultPvcMountPath)},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	fmt.Printf("Backend storage PVC contents before deletion:\n%s\n", lsOutput)
+
+	By(fmt.Sprintf("Deleting the QCOW2 overlay file at %s to corrupt the checkpoint", fullPath))
+	_, err = exec.ExecuteCommandOnPod(
+		executorPod,
+		executorPod.Spec.Containers[0].Name,
+		[]string{"/bin/sh", "-c", fmt.Sprintf("rm -f %s", fullPath)},
+	)
+	Expect(err).ToNot(HaveOccurred(), "Should be able to delete the QCOW2 overlay file")
+
+	By("Verifying overlay was deleted")
+	lsOutput, err = exec.ExecuteCommandOnPod(
+		executorPod,
+		executorPod.Spec.Containers[0].Name,
+		[]string{"/bin/sh", "-c", fmt.Sprintf("find %s -type f -name '*.qcow2' 2>/dev/null || echo 'No qcow2 files found'", libstorage.DefaultPvcMountPath)},
+	)
+	Expect(err).ToNot(HaveOccurred())
+	fmt.Printf("Backend storage PVC contents after deletion:\n%s\n", lsOutput)
+	Expect(lsOutput).ToNot(ContainSubstring(cbtOverlayPath), "QCOW2 overlay should have been deleted")
+
+	By("Cleaning up executor pod")
+	err = virtClient.CoreV1().Pods(executorPod.Namespace).Delete(context.Background(), executorPod.Name, metav1.DeleteOptions{})
+	Expect(err).ToNot(HaveOccurred())
+}
+
 func verifyBackupTargetPVCOutput(virtClient kubecli.KubevirtClient, targetPVC *corev1.PersistentVolumeClaim, vmName string, numBackups int, expectedDiskSizes []int64) {
 	By(fmt.Sprintf("Verifying backup target PVC output: expecting %d backup(s) with %d disk(s) each", numBackups, len(expectedDiskSizes)))
 	executorPod := createExecutorPod(targetPVC)
@@ -499,4 +733,29 @@ func verifyBackupTargetPVCOutput(virtClient kubecli.KubevirtClient, targetPVC *c
 	Eventually(func() error {
 		return virtClient.CoreV1().Pods(executorPod.Namespace).Delete(context.Background(), executorPod.Name, metav1.DeleteOptions{})
 	}, 180*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+}
+
+func listDomainCheckpoints(vmi *v1.VirtualMachineInstance) []string {
+	domainName := fmt.Sprintf("%s_%s", vmi.Namespace, vmi.Name)
+
+	output := libpod.RunCommandOnVmiPod(vmi, []string{
+		"virsh",
+		"checkpoint-list",
+		domainName,
+		"--name",
+	})
+
+	output = strings.TrimSpace(output)
+	if output == "" {
+		return []string{}
+	}
+
+	var checkpoints []string
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			checkpoints = append(checkpoints, line)
+		}
+	}
+	return checkpoints
 }
