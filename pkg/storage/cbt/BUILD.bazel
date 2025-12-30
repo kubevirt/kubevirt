@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "backup.go",
+        "backuptracker.go",
         "cbt.go",
         "push-target-pvc.go",
     ],
@@ -38,6 +39,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "backup_test.go",
+        "backuptracker_test.go",
         "cbt_suite_test.go",
         "cbt_test.go",
         "push-target-pvc_test.go",
@@ -45,6 +47,7 @@ go_test(
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//pkg/controller:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/testutils:go_default_library",
@@ -60,6 +63,7 @@ go_test(
         "//vendor/github.com/onsi/gomega:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
