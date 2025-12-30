@@ -17776,6 +17776,13 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupTrackerStatus(ref
 							Ref:         ref("kubevirt.io/api/backup/v1alpha1.BackupCheckpoint"),
 						},
 					},
+					"checkpointRedefinitionRequired": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CheckpointRedefinitionRequired is set to true by virt-handler when the VM restarts and has a checkpoint that needs to be redefined in libvirt. virt-controller will process this flag, attempt redefinition, and clear it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

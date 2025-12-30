@@ -109,6 +109,12 @@ type VirtualMachineBackupTrackerStatus struct {
 	// LatestCheckpoint is the metadata of the checkpoint of
 	// the latest performed backup
 	LatestCheckpoint *BackupCheckpoint `json:"latestCheckpoint,omitempty"`
+
+	// +optional
+	// CheckpointRedefinitionRequired is set to true by virt-handler when the VM
+	// restarts and has a checkpoint that needs to be redefined in libvirt.
+	// virt-controller will process this flag, attempt redefinition, and clear it.
+	CheckpointRedefinitionRequired *bool `json:"checkpointRedefinitionRequired,omitempty"`
 }
 
 // VirtualMachineBackupTrackerList is a list of VirtualMachineBackupTracker resources

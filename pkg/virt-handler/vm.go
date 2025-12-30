@@ -64,7 +64,6 @@ import (
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -115,6 +114,7 @@ type VirtualMachineController struct {
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
 	vmiGlobalStore           cache.Store
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
+	cbtHandler               *CBTHandler
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
@@ -141,6 +141,7 @@ func NewVirtualMachineController(
 	hostCpuModel string,
 	netConf netconf,
 	netStat netstat,
+	cbtHandler *CBTHandler,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -193,6 +194,7 @@ func NewVirtualMachineController(
 		vmiExpectations:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiGlobalStore:           vmiGlobalStore,
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
+		cbtHandler:               cbtHandler,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -1030,7 +1032,9 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	if err = c.updateMemoryInfo(vmi, domain); err != nil {
 		return err
 	}
-	cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+	if err = c.cbtHandler.HandleChangedBlockTracking(vmi, domain); err != nil {
+		return err
+	}
 	err = c.netStat.UpdateStatus(vmi, domain)
 	return err
 }

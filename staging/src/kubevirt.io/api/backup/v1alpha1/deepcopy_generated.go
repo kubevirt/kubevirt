@@ -331,6 +331,11 @@ func (in *VirtualMachineBackupTrackerStatus) DeepCopyInto(out *VirtualMachineBac
 		*out = new(BackupCheckpoint)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.CheckpointRedefinitionRequired != nil {
+		in, out := &in.CheckpointRedefinitionRequired, &out.CheckpointRedefinitionRequired
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 

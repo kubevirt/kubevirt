@@ -9207,6 +9207,12 @@ var CRDsValidation map[string]string = map[string]string{
         rule: self == oldSelf
     status:
       properties:
+        checkpointRedefinitionRequired:
+          description: |-
+            CheckpointRedefinitionRequired is set to true by virt-handler when the VM
+            restarts and has a checkpoint that needs to be redefined in libvirt.
+            virt-controller will process this flag, attempt redefinition, and clear it.
+          type: boolean
         latestCheckpoint:
           description: |-
             LatestCheckpoint is the metadata of the checkpoint of

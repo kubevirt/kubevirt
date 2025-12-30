@@ -260,6 +260,7 @@ func (app *virtHandlerApp) Run() {
 	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
+	backupTrackerInformer := factory.VirtualMachineBackupTracker()
 
 	// Wire Domain controller
 	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
@@ -414,6 +415,8 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	cbtHandler := virthandler.NewCBTHandler(app.virtCli, backupTrackerInformer)
+
 	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,
 		app.virtCli,
@@ -434,6 +437,7 @@ func (app *virtHandlerApp) Run() {
 		hostCpuModel,
 		netConf,
 		netStat,
+		cbtHandler,
 	)
 	if err != nil {
 		panic(err)
@@ -489,6 +493,7 @@ func (app *virtHandlerApp) Run() {
 		factory.CRD().HasSynced,
 		factory.KubeVirt().HasSynced,
 		nodeInformer.HasSynced,
+		backupTrackerInformer.HasSynced,
 	)
 
 	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
