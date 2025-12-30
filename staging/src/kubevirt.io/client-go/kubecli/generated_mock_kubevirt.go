@@ -1672,6 +1672,20 @@ func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) PortForward(name, por
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PortForward", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).PortForward), name, port, protocol)
 }
 
+// RedefineCheckpoint mocks base method.
+func (m *MockVirtualMachineInstanceInterface) RedefineCheckpoint(ctx context.Context, name string, checkpoint *v1alpha18.BackupCheckpoint) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RedefineCheckpoint", ctx, name, checkpoint)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RedefineCheckpoint indicates an expected call of RedefineCheckpoint.
+func (mr *MockVirtualMachineInstanceInterfaceMockRecorder) RedefineCheckpoint(ctx, name, checkpoint any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RedefineCheckpoint", reflect.TypeOf((*MockVirtualMachineInstanceInterface)(nil).RedefineCheckpoint), ctx, name, checkpoint)
+}
+
 // RemoveVolume mocks base method.
 func (m *MockVirtualMachineInstanceInterface) RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v122.RemoveVolumeOptions) error {
 	m.ctrl.T.Helper()
