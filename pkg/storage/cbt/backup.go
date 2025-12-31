@@ -64,6 +64,7 @@ const (
 	vmNoVolumesToBackupMsg               = "vm %s has no volumes to backup"
 	vmNoChangedBlockTrackingMsg          = "vm %s has no ChangedBlockTracking, cannot start backup"
 	backupTrackerNotFoundMsg             = "BackupTracker %s does not exist"
+	trackerCheckpointRedefinitionPending = "Waiting for checkpoint redefinition on tracker %s"
 	invalidBackupModeMsg                 = "invalid backup mode: %s"
 	backupSourceNameEmptyMsg             = "Source name is empty"
 	backupDeletingMsg                    = "Backup is being deleted"
@@ -372,6 +373,15 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) *Syn
 	vmi, syncInfo := ctrl.verifyBackupSource(backup, sourceName)
 	if syncInfo != nil {
 		return syncInfo
+	}
+
+	// If the tracker needs checkpoint redefinition, wait for it to complete.
+	if trackerNeedsCheckpointRedefinition(backupTracker) {
+		logger.Infof(trackerCheckpointRedefinitionPending, backupTracker.Name)
+		return &SyncInfo{
+			event:  backupInitializingEvent,
+			reason: fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTracker.Name),
+		}
 	}
 
 	if !isBackupInitializing(backup.Status) || vmi == nil {
