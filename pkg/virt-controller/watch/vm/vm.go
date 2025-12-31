@@ -1068,7 +1068,7 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 			log.Log.Object(vm).V(4).Info("VMI exists")
 
 			if forceStop := hasStopRequestForVMI(vm, vmi); forceStop || vmi.Status.Phase == virtv1.Succeeded {
-				log.Log.Object(vm).Infof("%s with VMI in phase %s due to stop request and VM runStrategy: %s", vmi.Status.Phase, stoppingVmMsg, runStrategy)
+				log.Log.Object(vm).Infof("%s with VMI in phase %s due to stop request and VM runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
 				vm, err = c.stopVMI(vm, vmi)
 				if err != nil {
 					log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
