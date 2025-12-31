@@ -137,6 +137,9 @@ API rule violation: names_match,kubevirt.io/api/core/v1,NetworkConfiguration,Dep
 API rule violation: names_match,kubevirt.io/api/core/v1,NetworkConfiguration,NetworkInterface
 API rule violation: names_match,kubevirt.io/api/core/v1,PITTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,RTCTimer,Enabled
+API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineHibernateStrategy,Mode
+API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineHibernationStatus,ClaimName
+API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineHibernationStatus,HibernationPhase
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceFileSystemInfo,Filesystems
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceGuestAgentInfo,GAVersion
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceGuestOSInfo,VersionID
@@ -144,6 +147,7 @@ API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceMi
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceNetworkInterface,IP
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceNetworkInterface,IPs
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceStatus,VSOCKCID
+API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineStatus,ResumeStatus
 API rule violation: names_match,kubevirt.io/api/core/v1,WatchdogDevice,I6300ESB
 API rule violation: names_match,kubevirt.io/api/instancetype/v1beta1,FirmwarePreferences,DeprecatedPreferredUseEfi
 API rule violation: names_match,kubevirt.io/api/instancetype/v1beta1,FirmwarePreferences,DeprecatedPreferredUseSecureBoot

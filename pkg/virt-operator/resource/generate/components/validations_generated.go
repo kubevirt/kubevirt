@@ -4716,6 +4716,26 @@ var CRDsValidation map[string]string = map[string]string{
             - spec
             type: object
           type: array
+        hibernateStrategy:
+          description: |-
+            HibernateStrategy is used to specify the hibernation method and other details of a virtual machine.
+            The save method invokes the save interface to store memory data in an additional PVC.
+            SuspendToDisk stores memory data in the system disk and does not require an extra PVC.
+            WarningTimeoutSeconds is used to specify the timeout warning duration for the hibernation process.
+          properties:
+            claimName:
+              description: ClaimName is the name of the pvc that will contain the
+                memory dump
+              type: string
+            spec:
+              type: string
+            warningTimeoutSeconds:
+              format: int32
+              type: integer
+          required:
+          - claimName
+          - spec
+          type: object
         instancetype:
           description: InstancetypeMatcher references a instancetype that is used
             to fill fields in Template
@@ -4790,6 +4810,7 @@ var CRDsValidation map[string]string = map[string]string{
             - "Manual": VMI can be started/stopped using API endpoints.
             - "RerunOnFailure": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.
             - "Once": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.
+            - "Hibernate" VM should hibernated and never be running
           type: string
         running:
           description: |-
@@ -4797,6 +4818,10 @@ var CRDsValidation map[string]string = map[string]string{
             Mutually exclusive with RunStrategy
             Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
           type: boolean
+        startStrategy:
+          description: StartStrategy can only be set to "restore" rightnow, if Virtual
+            Machine should be started via a PVC that stores the memory data.
+          type: string
         template:
           description: Template is the direct specification of VirtualMachineInstance
           properties:
@@ -7575,8 +7600,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If not specified, the VMI will be dispatched by default scheduler.
                   type: string
                 startStrategy:
-                  description: StartStrategy can be set to "Paused" if Virtual Machine
-                    should be started in paused state.
+                  description: |-
+                    StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
+                    Can be set to "Restore" if Virtual Machine should be started with memory data save in PVC.
+                  type: string
+                stopStrategy:
+                  description: StopStrategy controls the policy for stopping a VMI
+                    (e.g., save or suspendToDisk).
                   type: string
                 subdomain:
                   description: |-
@@ -8317,6 +8347,17 @@ var CRDsValidation map[string]string = map[string]string{
         Status holds the current state of the controller and brief information
         about its associated VirtualMachineInstance
       properties:
+        ResumeStatus:
+          description: VirtualMachineResumeStatus represents VM resume status.
+          properties:
+            phase:
+              description: Phase represents the resume progress state.
+              type: string
+            reason:
+              description: Reason is empty if resume succeeded; otherwise contains
+                a human-readable reason.
+              type: string
+          type: object
         changedBlockTracking:
           description: ChangedBlockTracking represents the status of the changedBlockTracking
           nullable: true
@@ -8394,6 +8435,30 @@ var CRDsValidation map[string]string = map[string]string{
             updated through an Update() before ObservedGeneration in Status.
           format: int64
           type: integer
+        hibernationStatus:
+          description: VirtualMachineHibernationStatus represents the hibernation
+            state.
+          properties:
+            claim:
+              description: Claim is the name of the PVC used for storing hibernation
+                data.
+              type: string
+            filename:
+              description: Filename is the name / path of the saved image file produced
+                by the save operation.
+              type: string
+            mode:
+              description: Mode is the configured or observed hibernation strategy.
+              type: string
+            phase:
+              description: Phase represents the hibernation phase.
+              type: string
+            reason:
+              description: |-
+                Reason is empty if hibernation succeeded; otherwise contains a human-readable
+                reason explaining why hibernation failed.
+              type: string
+          type: object
         instancetypeRef:
           description: InstancetypeRef captures the state of any referenced instance
             type from the VirtualMachine
@@ -13321,8 +13386,13 @@ var CRDsValidation map[string]string = map[string]string{
             If not specified, the VMI will be dispatched by default scheduler.
           type: string
         startStrategy:
-          description: StartStrategy can be set to "Paused" if Virtual Machine should
-            be started in paused state.
+          description: |-
+            StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
+            Can be set to "Restore" if Virtual Machine should be started with memory data save in PVC.
+          type: string
+        stopStrategy:
+          description: StopStrategy controls the policy for stopping a VMI (e.g.,
+            save or suspendToDisk).
           type: string
         subdomain:
           description: |-
@@ -14876,6 +14946,18 @@ var CRDsValidation map[string]string = map[string]string{
                       artifacts inside the containerdisk
                     format: int32
                     type: integer
+                type: object
+              hibernationSaveVolume:
+                description: If the volume is Hibernation volume, this will contain
+                  the Hibernation workflow info.
+                properties:
+                  claimName:
+                    description: ClaimName is the name of the pvc
+                    type: string
+                  targetFileName:
+                    description: TargetFileName is the name of the save ingerface
+                      output
+                    type: string
                 type: object
               hotplugVolume:
                 description: If the volume is hotplug, this will contain the hotplug
@@ -19618,8 +19700,13 @@ var CRDsValidation map[string]string = map[string]string{
                     If not specified, the VMI will be dispatched by default scheduler.
                   type: string
                 startStrategy:
-                  description: StartStrategy can be set to "Paused" if Virtual Machine
-                    should be started in paused state.
+                  description: |-
+                    StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
+                    Can be set to "Restore" if Virtual Machine should be started with memory data save in PVC.
+                  type: string
+                stopStrategy:
+                  description: StopStrategy controls the policy for stopping a VMI
+                    (e.g., save or suspendToDisk).
                   type: string
                 subdomain:
                   description: |-
@@ -21729,6 +21816,26 @@ var CRDsValidation map[string]string = map[string]string{
                     - spec
                     type: object
                   type: array
+                hibernateStrategy:
+                  description: |-
+                    HibernateStrategy is used to specify the hibernation method and other details of a virtual machine.
+                    The save method invokes the save interface to store memory data in an additional PVC.
+                    SuspendToDisk stores memory data in the system disk and does not require an extra PVC.
+                    WarningTimeoutSeconds is used to specify the timeout warning duration for the hibernation process.
+                  properties:
+                    claimName:
+                      description: ClaimName is the name of the pvc that will contain
+                        the memory dump
+                      type: string
+                    spec:
+                      type: string
+                    warningTimeoutSeconds:
+                      format: int32
+                      type: integer
+                  required:
+                  - claimName
+                  - spec
+                  type: object
                 instancetype:
                   description: InstancetypeMatcher references a instancetype that
                     is used to fill fields in Template
@@ -21805,6 +21912,7 @@ var CRDsValidation map[string]string = map[string]string{
                     - "Manual": VMI can be started/stopped using API endpoints.
                     - "RerunOnFailure": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.
                     - "Once": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.
+                    - "Hibernate" VM should hibernated and never be running
                   type: string
                 running:
                   description: |-
@@ -21812,6 +21920,11 @@ var CRDsValidation map[string]string = map[string]string{
                     Mutually exclusive with RunStrategy
                     Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
                   type: boolean
+                startStrategy:
+                  description: StartStrategy can only be set to "restore" rightnow,
+                    if Virtual Machine should be started via a PVC that stores the
+                    memory data.
+                  type: string
                 template:
                   description: Template is the direct specification of VirtualMachineInstance
                   properties:
@@ -24630,8 +24743,13 @@ var CRDsValidation map[string]string = map[string]string{
                             If not specified, the VMI will be dispatched by default scheduler.
                           type: string
                         startStrategy:
-                          description: StartStrategy can be set to "Paused" if Virtual
-                            Machine should be started in paused state.
+                          description: |-
+                            StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
+                            Can be set to "Restore" if Virtual Machine should be started with memory data save in PVC.
+                          type: string
+                        stopStrategy:
+                          description: StopStrategy controls the policy for stopping
+                            a VMI (e.g., save or suspendToDisk).
                           type: string
                         subdomain:
                           description: |-
@@ -27146,6 +27264,26 @@ var CRDsValidation map[string]string = map[string]string{
                         - spec
                         type: object
                       type: array
+                    hibernateStrategy:
+                      description: |-
+                        HibernateStrategy is used to specify the hibernation method and other details of a virtual machine.
+                        The save method invokes the save interface to store memory data in an additional PVC.
+                        SuspendToDisk stores memory data in the system disk and does not require an extra PVC.
+                        WarningTimeoutSeconds is used to specify the timeout warning duration for the hibernation process.
+                      properties:
+                        claimName:
+                          description: ClaimName is the name of the pvc that will
+                            contain the memory dump
+                          type: string
+                        spec:
+                          type: string
+                        warningTimeoutSeconds:
+                          format: int32
+                          type: integer
+                      required:
+                      - claimName
+                      - spec
+                      type: object
                     instancetype:
                       description: InstancetypeMatcher references a instancetype that
                         is used to fill fields in Template
@@ -27222,6 +27360,7 @@ var CRDsValidation map[string]string = map[string]string{
                         - "Manual": VMI can be started/stopped using API endpoints.
                         - "RerunOnFailure": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.
                         - "Once": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.
+                        - "Hibernate" VM should hibernated and never be running
                       type: string
                     running:
                       description: |-
@@ -27229,6 +27368,11 @@ var CRDsValidation map[string]string = map[string]string{
                         Mutually exclusive with RunStrategy
                         Deprecated: VirtualMachineInstance field "Running" is now deprecated, please use RunStrategy instead.
                       type: boolean
+                    startStrategy:
+                      description: StartStrategy can only be set to "restore" rightnow,
+                        if Virtual Machine should be started via a PVC that stores
+                        the memory data.
+                      type: string
                     template:
                       description: Template is the direct specification of VirtualMachineInstance
                       properties:
@@ -30075,8 +30219,13 @@ var CRDsValidation map[string]string = map[string]string{
                                 If not specified, the VMI will be dispatched by default scheduler.
                               type: string
                             startStrategy:
-                              description: StartStrategy can be set to "Paused" if
-                                Virtual Machine should be started in paused state.
+                              description: |-
+                                StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
+                                Can be set to "Restore" if Virtual Machine should be started with memory data save in PVC.
+                              type: string
+                            stopStrategy:
+                              description: StopStrategy controls the policy for stopping
+                                a VMI (e.g., save or suspendToDisk).
                               type: string
                             subdomain:
                               description: |-
@@ -30838,6 +30987,18 @@ var CRDsValidation map[string]string = map[string]string{
                     Status holds the current state of the controller and brief information
                     about its associated VirtualMachineInstance
                   properties:
+                    ResumeStatus:
+                      description: VirtualMachineResumeStatus represents VM resume
+                        status.
+                      properties:
+                        phase:
+                          description: Phase represents the resume progress state.
+                          type: string
+                        reason:
+                          description: Reason is empty if resume succeeded; otherwise
+                            contains a human-readable reason.
+                          type: string
+                      type: object
                     changedBlockTracking:
                       description: ChangedBlockTracking represents the status of the
                         changedBlockTracking
@@ -30921,6 +31082,31 @@ var CRDsValidation map[string]string = map[string]string{
                         updated through an Update() before ObservedGeneration in Status.
                       format: int64
                       type: integer
+                    hibernationStatus:
+                      description: VirtualMachineHibernationStatus represents the
+                        hibernation state.
+                      properties:
+                        claim:
+                          description: Claim is the name of the PVC used for storing
+                            hibernation data.
+                          type: string
+                        filename:
+                          description: Filename is the name / path of the saved image
+                            file produced by the save operation.
+                          type: string
+                        mode:
+                          description: Mode is the configured or observed hibernation
+                            strategy.
+                          type: string
+                        phase:
+                          description: Phase represents the hibernation phase.
+                          type: string
+                        reason:
+                          description: |-
+                            Reason is empty if hibernation succeeded; otherwise contains a human-readable
+                            reason explaining why hibernation failed.
+                          type: string
+                      type: object
                     instancetypeRef:
                       description: InstancetypeRef captures the state of any referenced
                         instance type from the VirtualMachine

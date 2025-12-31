@@ -435,6 +435,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.GuestAgentPing":                                                          schema_kubevirtio_api_core_v1_GuestAgentPing(ref),
 		"kubevirt.io/api/core/v1.HPETTimer":                                                               schema_kubevirtio_api_core_v1_HPETTimer(ref),
 		"kubevirt.io/api/core/v1.Handler":                                                                 schema_kubevirtio_api_core_v1_Handler(ref),
+		"kubevirt.io/api/core/v1.HibernationInfo":                                                         schema_kubevirtio_api_core_v1_HibernationInfo(ref),
 		"kubevirt.io/api/core/v1.HostDevice":                                                              schema_kubevirtio_api_core_v1_HostDevice(ref),
 		"kubevirt.io/api/core/v1.HostDisk":                                                                schema_kubevirtio_api_core_v1_HostDisk(ref),
 		"kubevirt.io/api/core/v1.HotplugVolumeSource":                                                     schema_kubevirtio_api_core_v1_HotplugVolumeSource(ref),
@@ -561,6 +562,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VideoDevice":                                                             schema_kubevirtio_api_core_v1_VideoDevice(ref),
 		"kubevirt.io/api/core/v1.VirtualMachine":                                                          schema_kubevirtio_api_core_v1_VirtualMachine(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineCondition":                                                 schema_kubevirtio_api_core_v1_VirtualMachineCondition(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineHibernateStrategy":                                         schema_kubevirtio_api_core_v1_VirtualMachineHibernateStrategy(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineHibernationStatus":                                         schema_kubevirtio_api_core_v1_VirtualMachineHibernationStatus(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstance":                                                  schema_kubevirtio_api_core_v1_VirtualMachineInstance(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceBackupStatus":                                      schema_kubevirtio_api_core_v1_VirtualMachineInstanceBackupStatus(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceCommonMigrationState":                              schema_kubevirtio_api_core_v1_VirtualMachineInstanceCommonMigrationState(ref),
@@ -602,6 +605,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachineList":                                                      schema_kubevirtio_api_core_v1_VirtualMachineList(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest":                                         schema_kubevirtio_api_core_v1_VirtualMachineMemoryDumpRequest(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineOptions":                                                   schema_kubevirtio_api_core_v1_VirtualMachineOptions(ref),
+		"kubevirt.io/api/core/v1.VirtualMachineResumeStatus":                                              schema_kubevirtio_api_core_v1_VirtualMachineResumeStatus(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineSpec":                                                      schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineStartFailure":                                              schema_kubevirtio_api_core_v1_VirtualMachineStartFailure(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest":                                        schema_kubevirtio_api_core_v1_VirtualMachineStateChangeRequest(ref),
@@ -21612,6 +21616,32 @@ func schema_kubevirtio_api_core_v1_Handler(ref common.ReferenceCallback) common.
 	}
 }
 
+func schema_kubevirtio_api_core_v1_HibernationInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName is the name of the pvc",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"targetFileName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TargetFileName is the name of the save ingerface output",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_HostDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -26507,6 +26537,87 @@ func schema_kubevirtio_api_core_v1_VirtualMachineCondition(ref common.ReferenceC
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VirtualMachineHibernateStrategy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineHibernateStrategy represents the strategy used to specify the details of VM hibernation",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"warningTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName is the name of the pvc that will contain the memory dump",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"spec", "claimName"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VirtualMachineHibernationStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"mode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Mode is the configured or observed hibernation strategy.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase represents the hibernation phase.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"claim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Claim is the name of the PVC used for storing hibernation data.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"filename": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Filename is the name / path of the saved image file produced by the save operation.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reason is empty if hibernation succeeded; otherwise contains a human-readable reason explaining why hibernation failed.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VirtualMachineInstance(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -28614,7 +28725,14 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 					},
 					"startStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state.",
+							Description: "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state. Can be set to \"Restore\" if Virtual Machine should be started with memory data save in PVC.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"stopStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StopStrategy controls the policy for stopping a VMI (e.g., save or suspendToDisk).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -29203,6 +29321,32 @@ func schema_kubevirtio_api_core_v1_VirtualMachineOptions(ref common.ReferenceCal
 	}
 }
 
+func schema_kubevirtio_api_core_v1_VirtualMachineResumeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase represents the resume progress state.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reason is empty if resume succeeded; otherwise contains a human-readable reason.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -29219,7 +29363,20 @@ func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 					},
 					"runStrategy": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running Following are allowed values: - \"Always\": VMI should always be running. - \"Halted\": VMI should never be running. - \"Manual\": VMI can be started/stopped using API endpoints. - \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion. - \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
+							Description: "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running Following are allowed values: - \"Always\": VMI should always be running. - \"Halted\": VMI should never be running. - \"Manual\": VMI can be started/stopped using API endpoints. - \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion. - \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success. - \"Hibernate\" VM should hibernated and never be running",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"hibernateStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HibernateStrategy is used to specify the hibernation method and other details of a virtual machine. The save method invokes the save interface to store memory data in an additional PVC. SuspendToDisk stores memory data in the system disk and does not require an extra PVC. WarningTimeoutSeconds is used to specify the timeout warning duration for the hibernation process.",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineHibernateStrategy"),
+						},
+					},
+					"startStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StartStrategy can only be set to \"restore\" rightnow, if Virtual Machine should be started via a PVC that stores the memory data.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -29268,7 +29425,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineSpec(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DataVolumeTemplateSpec", "kubevirt.io/api/core/v1.InstancetypeMatcher", "kubevirt.io/api/core/v1.PreferenceMatcher", "kubevirt.io/api/core/v1.VirtualMachineInstanceTemplateSpec"},
+			"kubevirt.io/api/core/v1.DataVolumeTemplateSpec", "kubevirt.io/api/core/v1.InstancetypeMatcher", "kubevirt.io/api/core/v1.PreferenceMatcher", "kubevirt.io/api/core/v1.VirtualMachineHibernateStrategy", "kubevirt.io/api/core/v1.VirtualMachineInstanceTemplateSpec"},
 	}
 }
 
@@ -29508,11 +29665,23 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Ref:         ref("kubevirt.io/api/core/v1.InstancetypeStatusRef"),
 						},
 					},
+					"hibernationStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineHibernationStatus represents the hibernation state.",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineHibernationStatus"),
+						},
+					},
+					"ResumeStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineResumeStatus represents VM resume status.",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineResumeStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.ChangedBlockTrackingStatus", "kubevirt.io/api/core/v1.InstancetypeStatusRef", "kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus", "kubevirt.io/api/core/v1.VolumeUpdateState"},
+			"kubevirt.io/api/core/v1.ChangedBlockTrackingStatus", "kubevirt.io/api/core/v1.InstancetypeStatusRef", "kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineHibernationStatus", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineResumeStatus", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus", "kubevirt.io/api/core/v1.VolumeUpdateState"},
 	}
 }
 
@@ -29905,12 +30074,18 @@ func schema_kubevirtio_api_core_v1_VolumeStatus(ref common.ReferenceCallback) co
 							Ref:         ref("kubevirt.io/api/core/v1.ContainerDiskInfo"),
 						},
 					},
+					"hibernationSaveVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If the volume is Hibernation volume, this will contain the Hibernation workflow info.",
+							Ref:         ref("kubevirt.io/api/core/v1.HibernationInfo"),
+						},
+					},
 				},
 				Required: []string{"name", "target"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.ContainerDiskInfo", "kubevirt.io/api/core/v1.DomainMemoryDumpInfo", "kubevirt.io/api/core/v1.HotplugVolumeStatus", "kubevirt.io/api/core/v1.PersistentVolumeClaimInfo"},
+			"kubevirt.io/api/core/v1.ContainerDiskInfo", "kubevirt.io/api/core/v1.DomainMemoryDumpInfo", "kubevirt.io/api/core/v1.HibernationInfo", "kubevirt.io/api/core/v1.HotplugVolumeStatus", "kubevirt.io/api/core/v1.PersistentVolumeClaimInfo"},
 	}
 }
 

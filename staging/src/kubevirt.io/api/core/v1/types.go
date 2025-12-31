@@ -74,7 +74,15 @@ type EvictionStrategy string
 type StartStrategy string
 
 const (
-	StartStrategyPaused StartStrategy = "Paused"
+	StartStrategyPaused  StartStrategy = "Paused"
+	StartStrategyRestore StartStrategy = "Restore"
+)
+
+type StopStrategy string
+
+const (
+	StopStrategySave          StopStrategy = "Save"
+	StopStrategySuspendToDisk StopStrategy = "SuspendToDisk"
 )
 
 // VirtualMachineInstanceSpec is a description of a VirtualMachineInstance.
@@ -119,9 +127,14 @@ type VirtualMachineInstanceSpec struct {
 	// +optional
 	EvictionStrategy *EvictionStrategy `json:"evictionStrategy,omitempty"`
 	// StartStrategy can be set to "Paused" if Virtual Machine should be started in paused state.
+	// Can be set to "Restore" if Virtual Machine should be started with memory data save in PVC.
 	//
 	// +optional
 	StartStrategy *StartStrategy `json:"startStrategy,omitempty"`
+	// StopStrategy controls the policy for stopping a VMI (e.g., save or suspendToDisk).
+	//
+	// +optional
+	StopStrategy *StopStrategy `json:"stopStrategy,omitempty"`
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
@@ -450,6 +463,8 @@ type VolumeStatus struct {
 	MemoryDumpVolume *DomainMemoryDumpInfo `json:"memoryDumpVolume,omitempty"`
 	// ContainerDiskVolume shows info about the containerdisk, if the volume is a containerdisk
 	ContainerDiskVolume *ContainerDiskInfo `json:"containerDiskVolume,omitempty"`
+	// If the volume is Hibernation volume, this will contain the Hibernation workflow info.
+	HibernationSaveVolume *HibernationInfo `json:"hibernationSaveVolume,omitempty"`
 }
 
 // KernelInfo show info about the kernel image
@@ -496,6 +511,13 @@ type HotplugVolumeStatus struct {
 type ContainerDiskInfo struct {
 	// Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk
 	Checksum uint32 `json:"checksum,omitempty"`
+}
+
+type HibernationInfo struct {
+	// ClaimName is the name of the pvc
+	ClaimName string `json:"claimName,omitempty"`
+	// TargetFileName is the name of the save ingerface output
+	TargetFileName string `json:"targetFileName,omitempty"`
 }
 
 // VolumePhase indicates the current phase of the hotplug process.
@@ -738,6 +760,10 @@ const (
 
 	// VirtualMachineInstanceEvictionRequested indicates that an eviction has been requested for the VMI
 	VirtualMachineInstanceEvictionRequested VirtualMachineInstanceConditionType = "EvictionRequested"
+	//VirtualMachineInstanceHibernationInProgress that vmi is Hibernating
+	VirtualMachineInstanceHibernationInProgress VirtualMachineInstanceConditionType = "HibernationInProgress"
+	//VirtualMachineInstanceHibernationInProgress that vmi is Resuming
+	VirtualMachineInstanceResumeInProgress VirtualMachineInstanceConditionType = "ResumeInProgress"
 )
 
 // These are valid reasons for VMI conditions.
@@ -1943,6 +1969,7 @@ const (
 	// Receiver pod will be created waiting for an incoming migration. Switch after to expected
 	// RunStrategy.
 	RunStrategyWaitAsReceiver VirtualMachineRunStrategy = "WaitAsReceiver"
+	RunStrategyHibernate      VirtualMachineRunStrategy = "Hibernate"
 )
 
 type UpdateVolumesStrategy string
@@ -1951,6 +1978,22 @@ const (
 	UpdateVolumesStrategyMigration   UpdateVolumesStrategy = "Migration"
 	UpdateVolumesStrategyReplacement UpdateVolumesStrategy = "Replacement"
 )
+
+type HibernateMode string
+
+const (
+	HibernateModeSave          HibernateMode = "Save"
+	HibernateModeSuspendToDisk HibernateMode = "SuspendToDisk"
+)
+
+// VirtualMachineHibernateStrategy represents the strategy used to specify
+// the details of VM hibernation
+type VirtualMachineHibernateStrategy struct {
+	Mode                  *HibernateMode `json:"spec" valid:"required"`
+	WarningTimeoutSeconds int32          `json:"warningTimeoutSeconds,omitempty"`
+	// ClaimName is the name of the pvc that will contain the memory dump
+	ClaimName string `json:"claimName"`
+}
 
 // VirtualMachineSpec describes how the proper VirtualMachine
 // should look like
@@ -1968,7 +2011,17 @@ type VirtualMachineSpec struct {
 	// - "Manual": VMI can be started/stopped using API endpoints.
 	// - "RerunOnFailure": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.
 	// - "Once": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.
+	// - "Hibernate" VM should hibernated and never be running
 	RunStrategy *VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
+	//HibernateStrategy is used to specify the hibernation method and other details of a virtual machine.
+	//The save method invokes the save interface to store memory data in an additional PVC.
+	//SuspendToDisk stores memory data in the system disk and does not require an extra PVC.
+	//WarningTimeoutSeconds is used to specify the timeout warning duration for the hibernation process.
+	// +optional
+	HibernateStrategy *VirtualMachineHibernateStrategy `json:"hibernateStrategy,omitempty" optional:"true"`
+	// StartStrategy can only be set to "restore" rightnow, if Virtual Machine should be started via a PVC that stores the memory data.
+	// +optional
+	StartStrategy *StartStrategy `json:"startStrategy,omitempty"`
 
 	// InstancetypeMatcher references a instancetype that is used to fill fields in Template
 	Instancetype *InstancetypeMatcher `json:"instancetype,omitempty" optional:"true"`
@@ -2129,6 +2182,14 @@ type VirtualMachineStatus struct {
 	//+nullable
 	//+optional
 	PreferenceRef *InstancetypeStatusRef `json:"preferenceRef,omitempty"`
+
+	//VirtualMachineHibernationStatus represents the hibernation state.
+	//+optional
+	HibernationStatus *VirtualMachineHibernationStatus `json:"hibernationStatus,omitempty"`
+
+	// VirtualMachineResumeStatus represents VM resume status.
+	//+optional
+	ResumeStatus *VirtualMachineResumeStatus `json:"ResumeStatus,omitempty"`
 }
 
 type ControllerRevisionRef struct {
@@ -2232,6 +2293,61 @@ type VolumeSnapshotStatus struct {
 	// Empty if snapshotting is enabled, contains reason otherwise
 	Reason string `json:"reason,omitempty" optional:"true"`
 }
+
+type VirtualMachineHibernationStatus struct {
+	// Mode is the configured or observed hibernation strategy.
+	// +optional
+	Mode string `json:"mode,omitempty"`
+
+	// Phase represents the hibernation phase.
+	// +optional
+	HibernationPhase HibernationPhase `json:"phase,omitempty"`
+
+	// Claim is the name of the PVC used for storing hibernation data.
+	// +optional
+	ClaimName string `json:"claim,omitempty"`
+
+	// Filename is the name / path of the saved image file produced by the save operation.
+	// +optional
+	Filename string `json:"filename,omitempty"`
+
+	// Reason is empty if hibernation succeeded; otherwise contains a human-readable
+	// reason explaining why hibernation failed.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+}
+
+type HibernationPhase string
+
+const (
+	HibernationPhaseInitial         HibernationPhase = "Initial"
+	HibernationPhasepvcCreate       HibernationPhase = "pvcCreate"
+	HibernationPhaseReadyToHotPlug  HibernationPhase = "ReadyToHotPlug"
+	HibernationPhaseHotPlugFinished HibernationPhase = "HotPlugFinished"
+	HibernationPhaseInProgress      HibernationPhase = "InProgress"
+	HibernationPhaseCompleted       HibernationPhase = "Completed"
+	HibernationPhaseFailed          HibernationPhase = "Failed"
+)
+
+type VirtualMachineResumeStatus struct {
+	// Phase represents the resume progress state.
+	// +optional
+	Phase ResumePhase `json:"phase,omitempty"`
+
+	// Reason is empty if resume succeeded; otherwise contains a human-readable reason.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+}
+
+type ResumePhase string
+
+const (
+	ResumePhaseRestoreInitial    ResumePhase = "Initial"
+	ResumePhaseRestoreInProgress ResumePhase = "InProgress"
+	ResumePhaseRestoreFailed     ResumePhase = "Failed"
+	ResumePhaseRestoreCompleted  ResumePhase = "Completed"
+	ResumePhaseClean             ResumePhase = "Cleaned"
+)
 
 type VirtualMachineVolumeRequest struct {
 	// AddVolumeOptions when set indicates a volume should be added. The details

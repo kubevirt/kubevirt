@@ -497,6 +497,7 @@ spec:
     resourceClaimTemplateName: resourceClaimTemplateNameValue
   schedulerName: schedulerNameValue
   startStrategy: startStrategyValue
+  stopStrategy: stopStrategyValue
   subdomain: subdomainValue
   terminationGracePeriodSeconds: -29
   tolerations:
@@ -791,6 +792,9 @@ status:
   volumeStatus:
   - containerDiskVolume:
       checksum: 4294967288
+    hibernationSaveVolume:
+      claimName: claimNameValue
+      targetFileName: targetFileNameValue
     hotplugVolume:
       attachPodName: attachPodNameValue
       attachPodUID: attachPodUIDValue

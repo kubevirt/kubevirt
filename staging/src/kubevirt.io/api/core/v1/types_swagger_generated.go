@@ -27,7 +27,8 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 		"tolerations":                   "If toleration is specified, obey all the toleration rules.",
 		"topologySpreadConstraints":     "TopologySpreadConstraints describes how a group of VMIs will be spread across a given topology\ndomains. K8s scheduler will schedule VMI pods in a way which abides by the constraints.\n+optional\n+patchMergeKey=topologyKey\n+patchStrategy=merge\n+listType=map\n+listMapKey=topologyKey\n+listMapKey=whenUnsatisfiable",
 		"evictionStrategy":              "EvictionStrategy describes the strategy to follow when a node drain occurs.\nThe possible options are:\n- \"None\": No action will be taken, according to the specified 'RunStrategy' the VirtualMachine will be restarted or shutdown.\n- \"LiveMigrate\": the VirtualMachineInstance will be migrated instead of being shutdown.\n- \"LiveMigrateIfPossible\": the same as \"LiveMigrate\" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as \"None\".\n- \"External\": the VirtualMachineInstance will be protected and `vmi.Status.EvacuationNodeName` will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.\n+optional",
-		"startStrategy":                 "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state.\n\n+optional",
+		"startStrategy":                 "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state.\nCan be set to \"Restore\" if Virtual Machine should be started with memory data save in PVC.\n\n+optional",
+		"stopStrategy":                  "StopStrategy controls the policy for stopping a VMI (e.g., save or suspendToDisk).\n\n+optional",
 		"terminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
 		"volumes":                       "List of volumes that can be mounted by disks belonging to the vmi.\n+kubebuilder:validation:MaxItems:=256",
 		"livenessProbe":                 "Periodic probe of VirtualMachineInstance liveness.\nVirtualmachineInstances will be stopped if the probe fails.\nCannot be updated.\nMore info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes\n+optional",
@@ -157,6 +158,7 @@ func (VolumeStatus) SwaggerDoc() map[string]string {
 		"size":                      "Represents the size of the volume",
 		"memoryDumpVolume":          "If the volume is memorydump volume, this will contain the memorydump info.",
 		"containerDiskVolume":       "ContainerDiskVolume shows info about the containerdisk, if the volume is a containerdisk",
+		"hibernationSaveVolume":     "If the volume is Hibernation volume, this will contain the Hibernation workflow info.",
 	}
 }
 
@@ -204,6 +206,13 @@ func (ContainerDiskInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "ContainerDiskInfo shows info about the containerdisk",
 		"checksum": "Checksum is the checksum of the rootdisk or kernel artifacts inside the containerdisk",
+	}
+}
+
+func (HibernationInfo) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"claimName":      "ClaimName is the name of the pvc",
+		"targetFileName": "TargetFileName is the name of the save ingerface output",
 	}
 }
 
@@ -462,11 +471,20 @@ func (VirtualMachineList) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineHibernateStrategy) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "VirtualMachineHibernateStrategy represents the strategy used to specify\nthe details of VM hibernation",
+		"claimName": "ClaimName is the name of the pvc that will contain the memory dump",
+	}
+}
+
 func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
 		"running":               "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy\nDeprecated: VirtualMachineInstance field \"Running\" is now deprecated, please use RunStrategy instead.",
-		"runStrategy":           "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running\nFollowing are allowed values:\n- \"Always\": VMI should always be running.\n- \"Halted\": VMI should never be running.\n- \"Manual\": VMI can be started/stopped using API endpoints.\n- \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.\n- \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
+		"runStrategy":           "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running\nFollowing are allowed values:\n- \"Always\": VMI should always be running.\n- \"Halted\": VMI should never be running.\n- \"Manual\": VMI can be started/stopped using API endpoints.\n- \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.\n- \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.\n- \"Hibernate\" VM should hibernated and never be running",
+		"hibernateStrategy":     "HibernateStrategy is used to specify the hibernation method and other details of a virtual machine.\nThe save method invokes the save interface to store memory data in an additional PVC.\nSuspendToDisk stores memory data in the system disk and does not require an extra PVC.\nWarningTimeoutSeconds is used to specify the timeout warning duration for the hibernation process.\n+optional",
+		"startStrategy":         "StartStrategy can only be set to \"restore\" rightnow, if Virtual Machine should be started via a PVC that stores the memory data.\n+optional",
 		"instancetype":          "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
 		"preference":            "PreferenceMatcher references a set of preference that is used to fill fields in Template",
 		"template":              "Template is the direct specification of VirtualMachineInstance",
@@ -502,6 +520,8 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"changedBlockTracking":   "ChangedBlockTracking represents the status of the changedBlockTracking\n+nullable\n+optional",
 		"instancetypeRef":        "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine\n+nullable\n+optional",
 		"preferenceRef":          "PreferenceRef captures the state of any referenced preference from the VirtualMachine\n+nullable\n+optional",
+		"hibernationStatus":      "VirtualMachineHibernationStatus represents the hibernation state.\n+optional",
+		"ResumeStatus":           "VirtualMachineResumeStatus represents VM resume status.\n+optional",
 	}
 }
 
@@ -558,6 +578,23 @@ func (VolumeSnapshotStatus) SwaggerDoc() map[string]string {
 		"name":    "Volume name",
 		"enabled": "True if the volume supports snapshotting",
 		"reason":  "Empty if snapshotting is enabled, contains reason otherwise",
+	}
+}
+
+func (VirtualMachineHibernationStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"mode":     "Mode is the configured or observed hibernation strategy.\n+optional",
+		"phase":    "Phase represents the hibernation phase.\n+optional",
+		"claim":    "Claim is the name of the PVC used for storing hibernation data.\n+optional",
+		"filename": "Filename is the name / path of the saved image file produced by the save operation.\n+optional",
+		"reason":   "Reason is empty if hibernation succeeded; otherwise contains a human-readable\nreason explaining why hibernation failed.\n+optional",
+	}
+}
+
+func (VirtualMachineResumeStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"phase":  "Phase represents the resume progress state.\n+optional",
+		"reason": "Reason is empty if resume succeeded; otherwise contains a human-readable reason.\n+optional",
 	}
 }
 

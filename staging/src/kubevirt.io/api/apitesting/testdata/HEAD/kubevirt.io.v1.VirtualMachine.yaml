@@ -181,6 +181,10 @@ spec:
         volumeMode: volumeModeValue
         volumeName: volumeNameValue
     status: {}
+  hibernateStrategy:
+    claimName: claimNameValue
+    spec: specValue
+    warningTimeoutSeconds: -21
   instancetype:
     inferFromVolume: inferFromVolumeValue
     inferFromVolumeFailurePolicy: inferFromVolumeFailurePolicyValue
@@ -195,6 +199,7 @@ spec:
     revisionName: revisionNameValue
   runStrategy: runStrategyValue
   running: true
+  startStrategy: startStrategyValue
   template:
     metadata:
       annotations:
@@ -693,6 +698,7 @@ spec:
         resourceClaimTemplateName: resourceClaimTemplateNameValue
       schedulerName: schedulerNameValue
       startStrategy: startStrategyValue
+      stopStrategy: stopStrategyValue
       subdomain: subdomainValue
       terminationGracePeriodSeconds: -29
       tolerations:
@@ -800,6 +806,9 @@ spec:
             name: nameValue
   updateVolumesStrategy: updateVolumesStrategyValue
 status:
+  ResumeStatus:
+    phase: phaseValue
+    reason: reasonValue
   changedBlockTracking:
     backupStatus:
       backupMsg: backupMsgValue
@@ -818,6 +827,12 @@ status:
     type: typeValue
   created: true
   desiredGeneration: -17
+  hibernationStatus:
+    claim: claimValue
+    filename: filenameValue
+    mode: modeValue
+    phase: phaseValue
+    reason: reasonValue
   instancetypeRef:
     controllerRevisionRef:
       name: nameValue

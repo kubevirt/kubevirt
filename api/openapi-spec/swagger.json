@@ -15253,6 +15253,19 @@
      }
     }
    },
+   "v1.HibernationInfo": {
+    "type": "object",
+    "properties": {
+     "claimName": {
+      "description": "ClaimName is the name of the pvc",
+      "type": "string"
+     },
+     "targetFileName": {
+      "description": "TargetFileName is the name of the save ingerface output",
+      "type": "string"
+     }
+    }
+   },
    "v1.HostDevice": {
     "type": "object",
     "required": [
@@ -17828,6 +17841,53 @@
      }
     }
    },
+   "v1.VirtualMachineHibernateStrategy": {
+    "description": "VirtualMachineHibernateStrategy represents the strategy used to specify the details of VM hibernation",
+    "type": "object",
+    "required": [
+     "spec",
+     "claimName"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "ClaimName is the name of the pvc that will contain the memory dump",
+      "type": "string",
+      "default": ""
+     },
+     "spec": {
+      "type": "string"
+     },
+     "warningTimeoutSeconds": {
+      "type": "integer",
+      "format": "int32"
+     }
+    }
+   },
+   "v1.VirtualMachineHibernationStatus": {
+    "type": "object",
+    "properties": {
+     "claim": {
+      "description": "Claim is the name of the PVC used for storing hibernation data.",
+      "type": "string"
+     },
+     "filename": {
+      "description": "Filename is the name / path of the saved image file produced by the save operation.",
+      "type": "string"
+     },
+     "mode": {
+      "description": "Mode is the configured or observed hibernation strategy.",
+      "type": "string"
+     },
+     "phase": {
+      "description": "Phase represents the hibernation phase.",
+      "type": "string"
+     },
+     "reason": {
+      "description": "Reason is empty if hibernation succeeded; otherwise contains a human-readable reason explaining why hibernation failed.",
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineInstance": {
     "description": "VirtualMachineInstance is *the* VirtualMachineInstance Definition. It represents a virtual machine in the runtime environment of kubernetes.",
     "type": "object",
@@ -19034,7 +19094,11 @@
       "type": "string"
      },
      "startStrategy": {
-      "description": "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state.",
+      "description": "StartStrategy can be set to \"Paused\" if Virtual Machine should be started in paused state. Can be set to \"Restore\" if Virtual Machine should be started with memory data save in PVC.",
+      "type": "string"
+     },
+     "stopStrategy": {
+      "description": "StopStrategy controls the policy for stopping a VMI (e.g., save or suspendToDisk).",
       "type": "string"
      },
      "subdomain": {
@@ -19340,6 +19404,19 @@
      }
     }
    },
+   "v1.VirtualMachineResumeStatus": {
+    "type": "object",
+    "properties": {
+     "phase": {
+      "description": "Phase represents the resume progress state.",
+      "type": "string"
+     },
+     "reason": {
+      "description": "Reason is empty if resume succeeded; otherwise contains a human-readable reason.",
+      "type": "string"
+     }
+    }
+   },
    "v1.VirtualMachineSpec": {
     "description": "VirtualMachineSpec describes how the proper VirtualMachine should look like",
     "type": "object",
@@ -19355,6 +19432,10 @@
        "$ref": "#/definitions/v1.DataVolumeTemplateSpec"
       }
      },
+     "hibernateStrategy": {
+      "description": "HibernateStrategy is used to specify the hibernation method and other details of a virtual machine. The save method invokes the save interface to store memory data in an additional PVC. SuspendToDisk stores memory data in the system disk and does not require an extra PVC. WarningTimeoutSeconds is used to specify the timeout warning duration for the hibernation process.",
+      "$ref": "#/definitions/v1.VirtualMachineHibernateStrategy"
+     },
      "instancetype": {
       "description": "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
       "$ref": "#/definitions/v1.InstancetypeMatcher"
@@ -19364,12 +19445,16 @@
       "$ref": "#/definitions/v1.PreferenceMatcher"
      },
      "runStrategy": {
-      "description": "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running Following are allowed values: - \"Always\": VMI should always be running. - \"Halted\": VMI should never be running. - \"Manual\": VMI can be started/stopped using API endpoints. - \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion. - \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
+      "description": "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running Following are allowed values: - \"Always\": VMI should always be running. - \"Halted\": VMI should never be running. - \"Manual\": VMI can be started/stopped using API endpoints. - \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion. - \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success. - \"Hibernate\" VM should hibernated and never be running",
       "type": "string"
      },
      "running": {
       "description": "Running controls whether the associatied VirtualMachineInstance is created or not Mutually exclusive with RunStrategy Deprecated: VirtualMachineInstance field \"Running\" is now deprecated, please use RunStrategy instead.",
       "type": "boolean"
+     },
+     "startStrategy": {
+      "description": "StartStrategy can only be set to \"restore\" rightnow, if Virtual Machine should be started via a PVC that stores the memory data.",
+      "type": "string"
      },
      "template": {
       "description": "Template is the direct specification of VirtualMachineInstance",
@@ -19427,6 +19512,10 @@
     "type": "object",
     "nullable": true,
     "properties": {
+     "ResumeStatus": {
+      "description": "VirtualMachineResumeStatus represents VM resume status.",
+      "$ref": "#/definitions/v1.VirtualMachineResumeStatus"
+     },
      "changedBlockTracking": {
       "description": "ChangedBlockTracking represents the status of the changedBlockTracking",
       "$ref": "#/definitions/v1.ChangedBlockTrackingStatus"
@@ -19447,6 +19536,10 @@
       "description": "DesiredGeneration is the generation which is desired for the VMI. This will be used in comparisons with ObservedGeneration to understand when the VMI is out of sync. This will be changed at the same time as ObservedGeneration to remove errors which could occur if Generation is updated through an Update() before ObservedGeneration in Status.",
       "type": "integer",
       "format": "int64"
+     },
+     "hibernationStatus": {
+      "description": "VirtualMachineHibernationStatus represents the hibernation state.",
+      "$ref": "#/definitions/v1.VirtualMachineHibernationStatus"
      },
      "instancetypeRef": {
       "description": "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine",
@@ -19655,6 +19748,10 @@
      "containerDiskVolume": {
       "description": "ContainerDiskVolume shows info about the containerdisk, if the volume is a containerdisk",
       "$ref": "#/definitions/v1.ContainerDiskInfo"
+     },
+     "hibernationSaveVolume": {
+      "description": "If the volume is Hibernation volume, this will contain the Hibernation workflow info.",
+      "$ref": "#/definitions/v1.HibernationInfo"
      },
      "hotplugVolume": {
       "description": "If the volume is hotplug, this will contain the hotplug status.",

@@ -46,6 +46,12 @@
   "spec": {
     "running": true,
     "runStrategy": "runStrategyValue",
+    "hibernateStrategy": {
+      "spec": "specValue",
+      "warningTimeoutSeconds": -21,
+      "claimName": "claimNameValue"
+    },
+    "startStrategy": "startStrategyValue",
     "instancetype": {
       "name": "nameValue",
       "kind": "kindValue",
@@ -727,6 +733,7 @@
         ],
         "evictionStrategy": "evictionStrategyValue",
         "startStrategy": "startStrategyValue",
+        "stopStrategy": "stopStrategyValue",
         "terminationGracePeriodSeconds": -29,
         "volumes": [
           {
@@ -1354,6 +1361,17 @@
       },
       "inferFromVolume": "inferFromVolumeValue",
       "inferFromVolumeFailurePolicy": "inferFromVolumeFailurePolicyValue"
+    },
+    "hibernationStatus": {
+      "mode": "modeValue",
+      "phase": "phaseValue",
+      "claim": "claimValue",
+      "filename": "filenameValue",
+      "reason": "reasonValue"
+    },
+    "ResumeStatus": {
+      "phase": "phaseValue",
+      "reason": "reasonValue"
     }
   }
 }

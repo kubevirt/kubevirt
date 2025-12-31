@@ -667,6 +667,7 @@
     ],
     "evictionStrategy": "evictionStrategyValue",
     "startStrategy": "startStrategyValue",
+    "stopStrategy": "stopStrategyValue",
     "terminationGracePeriodSeconds": -29,
     "volumes": [
       {
@@ -1077,6 +1078,10 @@
         },
         "containerDiskVolume": {
           "checksum": 4294967288
+        },
+        "hibernationSaveVolume": {
+          "claimName": "claimNameValue",
+          "targetFileName": "targetFileNameValue"
         }
       }
     ],
