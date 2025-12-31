@@ -37,6 +37,13 @@ func validateBlockDiscontinuedBindings(field *k8sfield.Path, spec *v1.VirtualMac
 				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("slirp").String(),
 			})
 		}
+		if ifaceSpec.InterfaceBindingMethod.DeprecatedPasst != nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "Passt network binding has been discontinued since v1.3. Use PasstBinding instead",
+				Field:   field.Child("domain", "devices", "interfaces").Index(idx).Child("passt").String(),
+			})
+		}
 	}
 	return causes
 }
