@@ -33,23 +33,35 @@ import (
 )
 
 var _ = Describe("Validate discontinued bindings", func() {
-	It("Slirp should be rejected", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(v1.Interface{
-				Name:                   "default",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
-			}),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		)
+	DescribeTable("should be rejected",
+		func(interfaceBindingMethod v1.InterfaceBindingMethod, expectedMessage, expectedField string) {
+			vmi := libvmi.New(
+				libvmi.WithInterface(v1.Interface{
+					Name:                   "default",
+					InterfaceBindingMethod: interfaceBindingMethod,
+				}),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
 
-		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
-		causes := validator.ValidateCreation()
-		Expect(causes).To(
-			ConsistOf(metav1.StatusCause{
-				Type:    "FieldValueInvalid",
-				Message: "Slirp interface support has been discontinued since v1.3",
-				Field:   "fake.domain.devices.interfaces[0].slirp",
-			}),
-		)
-	})
+			validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vmi.Spec, stubClusterConfigChecker{})
+			causes := validator.ValidateCreation()
+			Expect(causes).To(
+				ConsistOf(metav1.StatusCause{
+					Type:    "FieldValueInvalid",
+					Message: expectedMessage,
+					Field:   expectedField,
+				}),
+			)
+		},
+		Entry("SLIRP binding",
+			v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}},
+			"Slirp interface support has been discontinued since v1.3",
+			"fake.domain.devices.interfaces[0].slirp",
+		),
+		Entry("Discontinued Passt binding",
+			v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
+			"Passt network binding has been discontinued since v1.3",
+			"fake.domain.devices.interfaces[0].passt",
+		),
+	)
 })
