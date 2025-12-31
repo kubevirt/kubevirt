@@ -4748,6 +4748,62 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(revisionData.Spec.Preference.RevisionName).To(Equal(vm.Status.PreferenceRef.ControllerRevisionRef.Name))
 			})
 
+			It("should not capture instance type or preference ControllerRevisionRefs if matchers are nil - bug #16071", func() {
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name: instancetypeObj.Name,
+					Kind: instancetypeapi.SingularResourceName,
+				}
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: preference.Name,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				}
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+
+				var err error
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				addVirtualMachine(vm)
+				sanityExecute(vm)
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).To(BeTrue())
+				Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeTrue())
+
+				vm.Spec.Instancetype = nil
+				vm.Spec.Preference = nil
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				addVirtualMachine(vm)
+				sanityExecute(vm)
+
+				//FIXME(lyarwood): status.{InstancetypeRef,PreferenceRef} should also be removed
+				// vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				// Expect(err).ToNot(HaveOccurred())
+				//
+				// Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).To(BeFalse())
+				// Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeFalse())
+
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.VirtualMachineRevisionName).ToNot(BeEmpty())
+
+				vmRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+					context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmRevision).ToNot(BeNil())
+
+				revisionData := &VirtualMachineRevisionData{}
+				Expect(json.Unmarshal(vmRevision.Data.Raw, revisionData)).To(Succeed())
+				Expect(revisionData.Spec.Instancetype).To(BeNil())
+				Expect(revisionData.Spec.Preference).To(BeNil())
+			})
+
 			Context("preference", func() {
 				var (
 					clusterPreference *instancetypev1beta1.VirtualMachineClusterPreference
