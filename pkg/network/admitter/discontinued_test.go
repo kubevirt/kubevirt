@@ -32,8 +32,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/admitter"
 )
 
-var _ = Describe("Validate creation of interface with SLIRP binding", func() {
-	It("should be rejected", func() {
+var _ = Describe("Validate discontinued bindings", func() {
+	It("Slirp should be rejected", func() {
 		vmi := libvmi.New(
 			libvmi.WithInterface(v1.Interface{
 				Name:                   "default",

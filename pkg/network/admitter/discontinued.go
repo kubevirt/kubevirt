@@ -26,7 +26,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func validateCreationSlirpBinding(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+func validateDiscontinuedBindings(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	for idx, ifaceSpec := range spec.Domain.Devices.Interfaces {
