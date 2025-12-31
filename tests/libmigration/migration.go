@@ -516,7 +516,7 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 	var pod *k8sv1.Pod
 	var metricsIPs []string
 	var migrationMetrics = []string{
-		"kubevirt_vmi_migration_data_total_bytes",
+		"kubevirt_vmi_migration_data_bytes_total",
 		"kubevirt_vmi_migration_data_remaining_bytes",
 		"kubevirt_vmi_migration_data_processed_bytes",
 		"kubevirt_vmi_migration_dirty_memory_rate_bytes",

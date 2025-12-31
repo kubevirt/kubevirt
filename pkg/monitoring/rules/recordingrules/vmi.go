@@ -105,4 +105,12 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 		MetricType: operatormetrics.GaugeType,
 		Expr:       intstr.FromString("sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_in_traffic_bytes[30m])) + sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_out_traffic_bytes[30m]))"),
 	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_data_total_bytes",
+			Help: "[Deprecated] Replaced by kubevirt_vmi_migration_data_bytes_total.",
+		},
+		MetricType: operatormetrics.CounterType,
+		Expr:       intstr.FromString("kubevirt_vmi_migration_data_bytes_total"),
+	},
 }
