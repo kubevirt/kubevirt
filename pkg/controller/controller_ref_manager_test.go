@@ -75,9 +75,7 @@ func TestClaimVirtualMachineInstance(t *testing.T) {
 		name            string
 		manager         *VirtualMachineControllerRefManager
 		virtualmachines []*virtv1.VirtualMachineInstance
-		filters         []func(*virtv1.VirtualMachineInstance) bool
 		claimed         []*virtv1.VirtualMachineInstance
-		released        []*virtv1.VirtualMachineInstance
 		expectError     bool
 	}
 	var tests = []test{
@@ -205,9 +203,7 @@ func TestClaimDataVolume(t *testing.T) {
 		name        string
 		manager     *VirtualMachineControllerRefManager
 		datavolumes []*cdiv1.DataVolume
-		filters     []func(*cdiv1.DataVolume) bool
 		claimed     []*cdiv1.DataVolume
-		released    []*cdiv1.DataVolume
 		expectError bool
 	}
 	var tests = []test{

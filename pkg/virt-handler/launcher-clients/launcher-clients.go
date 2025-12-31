@@ -27,8 +27,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -144,12 +142,6 @@ func (l *launcherClientsManager) CloseLauncherClient(vmi *v1.VirtualMachineInsta
 
 	virtcache.GhostRecordGlobalStore.Delete(vmi.Namespace, vmi.Name)
 	l.launcherClients.Delete(vmi.UID)
-}
-
-// used by unit tests to add mock clients
-func (l *launcherClientsManager) addLauncherClient(vmUID types.UID, info *virtcache.LauncherClientInfo) error {
-	l.launcherClients.Store(vmUID, info)
-	return nil
 }
 
 func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMachineInstance) (unresponsive bool, initialized bool, err error) {

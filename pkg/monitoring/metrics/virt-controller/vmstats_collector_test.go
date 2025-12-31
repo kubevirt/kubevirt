@@ -1190,29 +1190,3 @@ func expectVMs(
 	expectVM(filterResultsByVM(results, name, namespace), name, namespace)
 	expectVM(filterResultsByVM(results, name+"-2", namespace), name+"-2", namespace)
 }
-
-func expectDefaultCPUResourceRequests(crs []operatormetrics.CollectorResult) {
-	// Filter only default CPU request metrics
-	var defaults []operatormetrics.CollectorResult
-	for _, cr := range crs {
-		if cr.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(cr.Labels) == 5 &&
-			cr.Labels[2] == "cpu" && cr.Labels[4] == "default" {
-			defaults = append(defaults, cr)
-		}
-	}
-
-	Expect(defaults).To(HaveLen(3), "Expected 3 default CPU metrics")
-
-	// Verify presence of cores, threads, sockets
-	found := map[string]bool{"cores": false, "threads": false, "sockets": false}
-	for _, cr := range defaults {
-		Expect(cr.Value).To(BeEquivalentTo(1))
-		Expect(cr.Labels[2]).To(Equal("cpu"))
-		Expect(cr.Labels[4]).To(Equal("default"))
-		Expect(cr.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vm_resource_requests"))
-		found[cr.Labels[3]] = true
-	}
-	Expect(found["cores"]).To(BeTrue())
-	Expect(found["threads"]).To(BeTrue())
-	Expect(found["sockets"]).To(BeTrue())
-}

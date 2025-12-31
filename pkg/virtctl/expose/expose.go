@@ -27,7 +27,6 @@ type command struct {
 	serviceName       string
 	clusterIP         string
 	externalIP        string
-	loadBalancerIP    string
 	port              int32
 	strProtocol       string
 	strTargetPort     string

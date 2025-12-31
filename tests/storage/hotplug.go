@@ -90,7 +90,6 @@ const (
 
 type addVolumeFunction func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache)
 type removeVolumeFunction func(name, namespace, volumeName string, dryRun bool)
-type storageClassFunction func() (string, bool)
 
 var _ = Describe(SIG("Hotplug", func() {
 	var err error

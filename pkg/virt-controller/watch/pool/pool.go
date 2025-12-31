@@ -412,44 +412,6 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav
 	return pool.(*poolv1.VirtualMachinePool)
 }
 
-// listControllerFromNamespace takes a namespace and returns all Pools from the Pool cache which run in this namespace
-func (c *Controller) listControllerFromNamespace(namespace string) ([]*poolv1.VirtualMachinePool, error) {
-	objs, err := c.poolIndexer.ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-	pools := []*poolv1.VirtualMachinePool{}
-	for _, obj := range objs {
-		pool := obj.(*poolv1.VirtualMachinePool)
-		pools = append(pools, pool)
-	}
-	return pools, nil
-}
-
-// getMatchingController returns the first Pool which matches the labels of the VirtualMachine from the listener cache.
-// If there are no matching controllers, a NotFound error is returned.
-func (c *Controller) getMatchingControllers(vm *virtv1.VirtualMachine) (pools []*poolv1.VirtualMachinePool) {
-	logger := log.Log
-	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
-	if err != nil {
-		return nil
-	}
-
-	for _, pool := range controllers {
-		selector, err := metav1.LabelSelectorAsSelector(pool.Spec.Selector)
-		if err != nil {
-			logger.Object(pool).Reason(err).Error("Failed to parse label selector from pool.")
-			continue
-		}
-
-		if selector.Matches(labels.Set(vm.ObjectMeta.Labels)) {
-			pools = append(pools, pool)
-		}
-
-	}
-	return pools
-}
-
 // Run runs the passed in PoolController.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()

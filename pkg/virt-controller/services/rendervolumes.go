@@ -38,7 +38,6 @@ type VolumeRenderer struct {
 	ephemeralDiskDir      string
 	virtShareDir          string
 	namespace             string
-	vmiVolumes            []v1.Volume
 	podVolumes            []k8sv1.Volume
 	podVolumeMounts       []k8sv1.VolumeMount
 	sharedFilesystemPaths []string
