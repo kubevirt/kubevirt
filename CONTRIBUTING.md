@@ -39,7 +39,7 @@ development community and users, so they should be communicated widely. Examples
 of changes:
 - New APIs
 - Architectural changes
-- Code refactors
+- Major code refactors
 - Complex features
 - API changes
 
