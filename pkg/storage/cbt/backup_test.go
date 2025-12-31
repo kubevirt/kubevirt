@@ -378,6 +378,52 @@ var _ = Describe("Backup Controller", func() {
 		Expect(statusUpdated).To(BeTrue())
 	})
 
+	It("should wait when backupTracker needs checkpoint redefinition", func() {
+		backupTracker := createBackupTracker(backupTrackerName, vmName, "existing-checkpoint")
+		backupTracker.Status.CheckpointRedefinitionRequired = pointer.P(true)
+		controller.backupTrackerInformer.GetStore().Add(backupTracker)
+
+		backup := createBackupWithTracker(backupName, vmName, pvcName)
+		addBackup(backup)
+
+		vm := createVM(vmName)
+		controller.vmStore.Add(vm)
+
+		vmi := createInitializedVMI()
+		controller.vmiStore.Add(vmi)
+
+		statusUpdated := false
+		kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update := action.(testing.UpdateAction)
+			if update.GetSubresource() != "status" {
+				return false, nil, nil
+			}
+			statusUpdated = true
+			updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
+
+			hasInitializing := false
+			for _, cond := range updateObj.Status.Conditions {
+				if cond.Type == backupv1.ConditionInitializing &&
+					cond.Status == corev1.ConditionTrue {
+					hasInitializing = true
+					Expect(cond.Reason).To(ContainSubstring(fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTrackerName)))
+				}
+			}
+			Expect(hasInitializing).To(BeTrue(), "Should have Initializing condition")
+			return true, updateObj, nil
+		})
+
+		syncInfo := controller.sync(backup)
+		Expect(syncInfo).ToNot(BeNil())
+		Expect(syncInfo.err).ToNot(HaveOccurred())
+		Expect(syncInfo.event).To(Equal(backupInitializingEvent))
+		Expect(syncInfo.reason).To(ContainSubstring(fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTrackerName)))
+
+		err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
+		Expect(err).ToNot(HaveOccurred())
+		Expect(statusUpdated).To(BeTrue())
+	})
+
 	Context("verifyBackupSource", func() {
 		It("should fail when VM doesn't exist", func() {
 			backup := createBackup(backupName, vmName, pvcName)
