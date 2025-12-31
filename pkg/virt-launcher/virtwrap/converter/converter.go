@@ -1055,19 +1055,6 @@ func (s *ioThreadState) assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk) {
 	}
 }
 
-func (s *ioThreadState) setIOThreads(domain *api.Domain) {
-	if !s.hasIOThreads {
-		return
-	}
-
-	if s.totalThreads > 0 {
-		if domain.Spec.IOThreads == nil {
-			domain.Spec.IOThreads = &api.IOThreads{}
-		}
-		domain.Spec.IOThreads.IOThreads = uint(s.totalThreads)
-	}
-}
-
 func (s *ioThreadState) assignSCSIControllerIOThread(vmi *v1.VirtualMachineInstance, vcpus uint, scsiControllerDriver *api.ControllerDriver) *api.ControllerDriver {
 	if !s.hasIOThreads || !shouldConfigSCSIThread(vmi) {
 		return scsiControllerDriver
@@ -1178,6 +1165,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		architecture,
 	)
 
+	poolSize, totalThreads := calculateThreadAllocation(vmi)
+	ioThreadState := &ioThreadState{
+		hasIOThreads:   shouldConfigIOThreads(vmi),
+		isSupplemental: isSupplementalPolicy(vmi),
+		poolSize:       poolSize,
+		totalThreads:   totalThreads,
+	}
+
 	builder := NewDomainBuilder(
 		metadata.DomainConfigurator{},
 		network.NewDomainConfigurator(
@@ -1219,6 +1214,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
 		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
 		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), convertEFIConfiguration(c.EFIConfiguration)),
+		compute.NewIOThreadsDomainConfigurator(ioThreadState.hasIOThreads, ioThreadState.totalThreads),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1315,16 +1311,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
-
-	poolSize, totalThreads := calculateThreadAllocation(vmi)
-	ioThreadState := &ioThreadState{
-		hasIOThreads:   shouldConfigIOThreads(vmi),
-		isSupplemental: isSupplementalPolicy(vmi),
-		poolSize:       poolSize,
-		totalThreads:   totalThreads,
-	}
-
-	ioThreadState.setIOThreads(domain)
 
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
