@@ -52,14 +52,10 @@ import (
 
 var errWaitingForTargetPorts = errors.New("waiting for target to publish migration ports")
 
-type passtRepairSourceHandler interface {
-	HandleMigrationSource(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
-}
-
 type MigrationSourceController struct {
 	*BaseController
-	vmiExpectations    *controller.UIDTrackingControllerExpectations
-	passtRepairHandler passtRepairSourceHandler
+	vmiExpectations       *controller.UIDTrackingControllerExpectations
+	passtRepairController netMigrationCoordinator
 }
 
 func NewMigrationSourceController(
@@ -74,7 +70,7 @@ func NewMigrationSourceController(
 	migrationProxy migrationproxy.ProxyManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
-	passtRepairHandler passtRepairSourceHandler,
+	passtRepairController netMigrationCoordinator,
 ) (*MigrationSourceController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -103,9 +99,9 @@ func NewMigrationSourceController(
 	}
 
 	c := &MigrationSourceController{
-		BaseController:     baseCtrl,
-		vmiExpectations:    controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		passtRepairHandler: passtRepairHandler,
+		BaseController:        baseCtrl,
+		vmiExpectations:       controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		passtRepairController: passtRepairController,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -541,7 +537,7 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 	}
 
 	if c.clusterConfig.PasstIPStackMigrationEnabled() {
-		if err := c.passtRepairHandler.HandleMigrationSource(vmi, c.passtSocketDirOnHostForVMI); err != nil {
+		if err := c.passtRepairController.MigrationSourceRun(vmi, c.passtSocketDirOnHostForVMI); err != nil {
 			c.logger.Object(vmi).Warningf("failed to call passt-repair for migration source, %v", err)
 		}
 	}
