@@ -66,6 +66,12 @@ const (
 	avgVirtHandlerCPUUsage     = `avg((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))`
 	maxVirtHandlerCPUUsage     = `max((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))`
 	minVirtHandlerCPUUsage     = `min((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[%ds])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))`
+	// Monitors how quickly the items are added to the workqueue
+	virtControllerWorkqueueAddRate = `sum(rate(kubevirt_workqueue_adds_total{container="virt-controller"}[%ds]))`
+	// Track to identify any backlogs or delays in the workqueue
+	virtControllerWorkqueueDepth = `sum(rate(kubevirt_workqueue_depth{container="virt-controller"}[%ds]))`
+	// 99th percentile latency of items to understand the speed of the workqueue
+	virtControllerWorkqueueP99Latency = `histogram_quantile(0.99, sum(rate(kubevirt_workqueue_queue_duration_seconds_bucket{container="virt-controller"}[%ds])) by (le))`
 )
 
 type metricUsage struct {
@@ -463,6 +469,46 @@ func (m *MetricClient) getCPUAndMemoryUsageOfComponents(r *audit_api.Result, ran
 	return nil
 }
 
+func (m *MetricClient) getVirtControllerWorkQueueMetrics(r *audit_api.Result, rangeVector time.Duration) error {
+	workqueueMetrics := []metricUsage{
+		{
+			query: fmt.Sprintf(virtControllerWorkqueueAddRate, int(rangeVector.Seconds())),
+			t:     audit_api.ResultTypeVirtControllerWorkqueueAddRate,
+		},
+		{
+			query: fmt.Sprintf(virtControllerWorkqueueDepth, int(rangeVector.Seconds())),
+			t:     audit_api.ResultTypeVirtControllerWorkqueueDepth,
+		},
+		{
+			query: fmt.Sprintf(virtControllerWorkqueueP99Latency, int(rangeVector.Seconds())),
+			t:     audit_api.ResultTypeVirtControllerWorkqueueP99Latency,
+		},
+	}
+
+	for _, metric := range workqueueMetrics {
+		query := metric.query
+		log.Print(query)
+		val, err := m.query(query)
+		if err != nil {
+			return err
+		}
+
+		results, err := parseVector(val)
+		if err != nil {
+			return err
+		}
+
+		for _, result := range results {
+			key := audit_api.ResultType(metric.t)
+			r.Values[key] = audit_api.ResultValue{
+				Value: result.value,
+			}
+		}
+	}
+
+	return nil
+}
+
 func (m *MetricClient) gatherMetrics() (*audit_api.Result, error) {
 	r := &audit_api.Result{
 		Values: make(map[audit_api.ResultType]audit_api.ResultValue),
@@ -495,6 +541,11 @@ func (m *MetricClient) gatherMetrics() (*audit_api.Result, error) {
 	}
 
 	err = m.getCPUAndMemoryUsageOfComponents(r, rangeVector)
+	if err != nil {
+		return nil, err
+	}
+
+	err = m.getVirtControllerWorkQueueMetrics(r, rangeVector)
 	if err != nil {
 		return nil, err
 	}
