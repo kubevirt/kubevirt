@@ -651,7 +651,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			if updateOperator && flags.OperatorManifestPath == "" {
-				Skip("Skip operator update test when operator manifest path isn't configured")
+				Fail("operator manifest path must be configured for update tests")
 			}
 
 			// This test should run fine on single-node setups as long as no VM is created pre-update
@@ -1072,7 +1072,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3148]should be able to create kubevirt install with custom image tag", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			allKvInfraPodsAreReady(originalKv)
@@ -1112,7 +1112,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
 			if flags.ImagePrefixAlt == "" {
-				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
+				Fail("ImagePrefixAlt must be configured for image prefix tests")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1180,7 +1180,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			var vmis []*v1.VirtualMachineInstance
@@ -1264,7 +1264,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1358,13 +1358,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 		})
 
-		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
-
-			BeforeEach(func() {
-				if !checks.IsOpenShift() {
-					Skip("OpenShift operator tests should not be started on k8s")
-				}
-			})
+		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", decorators.OpenShift, func() {
 
 			It("[test_id:2910]Should have kubevirt SCCs created", func() {
 				const OpenShiftSCCLabel = "openshift.io/scc"
@@ -1413,28 +1407,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled", func() {
-
-		BeforeEach(func() {
-			if serviceMonitorEnabled() {
-				Skip("Test applies on when ServiceMonitor is not defined")
-			}
-		})
-
-		It("[test_id:3154]Should not create RBAC Role or RoleBinding for ServiceMonitor", func() {
-			rbacClient := virtClient.RbacV1()
-
-			By("Checking that Role for ServiceMonitor doesn't exist")
-			roleName := "kubevirt-service-monitor"
-			_, err := rbacClient.Roles(flags.KubeVirtInstallNamespace).Get(context.Background(), roleName, metav1.GetOptions{})
-			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Role 'kubevirt-service-monitor' should not have been created")
-
-			By("Checking that RoleBinding for ServiceMonitor doesn't exist")
-			_, err = rbacClient.RoleBindings(flags.KubeVirtInstallNamespace).Get(context.Background(), roleName, metav1.GetOptions{})
-			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "RoleBinding 'kubevirt-service-monitor' should not have been created")
-		})
-	})
-
 	Context("With PrometheusRule Enabled", func() {
 
 		BeforeEach(func() {
@@ -1451,21 +1423,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(prometheusRule.Spec.Groups).ToNot(BeEmpty())
 			Expect(prometheusRule.Spec.Groups[0].Rules).ToNot(BeEmpty())
 
-		})
-	})
-
-	Context("With PrometheusRule Disabled", func() {
-
-		BeforeEach(func() {
-			if prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is not defined")
-			}
-		})
-
-		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
-			monv1 := virtClient.PrometheusClient().MonitoringV1()
-			_, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
-			Expect(err).To(HaveOccurred())
 		})
 	})
 

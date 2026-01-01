@@ -254,6 +254,10 @@ if [[ "${rwofs_sc}" == "local" ]]; then
     add_to_label_filter "(!RequiresVolumeExpansion)" "&&"
 fi
 
+if ! kubectl get clusterversion version &>/dev/null; then
+  add_to_label_filter '(!OpenShift)' '&&'
+fi
+
 label_filter="(flake-check)||(${label_filter})"
 ginkgo_params="$ginkgo_params -no-color -succinct --label-filter=${label_filter} -randomize-all"
 if [[ -n ${NEW_TESTS} ]]; then
