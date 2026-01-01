@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -2199,6 +2200,10 @@ type VirtualMachineInstanceBackupStatus struct {
 	// CheckpointName is the name of the checkpoint created for the backup
 	// +optional
 	CheckpointName *string `json:"checkpointName,omitempty"`
+	// Disks lists the disks included in the checkpoint
+	// +optional
+	// +listType=atomic
+	Disks []backupv1.CheckpointDiskInfo `json:"disks,omitempty"`
 }
 
 // ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM

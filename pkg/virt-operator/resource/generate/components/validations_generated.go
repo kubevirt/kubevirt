@@ -8340,6 +8340,25 @@ var CRDsValidation map[string]string = map[string]string{
                 completed:
                   description: Completed indicates the backup completed
                   type: boolean
+                disks:
+                  description: Disks lists the disks included in the checkpoint
+                  items:
+                    description: CheckpointDiskInfo contains information about a disk
+                      included in a checkpoint
+                    properties:
+                      diskTarget:
+                        description: DiskTarget is the disk target device name at
+                          backup time
+                        type: string
+                      volumeName:
+                        description: VolumeName is the volume name from VMI spec
+                        type: string
+                    required:
+                    - diskTarget
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
                 endTimestamp:
                   description: EndTimestamp is the timestamp when the backup ended
                   format: date-time
@@ -9074,6 +9093,24 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        includedDisks:
+          description: IncludedDisks lists the disks that were included in the backup
+          items:
+            description: CheckpointDiskInfo contains information about a disk included
+              in a checkpoint
+            properties:
+              diskTarget:
+                description: DiskTarget is the disk target device name at backup time
+                type: string
+              volumeName:
+                description: VolumeName is the volume name from VMI spec
+                type: string
+            required:
+            - diskTarget
+            - volumeName
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         type:
           description: Type indicates if the backup was full or incremental
           type: string
@@ -9144,14 +9181,39 @@ var CRDsValidation map[string]string = map[string]string{
         rule: self == oldSelf
     status:
       properties:
+        checkpointRedefinitionRequired:
+          description: |-
+            CheckpointRedefinitionRequired is set to true by virt-handler when the VM
+            restarts and has a checkpoint that needs to be redefined in libvirt.
+            virt-controller will process this flag, attempt redefinition, and clear it.
+          type: boolean
         latestCheckpoint:
           description: |-
             LatestCheckpoint is the metadata of the checkpoint of
-            the latest preformed backup
+            the latest performed backup
           properties:
             creationTime:
               format: date-time
               type: string
+            disks:
+              description: Disks lists volumes and their disk targets at backup time
+              items:
+                description: CheckpointDiskInfo contains information about a disk
+                  included in a checkpoint
+                properties:
+                  diskTarget:
+                    description: DiskTarget is the disk target device name at backup
+                      time
+                    type: string
+                  volumeName:
+                    description: VolumeName is the volume name from VMI spec
+                    type: string
+                required:
+                - diskTarget
+                - volumeName
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
             name:
               type: string
           type: object
@@ -14078,6 +14140,25 @@ var CRDsValidation map[string]string = map[string]string{
                 completed:
                   description: Completed indicates the backup completed
                   type: boolean
+                disks:
+                  description: Disks lists the disks included in the checkpoint
+                  items:
+                    description: CheckpointDiskInfo contains information about a disk
+                      included in a checkpoint
+                    properties:
+                      diskTarget:
+                        description: DiskTarget is the disk target device name at
+                          backup time
+                        type: string
+                      volumeName:
+                        description: VolumeName is the volume name from VMI spec
+                        type: string
+                    required:
+                    - diskTarget
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
                 endTimestamp:
                   description: EndTimestamp is the timestamp when the backup ended
                   format: date-time
@@ -30863,6 +30944,26 @@ var CRDsValidation map[string]string = map[string]string{
                             completed:
                               description: Completed indicates the backup completed
                               type: boolean
+                            disks:
+                              description: Disks lists the disks included in the checkpoint
+                              items:
+                                description: CheckpointDiskInfo contains information
+                                  about a disk included in a checkpoint
+                                properties:
+                                  diskTarget:
+                                    description: DiskTarget is the disk target device
+                                      name at backup time
+                                    type: string
+                                  volumeName:
+                                    description: VolumeName is the volume name from
+                                      VMI spec
+                                    type: string
+                                required:
+                                - diskTarget
+                                - volumeName
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
                             endTimestamp:
                               description: EndTimestamp is the timestamp when the
                                 backup ended

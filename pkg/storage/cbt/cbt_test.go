@@ -33,10 +33,12 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
+	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -577,10 +579,17 @@ var _ = Describe("CBT", func() {
 		)
 	})
 
-	Context("SetChangedBlockTrackingOnVMIFromDomain", func() {
+	Context("HandleChangedBlockTracking", func() {
+		var (
+			trackerInformer cache.SharedIndexInformer
+			mockVirtClient  *kubecli.MockKubevirtClient
+		)
+
 		BeforeEach(func() {
 			vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
+			trackerInformer, _ = testutils.NewFakeInformerWithIndexersFor(&backupv1.VirtualMachineBackupTracker{}, controller.GetVirtualMachineBackupTrackerInformerIndexers())
+			mockVirtClient = kubecli.NewMockKubevirtClient(gomock.NewController(GinkgoT()))
 		})
 
 		pvcVolume := func(name, claimName string) v1.Volume {
@@ -606,7 +615,8 @@ var _ = Describe("CBT", func() {
 			func(volumes []v1.Volume, disks []api.Disk, expectedState v1.ChangedBlockTrackingState) {
 				vmi.Spec.Volumes = volumes
 				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: disks}}}
-				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+				err := cbt.HandleChangedBlockTracking(vmi, domain, trackerInformer, mockVirtClient)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(expectedState))
 			},
 			Entry("all eligible volumes have DataStore",
@@ -640,17 +650,17 @@ var _ = Describe("CBT", func() {
 				Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(expectedState))
 			},
 			Entry("domain is nil", func() {
-				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, nil)
+				cbt.HandleChangedBlockTracking(vmi, nil, trackerInformer, mockVirtClient)
 			}, v1.ChangedBlockTrackingInitializing),
 			Entry("VMI CBT status is nil", func() {
 				vmi.Status.ChangedBlockTracking = nil
 				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: []api.Disk{diskWithDataStore("pvc1", true)}}}}
-				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+				cbt.HandleChangedBlockTracking(vmi, domain, trackerInformer, mockVirtClient)
 			}, v1.ChangedBlockTrackingUndefined),
 			Entry("VMI CBT status is disabled", func() {
 				vmi.Status.ChangedBlockTracking.State = v1.ChangedBlockTrackingDisabled
 				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: []api.Disk{diskWithDataStore("pvc1", true)}}}}
-				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+				cbt.HandleChangedBlockTracking(vmi, domain, trackerInformer, mockVirtClient)
 			}, v1.ChangedBlockTrackingDisabled),
 		)
 	})
