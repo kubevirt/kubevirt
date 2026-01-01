@@ -164,14 +164,39 @@ func WithGPUsDevicePlugins(gpus []v1.GPU) ResourceRendererOption {
 func WithGPUsDRA(gpus []v1.GPU) ResourceRendererOption {
 	return func(r *ResourceRenderer) {
 		res := r.ResourceRequirements()
+
+		// Group claims by claimName to detect multiple requestNames for the same claim
+		claimMap := make(map[string]map[string]struct{})
 		for _, g := range gpus {
 			if g.DeviceName == "" && g.ClaimRequest != nil {
-				requestResourceClaims(&res, &k8sv1.ResourceClaim{
-					Name:    *g.ClaimRequest.ClaimName,
-					Request: *g.ClaimRequest.RequestName,
-				})
+				claimName := *g.ClaimRequest.ClaimName
+				if claimMap[claimName] == nil {
+					claimMap[claimName] = make(map[string]struct{})
+				}
+				if g.ClaimRequest.RequestName != nil {
+					claimMap[claimName][*g.ClaimRequest.RequestName] = struct{}{}
+				} else {
+					claimMap[claimName][""] = struct{}{}
+				}
 			}
 		}
+
+		// Add claims: if multiple requestNames exist for a claim, omit the requestName
+		for claimName, requestNames := range claimMap {
+			claim := &k8sv1.ResourceClaim{Name: claimName}
+			if len(requestNames) == 1 {
+				// Single requestName - include it
+				for reqName := range requestNames {
+					if reqName != "" {
+						claim.Request = reqName
+					}
+					break
+				}
+			}
+			// If len > 1, don't set Request (consumes entire claim with all requests)
+			requestResourceClaims(&res, claim)
+		}
+
 		copyResources(res.Limits, r.calculatedLimits)
 		copyResources(res.Requests, r.calculatedRequests)
 		copyResourceClaims(&res, &r.resourceClaims)
@@ -196,14 +221,39 @@ func WithHostDevicesDevicePlugins(hostDevices []v1.HostDevice) ResourceRendererO
 func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
 	return func(r *ResourceRenderer) {
 		resources := r.ResourceRequirements()
+
+		// Group claims by claimName to detect multiple requestNames for the same claim
+		claimMap := make(map[string]map[string]struct{})
 		for _, hd := range hostDevices {
-			if hd.DeviceName == "" && hd.ClaimRequest != nil && hd.ClaimRequest.ClaimName != nil && hd.ClaimRequest.RequestName != nil {
-				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
-					Name:    *hd.ClaimRequest.ClaimName,
-					Request: *hd.ClaimRequest.RequestName,
-				})
+			if hd.DeviceName == "" && hd.ClaimRequest != nil && hd.ClaimRequest.ClaimName != nil {
+				claimName := *hd.ClaimRequest.ClaimName
+				if claimMap[claimName] == nil {
+					claimMap[claimName] = make(map[string]struct{})
+				}
+				if hd.ClaimRequest.RequestName != nil {
+					claimMap[claimName][*hd.ClaimRequest.RequestName] = struct{}{}
+				} else {
+					claimMap[claimName][""] = struct{}{}
+				}
 			}
 		}
+
+		// Add claims: if multiple requestNames exist for a claim, omit the requestName
+		for claimName, requestNames := range claimMap {
+			claim := &k8sv1.ResourceClaim{Name: claimName}
+			if len(requestNames) == 1 {
+				// Single requestName - include it
+				for reqName := range requestNames {
+					if reqName != "" {
+						claim.Request = reqName
+					}
+					break
+				}
+			}
+			// If len > 1, don't set Request (consumes entire claim with all requests)
+			requestResourceClaims(&resources, claim)
+		}
+
 		copyResources(resources.Limits, r.calculatedLimits)
 		copyResources(resources.Requests, r.calculatedRequests)
 		copyResourceClaims(&resources, &r.resourceClaims)
@@ -214,15 +264,39 @@ func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
 func WithNetworksDRA(networks []v1.Network) ResourceRendererOption {
 	return func(r *ResourceRenderer) {
 		resources := r.ResourceRequirements()
+
+		// Group claims by claimName to detect multiple requestNames for the same claim
+		claimMap := make(map[string]map[string]struct{})
 		for _, net := range networks {
 			if net.NetworkSource.ResourceClaim != nil {
-				claim := &k8sv1.ResourceClaim{
-					Name:    net.NetworkSource.ResourceClaim.ClaimName,
-					Request: net.NetworkSource.ResourceClaim.RequestName,
+				claimName := net.NetworkSource.ResourceClaim.ClaimName
+				if claimMap[claimName] == nil {
+					claimMap[claimName] = make(map[string]struct{})
 				}
-				requestResourceClaims(&resources, claim)
+				if net.NetworkSource.ResourceClaim.RequestName != "" {
+					claimMap[claimName][net.NetworkSource.ResourceClaim.RequestName] = struct{}{}
+				} else {
+					claimMap[claimName][""] = struct{}{}
+				}
 			}
 		}
+
+		// Add claims: if multiple requestNames exist for a claim, omit the requestName
+		for claimName, requestNames := range claimMap {
+			claim := &k8sv1.ResourceClaim{Name: claimName}
+			if len(requestNames) == 1 {
+				// Single requestName - include it
+				for reqName := range requestNames {
+					if reqName != "" {
+						claim.Request = reqName
+					}
+					break
+				}
+			}
+			// If len > 1, don't set Request (consumes entire claim with all requests)
+			requestResourceClaims(&resources, claim)
+		}
+
 		copyResources(resources.Limits, r.calculatedLimits)
 		copyResources(resources.Requests, r.calculatedRequests)
 		copyResourceClaims(&resources, &r.resourceClaims)
@@ -418,17 +492,40 @@ func requestResourceClaims(resources *k8sv1.ResourceRequirements, claim *k8sv1.R
 }
 
 func copyResourceClaims(resources *k8sv1.ResourceRequirements, claims *[]k8sv1.ResourceClaim) {
-	existing := make(map[string]struct{})
+	// Track existing claims by name and their request names
+	existing := make(map[string]map[string]struct{})
 	for _, c := range *claims {
-		existing[c.Name] = struct{}{}
+		if existing[c.Name] == nil {
+			existing[c.Name] = make(map[string]struct{})
+		}
+		existing[c.Name][c.Request] = struct{}{}
 	}
 
+	// Process new claims from resources
 	for _, value := range resources.Claims {
-		if _, found := existing[value.Name]; found {
-			continue // skip duplicates by Name
+		if requestSet, found := existing[value.Name]; found {
+			// Claim already exists - check if we need to merge
+			if len(requestSet) == 1 && value.Request != "" {
+				// Check if it's the same request
+				if _, sameRequest := requestSet[value.Request]; !sameRequest {
+					// Different request for same claim - need to merge
+					// Find and update the existing claim to have no Request
+					for i := range *claims {
+						if (*claims)[i].Name == value.Name {
+							(*claims)[i].Request = ""
+							existing[value.Name] = map[string]struct{}{"": {}} // Mark as merged
+							break
+						}
+					}
+				}
+			}
+			// If already merged (empty request) or same request, skip
+			continue
 		}
+
+		// New claim - add it
 		*claims = append(*claims, value)
-		existing[value.Name] = struct{}{}
+		existing[value.Name] = map[string]struct{}{value.Request: {}}
 	}
 }
 
