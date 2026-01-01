@@ -2081,7 +2081,7 @@ func (c *VirtualMachineController) handleStartingVMI(
 }
 
 func (c *VirtualMachineController) adjustResources(vmi *v1.VirtualMachineInstance) error {
-	err := c.podIsolationDetector.AdjustResources(vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	err := c.podIsolationDetector.AdjustResources(vmi, c.clusterConfig)
 	if err != nil {
 		return fmt.Errorf("failed to adjust resources: %v", err)
 	}
@@ -2192,7 +2192,7 @@ func (c *VirtualMachineController) hotplugSriovInterfacesCommand(vmi *v1.Virtual
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
-	if err := isolation.AdjustQemuProcessMemoryLimits(c.podIsolationDetector, vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
+	if err := isolation.AdjustQemuProcessMemoryLimits(c.podIsolationDetector, vmi, c.clusterConfig); err != nil {
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), err.Error())
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}

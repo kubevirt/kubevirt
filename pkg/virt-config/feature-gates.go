@@ -220,3 +220,7 @@ func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 func (config *ClusterConfig) MigrationPriorityQueueEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MigrationPriorityQueue)
 }
+
+func (config *ClusterConfig) ReservedOverheadMemlockEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.ReservedOverheadMemlock)
+}
