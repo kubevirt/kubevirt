@@ -81,10 +81,8 @@ var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, func
 			By("Creating a Fedora VMI with the sound card as a host device")
 			randomVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 			randomVMI.Spec.Domain.Devices.HostDevices = hostDevs
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), randomVMI, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(randomVMI, console.LoginToFedoraWaitAgent)
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi)
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 			By("Making sure the sound card is present inside the VMI")
 			for _, id := range deviceIDs {
