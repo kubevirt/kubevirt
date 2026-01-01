@@ -60,6 +60,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
+	snapshotinstancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/snapshot"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -326,6 +327,7 @@ var _ = Describe("Snapshot controlleer", func() {
 		var k8sSnapshotClient *k8ssnapshotfake.Clientset
 		var k8sClient *k8sfake.Clientset
 		var virtClient *kubecli.MockKubevirtClient
+		var mockSnapshotInstancetypeController *snapshotinstancetypecontroller.MockController
 
 		syncCaches := func(stop chan struct{}) {
 			go vmSnapshotInformer.Run(stop)
@@ -361,6 +363,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			virtClient = kubecli.NewMockKubevirtClient(ctrl)
 			vmInterface = kubecli.NewMockVirtualMachineInterface(ctrl)
 			vmiInterface = kubecli.NewMockVirtualMachineInstanceInterface(ctrl)
+			mockSnapshotInstancetypeController = snapshotinstancetypecontroller.NewMockController(ctrl)
 
 			vmSnapshotInformer, vmSnapshotSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshot{}, virtcontroller.GetVirtualMachineSnapshotInformerIndexers())
 			vmSnapshotContentInformer, vmSnapshotContentSource = testutils.NewFakeInformerWithIndexersFor(&snapshotv1.VirtualMachineSnapshotContent{}, virtcontroller.GetVirtualMachineSnapshotContentInformerIndexers())
@@ -380,20 +383,21 @@ var _ = Describe("Snapshot controlleer", func() {
 			recorder.IncludeObject = true
 
 			controller = &VMSnapshotController{
-				Client:                    virtClient,
-				VMSnapshotInformer:        vmSnapshotInformer,
-				VMSnapshotContentInformer: vmSnapshotContentInformer,
-				VMInformer:                vmInformer,
-				VMIInformer:               vmiInformer,
-				PodInformer:               podInformer,
-				StorageClassInformer:      storageClassInformer,
-				StorageProfileInformer:    storageProfileInformer,
-				PVCInformer:               pvcInformer,
-				CRDInformer:               crdInformer,
-				DVInformer:                dvInformer,
-				CRInformer:                crInformer,
-				Recorder:                  recorder,
-				ResyncPeriod:              60 * time.Second,
+				Client:                         virtClient,
+				VMSnapshotInformer:             vmSnapshotInformer,
+				VMSnapshotContentInformer:      vmSnapshotContentInformer,
+				VMInformer:                     vmInformer,
+				VMIInformer:                    vmiInformer,
+				PodInformer:                    podInformer,
+				StorageClassInformer:           storageClassInformer,
+				StorageProfileInformer:         storageProfileInformer,
+				PVCInformer:                    pvcInformer,
+				CRDInformer:                    crdInformer,
+				DVInformer:                     dvInformer,
+				CRInformer:                     crInformer,
+				Recorder:                       recorder,
+				ResyncPeriod:                   60 * time.Second,
+				SnapshotInstancetypeController: mockSnapshotInstancetypeController,
 			}
 			controller.Init()
 
@@ -426,6 +430,7 @@ var _ = Describe("Snapshot controlleer", func() {
 			k8sClient = k8sfake.NewSimpleClientset()
 			virtClient.EXPECT().StorageV1().Return(k8sClient.StorageV1()).AnyTimes()
 			virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
+			mockSnapshotInstancetypeController.EXPECT().Sync(gomock.Any()).Return(nil).AnyTimes()
 
 			k8sClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				Expect(action).To(BeNil())
@@ -2652,105 +2657,6 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotStatusWorkItem()
 
 				Expect(updateCalled).To(BeTrue())
-			})
-			Describe("it should snapshot vm with instancetypes and preferences", func() {
-				var (
-					vm                *v1.VirtualMachine
-					vmSnapshot        *snapshotv1.VirtualMachineSnapshot
-					instancetypeObj   *instancetypev1beta1.VirtualMachineInstancetype
-					preferenceObj     *instancetypev1beta1.VirtualMachinePreference
-					instancetypeCR    *appsv1.ControllerRevision
-					preferenceCR      *appsv1.ControllerRevision
-					err               error
-					updateStatusCalls *int
-				)
-
-				BeforeEach(func() {
-					vmSnapshot = createVMSnapshotInProgress()
-					vm = createLockedVM()
-
-					expectedSnapshotUpdate := vmSnapshot.DeepCopy()
-					expectedSnapshotUpdate.ResourceVersion = "2"
-					expectedSnapshotUpdate.Status = &snapshotv1.VirtualMachineSnapshotStatus{
-						SourceUID:  &vmUID,
-						ReadyToUse: pointer.P(false),
-						Phase:      snapshotv1.InProgress,
-						Conditions: []snapshotv1.Condition{
-							newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
-							newReadyCondition(corev1.ConditionFalse, "Not ready"),
-						},
-					}
-
-					updateStatusCalls = expectVMSnapshotUpdateStatus(vmSnapshotClient, expectedSnapshotUpdate)
-
-					instancetypeObj = createInstancetype()
-					instancetypeCR, err = revision.CreateControllerRevision(vm, instancetypeObj)
-					Expect(err).ToNot(HaveOccurred())
-					crSource.Add(instancetypeCR)
-
-					preferenceObj = createPreference()
-					preferenceCR, err = revision.CreateControllerRevision(vm, preferenceObj)
-					Expect(err).ToNot(HaveOccurred())
-					crSource.Add(preferenceCR)
-				})
-
-				DescribeTable("capture ControllerRevision and reference from VirtualMachineSnapshotContent",
-					func(getInstancetypeMatcher func() *v1.InstancetypeMatcher, getPreferenceMatcher func() *v1.PreferenceMatcher, getExpectedCR func() *appsv1.ControllerRevision) {
-						vm.Spec.Instancetype = getInstancetypeMatcher()
-						vm.Spec.Preference = getPreferenceMatcher()
-
-						// Expect the clone of the instancetype CR to be created and owned by the VMSnapshot
-						crCreates := expectControllerRevisionCreate(k8sClient, getExpectedCR())
-
-						// Expect the clone of the CR to be referenced from within VMSnapshotContent
-						expectedSnapshotContentVM := vm.DeepCopy()
-						if expectedSnapshotContentVM.Spec.Instancetype != nil {
-							expectedSnapshotContentVM.Spec.Instancetype.RevisionName = strings.Replace(vm.Spec.Instancetype.RevisionName, vm.Name, vmSnapshotName, 1)
-						}
-						if expectedSnapshotContentVM.Spec.Preference != nil {
-							expectedSnapshotContentVM.Spec.Preference.RevisionName = strings.Replace(vm.Spec.Preference.RevisionName, vm.Name, vmSnapshotName, 1)
-						}
-						expectedVMSnapshotContent := createVirtualMachineSnapshotContent(vmSnapshot, expectedSnapshotContentVM, nil)
-						createCalls := expectVMSnapshotContentCreate(vmSnapshotClient, expectedVMSnapshotContent)
-
-						vmSource.Add(vm)
-						vmSnapshotSource.Add(vmSnapshot)
-
-						addVirtualMachineSnapshot(vmSnapshot)
-						controller.processVMSnapshotWorkItem()
-						testutils.ExpectEvent(recorder, "SuccessfulVirtualMachineSnapshotContentCreate")
-						Expect(*updateStatusCalls).To(Equal(1))
-						Expect(*createCalls).To(Equal(1))
-						Expect(*crCreates).To(Equal(1))
-					},
-					Entry("for a referenced instancetype",
-						func() *v1.InstancetypeMatcher {
-							return &v1.InstancetypeMatcher{
-								Name:         instancetypeObj.Name,
-								Kind:         instancetypeapi.SingularResourceName,
-								RevisionName: instancetypeCR.Name,
-							}
-						},
-						func() *v1.PreferenceMatcher { return nil },
-						func() *appsv1.ControllerRevision {
-							return createInstancetypeVirtualMachineSnapshotCR(vm, vmSnapshot, instancetypeObj)
-						},
-					),
-					Entry("for a referenced preference",
-						func() *v1.InstancetypeMatcher { return nil },
-						func() *v1.PreferenceMatcher {
-							return &v1.PreferenceMatcher{
-								Name:         preferenceObj.Name,
-								Kind:         instancetypeapi.SingularPreferenceResourceName,
-								RevisionName: preferenceCR.Name,
-							}
-						},
-						func() *appsv1.ControllerRevision {
-							return createInstancetypeVirtualMachineSnapshotCR(vm, vmSnapshot, preferenceObj)
-						},
-					),
-				)
-
 			})
 		})
 

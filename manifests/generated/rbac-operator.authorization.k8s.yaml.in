@@ -610,6 +610,7 @@ rules:
   - delete
   - get
   - update
+  - patch
 - apiGroups:
   - ""
   resources:
