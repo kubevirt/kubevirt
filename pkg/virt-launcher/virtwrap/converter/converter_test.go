@@ -55,7 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	launcherconfig "kubevirt.io/kubevirt/pkg/virt-launcher/config"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
@@ -1589,13 +1589,20 @@ var _ = Describe("Converter", func() {
 		DescribeTable("Validate that QEMU SeaBios debug logs are ",
 			func(toDefineVerbosityEnvVariable bool, virtLauncherLogVerbosity int, shouldEnableDebugLogs bool) {
 
+				// Set up the global config with the test values
 				if toDefineVerbosityEnvVariable {
-					Expect(os.Setenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, strconv.Itoa(virtLauncherLogVerbosity))).
-						To(Succeed())
-					defer func() {
-						Expect(os.Unsetenv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY)).To(Succeed())
-					}()
+					cfg := &launcherconfig.Config{
+						LogVerbosity:    virtLauncherLogVerbosity,
+						LogVerbosityRaw: strconv.Itoa(virtLauncherLogVerbosity),
+					}
+					launcherconfig.SetGlobalConfig(cfg)
+				} else {
+					cfg := &launcherconfig.Config{
+						LogVerbosity: -1,
+					}
+					launcherconfig.SetGlobalConfig(cfg)
 				}
+				defer launcherconfig.ResetGlobalConfig()
 
 				domain := api.Domain{}
 
