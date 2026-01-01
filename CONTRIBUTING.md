@@ -32,15 +32,19 @@ If you spot a bug or want to change something pretty simple, just go
 ahead and open an Issue and/or a Pull Request, including your changes
 at [kubevirt/kubevirt](https://github.com/kubevirt/kubevirt).
 
-For larger changes that require more planning and discussion, using the KubeVirt
-[design proposal template](https://github.com/kubevirt/community/blob/main/design-proposals/proposal-template.md) is highly encouraged.
+For larger changes that require more planning and discussion, creating a VEP (Virtualization Enhancement Proposal)
+might be required.
 The technical effort for these changes will impact a large section of the
-development community, so they should be communicated widely.  Examples of these types
+development community and users, so they should be communicated widely. Examples of these types
 of changes:
 - New APIs
 - Architectural changes
-- Code refactors
+- Major code refactors
+- Complex features
 - API changes
+
+For more information about VEPs, please refer to the [KubeVirt Enhancement](https://github.com/kubevirt/enhancements) repository.
+To create a new VEP, follow the [process](https://github.com/kubevirt/enhancements#process) outlined in this repository.
 
 ### Getting started
 
