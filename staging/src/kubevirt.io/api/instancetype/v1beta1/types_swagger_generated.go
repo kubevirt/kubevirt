@@ -104,19 +104,19 @@ func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 		"features":                               "Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
 		"firmware":                               "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
 		"machine":                                "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
-		"volumes":                                "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec\n\n+optional",
+		"volumes":                                "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
 		"preferredSubdomain":                     "Subdomain of the VirtualMachineInstance\n\n+optional",
 		"preferredTerminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.\n\n+optional",
-		"requirements":                           "Requirements defines the minium amount of instance type defined resources required by a set of preferences\n\n+optional",
+		"requirements":                           "Requirements defines the minimum amount of instance type defined resources required by a set of preferences\n\n+optional",
 		"annotations":                            "Optionally defines preferred Annotations to be applied to the VirtualMachineInstance\n\n+optional",
 		"preferSpreadSocketToCoreRatio":          "PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs between cores and sockets, it defaults to 2.\n\n+optional",
-		"preferredArchitecture":                  "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine\n\n+optional",
+		"preferredArchitecture":                  "PreferredArchitecture defines a preferred architecture for the VirtualMachine\n\n+optional",
 	}
 }
 
 func (VolumePreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"preferredStorageClassName": "PreffereedStorageClassName optionally defines the preferred storageClass\n\n+optional",
+		"preferredStorageClassName": "PreferredStorageClassName optionally defines the preferred storageClass\n\n+optional",
 	}
 }
 
@@ -183,7 +183,7 @@ func (FirmwarePreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                       "FirmwarePreferences contains various optional defaults for Firmware.",
 		"preferredUseBios":       "PreferredUseBios optionally enables BIOS\n\n+optional",
-		"preferredUseBiosSerial": "PreferredUseBiosSerial optionally transmitts BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.\n\n+optional",
+		"preferredUseBiosSerial": "PreferredUseBiosSerial optionally transmits BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.\n\n+optional",
 		"preferredUseEfi":        "PreferredUseEfi optionally enables EFI\n\n+optional\nDeprecated: Will be removed with v1beta2 or v1",
 		"preferredUseSecureBoot": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.\n\n+optional\nDeprecated: Will be removed with v1beta2 or v1",
 		"preferredEfi":           "PreferredEfi optionally enables EFI\n\n+optional",
@@ -201,7 +201,7 @@ func (ClockPreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "ClockPreferences contains various optional defaults for Clock.",
 		"preferredClockOffset": "ClockOffset allows specifying the UTC offset or the timezone of the guest clock.\n\n+optional",
-		"preferredTimer":       "Timer specifies whih timers are attached to the vmi.\n\n+optional",
+		"preferredTimer":       "Timer specifies which timers are attached to the vmi.\n\n+optional",
 	}
 }
 
