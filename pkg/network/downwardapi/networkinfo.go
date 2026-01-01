@@ -36,8 +36,8 @@ const (
 	NetworkInfoVolumePath = "network-info"
 )
 
-func CreateNetworkInfoAnnotationValue(networkDeviceInfoMap map[string]*networkv1.DeviceInfo) string {
-	networkInfo := generateNetworkInfo(networkDeviceInfoMap)
+func CreateNetworkInfoAnnotationValue(networkDeviceInfoMap map[string]*networkv1.DeviceInfo, networkDeviceMacAddressMap map[string]string) string {
+	networkInfo := generateNetworkInfo(networkDeviceInfoMap, networkDeviceMacAddressMap)
 	networkInfoBytes, err := json.Marshal(networkInfo)
 	if err != nil {
 		log.Log.Warningf("failed to marshal network-info: %v", err)
@@ -47,14 +47,26 @@ func CreateNetworkInfoAnnotationValue(networkDeviceInfoMap map[string]*networkv1
 	return string(networkInfoBytes)
 }
 
-func generateNetworkInfo(networkDeviceInfoMap map[string]*networkv1.DeviceInfo) NetworkInfo {
+func generateNetworkInfo(networkDeviceInfoMap map[string]*networkv1.DeviceInfo, networkDeviceMacAddressMap map[string]string) NetworkInfo {
 	var downwardAPIInterfaces []Interface
+	interfaceMap := make(map[string]Interface)
 
-	// Sort keys of the map with to get deterministic order
-	sortedNetNames := slices.Sorted(maps.Keys(networkDeviceInfoMap))
+	for networkName, deviceInfo := range networkDeviceInfoMap {
+		interfaceMap[networkName] = Interface{Network: networkName, DeviceInfo: deviceInfo, Mac: ""}
+	}
+
+	for networkName, macAddr := range networkDeviceMacAddressMap {
+		interfaceWithMac := Interface{Network: networkName, DeviceInfo: nil, Mac: macAddr}
+		if iface, ok := interfaceMap[networkName]; ok {
+			interfaceWithMac.DeviceInfo = iface.DeviceInfo
+		}
+		interfaceMap[networkName] = interfaceWithMac
+	}
+
+	// Sort keys to get deterministic order
+	sortedNetNames := slices.Sorted(maps.Keys(interfaceMap))
 	for _, networkName := range sortedNetNames {
-		deviceInfo := networkDeviceInfoMap[networkName]
-		downwardAPIInterfaces = append(downwardAPIInterfaces, Interface{Network: networkName, DeviceInfo: deviceInfo})
+		downwardAPIInterfaces = append(downwardAPIInterfaces, interfaceMap[networkName])
 	}
 	networkInfo := NetworkInfo{Interfaces: downwardAPIInterfaces}
 	return networkInfo
