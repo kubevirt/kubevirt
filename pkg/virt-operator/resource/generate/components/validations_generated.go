@@ -9795,6 +9795,7 @@ var CRDsValidation map[string]string = map[string]string{
 
                     Default: 2
                   format: int32
+                  minimum: 1
                   type: integer
               type: object
           type: object
@@ -25601,6 +25602,7 @@ var CRDsValidation map[string]string = map[string]string{
 
                     Default: 2
                   format: int32
+                  minimum: 1
                   type: integer
               type: object
           type: object
