@@ -20,6 +20,7 @@
 package network
 
 import (
+	"github.com/vishvananda/netlink"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
@@ -37,6 +38,7 @@ const defaultState = cache.PodIfaceNetworkPreparationPending
 type podNIC struct {
 	vmi              *v1.VirtualMachineInstance
 	podInterfaceName string
+	podIfaceNetlink  netlink.Link
 	vmiSpecIface     *v1.Interface
 	vmiSpecNetwork   *v1.Network
 	handler          netdriver.NetworkHandler
@@ -56,6 +58,7 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 		podnic.podInterfaceName = ""
 	} else {
 		podnic.podInterfaceName = ifaceLink.Attrs().Name
+		podnic.podIfaceNetlink = ifaceLink
 	}
 
 	podnic.dhcpConfigurator = podnic.newDHCPConfigurator()
@@ -121,6 +124,9 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 }
 
 func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain, domainAttachment string) domainspec.LibvirtSpecGenerator {
+	if l.vmiSpecIface.PasstBinding != nil {
+		return domainspec.NewPasstLibvirtSpecGenerator(l.vmiSpecIface, domain, l.podIfaceNetlink, l.handler)
+	}
 	if domainAttachment == string(v1.Tap) {
 		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, *l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
 	}

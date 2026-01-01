@@ -24,8 +24,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
+	"github.com/vishvananda/netlink"
 	"go.uber.org/mock/gomock"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -60,6 +62,38 @@ var _ = Describe("podNIC", func() {
 	})
 	AfterEach(func() {
 		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
+	})
+
+	Context("With passt pod nic", func() {
+		var (
+			vmi    *v1.VirtualMachineInstance
+			domain *api.Domain
+		)
+
+		BeforeEach(func() {
+			vmi = libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			domain = newDomainInterface("default")
+		})
+
+		It("PlugPhase2 should succeed", func() {
+			mockNetwork.EXPECT().LinkByName(gomock.Any()).
+				Return(&netlink.Device{LinkAttrs: netlink.LinkAttrs{Name: "eth0"}}, nil)
+
+			podnic, err := newPhase2PodNIC(vmi,
+				&vmi.Spec.Networks[0],
+				&vmi.Spec.Domain.Devices.Interfaces[0],
+				mockNetwork,
+				nil,
+				domain,
+				"not relevant")
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(podnic.PlugPhase2(domain)).Should(Succeed())
+		})
 	})
 
 	When("DHCP config is correctly read", func() {
@@ -124,4 +158,16 @@ func (b *fakeLibvirtSpecGenerator) Generate() error {
 	}
 	return nil
 
+}
+
+func newDomainInterface(name string) *api.Domain {
+	return &api.Domain{
+		Spec: api.DomainSpec{
+			Devices: api.Devices{
+				Interfaces: []api.Interface{
+					{Alias: api.NewUserDefinedAlias(name)},
+				},
+			},
+		},
+	}
 }

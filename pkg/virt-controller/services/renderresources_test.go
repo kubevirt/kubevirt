@@ -18,6 +18,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Resource pod spec renderer", func() {
@@ -830,6 +831,47 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		)
 	})
 
+})
+
+var _ = Describe("CalculateMemoryOverhead with passt binding", func() {
+	var clusterConfig *virtconfig.ClusterConfig
+
+	BeforeEach(func() {
+		kvConfig := &v1.KubeVirtConfiguration{}
+		clusterConfig, _, _ = testutils.NewFakeClusterConfigUsingKVConfig(kvConfig)
+	})
+
+	DescribeTable("should calculate correct memory overhead, when",
+		func(vmi *v1.VirtualMachineInstance, additionalOverhead resource.Quantity) {
+
+			baseOverhead := GetMemoryOverhead(vmi, "amd64", nil)
+			totalOverhead := CalculateMemoryOverhead(clusterConfig, nil, vmi)
+
+			expected := resource.NewScaledQuantity(0, resource.Kilo)
+			expected.Add(baseOverhead)
+			expected.Add(additionalOverhead)
+
+			Expect(totalOverhead.Value()).To(BeEquivalentTo(expected.Value()))
+		},
+		Entry("vmi has passt binding",
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("")),
+			),
+			resource.MustParse("250Mi")),
+
+		Entry("vmi does not have passt binding",
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("")),
+			),
+			resource.MustParse("0")),
+
+		Entry("vmi has passt and non passt interfaces",
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("")),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("")),
+			),
+			resource.MustParse("250Mi")),
+	)
 })
 
 func addResources(firstQuantity resource.Quantity, resources ...resource.Quantity) resource.Quantity {

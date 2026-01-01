@@ -16,6 +16,7 @@ go_library(
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/vishvananda/netlink:go_default_library",
+        "//vendor/golang.org/x/exp/slices:go_default_library",
     ],
 )
 
@@ -32,6 +33,7 @@ go_test(
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/libvmi:go_default_library",
+        "//pkg/network/cache:go_default_library",
         "//pkg/network/driver:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
