@@ -79,10 +79,7 @@ const (
 )
 
 var (
-	expectedThawedOutput = `{"return":"thawed"}`
-	expectedFrozenOutput = `{"return":"frozen"}`
-	testDumpPath         = "/test/dump/path/vol1.memory.dump"
-	clusterConfig        *virtconfig.ClusterConfig
+	clusterConfig *virtconfig.ClusterConfig
 
 	//go:embed testdata/migration_domain.xml
 	embedMigrationDomain string
@@ -3921,84 +3918,6 @@ func addCloudInitDisk(vmi *v1.VirtualMachineInstance, userData string, networkDa
 func isoCreationFunc(isoOutFile, volumeID string, inDir string) error {
 	_, err := os.Create(isoOutFile)
 	return err
-}
-
-func createDomainDisk(volumeName string) api.Disk {
-	return api.Disk{
-		Device: "disk",
-		Type:   "file",
-		Source: api.DiskSource{
-			File: getFsImagePath(volumeName),
-		},
-		Target: api.DiskTarget{
-			Bus:    v1.DiskBusVirtio,
-			Device: "vda",
-		},
-		Driver: &api.DiskDriver{
-			Cache:       string(v1.CacheNone),
-			Name:        "qemu",
-			Type:        "raw",
-			ErrorPolicy: "stop",
-			Discard:     "unmap",
-		},
-		Alias: api.NewUserDefinedAlias(volumeName),
-	}
-}
-
-func createVMIDisk(name string) v1.Disk {
-	return v1.Disk{
-		Name: name,
-		DiskDevice: v1.DiskDevice{
-			Disk: &v1.DiskTarget{
-				Bus: v1.DiskBusVirtio,
-			},
-		},
-		Cache: v1.CacheNone,
-	}
-}
-
-func createCloudInitDisk(volumeName string) api.Disk {
-	disk := createDomainDisk(volumeName)
-
-	isoPath := cloudinit.GetIsoFilePath(cloudinit.DataSourceNoCloud, testVmName, testNamespace)
-	disk.Source.File = isoPath
-	disk.Driver.Cache = string(v1.CacheWriteThrough)
-	disk.Driver.IO = v1.IONative
-	return disk
-}
-
-func createDomainDiskWithCBT(volumeName string, block bool) api.Disk {
-	disk := createDomainDisk(volumeName)
-	disk.Driver.Type = "qcow2"
-	disk.Source.File = getCBTImagePath(volumeName)
-	if block {
-		disk.Source.Name = volumeName
-		disk.Source.DataStore = &api.DataStore{
-			Type: "block",
-			Format: &api.DataStoreFormat{
-				Type: "raw",
-			},
-			Source: &api.DiskSource{
-				Dev: getBlockPath(volumeName),
-			},
-		}
-	} else {
-		disk.Source.DataStore = &api.DataStore{
-			Type: "file",
-			Format: &api.DataStoreFormat{
-				Type: "raw",
-			},
-			Source: &api.DiskSource{
-				File: getFsImagePath(volumeName),
-			},
-		}
-	}
-	return disk
-}
-
-func getCBTImagePath(name string) string {
-	cbtPath := filepath.Join("/var", "lib", "libvirt", "qemu", "cbt")
-	return filepath.Join(cbtPath, name+".qcow2")
 }
 
 func getFsImagePath(name string) string {

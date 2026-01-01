@@ -184,7 +184,6 @@ type LibvirtDomainManager struct {
 	cloudInitDataStore     *cloudinit.CloudInitData
 	setGuestTimeContextPtr *contextStore
 	efiEnvironment         *efi.EFIEnvironment
-	ovmfPath               string
 	ephemeralDiskCreator   ephemeraldisk.EphemeralDiskCreatorInterface
 	directIOChecker        converter.DirectIOChecker
 	disksInfo              map[string]*osdisk.DiskInfo

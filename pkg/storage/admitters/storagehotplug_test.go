@@ -42,8 +42,6 @@ import (
 )
 
 var _ = Describe("Storage Hotplug Admitter", func() {
-	const kubeVirtNamespace = "kubevirt"
-
 	kv := &v1.KubeVirt{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "kubevirt",

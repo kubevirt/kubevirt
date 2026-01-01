@@ -131,7 +131,6 @@ type DeviceController struct {
 	permissions         string
 	backoff             []time.Duration
 	virtConfig          *virtconfig.ClusterConfig
-	stop                chan struct{}
 	mdevTypesManager    *MDEVTypesManager
 	nodeStore           cache.Store
 	mdevRefreshWG       *sync.WaitGroup

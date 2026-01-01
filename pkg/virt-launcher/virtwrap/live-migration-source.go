@@ -772,7 +772,6 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 			l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
 			log.Log.Object(vmi).Info("Live migration abort succeeded")
 		}
-		return
 	}(l, vmi)
 }
 

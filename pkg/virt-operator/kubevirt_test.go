@@ -1206,14 +1206,6 @@ func enableExportFeatureGate(kv *v1.KubeVirt) {
 	}
 }
 
-func enableSynchronizationControllerFeatureGate(kv *v1.KubeVirt) {
-	kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-		FeatureGates: []string{
-			"DecentralizedLiveMigration",
-		},
-	}
-}
-
 func exportProxyEnabled(kv *v1.KubeVirt) bool {
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
 		return false

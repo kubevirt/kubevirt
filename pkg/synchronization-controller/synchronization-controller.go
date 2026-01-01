@@ -22,7 +22,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -69,8 +68,7 @@ const (
 )
 
 type SynchronizationController struct {
-	client   kubecli.KubevirtClient
-	connChan chan io.ReadWriteCloser
+	client kubecli.KubevirtClient
 
 	vmiInformer       cache.SharedIndexInformer
 	migrationInformer cache.SharedIndexInformer

@@ -122,7 +122,6 @@ type virtAPIApp struct {
 	namespace               string
 	host                    string
 	tlsConfig               *tls.Config
-	certificate             *tls.Certificate
 	consoleServerPort       int
 	certmanager             certificate2.Manager
 	handlerTLSConfiguration *tls.Config

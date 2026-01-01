@@ -253,37 +253,6 @@ func (c *EvacuationController) enqueueMigration(obj interface{}) {
 	}
 }
 
-func (c *EvacuationController) enqueueVirtualMachine(obj interface{}) {
-	logger := log.Log
-	vmi := obj.(*virtv1.VirtualMachineInstance)
-	key, err := controller.KeyFunc(vmi)
-	if err != nil {
-		logger.Object(vmi).Reason(err).Error("Failed to extract key from virtualmachineinstance.")
-		return
-	}
-	c.Queue.Add(key)
-}
-
-// resolveControllerRef returns the controller referenced by a ControllerRef,
-// or nil if the ControllerRef could not be resolved to a matching controller
-// of the correct Kind.
-func (c *EvacuationController) resolveControllerRef(namespace string, controllerRef *v1.OwnerReference) *virtv1.VirtualMachineInstance {
-	// We can't look up by UID, so look up by Name and then verify UID.
-	// Don't even try to look up by Name if it is nil or the wrong Kind.
-	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineInstanceGroupVersionKind.Kind {
-		return nil
-	}
-	vmi, exists, err := c.vmiIndexer.GetByKey(controller.NamespacedKey(namespace, controllerRef.Name))
-	if err != nil {
-		return nil
-	}
-	if !exists {
-		return nil
-	}
-
-	return vmi.(*virtv1.VirtualMachineInstance)
-}
-
 // Run runs the passed in NodeController.
 func (c *EvacuationController) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()

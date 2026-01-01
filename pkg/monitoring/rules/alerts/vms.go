@@ -22,7 +22,6 @@ import (
 	"fmt"
 
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 )
@@ -35,8 +34,6 @@ import (
 const excludedFilesystemTypesRegex = "CDFS|iso9660|udf|squashfs|cramfs|tmpfs|devtmpfs|proc|sysfs|selinuxfs|securityfs|pstore|debugfs|tracefs|configfs|binfmt_misc|bpf|devpts|mqueue|nsfs|rpc_pipefs|ramfs|rootfs|overlay|cgroup.*|fuse\\\\..*|fusectl"
 
 var (
-	fiftyMB = resource.MustParse("50Mi")
-
 	vmsAlerts = []promv1.Rule{
 		{
 			Alert: "VirtLauncherPodsStuckFailed",

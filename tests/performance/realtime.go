@@ -95,8 +95,3 @@ var _ = Describe(SIG("CPU latency tests for measuring realtime VMs performance",
 	})
 
 }))
-
-type psOutput struct {
-	priority    int64
-	processorID int64
-}

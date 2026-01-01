@@ -275,7 +275,6 @@ type VirtControllerApp struct {
 	additionalLauncherLabelsSync      []string
 	backupControllerThreads           int
 
-	caConfigMapName          string
 	promCertFilePath         string
 	promKeyFilePath          string
 	nodeTopologyUpdater      topology.NodeTopologyUpdater

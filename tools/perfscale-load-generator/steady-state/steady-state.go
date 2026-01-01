@@ -41,7 +41,6 @@ type SteadyStateJob struct {
 	Workload      *config.Workload
 	virtClient    kubecli.KubevirtClient
 	UUID          string
-	objType       string
 	firstLoop     bool
 	churn         int
 	startedTime   time.Time
