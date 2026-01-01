@@ -1024,6 +1024,7 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			Tolerations:                   tmpTolerations,
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
+			PriorityClassName:             ownerPod.Spec.PriorityClassName,
 		},
 	}
 
