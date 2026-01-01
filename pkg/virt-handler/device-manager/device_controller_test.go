@@ -49,12 +49,16 @@ type FakePlugin struct {
 	Error      error
 }
 
+func (fp *FakePlugin) Setup() error {
+	return nil
+}
+
 func (fp *FakePlugin) Start(_ <-chan struct{}) (err error) {
 	atomic.AddInt32(&fp.Starts, 1)
 	return fp.Error
 }
 
-func (fp *FakePlugin) GetDeviceName() string {
+func (fp *FakePlugin) GetResourceName() string {
 	return fp.deviceName
 }
 
@@ -82,17 +86,19 @@ func NewFakePlugin(name string, path string) *FakePlugin {
 }
 
 var _ = Describe("Device Controller", func() {
-	var workDir string
-	var err error
-	var host string
-	var maxDevices int
-	var permissions string
-	var stop chan struct{}
-	var fakeConfigMap *virtconfig.ClusterConfig
-	var mockPCI *MockDeviceHandler
-	var ctrl *gomock.Controller
-	var fakeNodeStore cache.Store
-	var wg *sync.WaitGroup
+	var (
+		workDir       string
+		err           error
+		host          string
+		maxDevices    int
+		permissions   string
+		stop          chan struct{}
+		fakeConfigMap *virtconfig.ClusterConfig
+		mockPCI       *MockDeviceHandler
+		ctrl          *gomock.Controller
+		fakeNodeStore cache.Store
+		wg            *sync.WaitGroup
+	)
 
 	runDeviceController := func(deviceController *DeviceController) {
 		wg.Add(1)
@@ -129,8 +135,7 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		Expect(fakeConfigMap.GetPermittedHostDevices()).ToNot(BeNil())
-		workDir, err = os.MkdirTemp("", "kubevirt-test")
-		Expect(err).ToNot(HaveOccurred())
+		workDir = GinkgoT().TempDir()
 
 		host = "master"
 		maxDevices = 100
@@ -140,7 +145,6 @@ var _ = Describe("Device Controller", func() {
 	})
 
 	AfterEach(func() {
-		defer os.RemoveAll(workDir)
 		// Ensure the deviceController is stopped after each test to avoid leaking resources
 		stop <- struct{}{}
 		wg.Wait()
