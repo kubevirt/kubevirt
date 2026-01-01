@@ -20,6 +20,5 @@ go_library(
         "//vendor/golang.org/x/tools/internal/gocommand:go_default_library",
         "//vendor/golang.org/x/tools/internal/packagesinternal:go_default_library",
         "//vendor/golang.org/x/tools/internal/typesinternal:go_default_library",
-        "//vendor/golang.org/x/tools/internal/versions:go_default_library",
     ],
 )
