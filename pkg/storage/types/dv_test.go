@@ -142,5 +142,47 @@ var _ = Describe("DataVolume utils test", func() {
 			Entry("sourceRef namespace not specified", "", "bar", "bar"),
 			Entry("everything specified", "foo", "bar", "bar"),
 		)
+
+		It("should properly handle DataVolume sourceRef pointer", func() {
+			sourceRefName := "sourceRef"
+			sourceRefPointerName := "sourceRefPointer"
+			sourceName := "name"
+
+			pointerRef := &cdiv1.DataSource{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: vm.Namespace,
+					Name:      sourceRefPointerName,
+				},
+				Spec: cdiv1.DataSourceSpec{
+					Source: cdiv1.DataSourceSource{
+						DataSource: &cdiv1.DataSourceRefSourceDataSource{
+							Namespace: vm.Namespace,
+							Name:      sourceRefName,
+						},
+					},
+				},
+				Status: cdiv1.DataSourceStatus{
+					Source: cdiv1.DataSourceSource{
+						PVC: &cdiv1.DataVolumeSourcePVC{
+							Namespace: vm.Namespace,
+							Name:      sourceName,
+						},
+					},
+				},
+			}
+
+			dv := &cdiv1.DataVolumeSpec{
+				SourceRef: &cdiv1.DataVolumeSourceRef{
+					Kind: "DataSource",
+					Name: sourceRefPointerName,
+				},
+			}
+
+			cs, err := GetResolvedCloneSource(context.TODO(), createClient(pointerRef), vm.Namespace, dv)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cs).ToNot(BeNil())
+			Expect(cs.PVC.Namespace).To(Equal(vm.Namespace))
+			Expect(cs.PVC.Name).To(Equal(sourceName))
+		})
 	})
 })
