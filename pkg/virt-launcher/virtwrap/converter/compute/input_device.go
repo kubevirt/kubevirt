@@ -61,25 +61,29 @@ func (i InputDeviceDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 }
 
 func convert_v1_Input_To_api_InputDevice(input *v1.Input, inputDevice *api.Input) error {
-	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB && input.Bus != "" {
-		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
-	}
+	var bus v1.InputBus
 
-	if input.Bus != v1.InputBusVirtio && input.Bus != v1.InputBusUSB {
-		input.Bus = v1.InputBusUSB
+	switch input.Bus {
+	case v1.InputBusVirtio, v1.InputBusUSB:
+		bus = input.Bus
+	case "":
+		bus = v1.InputBusUSB
+	default:
+		return fmt.Errorf("input contains unsupported bus %s", input.Bus)
 	}
 
 	if input.Type != v1.InputTypeTablet {
 		return fmt.Errorf("input contains unsupported type %s", input.Type)
 	}
 
-	inputDevice.Bus = input.Bus
+	inputDevice.Bus = bus
 	inputDevice.Type = input.Type
 	inputDevice.Alias = api.NewUserDefinedAlias(input.Name)
 
-	if input.Bus == v1.InputBusVirtio {
+	if bus == v1.InputBusVirtio {
 		inputDevice.Model = v1.VirtIO
 	}
+
 	return nil
 }
 
