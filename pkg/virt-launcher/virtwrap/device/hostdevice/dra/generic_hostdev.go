@@ -72,12 +72,17 @@ func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 				if err != nil {
 					return nil, fmt.Errorf("failed to create PCI device for %s: %v", hdStatus.Name, err)
 				}
-				hostDevices = append(hostDevices, api.HostDevice{
+				hostDevice := api.HostDevice{
 					Alias:   api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hdStatus.Name),
 					Source:  api.HostDeviceSource{Address: hostAddr},
 					Type:    api.HostDevicePCI,
 					Managed: "no",
-				})
+				}
+				hdSpec := getHostDeviceSpecFromName(vmi, hdStatus.Name)
+				if hdSpec != nil && hdSpec.IOMMUFD != nil {
+					hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				}
+				hostDevices = append(hostDevices, hostDevice)
 			}
 		}
 	}
@@ -97,17 +102,32 @@ func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, er
 				continue
 			}
 			if hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil {
-				hostDevices = append(hostDevices, api.HostDevice{
+				hostDevice := api.HostDevice{
 					Alias:  api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hdStatus.Name),
 					Source: api.HostDeviceSource{Address: &api.Address{UUID: *hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID}},
 					Type:   api.HostDeviceMDev,
 					Mode:   "subsystem",
 					Model:  "vfio-pci",
-				})
+				}
+				hdSpec := getHostDeviceSpecFromName(vmi, hdStatus.Name)
+				if hdSpec != nil && hdSpec.IOMMUFD != nil {
+					hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				}
+				hostDevices = append(hostDevices, hostDevice)
 			}
 		}
 	}
 	return hostDevices, nil
+}
+
+func getHostDeviceSpecFromName(vmi *v1.VirtualMachineInstance, hostDevice string) *v1.HostDevice {
+	for _, hd := range vmi.Spec.Domain.Devices.HostDevices {
+		hd := hd
+		if hd.Name == hostDevice {
+			return &hd
+		}
+	}
+	return nil
 }
 
 func validateCreationOfDRAHostDevices(genericHostDevices []v1.HostDevice, hostDevices []api.HostDevice) error {
