@@ -234,7 +234,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 			curDirectAddress := net.JoinHostPort(loopbackAddress, strconv.Itoa(port))
 			unixSocketPath := migrationproxy.SourceUnixFile(l.virtShareDir, key)
 			logger.V(2).Infof("Creating socketpath for unix migration/tcp %s", unixSocketPath)
-			migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, nil, string(vmi.UID))
+			migrationProxy := migrationproxy.NewSourceProxy(unixSocketPath, curDirectAddress, nil, string(vmi.UID))
 
 			err := migrationProxy.Start()
 			if err != nil {
