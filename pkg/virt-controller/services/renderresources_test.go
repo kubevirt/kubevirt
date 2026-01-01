@@ -435,6 +435,278 @@ var _ = Describe("Resource pod spec renderer", func() {
 			Expect(claimNames).To(HaveKeyWithValue("gpu-claim", "gpu-request"))
 			Expect(claimNames).To(HaveKeyWithValue("hostdev-claim", "hostdev-request"))
 		})
+
+		It("should merge multiple GPUs with same claim but different requestNames", func() {
+			gpu1 := v1.GPU{
+				Name: "dra-gpu-1",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("shared-gpu-claim"),
+					RequestName: pointer.P("gpu-request-1"),
+				},
+			}
+			gpu2 := v1.GPU{
+				Name: "dra-gpu-2",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("shared-gpu-claim"),
+					RequestName: pointer.P("gpu-request-2"),
+				},
+			}
+			gpus := []v1.GPU{gpu1, gpu2}
+
+			rr = NewResourceRenderer(nil, nil, WithGPUsDRA(gpus))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1), "should have single claim for multiple requestNames")
+			Expect(claims[0].Name).To(Equal("shared-gpu-claim"))
+			Expect(claims[0].Request).To(BeEmpty(), "should not have requestName when multiple requests reference same claim")
+		})
+
+		It("should merge multiple HostDevices with same claim but different requestNames", func() {
+			hd1 := v1.HostDevice{
+				Name: "dra-hostdev-1",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("shared-hostdev-claim"),
+					RequestName: pointer.P("request-1"),
+				},
+			}
+			hd2 := v1.HostDevice{
+				Name: "dra-hostdev-2",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("shared-hostdev-claim"),
+					RequestName: pointer.P("request-2"),
+				},
+			}
+			hostDevices := []v1.HostDevice{hd1, hd2}
+
+			rr = NewResourceRenderer(nil, nil, WithHostDevicesDRA(hostDevices))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1), "should have single claim for multiple requestNames")
+			Expect(claims[0].Name).To(Equal("shared-hostdev-claim"))
+			Expect(claims[0].Request).To(BeEmpty(), "should not have requestName when multiple requests reference same claim")
+		})
+
+		It("should merge multiple Networks with same claim but different requestNames", func() {
+			net1 := v1.Network{
+				Name: "red",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   "shared-network-claim",
+						RequestName: "vf1",
+					},
+				},
+			}
+			net2 := v1.Network{
+				Name: "blue",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   "shared-network-claim",
+						RequestName: "vf2",
+					},
+				},
+			}
+			networks := []v1.Network{net1, net2}
+
+			rr = NewResourceRenderer(nil, nil, WithNetworksDRA(networks))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1), "should have single claim for multiple requestNames")
+			Expect(claims[0].Name).To(Equal("shared-network-claim"))
+			Expect(claims[0].Request).To(BeEmpty(), "should not have requestName when multiple requests reference same claim")
+		})
+
+		It("should preserve single requestName when only one device references a claim", func() {
+			net := v1.Network{
+				Name: "red",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   "single-network-claim",
+						RequestName: "vf1",
+					},
+				},
+			}
+			networks := []v1.Network{net}
+
+			rr = NewResourceRenderer(nil, nil, WithNetworksDRA(networks))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1))
+			Expect(claims[0].Name).To(Equal("single-network-claim"))
+			Expect(claims[0].Request).To(Equal("vf1"), "should preserve requestName when single device references claim")
+		})
+
+		It("should handle mixed scenario: one claim with multiple requests, another with single request", func() {
+			net1 := v1.Network{
+				Name: "red",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   "multi-request-claim",
+						RequestName: "vf1",
+					},
+				},
+			}
+			net2 := v1.Network{
+				Name: "blue",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   "multi-request-claim",
+						RequestName: "vf2",
+					},
+				},
+			}
+			net3 := v1.Network{
+				Name: "green",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   "single-request-claim",
+						RequestName: "vf3",
+					},
+				},
+			}
+			networks := []v1.Network{net1, net2, net3}
+
+			rr = NewResourceRenderer(nil, nil, WithNetworksDRA(networks))
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(2), "should have two claims")
+
+			claimMap := make(map[string]string)
+			for _, claim := range claims {
+				claimMap[claim.Name] = claim.Request
+			}
+
+			Expect(claimMap).To(HaveKey("multi-request-claim"))
+			Expect(claimMap["multi-request-claim"]).To(BeEmpty(), "multi-request claim should not have requestName")
+			Expect(claimMap).To(HaveKeyWithValue("single-request-claim", "vf3"))
+		})
+
+		It("should merge claims across different DRA functions with same claim name", func() {
+			// Network using claim "sriov" with requestName "vf1"
+			net := v1.Network{
+				Name: "red",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   "sriov",
+						RequestName: "vf1",
+					},
+				},
+			}
+			// HostDevice using same claim "sriov" but with requestName "vf2"
+			hostDev := v1.HostDevice{
+				Name: "dra-hostdev",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("sriov"),
+					RequestName: pointer.P("vf2"),
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil,
+				WithNetworksDRA([]v1.Network{net}),
+				WithHostDevicesDRA([]v1.HostDevice{hostDev}),
+			)
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1), "should merge into single claim when different functions reference same claim")
+			Expect(claims[0].Name).To(Equal("sriov"))
+			Expect(claims[0].Request).To(BeEmpty(), "merged claim should not have requestName")
+		})
+
+		It("should merge claims across all three DRA functions with same claim name", func() {
+			// Network using claim "shared-claim" with requestName "vf1"
+			net := v1.Network{
+				Name: "red",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   "shared-claim",
+						RequestName: "vf1",
+					},
+				},
+			}
+			// HostDevice using same claim with requestName "vf2"
+			hostDev := v1.HostDevice{
+				Name: "dra-hostdev",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("shared-claim"),
+					RequestName: pointer.P("vf2"),
+				},
+			}
+			// GPU using same claim with requestName "vf3"
+			gpu := v1.GPU{
+				Name: "dra-gpu",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("shared-claim"),
+					RequestName: pointer.P("vf3"),
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil,
+				WithNetworksDRA([]v1.Network{net}),
+				WithHostDevicesDRA([]v1.HostDevice{hostDev}),
+				WithGPUsDRA([]v1.GPU{gpu}),
+			)
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(1), "should merge into single claim across all three functions")
+			Expect(claims[0].Name).To(Equal("shared-claim"))
+			Expect(claims[0].Request).To(BeEmpty(), "merged claim should not have requestName")
+		})
+
+		It("should handle complex scenario with both merged and separate claims across functions", func() {
+			// Networks: two using "sriov" claim, one using "network-only" claim
+			net1 := v1.Network{
+				Name: "red",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   "sriov",
+						RequestName: "vf1",
+					},
+				},
+			}
+			net2 := v1.Network{
+				Name: "blue",
+				NetworkSource: v1.NetworkSource{
+					ResourceClaim: &v1.ResourceClaimNetworkSource{
+						ClaimName:   "network-only",
+						RequestName: "vf-net",
+					},
+				},
+			}
+			// HostDevice using "sriov" claim (should merge with net1)
+			hostDev := v1.HostDevice{
+				Name: "dra-hostdev",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("sriov"),
+					RequestName: pointer.P("vf2"),
+				},
+			}
+			// GPU using separate claim
+			gpu := v1.GPU{
+				Name: "dra-gpu",
+				ClaimRequest: &v1.ClaimRequest{
+					ClaimName:   pointer.P("gpu-only"),
+					RequestName: pointer.P("gpu1"),
+				},
+			}
+
+			rr = NewResourceRenderer(nil, nil,
+				WithNetworksDRA([]v1.Network{net1, net2}),
+				WithHostDevicesDRA([]v1.HostDevice{hostDev}),
+				WithGPUsDRA([]v1.GPU{gpu}),
+			)
+
+			claims := rr.Claims()
+			Expect(claims).To(HaveLen(3), "should have three claims total")
+
+			claimMap := make(map[string]string)
+			for _, claim := range claims {
+				claimMap[claim.Name] = claim.Request
+			}
+
+			Expect(claimMap).To(HaveKey("sriov"))
+			Expect(claimMap["sriov"]).To(BeEmpty(), "sriov claim should be merged without requestName")
+			Expect(claimMap).To(HaveKeyWithValue("network-only", "vf-net"))
+			Expect(claimMap).To(HaveKeyWithValue("gpu-only", "gpu1"))
+		})
 	})
 
 	It("WithSEV option adds ", func() {
