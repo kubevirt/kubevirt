@@ -8,6 +8,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -15,6 +16,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	dns "kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
@@ -390,6 +392,45 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			Expect(vsr.Mounts()).To(ContainElement(expectedMount))
+		})
+	})
+
+	Context("with AccessCredential", func() {
+		It("should sanitize 63-character secret names in volume names", func() {
+			// Test with a 63-character secret name (max DNS-1123 label length)
+			longSecretName := strings.Repeat("a", validation.DNS1123LabelMaxLength)
+
+			accessCred := v1.AccessCredential{
+				SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+					Source: v1.SSHPublicKeyAccessCredentialSource{
+						Secret: &v1.AccessCredentialSecretSource{
+							SecretName: longSecretName,
+						},
+					},
+					PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+						NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
+					},
+				},
+			}
+
+			var err error
+			vsrLong, err := NewVolumeRenderer(config, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withAccessCredentials([]v1.AccessCredential{accessCred}))
+			Expect(err).NotTo(HaveOccurred())
+
+			volumes := vsrLong.Volumes()
+			// All volume names should be DNS-1123 compliant (max 63 chars)
+			for _, vol := range volumes {
+				Expect(len(vol.Name)).To(BeNumerically("<=", validation.DNS1123LabelMaxLength))
+			}
+			// Should have a volume with access credentials suffix
+			hasAccessCredVolume := false
+			for _, vol := range volumes {
+				if strings.HasSuffix(vol.Name, "-"+dns.AccessCredentialsSuffix) {
+					hasAccessCredVolume = true
+					break
+				}
+			}
+			Expect(hasAccessCredVolume).To(BeTrue())
 		})
 	})
 })
