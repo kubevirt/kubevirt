@@ -3834,6 +3834,20 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(err.Error()).To(ContainSubstring(errMsg))
 			Expect(converterContext.ApplyCBT).To(BeEmpty())
 		})
+
+		DescribeTable("should resolve the metadata overlay path for CBT-enabled volumes", func(isBlock bool) {
+			volName := "test-cbt-block-vol"
+			disk := createDomainDiskWithCBT(volName, isBlock)
+			Expect(getSourceFile(disk)).To(Equal(disk.Source.File))
+			if isBlock {
+				Expect(getBackendSource(disk)).To(Equal(getBlockPath(volName)))
+			} else {
+				Expect(getBackendSource(disk)).To(Equal(getFsImagePath(volName)))
+			}
+		},
+			Entry("with block volume", true),
+			Entry("with file volume", false),
+		)
 	})
 })
 

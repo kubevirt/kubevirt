@@ -26589,6 +26589,20 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceBackupStatus(ref common
 							Format:      "",
 						},
 					},
+					"failed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Failed indiciates that the backup failed",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"abortStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AbortStatus is the state of a backup abort requests which can vary since an abort request is asynchronous.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"backupMsg": {
 						SchemaProps: spec.SchemaProps{
 							Description: "BackupMsg resturns any relevant information like failure reason unfreeze failed etc...",
