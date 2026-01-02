@@ -228,7 +228,6 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 				cmd := clientcmd.NewVirtctlCommand("vnc", randVmName)
 				err := cmd.Execute()
 				Expect(err).To(HaveOccurred())
-
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtApi.restErrorsBurtsAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
