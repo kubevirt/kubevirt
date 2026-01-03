@@ -19,6 +19,7 @@ go_library(
         "sound.go",
         "sysinfo.go",
         "tpm.go",
+        "usb_redir.go",
         "vsock.go",
         "watchdog.go",
     ],
