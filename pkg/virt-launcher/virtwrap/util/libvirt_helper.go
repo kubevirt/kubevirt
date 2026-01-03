@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
 
-const QEMUSeaBiosDebugPipe = converter.QEMUSeaBiosDebugPipe
+const QEMUSeaBiosDebugPipe = compute.QEMUSeaBiosDebugPipe
 const (
 	qemuConfPath        = "/etc/libvirt/qemu.conf"
 	virtqemudConfPath   = "/etc/libvirt/virtqemud.conf"
