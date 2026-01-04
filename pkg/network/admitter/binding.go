@@ -58,7 +58,6 @@ func validateInterfaceBindingExists(fieldPath *field.Path, idx int, iface v1.Int
 
 func hasInterfaceBindingMethod(iface v1.Interface) bool {
 	return iface.InterfaceBindingMethod.Bridge != nil ||
-		iface.InterfaceBindingMethod.DeprecatedSlirp != nil ||
 		iface.InterfaceBindingMethod.Masquerade != nil ||
 		iface.InterfaceBindingMethod.SRIOV != nil ||
 		iface.InterfaceBindingMethod.DeprecatedMacvtap != nil
