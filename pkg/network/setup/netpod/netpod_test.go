@@ -186,8 +186,6 @@ var _ = Describe("netpod", func() {
 		Entry("bridge", v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}),
 		Entry("masquerade", v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}),
 
-		// passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		Entry("passt", v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}}),
 		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		Entry("slirp", v1.InterfaceBindingMethod{DeprecatedSlirp: &v1.DeprecatedInterfaceSlirp{}}),
 	)
@@ -1044,60 +1042,6 @@ var _ = Describe("netpod", func() {
 			Expect(masqstub.podIfaceSpec.Name).To(Equal("eth0"))
 			Expect(masqstub.vmiIfaceSpec.Name).To(Equal(defaultPodNetworkName))
 		})
-	})
-
-	It("setup Passt binding", func() {
-		nmstatestub := nmstateStub{status: nmstate.Status{
-			Interfaces: []nmstate.Interface{{
-				Name:       "eth0",
-				Index:      0,
-				TypeName:   nmstate.TypeVETH,
-				State:      nmstate.IfaceStateUp,
-				MacAddress: "12:34:56:78:90:ab",
-				MTU:        1500,
-				IPv4: nmstate.IP{
-					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{
-						IP:        primaryIPv4Address,
-						PrefixLen: 30,
-					}},
-				},
-				IPv6: nmstate.IP{
-					Enabled: pointer.P(true),
-					Address: []nmstate.IPAddress{{
-						IP:        primaryIPv6Address,
-						PrefixLen: 64,
-					}},
-				},
-			}},
-		}}
-
-		vmiIface := v1.Interface{
-			Name:                   defaultPodNetworkName,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedPasst: &v1.DeprecatedInterfacePasst{}},
-		}
-		netPod := netpod.NewNetPod(
-			[]v1.Network{*v1.DefaultPodNetwork()},
-			[]v1.Interface{vmiIface},
-			vmiUID, 0, 0, 0, state,
-			netpod.WithNMStateAdapter(&nmstatestub),
-			netpod.WithCacheCreator(&baseCacheCreator),
-		)
-		Expect(netPod.Setup()).To(Succeed())
-		Expect(nmstatestub.spec).To(Equal(
-			nmstate.Spec{
-				Interfaces: []nmstate.Interface{},
-				LinuxStack: nmstate.LinuxStack{IPv4: nmstate.LinuxStackIP4{
-					PingGroupRange:        []int{107, 107},
-					UnprivilegedPortStart: pointer.P(0),
-				}},
-			},
-		))
-		Expect(cache.ReadPodInterfaceCache(&baseCacheCreator, vmiUID, defaultPodNetworkName)).To(Equal(&cache.PodIfaceCacheData{
-			Iface:  &vmiIface,
-			PodIP:  primaryIPv4Address,
-			PodIPs: []string{primaryIPv4Address, primaryIPv6Address},
-		}))
 	})
 
 	It("should preserve network queue count if interface is already in the domain", func() {
