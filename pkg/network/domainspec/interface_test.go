@@ -37,7 +37,6 @@ var _ = Describe("VMI interfaces", func() {
 		iface1                = "iface1"
 		iface2                = "iface2"
 		iface3                = "iface3"
-		iface4                = "iface4"
 		iface5                = "iface5"
 		iface6                = "iface6"
 		iface7                = "iface7"
@@ -78,11 +77,6 @@ var _ = Describe("VMI interfaces", func() {
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 		},
 		{
-			// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-			Name:                   iface4,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}},
-		},
-		{
 			Name:    iface5,
 			Binding: &v1.PluginBinding{Name: binding1},
 		},
@@ -101,7 +95,6 @@ var _ = Describe("VMI interfaces", func() {
 			expectedMap := map[string]string{
 				iface1: string(v1.Tap),
 				iface2: string(v1.Tap),
-				iface4: string(v1.Tap),
 				iface5: string(v1.Tap),
 				iface6: otherDoaminAttachemnt,
 			}
