@@ -316,8 +316,6 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			}
 		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case iface.DeprecatedMacvtap != nil:
-		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		case iface.DeprecatedSlirp != nil:
 		default:
 			return nil, fmt.Errorf("undefined binding method: %v", iface)
 		}
