@@ -990,39 +990,6 @@ func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 	}
 }
 
-func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Memory == nil ||
-		vmi.Spec.Domain.Memory.MaxGuest == nil ||
-		vmi.Spec.Domain.Memory.Guest.Equal(*vmi.Spec.Domain.Memory.MaxGuest) {
-		var err error
-
-		domain.Spec.Memory, err = vcpu.QuantityToByte(*vcpu.GetVirtualMemory(vmi))
-		if err != nil {
-			return err
-		}
-		return nil
-	}
-
-	maxMemory, err := vcpu.QuantityToByte(*vmi.Spec.Domain.Memory.MaxGuest)
-	if err != nil {
-		return err
-	}
-
-	domain.Spec.MaxMemory = &api.MaxMemory{
-		Unit:  maxMemory.Unit,
-		Value: maxMemory.Value,
-	}
-
-	currentMemory, err := vcpu.QuantityToByte(*vmi.Spec.Domain.Memory.Guest)
-	if err != nil {
-		return err
-	}
-
-	domain.Spec.Memory = currentMemory
-
-	return nil
-}
-
 func hasIOThreads(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.IOThreadsPolicy != nil {
 		return true
@@ -1209,6 +1176,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
 		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
 		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), convertEFIConfiguration(c.EFIConfiguration)),
+		compute.MemoryConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1235,10 +1203,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		controllerDriver = &api.ControllerDriver{
 			IOMMU: "on",
 		}
-	}
-
-	if err = setupDomainMemory(vmi, domain); err != nil {
-		return err
 	}
 
 	var isMemfdRequired = false

@@ -334,7 +334,7 @@ func QuantityToByte(quantity resource.Quantity) (api.Memory, error) {
 	}
 
 	if memorySize < 0 {
-		return api.Memory{Unit: "b"}, fmt.Errorf("Memory size '%s' must be greater than or equal to 0", quantity.String())
+		return api.Memory{}, fmt.Errorf("Memory size '%s' must be greater than or equal to 0", quantity.String())
 	}
 	return api.Memory{
 		Value: uint64(memorySize),
