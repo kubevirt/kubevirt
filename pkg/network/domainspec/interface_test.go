@@ -37,9 +37,9 @@ var _ = Describe("VMI interfaces", func() {
 		iface1                = "iface1"
 		iface2                = "iface2"
 		iface3                = "iface3"
+		iface4                = "iface4"
 		iface5                = "iface5"
 		iface6                = "iface6"
-		iface7                = "iface7"
 		otherDoaminAttachemnt = "otherAttachment"
 	)
 
@@ -77,15 +77,15 @@ var _ = Describe("VMI interfaces", func() {
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 		},
 		{
-			Name:    iface5,
+			Name:    iface4,
 			Binding: &v1.PluginBinding{Name: binding1},
 		},
 		{
-			Name:    iface6,
+			Name:    iface5,
 			Binding: &v1.PluginBinding{Name: binding2},
 		},
 		{
-			Name:    iface7,
+			Name:    iface6,
 			Binding: &v1.PluginBinding{Name: binding3},
 		},
 	}
@@ -95,8 +95,8 @@ var _ = Describe("VMI interfaces", func() {
 			expectedMap := map[string]string{
 				iface1: string(v1.Tap),
 				iface2: string(v1.Tap),
-				iface5: string(v1.Tap),
-				iface6: otherDoaminAttachemnt,
+				iface4: string(v1.Tap),
+				iface5: otherDoaminAttachemnt,
 			}
 			Expect(domainspec.DomainAttachmentByInterfaceName(vmiSpecIfaces, networkBindings)).To(Equal(expectedMap))
 		})
@@ -113,8 +113,8 @@ var _ = Describe("VMI interfaces", func() {
 	Context("BindingMigrationByInterfaceName", func() {
 		It("should return the correct mapping", func() {
 			expectedMap := map[string]*cmdv1.InterfaceBindingMigration{
-				iface5: {},
-				iface7: {
+				iface4: {},
+				iface6: {
 					Method: string(v1.LinkRefresh),
 				},
 			}
