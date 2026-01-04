@@ -90,7 +90,7 @@ func CreateDRASRIOVHostDevicesFromPath(path string) ([]api.HostDevice, error) {
 				Managed: "no",
 			}
 
-			log.Log.Infof("Created DRA SR-IOV host device with PCI address %s for %s", pciAddress, claimKey)
+			log.Log.V(4).Infof("Created DRA SR-IOV host device with PCI address %s for %s", pciAddress, claimKey)
 			hostDevices = append(hostDevices, hostDevice)
 			deviceIndex++
 		}

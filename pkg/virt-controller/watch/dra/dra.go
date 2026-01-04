@@ -323,7 +323,7 @@ func (c *DRAStatusController) runWorker() {
 var draStatusControllerWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 
 func (c *DRAStatusController) Execute() bool {
-	if !c.clusterConfig.GPUsWithDRAGateEnabled() && !c.clusterConfig.HostDevicesWithDRAEnabled() && !c.clusterConfig.DRANetworkDevicesEnabled() {
+	if !c.clusterConfig.GPUsWithDRAGateEnabled() && !c.clusterConfig.HostDevicesWithDRAEnabled() {
 		return false
 	}
 	key, quit := c.queue.Get()
@@ -429,14 +429,6 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *v1.V
 		allDeviceInfo = append(allDeviceInfo, hostDeviceInfo...)
 	}
 
-	if c.clusterConfig.DRANetworkDevicesEnabled() {
-		networkInfo, err := c.getNetworksFromVMISpec(vmi)
-		if err != nil {
-			return err
-		}
-		allDeviceInfo = append(allDeviceInfo, networkInfo...)
-	}
-
 	if len(allDeviceInfo) > 0 {
 		hostDeviceStatuses, err = c.getHostDeviceStatuses(allDeviceInfo, pod)
 		if err != nil {
@@ -459,10 +451,6 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *v1.V
 
 	if c.clusterConfig.HostDevicesWithDRAEnabled() {
 		allReconciled = allReconciled && drautil.IsAllDRAHostDevicesReconciled(vmi, newDeviceStatus)
-	}
-
-	if c.clusterConfig.DRANetworkDevicesEnabled() {
-		allReconciled = allReconciled && drautil.IsAllDRANetworksReconciled(vmi, newDeviceStatus)
 	}
 
 	if reflect.DeepEqual(vmi.Status.DeviceStatus, newDeviceStatus) && allReconciled {
@@ -683,25 +671,6 @@ func (c *DRAStatusController) getHostDevicesFromVMISpec(vmi *v1.VirtualMachineIn
 		})
 	}
 	return hostDevices, nil
-}
-
-func (c *DRAStatusController) getNetworksFromVMISpec(vmi *v1.VirtualMachineInstance) ([]DeviceInfo, error) {
-	var networks []DeviceInfo
-	for _, network := range vmi.Spec.Networks {
-		if !drautil.IsNetworkDRA(network) {
-			continue
-		}
-
-		networks = append(networks, DeviceInfo{
-			VMISpecClaimName:   network.NetworkSource.ResourceClaim.ClaimName,
-			VMISpecRequestName: network.NetworkSource.ResourceClaim.RequestName,
-			DeviceStatusInfo: &v1.DeviceStatusInfo{
-				Name:                      network.Name,
-				DeviceResourceClaimStatus: nil,
-			},
-		})
-	}
-	return networks, nil
 }
 
 func (c *DRAStatusController) getHostDeviceStatuses(hostDeviceInfos []DeviceInfo, pod *k8sv1.Pod) ([]v1.DeviceStatusInfo, error) {
