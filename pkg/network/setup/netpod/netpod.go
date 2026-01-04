@@ -314,8 +314,6 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 					spec.LinuxStack.IPv4.ArpIgnore = pointer.P(procsys.ARPReplyMode1)
 				}
 			}
-		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		case iface.DeprecatedMacvtap != nil:
 		default:
 			return nil, fmt.Errorf("undefined binding method: %v", iface)
 		}
@@ -669,8 +667,7 @@ func filterSupportedBindingNetworks(specNetworks []v1.Network, specInterfaces []
 			return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 		}
 
-		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		if iface.SRIOV != nil || iface.DeprecatedMacvtap != nil {
+		if iface.SRIOV != nil {
 			continue
 		}
 
