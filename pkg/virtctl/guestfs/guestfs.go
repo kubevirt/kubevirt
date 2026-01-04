@@ -240,17 +240,6 @@ func (client *K8sClient) isPVCVolumeBlock(pvc, ns string) (bool, error) {
 	return false, nil
 }
 
-func (client *K8sClient) existsPod(pod, ns string) bool {
-	p, err := client.Client.CoreV1().Pods(ns).Get(context.TODO(), pod, metav1.GetOptions{})
-	if err != nil {
-		return false
-	}
-	if p.Name == "" {
-		return false
-	}
-	return true
-}
-
 func (client *K8sClient) isPVCinUse(pvc, ns string) (bool, error) {
 	pods, err := client.getPodsForPVC(pvc, ns)
 	if err != nil {

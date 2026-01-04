@@ -42,7 +42,6 @@ type BurstJob struct {
 	Workload   *config.Workload
 	virtClient kubecli.KubevirtClient
 	UUID       string
-	objType    string
 	done       <-chan time.Time
 	watchers   map[string]*watcher.ObjListWatcher
 }

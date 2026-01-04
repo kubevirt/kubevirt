@@ -60,8 +60,6 @@ const (
 	targetNamespace         = "target-namespace"
 	sourcePodName           = "sourcePod"
 	targetPodName           = "targetPod"
-
-	remoteHostURL = "localhost:9186"
 )
 
 var _ = Describe("VMI status synchronization controller", func() {
@@ -1123,16 +1121,6 @@ func createTargetMigration(migrationID, vmiName, namespace string) *virtv1.Virtu
 				MigrationID: migrationID,
 			},
 			VMIName: vmiName,
-		},
-	}
-}
-
-func createLegacyMigration() *virtv1.VirtualMachineInstanceMigration {
-	return &virtv1.VirtualMachineInstanceMigration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      testMigrationID,
-			Namespace: k8sv1.NamespaceDefault,
-			UID:       testMigrationUID,
 		},
 	}
 }

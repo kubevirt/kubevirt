@@ -103,7 +103,6 @@ type synchronizationControllerApp struct {
 
 	serverTLSConfig       *tls.Config
 	clientTLSConfig       *tls.Config
-	consoleServerPort     int
 	clientcertmanager     certificate.Manager
 	servercertmanager     certificate.Manager
 	clusterConfig         *virtconfig.ClusterConfig

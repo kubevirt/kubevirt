@@ -263,9 +263,6 @@ func (app *virtHandlerApp) Run() {
 
 	// Wire Domain controller
 	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
-	if err != nil {
-		panic(err)
-	}
 
 	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
 	err = util.MkdirAllWithNosec(checkpointPath)

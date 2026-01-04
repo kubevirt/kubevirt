@@ -77,7 +77,6 @@ var (
 	orgFindMntByVolume     = findMntByVolume
 	orgFindMntByDevice     = findMntByDevice
 	orgNodeIsolationResult = nodeIsolationResult
-	orgParentPathForMount  = parentPathForMount
 )
 
 var _ = Describe("HotplugVolume", func() {
@@ -1055,11 +1054,9 @@ var _ = Describe("HotplugVolume", func() {
 })
 
 type mockIsolationDetector struct {
-	pid        int
-	ppid       int
-	slice      string
-	controller []string
-	err        error
+	pid  int
+	ppid int
+	err  error
 }
 
 func (i *mockIsolationDetector) Detect(_ *v1.VirtualMachineInstance) (isolation.IsolationResult, error) {

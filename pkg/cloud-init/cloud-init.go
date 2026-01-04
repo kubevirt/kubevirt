@@ -77,10 +77,6 @@ type CloudInitData struct {
 	VolumeName          string
 }
 
-type PublicSSHKey struct {
-	string
-}
-
 type NoCloudMetadata struct {
 	InstanceType  string            `json:"instance-type,omitempty"`
 	InstanceID    string            `json:"instance-id"`

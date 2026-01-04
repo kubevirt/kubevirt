@@ -227,8 +227,6 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 	const (
 		networkName   = "n1"
 		ordinalDevice = "tap2"
-
-		sriovNetworkName = "n2-sriov"
 	)
 
 	hashedDevice := "tap" + namescheme.GenerateHashedInterfaceName(networkName)[3:]

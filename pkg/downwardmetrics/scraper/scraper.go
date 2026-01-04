@@ -162,10 +162,6 @@ func guestMemoryMetrics(vmStats *stats.DomainStats) []api.Metric {
 	}
 }
 
-type Collector struct {
-	concCollector *collector.ConcurrentCollector
-}
-
 func NewReporter(nodeName string) *DownwardMetricsReporter {
 	return &DownwardMetricsReporter{
 		staticHostInfo: &StaticHostMetrics{

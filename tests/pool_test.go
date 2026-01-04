@@ -431,7 +431,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	})
 
 	type updateStrategyTest struct {
-		description        string
 		updateStrategy     *poolv1.VirtualMachinePoolUpdateStrategy
 		initialVMLabels    map[string]string
 		expectedVMUpdate   bool
