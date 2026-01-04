@@ -314,11 +314,6 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 					spec.LinuxStack.IPv4.ArpIgnore = pointer.P(procsys.ARPReplyMode1)
 				}
 			}
-
-		// Passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		case iface.DeprecatedPasst != nil:
-			spec.LinuxStack.IPv4.PingGroupRange = []int{107, 107}
-			spec.LinuxStack.IPv4.UnprivilegedPortStart = pointer.P(0)
 		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
 		case iface.DeprecatedMacvtap != nil:
 		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
