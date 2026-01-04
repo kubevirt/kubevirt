@@ -1209,6 +1209,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
 		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
 		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), convertEFIConfiguration(c.EFIConfiguration)),
+		compute.NewMemoryBackingDomainConfigurator(),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1239,46 +1240,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	if err = setupDomainMemory(vmi, domain); err != nil {
 		return err
-	}
-
-	var isMemfdRequired = false
-	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Hugepages != nil {
-		domain.Spec.MemoryBacking = &api.MemoryBacking{
-			HugePages: &api.HugePages{},
-		}
-		if val := vmi.Annotations[v1.MemfdMemoryBackend]; val != "false" {
-			isMemfdRequired = true
-		}
-	}
-	// virtiofs require shared access
-	if util.IsVMIVirtiofsEnabled(vmi) {
-		if domain.Spec.MemoryBacking == nil {
-			domain.Spec.MemoryBacking = &api.MemoryBacking{}
-		}
-		domain.Spec.MemoryBacking.Access = &api.MemoryBackingAccess{
-			Mode: "shared",
-		}
-		isMemfdRequired = true
-	}
-
-	if isMemfdRequired {
-		// Set memfd as memory backend to solve SELinux restrictions
-		// See the issue: https://github.com/kubevirt/kubevirt/issues/3781
-		domain.Spec.MemoryBacking.Source = &api.MemoryBackingSource{Type: "memfd"}
-
-		// NUMA is required in order to use memfd
-		if domain.Spec.CPU.NUMA == nil {
-			domain.Spec.CPU.NUMA = &api.NUMA{
-				Cells: []api.NUMACell{
-					{
-						ID:     "0",
-						CPUs:   fmt.Sprintf("0-%d", domain.Spec.VCPU.CPUs-1),
-						Memory: uint64(vcpu.GetVirtualMemory(vmi).Value() / int64(1024)),
-						Unit:   "KiB",
-					},
-				},
-			}
-		}
 	}
 
 	volumeIndices := map[string]int{}
