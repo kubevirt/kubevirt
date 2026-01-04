@@ -117,10 +117,6 @@ func (config *ClusterConfig) MacvtapEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MacvtapGate)
 }
 
-func (config *ClusterConfig) PasstEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PasstGate)
-}
-
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HostDevicesGate)
 }
