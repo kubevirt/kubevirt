@@ -57,16 +57,28 @@ func (o OSDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *
 		return err
 	}
 
+	o.configureSMBios(domain)
+	configureMachineType(vmi, domain)
+	configureBootMenu(vmi, domain)
+
+	return nil
+}
+
+func (o OSDomainConfigurator) configureSMBios(domain *api.Domain) {
 	if o.isSMBiosNeeded {
 		domain.Spec.OS.SMBios = &api.SMBios{
 			Mode: "sysinfo",
 		}
 	}
+}
 
+func configureMachineType(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if machine := vmi.Spec.Domain.Machine; machine != nil {
 		domain.Spec.OS.Type.Machine = machine.Type
 	}
+}
 
+func configureBootMenu(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	// set bootmenu to give time to access bios
 	if vmi.ShouldStartPaused() {
 		const bootMenuTimeoutMS = uint(10000)
@@ -75,8 +87,6 @@ func (o OSDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *
 			Timeout: pointer.P(bootMenuTimeoutMS),
 		}
 	}
-
-	return nil
 }
 
 func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
