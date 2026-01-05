@@ -99,7 +99,7 @@ func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.Virtua
 	configureBIOS(firmware, domain)
 	configureKernelBoot(vmi, firmware, domain)
 
-	return convert_v1_Firmware_ACPI_To_related_apis(firmware, domain, vmi.Spec.Volumes)
+	return configureACPI(firmware, domain, vmi.Spec.Volumes)
 }
 
 func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
@@ -166,7 +166,7 @@ func configureKernelBootContainer(vmi *v1.VirtualMachineInstance, kb *v1.KernelB
 	}
 }
 
-func convert_v1_Firmware_ACPI_To_related_apis(firmware *v1.Firmware, domain *api.Domain, volumes []v1.Volume) error {
+func configureACPI(firmware *v1.Firmware, domain *api.Domain, volumes []v1.Volume) error {
 	if firmware.ACPI == nil {
 		return nil
 	}
@@ -179,23 +179,25 @@ func convert_v1_Firmware_ACPI_To_related_apis(firmware *v1.Firmware, domain *api
 		domain.Spec.OS.ACPI = &api.OSACPI{}
 	}
 
-	if val, err := createACPITable("slic", firmware.ACPI.SlicNameRef, volumes); err != nil {
+	if err := appendACPITable("slic", firmware.ACPI.SlicNameRef, volumes, domain); err != nil {
 		return err
-	} else if val != nil {
-		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table, *val)
 	}
 
-	if val, err := createACPITable("msdm", firmware.ACPI.MsdmNameRef, volumes); err != nil {
-		return err
-	} else if val != nil {
-		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table, *val)
-	}
+	return appendACPITable("msdm", firmware.ACPI.MsdmNameRef, volumes, domain)
+}
 
-	// if field was set but volume was not found, helper function will return error
+func appendACPITable(tableType, volumeName string, volumes []v1.Volume, domain *api.Domain) error {
+	table, err := createACPITable(tableType, volumeName, volumes)
+	if err != nil {
+		return err
+	}
+	if table != nil {
+		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table, *table)
+	}
 	return nil
 }
 
-func createACPITable(source, volumeName string, volumes []v1.Volume) (*api.ACPITable, error) {
+func createACPITable(tableType, volumeName string, volumes []v1.Volume) (*api.ACPITable, error) {
 	if volumeName == "" {
 		return nil, nil
 	}
@@ -207,17 +209,17 @@ func createACPITable(source, volumeName string, volumes []v1.Volume) (*api.ACPIT
 
 		if volume.Secret == nil {
 			// Unsupported. This should have been blocked by webhook, so warn user.
-			return nil, fmt.Errorf("Firmware's volume type is unsupported for %s", source)
+			return nil, fmt.Errorf("Firmware's volume type is unsupported for %s", tableType)
 		}
 
 		// Return path to table's binary data
 		sourcePath := config.GetSecretSourcePath(volumeName)
-		sourcePath = filepath.Join(sourcePath, fmt.Sprintf("%s.bin", source))
+		sourcePath = filepath.Join(sourcePath, fmt.Sprintf("%s.bin", tableType))
 		return &api.ACPITable{
-			Type: source,
+			Type: tableType,
 			Path: sourcePath,
 		}, nil
 	}
 
-	return nil, fmt.Errorf("Firmware's volume for %s was not found", source)
+	return nil, fmt.Errorf("Firmware's volume for %s was not found", tableType)
 }
