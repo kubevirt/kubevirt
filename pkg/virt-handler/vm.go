@@ -125,6 +125,7 @@ func NewVirtualMachineController(
 	nodeStore cache.Store,
 	host string,
 	virtPrivateDir string,
+	kubeletRoot string,
 	kubeletPodsDir string,
 	launcherClients launcherclients.LauncherClientsManager,
 	vmiInformer cache.SharedIndexInformer,
@@ -236,7 +237,7 @@ func NewVirtualMachineController(
 		deviceManager.PermanentHostDevicePlugins(c.hypervisorNodeInfo.GetHypervisorDevice(), maxDevices, permissions),
 		clusterConfig,
 		nodeStore)
-	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
+	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host, kubeletRoot)
 
 	return c, nil
 }
