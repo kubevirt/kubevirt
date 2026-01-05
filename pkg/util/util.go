@@ -21,8 +21,6 @@ const (
 	VirtImageVolumeDir                        = "/var/run/kubevirt-image-volume"
 	VirtKernelBootVolumeDir                   = "/var/run/kubevirt-kernel-boot"
 	VirtPrivateDir                            = "/var/run/kubevirt-private"
-	KubeletRoot                               = "/var/lib/kubelet"
-	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"
 	ContainerBinary                           = "/container-disk-binary"
 
