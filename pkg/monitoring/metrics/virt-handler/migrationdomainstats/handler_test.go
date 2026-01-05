@@ -53,7 +53,7 @@ var _ = Describe("Handler", func() {
 		// trigger collection
 		handler.Collect()
 
-		Consistently(queue.ctx.Done()).ShouldNot(BeClosed())
+		Consistently(func() bool { return queue.isActive.Load() }).Should(BeTrue())
 		Expect(handler.vmiStats).To(HaveKey(key))
 
 		vmi.Status.EvacuationNodeName = "node"
@@ -66,8 +66,7 @@ var _ = Describe("Handler", func() {
 		vmiInformer.GetStore().Add(vmi.DeepCopy())
 
 		// TODO: Make the test go brrr
-		Eventually(queue.ctx.Done()).WithTimeout(6 * time.Second).Should(BeClosed())
-		Expect(queue.isActive.Load()).To(BeFalse())
+		Eventually(func() bool { return queue.isActive.Load() }).WithTimeout(6 * time.Second).Should(BeFalse())
 
 		handler.Collect()
 

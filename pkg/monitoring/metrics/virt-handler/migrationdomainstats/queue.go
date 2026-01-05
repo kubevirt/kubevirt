@@ -59,7 +59,6 @@ type queue struct {
 	collector domstatsCollector.Collector
 	results   *ring.Ring
 
-	ctx       context.Context
 	ctxCancel context.CancelFunc
 
 	isActive atomic.Bool
@@ -77,19 +76,20 @@ func newQueue(vmiStore cache.Store, vmi *v1.VirtualMachineInstance) *queue {
 
 func (q *queue) startPolling() {
 	q.isActive.Store(true)
-	q.ctx, q.ctxCancel = context.WithCancel(context.Background())
-
+	ctx, cancel := context.WithCancel(context.Background())
+	q.ctxCancel = cancel
 	ticker := time.NewTicker(pollingInterval)
+
 	go func() {
 		defer q.isActive.Store(false)
+		defer ticker.Stop()
 		log.Log.V(4).Infof("collecting domain stats for VMI %s/%s (initial)", q.vmi.Namespace, q.vmi.Name)
 		q.collect()
 
 		for {
 			select {
-			case <-q.ctx.Done():
+			case <-ctx.Done():
 				log.Log.V(2).Infof("stopping domain stats collection for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
-				ticker.Stop()
 				return
 			case <-ticker.C:
 				log.Log.V(4).Infof("collecting domain stats for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
