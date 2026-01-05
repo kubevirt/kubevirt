@@ -3892,3 +3892,19 @@ func shouldExpectHCOConditions(kv *v1.KubeVirt, available k8sv1.ConditionStatus,
 		),
 	))
 }
+
+func getDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
+	return components.NewApiServerDeployment(config, "", "", "")
+}
+
+func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
+	return components.NewControllerDeployment(config, "", "", "")
+}
+
+func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.DaemonSet {
+	return components.NewHandlerDaemonSet(config, "", "", "")
+}
+
+func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
+	return components.NewExportProxyDeployment(config, "", "", "")
+}
