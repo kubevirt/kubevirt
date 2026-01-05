@@ -20,7 +20,6 @@ package migrationdomainstats
 
 import (
 	"container/ring"
-	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -59,9 +58,6 @@ type queue struct {
 	collector domstatsCollector.Collector
 	results   *ring.Ring
 
-	ctx       context.Context
-	ctxCancel context.CancelFunc
-
 	isActive atomic.Bool
 }
 
@@ -77,41 +73,36 @@ func newQueue(vmiStore cache.Store, vmi *v1.VirtualMachineInstance) *queue {
 
 func (q *queue) startPolling() {
 	q.isActive.Store(true)
-	q.ctx, q.ctxCancel = context.WithCancel(context.Background())
-
 	ticker := time.NewTicker(pollingInterval)
+
 	go func() {
 		defer q.isActive.Store(false)
+		defer ticker.Stop()
 		log.Log.V(4).Infof("collecting domain stats for VMI %s/%s (initial)", q.vmi.Namespace, q.vmi.Name)
-		q.collect()
+		if !q.collect() {
+			log.Log.V(2).Infof("stopping domain stats collection for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
+			return
+		}
 
-		for {
-			select {
-			case <-q.ctx.Done():
+		for range ticker.C {
+			log.Log.V(4).Infof("collecting domain stats for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
+			if !q.collect() {
 				log.Log.V(2).Infof("stopping domain stats collection for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
-				ticker.Stop()
 				return
-			case <-ticker.C:
-				log.Log.V(4).Infof("collecting domain stats for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
-				q.collect()
 			}
 		}
 	}()
 }
 
-func (q *queue) collect() {
+func (q *queue) collect() bool {
 	if q.isMigrationFinished() {
-		q.Lock()
-		defer q.Unlock()
-
-		q.ctxCancel()
-		return
+		return false
 	}
 
 	values, err := q.scrapeDomainStats()
 	if err != nil {
 		log.Log.Reason(err).Errorf("failed to scrape domain stats for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
-		return
+		return true
 	}
 
 	r := result{
@@ -127,6 +118,7 @@ func (q *queue) collect() {
 	defer q.Unlock()
 	q.results.Value = r
 	q.results = q.results.Next()
+	return true
 }
 
 func (q *queue) scrapeDomainStats() (*stats.DomainStats, error) {
