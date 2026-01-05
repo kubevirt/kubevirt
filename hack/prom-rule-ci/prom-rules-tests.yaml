@@ -12,7 +12,7 @@ tests:
     input_series:
       - series: 'up{namespace="ci", pod="virt-api-1"}'
         values: "_ _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 0 1"
-      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-1", phase="Running"}'
+      - series: 'up{namespace="ci", pod="virt-controller-1"}'
         values: "_ _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 0 1"
       - series: 'up{namespace="ci", pod="virt-operator-1"}'
         values: "_ _ _ _ _ _ _ _ _ _ _ 0 0 0 0 0 0 1"
@@ -44,7 +44,7 @@ tests:
         alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-controller was detected for the last 10 min."
+              summary: "No up virt-controller was detected for the last 10 min."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
               severity: "critical"
@@ -78,7 +78,7 @@ tests:
         alertname: VirtControllerDown
         exp_alerts:
           - exp_annotations:
-              summary: "No running virt-controller was detected for the last 10 min."
+              summary: "No up virt-controller was detected for the last 10 min."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtControllerDown"
             exp_labels:
               severity: "critical"
@@ -197,9 +197,13 @@ tests:
         values: '1+0x11'
       - series: 'kubevirt_virt_controller_ready_status{namespace="ci", pod="virt-controller-2"}'
         values: '0+0x11'
-      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-1", phase="Running"}'
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-controller-1", condition="true"}'
         values: '1+0x11'
-      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-controller-2", phase="Running"}'
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-controller-2", condition="true"}'
+        values: '1+0x11'
+      - series: 'up{namespace="ci", pod="virt-controller-1"}'
+        values: '1+0x11'
+      - series: 'up{namespace="ci", pod="virt-controller-2"}'
         values: '1+0x11'
 
     alert_rule_test:
@@ -207,7 +211,7 @@ tests:
         alertname: LowReadyVirtControllersCount
         exp_alerts:
           - exp_annotations:
-              summary: "Some virt controllers are running but not ready."
+              summary: "Some virt controllers are up but not ready."
               runbook_url: "https://kubevirt.io/monitoring/runbooks/LowReadyVirtControllersCount"
             exp_labels:
               severity: "warning"
@@ -219,7 +223,9 @@ tests:
   - interval: 1m
     input_series:
       - series: 'kubevirt_virt_controller_ready_status{namespace="ci", pod="virt-controller-1"}'
-        values: "0 0 0 0 0 0 0 0 0 0 0"
+        values: "0x11"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-controller-1", condition="true"}'
+        values: "0x11"
 
     alert_rule_test:
       # no alert before 10 minutes
@@ -242,6 +248,8 @@ tests:
   - interval: 1m
     input_series:
       - series: 'kubevirt_virt_controller_ready_status{namespace="ci", pod="virt-controller-1"}'
+        values: "stale stale stale stale stale stale stale stale stale stale"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-controller-1", condition="true"}'
         values: "stale stale stale stale stale stale stale stale stale stale"
 
     alert_rule_test:
@@ -266,7 +274,7 @@ tests:
     input_series:
       - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
         values: "stale stale stale stale stale stale stale stale stale stale"
-      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
         values: "stale stale stale stale stale stale stale stale stale stale"
 
     alert_rule_test:
@@ -291,7 +299,7 @@ tests:
     input_series:
       - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
         values: "0x10"
-      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
         values: "0x10"
 
     alert_rule_test:
@@ -315,9 +323,9 @@ tests:
   - interval: 1m
     input_series:
       - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
-        values: "0x10"
-      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1"}'
-        values: "1x10"
+        values: "0x11"
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
+        values: "1x11"
 
     alert_rule_test:
       # no alert before 10 minutes
@@ -373,6 +381,68 @@ tests:
       # no alert at 10 minutes
       - eval_time: 10m
         alertname: NoReadyVirtOperator
+        exp_alerts: [ ]
+
+  # Low virt-operator count when multiple nodes exist
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_allocatable{node="node1"}'
+        values: "1x61"
+      - series: 'kube_node_status_allocatable{node="node2"}'
+        values: "1x61"
+      - series: 'up{namespace="ci", pod="virt-operator-1"}'
+        values: "1x61"
+      - series: 'up{namespace="ci", pod="virt-operator-2"}'
+        values: "0x61"
+
+    alert_rule_test:
+      # no alert before 60 minutes
+      - eval_time: 59m
+        alertname: LowVirtOperatorCount
+        exp_alerts: [ ]
+      # alert should fire after 60 minutes when there are 2+ nodes but only 1 virt-operator pod
+      - eval_time: 60m
+        alertname: LowVirtOperatorCount
+        exp_alerts:
+          - exp_annotations:
+              summary: "More than one virt-operator should be up if more than one worker nodes exist."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowVirtOperatorCount"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # Low virt-operator count should not fire when only 1 node exists
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_allocatable{node="node1"}'
+        values: "1x61"
+      - series: 'up{namespace="ci", pod="virt-operator-1"}'
+        values: "1x61"
+
+    alert_rule_test:
+      # no alert when only 1 node exists (even with only 1 virt-operator)
+      - eval_time: 60m
+        alertname: LowVirtOperatorCount
+        exp_alerts: [ ]
+
+  # Low virt-operator count should not fire when 2+ virt-operator pods are up
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_status_allocatable{node="node1"}'
+        values: "1x61"
+      - series: 'kube_node_status_allocatable{node="node2"}'
+        values: "1x61"
+      - series: 'up{namespace="ci", pod="virt-operator-1"}'
+        values: "1x61"
+      - series: 'up{namespace="ci", pod="virt-operator-2"}'
+        values: "1x61"
+
+    alert_rule_test:
+      # no alert when 2+ virt-operator pods are up
+      - eval_time: 60m
+        alertname: LowVirtOperatorCount
         exp_alerts: [ ]
 
 
