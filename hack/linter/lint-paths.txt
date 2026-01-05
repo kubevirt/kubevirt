@@ -43,6 +43,8 @@ pkg/virt-launcher/virtwrap/access-credentials
 pkg/virt-launcher/virtwrap/agent-poller
 pkg/virt-launcher/virtwrap/converter/metadata
 pkg/virt-launcher/virtwrap/converter/virtio
+pkg/virt-operator/resource/apply/resourcemerge
+pkg/util/naming
 tests/conformance
 tests/console
 tests/decorators
