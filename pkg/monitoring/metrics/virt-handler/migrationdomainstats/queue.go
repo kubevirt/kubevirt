@@ -71,7 +71,7 @@ func newQueue(vmiStore cache.Store, vmi *v1.VirtualMachineInstance) *queue {
 	}
 }
 
-func (q *queue) startPolling() {
+func (q *queue) startPolling(pollingInterval time.Duration) {
 	q.isActive.Store(true)
 	ticker := time.NewTicker(pollingInterval)
 

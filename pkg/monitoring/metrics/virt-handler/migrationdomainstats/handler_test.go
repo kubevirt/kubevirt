@@ -38,6 +38,7 @@ var _ = Describe("Handler", func() {
 		vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
 		handler, err := newHandler(vmiInformer)
 		Expect(err).ToNot(HaveOccurred())
+		handler.pollingInterval = 100 * time.Millisecond
 
 		vmi := api.NewMinimalVMI("testvmi")
 		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
@@ -53,7 +54,7 @@ var _ = Describe("Handler", func() {
 		// trigger collection
 		handler.Collect()
 
-		Consistently(func() bool { return queue.isActive.Load() }).Should(BeTrue())
+		Consistently(func() bool { return queue.isActive.Load() }).WithTimeout(200 * time.Millisecond).Should(BeTrue())
 		Expect(handler.vmiStats).To(HaveKey(key))
 
 		vmi.Status.EvacuationNodeName = "node"
@@ -65,8 +66,7 @@ var _ = Describe("Handler", func() {
 		vmi.Status.MigrationState.Completed = true
 		vmiInformer.GetStore().Add(vmi.DeepCopy())
 
-		// TODO: Make the test go brrr
-		Eventually(func() bool { return queue.isActive.Load() }).WithTimeout(6 * time.Second).Should(BeFalse())
+		Eventually(func() bool { return queue.isActive.Load() }).Should(BeFalse())
 
 		handler.Collect()
 
