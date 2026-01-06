@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"k8s.io/client-go/tools/cache"
@@ -60,6 +61,8 @@ type queue struct {
 
 	ctx       context.Context
 	ctxCancel context.CancelFunc
+
+	isActive atomic.Bool
 }
 
 func newQueue(vmiStore cache.Store, vmi *v1.VirtualMachineInstance) *queue {
@@ -68,14 +71,17 @@ func newQueue(vmiStore cache.Store, vmi *v1.VirtualMachineInstance) *queue {
 		vmi:       vmi,
 		collector: domstatsCollector.NewConcurrentCollector(1),
 		results:   ring.New(bufferSize),
+		isActive:  atomic.Bool{},
 	}
 }
 
 func (q *queue) startPolling() {
+	q.isActive.Store(true)
 	q.ctx, q.ctxCancel = context.WithCancel(context.Background())
 
 	ticker := time.NewTicker(pollingInterval)
 	go func() {
+		defer q.isActive.Store(false)
 		log.Log.V(4).Infof("collecting domain stats for VMI %s/%s (initial)", q.vmi.Namespace, q.vmi.Name)
 		q.collect()
 
@@ -142,14 +148,14 @@ func (q *queue) all() ([]result, bool) {
 
 	var results []result
 
-	q.results.Do(func(r interface{}) {
+	q.results.Do(func(r any) {
 		if r != nil {
 			results = append(results, r.(result))
 		}
 	})
 	q.results = q.results.Unlink(q.results.Len())
 
-	return results, q.isMigrationFinished()
+	return results, !q.isActive.Load()
 }
 
 func (q *queue) isMigrationFinished() bool {
