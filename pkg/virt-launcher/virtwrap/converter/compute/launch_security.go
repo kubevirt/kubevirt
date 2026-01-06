@@ -59,29 +59,62 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 	return nil
 }
 
+func configureSEVSNPLaunchSecurity(snpConfig *v1.SNP) *api.LaunchSecurity {
+	snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(snpConfig)
+	domain := &api.LaunchSecurity{
+		Type: "sev-snp",
+	}
+	if snpConfig.Policy != "" {
+		// TODO: handle custom policy
+	} else {
+		// Use Default Policy
+		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
+	}
+	if snpConfig.VCEK != "" {
+		domain.SNP.VCEK = snpConfig.VCEK
+	}
+	if snpConfig.AuthorKey != "" {
+		domain.SNP.AuthorKey = snpConfig.AuthorKey
+	}
+	if snpConfig.KernelHashes != "" {
+		domain.SNP.KernelHashes = snpConfig.KernelHashes
+	}
+	if snpConfig.Cbitpos != "" {
+		domain.SNP.Cbitpos = snpConfig.Cbitpos
+	}
+	if snpConfig.IdBlock != "" {
+		domain.SNP.IdBlock = snpConfig.IdBlock
+	}
+	if snpConfig.IdAuth != "" {
+		domain.SNP.IdAuth = snpConfig.IdAuth
+	}
+	if snpConfig.ReducedPhysBits != "" {
+		domain.SNP.ReducedPhysBits = snpConfig.ReducedPhysBits
+	}
+	return domain
+}
+
+func configureSEVLaunchSecurity(sevConfig *v1.SEV) *api.LaunchSecurity {
+	sevPolicyBits := launchsecurity.SEVPolicyToBits(sevConfig.Policy)
+	domain := &api.LaunchSecurity{
+		Type:   "sev",
+		Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+	}
+	if sevConfig.DHCert != "" {
+		domain.SEV.DHCert = sevConfig.DHCert
+	}
+	if sevConfig.Session != "" {
+		domain.SEV.Session = sevConfig.Session
+	}
+	return domain
+}
+
 func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 	launchSec := vmi.Spec.Domain.LaunchSecurity
 	if launchSec.SEV == nil && launchSec.SNP != nil {
-		snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(launchSec.SNP)
-		domain := &api.LaunchSecurity{
-			Type: "sev-snp",
-		}
-		// Use Default Policy
-		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
-		return domain
+		return configureSEVSNPLaunchSecurity(launchSec.SNP)
 	} else if launchSec.SEV != nil {
-		sevPolicyBits := launchsecurity.SEVPolicyToBits(launchSec.SEV.Policy)
-		domain := &api.LaunchSecurity{
-			Type:   "sev",
-			Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
-		}
-		if launchSec.SEV.DHCert != "" {
-			domain.DHCert = launchSec.SEV.DHCert
-		}
-		if launchSec.SEV.Session != "" {
-			domain.Session = launchSec.SEV.Session
-		}
-		return domain
+		return configureSEVLaunchSecurity(launchSec.SEV)
 	} else if launchSec.TDX != nil {
 		return &api.LaunchSecurity{
 			Type: "tdx",
