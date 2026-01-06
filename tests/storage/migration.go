@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -63,8 +64,12 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
+	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -375,7 +380,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		})
 
 		DescribeTable("should migrate the source volume from a source DV to a destination DV", func(allowPostCopy bool) {
-
 			policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 			migrationPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
 			migrationPolicy.Spec.AllowPostCopy = pointer.P(allowPostCopy)
@@ -400,6 +404,81 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			Entry("with pre-copy", false),
 			Entry("with post-copy", true),
 		)
+
+		It("should continously report storage migration metrics", func() {
+			var pod *k8sv1.Pod
+			var metricsIPs []string
+			volName := "disk0"
+			sc, exist := libstorage.GetRWOFileSystemStorageClass()
+			Expect(exist).To(BeTrue())
+			srcDV := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
+				),
+			)
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
+				srcDV, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+				libvmi.WithMemoryRequest("256Mi"),
+				libvmi.WithDataVolume(volName, srcDV.Name),
+			)
+			// Limiting the bandwidth of this migration so we can grab metrics
+			policy := testsmig.PreparePolicyAndVMIWithBandwidthLimitation(vmi, resource.MustParse("5Mi"))
+			testsmig.CreateMigrationPolicy(virtClient, policy)
+
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+				libvmi.WithDataVolumeTemplate(srcDV),
+			)
+			vm, err = virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
+			libwait.WaitForSuccessfulVMIStart(vmi)
+			destDV := createBlankDV(virtClient, ns, "8Gi")
+			vmi, err = virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Finding the prometheus endpoint")
+			pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+			Expect(pod.Status.PodIPs).ToNot(BeEmpty(), "pod IPs must not be empty")
+			for _, ip := range pod.Status.PodIPs {
+				metricsIPs = append(metricsIPs, ip.IP)
+			}
+			By("Waiting until the Migration Completes")
+			ip := libnet.GetIP(metricsIPs, k8sv1.IPv4Protocol)
+
+			By("Update volumes")
+			updateVMWithDV(vm, volName, destDV.Name)
+
+			threshold := resource.MustParse("500Mi")
+			Eventually(func() []string {
+				out := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+				return libinfra.TakeMetricsWithPrefix(out, "kubevirt_vmi_migration_data_processed_bytes")
+			}, 100*time.Second, 1*time.Second).Should(
+				WithTransform(func(lines []string) []float64 {
+					var values []float64
+					for _, line := range lines {
+						// <metric_name>{<labels...>} <timestamp> <value>
+						if !strings.Contains(line, vmi.Name) {
+							continue
+						}
+						fields := strings.Fields(line)
+						if len(fields) >= 2 {
+							if val, err := strconv.ParseFloat(fields[len(fields)-2], 64); err == nil {
+								values = append(values, val)
+							}
+						}
+					}
+					_, _ = fmt.Fprintf(GinkgoWriter, "[DEBUG] values: %v\n", values)
+					return values
+				}, ContainElement(BeNumerically(">", threshold.Value()))), "should continuously report storage migration metrics")
+		})
 
 		It("should trigger the migration once the destination DV exists", func() {
 			volName := "disk0"
