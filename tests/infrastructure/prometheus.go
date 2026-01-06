@@ -167,11 +167,10 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 
 var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
 	var (
-		virtClient          kubecli.KubevirtClient
-		preparedVMIs        []*v1.VirtualMachineInstance
-		pod                 *k8sv1.Pod
-		handlerMetricIPs    []string
-		controllerMetricIPs []string
+		virtClient       kubecli.KubevirtClient
+		preparedVMIs     []*v1.VirtualMachineInstance
+		pod              *k8sv1.Pod
+		handlerMetricIPs []string
 	)
 
 	prepareVMIForTests := func(preferredNodeName string) string {
@@ -213,22 +212,8 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	}
 
 	BeforeEach(func() {
+		var err error
 		virtClient = kubevirt.Client()
-
-		preparedVMIs = []*v1.VirtualMachineInstance{}
-		pod = nil
-		handlerMetricIPs = []string{}
-		controllerMetricIPs = []string{}
-
-		By("Finding the virt-controller prometheus endpoint")
-		virtControllerLeaderPodName := libinfra.GetLeader()
-		leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
-			context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
-
-		for _, ip := range leaderPod.Status.PodIPs {
-			controllerMetricIPs = append(controllerMetricIPs, ip.IP)
-		}
 
 		// The initial test for the metrics subsystem used only a single VM for the sake of simplicity.
 		// However, testing a single entity is a corner case (do we test handling sequences? potential clashes
@@ -246,6 +231,12 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		for _, ip := range pod.Status.PodIPs {
 			handlerMetricIPs = append(handlerMetricIPs, ip.IP)
 		}
+	})
+
+	AfterEach(func() {
+		preparedVMIs = []*v1.VirtualMachineInstance{}
+		pod = nil
+		handlerMetricIPs = []string{}
 	})
 
 	It("[test_id:4136] should find one leading virt-controller and two ready", func() {
@@ -376,11 +367,9 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	DescribeTable("should include the metrics for a running VM", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libnet.GetIP(handlerMetricIPs, family)
-
 		By("Scraping the Prometheus endpoint")
 		Eventually(func() string {
-			out := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+			out := libmonitoring.GetKubevirtVMMetrics(pod)
 			lines := libinfra.TakeMetricsWithPrefix(out, "kubevirt")
 			return strings.Join(lines, "\n")
 		}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
@@ -390,9 +379,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	)
 
 	It("should expose kubevirt_node_deprecated_machine_types metric", func() {
-		ip := libnet.GetIP(handlerMetricIPs, k8sv1.IPv4Protocol)
-
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_node_deprecated_machine_types")
@@ -411,8 +398,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricName, operator string) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libnet.GetIP(handlerMetricIPs, family)
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		By("Checking the collected metrics")
 		for _, vmi := range preparedVMIs {
@@ -465,8 +451,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libnet.GetIP(handlerMetricIPs, family)
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter(metricSubstring)
@@ -496,8 +481,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	DescribeTable("[QUARANTINE]should include VMI infos for a running VM", decorators.Quarantine, func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libnet.GetIP(handlerMetricIPs, family)
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_")
@@ -542,8 +526,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libnet.GetIP(handlerMetricIPs, family)
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_")
@@ -563,34 +546,50 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:6242] by IPv6", k8sv1.IPv6Protocol),
 	)
 
-	DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
+	Context("VMI eviction blocker status", func() {
+		var controllerMetricIPs []string
 
-		ip := libnet.GetIP(controllerMetricIPs, family)
+		BeforeEach(func() {
+			virtControllerLeaderPodName := libinfra.GetLeader()
+			leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
+			for _, ip := range leaderPod.Status.PodIPs {
+				controllerMetricIPs = append(controllerMetricIPs, ip.IP)
+			}
+		})
 
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		AfterEach(func() {
+			controllerMetricIPs = nil
+		})
 
-		fetcher := metricsutil.NewMetricsFetcher("")
-		fetcher.AddNameFilter("kubevirt_vmi_non_evictable")
+		DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
+			libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		metrics, err := fetcher.LoadMetrics(metricsPayload)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected")
+			ip := libnet.GetIP(controllerMetricIPs, family)
 
-		results := metrics["kubevirt_vmi_non_evictable"]
-		Expect(results).ToNot(BeEmpty())
-		Expect(results[0].Value).To(BeNumerically(">=", float64(0.0)))
-	},
-		Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6243] by IPv6", k8sv1.IPv6Protocol),
-	)
+			metricsPayload := libmonitoring.GetKubevirtVMMetricsByIP(pod, ip) //nolint:staticcheck
+
+			fetcher := metricsutil.NewMetricsFetcher("")
+			fetcher.AddNameFilter("kubevirt_vmi_non_evictable")
+
+			metrics, err := fetcher.LoadMetrics(metricsPayload)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected")
+
+			results := metrics["kubevirt_vmi_non_evictable"]
+			Expect(results).ToNot(BeEmpty())
+			Expect(results[0].Value).To(BeNumerically(">=", float64(0.0)))
+		},
+			Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
+			Entry("[test_id:6243] by IPv6", k8sv1.IPv6Protocol),
+		)
+	})
 
 	DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libnet.GetIP(handlerMetricIPs, family)
-
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_vcpu_seconds_total")
@@ -621,9 +620,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		ip := libnet.GetIP(handlerMetricIPs, family)
-
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_memory_swap_")
