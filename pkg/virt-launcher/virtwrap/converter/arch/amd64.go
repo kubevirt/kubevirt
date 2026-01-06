@@ -37,8 +37,8 @@ func (converterAMD64) ScsiController(model string, driver *api.ControllerDriver)
 }
 
 func (converterAMD64) IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool {
-	for i := range vmi.Spec.Domain.Devices.Inputs {
-		if vmi.Spec.Domain.Devices.Inputs[i].Bus == "usb" {
+	for _, input := range vmi.Spec.Domain.Devices.Inputs {
+		if bus := input.Bus; bus == "usb" || bus == "" {
 			return true
 		}
 	}
