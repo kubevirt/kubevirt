@@ -412,11 +412,11 @@ func getPrometheusAlerts(virtClient kubecli.KubevirtClient) promv1.PrometheusRul
 	return newRules
 }
 
-func GetKubevirtVMMetrics(pod *k8sv1.Pod, ip string) string {
-	metricsURL := PrepareMetricsURL(ip, 8443)
+func GetKubevirtVMMetrics(pod *k8sv1.Pod) string {
+	metricsURL := PrepareMetricsURL("localhost", 8443)
 	stdout, _, err := execute.ExecuteCommandOnPodWithResults(
 		pod,
-		"virt-handler",
+		pod.Spec.Containers[0].Name,
 		[]string{
 			"curl",
 			"-L",
