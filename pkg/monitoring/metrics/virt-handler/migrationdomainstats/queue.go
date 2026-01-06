@@ -136,6 +136,7 @@ func (q *queue) scrapeDomainStats() (*stats.DomainStats, error) {
 	return values[0].GetVmiStats().DomainStats, nil
 }
 
+// Returns collected metrics and if the queue is still active
 func (q *queue) all() ([]result, bool) {
 	q.Lock()
 	defer q.Unlock()
@@ -149,7 +150,7 @@ func (q *queue) all() ([]result, bool) {
 	})
 	q.results = q.results.Unlink(q.results.Len())
 
-	return results, q.isMigrationFinished()
+	return results, !q.isMigrationFinished()
 }
 
 func (q *queue) isMigrationFinished() bool {
