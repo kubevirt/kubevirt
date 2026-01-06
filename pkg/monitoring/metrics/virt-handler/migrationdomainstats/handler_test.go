@@ -65,9 +65,12 @@ var _ = Describe("Handler", func() {
 		vmi.Status.MigrationState.Completed = true
 		vmiInformer.GetStore().Add(vmi.DeepCopy())
 
+		// TODO: Make the test go brrr
+		Eventually(queue.ctx.Done()).WithTimeout(6 * time.Second).Should(BeClosed())
+		Expect(queue.isActive.Load()).To(BeFalse())
+
 		handler.Collect()
 
 		Expect(handler.vmiStats).ToNot(HaveKey(key))
-		Eventually(queue.ctx.Done()).WithTimeout(6 * time.Second).Should(BeClosed())
 	})
 })
