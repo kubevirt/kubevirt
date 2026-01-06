@@ -364,19 +364,14 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:6226] by using IPv6", k8sv1.IPv6Protocol),
 	)
 
-	DescribeTable("should include the metrics for a running VM", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
+	It("[test_id:4141]should include the metrics for a running VM", func() {
 		By("Scraping the Prometheus endpoint")
 		Eventually(func() string {
 			out := libmonitoring.GetKubevirtVMMetrics(pod)
 			lines := libinfra.TakeMetricsWithPrefix(out, "kubevirt")
 			return strings.Join(lines, "\n")
 		}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
-	},
-		Entry("[test_id:4141] by using IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6227] by using IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 
 	It("should expose kubevirt_node_deprecated_machine_types metric", func() {
 		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
@@ -395,9 +390,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		}
 	})
 
-	DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricName, operator string) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
+	DescribeTable("should include the storage metrics for a running VM", func(metricName, operator string) {
 		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		By("Checking the collected metrics")
@@ -418,39 +411,23 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 			}
 		}
 	},
-		Entry("[test_id:4142] storage flush requests metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-		Entry("[test_id:6228] storage flush requests metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-		Entry("[test_id:4142] time spent on cache flushing metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
-		Entry("[test_id:6229] time spent on cache flushing metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
-		Entry("[test_id:4142] I/O read operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
-		Entry("[test_id:6230] I/O read operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
-		Entry("[test_id:4142] I/O write operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
-		Entry("[test_id:6231] I/O write operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
-		Entry("[test_id:4142] storage read operation time metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_seconds_total", ">="),
-		Entry("[test_id:6232] storage read operation time metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_seconds_total", ">="),
-		Entry("[test_id:4142] storage read traffic in bytes metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-		Entry("[test_id:6233] storage read traffic in bytes metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-		Entry("[test_id:4142] storage write operation time metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_seconds_total", ">="),
-		Entry("[test_id:6234] storage write operation time metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_seconds_total", ">="),
-		Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
-		Entry("[test_id:6235] storage write traffic in bytes metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage flush requests metric",
+			"kubevirt_vmi_storage_flush_requests_total", ">="),
+		Entry("[test_id:4142] time spent on cache flushing metric",
+			"kubevirt_vmi_storage_flush_times_seconds_total", ">="),
+		Entry("[test_id:4142] I/O read operations metric", "kubevirt_vmi_storage_iops_read_total", ">="),
+		Entry("[test_id:4142] I/O write operations metric", "kubevirt_vmi_storage_iops_write_total", ">="),
+		Entry("[test_id:4142] storage read operation time metric",
+			"kubevirt_vmi_storage_read_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage read traffic in bytes metric",
+			"kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage write operation time metric",
+			"kubevirt_vmi_storage_write_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage write traffic in bytes metric",
+			"kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 	)
 
-	DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
+	DescribeTable("should include metrics for a running VM", func(metricSubstring, operator string) {
 		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
@@ -466,21 +443,14 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 			}
 		}
 	},
-		Entry("[test_id:4143] network metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_network_", ">="),
-		Entry("[test_id:6236] network metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_network_", ">="),
-		Entry("[test_id:4144] memory metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory", ">="),
-		Entry("[test_id:6237] memory metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory", ">="),
-		Entry("[test_id:4553] vcpu wait by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_wait", "=="),
-		Entry("[test_id:6238] vcpu wait by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_wait", "=="),
-		Entry("[test_id:4554] vcpu seconds by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_seconds_total", ">="),
-		Entry("[test_id:6239] vcpu seconds by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_seconds_total", ">="),
-		Entry("[test_id:4556] vmi unused memory by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
-		Entry("[test_id:6240] vmi unused memory by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
+		Entry("[test_id:4143] network metrics", "kubevirt_vmi_network_", ">="),
+		Entry("[test_id:4144] memory metrics", "kubevirt_vmi_memory", ">="),
+		Entry("[test_id:4553] vcpu wait", "kubevirt_vmi_vcpu_wait", "=="),
+		Entry("[test_id:4554] vcpu seconds", "kubevirt_vmi_vcpu_seconds_total", ">="),
+		Entry("[test_id:4556] vmi unused memory", "kubevirt_vmi_memory_unused_bytes", ">="),
 	)
 
-	DescribeTable("[QUARANTINE]should include VMI infos for a running VM", decorators.Quarantine, func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
+	It("[QUARANTINE][test_id:4145]should include VMI infos for a running VM", decorators.Quarantine, func() {
 		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
@@ -518,14 +488,9 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 				))
 			}
 		}
-	},
-		Entry("[test_id:4145] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6241] by IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 
-	DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
+	It("[test_id:4146]should include VMI phase metrics for all running VMs", func() {
 		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
@@ -541,10 +506,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(metricResult.Value).To(Equal(float64(len(preparedVMIs))))
 			}
 		}
-	},
-		Entry("[test_id:4146] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6242] by IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 
 	Context("VMI eviction blocker status", func() {
 		var controllerMetricIPs []string
@@ -586,9 +548,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		)
 	})
 
-	DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
+	It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {
 		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
@@ -611,15 +571,10 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 			}
 		}
 		Expect(containK8sLabel).To(BeTrue())
-	},
-		Entry("[test_id:4147] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6244] by IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 
 	// explicit test swap metrics as test_id:4144 doesn't catch if they are missing
-	DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
+	It("[test_id:4555]should include swap metrics", func() {
 		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
@@ -644,10 +599,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		Expect(in).To(BeTrue())
 		Expect(out).To(BeTrue())
-	},
-		Entry("[test_id:4555] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6245] by IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 }))
 
 func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map[string]int, err error) {

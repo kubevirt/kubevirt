@@ -520,7 +520,6 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 		"kubevirt_vmi_migration_dirty_memory_rate_bytes",
 		"kubevirt_vmi_migration_memory_transfer_rate_bytes",
 	}
-	const family = k8sv1.IPv4Protocol
 
 	By("Finding the prometheus endpoint")
 	pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
