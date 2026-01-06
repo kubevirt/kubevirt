@@ -68,7 +68,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -451,14 +450,13 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				metricsIPs = append(metricsIPs, ip.IP)
 			}
 			By("Waiting until the Migration Completes")
-			ip := libnet.GetIP(metricsIPs, k8sv1.IPv4Protocol)
 
 			By("Update volumes")
 			updateVMWithDV(vm, volName, destDV.Name)
 
 			threshold := resource.MustParse("500Mi")
 			Eventually(func() []string {
-				out := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+				out := libmonitoring.GetKubevirtVMMetrics(pod)
 				return libinfra.TakeMetricsWithPrefix(out, "kubevirt_vmi_migration_data_processed_bytes")
 			}, 100*time.Second, 1*time.Second).Should(
 				WithTransform(func(lines []string) []float64 {
