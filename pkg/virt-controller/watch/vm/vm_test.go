@@ -6205,6 +6205,33 @@ var _ = Describe("VirtualMachine", func() {
 					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
 				)
 			})
+
+			DescribeTable("RestartRequired condition based on VM and VMI UUID comparison", func(uuid types.UID, matcher gomegatypes.GomegaMatcher) {
+				By("Creating a VM without firmware UUID")
+				vm.Spec.Template.Spec.Domain.Firmware = nil
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with the calculated legacy UUID")
+				vmi = controller.setupVMIFromVM(vm)
+				controller.vmiIndexer.Add(vmi)
+
+				By("Setting the UUID in VM spec")
+				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
+					UUID: uuid,
+				}
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				By("Executing the controller")
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm, v1.VirtualMachineRestartRequired)).To(matcher)
+			},
+				Entry("should not raise RestartRequired when VM and VMI UUIDs match", CalculateLegacyUUID("testvmi"), BeFalse()),
+				Entry("should raise RestartRequired when VM and VMI UUIDs differ", types.UID("different-uuid-than-vmi"), BeTrue()),
+			)
 		})
 
 		clearExpectations := func(vm *v1.VirtualMachine) {
