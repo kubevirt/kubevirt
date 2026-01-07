@@ -40,7 +40,6 @@ func validateInterfaceBinding(
 		causes = append(causes, validateInterfaceBindingExists(fieldPath, idx, iface)...)
 		causes = append(causes, validateMasqueradeBinding(fieldPath, idx, iface, networksByName[iface.Name])...)
 		causes = append(causes, validateBridgeBinding(fieldPath, idx, iface, networksByName[iface.Name], config)...)
-		causes = append(causes, validateMacvtapBinding(fieldPath, idx, iface, networksByName[iface.Name], config)...)
 	}
 	return causes
 }
@@ -59,8 +58,7 @@ func validateInterfaceBindingExists(fieldPath *field.Path, idx int, iface v1.Int
 func hasInterfaceBindingMethod(iface v1.Interface) bool {
 	return iface.InterfaceBindingMethod.Bridge != nil ||
 		iface.InterfaceBindingMethod.Masquerade != nil ||
-		iface.InterfaceBindingMethod.SRIOV != nil ||
-		iface.InterfaceBindingMethod.DeprecatedMacvtap != nil
+		iface.InterfaceBindingMethod.SRIOV != nil
 }
 
 func validateMasqueradeBinding(fieldPath *field.Path, idx int, iface v1.Interface, net v1.Network) []metav1.StatusCause {

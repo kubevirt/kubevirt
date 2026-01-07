@@ -63,5 +63,10 @@ var _ = Describe("Validate discontinued bindings", func() {
 			"Passt network binding has been discontinued since v1.3",
 			"fake.domain.devices.interfaces[0].passt",
 		),
+		Entry("Discontinued macvtap binding",
+			v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}},
+			"Macvtap network binding has been discontinued since v1.3",
+			"fake.domain.devices.interfaces[0].macvtap",
+		),
 	)
 })

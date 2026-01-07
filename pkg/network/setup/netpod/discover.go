@@ -80,9 +80,7 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 				}
 			}
 
-		// Skip the discovery for all other known network interface bindings.
-		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		case vmiSpecIface.DeprecatedMacvtap != nil:
+		// Skip the discovery for other known network interface bindings.
 		case vmiSpecIface.SRIOV != nil:
 		default:
 			return fmt.Errorf("undefined binding method: %v", vmiSpecIface)

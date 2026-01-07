@@ -40,7 +40,6 @@ var _ = Describe("VMI interfaces", func() {
 		iface4                = "iface4"
 		iface5                = "iface5"
 		iface6                = "iface6"
-		iface7                = "iface7"
 		otherDoaminAttachemnt = "otherAttachment"
 	)
 
@@ -78,20 +77,15 @@ var _ = Describe("VMI interfaces", func() {
 			InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
 		},
 		{
-			// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-			Name:                   iface4,
-			InterfaceBindingMethod: v1.InterfaceBindingMethod{DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{}},
-		},
-		{
-			Name:    iface5,
+			Name:    iface4,
 			Binding: &v1.PluginBinding{Name: binding1},
 		},
 		{
-			Name:    iface6,
+			Name:    iface5,
 			Binding: &v1.PluginBinding{Name: binding2},
 		},
 		{
-			Name:    iface7,
+			Name:    iface6,
 			Binding: &v1.PluginBinding{Name: binding3},
 		},
 	}
@@ -102,8 +96,7 @@ var _ = Describe("VMI interfaces", func() {
 				iface1: string(v1.Tap),
 				iface2: string(v1.Tap),
 				iface4: string(v1.Tap),
-				iface5: string(v1.Tap),
-				iface6: otherDoaminAttachemnt,
+				iface5: otherDoaminAttachemnt,
 			}
 			Expect(domainspec.DomainAttachmentByInterfaceName(vmiSpecIfaces, networkBindings)).To(Equal(expectedMap))
 		})
@@ -120,8 +113,8 @@ var _ = Describe("VMI interfaces", func() {
 	Context("BindingMigrationByInterfaceName", func() {
 		It("should return the correct mapping", func() {
 			expectedMap := map[string]*cmdv1.InterfaceBindingMigration{
-				iface5: {},
-				iface7: {
+				iface4: {},
+				iface6: {
 					Method: string(v1.LinkRefresh),
 				},
 			}
