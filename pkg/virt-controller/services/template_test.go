@@ -4477,7 +4477,12 @@ var _ = Describe("Template", func() {
 			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(vmi.Spec.Tolerations))
+			expectedTolerations := append(vmi.Spec.Tolerations, k8sv1.Toleration{
+				Key:      "node.kubernetes.io/unschedulable",
+				Effect:   k8sv1.TaintEffectNoSchedule,
+				Operator: k8sv1.TolerationOpExists,
+			})
+			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(expectedTolerations))
 		})
 
 		It("should compute the correct tolerations when rendering hotplug attachment trigger pods", func() {
@@ -4490,7 +4495,12 @@ var _ = Describe("Template", func() {
 			pod, err := svc.RenderHotplugAttachmentTriggerPodTemplate(&v1.Volume{}, ownerPod, vmi, "test", true, false)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(vmi.Spec.Tolerations))
+			expectedTolerations := append(vmi.Spec.Tolerations, k8sv1.Toleration{
+				Key:      "node.kubernetes.io/unschedulable",
+				Effect:   k8sv1.TaintEffectNoSchedule,
+				Operator: k8sv1.TolerationOpExists,
+			})
+			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(expectedTolerations))
 		})
 
 		It("should compute the correct volumeDevice context when rendering hotplug attachment pods with the FS PersistentVolumeClaim", func() {
