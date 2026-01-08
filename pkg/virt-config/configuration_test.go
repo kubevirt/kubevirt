@@ -753,10 +753,6 @@ var _ = Describe("test configuration", func() {
 		It("live migration feature gate", func() {
 			Expect(clusterConfig.LiveMigrationEnabled()).To(BeTrue())
 		})
-
-		It("SR-IOV live migration feature gate", func() {
-			Expect(clusterConfig.SRIOVLiveMigrationEnabled()).To(BeTrue())
-		})
 	})
 
 	DescribeTable("GetInstancetypeReferencePolicy should return", func(
