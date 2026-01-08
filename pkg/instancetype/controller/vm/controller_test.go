@@ -370,7 +370,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedRevisionName := revision.GenerateName(
-				vm.Name, clusterInstancetypeObj.Name, clusterInstancetypeObj.GroupVersionKind().Version,
+				vm.Namespace, clusterInstancetypeObj.Name, clusterInstancetypeObj.GroupVersionKind().Version,
 				clusterInstancetypeObj.UID, clusterInstancetypeObj.Generation)
 			expectedRevision, err := revision.CreateControllerRevision(vm, clusterInstancetypeObj)
 			Expect(err).ToNot(HaveOccurred())
@@ -486,6 +486,55 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).To(MatchError(ContainSubstring("found existing ControllerRevision with unexpected data")))
 			testutils.ExpectEvents(recorder, common.FailedCreateVirtualMachineReason)
 		})
+
+		It("should reuse the same ControllerRevision for two VMs and both owner refs should be present", func() {
+			vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+				Name: instancetypeObj.Name,
+				Kind: instancetypeapi.SingularResourceName,
+			}
+
+			var err error
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedRevision, err := revision.CreateControllerRevision(vm, instancetypeObj)
+			Expect(err).ToNot(HaveOccurred())
+
+			sanitySync(vm, vmi)
+
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedRevision.Name))
+
+			vmi2 := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			vm2 := libvmi.NewVirtualMachine(vmi2)
+			vm2.Spec.Template.Spec.Domain = virtv1.DomainSpec{}
+			vm2.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+				Name: instancetypeObj.Name,
+				Kind: instancetypeapi.SingularResourceName,
+			}
+
+			vm2, err = virtClient.VirtualMachine(vm2.Namespace).Create(context.TODO(), vm2, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			sanitySync(vm2, vmi2)
+
+			vm2, err = virtClient.VirtualMachine(vm2.Namespace).Get(context.TODO(), vm2.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm2.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(expectedRevision.Name))
+
+			controllerRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+				context.Background(), expectedRevision.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(controllerRevision.OwnerReferences).To(HaveLen(2))
+			Expect(controllerRevision.OwnerReferences[0].Kind).To(Equal(virtv1.VirtualMachineGroupVersionKind.Kind))
+			Expect(controllerRevision.OwnerReferences[0].Name).To(Equal(vm.Name))
+			Expect(controllerRevision.OwnerReferences[0].UID).To(Equal(vm.UID))
+			Expect(controllerRevision.OwnerReferences[1].Kind).To(Equal(virtv1.VirtualMachineGroupVersionKind.Kind))
+			Expect(controllerRevision.OwnerReferences[1].Name).To(Equal(vm2.Name))
+			Expect(controllerRevision.OwnerReferences[1].UID).To(Equal(vm2.UID))
+		})
 	})
 
 	Context("preference", func() {
@@ -532,7 +581,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedPreferenceRevisionName := revision.GenerateName(
-				vm.Name, preference.Name, preference.GroupVersionKind().Version, preference.UID, preference.Generation)
+				vm.Namespace, preference.Name, preference.GroupVersionKind().Version, preference.UID, preference.Generation)
 			expectedPreferenceRevision, err := revision.CreateControllerRevision(vm, preference)
 			Expect(err).ToNot(HaveOccurred())
 

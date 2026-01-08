@@ -612,6 +612,10 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(newVM.Spec.Instancetype.Name).To(Equal(vm.Spec.Instancetype.Name))
 			Expect(newVM.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(vm.Status.InstancetypeRef.ControllerRevisionRef.Name))
 
+			By("Ensuring the two VirtualMachines are using the same ControllerRevision for the VirtualMachinePreference")
+			Expect(newVM.Spec.Preference.Name).To(Equal(vm.Spec.Preference.Name))
+			Expect(newVM.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(vm.Status.PreferenceRef.ControllerRevisionRef.Name))
+
 			By("Checking that new ControllerRevisions for the updated VirtualMachineInstancetype")
 			instancetypeRevision, err = virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), newVM.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())

@@ -83,6 +83,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	clusterutil "kubevirt.io/kubevirt/pkg/util/cluster"
 
+	snapshotinstancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/snapshot"
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
@@ -893,21 +894,32 @@ func (vca *VirtControllerApp) initEvacuationController() {
 
 func (vca *VirtControllerApp) initSnapshotController() {
 	recorder := vca.newRecorder(k8sv1.NamespaceAll, "snapshot-controller")
+
+	snapshotInstancetypeController := snapshotinstancetypecontroller.New(
+		vca.instancetypeInformer.GetStore(),
+		vca.clusterInstancetypeInformer.GetStore(),
+		vca.preferenceInformer.GetStore(),
+		vca.clusterPreferenceInformer.GetStore(),
+		vca.clientSet,
+		recorder,
+	)
+
 	vca.snapshotController = &snapshot.VMSnapshotController{
-		Client:                    vca.clientSet,
-		VMSnapshotInformer:        vca.vmSnapshotInformer,
-		VMSnapshotContentInformer: vca.vmSnapshotContentInformer,
-		VMInformer:                vca.vmInformer,
-		VMIInformer:               vca.vmiInformer,
-		StorageClassInformer:      vca.storageClassInformer,
-		StorageProfileInformer:    vca.storageProfileInformer,
-		PVCInformer:               vca.persistentVolumeClaimInformer,
-		CRDInformer:               vca.crdInformer,
-		PodInformer:               vca.allPodInformer,
-		DVInformer:                vca.dataVolumeInformer,
-		CRInformer:                vca.controllerRevisionInformer,
-		Recorder:                  recorder,
-		ResyncPeriod:              vca.snapshotControllerResyncPeriod,
+		Client:                         vca.clientSet,
+		VMSnapshotInformer:             vca.vmSnapshotInformer,
+		VMSnapshotContentInformer:      vca.vmSnapshotContentInformer,
+		VMInformer:                     vca.vmInformer,
+		VMIInformer:                    vca.vmiInformer,
+		StorageClassInformer:           vca.storageClassInformer,
+		StorageProfileInformer:         vca.storageProfileInformer,
+		PVCInformer:                    vca.persistentVolumeClaimInformer,
+		CRDInformer:                    vca.crdInformer,
+		PodInformer:                    vca.allPodInformer,
+		DVInformer:                     vca.dataVolumeInformer,
+		CRInformer:                     vca.controllerRevisionInformer,
+		SnapshotInstancetypeController: snapshotInstancetypeController,
+		Recorder:                       recorder,
+		ResyncPeriod:                   vca.snapshotControllerResyncPeriod,
 	}
 	if err := vca.snapshotController.Init(); err != nil {
 		panic(err)
