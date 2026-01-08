@@ -104,7 +104,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 
 	interfacesStatus := ifacesStatusFromDomainInterfaces(domain.Spec.Devices.Interfaces)
 	interfacesStatus = append(interfacesStatus,
-		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName)...,
+		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName, multusStatusNetworksByName)...,
 	)
 
 	var err error
@@ -305,20 +305,40 @@ func linkStateFromDomain(linkState *api.LinkState) string {
 	return linkState.State
 }
 
-func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfacesSpecByName map[string]v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+func sriovIfacesStatusFromDomainHostDevices(
+	hostDevices []api.HostDevice,
+	vmiIfacesSpecByName map[string]v1.Interface,
+	multusStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
+) []v1.VirtualMachineInstanceNetworkInterface {
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
 	for _, hostDevice := range filterHostDevicesByAlias(hostDevices, deviceinfo.SRIOVAliasPrefix) {
+		ifaceName := hostDevice.Alias.GetName()[len(deviceinfo.SRIOVAliasPrefix):]
 		vmiStatusIface := v1.VirtualMachineInstanceNetworkInterface{
-			Name:       hostDevice.Alias.GetName()[len(deviceinfo.SRIOVAliasPrefix):],
+			Name:       ifaceName,
 			InfoSource: netvmispec.InfoSourceDomain,
+			MAC:        resolveMACAddress(ifaceName, vmiIfacesSpecByName, multusStatusNetworksByName),
 		}
-		if iface, exists := vmiIfacesSpecByName[vmiStatusIface.Name]; exists {
-			vmiStatusIface.MAC = iface.MacAddress
-		}
+
 		vmiStatusIfaces = append(vmiStatusIfaces, vmiStatusIface)
 	}
 	return vmiStatusIfaces
+}
+
+func resolveMACAddress(
+	ifaceName string,
+	vmiIfacesSpecByName map[string]v1.Interface,
+	multusStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
+) string {
+	if iface, exists := vmiIfacesSpecByName[ifaceName]; exists && iface.MacAddress != "" {
+		return iface.MacAddress
+	}
+
+	if multusStatus, exists := multusStatusNetworksByName[ifaceName]; exists && multusStatus.MAC != "" {
+		return multusStatus.MAC
+	}
+
+	return ""
 }
 
 func ifacesStatusFromGuestAgent(
