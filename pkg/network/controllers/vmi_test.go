@@ -295,7 +295,7 @@ var _ = Describe("Status Update", func() {
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
 			},
 			[]v1.VirtualMachineInstanceNetworkInterface{
-				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", MAC: "8a:37:d9:e7:0f:18", InfoSource: vmispec.InfoSourceMultusStatus},
 			},
 		),
 		Entry("When using ordinal naming scheme",
@@ -304,7 +304,7 @@ var _ = Describe("Status Update", func() {
 				networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndOrdinalSecondaryNets,
 			},
 			[]v1.VirtualMachineInstanceNetworkInterface{
-				{Name: secondaryNetworkName, PodInterfaceName: "net1", InfoSource: vmispec.InfoSourceMultusStatus},
+				{Name: secondaryNetworkName, PodInterfaceName: "net1", MAC: "8a:37:d9:e7:0f:18", InfoSource: vmispec.InfoSourceMultusStatus},
 			},
 		),
 	)
@@ -323,7 +323,7 @@ var _ = Describe("Status Update", func() {
 
 			expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 				{Name: defaultNetworkName, PodInterfaceName: expectedPrimaryInterfaceName},
-				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+				{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", MAC: "8a:37:d9:e7:0f:18", InfoSource: vmispec.InfoSourceMultusStatus},
 			}
 
 			Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
@@ -366,7 +366,7 @@ var _ = Describe("Status Update", func() {
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
 			{Name: defaultNetworkName, PodInterfaceName: "eth0"},
-			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", MAC: "8a:37:d9:e7:0f:18", InfoSource: vmispec.InfoSourceMultusStatus},
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
@@ -392,7 +392,7 @@ var _ = Describe("Status Update", func() {
 		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", MAC: "8a:37:d9:e7:0f:18", InfoSource: vmispec.InfoSourceMultusStatus},
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
@@ -468,7 +468,7 @@ var _ = Describe("Status Update", func() {
 		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
 
 		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
-			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", InfoSource: vmispec.InfoSourceMultusStatus},
+			{Name: secondaryNetworkName, PodInterfaceName: "pod7e0055a6880", MAC: "8a:37:d9:e7:0f:18", InfoSource: vmispec.InfoSourceMultusStatus},
 			{Name: "", InfoSource: vmispec.InfoSourceGuestAgent, IP: "192.168.50.10"},
 		}
 
@@ -498,6 +498,44 @@ var _ = Describe("Status Update", func() {
 		}
 
 		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+	})
+
+	It("Should not overwrite existing MAC when populating from network-status", func() {
+		const existingMAC = "AA:BB:CC:DD:EE:FF"
+		const networkStatusMAC = "8a:37:d9:e7:0f:18" // Different MAC in network-status
+
+		existingInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{Name: secondaryNetworkName, MAC: existingMAC, InfoSource: vmispec.InfoSourceDomain},
+		}
+
+		vmi := libvmi.New(
+			libvmi.WithNamespace(testNamespace),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, secondaryNetworkAttachmentDefinitionName)),
+			libvmistatus.WithStatus(libvmistatus.New(WithInterfacesStatus(existingInterfacesStatus))),
+		)
+
+		// network-status contains a different MAC (networkStatusMAC)
+		podAnnotations := map[string]string{
+			networkv1.NetworkAttachmentAnnot: multusNetworksAnnotation,
+			networkv1.NetworkStatusAnnot:     multusNetworkStatusWithPrimaryAndSecondaryNets,
+		}
+
+		Expect(controllers.UpdateVMIStatus(vmi, newPodFromVMI(vmi, podAnnotations))).To(Succeed())
+
+		// Should preserve the existing MAC, not overwrite with networkStatusMAC
+		expectedInterfacesStatus := []v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:             secondaryNetworkName,
+				PodInterfaceName: "pod7e0055a6880",
+				MAC:              existingMAC,
+				InfoSource:       vmispec.NewInfoSource(vmispec.InfoSourceDomain, vmispec.InfoSourceMultusStatus),
+			},
+		}
+
+		Expect(vmi.Status.Interfaces).To(Equal(expectedInterfacesStatus))
+		Expect(vmi.Status.Interfaces[0].MAC).To(Equal(existingMAC), "MAC should not be overwritten")
+		Expect(vmi.Status.Interfaces[0].MAC).NotTo(Equal(networkStatusMAC), "Should not use MAC from network-status")
 	})
 })
 
