@@ -49,6 +49,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/flowcontrol"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -140,10 +141,13 @@ func Execute() {
 	if err != nil {
 		panic(err)
 	}
+	config.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(
+		virtconfig.DefaultVirtOperatorQPS,
+		virtconfig.DefaultVirtOperatorBurst)
 
 	app.aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
-	app.clientSet, err = kubecli.GetKubevirtClient()
+	app.clientSet, err = kubecli.GetKubevirtClientFromRESTConfig(config)
 
 	if err != nil {
 		golog.Fatal(err)
