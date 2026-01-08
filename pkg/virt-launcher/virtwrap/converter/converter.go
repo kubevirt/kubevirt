@@ -1318,8 +1318,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if needsSCSIController(vmi) {
-		scsiController := c.Architecture.ScsiController(virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
+		scsiControllerModel := c.Architecture.SCSIControllerModel(virtioModel)
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(scsiControllerModel, controllerDriver))
 	}
 
 	if c.Architecture.SupportPCIHole64Disabling() && shouldDisablePCIHole64(vmi) {
@@ -1578,5 +1578,14 @@ func convertEFIConfiguration(input *EFIConfiguration) *compute.EFIConfiguration 
 		EFICode:      input.EFICode,
 		EFIVars:      input.EFIVars,
 		SecureLoader: input.SecureLoader,
+	}
+}
+
+func newSCSIController(controllerModel string, controllerDriver *api.ControllerDriver) api.Controller {
+	return api.Controller{
+		Type:   "scsi",
+		Index:  "0",
+		Model:  controllerModel,
+		Driver: controllerDriver,
 	}
 }
