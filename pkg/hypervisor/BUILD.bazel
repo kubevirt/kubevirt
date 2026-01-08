@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["launcherresourcerenderer.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/hypervisor",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/hypervisor/kvm:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+    ],
+)
