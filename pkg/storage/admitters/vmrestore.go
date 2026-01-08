@@ -310,6 +310,7 @@ func (admitter *VMRestoreAdmitter) validateVolumeRestorePolicy(ctx context.Conte
 	switch policy {
 	case snapshotv1.VolumeRestorePolicyInPlace:
 	case snapshotv1.VolumeRestorePolicyRandomizeNames:
+	case snapshotv1.VolumeRestorePolicyPrefixTargetName:
 		return nil
 	default:
 		causes = append(causes, metav1.StatusCause{
