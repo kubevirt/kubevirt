@@ -31,10 +31,12 @@ import (
 	"golang.org/x/time/rate"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/client-go/util/workqueue"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -860,9 +862,30 @@ func (c *KubeVirtController) execute(key string) error {
 
 	// If we detect a change on KubeVirt we update it
 	if !equality.Semantic.DeepEqual(kv.Status, kvCopy.Status) {
-		if _, err := c.clientset.KubeVirt(kv.Namespace).UpdateStatus(context.Background(), kvCopy, metav1.UpdateOptions{}); err != nil {
-			logger.Reason(err).Errorf("Could not update the KubeVirt resource status.")
-			return err
+		// Try with the cached version first
+		_, err := c.clientset.KubeVirt(kv.Namespace).UpdateStatus(context.Background(), kvCopy, metav1.UpdateOptions{})
+		if err != nil {
+			// If it's a conflict, retry with refetch
+			if errors.IsConflict(err) {
+				err = retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					// Refetch the latest version to get the current resourceVersion
+					latest, getErr := c.clientset.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})
+					if getErr != nil {
+						return getErr
+					}
+					// Apply the status changes to the fresh copy
+					latest.Status = kvCopy.Status
+					// Set timestamps on the fresh copy as well
+					operatorutil.SetConditionTimestamps(kv, latest)
+					// Retry the update with the current resourceVersion
+					_, err := c.clientset.KubeVirt(kv.Namespace).UpdateStatus(context.Background(), latest, metav1.UpdateOptions{})
+					return err
+				})
+			}
+			if err != nil {
+				logger.Reason(err).Errorf("Could not update the KubeVirt resource status.")
+				return err
+			}
 		}
 	}
 

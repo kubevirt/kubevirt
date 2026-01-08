@@ -3411,6 +3411,236 @@ var _ = Describe("KubeVirt Operator", func() {
 			install.DumpInstallStrategyToConfigMap(kvTestData.virtClient, NAMESPACE)
 		})
 	})
+
+	Context("UpdateStatus conflict retry", func() {
+		It("should successfully update status on first try when no conflict occurs", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-install",
+					Namespace:       NAMESPACE,
+					Finalizers:      []string{util.KubeVirtFinalizer},
+					Generation:      int64(1),
+					ResourceVersion: "1",
+				},
+				Status: v1.KubeVirtStatus{
+					Phase:           v1.KubeVirtPhaseDeploying,
+					OperatorVersion: version.Get().String(),
+				},
+			}
+			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+			kvTestData.addAll(kvTestData.defaultConfig, kv)
+			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
+			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeHandlerReady()
+
+			kvTestData.fakeNamespaceModificationEvent()
+			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectPatchesAndUpdates(kv)
+
+			// Expect UpdateStatus to succeed on first try
+			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+
+			kvTestData.controller.Execute()
+		})
+
+		It("should retry and succeed when UpdateStatus encounters a conflict error", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-install",
+					Namespace:       NAMESPACE,
+					Finalizers:      []string{util.KubeVirtFinalizer},
+					Generation:      int64(1),
+					ResourceVersion: "1",
+				},
+				Status: v1.KubeVirtStatus{
+					Phase:           v1.KubeVirtPhaseDeploying,
+					OperatorVersion: version.Get().String(),
+				},
+			}
+			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+			kvTestData.addAll(kvTestData.defaultConfig, kv)
+			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
+			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeHandlerReady()
+
+			kvTestData.fakeNamespaceModificationEvent()
+			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectPatchesAndUpdates(kv)
+
+			// Setup expectations: first UpdateStatus returns conflict, then Get returns updated resource, then UpdateStatus succeeds
+			conflictErr := errors.NewConflict(
+				schema.GroupResource{Group: "kubevirt.io", Resource: "kubevirts"},
+				kv.Name,
+				fmt.Errorf("the object has been modified; please apply your changes to the latest version and try again"),
+			)
+
+			updateStatusCall := kvTestData.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+			updateStatusCall.Return(nil, conflictErr).Times(1)
+
+			// On retry, Get should return the resource with updated resourceVersion
+			kvUpdated := kv.DeepCopy()
+			kvUpdated.ResourceVersion = "2"
+			getCall := kvTestData.kvInterface.EXPECT().Get(context.Background(), kv.Name, metav1.GetOptions{})
+			getCall.Return(kvUpdated, nil).Times(1)
+
+			// Second UpdateStatus should succeed
+			updateStatusCall2 := kvTestData.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+			updateStatusCall2.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
+				Expect(kv.ResourceVersion).To(Equal("2"))
+				kvTestData.controller.stores.KubeVirtCache.Update(kv)
+				updateStatusCall2.Return(kv, nil)
+			}).Times(1)
+
+			kvTestData.controller.Execute()
+		})
+
+		It("should retry multiple times before succeeding when encountering repeated conflicts", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-install",
+					Namespace:       NAMESPACE,
+					Finalizers:      []string{util.KubeVirtFinalizer},
+					Generation:      int64(1),
+					ResourceVersion: "1",
+				},
+				Status: v1.KubeVirtStatus{
+					Phase:           v1.KubeVirtPhaseDeploying,
+					OperatorVersion: version.Get().String(),
+				},
+			}
+			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+			kvTestData.addAll(kvTestData.defaultConfig, kv)
+			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
+			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeHandlerReady()
+
+			kvTestData.fakeNamespaceModificationEvent()
+			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectPatchesAndUpdates(kv)
+
+			conflictErr := errors.NewConflict(
+				schema.GroupResource{Group: "kubevirt.io", Resource: "kubevirts"},
+				kv.Name,
+				fmt.Errorf("the object has been modified; please apply your changes to the latest version and try again"),
+			)
+
+			// First UpdateStatus fails with conflict
+			updateStatusCall1 := kvTestData.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+			updateStatusCall1.Return(nil, conflictErr).Times(1)
+
+			// Get returns version 2
+			kvUpdated2 := kv.DeepCopy()
+			kvUpdated2.ResourceVersion = "2"
+			getCall1 := kvTestData.kvInterface.EXPECT().Get(context.Background(), kv.Name, metav1.GetOptions{})
+			getCall1.Return(kvUpdated2, nil).Times(1)
+
+			// Second UpdateStatus also fails with conflict
+			updateStatusCall2 := kvTestData.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+			updateStatusCall2.Return(nil, conflictErr).Times(1)
+
+			// Get returns version 3
+			kvUpdated3 := kv.DeepCopy()
+			kvUpdated3.ResourceVersion = "3"
+			getCall2 := kvTestData.kvInterface.EXPECT().Get(context.Background(), kv.Name, metav1.GetOptions{})
+			getCall2.Return(kvUpdated3, nil).Times(1)
+
+			// Third UpdateStatus succeeds
+			updateStatusCall3 := kvTestData.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+			updateStatusCall3.Do(func(ctx context.Context, kv *v1.KubeVirt, options metav1.UpdateOptions) {
+				Expect(kv.ResourceVersion).To(Equal("3"))
+				kvTestData.controller.stores.KubeVirtCache.Update(kv)
+				updateStatusCall3.Return(kv, nil)
+			}).Times(1)
+
+			kvTestData.controller.Execute()
+		})
+
+		It("should fail after maximum retry attempts when conflicts persist", func() {
+			kvTestData := KubeVirtTestData{}
+			kvTestData.BeforeTest()
+			defer kvTestData.AfterTest()
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-install",
+					Namespace:       NAMESPACE,
+					Finalizers:      []string{util.KubeVirtFinalizer},
+					Generation:      int64(1),
+					ResourceVersion: "1",
+				},
+				Status: v1.KubeVirtStatus{
+					Phase:           v1.KubeVirtPhaseDeploying,
+					OperatorVersion: version.Get().String(),
+				},
+			}
+			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
+			util.UpdateConditionsCreated(kv)
+
+			kubecontroller.SetLatestApiVersionAnnotation(kv)
+			kvTestData.addKubeVirt(kv)
+			kvTestData.addInstallStrategy(kvTestData.defaultConfig)
+			kvTestData.addAll(kvTestData.defaultConfig, kv)
+			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
+			kvTestData.makeDeploymentsReady(kv)
+			kvTestData.makeHandlerReady()
+
+			kvTestData.fakeNamespaceModificationEvent()
+			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectPatchesAndUpdates(kv)
+
+			conflictErr := errors.NewConflict(
+				schema.GroupResource{Group: "kubevirt.io", Resource: "kubevirts"},
+				kv.Name,
+				fmt.Errorf("the object has been modified; please apply your changes to the latest version and try again"),
+			)
+
+			// First attempt uses cached version (kvCopy) and fails with conflict
+			updateStatusCall0 := kvTestData.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+			updateStatusCall0.Return(nil, conflictErr).Times(1)
+
+			// Then RetryOnConflict attempts 5 times (DefaultRetry.Steps = 5)
+			// Each attempt does: Get, then UpdateStatus
+			for i := 0; i < 5; i++ {
+				kvUpdated := kv.DeepCopy()
+				kvUpdated.ResourceVersion = strconv.Itoa(i + 2)
+				getCall := kvTestData.kvInterface.EXPECT().Get(context.Background(), kv.Name, metav1.GetOptions{})
+				getCall.Return(kvUpdated, nil).Times(1)
+
+				updateStatusCall := kvTestData.kvInterface.EXPECT().UpdateStatus(context.Background(), gomock.Any(), metav1.UpdateOptions{})
+				updateStatusCall.Return(nil, conflictErr).Times(1)
+			}
+
+			// Execute should fail due to persistent conflicts
+			kvTestData.controller.Execute()
+		})
+	})
 })
 
 func now() *metav1.Time {
