@@ -188,6 +188,17 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
 			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
 			// it's hard to match them.
+
+			By("checking SR-IOV interface status has MAC populated from network-status")
+			Eventually(func(g Gomega) {
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+				g.Expect(err).NotTo(HaveOccurred())
+				sriovIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, sriovnet1)
+				g.Expect(sriovIfaceStatus).NotTo(BeNil(), "SR-IOV interface not found in VMI status")
+				g.Expect(sriovIfaceStatus.MAC).NotTo(BeEmpty(), "SR-IOV interface MAC should be populated from network-status")
+				g.Expect(vmispec.ContainsInfoSource(sriovIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)).To(BeTrue(),
+					"SR-IOV interface should have multus-status as info source")
+			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(Succeed())
 		})
 
 		It("[test_id:1754]should create a virtual machine with sriov interface with all pci devices on the root bus", func() {
