@@ -22,6 +22,7 @@ package compute_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -30,10 +31,14 @@ import (
 
 var _ = Describe("Controllers Domain Configurator", func() {
 	DescribeTable("should configure USB controller", func(isUSBNeeded bool, expectedModel string) {
-		vmi := libvmi.New()
+		vmi := libvmi.New(withHotplugDisabled()) // Disable hotplug to prevent SCSI controller from being added
 		var domain api.Domain
 
-		Expect(compute.NewControllersDomainConfigurator(isUSBNeeded).Configure(vmi, &domain)).To(Succeed())
+		Expect(compute.NewControllersDomainConfigurator(
+			compute.ControllersWithUSBNeeded(isUSBNeeded),
+			compute.ControllersWithSCSIModel(""),
+			compute.ControllersWithControllerDriver(nil),
+		).Configure(vmi, &domain)).To(Succeed())
 
 		expectedDomain := api.Domain{
 			Spec: api.DomainSpec{
@@ -50,3 +55,9 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when USB is needed", true, "qemu-xhci"),
 	)
 })
+
+func withHotplugDisabled() libvmi.Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.DisableHotplug = true
+	}
+}
