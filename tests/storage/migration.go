@@ -165,14 +165,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			}, 120*time.Second, time.Second).Should(BeTrue())
 		}
 		waitVMIToHaveVolumeChangeCond := func(vmiName, ns string) {
-
-			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName,
-					metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
-				return conditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
-			}, 120*time.Second, time.Second).Should(BeTrue())
+			Eventually(matcher.ThisVMIWith(ns, vmiName), 120*time.Second, time.Second).Should(matcher.HaveConditionTrue(virtv1.VirtualMachineInstanceVolumesChange))
 		}
 
 		createDV := func() *cdiv1.DataVolume {
@@ -286,12 +279,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					},
 				}), "The volumes migrated should be set",
 			)
-			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return controller.NewVirtualMachineConditionManager().HasCondition(
-					vm, virtv1.VirtualMachineManualRecoveryRequired)
-			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeTrue())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionTrue(virtv1.VirtualMachineManualRecoveryRequired))
 		}
 
 		BeforeEach(func() {
@@ -736,12 +724,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			Expect(err).ToNot(HaveOccurred())
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return controller.NewVirtualMachineConditionManager().HasCondition(
-					vm, virtv1.VirtualMachineManualRecoveryRequired)
-			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeFalse())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionMissingOrFalse(virtv1.VirtualMachineManualRecoveryRequired))
 
 			By("Starting the VM after the volume set correction")
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Start(context.Background(), vm.Name, &virtv1.StartOptions{Paused: false})
@@ -884,20 +867,10 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Expect(err).ToNot(HaveOccurred())
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return controller.NewVirtualMachineConditionManager().HasCondition(
-						vm, virtv1.VirtualMachineManualRecoveryRequired)
-				}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeFalse())
+				Eventually(matcher.ThisVM(vm)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionMissingOrFalse(virtv1.VirtualMachineManualRecoveryRequired))
 
 				By("Starting the VM")
-				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return controller.NewVirtualMachineConditionManager().HasCondition(
-						vm, virtv1.VirtualMachineManualRecoveryRequired)
-				}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeFalse())
+				Eventually(matcher.ThisVM(vm)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionMissingOrFalse(virtv1.VirtualMachineManualRecoveryRequired))
 				Eventually(matcher.ThisVMI(vmi), 360*time.Second, time.Second).Should(matcher.BeInPhase(v1.Running))
 			})
 		})

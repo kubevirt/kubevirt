@@ -68,6 +68,7 @@ import (
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
 var _ = Describe("VirtualMachineInstance migration target", func() {
@@ -377,7 +378,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		Expect(controller.hotplugMemory(vmi, client)).To(Succeed())
 
-		Expect(conditionManager.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)).To(BeFalse())
+		Expect(vmi).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMemoryChange))
 		Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
 		Expect(vmi.Status.Memory.GuestRequested).To(Equal(vmi.Spec.Domain.Memory.Guest))
 		Expect(networkBindingPluginMemoryCalculator.calculatedMemoryOverhead).To(BeTrue())
@@ -412,7 +413,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		Expect(controller.hotplugMemory(vmi, client)).ToNot(Succeed())
 
-		Expect(conditionManager.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)).To(BeFalse())
+		Expect(vmi).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMemoryChange))
 		Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
 		Expect(vmi.Status.Memory.GuestRequested).ToNot(Equal(vmi.Spec.Domain.Memory.Guest))
 	})
@@ -451,7 +452,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		Expect(controller.hotplugMemory(vmi, client)).ToNot(Succeed())
 
-		Expect(conditionManager.HasConditionWithStatusAndReason(vmi, v1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionFalse, "Memory Hotplug Failed")).To(BeTrue())
+		Expect(vmi).To(matcher.HaveConditionFalseWithReason(v1.VirtualMachineInstanceMemoryChange, "Memory Hotplug Failed"))
 		Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
 		Expect(vmi.Status.Memory.GuestRequested).ToNot(Equal(vmi.Spec.Domain.Memory.Guest))
 	})
