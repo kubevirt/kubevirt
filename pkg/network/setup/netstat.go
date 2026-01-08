@@ -104,7 +104,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 
 	interfacesStatus := ifacesStatusFromDomainInterfaces(domain.Spec.Devices.Interfaces)
 	interfacesStatus = append(interfacesStatus,
-		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName)...,
+		sriovIfacesStatusFromDomainHostDevices(domain.Spec.Devices.HostDevices, vmiInterfacesSpecByName, multusStatusNetworksByName)...,
 	)
 
 	var err error
@@ -305,7 +305,11 @@ func linkStateFromDomain(linkState *api.LinkState) string {
 	return linkState.State
 }
 
-func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfacesSpecByName map[string]v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+func sriovIfacesStatusFromDomainHostDevices(
+	hostDevices []api.HostDevice,
+	vmiIfacesSpecByName map[string]v1.Interface,
+	multusStatusNetworksByName map[string]v1.VirtualMachineInstanceNetworkInterface,
+) []v1.VirtualMachineInstanceNetworkInterface {
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
 	for _, hostDevice := range filterHostDevicesByAlias(hostDevices, deviceinfo.SRIOVAliasPrefix) {
@@ -313,9 +317,15 @@ func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfa
 			Name:       hostDevice.Alias.GetName()[len(deviceinfo.SRIOVAliasPrefix):],
 			InfoSource: netvmispec.InfoSourceDomain,
 		}
-		if iface, exists := vmiIfacesSpecByName[vmiStatusIface.Name]; exists {
+
+		if iface, exists := vmiIfacesSpecByName[vmiStatusIface.Name]; exists && iface.MacAddress != "" {
 			vmiStatusIface.MAC = iface.MacAddress
+		} else {
+			if multusStatus, exists := multusStatusNetworksByName[vmiStatusIface.Name]; exists && multusStatus.MAC != "" {
+				vmiStatusIface.MAC = multusStatus.MAC
+			}
 		}
+
 		vmiStatusIfaces = append(vmiStatusIfaces, vmiStatusIface)
 	}
 	return vmiStatusIfaces
