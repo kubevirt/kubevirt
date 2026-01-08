@@ -88,6 +88,7 @@ func calculateSecondaryIfaceStatuses(
 
 	networkStatusesByPodIfaceName := multus.NetworkStatusesByPodIfaceName(networkStatuses)
 	podIfaceNamesByNetworkName := namescheme.CreateFromNetworkStatuses(vmi.Spec.Networks, networkStatuses)
+	specIfacesByName := vmispec.IndexInterfaceSpecByName(vmi.Spec.Domain.Devices.Interfaces)
 	for _, network := range vmispec.FilterMultusNonDefaultNetworks(vmi.Spec.Networks) {
 		vmiIfaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, network.Name)
 		podIfaceName, wasFound := podIfaceNamesByNetworkName[network.Name]
@@ -95,18 +96,27 @@ func calculateSecondaryIfaceStatuses(
 			return nil, fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
 		}
 
-		_, exists := networkStatusesByPodIfaceName[podIfaceName]
+		updateMAC := shouldUpdateMACAddress(specIfacesByName[network.Name])
+
+		networkStatus, exists := networkStatusesByPodIfaceName[podIfaceName]
 		switch {
 		case exists && vmiIfaceStatus == nil:
-			interfaceStatuses = append(interfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
+			newIfaceStatus := v1.VirtualMachineInstanceNetworkInterface{
 				Name:             network.Name,
 				InfoSource:       vmispec.InfoSourceMultusStatus,
 				PodInterfaceName: podIfaceName,
-			})
+			}
+			if updateMAC && networkStatus.Mac != "" {
+				newIfaceStatus.MAC = networkStatus.Mac
+			}
+			interfaceStatuses = append(interfaceStatuses, newIfaceStatus)
 		case exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
 			updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
 			updatedIfaceStatus.PodInterfaceName = podIfaceName
+			if updateMAC && networkStatus.Mac != "" && updatedIfaceStatus.MAC == "" {
+				updatedIfaceStatus.MAC = networkStatus.Mac
+			}
 			interfaceStatuses = append(interfaceStatuses, updatedIfaceStatus)
 		case !exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
@@ -134,4 +144,8 @@ func filterUnspecifiedSpecIfaces(
 	}
 
 	return unspecifiedIfaceStatuses
+}
+
+func shouldUpdateMACAddress(iface v1.Interface) bool {
+	return iface.SRIOV != nil
 }
