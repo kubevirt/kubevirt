@@ -20,6 +20,7 @@ package migrationdomainstats
 
 import (
 	"sync"
+	"time"
 
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
@@ -32,12 +33,16 @@ type handler struct {
 
 	vmiStore cache.Store
 	vmiStats map[string]*queue
+
+	pollingInterval time.Duration
 }
 
 func newHandler(vmiInformer cache.SharedIndexInformer) (*handler, error) {
 	h := handler{
 		vmiStore: vmiInformer.GetStore(),
 		vmiStats: make(map[string]*queue),
+
+		pollingInterval: pollingInterval,
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -97,6 +102,6 @@ func (h *handler) addMigration(vmi *v1.VirtualMachineInstance) {
 	}
 
 	q := newQueue(h.vmiStore, vmi)
-	q.startPolling()
+	q.startPolling(h.pollingInterval)
 	h.vmiStats[key] = q
 }
