@@ -141,10 +141,6 @@ func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.KubevirtSeccompProfile)
 }
 
-func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.HotplugNetworkIfacesGate)
-}
-
 func (config *ClusterConfig) PersistentReservationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PersistentReservation)
 }
