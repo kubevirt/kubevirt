@@ -873,6 +873,10 @@ func expandDiskImageOffline(imagePath string, size int64) error {
 }
 
 func possibleGuestSize(disk api.Disk) (int64, bool) {
+	if disk.Source.Dev != "" {
+		return 0, true
+	}
+
 	if disk.Capacity == nil {
 		log.DefaultLogger().Error("No disk capacity")
 		return 0, false
@@ -893,14 +897,12 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 	}
 
 	preferredSize := *disk.Capacity
-	if isBlock := disk.Source.Dev != ""; !isBlock {
-		usableSize, err := getUsableDiskSize(getSourceFile(disk))
-		if err != nil {
-			log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
-			usableSize = preferredSize
-		}
-		preferredSize = min(usableSize, preferredSize)
+	usableSize, err := getUsableDiskSize(getSourceFile(disk))
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
+		usableSize = preferredSize
 	}
+	preferredSize = min(usableSize, preferredSize)
 
 	size := int64((1 - filesystemOverhead) * float64(preferredSize))
 	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
@@ -1310,7 +1312,11 @@ func (l *LibvirtDomainManager) syncDisks(
 				logger.Warningf("Failed to get possible guest size from disk %v", disk)
 				break
 			}
-			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES)
+			flags := libvirt.DOMAIN_BLOCK_RESIZE_BYTES
+			if possibleGuestSize == 0 {
+				flags |= libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY
+			}
+			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), flags)
 			if err != nil {
 				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
 			}
@@ -1598,6 +1604,11 @@ func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
 		return false
 	}
 	guestSize := blockInfo.Capacity
+	// If block device, expand if capacity is lower than physical
+	if disk.Source.Dev != "" {
+		return guestSize < blockInfo.Physical
+	}
+
 	possibleGuestSize, ok := possibleGuestSize(disk)
 	if !ok || possibleGuestSize <= int64(guestSize) {
 		return false
