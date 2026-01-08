@@ -95,18 +95,25 @@ func calculateSecondaryIfaceStatuses(
 			return nil, fmt.Errorf("could not find the pod interface name for network [%s]", network.Name)
 		}
 
-		_, exists := networkStatusesByPodIfaceName[podIfaceName]
+		networkStatus, exists := networkStatusesByPodIfaceName[podIfaceName]
 		switch {
 		case exists && vmiIfaceStatus == nil:
-			interfaceStatuses = append(interfaceStatuses, v1.VirtualMachineInstanceNetworkInterface{
+			newIfaceStatus := v1.VirtualMachineInstanceNetworkInterface{
 				Name:             network.Name,
 				InfoSource:       vmispec.InfoSourceMultusStatus,
 				PodInterfaceName: podIfaceName,
-			})
+			}
+			if networkStatus.Mac != "" {
+				newIfaceStatus.MAC = networkStatus.Mac
+			}
+			interfaceStatuses = append(interfaceStatuses, newIfaceStatus)
 		case exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
 			updatedIfaceStatus.InfoSource = vmispec.AddInfoSource(updatedIfaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
 			updatedIfaceStatus.PodInterfaceName = podIfaceName
+			if networkStatus.Mac != "" && updatedIfaceStatus.MAC == "" {
+				updatedIfaceStatus.MAC = networkStatus.Mac
+			}
 			interfaceStatuses = append(interfaceStatuses, updatedIfaceStatus)
 		case !exists && vmiIfaceStatus != nil:
 			updatedIfaceStatus := *vmiIfaceStatus
