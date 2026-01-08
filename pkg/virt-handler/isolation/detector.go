@@ -36,9 +36,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -119,8 +119,9 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 			continue
 		}
 
+		launcherRenderer := hypervisor.NewLauncherResourceRenderer(v1.KvmHypervisorName)
 		// make the best estimate for memory required by libvirt
-		memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
+		memlockSize := launcherRenderer.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
 		// Add base memory requested for the VM
 		var vmiBaseMemory *resource.Quantity
 		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
@@ -160,7 +161,8 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	}
 	qemuProcessID := qemuProcess.Pid()
 	// make the best estimate for memory required by libvirt
-	memlockSize := services.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
+	launcherRenderer := hypervisor.NewLauncherResourceRenderer(v1.KvmHypervisorName)
+	memlockSize := launcherRenderer.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
 	// Add max memory assigned to the VM
 	var vmiBaseMemory *resource.Quantity
 
