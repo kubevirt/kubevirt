@@ -181,18 +181,11 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				clusterInstancetypeControllerRevision, err := revision.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
+				// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
 				Expect(vm.Spec.Instancetype.RevisionName).To(BeEmpty())
 				Expect(vm.Status.InstancetypeRef.Name).To(Equal(vm.Spec.Instancetype.Name))
 				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(vm.Spec.Instancetype.Kind))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
-
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(updatedVM.Spec.Instancetype.RevisionName).To(BeEmpty())
-				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(vm.Spec.Instancetype.Name))
-				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(vm.Spec.Instancetype.Kind))
-				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
 
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 					context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
@@ -232,18 +225,11 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
 
+				// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
 				Expect(vm.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
 				Expect(vm.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
 				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
-
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(updatedVM.Spec.Instancetype.RevisionName).To(Equal(clusterInstancetypeControllerRevision.Name))
-				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
-				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
-				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
 			})
 
 			It("store fails when instancetype does not exist", func() {
@@ -261,18 +247,11 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 
 				Expect(storeHandler.Store(vm)).To(Succeed())
 
+				// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
 				Expect(vm.Spec.Instancetype.RevisionName).To(BeEmpty())
 				Expect(vm.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
 				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
-
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(updatedVM.Spec.Instancetype.RevisionName).To(BeEmpty())
-				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
-				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
-				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(instancetypeControllerRevision.Name))
 			})
 
 			It("store ControllerRevision fails if a revision exists with unexpected data", func() {
@@ -482,18 +461,11 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 				Expect(err).ToNot(HaveOccurred())
 
+				// Verify local VM object was modified (synchronizer contract: modify locally, VM controller persists)
 				Expect(vm.Spec.Preference.RevisionName).To(BeEmpty())
 				Expect(vm.Status.PreferenceRef.Name).To(Equal(vm.Spec.Preference.Name))
 				Expect(vm.Status.PreferenceRef.Kind).To(Equal(vm.Spec.Preference.Kind))
 				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(clusterPreferenceControllerRevision.Name))
-
-				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(updatedVM.Spec.Preference.RevisionName).To(BeEmpty())
-				Expect(updatedVM.Status.PreferenceRef.Name).To(Equal(vm.Spec.Preference.Name))
-				Expect(updatedVM.Status.PreferenceRef.Kind).To(Equal(vm.Spec.Preference.Kind))
-				Expect(updatedVM.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(clusterPreferenceControllerRevision.Name))
 
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 					context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})

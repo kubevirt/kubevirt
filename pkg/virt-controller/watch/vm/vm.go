@@ -267,6 +267,29 @@ func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, er
 	return ds, nil
 }
 
+// synchronizer defines the contract for VM synchronizers.
+//
+// Contract Requirements:
+// - MUST only modify the local vm object passed as parameter (both Spec and Status fields allowed)
+// - MUST NOT make direct API calls to Update(), UpdateStatus(), Patch(), or PatchStatus() on the VM
+// - MUST return the modified VM object (or original if no changes)
+//
+// The main VM controller is responsible for:
+// - Detecting changes via DeepEqual checks on Spec/Status
+// - Persisting Spec/ObjectMeta changes via Update()
+// - Persisting Status changes via UpdateStatus()
+//
+// Acceptable Exceptions:
+// - ControllerRevision Create/Delete (side effects for snapshotting)
+// - Expand flow (intentionally destructive, immediate persistence required)
+//
+// Example Pattern:
+//
+//	func (s *MySynchronizer) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
+//	    vmCopy := vm.DeepCopy()
+//	    vmCopy.Status.SomeField = computedValue
+//	    return vmCopy, nil
+//	}
 type synchronizer interface {
 	Sync(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
 }
@@ -368,6 +391,12 @@ func (c *Controller) execute(key string) error {
 	logger := log.Log.Object(vm)
 
 	logger.V(4).Info("Started processing vm")
+
+	// Synchronizer contract for Spec/Status modifications:
+	// - Synchronizers (instancetype, firmware, network) modify local VM object and return it
+	// - If sync() detects Spec changes, it returns early and we call Update() below
+	// - If sync() detects Status changes, it returns early and updateStatus() persists via UpdateStatus()
+	// - This separation follows Kubernetes subresource pattern and avoids intermediate API calls
 
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
@@ -3158,17 +3187,19 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf(fetchingRunStrategyErrFmt, err), failedCreateReason), err
 	}
 
-	// FIXME(lyarwood): Move alongside netSynchronizer
-	syncedVM, err := c.instancetypeController.Sync(vm, vmi)
-	if err != nil {
-		return vm, vmi, handleSynchronizerErr(err), nil
+	// Synchronizers follow a contract where they only modify the local VM object (Spec/Status)
+	// and return it. The instancetype synchronizer must run before syncRunStrategy() because
+	// startVMI() (called from syncRunStrategy) uses ApplyToVMI() which depends on Status refs
+	// being set by Sync().
+	if c.instancetypeController != nil {
+		syncedVM, err := c.instancetypeController.Sync(vm, vmi)
+		if err != nil {
+			return vm, vmi, handleSynchronizerErr(err), nil
+		}
+		vm.ObjectMeta = syncedVM.ObjectMeta
+		vm.Spec = syncedVM.Spec
+		vm.Status = syncedVM.Status
 	}
-	if !equality.Semantic.DeepEqual(vm.Spec, syncedVM.Spec) {
-		return syncedVM, vmi, nil, nil
-	}
-
-	vm.ObjectMeta = syncedVM.ObjectMeta
-	vm.Spec = syncedVM.Spec
 
 	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
 	if vm.Annotations[virtv1.ImmediateDataVolumeCreation] != "false" {
@@ -3258,12 +3289,16 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		}
 	}
 
+	// Persist Spec/ObjectMeta changes via Update() if synchronizers or handlers modified them.
+	// Status changes are persisted separately via UpdateStatus() in updateStatus() function.
 	if !equality.Semantic.DeepEqual(vm.Spec, vmCopy.Spec) || !equality.Semantic.DeepEqual(vm.ObjectMeta, vmCopy.ObjectMeta) {
 		updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
 			return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), failedUpdateErrorReason), nil
 		}
 		vm = updatedVm
+		// Preserve Status changes from synchronizers (especially instancetype) since Update() only persists Spec/ObjectMeta
+		vm.Status = vmCopy.Status
 	} else {
 		vm = vmCopy
 	}
