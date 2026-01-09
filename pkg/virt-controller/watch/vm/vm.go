@@ -3187,26 +3187,19 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, common.NewSyncError(fmt.Errorf(fetchingRunStrategyErrFmt, err), failedCreateReason), err
 	}
 
-	// FIXME(lyarwood): Move alongside netSynchronizer
-	syncedVM, err := c.instancetypeController.Sync(vm, vmi)
-	if err != nil {
-		return vm, vmi, handleSynchronizerErr(err), nil
-	}
 	// Synchronizers follow a contract where they only modify the local VM object (Spec/Status)
-	// and return it. If either Spec or Status changed, we return early with the modified VM.
-	// The execute() function will then:
-	// 1. Detect Spec changes and persist via Update()
-	// 2. Call updateStatus() which compares the modified vm.Status with originalVM.Status
-	//    (originalVM is from the cache, pre-sync) and persists changes via UpdateStatus()
-	if !equality.Semantic.DeepEqual(vm.Spec, syncedVM.Spec) {
-		return syncedVM, vmi, nil, nil
+	// and return it. The instancetype synchronizer must run before syncRunStrategy() because
+	// startVMI() (called from syncRunStrategy) uses ApplyToVMI() which depends on Status refs
+	// being set by Sync().
+	if c.instancetypeController != nil {
+		syncedVM, err := c.instancetypeController.Sync(vm, vmi)
+		if err != nil {
+			return vm, vmi, handleSynchronizerErr(err), nil
+		}
+		vm.ObjectMeta = syncedVM.ObjectMeta
+		vm.Spec = syncedVM.Spec
+		vm.Status = syncedVM.Status
 	}
-	if !equality.Semantic.DeepEqual(vm.Status, syncedVM.Status) {
-		return syncedVM, vmi, nil, nil
-	}
-
-	vm.ObjectMeta = syncedVM.ObjectMeta
-	vm.Spec = syncedVM.Spec
 
 	// eventually, would like the condition to be `== "true"`, but for now we need to support legacy behavior by default
 	if vm.Annotations[virtv1.ImmediateDataVolumeCreation] != "false" {
@@ -3304,6 +3297,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 			return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered when trying to update vm according to add volume and/or memory dump requests: %v", err), failedUpdateErrorReason), nil
 		}
 		vm = updatedVm
+		// Preserve Status changes from synchronizers (especially instancetype) since Update() only persists Spec/ObjectMeta
+		vm.Status = vmCopy.Status
 	} else {
 		vm = vmCopy
 	}
