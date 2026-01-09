@@ -308,12 +308,12 @@ func newPodAntiAffinity(key, topologyKey string, operator metav1.LabelSelectorOp
 	}
 }
 
-func NewApiServerDeployment(namespace, repository, imagePrefix, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) *appsv1.Deployment {
+func NewApiServerDeployment(config *operatorutil.KubeVirtDeploymentConfig, productName, productVersion, productComponent string) *appsv1.Deployment {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtAPIName})
 	deploymentName := VirtAPIName
-	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
-	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
+	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
+	env := operatorutil.NewEnvVarMap(config.GetExtraEnv())
+	deployment := newBaseDeployment(deploymentName, imageName, config.GetNamespace(), config.GetImageRegistry(), config.GetApiVersion(), productName, productVersion, productComponent, config.VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), podAntiAffinity, env)
 
 	if deployment.Spec.Template.Annotations == nil {
 		deployment.Spec.Template.Annotations = make(map[string]string)
@@ -342,7 +342,7 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 		"8186",
 		"--subresources-only",
 		"-v",
-		verbosity,
+		config.GetVerbosity(),
 	}
 	container.Ports = []corev1.ContainerPort{
 		{
@@ -388,23 +388,25 @@ func NewApiServerDeployment(namespace, repository, imagePrefix, version, product
 	return deployment
 }
 
-func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersion, launcherVersion, exportServerVersion, sidecarVersion, productName, productVersion, productComponent, image, launcherImage, exporterImage, sidecarImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) *appsv1.Deployment {
+func NewControllerDeployment(config *operatorutil.KubeVirtDeploymentConfig, productName, productVersion, productComponent string) *appsv1.Deployment {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtControllerName})
 	deploymentName := VirtControllerName
-	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
-	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, controllerVersion, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
+	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
+	env := operatorutil.NewEnvVarMap(config.GetExtraEnv())
+	deployment := newBaseDeployment(deploymentName, imageName, config.GetNamespace(), config.GetImageRegistry(), config.GetControllerVersion(), productName, productVersion, productComponent, config.VirtControllerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), podAntiAffinity, env)
 
 	if deployment.Spec.Template.Annotations == nil {
 		deployment.Spec.Template.Annotations = make(map[string]string)
 	}
 	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
 
+	launcherImage := config.VirtLauncherImage
 	if launcherImage == "" {
-		launcherImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-launcher", AddVersionSeparatorPrefix(launcherVersion))
+		launcherImage = fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), "virt-launcher", AddVersionSeparatorPrefix(config.GetLauncherVersion()))
 	}
+	exporterImage := config.VirtExportServerImage
 	if exporterImage == "" {
-		exporterImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "virt-exportserver", AddVersionSeparatorPrefix(exportServerVersion))
+		exporterImage = fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), "virt-exportserver", AddVersionSeparatorPrefix(config.GetExportServerVersion()))
 	}
 
 	pod := &deployment.Spec.Template.Spec
@@ -426,7 +428,7 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 		portName,
 		"8443",
 		"-v",
-		verbosity,
+		config.GetVerbosity(),
 	}
 
 	container.Ports = []corev1.ContainerPort{
@@ -485,8 +487,9 @@ func NewControllerDeployment(namespace, repository, imagePrefix, controllerVersi
 		SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 	}
 
+	sidecarImage := config.SidecarShimImage
 	if sidecarImage == "" {
-		sidecarImage = fmt.Sprintf("%s/%s%s%s", repository, imagePrefix, "sidecar-shim", AddVersionSeparatorPrefix(sidecarVersion))
+		sidecarImage = fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), "sidecar-shim", AddVersionSeparatorPrefix(config.GetSidecarShimVersion()))
 	}
 	container.Env = append(container.Env, corev1.EnvVar{Name: operatorutil.SidecarShimImageEnvName, Value: sidecarImage})
 
@@ -658,12 +661,12 @@ func NewOperatorDeployment(namespace, repository, imagePrefix, version, verbosit
 	return deployment
 }
 
-func NewExportProxyDeployment(namespace, repository, imagePrefix, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, verbosity string, extraEnv map[string]string) *appsv1.Deployment {
+func NewExportProxyDeployment(config *operatorutil.KubeVirtDeploymentConfig, productName, productVersion, productComponent string) *appsv1.Deployment {
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtAPIName})
 	deploymentName := VirtExportProxyName
-	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
-	env := operatorutil.NewEnvVarMap(extraEnv)
-	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
+	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
+	env := operatorutil.NewEnvVarMap(config.GetExtraEnv())
+	deployment := newBaseDeployment(deploymentName, imageName, config.GetNamespace(), config.GetImageRegistry(), config.GetExportProxyVersion(), productName, productVersion, productComponent, config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), podAntiAffinity, env)
 
 	if deployment.Spec.Template.Annotations == nil {
 		deployment.Spec.Template.Annotations = make(map[string]string)
@@ -688,7 +691,7 @@ func NewExportProxyDeployment(namespace, repository, imagePrefix, version, produ
 		portName,
 		"8443",
 		"-v",
-		verbosity,
+		config.GetVerbosity(),
 	}
 	container.Ports = []corev1.ContainerPort{
 		{
@@ -728,27 +731,13 @@ func NewExportProxyDeployment(namespace, repository, imagePrefix, version, produ
 	return deployment
 }
 
-func NewSynchronizationControllerDeployment(
-	namespace,
-	repository,
-	imagePrefix,
-	version,
-	productName,
-	productVersion,
-	productComponent,
-	image string,
-	pullPolicy corev1.PullPolicy,
-	imagePullSecrets []corev1.LocalObjectReference,
-	migrationNetwork *string,
-	syncPort int32,
-	verbosity string,
-	extraEnv map[string]string) *appsv1.Deployment {
+func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploymentConfig, productName, productVersion, productComponent string) *appsv1.Deployment {
 
 	podAntiAffinity := newPodAntiAffinity(kubevirtLabelKey, corev1.LabelHostname, metav1.LabelSelectorOpIn, []string{VirtSynchronizationControllerName})
 	deploymentName := VirtSynchronizationControllerName
-	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
+	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
 
-	env := operatorutil.NewEnvVarMap(extraEnv)
+	env := operatorutil.NewEnvVarMap(config.GetExtraEnv())
 	*env = append(*env, corev1.EnvVar{
 		Name: "MY_POD_IP",
 		ValueFrom: &corev1.EnvVarSource{
@@ -758,7 +747,7 @@ func NewSynchronizationControllerDeployment(
 		},
 	})
 
-	deployment := newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image, pullPolicy, imagePullSecrets, podAntiAffinity, env)
+	deployment := newBaseDeployment(deploymentName, imageName, config.GetNamespace(), config.GetImageRegistry(), config.GetSynchronizationControllerVersion(), productName, productVersion, productComponent, config.VirtSynchronizationControllerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), podAntiAffinity, env)
 
 	if deployment.Spec.Template.Annotations == nil {
 		deployment.Spec.Template.Annotations = make(map[string]string)
@@ -766,6 +755,7 @@ func NewSynchronizationControllerDeployment(
 	// remove the prometheus label key, so prometheus doesn't try to scrape anything of the synchronization controller.
 	delete(deployment.Spec.Template.Labels, prometheusLabelKey)
 	deployment.Spec.Template.Annotations["openshift.io/required-scc"] = "restricted-v2"
+	migrationNetwork := config.GetMigrationNetwork()
 	if migrationNetwork != nil {
 		// Join the pod to the migration network and name the corresponding interface "migration0"
 		deployment.Spec.Template.ObjectMeta.Annotations[networkv1.NetworkAttachmentAnnot] = *migrationNetwork + "@" + virtv1.MigrationInterfaceName
@@ -785,10 +775,11 @@ func NewSynchronizationControllerDeployment(
 	container := &deployment.Spec.Template.Spec.Containers[0]
 	// synchronization-controller too long
 	container.Name = shortName
+	syncPort := config.GetSynchronizationPort()
 	container.Command = []string{
 		VirtSynchronizationControllerName,
 		"--v",
-		verbosity,
+		config.GetVerbosity(),
 		"--port",
 		fmt.Sprintf("%d", syncPort),
 	}

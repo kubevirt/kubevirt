@@ -585,26 +585,21 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewOperatorWebhookService(operatorNamespace))
 	strategy.services = append(strategy.services, components.NewExportProxyService(config.GetNamespace()))
-	apiDeployment := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, productComponent, config.GetComponentImages().VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	apiDeployment := components.NewApiServerDeployment(config, productName, productVersion, productComponent)
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(),
-		config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(),
-		config.GetExportServerVersion(), config.GetSidecarShimVersion(),
-		productName, productVersion, productComponent, config.GetComponentImages().VirtControllerImage,
-		config.GetComponentImages().VirtLauncherImage, config.GetComponentImages().VirtExportServerImage,
-		config.GetComponentImages().SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	controller := components.NewControllerDeployment(config, productName, productVersion, productComponent)
 	strategy.deployments = append(strategy.deployments, controller)
 
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
 
-	exportProxyDeployment := components.NewExportProxyDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), productName, productVersion, productComponent, config.GetComponentImages().VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	exportProxyDeployment := components.NewExportProxyDeployment(config, productName, productVersion, productComponent)
 	strategy.deployments = append(strategy.deployments, exportProxyDeployment)
 
-	synchronizationControllerDeployment := components.NewSynchronizationControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetSynchronizationControllerVersion(), productName, productVersion, productComponent, config.GetComponentImages().VirtSynchronizationControllerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetSynchronizationPort(), config.GetVerbosity(), config.GetExtraEnv())
+	synchronizationControllerDeployment := components.NewSynchronizationControllerDeployment(config, productName, productVersion, productComponent)
 	strategy.deployments = append(strategy.deployments, synchronizationControllerDeployment)
 
-	handler := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.GetComponentImages().VirtHandlerImage, config.GetComponentImages().VirtLauncherImage, config.GetComponentImages().PrHelperImage, config.GetComponentImages().SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
+	handler := components.NewHandlerDaemonSet(config, productName, productVersion, productComponent)
 
 	strategy.daemonSets = append(strategy.daemonSets, handler)
 	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
