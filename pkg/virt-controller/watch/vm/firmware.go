@@ -17,27 +17,16 @@ limitations under the License.
 package vm
 
 import (
-	"context"
-	"fmt"
-
-	"github.com/google/uuid"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/google/uuid"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubevirt"
-
-	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
 type FirmwareController struct {
 	clientset kubevirt.Interface
 }
-
-const (
-	firmwareUUIDErrorReason = "FirmwareUUIDError"
-)
 
 func NewFirmwareController(clientset kubevirt.Interface) *FirmwareController {
 	return &FirmwareController{
@@ -55,29 +44,14 @@ func (fc *FirmwareController) Sync(vm *v1.VirtualMachine, _ *v1.VirtualMachineIn
 		return vm, nil
 	}
 
-	firmware = firmware.DeepCopy()
-	firmware.UUID = CalculateLegacyUUID(vm.Name)
-
-	updatedVM, err := fc.vmFirmwarePatch(firmware, vm)
-	if err != nil {
-		return vm, common.NewSyncError(fmt.Errorf("error encountered when trying to patch VM firmware: %w", err), firmwareUUIDErrorReason)
+	// Local modification only - VM controller will detect Spec change and persist via Update()
+	vmCopy := vm.DeepCopy()
+	if vmCopy.Spec.Template.Spec.Domain.Firmware == nil {
+		vmCopy.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{}
 	}
+	vmCopy.Spec.Template.Spec.Domain.Firmware.UUID = CalculateLegacyUUID(vm.Name)
 
-	return updatedVM, nil
-}
-
-func (fc *FirmwareController) vmFirmwarePatch(updatedFirmware *v1.Firmware, vm *v1.VirtualMachine) (*v1.VirtualMachine, error) {
-	patchBytes, err := patch.New(
-		patch.WithTest("/spec/template/spec/domain/firmware", vm.Spec.Template.Spec.Domain.Firmware),
-		patch.WithAdd("/spec/template/spec/domain/firmware", updatedFirmware),
-	).GeneratePayload()
-	if err != nil {
-		return vm, err
-	}
-
-	return fc.clientset.KubevirtV1().
-		VirtualMachines(vm.Namespace).
-		Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	return vmCopy, nil
 }
 
 const magicUUID = "6a1a24a1-4061-4607-8bf4-a3963d0c5895"
