@@ -27,6 +27,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,9 +35,11 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -455,7 +458,48 @@ var _ = Describe("CloudInit", func() {
 						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
 					})
+
+					It("should resolve no-cloud data with long secret names that get truncated", func() {
+						testVolume := createCloudInitSecretRefVolume("test-volume", "test-secret")
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+
+						// Use a 63-character secret name (max DNS-1123 label length)
+						// This should be sanitized to fit with the "-access-cred" suffix
+						longSecretName := strings.Repeat("a", validation.DNS1123LabelMaxLength)
+						vmi.Spec.AccessCredentials = []v1.AccessCredential{
+							{
+								SSHPublicKey: &v1.SSHPublicKeyAccessCredential{
+									Source: v1.SSHPublicKeyAccessCredentialSource{
+										Secret: &v1.AccessCredentialSecretSource{
+											SecretName: longSecretName,
+										},
+									},
+									PropagationMethod: v1.SSHPublicKeyAccessCredentialPropagationMethod{
+										NoCloud: &v1.NoCloudSSHPublicKeyAccessCredentialPropagation{},
+									},
+								},
+							},
+						}
+
+						fakeVolumeMountDir("test-volume", map[string]string{
+							"userdata":    "secret-userdata",
+							"networkdata": "secret-networkdata",
+						})
+
+						// Compute the expected sanitized volume name (same logic as the code being tested)
+						sanitizedVolumeName := dns.SanitizeAccessCredentialVolumeName(longSecretName)
+						fakeVolumeMountDir(sanitizedVolumeName, map[string]string{
+							"somekey": "ssh-1234",
+						})
+
+						keys, err := resolveNoCloudSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume with long name")
+						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
+						Expect(testVolume.CloudInitNoCloud.NetworkData).To(Equal("secret-networkdata"))
+						Expect(keys).To(HaveLen(1))
+					})
 				})
+
 			})
 
 			Context("with CloudInitConfigDrive volume source", func() {
