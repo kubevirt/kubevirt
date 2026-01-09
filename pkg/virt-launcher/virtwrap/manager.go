@@ -843,7 +843,7 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 				logger.Errorf("Failed to get possible guest size from disk")
 				break
 			}
-			err := expandDiskImageOffline(getSourceFile(disk), possibleGuestSize)
+			err := expandDiskImageOffline(getBackendSource(disk), possibleGuestSize)
 			if err != nil {
 				logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
 			}
@@ -893,7 +893,7 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 
 	preferredSize := *disk.Capacity
 	if isBlock := disk.Source.Dev != ""; !isBlock {
-		usableSize, err := getUsableDiskSize(getSourceFile(disk))
+		usableSize, err := getUsableDiskSize(getBackendSource(disk))
 		if err != nil {
 			log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
 			usableSize = preferredSize
@@ -934,7 +934,7 @@ func shouldExpandOffline(disk api.Disk) bool {
 		// Block devices don't need to be expanded
 		return false
 	}
-	diskInfo, err := osdisk.GetDiskInfo(getSourceFile(disk))
+	diskInfo, err := osdisk.GetDiskInfo(getBackendSource(disk))
 	if err != nil {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
 		return false
@@ -1247,7 +1247,7 @@ func (l *LibvirtDomainManager) syncDisks(
 	}
 	// Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
-		allowAttach, err := checkIfDiskReadyToUse(getSourceFile(attachDisk))
+		allowAttach, err := checkIfDiskReadyToUse(getBackendSource(attachDisk))
 		if err != nil {
 			return err
 		}
@@ -1275,9 +1275,9 @@ func (l *LibvirtDomainManager) syncDisks(
 	}
 	// Look up all the disks to UPDATE
 	for _, updateDisk := range getUpdatedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
-		sourceFile := getSourceFile(updateDisk)
+		sourceFile := getBackendSource(updateDisk)
 		if sourceFile != "" {
-			allowUpdate, err := checkIfDiskReadyToUse(getSourceFile(updateDisk))
+			allowUpdate, err := checkIfDiskReadyToUse(sourceFile)
 			if err != nil {
 				return err
 			}
@@ -1407,15 +1407,21 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 }
 
 func getSourceFile(disk api.Disk) string {
-	source := disk.Source
-	if source.DataStore != nil {
-		source = *source.DataStore.Source
+	if disk.Source.File != "" {
+		return disk.Source.File
 	}
-	file := source.File
-	if source.File == "" {
-		file = disk.Source.Dev
+	return disk.Source.Dev
+}
+
+func getBackendSource(disk api.Disk) string {
+	if disk.Source.DataStore != nil && disk.Source.DataStore.Source != nil {
+		source := *disk.Source.DataStore.Source
+		if source.File != "" {
+			return source.File
+		}
+		return source.Dev
 	}
-	return file
+	return getSourceFile(disk)
 }
 
 var checkIfDiskReadyToUse = checkIfDiskReadyToUseFunc
@@ -1452,7 +1458,7 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 }
 
 func isHotplugDisk(disk api.Disk) bool {
-	return strings.HasPrefix(getSourceFile(disk), v1.HotplugDiskDir)
+	return strings.HasPrefix(getBackendSource(disk), v1.HotplugDiskDir)
 }
 
 func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
@@ -1499,7 +1505,7 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 }
 
 func isHotPlugDiskOrEmpty(disk api.Disk) bool {
-	return isHotplugDisk(disk) || getSourceFile(disk) == ""
+	return isHotplugDisk(disk) || getBackendSource(disk) == ""
 }
 
 func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
@@ -1525,7 +1531,7 @@ func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 			continue
 		}
 		newDiskCpy := oldDisk.DeepCopy()
-		if getSourceFile(newDisk) == "" {
+		if getBackendSource(newDisk) == "" {
 			newDiskCpy.Source = api.DiskSource{}
 		} else {
 			newDiskCpy.Source = *newDisk.Source.DeepCopy()
