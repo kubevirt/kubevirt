@@ -27,6 +27,7 @@ import (
 )
 
 var MigrationAbortInProgressError = errors.New("Migration abort is in progress")
+var BackupAbortInProgressError = errors.New("Backup abort is in progress")
 
 func checkError(err error, expectedError libvirt.ErrorNumber) bool {
 	libvirtError, ok := err.(libvirt.Error)

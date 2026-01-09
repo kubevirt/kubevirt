@@ -33,11 +33,13 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
+	backups "kubevirt.io/kubevirt/pkg/storage/cbt"
 	kutil "kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
 
@@ -258,8 +260,8 @@ func isIncrementalBackup(backupOptions *backupv1.BackupOptions) bool {
 	return backupOptions.Incremental != nil && *backupOptions.Incremental != ""
 }
 
-func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache) {
-	backupMetadata, exists := metadataCache.Backup.Load()
+func (m *StorageManager) HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEventJobCompleted) {
+	backupMetadata, exists := m.metadataCache.Backup.Load()
 	if !exists {
 		log.Log.Warning("Received backup job completed event, but no active backup metadata found in cache. Ignoring event.")
 		return
@@ -276,25 +278,158 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		}
 	}
 
-	// TODO: Handle non-success job completion (DOMAIN_JOB_FAILED, DOMAIN_JOB_CANCELLED, unknown types)
-	if event.Info.Type == libvirt.DOMAIN_JOB_COMPLETED {
-		logger.Info("Backup has been completed successfully")
-	} else {
-		logger.Warningf("Unexpected job completion type: %d (only handling success case)", event.Info.Type)
+	outcome := deriveBackupOutcome(backupMetadata, event)
+	if err := m.setBackupResult(outcome.failed, outcome.message, outcome.abortStatus); err != nil {
+		logger.Warningf("Failed to handle job completion: %v", err)
+		return
 	}
 
-	metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, exists bool) {
-		// Verify the backup metadata is still for the same backup to avoid race conditions
-		if !exists || backupMetadata.Name != backupName {
-			logger.Warning("Backup metadata changed or was cleared before update could complete. Backup completion may not be properly recorded.")
-			return
-		}
-		backupMetadata.Completed = true
-		now := metav1.Now()
-		backupMetadata.EndTimestamp = &now
-	})
-
-	log.Log.V(2).Infof("Updated backup result in metadata via Notifier: %s", metadataCache.Backup.String())
+	logger.Infof("Backup job handled with type=%d", event.Info.Type)
+	log.Log.V(2).Infof("Updated backup result in metadata via Notifier: %s", m.metadataCache.Backup.String())
 }
 
-// TODO: Implement backup abort functionality for graceful shutdown
+type backupOutcome struct {
+	failed      bool
+	message     string
+	abortStatus v1.BackupAbortStatus
+}
+
+func deriveBackupOutcome(meta api.BackupMetadata, ev *libvirt.DomainEventJobCompleted) backupOutcome {
+	switch ev.Info.Type {
+	case libvirt.DOMAIN_JOB_COMPLETED:
+		var abortStatus v1.BackupAbortStatus
+		if meta.AbortStatus != "" {
+			abortStatus = v1.BackupAbortSucceeded
+		}
+		return backupOutcome{
+			failed:      false,
+			message:     "",
+			abortStatus: abortStatus,
+		}
+	case libvirt.DOMAIN_JOB_CANCELLED:
+		failed := meta.Mode == string(backupv1.PushMode)
+		return backupOutcome{
+			failed:      failed,
+			message:     "Backup aborted",
+			abortStatus: v1.BackupAbortSucceeded,
+		}
+	case libvirt.DOMAIN_JOB_FAILED:
+		msg := "Backup failed"
+		if ev.Info.ErrorMessageSet {
+			msg = fmt.Sprintf("%s: %s", msg, ev.Info.ErrorMessage)
+		}
+		return backupOutcome{
+			failed:      true,
+			message:     msg,
+			abortStatus: "",
+		}
+	default:
+		msg := fmt.Sprintf("Unexpected job completion type: %d", ev.Info.Type)
+		return backupOutcome{
+			failed:      true,
+			message:     msg,
+			abortStatus: "",
+		}
+	}
+}
+
+func (m *StorageManager) AbortVirtualMachineBackup(vmi *v1.VirtualMachineInstance) error {
+	return m.abortBackup(vmi)
+}
+
+func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance) error {
+	backup, _ := m.metadataCache.Backup.Load()
+	if backup.EndTimestamp != nil || backup.Failed || backup.StartTimestamp == nil {
+		return fmt.Errorf(backups.AbortBackupFailedNoBackupErr)
+	}
+
+	if err := m.setBackupAbortStatus(v1.BackupAbortInProgress); err != nil {
+		if err == domainerrors.BackupAbortInProgressError {
+			return nil
+		}
+		return err
+	}
+
+	m.asyncBackupAbort(vmi)
+	return nil
+
+}
+
+func (m *StorageManager) asyncBackupAbort(vmi *v1.VirtualMachineInstance) {
+	go func(m *StorageManager, vmi *v1.VirtualMachineInstance) {
+
+		domName := api.VMINamespaceKeyFunc(vmi)
+		dom, err := m.virConn.LookupDomainByName(domName)
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Warning("failed to cancel backup, domain not found ")
+			m.setBackupAbortStatus(v1.BackupAbortFailed)
+			return
+		}
+		defer dom.Free()
+		stats, err := dom.GetJobInfo()
+		if err != nil {
+			log.Log.Object(vmi).Reason(err).Error("failed to get domain job info")
+			m.setBackupAbortStatus(v1.BackupAbortFailed)
+			return
+		}
+		if stats.Type == libvirt.DOMAIN_JOB_UNBOUNDED {
+			err := dom.AbortJob()
+			if err != nil {
+				log.Log.Object(vmi).Reason(err).Error("failed to cancel backup")
+				m.setBackupAbortStatus(v1.BackupAbortFailed)
+				return
+			}
+			log.Log.Object(vmi).Info("backup abort succeeded")
+		}
+	}(m, vmi)
+}
+
+func (m *StorageManager) setBackupResultHelper(failed bool, reason string, abortStatus v1.BackupAbortStatus) error {
+	backupMetadata, exists := m.metadataCache.Backup.Load()
+	if !exists {
+		return nil
+	}
+
+	if backupMetadata.EndTimestamp != nil {
+		return nil
+	}
+
+	currentAbort := v1.BackupAbortStatus(backupMetadata.AbortStatus)
+
+	if abortStatus == v1.BackupAbortInProgress && currentAbort == v1.BackupAbortInProgress {
+		return domainerrors.BackupAbortInProgressError
+	}
+
+	if currentAbort == v1.BackupAbortInProgress &&
+		abortStatus != "" &&
+		abortStatus != v1.BackupAbortFailed &&
+		abortStatus != v1.BackupAbortSucceeded {
+		return domainerrors.BackupAbortInProgressError
+	}
+
+	m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
+		if failed {
+			backupMetadata.Failed = true
+			backupMetadata.BackupMsg = reason
+		}
+
+		if abortStatus != "" {
+			backupMetadata.AbortStatus = string(abortStatus)
+		}
+
+		if abortStatus == "" || abortStatus == v1.BackupAbortSucceeded {
+			backupMetadata.EndTimestamp = pointer.P(metav1.Now())
+			backupMetadata.Completed = true
+		}
+	})
+
+	return nil
+}
+
+func (m *StorageManager) setBackupResult(failed bool, reason string, abortStatus v1.BackupAbortStatus) error {
+	return m.setBackupResultHelper(failed, reason, abortStatus)
+}
+
+func (m *StorageManager) setBackupAbortStatus(abortStatus v1.BackupAbortStatus) error {
+	return m.setBackupResultHelper(false, "", abortStatus)
+}
