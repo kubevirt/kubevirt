@@ -954,33 +954,6 @@ func Convert_v1_EphemeralVolumeSource_To_api_Disk(volumeName string, disk *api.D
 	return nil
 }
 
-func Convert_v1_Usbredir_To_api_Usbredir(vmi *v1.VirtualMachineInstance, domainDevices *api.Devices, _ *ConverterContext) error {
-	clientDevices := vmi.Spec.Domain.Devices.ClientPassthrough
-
-	// Default is to have USB Redirection disabled
-	if clientDevices == nil {
-		return nil
-	}
-
-	// Note that at the moment, we don't require any specific input to configure the USB devices
-	// so we simply create the maximum allowed dictated by v1.UsbClientPassthroughMaxNumberOf
-	redirectDevices := make([]api.RedirectedDevice, v1.UsbClientPassthroughMaxNumberOf)
-
-	for i := 0; i < v1.UsbClientPassthroughMaxNumberOf; i++ {
-		path := fmt.Sprintf("/var/run/kubevirt-private/%s/virt-usbredir-%d", vmi.ObjectMeta.UID, i)
-		redirectDevices[i] = api.RedirectedDevice{
-			Type: "unix",
-			Bus:  "usb",
-			Source: api.RedirectedDeviceSource{
-				Mode: "bind",
-				Path: path,
-			},
-		}
-	}
-	domainDevices.Redirs = redirectDevices
-	return nil
-}
-
 func initializeQEMUCmdAndQEMUArg(domain *api.Domain) {
 	if domain.Spec.QEMUCmd == nil {
 		domain.Spec.QEMUCmd = &api.Commandline{}
@@ -1211,6 +1184,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
 		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), convertEFIConfiguration(c.EFIConfiguration)),
 		storage.NewVirtiofsConfigurator(),
+		compute.UsbRedirectDeviceDomainConfigurator{},
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1352,11 +1326,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		if err := setErrorPolicy(&disk, &newDisk); err != nil {
 			return err
 		}
-	}
-
-	err = Convert_v1_Usbredir_To_api_Usbredir(vmi, &domain.Spec.Devices, c)
-	if err != nil {
-		return err
 	}
 
 	// Creating USB controller, disabled by default

@@ -19,6 +19,7 @@ go_library(
         "sound.go",
         "sysinfo.go",
         "tpm.go",
+        "usb_redir.go",
         "vsock.go",
         "watchdog.go",
     ],
@@ -58,6 +59,7 @@ go_test(
         "sound_test.go",
         "sysinfo_test.go",
         "tpm_test.go",
+        "usb_redir_test.go",
         "vsock_test.go",
         "watchdog_test.go",
     ],
@@ -74,5 +76,6 @@ go_test(
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )
