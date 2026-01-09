@@ -558,39 +558,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusDataVolumeError))
 		})
 
-		DescribeTable("should stop a running VM", func(runStrategy, expectedRunStrategy v1.VirtualMachineRunStrategy) {
-			By("Creating a VM")
-			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(runStrategy))
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			if runStrategy == v1.RunStrategyManual {
-				By("Starting the VM")
-				err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			By("Waiting for VM to be ready")
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-
-			By("Stopping the VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Ensuring the VirtualMachineInstance is removed")
-			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 240*time.Second, 1*time.Second).ShouldNot(Exist())
-			By("Ensuring stateChangeRequests list gets cleared")
-			Eventually(ThisVM(vm), 30*time.Second, 1*time.Second).Should(Not(HaveStateChangeRequests()))
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-			Expect(*vm.Spec.RunStrategy).To(Equal(expectedRunStrategy))
-		},
-			Entry("[test_id:3163]with RunStrategyAlways", v1.RunStrategyAlways, v1.RunStrategyHalted),
-			Entry("[test_id:2186]with RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure, v1.RunStrategyRerunOnFailure),
-			Entry("[test_id:2189]with RunStrategyManual", v1.RunStrategyManual, v1.RunStrategyManual),
-		)
-
 		DescribeTable("should restart a running VM", func(runStrategy v1.VirtualMachineRunStrategy) {
 			By("Creating a VM")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(runStrategy))
@@ -981,23 +948,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 			By("Waiting on crash loop status to be removed.")
 			Eventually(ThisVM(vm), 300*time.Second, 5*time.Second).Should(NotBeInCrashLoop())
-		})
-
-		It("should be able to stop a VM during crashloop backoff when when 'runStrategy: Always' is set", func() {
-			By("Creating VirtualMachine")
-			vm := createRunningVM(virtClient, libvmifact.NewAlpine(
-				libvmi.WithAnnotation(v1.FuncTestLauncherFailFastAnnotation, ""),
-			))
-
-			By("waiting for crash loop state")
-			Eventually(ThisVM(vm), 60*time.Second, 5*time.Second).Should(BeInCrashLoop())
-
-			By("Stopping the VM while in a crash loop")
-			err := virtClient.VirtualMachine(vm.Namespace).Stop(context.Background(), vm.Name, &v1.StopOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting on crash loop status to be removed.")
-			Eventually(ThisVM(vm), 120*time.Second, 5*time.Second).Should(NotBeInCrashLoop())
 		})
 	})
 

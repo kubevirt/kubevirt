@@ -8,6 +8,7 @@ go_library(
         "rbac.go",
         "reset.go",
         "start.go",
+        "stop.go",
         "usbredir.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/compute/subresources",
