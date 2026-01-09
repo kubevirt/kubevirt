@@ -1,0 +1,162 @@
+"""Define a few platform agnostic easy to use aliases
+
+Encapsulating the complexity of deciding which rpm tree or base image to use based
+on the target platform in this file instead of at the place where we make use of these
+artifacts
+"""
+
+package(default_visibility = ["//visibility:public"])
+
+alias(
+    name = "sandbox",
+    actual = select(
+        {
+            "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:sandbox_x86_64",
+            "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:sandbox_aarch64",
+            "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:sandbox_s390x",
+            "//conditions:default": "//rpm:sandbox_x86_64",
+        },
+    ),
+)
+
+alias(
+    name = "ldd",
+    actual = select(
+        {
+            "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:ldd_x86_64",
+            "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:ldd_aarch64",
+            "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:ldd_s390x",
+            "//conditions:default": "//rpm:ldd_x86_64",
+        },
+    ),
+)
+
+alias(
+    name = "libvirt-libs-lib",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:libvirt-libs_x86_64/usr/lib64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:libvirt-libs_aarch64/usr/lib64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:libvirt-libs_s390x/usr/lib64",
+        "//conditions:default": "//rpm:libvirt-libs_x86_64/usr/lib64",
+    }),
+)
+
+alias(
+    name = "libvirt-libs-headers",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:libvirt-libs_x86_64/usr/include/libvirt",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:libvirt-libs_aarch64/usr/include/libvirt",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:libvirt-libs_s390x/usr/include/libvirt",
+        "//conditions:default": "//rpm:libvirt-libs_x86_64/usr/include/libvirt",
+    }),
+)
+
+alias(
+    name = "exportserverbase",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:exportserverbase_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:exportserverbase_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:exportserverbase_s390x",
+        "//conditions:default": "//rpm:exportserverbase_x86_64",
+    }),
+)
+
+alias(
+    name = "handlerbase",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:handlerbase_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:handlerbase_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:handlerbase_s390x",
+        "//conditions:default": "//rpm:handlerbase_x86_64",
+    }),
+)
+
+alias(
+    name = "launcherbase",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:launcherbase_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:launcherbase_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:launcherbase_s390x",
+        "//conditions:default": "//rpm:launcherbase_x86_64",
+    }),
+)
+
+alias(
+    name = "libguestfs-tools",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:libguestfs-tools_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:libguestfs-tools_s390x",
+        "//conditions:default": "//rpm:libguestfs-tools",
+    }),
+)
+
+alias(
+    name = "libvirt-devel",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:libvirt-devel_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:libvirt-devel_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:libvirt-devel_s390x",
+        "//conditions:default": "//rpm:libvirt-devel_x86_64",
+    }),
+)
+
+alias(
+    name = "passt_tree",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:passt_tree_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:passt_tree_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:passt_tree_s390x",
+        "//conditions:default": "//rpm:passt_tree_x86_64",
+    }),
+)
+
+alias(
+    name = "pr-helper",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:pr-helper_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:pr-helper_aarch64",
+        # NOTE: this target doesn't exist for s390x
+        # "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:pr-helper_s390x",
+        "//conditions:default": "//rpm:pr-helper_x86_64",
+    }),
+)
+
+alias(
+    name = "sandboxroot",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:sandboxroot_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:sandboxroot_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:sandboxroot_s390x",
+        "//conditions:default": "//rpm:sandboxroot_x86_64",
+    }),
+)
+
+alias(
+    name = "sidecar-shim",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:sidecar-shim_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:sidecar-shim_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:sidecar-shim_s390x",
+        "//conditions:default": "//rpm:sidecar-shim_x86_64",
+    }),
+)
+
+alias(
+    name = "testimage",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "//rpm:testimage_x86_64",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "//rpm:testimage_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "//rpm:testimage_s390x",
+        "//conditions:default": "//rpm:testimage_x86_64",
+    }),
+)
+
+alias(
+    name = "go_image_base",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_amd64": "@go_image_base",
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
+        "//conditions:default": "@go_image_base",
+    }),
+)
