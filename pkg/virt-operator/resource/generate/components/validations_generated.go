@@ -9289,6 +9289,10 @@ var CRDsValidation map[string]string = map[string]string{
               type: array
               x-kubernetes-list-type: atomic
           type: object
+        volumeNamePolicy:
+          description: VolumeNamePolicy defines how to handle volume naming during
+            the clone operation
+          type: string
       required:
       - source
       type: object

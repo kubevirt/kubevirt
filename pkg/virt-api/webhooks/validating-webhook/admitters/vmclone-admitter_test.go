@@ -436,6 +436,28 @@ var _ = Describe("Validating VirtualMachineClone Admitter", func() {
 		})
 	})
 
+	Context("VolumeNamePolicy", func() {
+		It("Should accept RandomizeNames VolumeNamePolicy", func() {
+			policy := clone.VolumeNamePolicyRandomizeNames
+			vmClone.Spec.VolumeNamePolicy = &policy
+
+			admitter.admitAndExpect(vmClone, true)
+		})
+
+		It("Should accept nil VolumeNamePolicy", func() {
+			vmClone.Spec.VolumeNamePolicy = nil
+
+			admitter.admitAndExpect(vmClone, true)
+		})
+
+		It("Should reject unknown VolumeNamePolicy", func() {
+			unknownPolicy := clone.VolumeNamePolicy("UnknownPolicy")
+			vmClone.Spec.VolumeNamePolicy = &unknownPolicy
+
+			admitter.admitAndExpect(vmClone, false)
+		})
+	})
+
 })
 
 func createCloneAdmissionReview(vmClone *clone.VirtualMachineClone) *admissionv1.AdmissionReview {

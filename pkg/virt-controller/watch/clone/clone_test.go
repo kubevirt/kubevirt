@@ -426,6 +426,75 @@ var _ = Describe("Clone", func() {
 				})
 			})
 
+			When("VolumeNamePolicy is specified", func() {
+				var snapshot *snapshotv1.VirtualMachineSnapshot
+
+				BeforeEach(func() {
+					snapshot = createVirtualMachineSnapshot(sourceVM)
+					snapshot.Status.ReadyToUse = pointer.P(true)
+				})
+
+				It("should propagate VolumeNamePolicy to VirtualMachineRestore", func() {
+					policy := clone.VolumeNamePolicyRandomizeNames
+					vmClone.Spec.VolumeNamePolicy = &policy
+
+					snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
+
+					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+					vmClone.Status.Phase = clone.SnapshotInProgress
+
+					addVM(sourceVM)
+					addClone(vmClone)
+					addSnapshot(snapshot)
+					addSnapshotContent(snapshotContent)
+
+					sanityExecute()
+
+					// Find the created restore
+					var createdRestore *snapshotv1.VirtualMachineRestore
+					for _, action := range client.Fake.Actions() {
+						if action.GetVerb() == "create" && action.GetResource().Resource == "virtualmachinerestores" {
+							createAction := action.(testing.CreateAction)
+							createdRestore = createAction.GetObject().(*snapshotv1.VirtualMachineRestore)
+							break
+						}
+					}
+
+					Expect(createdRestore).ToNot(BeNil())
+					Expect(createdRestore.Spec.VolumeRestorePolicy).ToNot(BeNil())
+					Expect(*createdRestore.Spec.VolumeRestorePolicy).To(Equal(snapshotv1.VolumeRestorePolicyRandomizeNames))
+				})
+
+				It("should not set VolumeRestorePolicy when VolumeNamePolicy not specified", func() {
+					vmClone.Spec.VolumeNamePolicy = nil
+
+					snapshotContent := createVirtualMachineSnapshotContent(sourceVM)
+
+					vmClone.Status.SnapshotName = pointer.P(snapshot.Name)
+					vmClone.Status.Phase = clone.SnapshotInProgress
+
+					addVM(sourceVM)
+					addClone(vmClone)
+					addSnapshot(snapshot)
+					addSnapshotContent(snapshotContent)
+
+					sanityExecute()
+
+					// Find the created restore
+					var createdRestore *snapshotv1.VirtualMachineRestore
+					for _, action := range client.Fake.Actions() {
+						if action.GetVerb() == "create" && action.GetResource().Resource == "virtualmachinerestores" {
+							createAction := action.(testing.CreateAction)
+							createdRestore = createAction.GetObject().(*snapshotv1.VirtualMachineRestore)
+							break
+						}
+					}
+
+					Expect(createdRestore).ToNot(BeNil())
+					Expect(createdRestore.Spec.VolumeRestorePolicy).To(BeNil())
+				})
+			})
+
 			When("snapshot and restore are finished", func() {
 				var (
 					snapshot *snapshotv1.VirtualMachineSnapshot
