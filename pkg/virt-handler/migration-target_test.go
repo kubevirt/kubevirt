@@ -55,11 +55,11 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
@@ -362,7 +362,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			GuestRequested: &initialMemory,
 		}
 
-		targetPodMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+		launcherRenderer := hypervisor.NewLauncherResourceRenderer(v1.KvmHypervisorName)
+		targetPodMemory := launcherRenderer.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
 		targetPodMemory.Add(requestedMemory)
 		vmi.Labels = map[string]string{
 			v1.VirtualMachinePodMemoryRequestsLabel: targetPodMemory.String(),
@@ -436,7 +437,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		}
 		vmi.Spec.Architecture = "amd64"
 
-		targetPodMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+		launcherRenderer := hypervisor.NewLauncherResourceRenderer(v1.KvmHypervisorName)
+		targetPodMemory := launcherRenderer.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
 		targetPodMemory.Add(requestedMemory)
 		vmi.Labels = map[string]string{
 			v1.VirtualMachinePodMemoryRequestsLabel: targetPodMemory.String(),
