@@ -20995,6 +20995,10 @@
       "description": "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
       "default": {},
       "$ref": "#/definitions/v1beta1.VirtualMachineCloneTemplateFilters"
+     },
+     "volumeNamePolicy": {
+      "description": "VolumeNamePolicy defines how to handle volume naming during the clone operation",
+      "type": "string"
      }
     }
    },
