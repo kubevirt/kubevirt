@@ -32,6 +32,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
@@ -43,6 +44,7 @@ import (
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
+	"kubevirt.io/kubevirt/pkg/virtctl/vm"
 )
 
 type verifyFn func(*v1.AddVolumeOptions)
@@ -111,7 +113,7 @@ var _ = Describe("Add volume command", func() {
 	)
 
 	Context("addvolume cmd", func() {
-		expectVMEndpointAddVolumeErrorFunc := func(errFunc func() error, verifyFns ...verifyFn) {
+		expectVMEndpointAddVolumeErrorFunc := func(errFunc func() error, nameFn verifyFn, verifyFns ...verifyFn) {
 			kubecli.MockKubevirtClientInstance.
 				EXPECT().
 				VirtualMachine(metav1.NamespaceDefault).
@@ -122,7 +124,11 @@ var _ = Describe("Add volume command", func() {
 				case kvtesting.PutAction[*v1.AddVolumeOptions]:
 					volumeOptions := action.GetOptions()
 					Expect(volumeOptions).ToNot(BeNil())
-					Expect(volumeOptions.Name).To(Equal(volumeName))
+					if nameFn != nil {
+						nameFn(volumeOptions)
+					} else {
+						Expect(volumeOptions.Name).To(Equal(volumeName))
+					}
 					Expect(volumeOptions.VolumeSource).ToNot(BeNil())
 					for _, verifyFn := range verifyFns {
 						verifyFn(volumeOptions)
@@ -139,11 +145,16 @@ var _ = Describe("Add volume command", func() {
 		}
 
 		expectVMEndpointAddVolume := func(verifyFns ...verifyFn) {
-			expectVMEndpointAddVolumeErrorFunc(nil, verifyFns...)
+			expectVMEndpointAddVolumeErrorFunc(nil, nil, verifyFns...)
 		}
 
-		runCmd := func(extraArg string) error {
-			args := []string{"addvolume", vmiName, "--volume-name=" + volumeName}
+		runCmd := func(volName *string, extraArg string) error {
+			args := []string{"addvolume", vmiName}
+			if volName == nil {
+				args = append(args, "--volume-name="+volumeName)
+			} else {
+				args = append(args, "--volume-name="+*volName)
+			}
 			args = append(args, strings.Fields(extraArg)...)
 			cmd := testing.NewRepeatableVirtctlCommand(args...)
 			return cmd()
@@ -166,7 +177,7 @@ var _ = Describe("Add volume command", func() {
 			DescribeTable("should call VM endpoint and", func(arg string, verifyFns ...verifyFn) {
 				verifyFns = append(verifyFns, verifyDVVolumeSource)
 				expectVMEndpointAddVolume(verifyFns...)
-				Expect(runCmd(arg)).To(Succeed())
+				Expect(runCmd(nil, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
@@ -182,7 +193,7 @@ var _ = Describe("Add volume command", func() {
 
 			It("should fail immediately on non concurrent error", func() {
 				expectVMEndpointAddVolumeErrorFunc(func() error { return fmt.Errorf("fatal error") }, verifyDVVolumeSource)
-				Expect(runCmd("")).To(MatchError(ContainSubstring("fatal error")))
+				Expect(runCmd(nil, "")).To(MatchError(ContainSubstring("fatal error")))
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			})
 
@@ -196,7 +207,7 @@ var _ = Describe("Add volume command", func() {
 						return nil
 					}
 				}, verifyDVVolumeSource)
-				Expect(runCmd("")).To(Succeed())
+				Expect(runCmd(nil, "")).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(2))
 			})
 
@@ -204,12 +215,12 @@ var _ = Describe("Add volume command", func() {
 				expectVMEndpointAddVolumeErrorFunc(func() error {
 					return errors.New(concurrentErrorAdd)
 				}, verifyDVVolumeSource)
-				Expect(runCmd("")).To(MatchError(ContainSubstring("error adding volume after 15 retries")))
+				Expect(runCmd(nil, "")).To(MatchError(ContainSubstring("error adding volume after 15 retries")))
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(15))
 			})
 
 			It("should fail addvolume with LUN and virtio bus", func() {
-				Expect(runCmd("--disk-type=lun --bus=virtio")).To(
+				Expect(runCmd(nil, "--disk-type=lun --bus=virtio")).To(
 					MatchError(ContainSubstring("Invalid bus type 'virtio' for LUN disk. Only 'scsi' bus is supported.")))
 			})
 		})
@@ -232,7 +243,7 @@ var _ = Describe("Add volume command", func() {
 			DescribeTable("should call VM endpoint with persist and", func(arg string, verifyFns ...verifyFn) {
 				verifyFns = append(verifyFns, verifyPVCVolumeSource)
 				expectVMEndpointAddVolume(verifyFns...)
-				Expect(runCmd(arg)).To(Succeed())
+				Expect(runCmd(nil, arg)).To(Succeed())
 				Expect(kvtesting.FilterActions(&virtClient.Fake, "put", "virtualmachines", "addvolume")).To(HaveLen(1))
 			},
 				Entry("no args", "", verifyDiskSerial(volumeName)),
@@ -245,6 +256,94 @@ var _ = Describe("Add volume command", func() {
 				Entry("cache writeback", "--cache=writeback", verifyDiskSerial(volumeName), verifyCache(v1.CacheWriteBack)),
 				Entry("virtio bus", "--bus=virtio", verifyDiskSerial(volumeName), verifyBus(v1.DiskBusVirtio)),
 			)
+		})
+
+		Context("add volumes of long names - DV", func() {
+			longVolumeName := vm.GetRandomChars(64)
+			BeforeEach(func() {
+				kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
+				_, err := cdiClient.CdiV1beta1().DataVolumes(metav1.NamespaceDefault).Create(
+					context.Background(),
+					&v1beta1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: longVolumeName,
+						},
+					},
+					metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("long name should be shortened", func() {
+				nameFn := func(volumeOptions *v1.AddVolumeOptions) {
+					// something like dv-testvmi-6m42ce
+					realName := volumeOptions.Name
+					firstPart := fmt.Sprintf("dv-%s-", vmiName)
+					Expect(realName[:11]).To(Equal(firstPart))
+					Expect(realName[11:]).To(MatchRegexp("[a-z0-9]{6}$"))
+				}
+				expectVMEndpointAddVolumeErrorFunc(nil, nameFn, []verifyFn{}...)
+				Expect(runCmd(&longVolumeName, "")).To(Succeed())
+			})
+		})
+
+		Context("add volumes of long names - PVC", func() {
+			longVolumeName := vm.GetRandomChars(64)
+			BeforeEach(func() {
+				kubecli.MockKubevirtClientInstance.EXPECT().CdiClient().Return(cdiClient)
+				kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(coreClient.CoreV1())
+				_, err := coreClient.CoreV1().PersistentVolumeClaims(metav1.NamespaceDefault).Create(
+					context.Background(),
+					&k8sv1.PersistentVolumeClaim{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: longVolumeName,
+						},
+					},
+					metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("long name should be shortened", func() {
+				nameFn := func(volumeOptions *v1.AddVolumeOptions) {
+					// something like dv-testvmi-6m42ce
+					realName := volumeOptions.Name
+					firstPart := fmt.Sprintf("dv-%s-", vmiName)
+					Expect(realName[:11]).To(Equal(firstPart))
+					Expect(realName[11:]).To(MatchRegexp("[a-z0-9]{6}$"))
+				}
+				expectVMEndpointAddVolumeErrorFunc(nil, nameFn, []verifyFn{}...)
+				Expect(runCmd(&longVolumeName, "")).To(Succeed())
+			})
+		})
+	})
+
+	Context("volume name check util", func() {
+
+		It("short names are not changed", func() {
+			name := vm.CreateDataVolumeName("foo", "bar")
+			Expect(name).To(Equal("bar"))
+		})
+
+		It("long dv names are truncated", func() {
+			longName := vm.GetRandomChars(63)
+			name := vm.CreateDataVolumeName("foo", longName)
+			Expect(name).To(Equal(longName))
+			Expect(len(validation.IsDNS1123Label(name))).To(Equal(0), fmt.Sprintf("Generated name '%s'", name))
+
+			longName = vm.GetRandomChars(64)
+			name = vm.CreateDataVolumeName("foo", longName)
+			// something like dv-foo-t49pn2
+			Expect(len(validation.IsDNS1123Label(name))).To(Equal(0), fmt.Sprintf("Generated name '%s'", name))
+			Expect(name[0:7]).To(Equal("dv-foo-"))
+			Expect(name[7:]).To(MatchRegexp("[a-z0-9]{6}$"))
+
+			vmName := vm.GetRandomChars(63)
+			Expect(len(validation.IsDNS1123Label(vmName))).To(Equal(0), fmt.Sprintf("VM name '%s'", vmName))
+			name = vm.CreateDataVolumeName(vmName, longName)
+			// something like dv-fyp91edkoh0x6zp3s3v12utjo538l4g0lyfyn8v2gbkil8bu7nk5p-lzwwnk
+			Expect(len(validation.IsDNS1123Label(name))).To(Equal(0), fmt.Sprintf("Generated name '%s'", name))
+			Expect(name[0:3]).To(Equal("dv-"))
+			Expect(name[3:len(name)-7]).To(HaveLen(53), fmt.Sprintf("Generated name '%s'", name))
+			Expect(name[len(name)-6:]).To(MatchRegexp("[a-z0-9]{6}$"))
 		})
 	})
 })
