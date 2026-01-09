@@ -147,12 +147,20 @@ func restoreVolumeName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, 
 		return restoreOverride
 	}
 
-	// If the policy is to overwrite the volume, we must return the same backendName name as the source
-	if isVolumeRestorePolicyInPlace(vmRestore) {
-		return claimName
+	// Apply the volume restore policy
+	if vmRestore.Spec.VolumeRestorePolicy != nil {
+		switch *vmRestore.Spec.VolumeRestorePolicy {
+		case snapshotv1.VolumeRestorePolicyInPlace:
+			// Overwrite the volume with the same name as the source
+			return claimName
+		case snapshotv1.VolumeRestorePolicyPrefixTargetName:
+			// Prefix with target VM name: {targetVMName}-{volumeName}
+			targetName := vmRestore.Spec.Target.Name
+			return naming.GetName(targetName, volumeName, validation.DNS1035LabelMaxLength)
+		}
 	}
 
-	// Auto-compute the name of the restored backendName from the VMRestore ID and from the original volume name
+	// Default (RandomizeNames): auto-compute the name from the VMRestore ID and volume name
 	return fmt.Sprintf("%s-%s-%s", defaultPvcRestorePrefix, vmRestore.UID, volumeName)
 }
 
