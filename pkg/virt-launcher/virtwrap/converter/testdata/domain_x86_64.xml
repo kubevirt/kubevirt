@@ -37,7 +37,9 @@
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
-    %s
+    <memballoon model="virtio-non-transitional" freePageReporting="on">
+      <stats period="10"></stats>
+    </memballoon>
     <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
