@@ -76,6 +76,7 @@ tests/framework/kubevirt
 tests/framework/matcher/helper
 tests/infrastructure
 tests/instancetype
+tests/launchsecurity
 tests/libconfigmap
 tests/libdomain
 tests/libinstancetype
