@@ -22,7 +22,9 @@ package synchronization
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -1077,6 +1079,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(loaded).To(BeFalse())
 		})
 	})
+
 	It("should be able to find the VMI from the migration", func() {
 		vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 		err := controller.vmiInformer.GetStore().Add(vmi)
@@ -1089,6 +1092,159 @@ var _ = Describe("VMI status synchronization controller", func() {
 		res, err = controller.getVMIFromMigration(migration)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res).To(BeNil())
+	})
+
+	Context("Decentralized Live Migration Failure", func() {
+		It("should recognize x509 hostname error", func() {
+			err := x509.HostnameError{
+				Host: "1.1.1.1",
+			}
+			message := getErrorMessageForDecentralizedLiveMigrationFailure(err)
+			Expect(message).To(Equal("x509 hostname error"))
+		})
+
+		It("should return the error message if not a x509 hostname error", func() {
+			err := errors.New("test error")
+			message := getErrorMessageForDecentralizedLiveMigrationFailure(err)
+			Expect(message).To(Equal("test error"))
+		})
+
+		It("should set/clear the decentralized live migration failure condition", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			_, err := controller.client.VirtualMachineInstance(k8sv1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.setDecentralizedLiveMigrationFailure(vmi, "test error")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.Conditions).To(HaveLen(1))
+			Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+			Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+			Expect(vmi.Status.Conditions[0].Message).To(Equal("test error"))
+			err = controller.clearDecentralizedLiveMigrationFailure(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.Conditions).To(BeEmpty())
+		})
+
+		Context("updateDecentralizedFailureOnSource", func() {
+			var (
+				vmi       *virtv1.VirtualMachineInstance
+				migration *virtv1.VirtualMachineInstanceMigration
+			)
+
+			BeforeEach(func() {
+				vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+				_, err := controller.client.VirtualMachineInstance(k8sv1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				migration = createSourceMigration(testMigrationID, vmi.Name, "", k8sv1.NamespaceDefault)
+			})
+
+			It("should clear the failure condition when opErr is nil", func() {
+				// First set a failure condition
+				err := controller.setDecentralizedLiveMigrationFailure(vmi, "previous error")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+
+				// Then call updateDecentralizedFailureOnSource with nil error
+				err = controller.updateDecentralizedFailureOnSource(vmi, migration, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(BeEmpty())
+			})
+
+			It("should set the failure condition when opErr is not nil, should return the original error", func() {
+				testErr := errors.New("test operation error")
+				err := controller.updateDecentralizedFailureOnSource(vmi, migration, testErr)
+				Expect(err).To(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("test operation error"))
+			})
+
+			It("should handle x509 hostname error correctly", func() {
+				x509Err := x509.HostnameError{
+					Host: "example.com",
+				}
+				err := controller.updateDecentralizedFailureOnSource(vmi, migration, x509Err)
+				Expect(err).To(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("x509 hostname error"))
+			})
+		})
+
+		Context("updateDecentralizedFailureOnTarget", func() {
+			var (
+				vmi       *virtv1.VirtualMachineInstance
+				migration *virtv1.VirtualMachineInstanceMigration
+			)
+
+			BeforeEach(func() {
+				vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+				_, err := controller.client.VirtualMachineInstance(k8sv1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				migration = createTargetMigration(testMigrationID, vmi.Name, k8sv1.NamespaceDefault)
+			})
+
+			It("should clear the failure condition when opErr is nil and migration phase is not MigrationWaitingForSync", func() {
+				// Set migration phase to something other than MigrationWaitingForSync
+				migration.Status.Phase = virtv1.MigrationRunning
+
+				// First set a failure condition
+				err := controller.setDecentralizedLiveMigrationFailure(vmi, "previous error")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+
+				// Then call updateDecentralizedFailureOnTarget with nil error
+				err = controller.updateDecentralizedFailureOnTarget(vmi, migration, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(BeEmpty())
+			})
+
+			It("should set the failure condition when opErr is nil and migration phase is MigrationWaitingForSync", func() {
+				migration.Status.Phase = virtv1.MigrationWaitingForSync
+
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal(waitingForSyncErrorMessage))
+			})
+
+			It("should set the failure condition when opErr is not nil", func() {
+				testErr := errors.New("test operation error")
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, testErr)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("test operation error"))
+			})
+
+			It("should prioritize opErr over MigrationWaitingForSync phase", func() {
+				migration.Status.Phase = virtv1.MigrationWaitingForSync
+				testErr := errors.New("operation failed")
+
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, testErr)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("operation failed"))
+				Expect(vmi.Status.Conditions[0].Message).ToNot(Equal(waitingForSyncErrorMessage))
+			})
+
+			It("should handle x509 hostname error correctly", func() {
+				x509Err := x509.HostnameError{
+					Host: "example.com",
+				}
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, x509Err)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("x509 hostname error"))
+			})
+		})
+
 	})
 })
 

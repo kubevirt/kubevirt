@@ -733,6 +733,9 @@ const (
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
 
+	// Indicates whether the VMI has any failure during decentralized live migration
+	VirtualMachineInstanceDecentralizedLiveMigrationFailure VirtualMachineInstanceConditionType = "DecentralizedLiveMigrationFailure"
+
 	// VirtualMachineInstanceMigrationRequired Indicates that an automatic migration is required
 	VirtualMachineInstanceMigrationRequired VirtualMachineInstanceConditionType = "MigrationRequired"
 
@@ -742,13 +745,13 @@ const (
 
 // These are valid reasons for VMI conditions.
 const (
-	// Reason means that VMI is not live migratioable because of it's disks collection
+	// Reason means that VMI is not live migratable because of it's disks collection
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
-	// Reason means that VMI is not live migratioable because of it's network interfaces collection
+	// Reason means that VMI is not live migratable because of it's network interfaces collection
 	VirtualMachineInstanceReasonInterfaceNotMigratable = "InterfaceNotLiveMigratable"
-	// Reason means that VMI is not live migratioable because it uses hotplug
+	// Reason means that VMI is not live migratable because it uses hotplug
 	VirtualMachineInstanceReasonHotplugNotMigratable = "HotplugNotLiveMigratable"
-	// Reason means that VMI is not live migratioable because of it's CPU mode
+	// Reason means that VMI is not live migratable because of it's CPU mode
 	VirtualMachineInstanceReasonCPUModeNotMigratable = "CPUModeLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses virtiofs
 	VirtualMachineInstanceReasonVirtIOFSNotMigratable = "VirtIOFSNotLiveMigratable"
@@ -766,11 +769,13 @@ const (
 	VirtualMachineInstanceReasonHypervPassthroughNotMigratable = "HypervPassthroughNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it requested SCSI persitent reservation
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
+	// Reason means that VMI is not decentralized live migratable, the reason is specified in the condition message
+	VirtualMachineInstanceReasonDecentralizedNotMigratable = "DecentralizedNotLiveMigratable"
 	// Reason means that not all of the VMI's DVs are ready
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
 	// Reason means that all of the VMI's DVs are bound and ready
 	VirtualMachineInstanceReasonAllDVsReady = "AllDVsReady"
-	// Indicates a generic reason that the VMI isn't migratable and more details are spiecified in the condition message.
+	// Indicates a generic reason that the VMI isn't migratable and more details are specified in the condition message.
 	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
 	// Reason means that the volume update change was cancelled
 	VirtualMachineInstanceReasonVolumesChangeCancellation = "VolumesChangeCancellation"
@@ -808,6 +813,8 @@ const (
 	VirtualMachineInstanceMigrationRejectedByResourceQuota VirtualMachineInstanceMigrationConditionType = "migrationRejectedByResourceQuota"
 	// VirtualMachineInstanceMigrationBlockedByUtilityVolumes indicates that migration is waiting for utility volumes to detach
 	VirtualMachineInstanceMigrationBlockedByUtilityVolumes VirtualMachineInstanceMigrationConditionType = "migrationBlockedByUtilityVolumes"
+	// VirtualMachineInstanceDecentralizedMigrationBlocked indicates that a decentralized migration is blocked
+	VirtualMachineInstanceDecentralizedMigrationBlocked VirtualMachineInstanceMigrationConditionType = "decentralizedMigrationBlocked"
 )
 
 type VirtualMachineInstanceCondition struct {
