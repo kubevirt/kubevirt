@@ -28,3 +28,7 @@ func RegisterArchitecture(arch string) {
 func isARM64() bool {
 	return architecture == "arm64"
 }
+
+func isS390X() bool {
+	return architecture == "s390x"
+}
