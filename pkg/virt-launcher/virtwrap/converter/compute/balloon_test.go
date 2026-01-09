@@ -24,8 +24,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
+	kvapi "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
@@ -93,5 +95,50 @@ var _ = Describe("Balloon Domain Configurator", func() {
 			}
 			Expect(domain).To(Equal(expectedDomain))
 		})
+	})
+
+	Context("with memballoon device", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = kvapi.NewMinimalVMI("testvmi")
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+		})
+
+		DescribeTable("should set freePageReporting attribute of memballooning device, accordingly to the context value", func(freePageReporting bool, expectedValue string) {
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithVirtioModel("virtio-non-transitional"),
+				compute.BalloonWithFreePageReporting(freePageReporting),
+			)
+
+			var domain api.Domain
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain).ToNot(BeNil())
+
+			Expect(domain.Spec.Devices).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo(expectedValue))
+		},
+			Entry("when true", true, "on"),
+			Entry("when false", false, "off"),
+		)
+
+		DescribeTable("should unconditionally set Ballooning device", func(isAutoattachMemballoon *bool) {
+			vmi.Spec.Domain.Devices.AutoattachMemBalloon = isAutoattachMemballoon
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithVirtioModel("virtio-non-transitional"),
+			)
+
+			var domain api.Domain
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+			Expect(domain).ToNot(BeNil())
+
+			Expect(domain).ToNot(BeNil())
+			Expect(domain.Spec.Devices).ToNot(BeNil())
+			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil(), "Ballooning device should be unconditionally present in domain")
+		},
+			Entry("when AutoattachMemballoon is false", pointer.P(false)),
+			Entry("when AutoattachMemballoon is not defined", nil),
+		)
 	})
 })

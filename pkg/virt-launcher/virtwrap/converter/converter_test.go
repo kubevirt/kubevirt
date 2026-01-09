@@ -3860,35 +3860,6 @@ var _ = Describe("Converter", func() {
 		})
 	})
 
-	Context("with FreePageReporting", func() {
-		var (
-			vmi *v1.VirtualMachineInstance
-			c   *ConverterContext
-		)
-
-		BeforeEach(func() {
-			vmi = kvapi.NewMinimalVMI("testvmi")
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-		})
-
-		DescribeTable("should set freePageReporting attribute of memballooning device, accordingly to the context value", func(freePageReporting bool, expectedValue string) {
-			c = &ConverterContext{
-				Architecture:      archconverter.NewConverter(runtime.GOARCH),
-				FreePageReporting: freePageReporting,
-				AllowEmulation:    true,
-			}
-			domain := vmiToDomain(vmi, c)
-			Expect(domain).ToNot(BeNil())
-
-			Expect(domain.Spec.Devices).ToNot(BeNil())
-			Expect(domain.Spec.Devices.Ballooning).ToNot(BeNil())
-			Expect(domain.Spec.Devices.Ballooning.FreePageReporting).To(BeEquivalentTo(expectedValue))
-		},
-			Entry("when true", true, "on"),
-			Entry("when false", false, "off"),
-		)
-	})
-
 	Context("with Paused strategy", func() {
 		var (
 			vmi *v1.VirtualMachineInstance
