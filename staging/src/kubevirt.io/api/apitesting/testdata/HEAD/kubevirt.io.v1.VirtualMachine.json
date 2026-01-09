@@ -1344,7 +1344,15 @@
         "name": "nameValue"
       },
       "inferFromVolume": "inferFromVolumeValue",
-      "inferFromVolumeFailurePolicy": "inferFromVolumeFailurePolicyValue"
+      "inferFromVolumeFailurePolicy": "inferFromVolumeFailurePolicyValue",
+      "resources": {
+        "cpu": {
+          "cores": 4294967291,
+          "sockets": 4294967289,
+          "threads": 4294967289
+        },
+        "memory": "0"
+      }
     },
     "preferenceRef": {
       "name": "nameValue",
@@ -1353,7 +1361,15 @@
         "name": "nameValue"
       },
       "inferFromVolume": "inferFromVolumeValue",
-      "inferFromVolumeFailurePolicy": "inferFromVolumeFailurePolicyValue"
+      "inferFromVolumeFailurePolicy": "inferFromVolumeFailurePolicyValue",
+      "resources": {
+        "cpu": {
+          "cores": 4294967291,
+          "sockets": 4294967289,
+          "threads": 4294967289
+        },
+        "memory": "0"
+      }
     }
   }
 }
