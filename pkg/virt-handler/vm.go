@@ -1377,9 +1377,13 @@ func (c *VirtualMachineController) sync(key string,
 	}
 
 	domainAlive := domainExists &&
-		domain.Status.Status != api.Shutoff &&
-		domain.Status.Status != api.Crashed &&
-		domain.Status.Status != ""
+		((domain.Status.Status != api.Shutoff &&
+			domain.Status.Status != api.Crashed &&
+			domain.Status.Status != "") ||
+			// 	Ignoring transient Shutoff/Unknown status for recently created domain
+			(domain.Status.Status == api.Shutoff && domain.Status.Reason == api.ReasonUnknown &&
+				domain.Spec.Metadata.KubeVirt.StartTimestamp != nil &&
+				time.Since(domain.Spec.Metadata.KubeVirt.StartTimestamp.Time) < 30*time.Second))
 
 	forceShutdownIrrecoverable = domainExists && domainPausedFailedPostCopy(domain)
 
