@@ -82,7 +82,6 @@ func (d DomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *ap
 }
 
 func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.VirtualMachineInstance) (api.Interface, error) {
-
 	ifaceType := getInterfaceType(iface)
 
 	modelType := ifaceType
