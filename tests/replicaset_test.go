@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/replicaset"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -447,14 +446,10 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
-		Expect(controller.NewVirtualMachineInstanceConditionManager().
-			HasConditionWithStatusAndReason(
-				vmi,
-				v1.VirtualMachineInstanceConditionType(k8sv1.PodReady),
-				k8sv1.ConditionFalse,
-				v1.PodTerminatingReason,
-			),
-		).To(BeTrue())
+		Expect(vmi).To(matcher.HaveConditionFalseWithReason(
+			v1.VirtualMachineInstanceConditionType(k8sv1.PodReady),
+			v1.PodTerminatingReason,
+		))
 		Expect(vmi.DeletionTimestamp).ToNot(BeNil())
 	})
 

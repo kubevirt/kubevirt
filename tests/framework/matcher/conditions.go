@@ -64,6 +64,15 @@ func HaveConditionTrueWithReason(conditionType interface{}, expectedReason strin
 	}
 }
 
+func HaveConditionFalseWithReason(conditionType interface{}, expectedReason string) types.GomegaMatcher {
+	return conditionMatcher{
+		expectedType:          conditionType,
+		expectedStatus:        k8sv1.ConditionFalse,
+		conditionCanBeMissing: false,
+		expectedReason:        expectedReason,
+	}
+}
+
 type conditionMatcher struct {
 	expectedType          interface{}
 	expectedStatus        k8sv1.ConditionStatus

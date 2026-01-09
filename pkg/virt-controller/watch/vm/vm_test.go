@@ -5516,8 +5516,7 @@ var _ = Describe("VirtualMachine", func() {
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
-					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
-					Expect(vmConditionController.HasCondition(vm, v1.VirtualMachineRestartRequired)).To(BeFalse(), "No RestartRequired condition should be set")
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired), "No RestartRequired condition should be set")
 
 					Expect(vmi.Spec.Domain.Memory.Guest.Cmp(*vm.Spec.Template.Spec.Domain.Memory.Guest)).To(Equal(0), "The VMI Guest should match VM's")
 
@@ -5650,8 +5649,7 @@ var _ = Describe("VirtualMachine", func() {
 					err := controller.handleMemoryHotplugRequest(vm, vmi)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
-					Expect(vmConditionController.HasCondition(vm, v1.VirtualMachineRestartRequired)).To(BeTrue())
+					Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
 				})
 
 				It("should set a restartRequired condition if VM does not support memory hotplug", func() {
@@ -6170,8 +6168,7 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: updatedRevision.Name,
 					}
 					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM, vmi)).To(BeFalse())
-					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
-					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeFalse())
+					Expect(updatedVM).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 				})
 				It("should add addRestartRequiredIfNeeded to VM if not live-updatable", func() {
 					updatedInstancetype := originalInstancetype.DeepCopy()
@@ -6195,8 +6192,7 @@ var _ = Describe("VirtualMachine", func() {
 					}
 
 					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM, vmi)).To(BeTrue())
-					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
-					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeTrue())
+					Expect(updatedVM).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
 				})
 			})
 		})
@@ -6497,8 +6493,7 @@ var _ = Describe("VirtualMachine", func() {
 					sanityExecute(vm)
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
-						v1.VirtualMachineRestartRequired)).To(BeFalse())
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 				})
 
 				DescribeTable("should NOT appear for hotpluggable DataVolume regardless of rollout strategy", func(strategy *v1.VMRolloutStrategy) {
@@ -6540,8 +6535,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 
-					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
-						v1.VirtualMachineRestartRequired)).To(BeFalse())
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 				},
 					Entry("with no rollout strategy", nil),
 					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
@@ -6589,8 +6583,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 
-					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
-						v1.VirtualMachineRestartRequired)).To(BeFalse())
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 				},
 					Entry("with no rollout strategy", nil),
 					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
@@ -6636,8 +6629,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 
-					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
-						v1.VirtualMachineRestartRequired)).To(BeTrue())
+					Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
 				},
 					Entry("with no rollout strategy", nil),
 					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
@@ -6702,8 +6694,7 @@ var _ = Describe("VirtualMachine", func() {
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
 
-					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
-						v1.VirtualMachineRestartRequired)).To(BeTrue())
+					Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
 				},
 					Entry("with no rollout strategy", nil),
 					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
@@ -6732,10 +6723,10 @@ var _ = Describe("VirtualMachine", func() {
 				sanityExecute(vm)
 				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 				Expect(err).To(Succeed())
-				Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm, v1.VirtualMachineRestartRequired)).To(matcher)
+				Expect(vm).To(matcher)
 			},
-				Entry("should not raise RestartRequired when VM and VMI UUIDs match", CalculateLegacyUUID("testvmi"), BeFalse()),
-				Entry("should raise RestartRequired when VM and VMI UUIDs differ", types.UID("different-uuid-than-vmi"), BeTrue()),
+				Entry("should not raise RestartRequired when VM and VMI UUIDs match", CalculateLegacyUUID("testvmi"), matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired)),
+				Entry("should raise RestartRequired when VM and VMI UUIDs differ", types.UID("different-uuid-than-vmi"), matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired)),
 			)
 		})
 
@@ -7205,25 +7196,24 @@ var _ = Describe("VirtualMachine", func() {
 				Reason: reason,
 			}
 		}
-		DescribeTable("and UpdateVolumesStrategy set to Migration", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectedVolumeMigrationState *v1.VolumeMigrationState, expectCond bool) {
+		DescribeTable("and UpdateVolumesStrategy set to Migration", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectedVolumeMigrationState *v1.VolumeMigrationState, condMatcher gomegatypes.GomegaMatcher) {
 			vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 			syncVolumeMigration(vm, vmi)
 			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(Equal(expectedVolumeMigrationState))
-			Expect(virtcontroller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,
-				v1.VirtualMachineManualRecoveryRequired, k8sv1.ConditionTrue)).To(Equal(expectCond))
+			Expect(vm).To(condMatcher)
 		},
-			Entry("without any volume migration in progress", libvmi.NewVirtualMachine(libvmi.New(), libvmistatus.WithVMStatus(libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{})))), libvmi.New(), nil, false),
+			Entry("without any volume migration in progress", libvmi.NewVirtualMachine(libvmi.New(), libvmistatus.WithVMStatus(libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{})))), libvmi.New(), nil, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired)),
 			Entry("with volume migration in progress but no vmi", libvmi.NewVirtualMachine(libvmi.New(), libvmistatus.WithVMStatus(
 				libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{VolumeMigrationState: &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1")}},
 				), libvmistatus.WithVMCondition(withVMCondVolumeMigInProgress(k8sv1.ConditionTrue, ""))),
 			)),
-				nil, nil, false),
+				nil, nil, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired)),
 			Entry("with recovered volumes", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv0")), libvmistatus.WithVMStatus(
 				libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(
 					&v1.VolumeUpdateState{VolumeMigrationState: &v1.VolumeMigrationState{MigratedVolumes: withMigVols(volName, "dv0", "dv1")}},
 				)))),
-				libvmi.New(libvmi.WithDataVolume(volName, "dv0")), nil, false),
+				libvmi.New(libvmi.WithDataVolume(volName, "dv0")), nil, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired)),
 			Entry("with volumes still to be recovered", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")), libvmistatus.WithVMStatus(
 				libvmistatus.NewVMStatus(
 					libvmistatus.WithVMCondition(v1.VirtualMachineCondition{
@@ -7237,7 +7227,7 @@ var _ = Describe("VirtualMachine", func() {
 					)))),
 				libvmi.New(libvmi.WithDataVolume(volName, "dv0")), &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-				}, true,
+				}, matcher.HaveConditionTrue(v1.VirtualMachineManualRecoveryRequired),
 			),
 			Entry("with volume change", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
@@ -7250,7 +7240,7 @@ var _ = Describe("VirtualMachine", func() {
 						libvmistatus.New(libvmistatus.WithCondition(
 							withVMICondVolumeMigInProgress(k8sv1.ConditionTrue, "")))),
 				),
-				&v1.VolumeMigrationState{MigratedVolumes: withMigVols(volName, "dv0", "dv1")}, false,
+				&v1.VolumeMigrationState{MigratedVolumes: withMigVols(volName, "dv0", "dv1")}, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired),
 			),
 			Entry("with volume change cancellation", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
@@ -7263,7 +7253,7 @@ var _ = Describe("VirtualMachine", func() {
 						libvmistatus.New(libvmistatus.WithCondition(
 							withVMICondVolumeMigInProgress(k8sv1.ConditionFalse, v1.VirtualMachineInstanceReasonVolumesChangeCancellation)))),
 				),
-				nil, false,
+				nil, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired),
 			),
 			Entry("with a failed volume migration", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
@@ -7277,7 +7267,7 @@ var _ = Describe("VirtualMachine", func() {
 							withVMICondVolumeMigInProgress(k8sv1.ConditionFalse, "")))),
 				), &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-				}, false,
+				}, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired),
 			),
 			Entry("with volume migration in progress and vmi disappeared", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
@@ -7287,7 +7277,7 @@ var _ = Describe("VirtualMachine", func() {
 					))),
 				nil, &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-				}, true,
+				}, matcher.HaveConditionTrue(v1.VirtualMachineManualRecoveryRequired),
 			),
 		)
 	})
