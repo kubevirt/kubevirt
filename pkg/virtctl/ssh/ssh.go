@@ -131,7 +131,10 @@ func (o *SSH) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	if cmd.Flags().Changed(wrapLocalSSHFlag) {
+		const red = "\033[0;31m"
+		const none = "\033[0m"
 		cmd.PrintErrln("The --local-ssh flag is deprecated and now defaults to true.")
+		cmd.PrintErrln(red + "WARNING: The built-in ssh client is affected by multiple CVEs and should not be used!" + none)
 	}
 	if o.options.WrapLocalSSH {
 		clientArgs := o.buildSSHTarget(kind, namespace, name)
