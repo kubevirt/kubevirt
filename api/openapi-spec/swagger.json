@@ -14358,16 +14358,26 @@
       "type": "integer",
       "format": "int32"
      },
-     "diskVerification": {
-      "$ref": "#/definitions/v1.DiskVerification"
-     },
-     "featureGates": {
-      "description": "FeatureGates is the list of experimental features to enable. Defaults to none",
+     "disabledFeatureGates": {
+      "description": "DisabledFeatureGates is the list of experimental features to disable. Defaults to none. It is invalid to add the same feature to both FeatureGates and DisabledFeatureGates.",
       "type": "array",
       "items": {
        "type": "string",
        "default": ""
-      }
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "diskVerification": {
+      "$ref": "#/definitions/v1.DiskVerification"
+     },
+     "featureGates": {
+      "description": "FeatureGates is the list of experimental features to enable. Defaults to none. It is invalid to add the same feature to both FeatureGates and DisabledFeatureGates.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "logVerbosity": {
       "$ref": "#/definitions/v1.LogVerbosity"
