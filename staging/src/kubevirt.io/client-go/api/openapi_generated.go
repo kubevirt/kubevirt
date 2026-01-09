@@ -18340,6 +18340,13 @@ func schema_kubevirtio_api_clone_v1beta1_VirtualMachineCloneSpec(ref common.Refe
 							},
 						},
 					},
+					"volumeNamePolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeNamePolicy defines how to handle volume naming during the clone operation",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
