@@ -242,6 +242,13 @@ func makeHVFeatureLabelTable(vmiFeatures *v1.Features) []hvFeatureLabel {
 		syNICTimer.Enabled = hyperv.SyNICTimer.Enabled
 	}
 
+	var tlbFlushFeatureState *v1.FeatureState
+	if hyperv.TLBFlush != nil {
+		tlbFlushFeatureState = &v1.FeatureState{
+			Enabled: hyperv.TLBFlush.Enabled,
+		}
+	}
+
 	return []hvFeatureLabel{
 		{
 			Feature: hyperv.VPIndex,
@@ -274,7 +281,7 @@ func makeHVFeatureLabelTable(vmiFeatures *v1.Features) []hvFeatureLabel {
 			Label:   "reenlightenment",
 		},
 		{
-			Feature: hyperv.TLBFlush,
+			Feature: tlbFlushFeatureState,
 			Label:   "tlbflush",
 		},
 		{
