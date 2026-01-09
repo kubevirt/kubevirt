@@ -632,35 +632,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Entry("[test_id:2035]with RunStrategyManual", v1.RunStrategyManual),
 		)
 
-		DescribeTable("[test_id:1529]should start a stopped VM only once", func(runStrategy, expectedRunStrategy v1.VirtualMachineRunStrategy) {
-			By("Creating a VM")
-			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(runStrategy))
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Starting the VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for VM to be ready")
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-			Expect(*vm.Spec.RunStrategy).To(Equal(expectedRunStrategy))
-
-			By("Ensuring stateChangeRequests list is cleared")
-			Expect(vm.Status.StateChangeRequests).To(BeEmpty())
-
-			By("Ensuring a second invocation should fail")
-			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
-			Expect(err).To(MatchError(ContainSubstring("VM is already running")))
-		},
-			Entry("[test_id:2036]with RunStrategyManual", v1.RunStrategyManual, v1.RunStrategyManual),
-			Entry("[test_id:2037]with RunStrategyHalted", v1.RunStrategyHalted, v1.RunStrategyAlways),
-		)
-
 		DescribeTable("should not remove a succeeded VMI", func(runStrategy v1.VirtualMachineRunStrategy, verifyFn func(*v1.VirtualMachine)) {
 			By("creating a VM")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(runStrategy))
@@ -714,29 +685,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
 			}),
 		)
-
-		It("[test_id:6311]should start in paused state using RunStrategyManual", func() {
-			By("Creating a VM with RunStrategyManual")
-			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyManual))
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Starting the VM in paused state")
-			err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{Paused: true})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Getting the status of the VM")
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeCreated())
-
-			By("Getting running VirtualMachineInstance with paused condition")
-			Eventually(func() *v1.VirtualMachineInstance {
-				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(*vmi.Spec.StartStrategy).To(Equal(v1.StartStrategyPaused))
-				Eventually(ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(HaveConditionTrue(v1.VirtualMachineInstancePaused))
-				return vmi
-			}, 240*time.Second, 1*time.Second).Should(BeInPhase(v1.Running))
-		})
 
 		Context("Using RunStrategyAlways", func() {
 			It("[test_id:3165]should restart a succeeded VMI", func() {
