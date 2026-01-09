@@ -78,12 +78,15 @@ const (
 	virtExporter     = "virt-exporter"
 )
 
-const K8sDevicePrefix = "devices.kubevirt.io"
-const TunDevice = K8sDevicePrefix + "/tun"
-const VhostNetDevice = K8sDevicePrefix + "/vhost-net"
-const SevDevice = K8sDevicePrefix + "/sev"
-const VhostVsockDevice = K8sDevicePrefix + "/vhost-vsock"
-const PrDevice = K8sDevicePrefix + "/pr-helper"
+const (
+	K8sDevicePrefix  = "devices.kubevirt.io"
+	TunDevice        = K8sDevicePrefix + "/tun"
+	VhostNetDevice   = K8sDevicePrefix + "/vhost-net"
+	SevDevice        = K8sDevicePrefix + "/sev"
+	VhostVsockDevice = K8sDevicePrefix + "/vhost-vsock"
+	PrDevice         = K8sDevicePrefix + "/pr-helper"
+)
+
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
 const virtiofsDebugLogs = "virtiofsdDebugLogs"
