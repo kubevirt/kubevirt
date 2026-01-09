@@ -40,6 +40,7 @@ func validateInterfaceBinding(
 		causes = append(causes, validateInterfaceBindingExists(fieldPath, idx, iface)...)
 		causes = append(causes, validateMasqueradeBinding(fieldPath, idx, iface, networksByName[iface.Name])...)
 		causes = append(causes, validateBridgeBinding(fieldPath, idx, iface, networksByName[iface.Name], config)...)
+		causes = append(causes, validatePasstBinding(fieldPath, idx, iface, networksByName[iface.Name], config)...)
 	}
 	return causes
 }

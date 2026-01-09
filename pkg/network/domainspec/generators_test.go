@@ -20,6 +20,7 @@
 package domainspec
 
 import (
+	"errors"
 	"net"
 	"os"
 	"runtime"
@@ -30,12 +31,58 @@ import (
 	"github.com/vishvananda/netlink"
 	"go.uber.org/mock/gomock"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/network/cache"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	dutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
+
+const (
+	libvirtAssignedMAC = "12:34:56:78:9a:bc"
+	userAssignedMAC    = "00:00:00:00:00:00"
+)
+
+var _ = Describe("PasstLibvirtSpecGenerator", func() {
+	const (
+		podIfaceName = "eth0"
+	)
+
+	var (
+		domain *api.Domain
+	)
+
+	BeforeEach(func() {
+		domain = NewDomainInterface("default")
+	})
+
+	Context("generating libvirt spec", func() {
+		DescribeTable("should set the correct MAC address", func(iface v1.Interface, expectedMAC string) {
+			generator := NewPasstLibvirtSpecGenerator(&iface, domain, podIfaceName, networkHandlerStub{})
+			Expect(generator.Generate()).To(Succeed())
+			Expect(generator.domain.Spec.Devices.Interfaces[0].MAC.MAC).To(Equal(expectedMAC))
+		},
+			Entry("with libvirt-assigned MAC when no MAC is specified", libvmi.InterfaceDeviceWithPasstBinding("default"), libvirtAssignedMAC),
+			Entry("with user-assigned MAC when MAC is explicitly set", passtIfaceWithMAC(userAssignedMAC), userAssignedMAC),
+		)
+
+		It("should fail when the interface is not found in the domain", func() {
+			notFoundIface := libvmi.InterfaceDeviceWithPasstBinding("not-found")
+			generator := NewPasstLibvirtSpecGenerator(&notFoundIface, domain, podIfaceName, networkHandlerStub{})
+			Expect(generator.Generate()).NotTo(Succeed())
+		})
+
+		It("should fail when link is not found in pod", func() {
+			notFoundIface := libvmi.InterfaceDeviceWithPasstBinding("default")
+			generator := NewPasstLibvirtSpecGenerator(&notFoundIface, domain, podIfaceName, networkHandlerStub{errors.New("not found")})
+			Expect(generator.Generate()).NotTo(Succeed())
+		})
+	})
+
+})
 
 var _ = Describe("Pod Network", func() {
 	var mockNetwork *netdriver.MockNetworkHandler
@@ -127,4 +174,49 @@ func verifyTapDomain(domainIfaces []api.Interface, expectedTargetName, expectedM
 			}), "should have an unmanaged interface")
 	ExpectWithOffset(1, domainIfaces[0].MAC).To(Equal(&api.MAC{MAC: expectedMAC}), "should have the expected MAC address")
 	ExpectWithOffset(1, domainIfaces[0].MTU).To(Equal(&api.MTU{Size: expectedMTU}), "should have the expected MTU")
+}
+
+type networkHandlerStub struct {
+	linkByNameError error
+}
+
+func (s networkHandlerStub) LinkByName(string) (netlink.Link, error) {
+	mac, _ := net.ParseMAC(libvirtAssignedMAC)
+	return &netlink.Device{
+		LinkAttrs: netlink.LinkAttrs{HardwareAddr: mac},
+	}, s.linkByNameError
+}
+func (s networkHandlerStub) AddrList(netlink.Link, int) ([]netlink.Addr, error) {
+	return nil, nil
+}
+func (s networkHandlerStub) ReadIPAddressesFromLink(string) (string, string, error) {
+	return "", "", nil
+}
+func (s networkHandlerStub) RouteList(netlink.Link, int) ([]netlink.Route, error) {
+	return nil, nil
+}
+func (s networkHandlerStub) LinkDel(netlink.Link) error {
+	return nil
+}
+
+func (s networkHandlerStub) ParseAddr(string) (*netlink.Addr, error) {
+	return nil, nil
+}
+func (s networkHandlerStub) StartDHCP(*cache.DHCPConfig, string, *v1.DHCPOptions) error {
+	return nil
+}
+func (s networkHandlerStub) HasIPv4GlobalUnicastAddress(interfaceName string) (bool, error) {
+	return false, nil
+}
+func (s networkHandlerStub) HasIPv6GlobalUnicastAddress(interfaceName string) (bool, error) {
+	return false, nil
+}
+func (s networkHandlerStub) IsIpv4Primary() (bool, error) {
+	return false, nil
+}
+
+func passtIfaceWithMAC(mac string) v1.Interface {
+	iface := libvmi.InterfaceDeviceWithPasstBinding("default")
+	iface.MacAddress = mac
+	return iface
 }
