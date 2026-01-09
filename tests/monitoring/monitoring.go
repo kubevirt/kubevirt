@@ -51,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring, func() {
+var _ = Describe("[sig-monitoring]Monitoring", decorators.SigMonitoring, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var prometheusRule *promv1.PrometheusRule
@@ -115,6 +115,15 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 		})
 	})
 
+})
+
+var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring, func() {
+	var virtClient kubecli.KubevirtClient
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+	})
+
 	Context("System Alerts", func() {
 		var originalKv *v1.KubeVirt
 
@@ -149,7 +158,7 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			vmi := libvmifact.NewCirros()
 			vmi.APIVersion = "v1alpha3"
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the alert exists")
