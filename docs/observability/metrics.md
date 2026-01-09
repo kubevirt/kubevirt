@@ -1,7 +1,13 @@
 # KubeVirt metrics
 
 ### cluster:kubevirt_virt_controller_pods_running:count
-The number of virt-controller pods that are running. Type: Gauge.
+[Deprecated] The number of virt-controller pods that are running. Type: Gauge.
+
+### cluster:kubevirt_virt_controller_pods_up:sum
+The number of virt-controller pods that are up. Type: Gauge.
+
+### cluster:kubevirt_virt_operator_pods_up:sum
+The number of virt-operator pods that are up. Type: Gauge.
 
 ### kubevirt_allocatable_nodes
 The number of allocatable nodes in the cluster. Type: Gauge.
@@ -76,7 +82,7 @@ The number of virt-operator pods that are ready. Type: Gauge.
 Indication for a virt-operator that is ready to take the lead. Type: Gauge.
 
 ### kubevirt_virt_operator_up
-The number of virt-operator pods that are up. Type: Gauge.
+[Deprecated] The number of virt-operator pods that are up. Type: Gauge.
 
 ### kubevirt_vm_container_memory_request_margin_based_on_rss_bytes
 Difference between requested memory and rss for VM containers (request margin). Can be negative when usage exceeds request. Type: Gauge.

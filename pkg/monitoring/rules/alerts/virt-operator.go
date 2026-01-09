@@ -28,7 +28,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "VirtOperatorDown",
-			Expr:  intstr.FromString("kubevirt_virt_operator_up == 0"),
+			Expr:  intstr.FromString("cluster:kubevirt_virt_operator_pods_up:sum == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "All virt-operator servers are down.",
@@ -40,10 +40,10 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowVirtOperatorCount",
-			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_operator_up < 2)"),
+			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (cluster:kubevirt_virt_operator_pods_up:sum < 2)"),
 			For:   ptr.To(promv1.Duration("60m")),
 			Annotations: map[string]string{
-				"summary": "More than one virt-operator should be running if more than one worker nodes exist.",
+				"summary": "More than one virt-operator should be up if more than one worker nodes exist.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
@@ -64,10 +64,10 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowReadyVirtOperatorsCount",
-			Expr:  intstr.FromString("kubevirt_virt_operator_ready <  kubevirt_virt_operator_up"),
+			Expr:  intstr.FromString("kubevirt_virt_operator_ready < cluster:kubevirt_virt_operator_pods_up:sum"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				"summary": "Some virt-operators are running but not ready.",
+				"summary": "Some virt-operator pods are up but not ready.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
