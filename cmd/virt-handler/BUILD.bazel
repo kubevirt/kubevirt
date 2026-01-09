@@ -1,9 +1,8 @@
 load("@bazeldnf//bazeldnf:defs.bzl", "tar2files")
-load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "provision_user")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_library(
@@ -71,62 +70,14 @@ go_binary(
     x_defs = version_x_defs(),
 )
 
-passwd_entry(
-    name = "root-user",
-    gid = 0,
-    home = "/root",
-    info = "root",
-    shell = "/bin/bash",
-    uid = 0,
-    username = "root",
-)
-
-passwd_entry(
-    name = "qemu-user",
+provision_user(
+    name = "user-layer",
     gid = 107,
-    home = "",
+    groupname = "qemu",
+    provision_root_user = True,  # CI requires this user for some reason
     shell = "/bin/bash",
     uid = 107,
     username = "qemu",
-)
-
-passwd_file(
-    name = "passwd",
-    entries = [
-        ":qemu-user",
-        ":root-user",
-    ],
-)
-
-group_entry(
-    name = "qemu-group",
-    gid = 107,
-    groupname = "qemu",
-)
-
-group_entry(
-    name = "root-group",
-    gid = 0,
-    groupname = "root",
-)
-
-group_file(
-    name = "group",
-    entries = [
-        ":qemu-group",
-        ":root-group",
-    ],
-)
-
-pkg_tar(
-    name = "passwd-tar",
-    srcs = [
-        ":group",
-        ":passwd",
-    ],
-    mode = "0644",
-    package_dir = "etc",
-    visibility = ["//visibility:public"],
 )
 
 pkg_tar(
@@ -171,7 +122,7 @@ oci_image(
     base = "//bazel/compat:go_image_base",
     tars = [
         "//bazel/compat:handlerbase",
-        ":passwd-tar",
+        ":user-layer",
         ":nsswitch-tar",
         ":get-version-tar",
         ":passt-repair-tar",
