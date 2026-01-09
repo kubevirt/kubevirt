@@ -1564,7 +1564,7 @@ func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netBinding
 	if vmiCPUArch == "" {
 		vmiCPUArch = clusterConfig.GetClusterCPUArch()
 	}
-	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio, clusterConfig)
 
 	if netBindingPluginMemoryCalculator != nil {
 		memoryOverhead.Add(
