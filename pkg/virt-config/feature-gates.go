@@ -133,10 +133,6 @@ func (config *ClusterConfig) VSOCKEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VSOCKGate)
 }
 
-func (config *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
-	return config.isFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
-}
-
 func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.KubevirtSeccompProfile)
 }

@@ -1256,6 +1256,11 @@ var CRDsValidation map[string]string = map[string]string{
               description: MediatedDevicesConfiguration holds information about MDEV
                 types to be defined, if available
               properties:
+                disableHandling:
+                  description: |-
+                    Disable the creation and removal of mediated devices by virt-handler
+                    Replaces the deprecated DisableMDEVConfiguration feature gate
+                  type: boolean
                 mediatedDeviceTypes:
                   items:
                     type: string
