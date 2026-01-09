@@ -2,6 +2,23 @@
 
 set -xeo pipefail
 
+while getopts d:t: flag; do
+    case "${flag}" in
+    d) HYPERVISOR_DEVICE=${OPTARG} ;;
+    t) PREFERRED_VIRTTYPE=${OPTARG} ;;
+    *)
+        echo "Invalid option"
+        exit 1
+        ;;
+    esac
+done
+
+if [ -z "$HYPERVISOR_DEVICE" ] || [ -z "$PREFERRED_VIRTTYPE" ]; then
+    echo "Error: Missing required arguments."
+    echo "Usage: $0 -d <HYPERVISOR_DEVICE> -t <PREFERRED_VIRTTYPE>"
+    exit 1
+fi
+
 ARCH=$(uname -m)
 MACHINE=q35
 if [ "$ARCH" == "aarch64" ]; then
@@ -14,19 +31,19 @@ fi
 
 set +o pipefail
 
-KVM_MINOR=$(grep -w 'kvm' /proc/misc | cut -f 1 -d' ')
+HYPERVISOR_DEV_PATH="/dev/${HYPERVISOR_DEVICE}"
+HYPERVISOR_DEV_MINOR=$(grep -w ${HYPERVISOR_DEVICE} /proc/misc | cut -f 1 -d' ')
 set -o pipefail
 
 VIRTTYPE=qemu
 
-
-if [ ! -e /dev/kvm ] && [ -n "$KVM_MINOR" ]; then
-  mknod /dev/kvm c 10 $KVM_MINOR
+if [ ! -e "$HYPERVISOR_DEV_PATH" ] && [ -n "$HYPERVISOR_DEV_MINOR" ]; then
+  mknod "$HYPERVISOR_DEV_PATH" c 10 "$HYPERVISOR_DEV_MINOR"
 fi
 
-if [ -e /dev/kvm ]; then
-    chmod o+rw /dev/kvm
-    VIRTTYPE=kvm
+if [ -e "$HYPERVISOR_DEV_PATH" ]; then
+    chmod o+rw "$HYPERVISOR_DEV_PATH"
+    VIRTTYPE=${PREFERRED_VIRTTYPE}
 fi
 
 if [ -e /dev/sev ]; then
