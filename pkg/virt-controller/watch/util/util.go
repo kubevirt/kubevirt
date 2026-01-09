@@ -88,6 +88,10 @@ func PodsUsingPVCs(podInformer cache.SharedIndexInformer, namespace string, pvcN
 			return nil, fmt.Errorf("expected Pod, got %T", obj)
 		}
 
+		if pod.Status.Phase == corev1.PodSucceeded {
+			continue
+		}
+
 		for _, volume := range pod.Spec.Volumes {
 			if volume.VolumeSource.PersistentVolumeClaim != nil &&
 				pvcNames.Has(volume.PersistentVolumeClaim.ClaimName) {
