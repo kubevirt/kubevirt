@@ -84,6 +84,17 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 	}
 
 	// Update Status locally - VM controller will detect Status change and persist via UpdateStatus()
+	u.updateStatusRefs(vm, newInstancetypeCR, newPreferenceCR)
+
+	// Delete old ControllerRevisions after updating Status refs
+	u.cleanupOldControllerRevisions(vm, newInstancetypeCR, oldInstancetypeCRName, newPreferenceCR, oldPreferenceCRName)
+
+	log.Log.Object(vm).Info("instancetype.kubevirt.io ControllerRevisions upgrade successful")
+
+	return nil
+}
+
+func (u *upgrader) updateStatusRefs(vm *virtv1.VirtualMachine, newInstancetypeCR, newPreferenceCR *appsv1.ControllerRevision) {
 	if newInstancetypeCR != nil {
 		vm.Status.InstancetypeRef.ControllerRevisionRef.Name = newInstancetypeCR.Name
 	}
@@ -91,8 +102,13 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 	if newPreferenceCR != nil {
 		vm.Status.PreferenceRef.ControllerRevisionRef.Name = newPreferenceCR.Name
 	}
+}
 
-	// Delete old ControllerRevisions after updating Status refs
+func (u *upgrader) cleanupOldControllerRevisions(
+	vm *virtv1.VirtualMachine,
+	newInstancetypeCR *appsv1.ControllerRevision, oldInstancetypeCRName string,
+	newPreferenceCR *appsv1.ControllerRevision, oldPreferenceCRName string,
+) {
 	if newInstancetypeCR != nil && oldInstancetypeCRName != "" {
 		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(
 			context.Background(), oldInstancetypeCRName, metav1.DeleteOptions{}); err != nil {
@@ -106,10 +122,6 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 			log.Log.Object(vm).Reason(err).Error("ignoring failure to delete ControllerRevision during stashed preference object upgrade")
 		}
 	}
-
-	log.Log.Object(vm).Info("instancetype.kubevirt.io ControllerRevisions upgrade successful")
-
-	return nil
 }
 
 func (u *upgrader) upgradeInstancetypeCR(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
