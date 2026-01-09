@@ -543,7 +543,7 @@ func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clone.VirtualMachine
 		syncInfo.setError(retErr)
 		return syncInfo
 	}
-	restore := generateRestore(vmClone.Spec.Target, vm.Name, vmClone.Namespace, vmClone.Name, snapshotName, vmClone.UID, patches)
+	restore := generateRestore(vmClone.Spec.Target, vm.Name, vmClone.Namespace, vmClone.Name, snapshotName, vmClone.UID, patches, vmClone.Spec.VolumeNamePolicy)
 	log.Log.Object(vmClone).Infof("creating restore %s for clone %s", restore.Name, vmClone.Name)
 	createdRestore, err := ctrl.client.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})
 	if err != nil {
