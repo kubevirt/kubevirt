@@ -649,6 +649,21 @@ func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigrat
 		}
 	}
 
+	if vmiCondition := controller.NewVirtualMachineInstanceConditionManager().GetCondition(vmi, virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure); vmiCondition != nil {
+		condition := virtv1.VirtualMachineInstanceMigrationCondition{
+			Type:          virtv1.VirtualMachineInstanceDecentralizedMigrationBlocked,
+			Reason:        vmiCondition.Reason,
+			Message:       vmiCondition.Message,
+			Status:        k8sv1.ConditionTrue,
+			LastProbeTime: v1.Now(),
+		}
+		if !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceDecentralizedMigrationBlocked) {
+			migrationCopy.Status.Conditions = append(migrationCopy.Status.Conditions, condition)
+		} else {
+			conditionManager.UpdateCondition(migration, &condition)
+		}
+	}
+
 	controller.SetVMIMigrationPhaseTransitionTimestamp(migration, migrationCopy)
 	controller.SetSourcePod(migrationCopy, vmi, c.podIndexer)
 	if err := c.setSynchronizationAddressStatus(migrationCopy); err != nil {
