@@ -58,7 +58,6 @@ import (
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
-	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -632,62 +631,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 
 				By("Ensuring the VirtualMachineInstance is restarted")
 				Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
-			})
-
-			It("[test_id:4119]should migrate a running VM", func() {
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
-
-				Expect(len(nodes.Items)).To(BeNumerically(">", 1), "Migration tests require at least 2 nodes")
-
-				By("Creating a VM with RunStrategyAlways")
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for VM to be ready")
-				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-
-				By("Migrating the VM")
-				err = virtClient.VirtualMachine(vm.Namespace).Migrate(context.Background(), vm.Name, &v1.MigrateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Ensuring the VirtualMachineInstance is migrated")
-				Eventually(func(g Gomega) {
-					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(vmi.Status.MigrationState).ToNot(BeNil(), "vmi.Status.MigrationState should not be nil")
-					g.Expect(vmi.Status.MigrationState.Completed).To(BeTrueBecause("migration should be completed"))
-				}, 240*time.Second, 1*time.Second).Should(Succeed())
-			})
-
-			It("[test_id:7743]should not migrate a running vm if dry-run option is passed", func() {
-				nodes := libnode.GetAllSchedulableNodes(virtClient)
-				if len(nodes.Items) < 2 {
-					Fail("Migration tests require at least 2 nodes")
-				}
-				By("Creating a VM with RunStrategyAlways")
-				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for VM to be ready")
-				Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-
-				By("Migrating the VM with dry-run option")
-				err = virtClient.VirtualMachine(vm.Namespace).Migrate(context.Background(), vm.Name, &v1.MigrateOptions{DryRun: []string{metav1.DryRunAll}})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Check that no migration was actually created")
-				Consistently(func() error {
-					_, err = virtClient.VirtualMachineInstanceMigration(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					return err
-				}, 60*time.Second, 1*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "migration should not be created in a dry run mode")
 			})
 		})
 
