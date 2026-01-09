@@ -147,17 +147,19 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
+		// Upgrade() now modifies vm.Status locally instead of calling PatchStatus
+		// VM controller is responsible for persisting via UpdateStatus()
 		Expect(sanityUpgrade(vm)).To(Succeed())
 
-		vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
+		// Verify local VM object Status was updated (not persisted to API)
 		Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).ToNot(Equal(originalInstancetypeCR.Name))
 
+		// Verify old CR was deleted (side effect is OK per architectural decision)
 		_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), originalInstancetypeCR.Name, metav1.GetOptions{})
 		Expect(err).To(MatchError(k8serrors.IsNotFound, "IsNotFound"))
 
+		// Verify new CR was created and has correct version
 		newInstancetypeCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 			context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
