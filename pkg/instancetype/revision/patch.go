@@ -39,12 +39,15 @@ func (h *revisionHandler) patchVM(
 	if err != nil || len(revisionPatch) == 0 {
 		return err
 	}
-	if _, err := h.virtClient.VirtualMachine(vm.Namespace).PatchStatus(
+	patchedVM, err := h.virtClient.VirtualMachine(vm.Namespace).PatchStatus(
 		context.Background(), vm.Name, types.JSONPatchType, revisionPatch, metav1.PatchOptions{},
-	); err != nil {
+	)
+	if err != nil {
 		logger().Reason(err).Error("Failed to update VirtualMachine with instancetype and preference ControllerRevision references.")
 		return err
 	}
+	// Update the local vm ObjectMeta with the response to ensure ResourceVersion and other server-side fields are current
+	vm.ObjectMeta = patchedVM.ObjectMeta
 	return nil
 }
 

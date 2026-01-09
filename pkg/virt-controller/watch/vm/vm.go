@@ -3166,6 +3166,9 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	if !equality.Semantic.DeepEqual(vm.Spec, syncedVM.Spec) {
 		return syncedVM, vmi, nil, nil
 	}
+	if !equality.Semantic.DeepEqual(vm.Status, syncedVM.Status) {
+		return syncedVM, vmi, nil, nil
+	}
 
 	vm.ObjectMeta = syncedVM.ObjectMeta
 	vm.Spec = syncedVM.Spec
