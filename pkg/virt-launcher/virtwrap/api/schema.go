@@ -672,21 +672,26 @@ type Input struct {
 
 // BEGIN HostDevice -----------------------------
 type HostDevice struct {
-	XMLName   xml.Name         `xml:"hostdev"`
-	Source    HostDeviceSource `xml:"source"`
-	Type      string           `xml:"type,attr"`
-	BootOrder *BootOrder       `xml:"boot,omitempty"`
-	Managed   string           `xml:"managed,attr,omitempty"`
-	Mode      string           `xml:"mode,attr,omitempty"`
-	Model     string           `xml:"model,attr,omitempty"`
-	Address   *Address         `xml:"address,omitempty"`
-	Alias     *Alias           `xml:"alias,omitempty"`
-	Display   string           `xml:"display,attr,omitempty"`
-	RamFB     string           `xml:"ramfb,attr,omitempty"`
+	XMLName   xml.Name          `xml:"hostdev"`
+	Driver    *HostDeviceDriver `xml:"driver,omitempty"`
+	Source    HostDeviceSource  `xml:"source"`
+	Type      string            `xml:"type,attr"`
+	BootOrder *BootOrder        `xml:"boot,omitempty"`
+	Managed   string            `xml:"managed,attr,omitempty"`
+	Mode      string            `xml:"mode,attr,omitempty"`
+	Model     string            `xml:"model,attr,omitempty"`
+	Address   *Address          `xml:"address,omitempty"`
+	Alias     *Alias            `xml:"alias,omitempty"`
+	Display   string            `xml:"display,attr,omitempty"`
+	RamFB     string            `xml:"ramfb,attr,omitempty"`
 }
 
 type HostDeviceSource struct {
 	Address *Address `xml:"address,omitempty"`
+}
+
+type HostDeviceDriver struct {
+	IOMMUFD string `xml:"iommufd,attr,omitempty"`
 }
 
 // END HostDevice -----------------------------
