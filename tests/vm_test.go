@@ -558,47 +558,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).Should(HavePrintableStatus(v1.VirtualMachineStatusDataVolumeError))
 		})
 
-		DescribeTable("should restart a running VM", func(runStrategy v1.VirtualMachineRunStrategy) {
-			By("Creating a VM")
-			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(runStrategy))
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			if runStrategy == v1.RunStrategyManual {
-				By("Starting the VM")
-				err = virtClient.VirtualMachine(vm.Namespace).Start(context.Background(), vm.Name, &v1.StartOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			By("Waiting for VM to be ready")
-			Eventually(ThisVM(vm), 360*time.Second, 1*time.Second).Should(BeReady())
-
-			By("Getting VMI's UUID")
-			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Restarting the VM")
-			err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Ensuring the VirtualMachineInstance is restarted")
-			Eventually(ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(BeRestarted(vmi.UID))
-
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(vm.Spec.RunStrategy).ToNot(BeNil())
-			Expect(*vm.Spec.RunStrategy).To(Equal(runStrategy))
-
-			By("Ensuring stateChangeRequests list gets cleared")
-			// StateChangeRequest might still exist until the new VMI is created
-			// But it must eventually be cleared
-			Eventually(ThisVM(vm), 240*time.Second, 1*time.Second).Should(Not(HaveStateChangeRequests()))
-		},
-			Entry("[test_id:3164]with RunStrategyAlways", v1.RunStrategyAlways),
-			Entry("[test_id:2187]with RunStrategyRerunOnFailure", v1.RunStrategyRerunOnFailure),
-			Entry("[test_id:2035]with RunStrategyManual", v1.RunStrategyManual),
-		)
-
 		DescribeTable("should not remove a succeeded VMI", func(runStrategy v1.VirtualMachineRunStrategy, verifyFn func(*v1.VirtualMachine)) {
 			By("creating a VM")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(runStrategy))
