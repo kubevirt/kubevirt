@@ -458,7 +458,7 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 		Threads: domain.Spec.CPU.Topology.Threads,
 	}
 
-	if vmi.Spec.Domain.CPU.MaxSockets != 0 {
+	if vmi.Spec.Domain.CPU.MaxSockets != 0 && domain.Spec.VCPUs != nil {
 		disabledVCPUs := 0
 		for _, vcpu := range domain.Spec.VCPUs.VCPU {
 			if vcpu.Enabled != "yes" {
