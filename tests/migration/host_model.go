@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
@@ -267,9 +268,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				NodeAffinity: nodeAffinityRule,
 			}
 			By("Starting the VirtualMachineInstance")
-			vmiToMigrate = libvmops.RunVMIAndExpectLaunch(vmiToMigrate, libvmops.StartupTimeoutSecondsHuge)
+			vmiToMigrate, err = libwait.CreateVMIAndWaitForLogin(vmiToMigrate, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			Expect(err).ToNot(HaveOccurred())
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
-			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration to target node(with the amazing feature")
@@ -331,9 +332,9 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				NodeAffinity: nodeAffinityRule,
 			}
 			By("Starting the VirtualMachineInstance")
-			vmiToMigrate = libvmops.RunVMIAndExpectLaunch(vmiToMigrate, libvmops.StartupTimeoutSecondsHuge)
+			vmiToMigrate, err = libwait.CreateVMIAndWaitForLogin(vmiToMigrate, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			Expect(err).ToNot(HaveOccurred())
 			Expect(vmiToMigrate.Status.NodeName).To(Equal(sourceNode.Name))
-			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration to target node(with the amazing feature")

@@ -78,7 +78,7 @@ var _ = Describe(SIG("CPU latency tests for measuring realtime VMs performance",
 		vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
-		Expect(console.LoginToFedora(vmi)).To(Succeed())
+		Expect(console.LoginToFedoraWaitAgent(vmi)).To(Succeed())
 		By(fmt.Sprintf("running cyclictest for %d seconds", cyclicTestDurationInSeconds))
 		cmd := fmt.Sprintf("sudo cyclictest --policy fifo --priority 95 -i 100 -H 1000 -D %ds -q |grep 'Max Latencies' |awk '{print $4}'\n", cyclicTestDurationInSeconds)
 		res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{

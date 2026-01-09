@@ -29,7 +29,6 @@ import (
 	expect "github.com/google/goexpect"
 	k8sv1 "k8s.io/api/core/v1"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -90,9 +89,8 @@ var _ = Describe(SIG("Subdomain", func() {
 			}
 			vmiSpec.Labels = map[string]string{selectorLabelKey: selectorLabelValue}
 
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmiSpec, console.LoginToFedoraWaitAgent)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Succeed(), "failed to get expected FQDN")
 		},
@@ -120,9 +118,8 @@ var _ = Describe(SIG("Subdomain", func() {
 				},
 			}
 
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmiSpec, console.LoginToFedoraWaitAgent)
 			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 			Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Succeed(), "failed to get expected FQDN")
 		})
@@ -143,9 +140,8 @@ var _ = Describe(SIG("Subdomain", func() {
 			Searches:    []string{"example.com"},
 		}
 
-		vmi, err := virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmiSpec, metav1.CreateOptions{})
+		vmi, err := libwait.CreateVMIAndWaitForLogin(vmiSpec, console.LoginToFedoraWaitAgent)
 		Expect(err).ToNot(HaveOccurred())
-		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
 
 		Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Not(Succeed()), "found unexpected FQDN")
 		Expect(assertSearchEntriesinGuest(vmi, "search example.com")).To(Succeed(), "failed to get expected search entries")
