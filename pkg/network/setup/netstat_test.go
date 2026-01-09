@@ -679,6 +679,40 @@ var _ = Describe("netstat", func() {
 		}))
 	})
 
+	It("should report SR-IOV interface with MAC from multus network-status when not in VMI spec", func() {
+		const (
+			networkName = "sriov-network"
+			networkMAC  = "72:83:99:bb:13:c2"
+		)
+
+		sriovIface := newVMISpecIfaceWithSRIOVBinding(networkName)
+		// Intentionally not setting MacAddress in spec to test network-status fallback
+		setup.addSRIOVNetworkInterface(
+			sriovIface,
+			newVMISpecMultusNetwork(networkName),
+		)
+
+		// Simulate virt-controller having populated the multus status with MAC from network-status annotation
+		setup.Vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:       networkName,
+				MAC:        networkMAC,
+				InfoSource: netvmispec.InfoSourceMultusStatus,
+			},
+		}
+
+		Expect(setup.NetStat.UpdateStatus(setup.Vmi, setup.Domain)).To(Succeed())
+
+		Expect(setup.Vmi.Status.Interfaces).To(Equal([]v1.VirtualMachineInstanceNetworkInterface{
+			{
+				Name:       networkName,
+				MAC:        networkMAC,
+				InfoSource: netvmispec.NewInfoSource(netvmispec.InfoSourceDomain, netvmispec.InfoSourceMultusStatus),
+				QueueCount: netsetup.UnknownInterfaceQueueCount,
+			},
+		}), "the SR-IOV interface should be reported with MAC from multus status")
+	})
+
 	When("the desired state (VMI spec) is not in sync with the state in the guest (guest-agent)", func() {
 		const (
 			primaryNetworkName = "primary"
