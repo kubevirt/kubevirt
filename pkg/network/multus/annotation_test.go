@@ -46,7 +46,7 @@ var _ = Describe("Multus annotations", func() {
 					"another-test-binding": {NetworkAttachmentDefinition: "another-test-binding-net"},
 				}
 
-				_, err := multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, registeredBindinPlugins)
+				_, err := multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, registeredBindinPlugins, false)
 
 				Expect(err).To(HaveOccurred())
 			})
@@ -72,7 +72,8 @@ var _ = Describe("Multus annotations", func() {
 					vmi.Namespace,
 					vmi.Spec.Domain.Devices.Interfaces,
 					vmi.Spec.Networks,
-					registeredBindinPlugins)).To(MatchJSON(
+					registeredBindinPlugins,
+					false)).To(MatchJSON(
 					`[
 						{"name": "test-binding-net","namespace": "default", "cni-args": {"logicNetworkName": "default"}},
 						{"name": "test1","namespace": "default","interface": "pod16477688c0e"},
@@ -94,7 +95,7 @@ var _ = Describe("Multus annotations", func() {
 					}
 
 					Expect(
-						multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, registeredBindinPlugins),
+						multus.GenerateCNIAnnotation(vmi.Namespace, vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, registeredBindinPlugins, false),
 					).To(MatchJSON(expectedAnnot))
 				},
 				Entry("name with no namespace", "my-binding",

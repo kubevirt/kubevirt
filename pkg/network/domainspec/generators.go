@@ -21,6 +21,7 @@ package domainspec
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/vishvananda/netlink"
@@ -74,6 +75,7 @@ func (b *TapLibvirtSpecGenerator) Generate() error {
 			ifaces[i].MTU = domainIface.MTU
 			ifaces[i].MAC = domainIface.MAC
 			ifaces[i].Target = domainIface.Target
+			fmt.Printf("DEBUG phase2 Generate %+v  vmiSpec Name %s\n", ifaces[i].Target, b.vmiSpecIface.Name)
 			break
 		}
 	}
