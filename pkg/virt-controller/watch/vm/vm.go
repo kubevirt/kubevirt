@@ -267,6 +267,29 @@ func (p *authProxy) GetDataSource(namespace, name string) (*cdiv1.DataSource, er
 	return ds, nil
 }
 
+// synchronizer defines the contract for VM synchronizers.
+//
+// Contract Requirements:
+// - MUST only modify the local vm object passed as parameter (both Spec and Status fields allowed)
+// - MUST NOT make direct API calls to Update(), UpdateStatus(), Patch(), or PatchStatus() on the VM
+// - MUST return the modified VM object (or original if no changes)
+//
+// The main VM controller is responsible for:
+// - Detecting changes via DeepEqual checks on Spec/Status
+// - Persisting Spec/ObjectMeta changes via Update()
+// - Persisting Status changes via UpdateStatus()
+//
+// Acceptable Exceptions:
+// - ControllerRevision Create/Delete (side effects for snapshotting)
+// - Expand flow (intentionally destructive, immediate persistence required)
+//
+// Example Pattern:
+//
+//	func (s *MySynchronizer) Sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
+//	    vmCopy := vm.DeepCopy()
+//	    vmCopy.Status.SomeField = computedValue
+//	    return vmCopy, nil
+//	}
 type synchronizer interface {
 	Sync(*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error)
 }
