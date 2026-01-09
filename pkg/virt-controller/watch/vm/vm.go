@@ -392,6 +392,12 @@ func (c *Controller) execute(key string) error {
 
 	logger.V(4).Info("Started processing vm")
 
+	// Synchronizer contract for Spec/Status modifications:
+	// - Synchronizers (instancetype, firmware, network) modify local VM object and return it
+	// - If sync() detects Spec changes, it returns early and we call Update() below
+	// - If sync() detects Status changes, it returns early and updateStatus() persists via UpdateStatus()
+	// - This separation follows Kubernetes subresource pattern and avoids intermediate API calls
+
 	// this must be first step in execution. Writing the object
 	// when api version changes ensures our api stored version is updated.
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
@@ -3186,6 +3192,12 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	if err != nil {
 		return vm, vmi, handleSynchronizerErr(err), nil
 	}
+	// Synchronizers follow a contract where they only modify the local VM object (Spec/Status)
+	// and return it. If either Spec or Status changed, we return early with the modified VM.
+	// The execute() function will then:
+	// 1. Detect Spec changes and persist via Update()
+	// 2. Call updateStatus() which compares the modified vm.Status with originalVM.Status
+	//    (originalVM is from the cache, pre-sync) and persists changes via UpdateStatus()
 	if !equality.Semantic.DeepEqual(vm.Spec, syncedVM.Spec) {
 		return syncedVM, vmi, nil, nil
 	}
@@ -3284,6 +3296,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		}
 	}
 
+	// Persist Spec/ObjectMeta changes via Update() if synchronizers or handlers modified them.
+	// Status changes are persisted separately via UpdateStatus() in updateStatus() function.
 	if !equality.Semantic.DeepEqual(vm.Spec, vmCopy.Spec) || !equality.Semantic.DeepEqual(vm.ObjectMeta, vmCopy.ObjectMeta) {
 		updatedVm, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 		if err != nil {
