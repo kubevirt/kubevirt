@@ -1372,6 +1372,7 @@ func (l *LibvirtDomainManager) lookupOrCreateVirDomain(
 	}
 
 	l.metadataCache.UID.Set(vmi.UID)
+	l.metadataCache.StartTimestamp.Set(metav1.Now())
 	l.metadataCache.GracePeriod.Set(
 		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
 	)
