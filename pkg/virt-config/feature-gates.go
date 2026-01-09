@@ -73,10 +73,6 @@ func (config *ClusterConfig) UtilityVolumesEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.UtilityVolumesGate)
 }
 
-func (config *ClusterConfig) SRIOVLiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.SRIOVLiveMigrationGate)
-}
-
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HypervStrictCheckGate)
 }
@@ -113,10 +109,6 @@ func (config *ClusterConfig) VirtiofsStorageEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VirtIOFSStorageVolumeGate)
 }
 
-func (config *ClusterConfig) MacvtapEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.MacvtapGate)
-}
-
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HostDevicesGate)
 }
@@ -147,10 +139,6 @@ func (config *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
 
 func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.KubevirtSeccompProfile)
-}
-
-func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.HotplugNetworkIfacesGate)
 }
 
 func (config *ClusterConfig) PersistentReservationEnabled() bool {
