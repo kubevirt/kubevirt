@@ -3379,8 +3379,17 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
 
-			config, err := util.GetConfigFromEnv()
+			config := kvTestData.defaultConfig
+			// Mimic generateInstallStrategyJob
+			// TODO: Refactor
+			envVars := util.NewEnvVarMap(config.GetExtraEnv())
+			envVarManager := util.DefaultEnvVarManager
+			for _, envVar := range *envVars {
+				envVarManager.Setenv(envVar.Name, envVar.Value)
+			}
+			deploymentConfigJson, err := config.GetJson()
 			Expect(err).ToNot(HaveOccurred())
+			envVarManager.Setenv(util.TargetDeploymentConfig, deploymentConfigJson)
 
 			kvTestData.kubeClient.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				create, ok := action.(testing.CreateAction)
