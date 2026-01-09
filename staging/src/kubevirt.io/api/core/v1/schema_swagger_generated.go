@@ -821,10 +821,6 @@ func (ConfigDriveSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[strin
 	return map[string]string{}
 }
 
-func (NoCloudSSHPublicKeyAccessCredentialPropagation) SwaggerDoc() map[string]string {
-	return map[string]string{}
-}
-
 func (AuthorizedKeysFile) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "AuthorizedKeysFile represents a path within the guest\nthat ssh public keys should be propagated to",
