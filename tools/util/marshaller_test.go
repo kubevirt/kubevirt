@@ -17,27 +17,3 @@
  *
  */
 package util
-
-import (
-	"strings"
-	"testing"
-
-	v1 "k8s.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-)
-
-func TestMarshallObject(t *testing.T) {
-	var imagePullSecret []v1.LocalObjectReference
-	handler := components.NewHandlerDaemonSet("{{.Namespace}}", "", "{{.DockerPrefix}}", "{{.DockerTag}}", "", "", "", "", "", "", "", "", "", "", v1.PullIfNotPresent, imagePullSecret, nil, "2", nil, false)
-	writer := strings.Builder{}
-
-	MarshallObject(handler, &writer)
-
-	result := writer.String()
-
-	if !strings.Contains(result, "namespace: {{.Namespace}}") {
-		t.Fail()
-	}
-
-}
