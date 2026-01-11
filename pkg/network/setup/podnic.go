@@ -57,7 +57,6 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 	if ifaceLink == nil {
 		podnic.podInterfaceName = ""
 	} else {
-		podnic.podInterfaceName = ifaceLink.Attrs().Name
 		podnic.podIfaceNetlink = ifaceLink
 	}
 
