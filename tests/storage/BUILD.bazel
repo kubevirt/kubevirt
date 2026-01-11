@@ -32,6 +32,7 @@ go_library(
         "//pkg/libdv:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/libvmi/cloudinit:go_default_library",
+        "//pkg/os/disk:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",
         "//pkg/storage/cbt:go_default_library",
