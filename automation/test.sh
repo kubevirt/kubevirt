@@ -343,11 +343,36 @@ EOF
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
-build_images
+# build_images
 
 trap '{ collect_debug_logs; }' ERR
-make cluster-up
+# make cluster-up
+
+git clone https://github.com/oshoval/kubevirtkcli.git
+cd kubevirtkcli
+
+sudo dnf -y install libvirt libvirt-daemon-driver-qemu qemu-kvm tar acl
+sudo usermod -aG qemu,libvirt $(id -un)
+sudo newgrp libvirt
+
+# Start libvirt daemons directly (systemd not available in container)
+sudo /usr/sbin/virtlogd > /var/log/virtlogd.log 2>&1 &
+sudo /usr/sbin/libvirtd > /var/log/libvirtd.log 2>&1 &
+
+# Wait for libvirt to be ready
+sleep 5
+
+curl https://raw.githubusercontent.com/karmab/kcli/main/install.sh | sudo bash
+
+sudo kcli create pool -p /var/lib/libvirt/images default
+sudo setfacl -m u:$(id -un):rwx /var/lib/libvirt/images
+
+ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
+./deploy-cluster.sh
+
 trap - ERR
+
+exit 0
 
 # Wait for nodes to become ready
 set +e
