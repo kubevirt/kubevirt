@@ -381,6 +381,7 @@ export DOCKER_PREFIX=$REGISTRY_IP:5000
 sed -i "s|image: [^:]*:5000/.*/network-passt-binding-cni:devel|image: ${REGISTRY_IP}:5000/network-passt-binding-cni:devel|" cmd/cniplugins/passt-binding/passt-binding-ds.yaml
 
 kubectl create -f knp.yaml
+./istio.sh
 
 # Wait for nodes to become ready
 set +e
