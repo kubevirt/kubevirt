@@ -252,7 +252,7 @@ elif [[ $TARGET =~ windows.* ]]; then
   safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
 fi
 
-kubectl() { KUBEVIRTCI_VERBOSE=false kubevirtci/cluster-up/kubectl.sh "$@"; }
+# kubectl() { KUBEVIRTCI_VERBOSE=false kubevirtci/cluster-up/kubectl.sh "$@"; }
 cli() { kubevirtci/cluster-up/cli.sh "$@"; }
 
 determine_cri_bin() {
@@ -343,7 +343,7 @@ EOF
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 
-# build_images
+build_images
 
 trap '{ collect_debug_logs; }' ERR
 # make cluster-up
@@ -369,10 +369,14 @@ sudo setfacl -m u:$(id -un):rwx /var/lib/libvirt/images
 
 ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
 ./deploy-cluster.sh
-
 trap - ERR
 
-exit 0
+REGISTRY_IP=$(kubectl get pod -n container-registry -o custom-columns=IP:.status.podIP --no-headers)
+export KUBEVIRT_PROVIDER=external
+export DOCKER_PREFIX=$REGISTRY_IP:5000
+
+# Update passt-binding daemonset with registry IP
+sed -i "s|image: [^:]*:5000/.*/network-passt-binding-cni:devel|image: ${REGISTRY_IP}:5000/network-passt-binding-cni:devel|" cmd/cniplugins/passt-binding/passt-binding-ds.yaml
 
 # Wait for nodes to become ready
 set +e
