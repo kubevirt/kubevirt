@@ -369,14 +369,18 @@ sudo setfacl -m u:$(id -un):rwx /var/lib/libvirt/images
 
 ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
 ./deploy-cluster.sh
+cd ..
 trap - ERR
 
+export KUBECONFIG=/root/.kcli/clusters/dra/auth/kubeconfig
 REGISTRY_IP=$(kubectl get pod -n container-registry -o custom-columns=IP:.status.podIP --no-headers)
 export KUBEVIRT_PROVIDER=external
 export DOCKER_PREFIX=$REGISTRY_IP:5000
 
 # Update passt-binding daemonset with registry IP
 sed -i "s|image: [^:]*:5000/.*/network-passt-binding-cni:devel|image: ${REGISTRY_IP}:5000/network-passt-binding-cni:devel|" cmd/cniplugins/passt-binding/passt-binding-ds.yaml
+
+kubectl create -f knp.yaml
 
 # Wait for nodes to become ready
 set +e
