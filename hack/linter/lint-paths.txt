@@ -12,6 +12,7 @@ pkg/libvmi
 pkg/network/admitter
 pkg/network/controllers
 pkg/network/deviceinfo
+pkg/network/dns
 pkg/network/domainspec
 pkg/network/downwardapi
 pkg/network/driver/netlink
