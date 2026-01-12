@@ -29,6 +29,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
+const (
+	//nolint:gosec //linter is confusing passt for password
+	passtLogFilePath  = "/var/run/kubevirt/passt.log"
+	passtBackendPasst = "passt"
+)
+
 type DomainConfigurator struct {
 	domainAttachmentByInterfaceName map[string]string
 	useLaunchSecuritySEV            bool
@@ -110,22 +116,35 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		builderOptions = append(builderOptions, withMACAddress(iface.MacAddress))
 	}
 
-	isTap := d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap)
-	if isTap {
+	switch {
+	case d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap):
 		// use "ethernet" interface type, since we're using pre-configured tap devices
 		// https://libvirt.org/formatdomain.html#elementsNICSEthernet
 		builderOptions = append(builderOptions, withIfaceType("ethernet"))
 		if iface.BootOrder != nil {
 			builderOptions = append(builderOptions, withBootOrder(*iface.BootOrder))
 		}
-	}
 
-	if d.isROMTuningSupported && ((isTap && iface.BootOrder == nil) || useLaunchSecurity) {
-		builderOptions = append(builderOptions, withROMDisabled())
-	}
+		if d.isROMTuningSupported && (iface.BootOrder == nil || useLaunchSecurity) {
+			builderOptions = append(builderOptions, withROMDisabled())
+		}
 
-	if iface.State == v1.InterfaceStateLinkDown {
-		builderOptions = append(builderOptions, withLinkStateDown())
+		if iface.State == v1.InterfaceStateLinkDown {
+			builderOptions = append(builderOptions, withLinkStateDown())
+		}
+
+	case iface.PasstBinding != nil:
+		ifaceStatus := netvmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, iface.Name)
+		if ifaceStatus == nil || ifaceStatus.PodInterfaceName == "" {
+			return api.Interface{}, fmt.Errorf("pod interface name not found in vmi %s status, for interface %s",
+				vmi.Name, iface.Name)
+		}
+		builderOptions = append(builderOptions,
+			withIfaceType("vhostuser"),
+			withSource(api.InterfaceSource{Device: ifaceStatus.PodInterfaceName}),
+			withBackend(api.InterfaceBackend{Type: passtBackendPasst, LogFile: passtLogFilePath}),
+			withPortForward(generatePasstPortForward(iface, vmi)),
+		)
 	}
 
 	return newDomainInterface(iface.Name, modelType, builderOptions...), nil

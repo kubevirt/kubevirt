@@ -83,3 +83,21 @@ func withMACAddress(mac string) builderOption {
 		iface.MAC = &api.MAC{MAC: mac}
 	}
 }
+
+func withSource(source api.InterfaceSource) builderOption {
+	return func(iface *api.Interface) {
+		iface.Source = source
+	}
+}
+
+func withBackend(backend api.InterfaceBackend) builderOption {
+	return func(iface *api.Interface) {
+		iface.Backend = &backend
+	}
+}
+
+func withPortForward(portForward []api.InterfacePortForward) builderOption {
+	return func(iface *api.Interface) {
+		iface.PortForward = portForward
+	}
+}
