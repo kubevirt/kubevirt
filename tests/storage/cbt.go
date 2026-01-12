@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -356,5 +357,90 @@ var _ = Describe(SIG("CBT", func() {
 
 	It("should persist CBT data across restart", func() {
 		testCBTPersistence("restart")
+	})
+
+	It("should create CBT overlay for hotplug volume and remove it on unplug", func() {
+		By("Creating VM with CBT label")
+		vm = libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(),
+		),
+			libvmi.WithLabels(cbt.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+
+		By("Waiting for CBT to be enabled")
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+		By("Creating DataVolume for hotplug")
+		hotplugVolumeName := "hotplug-vol"
+		hotplugDV := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+			),
+		)
+		hotplugDV, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Create(context.Background(), hotplugDV, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Hotplugging the DataVolume")
+		vm = libstorage.AddHotplugDiskAndVolume(virtClient, vm, hotplugVolumeName, hotplugDV.Name)
+
+		By("Waiting for hotplug volume to be ready")
+		libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugVolumeName, hotplugDV.Name, true)
+
+		By("Verifying QCOW2 overlay was created for hotplug volume")
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		overlayPath := cbt.GetQCOW2OverlayPath(vmi, hotplugVolumeName)
+		stdout := libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", hotplugVolumeName)})
+		Expect(stdout).To(ContainSubstring(overlayPath), "Expected CBT overlay to exist for hotplug volume")
+
+		By("Verifying data-store is set in domain XML for hotplug disk")
+		domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+		Expect(err).ToNot(HaveOccurred())
+
+		found := false
+		for _, disk := range domSpec.Devices.Disks {
+			if disk.Alias != nil && disk.Alias.GetName() == hotplugVolumeName {
+				Expect(disk.Source.DataStore).ToNot(BeNil(), "Expected data-store to be set in domain XML for CBT-enabled hotplug disk")
+				found = true
+				break
+			}
+		}
+		Expect(found).To(BeTrue(), "Expected to find hotplug disk with alias %s in domain XML disks %+v", hotplugVolumeName, domSpec.Devices.Disks)
+
+		By("Removing the hotplug volume")
+		vm = libstorage.RemoveHotplugDiskAndVolume(virtClient, vm, hotplugVolumeName)
+
+		By("Waiting for hotplug volume to be removed from VMI")
+		libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugVolumeName, hotplugDV.Name, false)
+
+		By("Verifying disk is removed from domain XML after unplug")
+		Eventually(func() bool {
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+			if err != nil {
+				return false
+			}
+			for _, disk := range domSpec.Devices.Disks {
+				if disk.Alias != nil && disk.Alias.GetName() == hotplugVolumeName {
+					return false
+				}
+			}
+			return true
+		}, 60*time.Second, 2*time.Second).Should(BeTrue(), "Hotplug disk should be removed from domain XML")
+
+		By("Verifying QCOW2 overlay was deleted for unplugged volume")
+		Eventually(func() string {
+			return libpod.RunCommandOnVmiPod(vmi, []string{"find", cbt.PathForCBT(vmi), "-type", "f", "-name", fmt.Sprintf("%s.qcow2", hotplugVolumeName)})
+		}, 60*time.Second, 2*time.Second).Should(BeEmpty(), "CBT overlay should be deleted for unplugged volume")
 	})
 }))
