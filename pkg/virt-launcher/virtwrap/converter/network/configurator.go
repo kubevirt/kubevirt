@@ -100,6 +100,8 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		return api.Interface{}, err
 	}
 
+	if iface.PasstBinding != nil {
+		return createPasstInterface(&domainIface, vmi, iface)
 	}
 
 	if queueCount := uint(calculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
