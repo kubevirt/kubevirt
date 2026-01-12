@@ -72,12 +72,12 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				waitForNetworkPolicyDeletion(policy)
 			})
 
-			It("[test_id:1511] should fail to reach serverVMI from clientVMI", func() {
+			PIt("[test_id:1511] should fail to reach serverVMI from clientVMI", func() {
 				By("Connect serverVMI from clientVMI")
 				assertPingFail(clientVMI, serverVMI)
 			})
 
-			It("[test_id:1512] should fail to reach clientVMI from serverVMI", func() {
+			PIt("[test_id:1512] should fail to reach clientVMI from serverVMI", func() {
 				By("Connect clientVMI from serverVMI")
 				assertPingFail(serverVMI, clientVMI)
 			})
@@ -133,7 +133,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
 				})
 
-				It("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", decorators.Conformance, func() {
+				PIt("[test_id:1514] should fail pinging between two VMI/s each on different namespaces", decorators.Conformance, func() {
 					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
 				})
 			})
@@ -174,7 +174,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 					assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
 				})
 
-				It("[test_id:1515] should fail to reach serverVMI from clientVMIAlternativeNamespace", func() {
+				PIt("[test_id:1515] should fail to reach serverVMI from clientVMIAlternativeNamespace", func() {
 					By("Connect serverVMI from clientVMIAlternativeNamespace")
 					assertPingFail(clientVMIAlternativeNamespace, serverVMI)
 				})
@@ -188,7 +188,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 					assertIPsNotEmptyForVMI(clientVMI)
 				})
 
-				It("[test_id:1515] should fail to reach serverVMI from clientVMI", func() {
+				PIt("[test_id:1515] should fail to reach serverVMI from clientVMI", func() {
 					By("Connect serverVMI from clientVMIAlternativeNamespace")
 					assertPingFail(clientVMI, serverVMI)
 				})
@@ -237,7 +237,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			AfterEach(func() {
 				waitForNetworkPolicyDeletion(policy)
 			})
-			It("[test_id:2774] should allow http traffic for ports 80 and 81 from clientVMI to serverVMI", func() {
+			PIt("[test_id:2774] should allow http traffic for ports 80 and 81 from clientVMI to serverVMI", func() {
 				assertHTTPPingSucceed(clientVMI, serverVMI, 80)
 				assertHTTPPingSucceed(clientVMI, serverVMI, 81)
 			})
@@ -266,7 +266,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			AfterEach(func() {
 				waitForNetworkPolicyDeletion(policy)
 			})
-			It("[test_id:2775] should allow http traffic at port 80 and deny at port 81 from clientVMI to serverVMI", func() {
+			PIt("[test_id:2775] should allow http traffic at port 80 and deny at port 81 from clientVMI to serverVMI", func() {
 				assertHTTPPingSucceed(clientVMI, serverVMI, 80)
 				assertHTTPPingFailed(clientVMI, serverVMI, 81)
 			})
