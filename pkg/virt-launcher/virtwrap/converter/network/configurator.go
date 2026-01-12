@@ -96,15 +96,30 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		Alias: api.NewUserDefinedAlias(iface.Name),
 	}
 
+	d.configureInterfaceQueues(&domainIface, vmi, ifaceType)
+
+	if err := d.configureInterfaceAddresses(&domainIface, iface); err != nil {
+		return domainIface, err
+	}
+
+	d.configureTapInterface(&domainIface, iface)
+	d.configureLaunchSecurity(&domainIface, iface, ifaceType)
+	d.configureLinkState(&domainIface, iface)
+
+	return domainIface, nil
+}
+
+func (d DomainConfigurator) configureInterfaceQueues(domainIface *api.Interface, vmi *v1.VirtualMachineInstance, ifaceType string) {
 	if queueCount := uint(calculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
 		domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
 	}
+}
 
-	// Add a pciAddress if specified
+func (d DomainConfigurator) configureInterfaceAddresses(domainIface *api.Interface, iface *v1.Interface) error {
 	if iface.PciAddress != "" {
 		addr, err := device.NewPciAddressField(iface.PciAddress)
 		if err != nil {
-			return domainIface, fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
+			return fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
 		}
 		domainIface.Address = addr
 	}
@@ -112,36 +127,47 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 	if iface.ACPIIndex > 0 {
 		domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
 	}
+	return nil
+}
 
-	if d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap) {
-		// use "ethernet" interface type, since we're using pre-configured tap devices
-		// https://libvirt.org/formatdomain.html#elementsNICSEthernet
-		domainIface.Type = "ethernet"
-		if iface.BootOrder != nil {
-			domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-		} else if d.isROMTuningSupported {
-			domainIface.Rom = &api.Rom{Enabled: "no"}
-		}
+func (d DomainConfigurator) configureTapInterface(domainIface *api.Interface, iface *v1.Interface) {
+	if d.domainAttachmentByInterfaceName[iface.Name] != string(v1.Tap) {
+		return
 	}
 
-	if d.useLaunchSecuritySEV || d.useLaunchSecurityPV {
-		if d.isROMTuningSupported {
-			// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
-			domainIface.Rom = &api.Rom{Enabled: "no"}
-		}
-		if ifaceType == v1.VirtIO {
-			if domainIface.Driver != nil {
-				domainIface.Driver.IOMMU = "on"
-			} else {
-				domainIface.Driver = &api.InterfaceDriver{Name: "vhost", IOMMU: "on"}
-			}
-		}
+	// use "ethernet" interface type, since we're using pre-configured tap devices
+	// https://libvirt.org/formatdomain.html#elementsNICSEthernet
+	domainIface.Type = "ethernet"
+	if iface.BootOrder != nil {
+		domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
+	} else if d.isROMTuningSupported {
+		domainIface.Rom = &api.Rom{Enabled: "no"}
+	}
+}
+
+func (d DomainConfigurator) configureLaunchSecurity(domainIface *api.Interface, iface *v1.Interface, ifaceType string) {
+	if !d.useLaunchSecuritySEV && !d.useLaunchSecurityPV {
+		return
 	}
 
+	if d.isROMTuningSupported {
+		// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
+		domainIface.Rom = &api.Rom{Enabled: "no"}
+	}
+
+	if ifaceType == v1.VirtIO {
+		if domainIface.Driver != nil {
+			domainIface.Driver.IOMMU = "on"
+		} else {
+			domainIface.Driver = &api.InterfaceDriver{Name: "vhost", IOMMU: "on"}
+		}
+	}
+}
+
+func (d DomainConfigurator) configureLinkState(domainIface *api.Interface, iface *v1.Interface) {
 	if iface.State == v1.InterfaceStateLinkDown {
 		domainIface.LinkState = &api.LinkState{State: "down"}
 	}
-	return domainIface, nil
 }
 
 func WithDomainAttachmentByInterfaceName(domainAttachmentByInterfaceName map[string]string) option {
