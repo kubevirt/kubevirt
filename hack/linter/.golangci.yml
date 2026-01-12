@@ -114,6 +114,7 @@ linters:
       - tests/network/hotplug_sriov\.go$
       - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
+      - tests/network/passt\.go$
       - tests/network/port_forward\.go$
       - tests/network/primary_pod_network\.go$
       - tests/network/probes\.go$
