@@ -185,6 +185,7 @@ var _ = Describe("netpod", func() {
 	},
 		Entry("bridge", v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}),
 		Entry("masquerade", v1.InterfaceBindingMethod{Masquerade: &v1.InterfaceMasquerade{}}),
+		Entry("passt", v1.InterfaceBindingMethod{PasstBinding: &v1.InterfacePasstBinding{}}),
 	)
 
 	It("setup masquerade binding", func() {
@@ -661,6 +662,36 @@ var _ = Describe("netpod", func() {
 
 		Expect(cache.ReadDHCPInterfaceCache(&baseCacheCreator, "0", "eth0")).To(
 			Equal(&cache.DHCPConfig{IPAMDisabled: true}))
+	})
+
+	It("setup passt binding", func() {
+		nmstatestub := nmstateStub{status: nmstate.Status{
+			Interfaces: []nmstate.Interface{{Name: "eth0"}},
+		}}
+
+		vmiIface := v1.Interface{
+			Name:                   defaultPodNetworkName,
+			InterfaceBindingMethod: v1.InterfaceBindingMethod{PasstBinding: &v1.InterfacePasstBinding{}},
+		}
+		netPod := netpod.NewNetPod(
+			[]v1.Network{*v1.DefaultPodNetwork()},
+			[]v1.Interface{vmiIface},
+			vmiUID, 0, 0, 0, state,
+			netpod.WithNMStateAdapter(&nmstatestub),
+			netpod.WithCacheCreator(&baseCacheCreator),
+		)
+		Expect(netPod.Setup()).To(Succeed())
+		Expect(nmstatestub.spec).To(Equal(
+			nmstate.Spec{
+				Interfaces: []nmstate.Interface{},
+				LinuxStack: nmstate.LinuxStack{
+					IPv4: nmstate.LinuxStackIP4{
+						PingGroupRange:        []int{107, 107},
+						UnprivilegedPortStart: pointer.P(0),
+					},
+				},
+			}),
+		)
 	})
 
 	When("using secondary network", func() {

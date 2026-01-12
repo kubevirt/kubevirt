@@ -79,6 +79,14 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 					return err
 				}
 			}
+		case vmiSpecIface.PasstBinding != nil:
+			if !podIfaceExists {
+				return fmt.Errorf("pod link (%s) is missing", podIfaceName)
+			}
+
+			if err := n.storePodInterfaceData(vmiSpecIface, podIfaceStatus); err != nil {
+				return err
+			}
 
 		// Skip the discovery for other known network interface bindings.
 		case vmiSpecIface.SRIOV != nil:
