@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/os/disk"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -989,12 +990,9 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 	Context("Fedora VMI tests", func() {
 		imageSizeEqual := func(a, b int64) bool {
-			// Our OCS image size method probe is very precise and can show a few
-			// bytes of difference.
-			// A VM cannot do sub-512 byte accesses anyway, so such small size
-			// differences are practically equal.
-			if math.Abs((float64)(a-b)) >= 512 {
-				By(fmt.Sprintf("Image sizes not equal, %d - %d >= 512", a, b))
+			// small size differences are practically equal
+			if math.Abs((float64)(a-b)) >= storagetypes.MiB {
+				By(fmt.Sprintf("Image sizes not equal, %d - %d >= %d", a, b, storagetypes.MiB))
 				return false
 			} else {
 				return true
