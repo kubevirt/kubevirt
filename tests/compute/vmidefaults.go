@@ -110,7 +110,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 				Address: &api.Address{
 					Type:     api.AddressPCI,
 					Domain:   "0x0000",
-					Bus:      "0x07",
+					Bus:      "0x08",
 					Slot:     "0x00",
 					Function: "0x0",
 				},
