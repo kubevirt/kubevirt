@@ -3419,6 +3419,76 @@ var _ = Describe("Converter", func() {
 				Entry("block mode DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-block-dv", true, false),
 				Entry("'discard ignore' DV", Convert_v1_Hotplug_DataVolume_To_api_Disk, "test-discard-ignore", false, true),
 			)
+
+			DescribeTable("should create domain disk with datastore for hotplug volumes with CBT enabled",
+				func(volumeName string, volSource v1.VolumeSource, isBlock bool) {
+					cbtPath := "/var/lib/libvirt/qemu/cbt/" + volumeName + ".qcow2"
+
+					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+					vmi.Spec.Domain.Devices.Disks = []v1.Disk{{
+						Name: volumeName,
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{
+								Bus: v1.DiskBusVirtio,
+							},
+						},
+					}}
+					vmi.Spec.Volumes = []v1.Volume{{
+						Name:         volumeName,
+						VolumeSource: volSource,
+					}}
+
+					c.ApplyCBT = map[string]string{volumeName: cbtPath}
+					c.HotplugVolumes = map[string]v1.VolumeStatus{
+						volumeName: {Name: volumeName, Phase: v1.HotplugVolumeMounted, HotplugVolume: &v1.HotplugVolumeStatus{}},
+					}
+					if isBlock {
+						if volSource.PersistentVolumeClaim != nil {
+							c.IsBlockPVC[volumeName] = true
+						} else if volSource.DataVolume != nil {
+							c.IsBlockDV[volumeName] = true
+						}
+					}
+
+					dom := &api.Domain{}
+					Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+
+					Expect(dom.Spec.Devices.Disks).To(HaveLen(1))
+					disk := dom.Spec.Devices.Disks[0]
+
+					Expect(disk.Type).To(Equal("file"))
+					Expect(disk.Source.File).To(Equal(cbtPath))
+					Expect(disk.Driver.Type).To(Equal("qcow2"))
+					Expect(disk.Driver.ErrorPolicy).To(Equal(v1.DiskErrorPolicyStop))
+					Expect(disk.Driver.Discard).To(Equal("unmap"))
+
+					Expect(disk.Source.DataStore).ToNot(BeNil())
+					Expect(disk.Source.DataStore.Format).ToNot(BeNil())
+					Expect(disk.Source.DataStore.Format.Type).To(Equal("raw"))
+					Expect(disk.Source.DataStore.Source).ToNot(BeNil())
+					if isBlock {
+						Expect(disk.Source.DataStore.Type).To(Equal("block"))
+						Expect(disk.Source.DataStore.Source.Dev).To(Equal(GetHotplugBlockDeviceVolumePath(volumeName)))
+					} else {
+						Expect(disk.Source.DataStore.Type).To(Equal("file"))
+						Expect(disk.Source.DataStore.Source.File).To(Equal(GetHotplugFilesystemVolumePath(volumeName)))
+					}
+				},
+				Entry("filesystem PVC", "test-hotplug-pvc",
+					v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test-hotplug-pvc"},
+						Hotpluggable:                      true,
+					}}, false),
+				Entry("filesystem DataVolume", "test-hotplug-dv",
+					v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "test-hotplug-dv", Hotpluggable: true}}, false),
+				Entry("block PVC", "test-hotplug-block-pvc",
+					v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "test-hotplug-block-pvc"},
+						Hotpluggable:                      true,
+					}}, true),
+				Entry("block DataVolume", "test-hotplug-block-dv",
+					v1.VolumeSource{DataVolume: &v1.DataVolumeSource{Name: "test-hotplug-block-dv", Hotpluggable: true}}, true),
+			)
 		})
 
 		Context("memory", func() {

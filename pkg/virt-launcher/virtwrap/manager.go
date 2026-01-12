@@ -1233,7 +1233,8 @@ func (l *LibvirtDomainManager) syncDisks(
 
 	// Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
-		logger.V(1).Infof("Detaching disk %s, target %s", detachDisk.Alias.GetName(), detachDisk.Target.Device)
+		volumeName := detachDisk.Alias.GetName()
+		logger.V(1).Infof("Detaching disk %s, target %s", volumeName, detachDisk.Target.Device)
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
@@ -1242,6 +1243,10 @@ func (l *LibvirtDomainManager) syncDisks(
 		err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("detaching device")
+			return err
+		}
+		if err := storage.DeleteQCOW2Overlay(vmi, volumeName); err != nil {
+			logger.Reason(err).Error("deleting CBT overlay")
 			return err
 		}
 	}

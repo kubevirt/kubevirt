@@ -709,6 +709,22 @@ func GetHotplugBlockDeviceVolumePath(volumeName string) string {
 	return filepath.Join(string(filepath.Separator), "var", "run", "kubevirt", "hotplug-disks", volumeName)
 }
 
+// GetVolumeImagePath returns the backing image path for a volume, considering whether it's
+// a hotplug volume and whether it's a block device
+func GetVolumeImagePath(volumeName string, isBlock, isHotplug bool) string {
+	if isBlock {
+		if isHotplug {
+			return GetHotplugBlockDeviceVolumePath(volumeName)
+		}
+		return GetBlockDeviceVolumePath(volumeName)
+	}
+
+	if isHotplug {
+		return GetHotplugFilesystemVolumePath(volumeName)
+	}
+	return GetFilesystemVolumePath(volumeName)
+}
+
 func setDiskDriver(disk *api.Disk, driverType string, discard bool) {
 	disk.Driver.Type = driverType
 	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
@@ -758,6 +774,52 @@ func convertVolumeWithoutCBT(volumeName string, isBlock bool, disk *api.Disk, vo
 	return nil
 }
 
+func convertHotplugVolumeWithCBT(volumeName, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
+	setDiskDriver(disk, "qcow2", !slices.Contains(volumesDiscardIgnore, volumeName))
+
+	disk.Type = "file"
+	disk.Source.File = cbtPath
+	disk.Source.DataStore = &api.DataStore{
+		Format: &api.DataStoreFormat{
+			Type: "raw",
+		},
+	}
+
+	if isBlock {
+		disk.Source.DataStore.Type = "block"
+		disk.Source.DataStore.Source = &api.DiskSource{
+			Dev: GetHotplugBlockDeviceVolumePath(volumeName),
+		}
+	} else {
+		disk.Source.DataStore.Type = "file"
+		disk.Source.DataStore.Source = &api.DiskSource{
+			File: GetHotplugFilesystemVolumePath(volumeName),
+		}
+	}
+
+	return nil
+}
+
+func convertHotplugVolumeWithoutCBT(volumeName string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
+	setDiskDriver(disk, "raw", !slices.Contains(volumesDiscardIgnore, volumeName))
+
+	if isBlock {
+		disk.Type = "block"
+		disk.Source.Dev = GetHotplugBlockDeviceVolumePath(volumeName)
+	} else {
+		disk.Type = "file"
+		disk.Source.File = GetHotplugFilesystemVolumePath(volumeName)
+	}
+	return nil
+}
+
+func ConvertHotplugVolumeSourceToDisk(volumeName, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
+	if cbtPath != "" {
+		return convertHotplugVolumeWithCBT(volumeName, cbtPath, isBlock, disk, volumesDiscardIgnore)
+	}
+	return convertHotplugVolumeWithoutCBT(volumeName, isBlock, disk, volumesDiscardIgnore)
+}
+
 func ConvertVolumeSourceToDisk(volumeName, cbtPath string, isBlock bool, disk *api.Disk, volumesDiscardIgnore []string) error {
 	if cbtPath != "" {
 		return convertVolumeWithCBT(volumeName, cbtPath, isBlock, disk, volumesDiscardIgnore)
@@ -771,10 +833,7 @@ func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c
 
 // Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk converts a Hotplugged PVC to an api disk
 func Convert_v1_Hotplug_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
-	if c.IsBlockPVC[name] {
-		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
-	}
-	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+	return ConvertHotplugVolumeSourceToDisk(name, c.ApplyCBT[name], c.IsBlockPVC[name], disk, c.VolumesDiscardIgnore)
 }
 
 func Convert_v1_DataVolume_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
@@ -783,10 +842,7 @@ func Convert_v1_DataVolume_To_api_Disk(name string, disk *api.Disk, c *Converter
 
 // Convert_v1_Hotplug_DataVolume_To_api_Disk converts a Hotplugged DataVolume to an api disk
 func Convert_v1_Hotplug_DataVolume_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
-	if c.IsBlockDV[name] {
-		return Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
-	}
-	return Convert_v1_Hotplug_FilesystemVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
+	return ConvertHotplugVolumeSourceToDisk(name, c.ApplyCBT[name], c.IsBlockDV[name], disk, c.VolumesDiscardIgnore)
 }
 
 // Convert_v1_FilesystemVolumeSource_To_api_Disk takes a FS source and builds the domain Disk representation
