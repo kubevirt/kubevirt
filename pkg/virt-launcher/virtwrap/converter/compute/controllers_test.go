@@ -30,29 +30,74 @@ import (
 )
 
 var _ = Describe("Controllers Domain Configurator", func() {
-	DescribeTable("should configure USB controller", func(isUSBNeeded bool, expectedModel string) {
-		vmi := libvmi.New(withHotplugDisabled()) // Disable hotplug to prevent SCSI controller from being added
+
+	const usbNeeded = true
+
+	DescribeTable("should configure USB and SCSI controllers", func(vmi *v1.VirtualMachineInstance, isUSBNeeded bool, expectedControllers []api.Controller) {
 		var domain api.Domain
 
 		Expect(compute.NewControllersDomainConfigurator(
 			compute.ControllersWithUSBNeeded(isUSBNeeded),
-			compute.ControllersWithSCSIModel(""),
+			compute.ControllersWithSCSIModel("test-model"),
 			compute.ControllersWithControllerDriver(nil),
 		).Configure(vmi, &domain)).To(Succeed())
 
 		expectedDomain := api.Domain{
 			Spec: api.DomainSpec{
 				Devices: api.Devices{
-					Controllers: []api.Controller{
-						{Type: "usb", Index: "0", Model: expectedModel},
-					},
+					Controllers: expectedControllers,
 				},
 			},
 		}
 		Expect(domain).To(Equal(expectedDomain))
 	},
-		Entry("when USB is NOT needed", false, "none"),
-		Entry("when USB is needed", true, "qemu-xhci"),
+		Entry("when USB is NOT needed and disk hotplug is disabled",
+			libvmi.New(withHotplugDisabled()),
+			!usbNeeded,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+			}),
+		Entry("when USB is needed and disk hotplug is disabled",
+			libvmi.New(withHotplugDisabled()),
+			usbNeeded,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "qemu-xhci"},
+			}),
+		Entry("when USB is NOT needed and disk hotplug is enabled",
+			libvmi.New(),
+			!usbNeeded,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "scsi", Index: "0", Model: "test-model"},
+			}),
+		Entry("when USB is needed and disk hotplug is enabled",
+			libvmi.New(),
+			usbNeeded,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "qemu-xhci"},
+				{Type: "scsi", Index: "0", Model: "test-model"},
+			}),
+		Entry("when VMI has SCSI disk and disk hotplug is disabled",
+			libvmi.New(withHotplugDisabled(), libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI)),
+			!usbNeeded,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "scsi", Index: "0", Model: "test-model"},
+			}),
+		Entry("when VMI has SCSI disk and disk hotplug is enabled",
+			libvmi.New(libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI)),
+			!usbNeeded,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "scsi", Index: "0", Model: "test-model"},
+			}),
+		Entry("when VMI has SCSI disk and USB is needed",
+			libvmi.New(libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI)),
+			usbNeeded,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "qemu-xhci"},
+				{Type: "scsi", Index: "0", Model: "test-model"},
+			}),
 	)
 })
 
