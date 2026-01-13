@@ -269,13 +269,17 @@ func (k *Handler) getNode() (*k8sv1.Node, error) {
 	return node, nil
 }
 
-// Inspired from https://github.com/artyom/meminfo
-func getTotalAndAvailableMem() (uint64, uint64, error) {
-	var total, available uint64
+type memStatus struct {
+	total     uint64
+	available uint64
+}
 
+// Inspired from https://github.com/artyom/meminfo
+func getTotalAndAvailableMem() (memStatus, error) {
+	var total, available uint64
 	f, err := os.Open(memInfoPath)
 	if err != nil {
-		return 0, 0, err
+		return memStatus{}, err
 	}
 	defer f.Close()
 	s := bufio.NewScanner(f)
@@ -292,14 +296,14 @@ func getTotalAndAvailableMem() (uint64, uint64, error) {
 			continue
 		}
 		if err != nil {
-			return 0, 0, err
+			return memStatus{}, err
 		}
 	}
 	if found != requiredMemInfoFields {
-		return 0, 0, fmt.Errorf("failed to find total and available memory")
+		return memStatus{}, fmt.Errorf("failed to find total and available memory")
 	}
 
-	return total, available, nil
+	return memStatus{total: total, available: available}, nil
 }
 
 func getKsmPages() (int, error) {
@@ -326,7 +330,7 @@ func calculateNewRunSleepAndPages(node *k8sv1.Node, running bool) (ksmState, err
 	sleepMsBaseline := uint64(getIntParam(node, v1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
 	freePercent := getFloatParam(node, v1.KSMFreePercentOverride, freePercentDefault, 0, 1)
 	ksm := ksmState{running: running}
-	total, available, err := getTotalAndAvailableMem()
+	memStat, err := getTotalAndAvailableMem()
 	if err != nil {
 		return ksm, err
 	}
@@ -338,12 +342,12 @@ func calculateNewRunSleepAndPages(node *k8sv1.Node, running bool) (ksmState, err
 	// Set sleep_millisecs to sleepMsBaseline on a 16GB system that's out of memory.
 	// This basically scales sleep down the more memory there is to look at, capped at a minimum of 10ms.
 	// This is copied from oVirt but might have to be adjuested in the future.
-	ksm.sleep = sleepMsBaseline * (16 * 1024 * 1024) / (total - available)
+	ksm.sleep = sleepMsBaseline * (16 * 1024 * 1024) / (memStat.total - memStat.available)
 	if ksm.sleep < sleepMsBaseline/10 {
 		ksm.sleep = sleepMsBaseline / 10
 	}
 
-	if float32(available) > float32(total)*freePercent {
+	if float32(memStat.available) > float32(memStat.total)*freePercent {
 		// No memory pressure. Reduce or stop KSM activity
 		if running {
 			ksm.pages += pagesDecay
@@ -393,7 +397,7 @@ func writeKsmValuesToFiles(ksm ksmState) error {
 	return nil
 }
 
-func loadKSM() (bool, bool) {
+func loadKSM() (available, enabled bool) {
 	ksmValue, err := os.ReadFile(ksmRunPath)
 	if err != nil {
 		log.DefaultLogger().Warningf("An error occurred while reading the ksm module file; Maybe it is not available: %s", err)
