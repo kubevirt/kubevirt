@@ -54,6 +54,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/os/disk"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -94,25 +96,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 		}
 	})
 
-	getImageSize := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume) int64 {
-		var imageSize int64
-		var unused string
-		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-		Expect(err).ToNot(HaveOccurred())
-
-		lsOutput, err := exec.ExecuteCommandOnPod(
-			pod,
-			"compute",
-			[]string{"ls", "-s", "/var/run/kubevirt-private/vmi-disks/disk0/disk.img"},
-		)
-		Expect(err).ToNot(HaveOccurred())
-		if _, err := fmt.Sscanf(lsOutput, "%d %s", &imageSize, &unused); err != nil {
-			return 0
-		}
-		return imageSize
-	}
-
-	getVirtualSize := func(vmi *v1.VirtualMachineInstance, dv *cdiv1.DataVolume) int64 {
+	getQemuImgInfo := func(vmi *v1.VirtualMachineInstance) disk.DiskInfo {
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -123,13 +107,11 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 		)
 		Expect(err).ToNot(HaveOccurred())
 
-		var info struct {
-			VirtualSize int64 `json:"virtual-size"`
-		}
+		info := disk.DiskInfo{}
 		err = json.Unmarshal([]byte(output), &info)
 		Expect(err).ToNot(HaveOccurred())
 
-		return info.VirtualSize
+		return info
 	}
 
 	createAndWaitForVMIReady := func(vmi *v1.VirtualMachineInstance, dataVolume *cdiv1.DataVolume) *v1.VirtualMachineInstance {
@@ -280,7 +262,8 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				return false
 			}, 30*time.Second, time.Second).Should(BeTrue(), "Expected VolumeStatus for 'disk0' to be available")
 
-			Expect(getVirtualSize(vmi, dataVolume)).ToNot(BeNumerically(">", freeSize))
+			virtualSize := getQemuImgInfo(vmi).VirtualSize
+			Expect(virtualSize).ToNot(BeNumerically(">", freeSize))
 		})
 	})
 
@@ -1007,12 +990,9 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 	Context("Fedora VMI tests", func() {
 		imageSizeEqual := func(a, b int64) bool {
-			// Our OCS image size method probe is very precise and can show a few
-			// bytes of difference.
-			// A VM cannot do sub-512 byte accesses anyway, so such small size
-			// differences are practically equal.
-			if math.Abs((float64)(a-b)) >= 512 {
-				By(fmt.Sprintf("Image sizes not equal, %d - %d >= 512", a, b))
+			// small size differences are practically equal
+			if math.Abs((float64)(a-b)) >= storagetypes.MiB {
+				By(fmt.Sprintf("Image sizes not equal, %d - %d >= %d", a, b, storagetypes.MiB))
 				return false
 			} else {
 				return true
@@ -1041,7 +1021,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			return dv
 		}
 		DescribeTable("[rfe_id:5070][crit:medium][vendor:cnv-qe@redhat.com][level:component]fstrim from the VM influences disk.img", func(dvChange func(*cdiv1.DataVolume) *cdiv1.DataVolume, expectSmaller bool) {
-			sc, exists := libstorage.GetRWOFileSystemStorageClass()
+			sc, exists := libstorage.GetCSIStorageClass()
 			if !exists {
 				Fail("Fail test when Filesystem storage is not present")
 			}
@@ -1050,6 +1030,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
 				libdv.WithStorage(
 					libdv.StorageWithStorageClass(sc),
+					// Coupled to filesystem PVC since asserting fstrim occurence on block is harder
 					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
 					libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
 				),
@@ -1063,7 +1044,6 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				libvmi.WithMemoryRequest("512Mi"),
 			)
-			vmi.Spec.Domain.Devices.Disks[0].DiskDevice.Disk.Bus = "scsi"
 
 			dataVolume, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dataVolume, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1078,7 +1058,11 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
 
-			imageSizeAfterBoot := getImageSize(vmi, dataVolume)
+			getImageActualSize := func(vmi *v1.VirtualMachineInstance) int64 {
+				qemuImgInfo := getQemuImgInfo(vmi)
+				return qemuImgInfo.ActualSize
+			}
+			imageSizeAfterBoot := getImageActualSize(vmi)
 			By(fmt.Sprintf("image size after boot is %d", imageSizeAfterBoot))
 
 			By("Filling out disk space")
@@ -1093,12 +1077,12 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 
 			if preallocated {
 				// Preallocation means no changes to disk size
-				Eventually(imageSizeEqual, 120*time.Second).WithArguments(getImageSize(vmi, dataVolume), imageSizeAfterBoot).Should(BeTrue())
+				Eventually(imageSizeEqual, 120*time.Second).WithArguments(getImageActualSize(vmi), imageSizeAfterBoot).Should(BeTrue())
 			} else {
-				Eventually(getImageSize, 120*time.Second).WithArguments(vmi, dataVolume).Should(BeNumerically(">", imageSizeAfterBoot))
+				Eventually(getImageActualSize, 120*time.Second).WithArguments(vmi).Should(BeNumerically(">", imageSizeAfterBoot))
 			}
 
-			imageSizeBeforeTrim := getImageSize(vmi, dataVolume)
+			imageSizeBeforeTrim := getImageActualSize(vmi)
 			By(fmt.Sprintf("image size before trim is %d", imageSizeBeforeTrim))
 
 			By("Writing a small file so that we detect a disk space usage change.")
@@ -1123,7 +1107,7 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 				}, 60)
 				Expect(err).ToNot(HaveOccurred())
 
-				currentImageSize := getImageSize(vmi, dataVolume)
+				currentImageSize := getImageActualSize(vmi)
 				if expectSmaller {
 					// Trim should make the space usage go down
 					By(fmt.Sprintf("We expect disk usage to go down from the use of trim.\nIt is currently %d and was previously %d", currentImageSize, imageSizeBeforeTrim))
