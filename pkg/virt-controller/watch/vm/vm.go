@@ -1267,6 +1267,12 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 
 	setGenerationAnnotationOnVmi(vm.Generation, vmi)
 
+	// For clones we preserve the source VM UUID annotation so the original
+	// swtpm state directory can be located and renamed for the cloned VM.
+	if val, ok := vm.Annotations["restore.kubevirt.io/source-uid"]; ok {
+		vmi.Annotations["restore.kubevirt.io/source-uid"] = val
+	}
+
 	if vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver {
 		log.Log.Infof("Setting up receiver VMI %s/%s", vmi.Namespace, vmi.Name)
 		vmi.Annotations[virtv1.CreateMigrationTarget] = "true"

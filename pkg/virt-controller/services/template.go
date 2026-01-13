@@ -549,6 +549,11 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		initContainers = append(initContainers, *sconsolelogContainer)
 	}
 
+	tpmCloneInitContainer := generateTPMCloneHandlerInitContainer(vmi, t.launcherImage, t.clusterConfig)
+	if tpmCloneInitContainer != nil {
+		initContainers = append(initContainers, *tpmCloneInitContainer)
+	}
+
 	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi)) {
 		initContainerCommand := []string{"/usr/bin/cp", "--preserve=all",
 			"/usr/bin/container-disk",
