@@ -52,6 +52,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virtctl/memorydump"
 	"kubevirt.io/kubevirt/pkg/virtctl/testing"
 	"kubevirt.io/kubevirt/pkg/virtctl/vmexport"
@@ -273,6 +274,8 @@ var _ = Describe("MemoryDump", func() {
 
 		pvc, err := kubeClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
+		// This label is applied by default to all memorydump-created PVCs
+		Expect(pvc.ObjectMeta.Labels).To(HaveKeyWithValue(storagetypes.LabelApplyStorageProfile, "true"))
 		Expect(pvc.Spec.Resources.Requests[k8sv1.ResourceStorage]).To(Equal(resource.MustParse(defaultFSOverheadSize)))
 		Expect(pvc.Spec.AccessModes[0]).To(Equal(accessMode))
 	})
