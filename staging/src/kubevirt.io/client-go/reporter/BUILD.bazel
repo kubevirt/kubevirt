@@ -6,7 +6,7 @@ go_library(
     importpath = "kubevirt.io/client-go/reporter",
     visibility = ["//visibility:public"],
     deps = [
-        "//vendor/github.com/onsi/ginkgo/v2/config:go_default_library",
-        "//vendor/github.com/onsi/ginkgo/v2/types:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/github.com/onsi/ginkgo/v2/config:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/github.com/onsi/ginkgo/v2/types:go_default_library",
     ],
 )

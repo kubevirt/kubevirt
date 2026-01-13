@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "compile.go",
+        "profiles_and_reports.go",
+        "run.go",
+        "test_suite.go",
+        "utils.go",
+        "verify_version.go",
+    ],
+    importmap = "kubevirt.io/client-go/vendor/github.com/onsi/ginkgo/v2/ginkgo/internal",
+    importpath = "github.com/onsi/ginkgo/v2/ginkgo/internal",
+    visibility = ["//staging/src/kubevirt.io/client-go/vendor/github.com/onsi/ginkgo/v2/ginkgo:__subpackages__"],
+    deps = [
+        "//staging/src/kubevirt.io/client-go/vendor/github.com/google/pprof/profile:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/github.com/onsi/ginkgo/v2/formatter:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/github.com/onsi/ginkgo/v2/ginkgo/command:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/github.com/onsi/ginkgo/v2/internal/parallel_support:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/github.com/onsi/ginkgo/v2/reporters:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/github.com/onsi/ginkgo/v2/types:go_default_library",
+    ],
+)

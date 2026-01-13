@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["keyvalues.go"],
+    importmap = "kubevirt.io/client-go/vendor/k8s.io/klog/v2/internal/serialize",
+    importpath = "k8s.io/klog/v2/internal/serialize",
+    visibility = ["//staging/src/kubevirt.io/client-go/vendor/k8s.io/klog/v2:__subpackages__"],
+    deps = ["//staging/src/kubevirt.io/client-go/vendor/github.com/go-logr/logr:go_default_library"],
+)
