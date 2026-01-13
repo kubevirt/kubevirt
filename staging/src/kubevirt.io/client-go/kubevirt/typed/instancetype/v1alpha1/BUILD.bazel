@@ -14,12 +14,12 @@ go_library(
     importpath = "kubevirt.io/client-go/kubevirt/typed/instancetype/v1alpha1",
     visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/kubevirt.io/api/instancetype/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/scheme:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
-        "//vendor/k8s.io/client-go/gentype:go_default_library",
-        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/k8s.io/client-go/gentype:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/k8s.io/client-go/rest:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/kubevirt.io/api/instancetype/v1alpha1:go_default_library",
     ],
 )
