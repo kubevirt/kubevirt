@@ -443,8 +443,10 @@ func TestObjectContextLeakage(t *testing.T) {
 	assert(t, logCalled, "Expected post-check log to reach logger")
 	assert(t, len(logParams) == 1, fmt.Sprintf("Expected 1 log entry, got %d", len(logParams)))
 	logEntry := logParams[0].([]interface{})
-	for _, kv := range logEntry {
-		assert(t, kv.(string) != "leak-test", fmt.Sprintf("Unexpected object context on base logger: %v", logEntry))
+	for _, item := range logEntry {
+		if s, ok := item.(string); ok {
+			assert(t, s != "leak-test", fmt.Sprintf("Unexpected object context on base logger: %v", logEntry))
+		}
 	}
 
 	tearDown()
