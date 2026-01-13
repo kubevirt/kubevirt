@@ -35,6 +35,7 @@ import (
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
+	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -631,4 +632,114 @@ var _ = Describe("Backup", func() {
 			})
 		})
 	})
+
+	Describe("findDisksWithCheckpointBitmap", func() {
+		const checkpointName = "checkpoint-1"
+
+		It("should find disks with checkpoint bitmap and ignore disks without DataStore", func() {
+			domainXML := `<domain>
+				<devices>
+					<disk type="file" device="disk">
+						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vda"/>
+					</disk>
+					<disk type="file" device="cdrom">
+						<source file="/var/run/kubevirt-private/cdrom/cd.iso"/>
+						<target dev="sda"/>
+					</disk>
+				</devices>
+			</domain>`
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+			getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare(checkpointName)
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Disks).To(HaveLen(1))
+			Expect(result.Disks[0].Name).To(Equal("vda"))
+			Expect(result.Disks[0].Checkpoint).To(Equal("bitmap"))
+			Expect(disksWithoutBitmap).To(BeEmpty())
+		})
+
+		It("should return disk in disksWithoutBitmap when bitmap is not found", func() {
+			domainXML := `<domain>
+				<devices>
+					<disk type="file" device="disk">
+						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vda"/>
+					</disk>
+				</devices>
+			</domain>`
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+			getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare("other-checkpoint")
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Disks).To(BeEmpty())
+			Expect(disksWithoutBitmap).To(HaveLen(1))
+			Expect(disksWithoutBitmap[0]).To(Equal("vda"))
+		})
+
+		It("should find multiple disks with checkpoint bitmap", func() {
+			domainXML := `<domain>
+				<devices>
+					<disk type="file" device="disk">
+						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vda"/>
+					</disk>
+					<disk type="file" device="disk">
+						<source file="/var/run/kubevirt-private/vmi-disks/disk2/disk.qcow2">
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk2-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vdb"/>
+					</disk>
+				</devices>
+			</domain>`
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+			getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare(checkpointName)
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Disks).To(HaveLen(2))
+			Expect(result.Disks[0].Name).To(Equal("vda"))
+			Expect(result.Disks[1].Name).To(Equal("vdb"))
+			Expect(disksWithoutBitmap).To(BeEmpty())
+		})
+	})
 })
+
+func mockGetDiskInfoWithForceShare(bitmapName string) func(path string) (*osdisk.DiskInfo, error) {
+	return func(path string) (*osdisk.DiskInfo, error) {
+		var bitmaps []osdisk.BitmapInfo
+		if bitmapName != "" {
+			bitmaps = []osdisk.BitmapInfo{{Name: bitmapName, Granularity: 65536}}
+		}
+		return &osdisk.DiskInfo{
+			Format:      "qcow2",
+			VirtualSize: 10737418240,
+			FormatSpecific: &osdisk.FormatSpecific{
+				Type: "qcow2",
+				Data: &osdisk.FormatSpecificData{Bitmaps: bitmaps},
+			},
+		}, nil
+	}
+}
