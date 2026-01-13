@@ -103,6 +103,12 @@ const (
 	// HostDevicesWithDRAGate allows users to create VMIs with DRA provisioned Host devices
 	HostDevicesWithDRAGate = "HostDevicesWithDRA"
 
+	// Owner: sig-compute / @awels / @sig-network
+	// Alpha: v1.6.0
+	// Beta: v1.9.0
+	//
+	// DecentralizedLiveMigration enables decentralized live migration of VirtualMachines. This allows
+	// for live migration between clusters or between namespaces in the same cluster.
 	DecentralizedLiveMigration = "DecentralizedLiveMigration"
 
 	// Owner: sig-storage / @alromeros
@@ -178,7 +184,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Beta})
