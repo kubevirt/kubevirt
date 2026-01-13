@@ -90,7 +90,12 @@ type Handler struct {
 	loopChan       chan struct{}
 }
 
-func NewHandler(nodeName string, client k8scorev1.CoreV1Interface, nodeStore cache.Store, clusterConfig *virtconfig.ClusterConfig) *Handler {
+func NewHandler(
+	nodeName string,
+	client k8scorev1.CoreV1Interface,
+	nodeStore cache.Store,
+	clusterConfig *virtconfig.ClusterConfig,
+) *Handler {
 	return &Handler{
 		isLoopRunning:  false,
 		clusterConfig:  clusterConfig,
@@ -327,6 +332,7 @@ func calculateNewRunSleepAndPages(node *k8sv1.Node, running bool) (ksmState, err
 	nPagesMin := getIntParam(node, v1.KSMPagesMinOverride, nPagesMinDefault, 0, math.MaxInt)
 	nPagesMax := getIntParam(node, v1.KSMPagesMaxOverride, nPagesMaxDefault, nPagesMin, math.MaxInt)
 	nPagesInit := getIntParam(node, v1.KSMPagesInitOverride, nPagesInitDefault, nPagesMin, nPagesMax)
+	//nolint:gosec // sleepMsBaseline is constrained to be >= 1, so conversion to uint64 is safe
 	sleepMsBaseline := uint64(getIntParam(node, v1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
 	freePercent := getFloatParam(node, v1.KSMFreePercentOverride, freePercentDefault, 0, 1)
 	ksm := ksmState{running: running}
