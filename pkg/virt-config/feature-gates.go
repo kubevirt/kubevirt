@@ -177,10 +177,6 @@ func (config *ClusterConfig) SecureExecutionEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.SecureExecution)
 }
 
-func (config *ClusterConfig) PanicDevicesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PanicDevicesGate)
-}
-
 func (config *ClusterConfig) PasstIPStackMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PasstIPStackMigration)
 }
