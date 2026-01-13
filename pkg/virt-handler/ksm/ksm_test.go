@@ -27,24 +27,21 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"k8s.io/client-go/tools/cache"
-
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-
-	"k8s.io/apimachinery/pkg/types"
-
-	v1 "k8s.io/api/core/v1"
-	kubevirtv1 "kubevirt.io/api/core/v1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/fake"
-
 	gomegatypes "github.com/onsi/gomega/types"
+
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
+
+	kubevirtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const (
@@ -64,11 +61,11 @@ var _ = Describe("KSM", func() {
 		var err error
 		fakeSysKSMDir, err = os.MkdirTemp("", "ksm")
 		Expect(err).NotTo(HaveOccurred())
-		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("0\n"), 0644)
+		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("0\n"), ksmFilePermissions)
 		Expect(err).NotTo(HaveOccurred())
-		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "sleep_millisecs"), []byte("20\n"), 0644)
+		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "sleep_millisecs"), []byte("20\n"), ksmFilePermissions)
 		Expect(err).NotTo(HaveOccurred())
-		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "pages_to_scan"), []byte("100\n"), 0644)
+		err = os.WriteFile(filepath.Join(fakeSysKSMDir, "pages_to_scan"), []byte("100\n"), ksmFilePermissions)
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -81,12 +78,12 @@ var _ = Describe("KSM", func() {
 		fakeMemInfo, err := os.CreateTemp("", "meminfo")
 		Expect(err).ToNot(HaveOccurred())
 		defer fakeMemInfo.Close()
-		_, err = fakeMemInfo.WriteString(fmt.Sprintf("MemTotal:       %d kB\n", memTotal))
+		_, err = fmt.Fprintf(fakeMemInfo, "MemTotal:       %d kB\n", memTotal)
 		Expect(err).NotTo(HaveOccurred())
 		if pressure {
-			_, err = fakeMemInfo.WriteString(fmt.Sprintf("MemAvailable:    %d kB\n", memAvailablePressure))
+			_, err = fmt.Fprintf(fakeMemInfo, "MemAvailable:    %d kB\n", memAvailablePressure)
 		} else {
-			_, err = fakeMemInfo.WriteString(fmt.Sprintf("MemAvailable:   %d kB\n", memAvailableNoPressure))
+			_, err = fmt.Fprintf(fakeMemInfo, "MemAvailable:   %d kB\n", memAvailableNoPressure)
 		}
 		Expect(err).NotTo(HaveOccurred())
 		memInfoPath = fakeMemInfo.Name()
@@ -145,7 +142,7 @@ var _ = Describe("KSM", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"))
 
-			err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), 0644)
+			err = os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte("1\n"), ksmFilePermissions)
 			Expect(err).ToNot(HaveOccurred())
 
 			handler.spin()
@@ -207,13 +204,20 @@ var _ = Describe("KSM", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(node.Labels).To(HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, expectedLabelValue))
 		},
-			Entry("should add KSM label if the node labels match ksmConfiguration.nodeLabelSelector", map[string]string{"test_label": "true"}, "true"),
-			Entry("should not add KSM label if the node labels match ksmConfiguration.nodeLabelSelector", map[string]string{"no_macthing_label": "true"}, "false"),
+			Entry("should add KSM label if the node labels match ksmConfiguration.nodeLabelSelector",
+				map[string]string{"test_label": "true"}, "true"),
+			Entry("should not add KSM label if the node labels match ksmConfiguration.nodeLabelSelector",
+				map[string]string{"no_macthing_label": "true"}, "false"),
 		)
 
-		DescribeTable("with memory pressure, should", func(initialKsmValue string, selectorOverride *metav1.LabelSelector,
+		DescribeTable("with memory pressure, should", func(
+			initialKsmValue string,
+			selectorOverride *metav1.LabelSelector,
 			nodeLabels, nodeAnnotations map[string]string,
-			labelsMatcher gomegatypes.GomegaMatcher, annotationsMatcher gomegatypes.GomegaMatcher, expectedKsmValue string) {
+			labelsMatcher gomegatypes.GomegaMatcher,
+			annotationsMatcher gomegatypes.GomegaMatcher,
+			expectedKsmValue string,
+		) {
 			if selectorOverride != nil {
 				kv.Spec.Configuration.KSMConfiguration.NodeLabelSelector = selectorOverride
 			}
@@ -226,7 +230,7 @@ var _ = Describe("KSM", func() {
 			}
 			fakeClient := fake.NewSimpleClientset(node)
 			Expect(fakeNodeStore.Add(node)).To(Succeed())
-			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0644)
+			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), ksmFilePermissions)
 			Expect(err).ToNot(HaveOccurred())
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
@@ -245,22 +249,31 @@ var _ = Describe("KSM", func() {
 		},
 			Entry("enable ksm if the node labels match ksmConfiguration.nodeLabelSelector",
 				"0\n", nil, map[string]string{"test_label": "true"}, make(map[string]string),
-				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "true"), HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "true"),
+				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "true"),
+				HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "true"),
 				"1",
 			),
-			Entry("disable ksm if the node labels does not match ksmConfiguration.nodeLabelSelector and the node has the KSMHandlerManagedAnnotation annotation",
-				"1\n", nil, map[string]string{"test_label": "false"}, map[string]string{kubevirtv1.KSMHandlerManagedAnnotation: "true"},
-				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"), HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "false"),
+			Entry("disable ksm if the node labels does not match ksmConfiguration.nodeLabelSelector "+
+				"and the node has the KSMHandlerManagedAnnotation annotation",
+				"1\n", nil, map[string]string{"test_label": "false"},
+				map[string]string{kubevirtv1.KSMHandlerManagedAnnotation: "true"},
+				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"),
+				HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "false"),
 				"0",
 			),
-			Entry(", with alternative label selector, enable ksm if the node labels match ksmConfiguration.nodeLabelSelector",
+			Entry(", with alternative label selector, enable ksm if the node labels match "+
+				"ksmConfiguration.nodeLabelSelector",
 				"0\n", alternativeLabelSelector, map[string]string{"test_label": "true"}, make(map[string]string),
-				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "true"), HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "true"),
+				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "true"),
+				HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "true"),
 				"1",
 			),
-			Entry(", with alternative label selector, disable ksm if the node labels does not match ksmConfiguration.nodeLabelSelector and the node has the KSMHandlerManagedAnnotation annotation",
-				"1\n", alternativeLabelSelector, map[string]string{"test_label": "false"}, map[string]string{kubevirtv1.KSMHandlerManagedAnnotation: "true"},
-				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"), HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "false"),
+			Entry(", with alternative label selector, disable ksm if the node labels does not match "+
+				"ksmConfiguration.nodeLabelSelector and the node has the KSMHandlerManagedAnnotation annotation",
+				"1\n", alternativeLabelSelector, map[string]string{"test_label": "false"},
+				map[string]string{kubevirtv1.KSMHandlerManagedAnnotation: "true"},
+				HaveKeyWithValue(kubevirtv1.KSMEnabledLabel, "false"),
+				HaveKeyWithValue(kubevirtv1.KSMHandlerManagedAnnotation, "false"),
 				"0",
 			),
 		)
@@ -304,7 +317,7 @@ var _ = Describe("KSM", func() {
 			expected.pages = nPagesMaxDefault
 			expectKSMState(expected)
 
-			By("cancelling memory pressure and expecting more sleep and a decay of the number of pages to scan")
+			By("canceling memory pressure and expecting more sleep and a decay of the number of pages to scan")
 			createCustomMemInfo(false)
 			handler.spin()
 			expected.pages = nPagesMaxDefault + pagesDecayDefault
@@ -365,9 +378,10 @@ var _ = Describe("KSM", func() {
 			expected.pages = 789
 			expectKSMState(expected)
 
-			By("cancelling memory pressure and expecting to decrease pages and stop running when reaching minimum")
-			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s"}}}`, kubevirtv1.KSMFreePercentOverride, "0.1"))
-			node, err := fakeClient.CoreV1().Nodes().Patch(context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
+			By("canceling memory pressure and expecting to decrease pages and stop running when reaching minimum")
+			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {%q: %q}}}`, kubevirtv1.KSMFreePercentOverride, "0.1"))
+			node, err := fakeClient.CoreV1().Nodes().Patch(
+				context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(fakeNodeStore.Update(node)).To(Succeed())
 			handler.spin()
