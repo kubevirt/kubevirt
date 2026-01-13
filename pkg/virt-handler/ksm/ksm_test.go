@@ -134,7 +134,7 @@ var _ = Describe("KSM", func() {
 				},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
-			fakeNodeStore.Add(node)
+			Expect(fakeNodeStore.Add(node)).To(Succeed())
 			clusterConfig := generateClusterConfig(featuregate.CPUManager)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
@@ -199,7 +199,7 @@ var _ = Describe("KSM", func() {
 				},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
-			fakeNodeStore.Add(node)
+			Expect(fakeNodeStore.Add(node)).To(Succeed())
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
 
@@ -225,7 +225,7 @@ var _ = Describe("KSM", func() {
 				},
 			}
 			fakeClient := fake.NewSimpleClientset(node)
-			fakeNodeStore.Add(node)
+			Expect(fakeNodeStore.Add(node)).To(Succeed())
 			err := os.WriteFile(filepath.Join(fakeSysKSMDir, "run"), []byte(initialKsmValue), 0644)
 			Expect(err).ToNot(HaveOccurred())
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
@@ -279,7 +279,7 @@ var _ = Describe("KSM", func() {
 				pages:   nPagesInitDefault,
 			}
 			fakeClient := fake.NewSimpleClientset(node)
-			fakeNodeStore.Add(node)
+			Expect(fakeNodeStore.Add(node)).To(Succeed())
 			createCustomMemInfo(false)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
@@ -347,7 +347,7 @@ var _ = Describe("KSM", func() {
 				pages:   166,
 			}
 			fakeClient := fake.NewSimpleClientset(node)
-			fakeNodeStore.Add(node)
+			Expect(fakeNodeStore.Add(node)).To(Succeed())
 			createCustomMemInfo(false)
 			handler := NewHandler(testNodeName, fakeClient.CoreV1(), fakeNodeStore, clusterConfig)
 			handler.spin()
@@ -369,7 +369,7 @@ var _ = Describe("KSM", func() {
 			data := []byte(fmt.Sprintf(`{"metadata": { "annotations": {"%s": "%s"}}}`, kubevirtv1.KSMFreePercentOverride, "0.1"))
 			node, err := fakeClient.CoreV1().Nodes().Patch(context.Background(), testNodeName, types.StrategicMergePatchType, data, metav1.PatchOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			fakeNodeStore.Update(node)
+			Expect(fakeNodeStore.Update(node)).To(Succeed())
 			handler.spin()
 			expected.pages = 789 - 50
 			expectKSMState(expected)
