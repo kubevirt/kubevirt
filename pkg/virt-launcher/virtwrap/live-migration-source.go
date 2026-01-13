@@ -879,23 +879,40 @@ func init() {
 // getDiskVirtualSize return the size of a local volume to migrate.
 // See suggestion in: https://issues.redhat.com/browse/RHEL-4607
 func getDiskVirtualSize(disk *libvirtxml.DomainDisk) (int64, error) {
-	var path string
-	if disk.Source == nil {
-		return -1, fmt.Errorf("empty source for the disk")
-	}
-	switch {
-	case disk.Source.File != nil:
-		path = disk.Source.File.File
-	case disk.Source.Block != nil:
-		path = disk.Source.Block.Dev
-	default:
-		return -1, fmt.Errorf("not path set")
+	path, err := getDiskPathFromSource(disk.Source)
+	if err != nil {
+		return -1, err
 	}
 	info, err := osdisk.GetDiskInfo(path)
 	if err != nil {
 		return -1, err
 	}
 	return info.VirtualSize, nil
+}
+
+func getDiskPathFromSource(source *libvirtxml.DomainDiskSource) (string, error) {
+	var path string
+	if source == nil {
+		return "", fmt.Errorf("empty source for the disk")
+	}
+
+	if source.DataStore != nil {
+		if source.DataStore.Source == nil {
+			return "", fmt.Errorf("disk has initialized datastore with no source")
+		}
+		source = source.DataStore.Source
+	}
+
+	switch {
+	case source.File != nil:
+		path = source.File.File
+	case source.Block != nil:
+		path = source.Block.Dev
+	default:
+		return "", fmt.Errorf("no path set")
+	}
+
+	return path, nil
 }
 
 func getDiskName(disk *libvirtxml.DomainDisk) string {
