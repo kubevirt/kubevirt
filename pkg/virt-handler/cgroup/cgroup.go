@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
 	"github.com/opencontainers/runc/libcontainer/devices"
@@ -137,7 +138,7 @@ func newManagerFromPid(pid int, deviceRules []*devices.Rule) (manager Manager, e
 	return manager, err
 }
 
-func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string) (Manager, error) {
+func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string, hypervisorDeviceMinorNumber int64) (Manager, error) {
 	isolationRes, err := detectVMIsolation(vmi)
 	if err != nil {
 		return nil, err
@@ -147,6 +148,23 @@ func NewManagerFromVM(vmi *v1.VirtualMachineInstance, host string) (Manager, err
 	if err != nil {
 		return nil, err
 	}
+
+	const toAllow = true
+	var permissions devices.Permissions
+	if cgroups.IsCgroup2UnifiedMode() {
+		permissions = "rwm"
+	} else {
+		permissions = "rw"
+	}
+
+	vmiDeviceRules = append(vmiDeviceRules,
+		&devices.Rule{
+			Type:        devices.CharDevice,
+			Major:       10,
+			Minor:       hypervisorDeviceMinorNumber,
+			Permissions: permissions,
+			Allow:       toAllow,
+		})
 
 	return newManagerFromPid(isolationRes.Pid(), vmiDeviceRules)
 }

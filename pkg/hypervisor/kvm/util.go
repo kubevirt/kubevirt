@@ -1,31 +1,16 @@
-/*
- * This file is part of the KubeVirt project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * Copyright The KubeVirt Authors.
- *
- */
-
-package virthandler
+package kvm
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"unsafe"
+
+	"golang.org/x/sys/unix"
 )
 
 type maskType bool
@@ -44,40 +29,57 @@ var (
 	cpuRangeRegex  = regexp.MustCompile(`^(\d+)-(\d+)$`)
 	negateCPURegex = regexp.MustCompile(`^\^(\d+)$`)
 	singleCPURegex = regexp.MustCompile(`^(\d+)$`)
-
-	// parse thread comm value expression
-	vcpuRegex = regexp.MustCompile(`^CPU (\d+)/KVM\n$`) // These threads follow this naming pattern as their command value (/proc/{pid}/task/{taskid}/comm)
-	// QEMU uses threads to represent vCPUs.
-
 )
 
-func isVCPU(comm []byte) (string, bool) {
-	if !vcpuRegex.MatchString(string(comm)) {
-		return "", false
+// setProcessMemoryLockRLimit Adjusts process MEMLOCK
+// soft-limit (current) and hard-limit (max) to the given size.
+func setProcessMemoryLockRLimit(pid int, size int64) error {
+	// standard golang libraries don't provide API to set runtime limits
+	// for other processes, so we have to directly call to kernel
+	rlimit := unix.Rlimit{
+		Cur: uint64(size),
+		Max: uint64(size),
 	}
-	v := vcpuRegex.FindSubmatch(comm)
-	return string(v[1]), true
-}
-func getVCPUThreadIDs(pid int) (map[string]string, error) {
+	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
+		uintptr(pid),
+		uintptr(unix.RLIMIT_MEMLOCK),
+		uintptr(unsafe.Pointer(&rlimit)), // #nosec used in unix RawSyscall6
+		0, 0, 0)
+	if errno != 0 {
+		return fmt.Errorf("error setting prlimit: %v", errno)
+	}
 
-	p := filepath.Join(string(os.PathSeparator), "proc", strconv.Itoa(pid), "task")
-	d, err := os.ReadDir(p)
+	return nil
+}
+
+// Returns the pid of "vmpid" as seen from the first pid namespace the task
+// belongs to.
+func GetNspid(vmpid int) (int, error) {
+	fpath := filepath.Join("proc", strconv.Itoa(vmpid), "status")
+	file, err := os.Open(fpath)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	ret := map[string]string{}
-	for _, f := range d {
-		if f.IsDir() {
-			c, err := os.ReadFile(filepath.Join(p, f.Name(), "comm"))
-			if err != nil {
-				return nil, err
-			}
-			if v, ok := isVCPU(c); ok {
-				ret[v] = f.Name()
-			}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) < 6 {
+			continue
 		}
+		if line[0:6] != "NSpid:" {
+			continue
+		}
+		s := strings.Fields(line)
+		if len(s) < 2 {
+			continue
+		}
+		val, err := strconv.Atoi(s[2])
+		return val, err
 	}
-	return ret, nil
+
+	return -1, nil
 }
 
 // parseCPUMask parses the mask and maps the results into a structure that contains which

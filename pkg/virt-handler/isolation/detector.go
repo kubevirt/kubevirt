@@ -24,21 +24,14 @@ package isolation
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"syscall"
 	"time"
-	"unsafe"
 
 	ps "github.com/mitchellh/go-ps"
-	"golang.org/x/sys/unix"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -50,9 +43,6 @@ type PodIsolationDetector interface {
 	Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error)
 
 	DetectForSocket(socket string) (IsolationResult, error)
-
-	// Adjust system resources to run the passed VM
-	AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error
 }
 
 const isolationDialTimeout = 5
@@ -88,137 +78,6 @@ func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (Isolation
 	}
 
 	return NewIsolationResult(pid, ppid), nil
-}
-
-func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
-	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
-		return nil
-	}
-
-	// bump memlock ulimit for virtqemud
-	res, err := s.Detect(vmi)
-	if err != nil {
-		return err
-	}
-	launcherPid := res.Pid()
-
-	processes, err := ps.Processes()
-	if err != nil {
-		return fmt.Errorf("failed to get all processes: %v", err)
-	}
-
-	for _, process := range processes {
-		// consider all processes that are virt-launcher children
-		if process.PPid() != launcherPid {
-			continue
-		}
-
-		// virtqemud process sets the memory lock limit before fork/exec-ing into qemu
-		if process.Executable() != "virtqemud" {
-			continue
-		}
-
-		launcherRenderer := hypervisor.NewLauncherResourceRenderer(v1.KvmHypervisorName)
-		// make the best estimate for memory required by libvirt
-		memlockSize := launcherRenderer.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-		// Add base memory requested for the VM
-		var vmiBaseMemory *resource.Quantity
-		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-			vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-		} else {
-			vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-		}
-
-		memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize.Value())
-		if err != nil {
-			return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", process.Pid(), memlockSize.Value(), err)
-		}
-		// we assume a single process should match
-		break
-	}
-	return nil
-}
-
-// AdjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside
-// virt-launcher pod on the given VMI according to its spec.
-// Only VMI's with VFIO devices (e.g: SRIOV, GPU), SEV or RealTime workloads require QEMU process MEMLOCK adjustment.
-func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
-		return nil
-	}
-
-	isolationResult, err := podIsoDetector.Detect(vmi)
-	if err != nil {
-		return err
-	}
-
-	qemuProcess, err := isolationResult.GetQEMUProcess()
-	if err != nil {
-		return err
-	}
-	qemuProcessID := qemuProcess.Pid()
-	// make the best estimate for memory required by libvirt
-	launcherRenderer := hypervisor.NewLauncherResourceRenderer(v1.KvmHypervisorName)
-	memlockSize := launcherRenderer.GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-	// Add max memory assigned to the VM
-	var vmiBaseMemory *resource.Quantity
-
-	switch {
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.MaxGuest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.MaxGuest
-	case vmi.Spec.Domain.Resources.Requests.Memory() != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-	case vmi.Spec.Domain.Memory != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-	}
-
-	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-	if err := setProcessMemoryLockRLimit(qemuProcessID, memlockSize.Value()); err != nil {
-		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessID, memlockSize.Value(), err)
-	}
-	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
-		qemuProcess, memlockSize.Value())
-
-	return nil
-}
-
-var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
-
-// findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
-func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error) {
-	processes = childProcesses(processes, pid)
-	for _, execPrefix := range qemuProcessExecutablePrefixes {
-		if qemuProcess := lookupProcessByExecutablePrefix(processes, execPrefix); qemuProcess != nil {
-			return qemuProcess, nil
-		}
-	}
-
-	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
-}
-
-// setProcessMemoryLockRLimit Adjusts process MEMLOCK
-// soft-limit (current) and hard-limit (max) to the given size.
-func setProcessMemoryLockRLimit(pid int, size int64) error {
-	// standard golang libraries don't provide API to set runtime limits
-	// for other processes, so we have to directly call to kernel
-	rlimit := unix.Rlimit{
-		Cur: uint64(size),
-		Max: uint64(size),
-	}
-	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
-		uintptr(pid),
-		uintptr(unix.RLIMIT_MEMLOCK),
-		uintptr(unsafe.Pointer(&rlimit)), // #nosec used in unix RawSyscall6
-		0, 0, 0)
-	if errno != 0 {
-		return fmt.Errorf("error setting prlimit: %v", errno)
-	}
-
-	return nil
 }
 
 func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {

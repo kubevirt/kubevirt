@@ -36,6 +36,10 @@ func (k *KvmLauncherResourceRenderer) GetVirtType() string {
 	return "kvm"
 }
 
+func (k *KvmLauncherResourceRenderer) GetHypervisorDeviceMinorNumber() int64 {
+	return 232
+}
+
 // GetMemoryOverhead computes the estimation of total
 // memory needed for the domain to operate properly.
 // This includes the memory needed for the guest and memory

@@ -12,7 +12,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/isolation",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/hypervisor:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//pkg/util:go_default_library",
@@ -22,8 +21,6 @@ go_library(
         "//vendor/github.com/mitchellh/go-ps:go_default_library",
         "//vendor/github.com/moby/sys/mountinfo:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
-        "//vendor/golang.org/x/sys/unix:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
     ],
 )
 

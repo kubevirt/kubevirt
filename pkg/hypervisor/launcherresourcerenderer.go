@@ -11,6 +11,7 @@ type LauncherResourceRenderer interface {
 	GetHypervisorDevice() string
 	GetMemoryOverhead(vmi *v1.VirtualMachineInstance, arch string, additionalOverheadRatio *string) resource.Quantity
 	GetVirtType() string
+	GetHypervisorDeviceMinorNumber() int64
 }
 
 func NewLauncherResourceRenderer(hypervisor string) LauncherResourceRenderer {
