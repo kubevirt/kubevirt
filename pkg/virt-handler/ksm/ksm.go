@@ -270,9 +270,7 @@ func (k *Handler) getNode() (*k8sv1.Node, error) {
 }
 
 // Inspired from https://github.com/artyom/meminfo
-func getTotalAndAvailableMem() (uint64, uint64, error) {
-	var total, available uint64
-
+func getTotalAndAvailableMem() (total, available uint64, err error) {
 	f, err := os.Open(memInfoPath)
 	if err != nil {
 		return 0, 0, err
@@ -393,7 +391,7 @@ func writeKsmValuesToFiles(ksm ksmState) error {
 	return nil
 }
 
-func loadKSM() (bool, bool) {
+func loadKSM() (available, enabled bool) {
 	ksmValue, err := os.ReadFile(ksmRunPath)
 	if err != nil {
 		log.DefaultLogger().Warningf("An error occurred while reading the ksm module file; Maybe it is not available: %s", err)
