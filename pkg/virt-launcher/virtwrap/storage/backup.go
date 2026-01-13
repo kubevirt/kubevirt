@@ -35,6 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -49,6 +50,8 @@ const (
 	freezeFailedMsg                   = "Failed freezing guest filesystem: %s"
 	unfreezeFailedMsg                 = "Failed to unfreeze filesystem after backup completion"
 )
+
+var getDiskInfoWithForceShare = osdisk.GetDiskInfoWithForceShare
 
 func (m *StorageManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
 	logger := log.Log.With("backupName", backupOptions.BackupName)
@@ -329,6 +332,8 @@ func isLibvirtCheckpointInvalidError(err error) bool {
 
 // RedefineCheckpoint redefines a checkpoint from a previous backup session.
 // This is used after VM restart to restore checkpoint metadata in libvirt.
+// It validates that each disk in the checkpoint still exists in the domain and
+// has the corresponding bitmap before including it in the redefinition.
 func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
 	logger := log.Log.With("checkpointName", checkpoint.Name)
 	logger.Info("Redefining checkpoint")
@@ -340,12 +345,24 @@ func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, chec
 	}
 	defer dom.Free()
 
-	checkpointDisks := &api.CheckpointDisks{}
-	for _, vol := range checkpoint.Volumes {
-		checkpointDisks.Disks = append(checkpointDisks.Disks, api.CheckpointDisk{
-			Name:       vol.DiskTarget,
-			Checkpoint: "bitmap",
-		})
+	diskPaths, err := disksPaths(dom)
+	if err != nil {
+		return false, err
+	}
+
+	// Filter checkpoint volumes to only those that exist and have valid bitmaps
+	checkpointDisks, filteredOut, err := filterCheckpointDisks(checkpoint, diskPaths)
+	if err != nil {
+		return false, err
+	}
+
+	if len(filteredOut) > 0 {
+		logger.Warningf("Filtered out volumes from checkpoint redefinition: %v", filteredOut)
+	}
+
+	if len(checkpointDisks.Disks) == 0 {
+		logger.Warning("No valid disks remaining in checkpoint after filtering")
+		return true, fmt.Errorf("no valid disks remaining in checkpoint %s after filtering removed/invalid disks", checkpoint.Name)
 	}
 
 	domainCheckpoint := &api.DomainCheckpoint{
@@ -375,6 +392,59 @@ func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, chec
 		return checkpointInvalid, fmt.Errorf("failed to redefine checkpoint %s: %v", checkpoint.Name, err)
 	}
 
-	logger.Infof("Checkpoint redefined successfully with %d disks", len(checkpoint.Volumes))
+	logger.Infof("Checkpoint redefined successfully with %d disks (filtered out %d)", len(checkpointDisks.Disks), len(filteredOut))
 	return false, nil
+}
+
+func disksPaths(dom cli.VirDomain) (map[string]string, error) {
+	disks, err := util.GetAllDomainDisks(dom)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get domain disks: %v", err)
+	}
+
+	diskPaths := make(map[string]string)
+	for _, disk := range disks {
+		if disk.Target.Device == "" || disk.Source.DataStore == nil {
+			continue
+		}
+		if disk.Source.File == "" {
+			log.Log.Warningf("disk with data store source should have the qcow2 overlay file source, disk %s", disk.Target.Device)
+			continue
+		}
+		diskPaths[disk.Target.Device] = disk.Source.File
+	}
+	return diskPaths, nil
+}
+
+// filterCheckpointDisks filters checkpoint volumes to only include those that:
+// 1. Still exist in the current domain
+// 2. Have the checkpoint bitmap in their qcow2 file
+func filterCheckpointDisks(checkpoint *backupv1.BackupCheckpoint, diskPaths map[string]string) (*api.CheckpointDisks, []string, error) {
+	checkpointDisks := &api.CheckpointDisks{}
+	var filteredOut []string
+
+	for _, vol := range checkpoint.Volumes {
+		diskPath, exists := diskPaths[vol.DiskTarget]
+		if !exists {
+			filteredOut = append(filteredOut, fmt.Sprintf("%s (disk no longer in domain)", vol.DiskTarget))
+			continue
+		}
+
+		diskInfo, err := getDiskInfoWithForceShare(diskPath)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get disk info for %s at %s: %v", vol.DiskTarget, diskPath, err)
+		}
+
+		if !diskInfo.HasBitmap(checkpoint.Name) {
+			filteredOut = append(filteredOut, fmt.Sprintf("%s (bitmap %s not found in disk)", vol.DiskTarget, checkpoint.Name))
+			continue
+		}
+
+		checkpointDisks.Disks = append(checkpointDisks.Disks, api.CheckpointDisk{
+			Name:       vol.DiskTarget,
+			Checkpoint: "bitmap",
+		})
+	}
+
+	return checkpointDisks, filteredOut, nil
 }

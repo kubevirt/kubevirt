@@ -35,6 +35,7 @@ import (
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
+	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -631,4 +632,81 @@ var _ = Describe("Backup", func() {
 			})
 		})
 	})
+
+	Describe("disksPaths", func() {
+		It("should include disks with qcow2 overlay and ignore disks without", func() {
+			domainXML := `<domain>
+				<devices>
+					<disk type="file" device="disk">
+						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vda"/>
+					</disk>
+					<disk type="file" device="cdrom">
+						<source file="/var/run/kubevirt-private/cdrom/cd.iso"/>
+						<target dev="sda"/>
+					</disk>
+				</devices>
+			</domain>`
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+
+			diskPaths, err := disksPaths(mockDomain)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(diskPaths).To(HaveLen(1))
+			Expect(diskPaths["vda"]).To(Equal("/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2"))
+			Expect(diskPaths).ToNot(HaveKey("sda"))
+		})
+	})
+
+	DescribeTable("filterCheckpointDisks",
+		func(noCheckpointBitmap, extraCheckpointVolume bool, expectedDisks []string, expectedFiltered []string) {
+			volumes := []backupv1.BackupVolumeInfo{{DiskTarget: "vda"}}
+			if extraCheckpointVolume {
+				volumes = append(volumes, backupv1.BackupVolumeInfo{DiskTarget: "vdb"})
+			}
+			checkpoint := &backupv1.BackupCheckpoint{Name: "checkpoint-1", Volumes: volumes}
+			diskPaths := map[string]string{"vda": "/disk.qcow2"}
+			getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare(checkpoint.Name)
+			if noCheckpointBitmap {
+				getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare("other")
+			}
+			result, filtered, err := filterCheckpointDisks(checkpoint, diskPaths)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Disks).To(HaveLen(len(expectedDisks)))
+			for i, disk := range result.Disks {
+				Expect(disk.Name).To(Equal(expectedDisks[i]))
+				Expect(disk.Checkpoint).To(Equal("bitmap"))
+			}
+			Expect(filtered).To(HaveLen(len(expectedFiltered)))
+			for i, substr := range expectedFiltered {
+				Expect(filtered[i]).To(ContainSubstring(substr))
+			}
+		},
+		Entry("valid bitmap", false, false, []string{"vda"}, []string{}),
+		Entry("disk removed from domain", false, true, []string{"vda"}, []string{"disk no longer in domain"}),
+		Entry("bitmap not found", true, false, []string{}, []string{"bitmap checkpoint-1 not found"}),
+	)
 })
+
+func mockGetDiskInfoWithForceShare(bitmapName string) func(path string) (*osdisk.DiskInfo, error) {
+	return func(path string) (*osdisk.DiskInfo, error) {
+		var bitmaps []osdisk.BitmapInfo
+		if bitmapName != "" {
+			bitmaps = []osdisk.BitmapInfo{{Name: bitmapName, Granularity: 65536}}
+		}
+		return &osdisk.DiskInfo{
+			Format:      "qcow2",
+			VirtualSize: 10737418240,
+			FormatSpecific: &osdisk.FormatSpecific{
+				Type: "qcow2",
+				Data: &osdisk.FormatSpecificData{Bitmaps: bitmaps},
+			},
+		}, nil
+	}
+}
