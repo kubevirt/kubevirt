@@ -43,6 +43,7 @@ go_test(
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//pkg/os/disk:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",

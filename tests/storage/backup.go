@@ -479,6 +479,175 @@ var _ = Describe(SIG("Backup", func() {
 		By("Verifying second backup is a full backup")
 		verifyBackupTargetPVCOutput(virtClient, secondBackupPVC, vm.Name, 1, []int64{expectedDiskSize.Value()})
 	})
+
+	It("[QUARANTINE] Checkpoint redefinition succeeds after hotplug volume removal", func() {
+		const (
+			testDataSizeMB    = 50
+			testDataSizeBytes = testDataSizeMB * 1024 * 1024
+			bootDiskName      = "disk0"
+			hotplugDiskSize   = "256Mi"
+			hotplugDiskName   = "hotplug-disk"
+		)
+
+		By("Creating boot disk DataVolume")
+		bootDv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			),
+		)
+
+		By("Creating VM with boot disk and CBT enabled")
+		vm = libstorage.RenderVMWithDataVolumeTemplate(bootDv,
+			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Creating hotplug DataVolume")
+		hotplugDv := libdv.NewDataVolume(
+			libdv.WithBlankImageSource(),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(hotplugDiskSize),
+			),
+		)
+		hotplugDv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(hotplugDv.Namespace).Create(context.Background(), hotplugDv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for hotplug DataVolume to be ready")
+		libstorage.EventuallyDV(hotplugDv, 240, matcher.HaveSucceeded())
+
+		By("Hotplugging volume to running VM")
+		hotplugVolumeName := "hotplug-volume"
+		vm = libstorage.AddHotplugDiskAndVolume(virtClient, vm, hotplugVolumeName, hotplugDv.Name)
+
+		By("Waiting for hotplug volume to be ready")
+		libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugVolumeName, hotplugDv.Name, true)
+
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		totalSize := resource.MustParse(cd.AlpineVolumeSize)
+		hotplugSize := resource.MustParse(hotplugDiskSize)
+		totalSize.Add(hotplugSize)
+		fullBackupPVCSize := getTargetPVCSizeWithOverhead(totalSize.String())
+
+		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), fullBackupPVCSize, libstorage.WithStorageProfile())
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Creating full backup with both boot disk and hotplug volume")
+		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name)
+		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
+		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
+		Expect(fullBackup.Status.IncludedVolumes).To(HaveLen(2), "Should have two included volumes (boot + hotplug)")
+
+		By("Verifying BackupTracker has checkpoint with 2 volumes")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		firstCheckpoint := tracker.Status.LatestCheckpoint
+		Expect(firstCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after first backup")
+		Expect(firstCheckpoint.Volumes).To(HaveLen(2), "Checkpoint should have 2 volumes")
+
+		By("Getting disk targets from VMI volume status")
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		var bootDiskTarget, hotplugDiskTarget string
+		var allDiskTargets []string
+		for _, volStatus := range vmi.Status.VolumeStatus {
+			if volStatus.Target == "" {
+				continue
+			}
+			if volStatus.Name == hotplugVolumeName {
+				hotplugDiskTarget = volStatus.Target
+			}
+			if volStatus.Name == bootDiskName {
+				bootDiskTarget = volStatus.Target
+			}
+			allDiskTargets = append(allDiskTargets, volStatus.Target)
+		}
+		Expect(bootDiskTarget).ToNot(BeEmpty(), "Boot disk target should be found in VMI status")
+		Expect(hotplugDiskTarget).ToNot(BeEmpty(), "Hotplug disk target should be found in VMI status")
+
+		By("Verifying tracker checkpoint has matching disk targets")
+		trackerTargets := make(map[string]bool)
+		for _, vol := range firstCheckpoint.Volumes {
+			trackerTargets[vol.DiskTarget] = true
+		}
+		Expect(trackerTargets).To(HaveKey(bootDiskTarget), "Tracker checkpoint should have boot disk target")
+		Expect(trackerTargets).To(HaveKey(hotplugDiskTarget), "Tracker checkpoint should have hotplug disk target")
+
+		By("Listing checkpoints before VM stop")
+		checkpointsBeforeStop := listDomainCheckpoints(vmi)
+		Expect(checkpointsBeforeStop).To(HaveLen(1), "Should have exactly one checkpoint before stop")
+
+		By("Verifying libvirt checkpoint has bitmaps for both boot and hotplug disks")
+		expectCheckpointDisks(vmi, firstCheckpoint.Name, allDiskTargets, nil)
+
+		By("Writing data to boot disk")
+		Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should be able to login to Alpine VM")
+		err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/root/testfile bs=1M count=%d && sync", testDataSizeMB), 2*time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Removing the hotplug volume from VM")
+		vm = libstorage.RemoveHotplugDiskAndVolume(virtClient, vm, hotplugVolumeName)
+		libstorage.WaitForHotplugToComplete(virtClient, vm, hotplugVolumeName, hotplugDv.Name, false)
+
+		By("Restarting the VM")
+		oldVMIUID := vmi.UID
+		err = virtClient.VirtualMachine(vm.Namespace).Restart(context.Background(), vm.Name, &v1.RestartOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMI(vmi), 240*time.Second, time.Second).Should(matcher.BeRestarted(oldVMIUID))
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Verifying checkpoint redefinition succeeded")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil(),
+			"Checkpoint should not change after VM restart")
+		Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(firstCheckpoint.Name),
+			"Checkpoint name should be the same after restart")
+		Expect(tracker.Status.LatestCheckpoint.Volumes).To(Equal(firstCheckpoint.Volumes),
+			"Checkpoint volumes should be the same after restart even if one of them is not redefined")
+
+		By("Verifying checkpoint was redefined in libvirt with remaining disk")
+		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		checkpointsAfterRestart := listDomainCheckpoints(vmi)
+		Expect(checkpointsAfterRestart).To(HaveLen(1),
+			"Should still have one checkpoint after restart")
+		Expect(checkpointsAfterRestart[0]).To(Equal(firstCheckpoint.Name),
+			"Checkpoint should be redefined with the same name")
+
+		By("Verifying libvirt checkpoint only has bitmap for boot disk")
+		expectCheckpointDisks(vmi, firstCheckpoint.Name, []string{bootDiskTarget}, []string{hotplugDiskTarget})
+
+		By("Creating incremental backup after VM restart")
+		incrementalBackupPVC := libstorage.CreateFSPVC("incremental-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name)
+		Expect(incrementalBackup.Status.Type).To(Equal(backupv1.Incremental),
+			"Backup after VM restart should be Incremental (checkpoint was redefined with remaining disk)")
+		Expect(incrementalBackup.Status.CheckpointName).ToNot(BeNil())
+		Expect(incrementalBackup.Status.IncludedVolumes).To(HaveLen(1),
+			"Should have one included volume")
+
+		By("Verifying BackupTracker was updated with new checkpoint")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil())
+		Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(*incrementalBackup.Status.CheckpointName))
+		Expect(tracker.Status.LatestCheckpoint.Name).ToNot(Equal(firstCheckpoint.Name),
+			"Second checkpoint should have a different name")
+	})
 }))
 
 func backupName(vmName string) string {
@@ -758,4 +927,26 @@ func listDomainCheckpoints(vmi *v1.VirtualMachineInstance) []string {
 		}
 	}
 	return checkpoints
+}
+
+func getCheckpointXML(vmi *v1.VirtualMachineInstance, checkpointName string) string {
+	domainName := fmt.Sprintf("%s_%s", vmi.Namespace, vmi.Name)
+	return libpod.RunCommandOnVmiPod(vmi, []string{
+		"virsh",
+		"checkpoint-dumpxml",
+		domainName,
+		checkpointName,
+	})
+}
+
+func expectCheckpointDisks(vmi *v1.VirtualMachineInstance, checkpointName string, includedDisks []string, excludedDisks []string) {
+	xml := getCheckpointXML(vmi, checkpointName)
+	for _, disk := range includedDisks {
+		ExpectWithOffset(1, xml).To(ContainSubstring(fmt.Sprintf("name='%s' checkpoint='bitmap'", disk)),
+			"Checkpoint %s should have bitmap for disk %s", checkpointName, disk)
+	}
+	for _, disk := range excludedDisks {
+		ExpectWithOffset(1, xml).ToNot(ContainSubstring(fmt.Sprintf("name='%s'", disk)),
+			"Checkpoint %s should not have bitmap for disk %s", checkpointName, disk)
+	}
 }
