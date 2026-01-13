@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	github.com/go-kit/kit v0.13.0
-	github.com/golang/glog v1.1.0
+	github.com/golang/glog v1.2.4
 	github.com/golang/mock v1.6.0
 	github.com/google/gofuzz v1.2.0
 	github.com/gorilla/websocket v1.5.0

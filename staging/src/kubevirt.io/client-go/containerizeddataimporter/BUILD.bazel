@@ -11,8 +11,8 @@ go_library(
     deps = [
         "//staging/src/kubevirt.io/client-go/containerizeddataimporter/typed/core/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/containerizeddataimporter/typed/upload/v1beta1:go_default_library",
-        "//vendor/k8s.io/client-go/discovery:go_default_library",
-        "//vendor/k8s.io/client-go/rest:go_default_library",
-        "//vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/k8s.io/client-go/discovery:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/k8s.io/client-go/rest:go_default_library",
+        "//staging/src/kubevirt.io/client-go/vendor/k8s.io/client-go/util/flowcontrol:go_default_library",
     ],
 )
