@@ -55,6 +55,10 @@ var _ = Describe(SIG("64-Bit PCI hole", func() {
 
 		// Even if disabled, the 64-bit PCI hole can still be up to 2Gi in size under certain circumstances.
 		Expect(calculatePCIHole64Size(res[0].Output)).To(BeNumerically("<=", pciHole64MaxSize))
+        // Verify the annotation propagates the value to the domxml
+		domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(kubevirt.Client(), vmi)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(domXML).To(MatchRegexp(`<pcihole64\s+unit=["']KiB["']\s*>0</pcihole64>`))
 	})
 }))
 
