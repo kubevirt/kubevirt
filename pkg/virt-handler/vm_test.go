@@ -97,7 +97,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 	const host = "master"
 	const interfaceName = "interface_name"
 
-	getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string) (cgroup.Manager, error) {
+	getCgroupManager = func(_ *v1.VirtualMachineInstance, _ string, _ int64) (cgroup.Manager, error) {
 		return mockCgroupManager, nil
 	}
 
@@ -163,7 +163,6 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		mockIsolationDetector := isolation.NewMockPodIsolationDetector(ctrl)
 		mockIsolationDetector.EXPECT().Detect(gomock.Any()).Return(mockIsolationResult, nil).AnyTimes()
-		mockIsolationDetector.EXPECT().AdjustResources(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		mockContainerDiskMounter = containerdisk.NewMockMounter(ctrl)
 		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
