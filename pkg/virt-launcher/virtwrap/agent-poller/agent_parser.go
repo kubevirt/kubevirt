@@ -114,8 +114,6 @@ func parseFSDisks(fsDisks []FSDisk) []api.FSDisk {
 
 // parseAgent gets the agent version from response
 func parseAgent(agentReply string) (AgentInfo, error) {
-	const logLevelDebug = 3
-
 	gaInfo := AgentInfo{}
 	response := stripAgentResponse(agentReply)
 
@@ -124,7 +122,7 @@ func parseAgent(agentReply string) (AgentInfo, error) {
 		return AgentInfo{}, err
 	}
 
-	log.Log.V(logLevelDebug).Infof("guest agent info: %v", gaInfo)
+	log.Log.V(repeatingLogLevel).Infof("guest agent info: %v", gaInfo)
 
 	return gaInfo, nil
 }
