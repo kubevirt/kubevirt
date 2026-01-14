@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"strings"
 	"sync"
 )
 
@@ -24,6 +25,11 @@ const debugHandshake = false
 // quickly.
 const chanSize = 16
 
+// maxPendingPackets sets the maximum number of packets to queue while waiting
+// for KEX to complete. This limits the total pending data to maxPendingPackets
+// * maxPacket bytes, which is ~16.8MB.
+const maxPendingPackets = 64
+
 // keyingTransport is a packet based transport that supports key
 // changes. It need not be thread-safe. It should pass through
 // msgNewKeys in both directions.
@@ -34,6 +40,16 @@ type keyingTransport interface {
 	// direction will be effected if a msgNewKeys message is sent
 	// or received.
 	prepareKeyChange(*algorithms, *kexResult) error
+
+	// setStrictMode sets the strict KEX mode, notably triggering
+	// sequence number resets on sending or receiving msgNewKeys.
+	// If the sequence number is already > 1 when setStrictMode
+	// is called, an error is returned.
+	setStrictMode() error
+
+	// setInitialKEXDone indicates to the transport that the initial key exchange
+	// was completed
+	setInitialKEXDone()
 }
 
 // handshakeTransport implements rekeying on top of a keyingTransport
@@ -50,6 +66,10 @@ type handshakeTransport struct {
 	// connection.
 	hostKeys []Signer
 
+	// publicKeyAuthAlgorithms is non-empty if we are the server. In that case,
+	// it contains the supported client public key authentication algorithms.
+	publicKeyAuthAlgorithms []string
+
 	// hostKeyAlgorithms is non-empty if we are the client. In that case,
 	// we accept these key types from the server as host key.
 	hostKeyAlgorithms []string
@@ -58,13 +78,22 @@ type handshakeTransport struct {
 	incoming  chan []byte
 	readError error
 
-	mu               sync.Mutex
-	writeError       error
-	sentInitPacket   []byte
-	sentInitMsg      *kexInitMsg
-	pendingPackets   [][]byte // Used when a key exchange is in progress.
+	mu sync.Mutex
+	// Condition for the above mutex. It is used to notify a completed key
+	// exchange or a write failure. Writes can wait for this condition while a
+	// key exchange is in progress.
+	writeCond      *sync.Cond
+	writeError     error
+	sentInitPacket []byte
+	sentInitMsg    *kexInitMsg
+	// Used to queue writes when a key exchange is in progress. The length is
+	// limited by pendingPacketsSize. Once full, writes will block until the key
+	// exchange is completed or an error occurs. If not empty, it is emptied
+	// all at once when the key exchange is completed in kexLoop.
+	pendingPackets   [][]byte
 	writePacketsLeft uint32
 	writeBytesLeft   int64
+	userAuthComplete bool // whether the user authentication phase is complete
 
 	// If the read loop wants to schedule a kex, it pings this
 	// channel, and the write loop will send out a kex
@@ -95,6 +124,10 @@ type handshakeTransport struct {
 
 	// The session ID or nil if first kex did not complete yet.
 	sessionID []byte
+
+	// strictMode indicates if the other side of the handshake indicated
+	// that we should be following the strict KEX protocol restrictions.
+	strictMode bool
 }
 
 type pendingKex struct {
@@ -114,6 +147,7 @@ func newHandshakeTransport(conn keyingTransport, config *Config, clientVersion, 
 
 		config: config,
 	}
+	t.writeCond = sync.NewCond(&t.mu)
 	t.resetReadThresholds()
 	t.resetWriteThresholds()
 
@@ -141,6 +175,7 @@ func newClientTransport(conn keyingTransport, clientVersion, serverVersion []byt
 func newServerTransport(conn keyingTransport, clientVersion, serverVersion []byte, config *ServerConfig) *handshakeTransport {
 	t := newHandshakeTransport(conn, &config.Config, clientVersion, serverVersion)
 	t.hostKeys = config.hostKeys
+	t.publicKeyAuthAlgorithms = config.PublicKeyAuthAlgorithms
 	go t.readLoop()
 	go t.kexLoop()
 	return t
@@ -203,7 +238,10 @@ func (t *handshakeTransport) readLoop() {
 			close(t.incoming)
 			break
 		}
-		if p[0] == msgIgnore || p[0] == msgDebug {
+		// If this is the first kex, and strict KEX mode is enabled,
+		// we don't ignore any messages, as they may be used to manipulate
+		// the packet sequence numbers.
+		if !(t.sessionID == nil && t.strictMode) && (p[0] == msgIgnore || p[0] == msgDebug) {
 			continue
 		}
 		t.incoming <- p
@@ -236,6 +274,7 @@ func (t *handshakeTransport) recordWriteError(err error) {
 	defer t.mu.Unlock()
 	if t.writeError == nil && err != nil {
 		t.writeError = err
+		t.writeCond.Broadcast()
 	}
 }
 
@@ -339,6 +378,8 @@ write:
 			}
 		}
 		t.pendingPackets = t.pendingPackets[:0]
+		// Unblock writePacket if waiting for KEX.
+		t.writeCond.Broadcast()
 		t.mu.Unlock()
 	}
 
@@ -435,6 +476,11 @@ func (t *handshakeTransport) readOnePacket(first bool) ([]byte, error) {
 	return successPacket, nil
 }
 
+const (
+	kexStrictClient = "kex-strict-c-v00@openssh.com"
+	kexStrictServer = "kex-strict-s-v00@openssh.com"
+)
+
 // sendKexInit sends a key change message.
 func (t *handshakeTransport) sendKexInit() error {
 	t.mu.Lock()
@@ -448,7 +494,6 @@ func (t *handshakeTransport) sendKexInit() error {
 	}
 
 	msg := &kexInitMsg{
-		KexAlgos:                t.config.KeyExchanges,
 		CiphersClientServer:     t.config.Ciphers,
 		CiphersServerClient:     t.config.Ciphers,
 		MACsClientServer:        t.config.MACs,
@@ -457,6 +502,13 @@ func (t *handshakeTransport) sendKexInit() error {
 		CompressionServerClient: supportedCompressions,
 	}
 	io.ReadFull(rand.Reader, msg.Cookie[:])
+
+	// We mutate the KexAlgos slice, in order to add the kex-strict extension algorithm,
+	// and possibly to add the ext-info extension algorithm. Since the slice may be the
+	// user owned KeyExchanges, we create our own slice in order to avoid using user
+	// owned memory by mistake.
+	msg.KexAlgos = make([]string, 0, len(t.config.KeyExchanges)+2) // room for kex-strict and ext-info
+	msg.KexAlgos = append(msg.KexAlgos, t.config.KeyExchanges...)
 
 	isServer := len(t.hostKeys) > 0
 	if isServer {
@@ -482,17 +534,24 @@ func (t *handshakeTransport) sendKexInit() error {
 				msg.ServerHostKeyAlgos = append(msg.ServerHostKeyAlgos, keyFormat)
 			}
 		}
+
+		if t.sessionID == nil {
+			msg.KexAlgos = append(msg.KexAlgos, kexStrictServer)
+		}
 	} else {
 		msg.ServerHostKeyAlgos = t.hostKeyAlgorithms
 
 		// As a client we opt in to receiving SSH_MSG_EXT_INFO so we know what
 		// algorithms the server supports for public key authentication. See RFC
 		// 8308, Section 2.1.
+		//
+		// We also send the strict KEX mode extension algorithm, in order to opt
+		// into the strict KEX mode.
 		if firstKeyExchange := t.sessionID == nil; firstKeyExchange {
-			msg.KexAlgos = make([]string, 0, len(t.config.KeyExchanges)+1)
-			msg.KexAlgos = append(msg.KexAlgos, t.config.KeyExchanges...)
 			msg.KexAlgos = append(msg.KexAlgos, "ext-info-c")
+			msg.KexAlgos = append(msg.KexAlgos, kexStrictClient)
 		}
+
 	}
 
 	packet := Marshal(msg)
@@ -511,26 +570,44 @@ func (t *handshakeTransport) sendKexInit() error {
 	return nil
 }
 
+var errSendBannerPhase = errors.New("ssh: SendAuthBanner outside of authentication phase")
+
 func (t *handshakeTransport) writePacket(p []byte) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	switch p[0] {
 	case msgKexInit:
 		return errors.New("ssh: only handshakeTransport can send kexInit")
 	case msgNewKeys:
 		return errors.New("ssh: only handshakeTransport can send newKeys")
+	case msgUserAuthBanner:
+		if t.userAuthComplete {
+			return errSendBannerPhase
+		}
+	case msgUserAuthSuccess:
+		t.userAuthComplete = true
 	}
 
-	t.mu.Lock()
-	defer t.mu.Unlock()
 	if t.writeError != nil {
 		return t.writeError
 	}
 
 	if t.sentInitMsg != nil {
-		// Copy the packet so the writer can reuse the buffer.
-		cp := make([]byte, len(p))
-		copy(cp, p)
-		t.pendingPackets = append(t.pendingPackets, cp)
-		return nil
+		if len(t.pendingPackets) < maxPendingPackets {
+			// Copy the packet so the writer can reuse the buffer.
+			cp := make([]byte, len(p))
+			copy(cp, p)
+			t.pendingPackets = append(t.pendingPackets, cp)
+			return nil
+		}
+		for t.sentInitMsg != nil {
+			// Block and wait for KEX to complete or an error.
+			t.writeCond.Wait()
+			if t.writeError != nil {
+				return t.writeError
+			}
+		}
 	}
 
 	if t.writeBytesLeft > 0 {
@@ -547,6 +624,7 @@ func (t *handshakeTransport) writePacket(p []byte) error {
 
 	if err := t.pushPacket(p); err != nil {
 		t.writeError = err
+		t.writeCond.Broadcast()
 	}
 
 	return nil
@@ -596,6 +674,13 @@ func (t *handshakeTransport) enterKeyExchange(otherInitPacket []byte) error {
 	t.algorithms, err = findAgreedAlgorithms(isClient, clientInit, serverInit)
 	if err != nil {
 		return err
+	}
+
+	if t.sessionID == nil && ((isClient && contains(serverInit.KexAlgos, kexStrictServer)) || (!isClient && contains(clientInit.KexAlgos, kexStrictClient))) {
+		t.strictMode = true
+		if err := t.conn.setStrictMode(); err != nil {
+			return err
+		}
 	}
 
 	// We don't send FirstKexFollows, but we handle receiving it.
@@ -649,6 +734,7 @@ func (t *handshakeTransport) enterKeyExchange(otherInitPacket []byte) error {
 	// message with the server-sig-algs extension if the client supports it. See
 	// RFC 8308, Sections 2.4 and 3.1, and [PROTOCOL], Section 1.9.
 	if !isClient && firstKeyExchange && contains(clientInit.KexAlgos, "ext-info-c") {
+		supportedPubKeyAuthAlgosList := strings.Join(t.publicKeyAuthAlgorithms, ",")
 		extInfo := &extInfoMsg{
 			NumExtensions: 2,
 			Payload:       make([]byte, 0, 4+15+4+len(supportedPubKeyAuthAlgosList)+4+16+4+1),
@@ -670,6 +756,12 @@ func (t *handshakeTransport) enterKeyExchange(otherInitPacket []byte) error {
 		return err
 	} else if packet[0] != msgNewKeys {
 		return unexpectedMessageError(msgNewKeys, packet[0])
+	}
+
+	if firstKeyExchange {
+		// Indicates to the transport that the first key exchange is completed
+		// after receiving SSH_MSG_NEWKEYS.
+		t.conn.setInitialKEXDone()
 	}
 
 	return nil
