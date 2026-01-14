@@ -19,8 +19,8 @@ go_library(
         "webhooks.go",
     ],
     embedsrcs = [
-        "data/common-clusterinstancetypes-bundle.yaml",
-        "data/common-clusterpreferences-bundle.yaml",
+        "data/instancetype/common-clusterinstancetypes-bundle.yaml",
+        "data/instancetype/common-clusterpreferences-bundle.yaml",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components",
     visibility = ["//visibility:public"],
