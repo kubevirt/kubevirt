@@ -10,7 +10,7 @@
 // References:
 //
 //	[PROTOCOL.agent]: https://tools.ietf.org/html/draft-miller-ssh-agent-00
-package agent // import "golang.org/x/crypto/ssh/agent"
+package agent
 
 import (
 	"bytes"
@@ -141,9 +141,14 @@ const (
 	agentAddSmartcardKeyConstrained = 26
 
 	// 3.7 Key constraint identifiers
-	agentConstrainLifetime  = 1
-	agentConstrainConfirm   = 2
-	agentConstrainExtension = 3
+	agentConstrainLifetime = 1
+	agentConstrainConfirm  = 2
+	// Constraint extension identifier up to version 2 of the protocol. A
+	// backward incompatible change will be required if we want to add support
+	// for SSH_AGENT_CONSTRAIN_MAXSIGN which uses the same ID.
+	agentConstrainExtensionV00 = 3
+	// Constraint extension identifier in version 3 and later of the protocol.
+	agentConstrainExtension = 255
 )
 
 // maxAgentResponseBytes is the maximum agent reply size that is accepted. This
@@ -205,7 +210,7 @@ type constrainLifetimeAgentMsg struct {
 }
 
 type constrainExtensionAgentMsg struct {
-	ExtensionName    string `sshtype:"3"`
+	ExtensionName    string `sshtype:"255|3"`
 	ExtensionDetails []byte
 
 	// Rest is a field used for parsing, not part of message
@@ -425,8 +430,9 @@ func (c *client) List() ([]*Key, error) {
 		return keys, nil
 	case *failureAgentMsg:
 		return nil, errors.New("agent: failed to list keys")
+	default:
+		return nil, fmt.Errorf("agent: failed to list keys, unexpected message type %T", msg)
 	}
-	panic("unreachable")
 }
 
 // Sign has the agent sign the data using a protocol 2 key as defined
@@ -457,8 +463,9 @@ func (c *client) SignWithFlags(key ssh.PublicKey, data []byte, flags SignatureFl
 		return &sig, nil
 	case *failureAgentMsg:
 		return nil, errors.New("agent: failed to sign challenge")
+	default:
+		return nil, fmt.Errorf("agent: failed to sign challenge, unexpected message type %T", msg)
 	}
-	panic("unreachable")
 }
 
 // unmarshal parses an agent message in packet, returning the parsed
