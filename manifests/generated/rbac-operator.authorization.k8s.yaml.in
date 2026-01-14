@@ -268,6 +268,12 @@ rules:
   - patch
   - update
 - apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  verbs:
+  - escalate
+- apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions

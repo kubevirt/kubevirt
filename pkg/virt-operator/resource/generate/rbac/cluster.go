@@ -194,6 +194,15 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				"rbac.authorization.k8s.io/aggregate-to-admin": "true",
 			},
 		},
+		AggregationRule: &rbacv1.AggregationRule{
+			ClusterRoleSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"kubevirt.io/aggregate-to-admin": "true",
+					},
+				},
+			},
+		},
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{
@@ -412,6 +421,15 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 				"rbac.authorization.k8s.io/aggregate-to-edit": "true",
+			},
+		},
+		AggregationRule: &rbacv1.AggregationRule{
+			ClusterRoleSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"kubevirt.io/aggregate-to-edit": "true",
+					},
+				},
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -670,6 +688,15 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 			Labels: map[string]string{
 				virtv1.AppLabel: "",
 				"rbac.authorization.k8s.io/aggregate-to-view": "true",
+			},
+		},
+		AggregationRule: &rbacv1.AggregationRule{
+			ClusterRoleSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						"kubevirt.io/aggregate-to-view": "true",
+					},
+				},
 			},
 		},
 		Rules: []rbacv1.PolicyRule{

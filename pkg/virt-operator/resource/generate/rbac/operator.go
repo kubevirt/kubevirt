@@ -200,6 +200,17 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
+					VersionName,
+				},
+				Resources: []string{
+					"clusterroles",
+				},
+				Verbs: []string{
+					"escalate",
+				},
+			},
+			{
+				APIGroups: []string{
 					"apiextensions.k8s.io",
 				},
 				Resources: []string{
