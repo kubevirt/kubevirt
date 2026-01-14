@@ -1022,8 +1022,9 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 				}),
 			},
 			Labels: map[string]string{
-				v1.AppLabel:                            hotplugDisk,
-				"security.deckhouse.io/skip-pss-check": "true",
+				v1.AppLabel:                                    hotplugDisk,
+				"security.deckhouse.io/skip-pss-check":         "true",
+				"resource-quota-overrides.deckhouse.io/ignore": "true",
 			},
 		},
 		Spec: k8sv1.PodSpec{
@@ -1199,8 +1200,9 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 				}),
 			},
 			Labels: map[string]string{
-				v1.AppLabel:                            hotplugDisk,
-				"security.deckhouse.io/skip-pss-check": "true",
+				v1.AppLabel:                                    hotplugDisk,
+				"security.deckhouse.io/skip-pss-check":         "true",
+				"resource-quota-overrides.deckhouse.io/ignore": "true",
 			},
 			Annotations: annotationsList,
 		},
