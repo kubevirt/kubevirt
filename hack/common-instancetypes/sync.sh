@@ -5,8 +5,8 @@ set -ex
 source $(dirname "$0")/default.sh
 
 _common_instancetypes_base_url="https://github.com/kubevirt/common-instancetypes/releases/download"
-_cluster_instancetypes_path="pkg/virt-operator/resource/generate/components/data/common-clusterinstancetypes-bundle.yaml"
-_cluster_preferences_path="pkg/virt-operator/resource/generate/components/data/common-clusterpreferences-bundle.yaml"
+_cluster_instancetypes_path="pkg/virt-operator/resource/generate/components/data/common-instancetypes/common-clusterinstancetypes-bundle.yaml"
+_cluster_preferences_path="pkg/virt-operator/resource/generate/components/data/common-instancetypes/common-clusterpreferences-bundle.yaml"
 
 curl \
     -L "${_common_instancetypes_base_url}/${common_instancetypes_version}/common-clusterinstancetypes-bundle-${common_instancetypes_version}.yaml" \
