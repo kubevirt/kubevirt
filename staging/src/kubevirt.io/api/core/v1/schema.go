@@ -922,6 +922,11 @@ type VolumeSource struct {
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
 	// MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
 	MemoryDump *MemoryDumpVolumeSource `json:"memoryDump,omitempty"`
+	// ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+	// The path must correspond to a volumeMount in the virt-launcher container.
+	// More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+	// +optional
+	ContainerPath *ContainerPathVolumeSource `json:"containerPath,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable
@@ -945,6 +950,25 @@ type DataVolumeSource struct {
 	// Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.
 	// +optional
 	Hotpluggable bool `json:"hotpluggable,omitempty"`
+}
+
+// ContainerPathVolumeSource represents a path in the virt-launcher pod that should
+// be exposed to the VM via virtiofs. The path must correspond to a volumeMount in
+// the virt-launcher container to ensure security and proper access control.
+type ContainerPathVolumeSource struct {
+	// Path is the absolute path in the virt-launcher container to expose to the VM.
+	// The path must:
+	// - Be an absolute path (start with /)
+	// - Correspond to a volumeMount in the virt-launcher pod
+	// - Not contain path traversal attempts (..)
+	// +kubebuilder:validation:Required
+	Path string `json:"path"`
+
+	// ReadOnly specifies whether the volume should be mounted read-only in the VM.
+	// Defaults to true for security.
+	// +optional
+	// +kubebuilder:default=true
+	ReadOnly *bool `json:"readOnly,omitempty"`
 }
 
 // PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.

@@ -485,6 +485,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
 		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
 		"memoryDump":            "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+		"containerPath":         "ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.\nThe path must correspond to a volumeMount in the virt-launcher container.\nMore info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md\n+optional",
 	}
 }
 
@@ -500,6 +501,14 @@ func (DataVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":         "Name of both the DataVolume and the PVC in the same namespace.",
 		"hotpluggable": "Hotpluggable indicates whether the volume can be hotplugged and hotunplugged.\n+optional",
+	}
+}
+
+func (ContainerPathVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "ContainerPathVolumeSource represents a path in the virt-launcher pod that should\nbe exposed to the VM via virtiofs. The path must correspond to a volumeMount in\nthe virt-launcher container to ensure security and proper access control.",
+		"path":     "Path is the absolute path in the virt-launcher container to expose to the VM.\nThe path must:\n- Be an absolute path (start with /)\n- Correspond to a volumeMount in the virt-launcher pod\n- Not contain path traversal attempts (..)\n+kubebuilder:validation:Required",
+		"readOnly": "ReadOnly specifies whether the volume should be mounted read-only in the VM.\nDefaults to true for security.\n+optional",
 	}
 }
 
