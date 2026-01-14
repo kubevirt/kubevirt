@@ -956,6 +956,12 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 
 	tmpTolerations := make([]k8sv1.Toleration, len(ownerPod.Spec.Tolerations))
 	copy(tmpTolerations, ownerPod.Spec.Tolerations)
+	// Add toleration for unschedulable nodes to allow hotplug on cordoned nodes
+	tmpTolerations = append(tmpTolerations, k8sv1.Toleration{
+		Key:      "node.kubernetes.io/unschedulable",
+		Effect:   k8sv1.TaintEffectNoSchedule,
+		Operator: k8sv1.TolerationOpExists,
+	})
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1098,6 +1104,12 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 
 	tmpTolerations := make([]k8sv1.Toleration, len(ownerPod.Spec.Tolerations))
 	copy(tmpTolerations, ownerPod.Spec.Tolerations)
+	// Add toleration for unschedulable nodes to allow hotplug on cordoned nodes
+	tmpTolerations = append(tmpTolerations, k8sv1.Toleration{
+		Key:      "node.kubernetes.io/unschedulable",
+		Effect:   k8sv1.TaintEffectNoSchedule,
+		Operator: k8sv1.TolerationOpExists,
+	})
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
