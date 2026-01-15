@@ -53,9 +53,9 @@ type HeartBeat struct {
 	devicePluginWaitTimeout   time.Duration
 }
 
-func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string) *HeartBeat {
+func NewHeartBeat(clientset k8scli.CoreV1Interface, deviceManager device_manager.DeviceControllerInterface, clusterConfig *virtconfig.ClusterConfig, host string, kubeletRoot string) *HeartBeat {
 	const cpuManagerOS3Path = virtutil.HostRootMount + "var/lib/origin/openshift.local.volumes/cpu_manager_state"
-	const cpuManagerPath = virtutil.KubeletRoot + "/cpu_manager_state"
+	cpuManagerPath := kubeletRoot + "/cpu_manager_state"
 	return &HeartBeat{
 		clientset:               clientset,
 		deviceManagerController: deviceManager,
