@@ -14,7 +14,7 @@ import (
 	validating_webhooks "kubevirt.io/kubevirt/pkg/util/webhooks/validating-webhooks"
 )
 
-const uninstallErrorMsg = "Rejecting the uninstall request, since there are still %s present. Either delete all KubeVirt related workloads or change the uninstall strategy before uninstalling KubeVirt."
+const uninstallErrorMsg = "rejecting the uninstall request, since there are still %s present; either delete all KubeVirt related workloads or change the uninstall strategy before uninstalling KubeVirt"
 
 var KubeVirtGroupVersionResource = metav1.GroupVersionResource{
 	Group:    v1.VirtualMachineInstanceGroupVersionKind.Group,
