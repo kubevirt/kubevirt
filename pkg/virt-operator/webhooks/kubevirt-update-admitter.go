@@ -104,7 +104,6 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.SeccompConfiguration, newKV.Spec.Configuration.SeccompConfiguration) {
 		results = append(results,
 			validateSeccompConfiguration(field.NewPath("spec").Child("configuration", "seccompConfiguration"), newKV.Spec.Configuration.SeccompConfiguration)...)
-
 	}
 
 	if newKV.Spec.Infra != nil {
@@ -219,7 +218,6 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("CA RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.ca.duration < spec.certificateRotationStrategy.selfSigned.ca.renewBefore)"),
 		})
-
 	}
 
 	if certDuration.Duration < certRenewBefore.Duration {
@@ -308,7 +306,6 @@ func validateSeccompConfiguration(field *field.Path, seccompConf *v1.SeccompConf
 	}
 
 	return statuses
-
 }
 
 func validateWorkloadPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {
