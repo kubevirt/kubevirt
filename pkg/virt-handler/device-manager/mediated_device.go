@@ -81,6 +81,8 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 	}
 	dpi.healthCheck = dpi.healthCheckFunc
 
+	dpi.deviceNameByID = dpi.deviceNameByIDFunc
+
 	return dpi
 }
 
@@ -278,6 +280,14 @@ func (dpi *MediatedDevicePlugin) healthCheckFunc() error {
 			}
 		}
 	}
+}
+
+func (dpi *MediatedDevicePlugin) deviceNameByIDFunc(monDevId string) string {
+	mdev, ok := dpi.iommuToMDEVMap[monDevId]
+	if !ok {
+		mdev = "not recognized"
+	}
+	return fmt.Sprintf("mediated device (mdev=%s, id=%s)", mdev, monDevId)
 }
 
 func getMdevTypeName(mdevUUID string) (string, error) {
