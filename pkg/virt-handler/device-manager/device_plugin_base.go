@@ -22,6 +22,8 @@ package device_manager
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"os"
 	"path"
 	"sync"
@@ -34,23 +36,78 @@ import (
 )
 
 type DevicePluginBase struct {
-	devs         []*pluginapi.Device
-	server       *grpc.Server
-	socketPath   string
-	stop         <-chan struct{}
-	health       chan deviceHealth
-	resourceName string
-	done         chan struct{}
-	initialized  bool
-	lock         *sync.Mutex
-	deregistered chan struct{}
-	devicePath   string
-	deviceRoot   string
-	deviceName   string
+	devs              []*pluginapi.Device
+	server            *grpc.Server
+	socketPath        string
+	stop              <-chan struct{}
+	health            chan deviceHealth
+	resourceName      string
+	done              chan struct{}
+	initialized       bool
+	lock              *sync.Mutex
+	deregistered      chan struct{}
+	deviceRoot        string
+	devicePath        string
+	deviceName        string
+	setupDevicePlugin func() error // Optional function to perform additional setup steps that are not covered by the default implementation
+	healthCheck       func() error // Required function to perform health checks
 }
 
 func (dpi *DevicePluginBase) GetDeviceName() string {
 	return dpi.resourceName
+}
+
+func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
+	logger := log.DefaultLogger()
+	dpi.stop = stop
+	dpi.done = make(chan struct{})
+	dpi.deregistered = make(chan struct{})
+
+	if err := dpi.cleanup(); err != nil {
+		return err
+	}
+
+	// If a custom setupDevicePlugin hook is implemented, call it
+	// for additional setup steps that are not covered by the default implementation
+	if dpi.setupDevicePlugin != nil {
+		if err = dpi.setupDevicePlugin(); err != nil {
+			return err
+		}
+	}
+
+	sock, err := net.Listen("unix", dpi.socketPath)
+	if err != nil {
+		return fmt.Errorf("error creating GRPC server socket: %v", err)
+	}
+
+	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+	defer dpi.stopDevicePlugin()
+
+	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
+
+	errChan := make(chan error, 2)
+
+	go func() {
+		errChan <- dpi.server.Serve(sock)
+	}()
+
+	if err = waitForGRPCServer(dpi.socketPath, connectionTimeout); err != nil {
+		return fmt.Errorf("error starting the GRPC server: %v", err)
+	}
+
+	if err = dpi.register(); err != nil {
+		return fmt.Errorf("error registering with device plugin manager: %v", err)
+	}
+
+	go func() {
+		errChan <- dpi.healthCheck()
+	}()
+
+	dpi.setInitialized(true)
+	logger.Infof("%s device plugin started", dpi.resourceName)
+	err = <-errChan
+
+	return err
 }
 
 func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
