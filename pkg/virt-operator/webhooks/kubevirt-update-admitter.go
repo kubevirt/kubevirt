@@ -146,31 +146,31 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	return response
 }
 
-func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
+func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (newKV *v1.KubeVirt, oldKV *v1.KubeVirt, err error) {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, KubeVirtGroupVersionResource.Group, KubeVirtGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", KubeVirtGroupVersionResource)
 	}
 
 	raw := ar.Request.Object.Raw
-	newKV := v1.KubeVirt{}
+	newKV = &v1.KubeVirt{}
 
-	err = json.Unmarshal(raw, &newKV)
+	err = json.Unmarshal(raw, newKV)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if ar.Request.Operation == admissionv1.Update {
 		raw := ar.Request.OldObject.Raw
-		oldKV := v1.KubeVirt{}
-		err = json.Unmarshal(raw, &oldKV)
+		oldKV = &v1.KubeVirt{}
+		err = json.Unmarshal(raw, oldKV)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		return &newKV, &oldKV, nil
+		return newKV, oldKV, nil
 	}
 
-	return &newKV, nil, nil
+	return newKV, nil, nil
 }
 
 func validateCustomizeComponents(customization v1.CustomizeComponents) []metav1.StatusCause {
