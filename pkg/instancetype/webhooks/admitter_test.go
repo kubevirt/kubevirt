@@ -33,7 +33,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/webhooks"
 )
@@ -41,13 +41,13 @@ import (
 var _ = Describe("Validating Instancetype Admitter", func() {
 	var (
 		admitter        *webhooks.InstancetypeAdmitter
-		instancetypeObj *instancetypev1beta1.VirtualMachineInstancetype
+		instancetypeObj *instancetypev1.VirtualMachineInstancetype
 	)
 
 	BeforeEach(func() {
 		admitter = &webhooks.InstancetypeAdmitter{}
 
-		instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
+		instancetypeObj = &instancetypev1.VirtualMachineInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
@@ -61,16 +61,16 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 
 		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
 	},
-		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
+		Entry("with v1beta1 version", instancetypev1.SchemeGroupVersion.Version),
 	)
 
 	DescribeTable("should reject negative and over 100% memory overcommit values", func(percent int) {
-		version := instancetypev1beta1.SchemeGroupVersion.Version
-		instancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1beta1.CPUInstancetype{
+		version := instancetypev1.SchemeGroupVersion.Version
+		instancetypeObj.Spec = instancetypev1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1.CPUInstancetype{
 				Guest: uint32(1),
 			},
-			Memory: instancetypev1beta1.MemoryInstancetype{
+			Memory: instancetypev1.MemoryInstancetype{
 				Guest:             resource.MustParse("128M"),
 				OvercommitPercent: percent,
 			},
@@ -85,12 +85,12 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 	)
 
 	It("should reject specs with memory overcommit and hugepages", func() {
-		version := instancetypev1beta1.SchemeGroupVersion.Version
-		instancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1beta1.CPUInstancetype{
+		version := instancetypev1.SchemeGroupVersion.Version
+		instancetypeObj.Spec = instancetypev1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1.CPUInstancetype{
 				Guest: uint32(1),
 			},
-			Memory: instancetypev1beta1.MemoryInstancetype{
+			Memory: instancetypev1.MemoryInstancetype{
 				Guest:             resource.MustParse("128M"),
 				OvercommitPercent: 15,
 				Hugepages: &v1.Hugepages{
@@ -110,13 +110,13 @@ var _ = Describe("Validating Instancetype Admitter", func() {
 var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 	var (
 		admitter               *webhooks.ClusterInstancetypeAdmitter
-		clusterInstancetypeObj *instancetypev1beta1.VirtualMachineClusterInstancetype
+		clusterInstancetypeObj *instancetypev1.VirtualMachineClusterInstancetype
 	)
 
 	BeforeEach(func() {
 		admitter = &webhooks.ClusterInstancetypeAdmitter{}
 
-		clusterInstancetypeObj = &instancetypev1beta1.VirtualMachineClusterInstancetype{
+		clusterInstancetypeObj = &instancetypev1.VirtualMachineClusterInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-name",
 				Namespace: "test-namespace",
@@ -130,15 +130,15 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 
 		Expect(response.Allowed).To(BeTrue(), "Expected instancetype to be allowed.")
 	},
-		Entry("with v1beta1 version", instancetypev1beta1.SchemeGroupVersion.Version),
+		Entry("with v1beta1 version", instancetypev1.SchemeGroupVersion.Version),
 	)
 	It("should reject specs with memory overcommit and hugepages", func() {
-		version := instancetypev1beta1.SchemeGroupVersion.Version
-		clusterInstancetypeObj.Spec = instancetypev1beta1.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1beta1.CPUInstancetype{
+		version := instancetypev1.SchemeGroupVersion.Version
+		clusterInstancetypeObj.Spec = instancetypev1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1.CPUInstancetype{
 				Guest: uint32(1),
 			},
-			Memory: instancetypev1beta1.MemoryInstancetype{
+			Memory: instancetypev1.MemoryInstancetype{
 				Guest:             resource.MustParse("128M"),
 				OvercommitPercent: 15,
 				Hugepages: &v1.Hugepages{
@@ -156,7 +156,7 @@ var _ = Describe("Validating ClusterInstancetype Admitter", func() {
 })
 
 func createInstancetypeAdmissionReview(
-	instancetype *instancetypev1beta1.VirtualMachineInstancetype,
+	instancetype *instancetypev1.VirtualMachineInstancetype,
 	version string,
 ) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(instancetype)
@@ -166,7 +166,7 @@ func createInstancetypeAdmissionReview(
 		Request: &admissionv1.AdmissionRequest{
 			Operation: admissionv1.Create,
 			Resource: metav1.GroupVersionResource{
-				Group:    instancetypev1beta1.SchemeGroupVersion.Group,
+				Group:    instancetypev1.SchemeGroupVersion.Group,
 				Version:  version,
 				Resource: apiinstancetype.PluralResourceName,
 			},
@@ -178,7 +178,7 @@ func createInstancetypeAdmissionReview(
 }
 
 func createClusterInstancetypeAdmissionReview(
-	clusterInstancetype *instancetypev1beta1.VirtualMachineClusterInstancetype,
+	clusterInstancetype *instancetypev1.VirtualMachineClusterInstancetype,
 	version string,
 ) *admissionv1.AdmissionReview {
 	bytes, err := json.Marshal(clusterInstancetype)
@@ -188,7 +188,7 @@ func createClusterInstancetypeAdmissionReview(
 		Request: &admissionv1.AdmissionRequest{
 			Operation: admissionv1.Create,
 			Resource: metav1.GroupVersionResource{
-				Group:    instancetypev1beta1.SchemeGroupVersion.Group,
+				Group:    instancetypev1.SchemeGroupVersion.Group,
 				Version:  version,
 				Resource: apiinstancetype.ClusterPluralResourceName,
 			},

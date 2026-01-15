@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	v1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/requirements"
@@ -36,7 +36,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 	requirementsChecker := requirements.New()
 
 	DescribeTable("should pass when sufficient resources are provided",
-		func(instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+		func(instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 			vmiSpec *v1.VirtualMachineInstanceSpec,
 		) {
 			conflict, err := requirementsChecker.Check(instancetypeSpec, preferenceSpec, vmiSpec)
@@ -44,14 +44,14 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			Expect(conflict).ToNot(HaveOccurred())
 		},
 		Entry("by an instance type for vCPUs",
-			&v1beta1.VirtualMachineInstancetypeSpec{
-				CPU: v1beta1.CPUInstancetype{
+			&instancetypev1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1.CPUInstancetype{
 					Guest: uint32(2),
 				},
 			},
-			&v1beta1.VirtualMachinePreferenceSpec{
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(2),
 					},
 				},
@@ -60,12 +60,12 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferSockets (default)",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Sockets),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(2),
 					},
 				},
@@ -80,12 +80,12 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferCores",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Cores),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Cores),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(2),
 					},
 				},
@@ -100,12 +100,12 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferThreads",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Threads),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Threads),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(2),
 					},
 				},
@@ -120,12 +120,12 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferSpread by default across SocketsCores",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Spread),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(6),
 					},
 				},
@@ -141,15 +141,15 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferSpread across CoresThreads",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
-					SpreadOptions: &v1beta1.SpreadOptions{
-						Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Spread),
+					SpreadOptions: &instancetypev1.SpreadOptions{
+						Across: pointer.P(instancetypev1.SpreadAcrossCoresThreads),
 					},
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(6),
 					},
 				},
@@ -165,15 +165,15 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferSpread across SocketsCoresThreads",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
-					SpreadOptions: &v1beta1.SpreadOptions{
-						Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Spread),
+					SpreadOptions: &instancetypev1.SpreadOptions{
+						Across: pointer.P(instancetypev1.SpreadAcrossSocketsCoresThreads),
 					},
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(8),
 					},
 				},
@@ -190,12 +190,12 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferAny",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Any),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Any),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(4),
 					},
 				},
@@ -213,7 +213,7 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 	)
 
 	DescribeTable("should be rejected when insufficient resources are provided",
-		func(instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+		func(instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec, preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 			vmiSpec *v1.VirtualMachineInstanceSpec, expectedConflict conflict.Conflicts, errSubString string,
 		) {
 			conflicts, err := requirementsChecker.Check(instancetypeSpec, preferenceSpec, vmiSpec)
@@ -222,14 +222,14 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 			Expect(err).To(MatchError(errSubString))
 		},
 		Entry("by an instance type for vCPUs",
-			&v1beta1.VirtualMachineInstancetypeSpec{
-				CPU: v1beta1.CPUInstancetype{
+			&instancetypev1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1.CPUInstancetype{
 					Guest: uint32(1),
 				},
 			},
-			&v1beta1.VirtualMachinePreferenceSpec{
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(2),
 					},
 				},
@@ -240,12 +240,12 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferSockets (default)",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Sockets),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(2),
 					},
 				},
@@ -262,12 +262,12 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferCores",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Cores),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Cores),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(2),
 					},
 				},
@@ -284,12 +284,12 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferThreads",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Threads),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Threads),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(2),
 					},
 				},
@@ -306,12 +306,12 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 		),
 		Entry("by a VM for vCPUs using PreferSpread by default across SocketsCores",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Spread),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(4),
 					},
 				},
@@ -328,19 +328,19 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 				conflict.New("spec", "template", "spec", "domain", "cpu", "sockets"),
 				conflict.New("spec", "template", "spec", "domain", "cpu", "cores"),
 			},
-			fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), v1beta1.SpreadAcrossSocketsCores),
+			fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1.SpreadAcrossSocketsCores),
 		),
 		Entry("by a VM for vCPUs using PreferSpread across CoresThreads",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					SpreadOptions: &v1beta1.SpreadOptions{
-						Across: pointer.P(v1beta1.SpreadAcrossCoresThreads),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					SpreadOptions: &instancetypev1.SpreadOptions{
+						Across: pointer.P(instancetypev1.SpreadAcrossCoresThreads),
 					},
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
+					PreferredCPUTopology: pointer.P(instancetypev1.Spread),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(4),
 					},
 				},
@@ -357,19 +357,19 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 				conflict.New("spec", "template", "spec", "domain", "cpu", "cores"),
 				conflict.New("spec", "template", "spec", "domain", "cpu", "threads"),
 			},
-			fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), v1beta1.SpreadAcrossCoresThreads),
+			fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1.SpreadAcrossCoresThreads),
 		),
 		Entry("by a VM for vCPUs using PreferSpread across SocketsCoresThreads",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					SpreadOptions: &v1beta1.SpreadOptions{
-						Across: pointer.P(v1beta1.SpreadAcrossSocketsCoresThreads),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					SpreadOptions: &instancetypev1.SpreadOptions{
+						Across: pointer.P(instancetypev1.SpreadAcrossSocketsCoresThreads),
 					},
-					PreferredCPUTopology: pointer.P(v1beta1.Spread),
+					PreferredCPUTopology: pointer.P(instancetypev1.Spread),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(4),
 					},
 				},
@@ -388,16 +388,16 @@ var _ = Describe("Preferences - Requirement - CPU", func() {
 				conflict.New("spec", "template", "spec", "domain", "cpu", "cores"),
 				conflict.New("spec", "template", "spec", "domain", "cpu", "threads"),
 			},
-			fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), v1beta1.SpreadAcrossSocketsCoresThreads),
+			fmt.Sprintf(requirements.InsufficientVMCPUResourcesErrorFmt, uint32(1), uint32(4), instancetypev1.SpreadAcrossSocketsCoresThreads),
 		),
 		Entry("by a VM for vCPUs using PreferAny",
 			nil,
-			&v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(v1beta1.Any),
+			&instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Any),
 				},
-				Requirements: &v1beta1.PreferenceRequirements{
-					CPU: &v1beta1.CPUPreferenceRequirement{
+				Requirements: &instancetypev1.PreferenceRequirements{
+					CPU: &instancetypev1.CPUPreferenceRequirement{
 						Guest: uint32(4),
 					},
 				},

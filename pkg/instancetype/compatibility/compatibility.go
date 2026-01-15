@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/conversion"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"kubevirt.io/api/instancetype/v1"
+	v1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 )
