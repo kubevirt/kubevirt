@@ -5,30 +5,43 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	"kubevirt.io/kubevirt/tests/testsuite"
 
-	"github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/ginkgo/v2/config"
 	"github.com/onsi/ginkgo/v2/types"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 )
 
+const (
+	testAnnotationKey = "kubevirt.io/created-by-test"
+)
+
+var vmLogErrorWhitelist = []string{
+	"debug",
+	"Debug",
+	"DEBUG",
+}
+
 // NewCapturedOutputEnricher captures additional interesting cluster info and adds it to the captured output
 // to enrich existing reporters, like the junit reporter, with additional data.
-func NewCapturedOutputEnricher(reporters ...ginkgo.Reporter) *capturedOutputEnricher {
+func NewCapturedOutputEnricher(reporters ...Reporter) *capturedOutputEnricher {
 	return &capturedOutputEnricher{
 		reporters: reporters,
 	}
 }
 
 type capturedOutputEnricher struct {
-	reporters        []ginkgo.Reporter
+	reporters        []Reporter
 	additionalOutput interface{}
 }
 
@@ -65,6 +78,16 @@ func (j *capturedOutputEnricher) SpecDidComplete(specSummary *types.SpecSummary)
 func (j *capturedOutputEnricher) JustAfterEach(specReport types.SpecReport) {
 	if specReport.Failed() {
 		j.additionalOutput = j.collect(specReport.RunTime)
+	}
+}
+
+func CheckVMLogsAfterTest(specReport types.SpecReport) {
+	if specReport.Failed() || specReport.State.Is(types.SpecStateSkipped) {
+		return
+	}
+	testName := specReport.FullText()
+	if err := checkVMLogsForErrors(testName); err != nil {
+		Fail(fmt.Sprintf("VM logs contain disallowed errors: %v", err))
 	}
 }
 
@@ -114,4 +137,84 @@ func (j *capturedOutputEnricher) getWarningEvents(virtCli kubecli.KubevirtClient
 		return ""
 	}
 	return string(rawEvents)
+}
+
+func checkVMLogsForErrors(testName string) error {
+	virtCli := kubevirt.Client()
+	namespace := testsuite.NamespaceTestDefault
+
+	vmis, err := virtCli.VirtualMachineInstance(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return nil
+	}
+
+	var foundErrors []string
+
+	for _, vmi := range vmis.Items {
+		if vmi.Annotations == nil {
+			continue
+		}
+		createdBy, ok := vmi.Annotations[testAnnotationKey]
+		if !ok || createdBy != testName {
+			continue
+		}
+
+		labelSelector := fmt.Sprintf("%s=%s", virtv1.CreatedByLabel, string(vmi.GetUID()))
+		pods, err := virtCli.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelector,
+		})
+		if err != nil || len(pods.Items) == 0 {
+			continue
+		}
+
+		for _, pod := range pods.Items {
+			if pod.DeletionTimestamp != nil {
+				continue
+			}
+
+			logsRaw, err := virtCli.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &v1.PodLogOptions{
+				Container: "compute",
+			}).DoRaw(context.Background())
+			if err != nil {
+				continue
+			}
+
+			errors := findDisallowedErrors(string(logsRaw), vmi.Name)
+			foundErrors = append(foundErrors, errors...)
+		}
+	}
+
+	if len(foundErrors) > 0 {
+		return fmt.Errorf("found disallowed errors in VM logs:\n%s", strings.Join(foundErrors, "\n"))
+	}
+
+	return nil
+}
+
+func findDisallowedErrors(logs string, vmiName string) []string {
+	var disallowedErrors []string
+	errorKeywords := []string{"error", "failed", "panic", "fatal"}
+
+	for _, line := range strings.Split(logs, "\n") {
+		lineLower := strings.ToLower(line)
+		for _, keyword := range errorKeywords {
+			if strings.Contains(lineLower, keyword) {
+				if !isWhitelisted(line) {
+					disallowedErrors = append(disallowedErrors, fmt.Sprintf("[%s] %s", vmiName, line))
+					break
+				}
+			}
+		}
+	}
+
+	return disallowedErrors
+}
+
+func isWhitelisted(errorLine string) bool {
+	for _, whitelistPattern := range vmLogErrorWhitelist {
+		if strings.Contains(errorLine, whitelistPattern) {
+			return true
+		}
+	}
+	return false
 }

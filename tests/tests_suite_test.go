@@ -182,6 +182,7 @@ var _ = JustAfterEach(func() {
 		return
 	}
 	k8sReporter.ReportSpec(CurrentSpecReport())
+	reporter.CheckVMLogsAfterTest(CurrentSpecReport())
 })
 
 func testCleanup() {
