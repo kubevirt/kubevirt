@@ -1718,6 +1718,17 @@ var CRDsValidation map[string]string = map[string]string{
                   - VersionTLS13
                   type: string
               type: object
+            virtTemplateDeployment:
+              description: VirtTemplateDeployment controls the deployment of virt-template
+                components
+              nullable: true
+              properties:
+                enabled:
+                  description: Enabled controls the deployment of virt-template resources,
+                    defaults to True when feature gate is enabled.
+                  nullable: true
+                  type: boolean
+              type: object
             virtualMachineInstancesPerNode:
               type: integer
             virtualMachineOptions:

@@ -915,6 +915,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"liveUpdateConfiguration":            "LiveUpdateConfiguration holds defaults for live update features",
 		"vmRolloutStrategy":                  "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,\ntolerations, and affinity, are propagated from a VM to its VMI.\n+nullable\n+kubebuilder:validation:Enum=Stage;LiveUpdate",
 		"commonInstancetypesDeployment":      "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources\n+nullable",
+		"virtTemplateDeployment":             "VirtTemplateDeployment controls the deployment of virt-template components\n+nullable",
 		"instancetype":                       "Instancetype configuration\n+nullable",
 		"hypervisors":                        "Hypervisors holds information regarding the hypervisor configurations supported on this cluster.\n+listType=atomic\n+kubebuilder:validation:MaxItems:=1",
 		"changedBlockTrackingLabelSelectors": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.\nEnabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.\n+nullable",
@@ -944,6 +945,12 @@ func (InstancetypeConfiguration) SwaggerDoc() map[string]string {
 func (CommonInstancetypesDeployment) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"enabled": "Enabled controls the deployment of common-instancetypes resources, defaults to True.\n+nullable",
+	}
+}
+
+func (VirtTemplateDeployment) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"enabled": "Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.\n+nullable",
 	}
 }
 
