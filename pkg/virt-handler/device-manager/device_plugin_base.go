@@ -51,10 +51,11 @@ type DevicePluginBase struct {
 	initialized       bool
 	lock              *sync.Mutex
 	deregistered      chan struct{}
-	deviceRoot        string
-	devicePath        string
-	setupDevicePlugin func() error // Optional function to perform additional setup steps that are not covered by the default implementation
-	healthCheck       func() error // Required function to perform health checks
+	deviceRoot        string                       // Absolute base path for where this DP is inside virt-handler (typically intended to be either "/" or util.HostRootMount)
+	devicePath        string                       // Device path on the host filesystem. When accessed from a virt-handler, it should be combined with deviceRoot.
+	setupDevicePlugin func() error                 // Optional function to perform additional setup steps that are not covered by the default implementation
+	deviceNameByID    func(deviceID string) string // Optional function to convert device id to a human-readable name for logging
+	healthCheck       func() error                 // Required function to perform health checks
 }
 
 func (dpi *DevicePluginBase) GetResourceName() string {
@@ -143,6 +144,13 @@ func (dpi *DevicePluginBase) ListAndWatch(_ *pluginapi.Empty, s pluginapi.Device
 	}
 	close(dpi.deregistered)
 	return nil
+}
+
+func (dpi *DevicePluginBase) getFriendlyName(deviceID string) string {
+	if dpi.deviceNameByID == nil {
+		return "device plugin (" + deviceID + ")"
+	}
+	return dpi.deviceNameByID(deviceID)
 }
 
 func (dpi *DevicePluginBase) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
