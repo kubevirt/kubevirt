@@ -60,7 +60,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	promclientfake "kubevirt.io/client-go/prometheusoperator/fake"
@@ -203,8 +203,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 	informers.ConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 	informers.ValidatingAdmissionPolicyBinding, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
 	informers.ValidatingAdmissionPolicy, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
-	informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
-	informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+	informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterInstancetype{})
+	informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterPreference{})
 	informers.Leases, _ = testutils.NewFakeInformerFor(&coordinationv1.Lease{})
 
 	// test OpenShift components
