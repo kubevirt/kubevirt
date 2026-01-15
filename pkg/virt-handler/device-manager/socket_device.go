@@ -23,17 +23,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc"
-
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -52,52 +48,6 @@ type SocketDevicePlugin struct {
 	p             permissionManager
 	healthChecks  bool
 	hostRootMount string
-}
-
-func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
-	logger := log.DefaultLogger()
-	dpi.stop = stop
-
-	err = dpi.cleanup()
-	if err != nil {
-		return err
-	}
-
-	sock, err := net.Listen("unix", dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
-
-	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.stopDevicePlugin()
-
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-
-	errChan := make(chan error, 2)
-
-	go func() {
-		errChan <- dpi.server.Serve(sock)
-	}()
-
-	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
-
-	err = dpi.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
-
-	go func() {
-		errChan <- dpi.healthCheck()
-	}()
-
-	dpi.setInitialized(true)
-	logger.Infof("%s device plugin started", dpi.resourceName)
-	err = <-errChan
-
-	return err
 }
 
 func (dpi *SocketDevicePlugin) setSocketPermissions() error {
@@ -170,6 +120,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 		p:            p,
 		healthChecks: true,
 	}
+	dpi.healthCheck = dpi.healthCheckFunc
 
 	for i := 0; i < maxDevices; i++ {
 		deviceId := dpi.socketName + strconv.Itoa(i)
@@ -245,7 +196,7 @@ func (dpi *SocketDevicePlugin) sendHealthUpdate(healthy bool) {
 	}
 }
 
-func (dpi *SocketDevicePlugin) healthCheck() error {
+func (dpi *SocketDevicePlugin) healthCheckFunc() error {
 	logger := log.DefaultLogger()
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
