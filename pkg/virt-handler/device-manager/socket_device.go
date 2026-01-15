@@ -23,17 +23,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc"
-
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
@@ -49,52 +45,6 @@ type SocketDevicePlugin struct {
 	socketName string
 	executor   selinux.Executor
 	p          permissionManager
-}
-
-func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
-	logger := log.DefaultLogger()
-	dpi.stop = stop
-
-	err = dpi.cleanup()
-	if err != nil {
-		return err
-	}
-
-	sock, err := net.Listen("unix", dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
-
-	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.stopDevicePlugin()
-
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-
-	errChan := make(chan error, 2)
-
-	go func() {
-		errChan <- dpi.server.Serve(sock)
-	}()
-
-	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
-
-	err = dpi.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
-
-	go func() {
-		errChan <- dpi.healthCheck()
-	}()
-
-	dpi.setInitialized(true)
-	logger.Infof("%s device plugin started", dpi.resourceName)
-	err = <-errChan
-
-	return err
 }
 
 func (dpi *SocketDevicePlugin) setSocketPermissions() error {
@@ -170,28 +120,6 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 	}
 
 	return dpi, nil
-}
-
-// Register registers the device plugin for the given resourceName with Kubelet.
-func (dpi *SocketDevicePlugin) register() error {
-	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client := pluginapi.NewRegistrationClient(conn)
-	reqt := &pluginapi.RegisterRequest{
-		Version:      pluginapi.Version,
-		Endpoint:     path.Base(dpi.socketPath),
-		ResourceName: dpi.resourceName,
-	}
-
-	_, err = client.Register(context.Background(), reqt)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {

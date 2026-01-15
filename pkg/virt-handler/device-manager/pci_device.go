@@ -23,14 +23,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -56,52 +54,6 @@ type PCIDevice struct {
 type PCIDevicePlugin struct {
 	*DevicePluginBase
 	iommuToPCIMap map[string]string
-}
-
-func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
-	logger := log.DefaultLogger()
-	dpi.stop = stop
-
-	err = dpi.cleanup()
-	if err != nil {
-		return err
-	}
-
-	sock, err := net.Listen("unix", dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
-
-	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.stopDevicePlugin()
-
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-
-	errChan := make(chan error, 2)
-
-	go func() {
-		errChan <- dpi.server.Serve(sock)
-	}()
-
-	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
-
-	err = dpi.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
-
-	go func() {
-		errChan <- dpi.healthCheck()
-	}()
-
-	dpi.setInitialized(true)
-	logger.Infof("%s device plugin started", dpi.resourceName)
-	err = <-errChan
-
-	return err
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
@@ -242,7 +194,7 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 					logger.Infof("monitored device %s disappeared", dpi.resourceName)
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
-						Health: pluginapi.Unhealthy,
+						Health: pluginapi.Healthy,
 					}
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {

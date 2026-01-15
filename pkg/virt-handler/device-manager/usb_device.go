@@ -23,9 +23,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -33,7 +31,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/util/rand"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -88,51 +85,6 @@ func newPluginDevices(resourceName string, index int, usbdevs []*USBDevice) *Plu
 		isHealthy: true,
 		Devices:   usbdevs,
 	}
-}
-
-func (plugin *USBDevicePlugin) Start(stop <-chan struct{}) error {
-	plugin.stop = stop
-
-	err := plugin.cleanup()
-	if err != nil {
-		return fmt.Errorf("error on cleanup: %v", err)
-	}
-
-	sock, err := net.Listen("unix", plugin.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
-
-	plugin.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer plugin.stopDevicePlugin()
-
-	pluginapi.RegisterDevicePluginServer(plugin.server, plugin)
-
-	errChan := make(chan error, 2)
-
-	go func() {
-		errChan <- plugin.server.Serve(sock)
-	}()
-
-	err = waitForGRPCServer(plugin.socketPath, 5*time.Second)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
-
-	err = plugin.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
-
-	go func() {
-		errChan <- plugin.healthCheck()
-	}()
-
-	plugin.setInitialized(true)
-	plugin.logger.Infof("%s device plugin started", plugin.resourceName)
-	err = <-errChan
-
-	return err
 }
 
 func (pd *PluginDevices) toKubeVirtDevicePlugin() *pluginapi.Device {
@@ -282,34 +234,6 @@ func (plugin *USBDevicePlugin) healthCheck() error {
 			}
 		}
 	}
-}
-
-func (plugin *USBDevicePlugin) register() error {
-	conn, err := grpc.Dial(pluginapi.KubeletSocket,
-		grpc.WithInsecure(),
-		grpc.WithBlock(),
-		grpc.WithTimeout(5*time.Second),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
-	)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client := pluginapi.NewRegistrationClient(conn)
-	reqt := &pluginapi.RegisterRequest{
-		Version:      pluginapi.Version,
-		Endpoint:     path.Base(plugin.socketPath),
-		ResourceName: plugin.GetDeviceName(),
-	}
-
-	_, err = client.Register(context.Background(), reqt)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 // Interface to expose Devices: IDs, health and Topology

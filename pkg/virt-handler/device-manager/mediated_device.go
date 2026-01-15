@@ -22,7 +22,6 @@ package device_manager
 import (
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,52 +53,6 @@ type MDEV struct {
 type MediatedDevicePlugin struct {
 	*DevicePluginBase
 	iommuToMDEVMap map[string]string
-}
-
-func (dpi *MediatedDevicePlugin) Start(stop <-chan struct{}) (err error) {
-	logger := log.DefaultLogger()
-	dpi.stop = stop
-
-	err = dpi.cleanup()
-	if err != nil {
-		return err
-	}
-
-	sock, err := net.Listen("unix", dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
-
-	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.stopDevicePlugin()
-
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-
-	errChan := make(chan error, 2)
-
-	go func() {
-		errChan <- dpi.server.Serve(sock)
-	}()
-
-	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
-
-	err = dpi.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
-
-	go func() {
-		errChan <- dpi.healthCheck()
-	}()
-
-	dpi.setInitialized(true)
-	logger.Infof("%s device plugin started", dpi.resourceName)
-	err = <-errChan
-
-	return err
 }
 
 func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevicePlugin {
@@ -315,7 +268,7 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
-						Health: pluginapi.Unhealthy,
+						Health: pluginapi.Healthy,
 					}
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
