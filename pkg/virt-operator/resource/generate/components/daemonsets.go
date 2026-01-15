@@ -149,11 +149,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 			Image: launcherImage,
 			Name:  "virt-launcher",
 			Args: []string{
-				"node-labeller.sh",
-				"-d",
-				launcherRenderer.GetHypervisorDevice(),
-				"-t",
-				launcherRenderer.GetVirtType(),
+				fmt.Sprintf("node-labeller.sh -d %s -t %s", launcherRenderer.GetHypervisorDevice(), launcherRenderer.GetVirtType()),
 			},
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: pointer.P(true),
