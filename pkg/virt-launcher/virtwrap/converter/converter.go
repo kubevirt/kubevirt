@@ -37,6 +37,8 @@ import (
 
 	"golang.org/x/sys/unix"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -1227,8 +1229,12 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			isMemfdRequired = true
 		}
 	}
+
+	isPasstFunc := func(iface v1.Interface) bool {
+		return iface.PasstBinding != nil
+	}
 	// virtiofs require shared access
-	if util.IsVMIVirtiofsEnabled(vmi) {
+	if util.IsVMIVirtiofsEnabled(vmi) || vmispec.HasIfaceOfFunc(vmi.Spec.Domain.Devices.Interfaces, isPasstFunc) {
 		if domain.Spec.MemoryBacking == nil {
 			domain.Spec.MemoryBacking = &api.MemoryBacking{}
 		}

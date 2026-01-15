@@ -21,6 +21,7 @@ package vmispec
 
 import (
 	"fmt"
+	"slices"
 
 	v1 "kubevirt.io/api/core/v1"
 )
@@ -200,4 +201,8 @@ func hasVirtioIface(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 	return false
+}
+
+func HasIfaceOfFunc(ifaces []v1.Interface, interfaceFunc func(iface v1.Interface) bool) bool {
+	return slices.IndexFunc(ifaces, interfaceFunc) >= 0
 }

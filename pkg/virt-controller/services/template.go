@@ -119,6 +119,7 @@ const (
 	VirtlogdOverhead            = "25Mi"  // The `ps` RSS for virtlogd
 	VirtqemudOverhead           = "40Mi"  // The `ps` RSS for virtqemud
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
+	PasstBindingOverhead        = "250Mi" // passt binary overhead if all ports are forwarded
 	// Default: limits.memory = 2*requests.memory
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
 
@@ -1572,6 +1573,14 @@ func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netBinding
 		vmiCPUArch = clusterConfig.GetClusterCPUArch()
 	}
 	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+
+	hasPasstBinding := vmispec.HasIfaceOfFunc(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		return iface.PasstBinding != nil
+	})
+
+	if hasPasstBinding {
+		memoryOverhead.Add(resource.MustParse(PasstBindingOverhead))
+	}
 
 	if netBindingPluginMemoryCalculator != nil {
 		memoryOverhead.Add(

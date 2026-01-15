@@ -21,9 +21,11 @@ package domainspec
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/vishvananda/netlink"
+	"golang.org/x/exp/slices"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -61,6 +63,27 @@ type TapLibvirtSpecGenerator struct {
 	domain           *api.Domain
 	podInterfaceName string
 	handler          netdriver.NetworkHandler
+}
+
+type PasstLibvirtSpecGenerator struct {
+	vmiSpecIface *v1.Interface
+	domain       *api.Domain
+	netLinkIface netlink.Link
+	handler      netdriver.NetworkHandler
+}
+
+func NewPasstLibvirtSpecGenerator(
+	iface *v1.Interface,
+	domain *api.Domain,
+	netLinkIface netlink.Link,
+	handler netdriver.NetworkHandler,
+) *PasstLibvirtSpecGenerator {
+	return &PasstLibvirtSpecGenerator{
+		vmiSpecIface: iface,
+		domain:       domain,
+		netLinkIface: netLinkIface,
+		handler:      handler,
+	}
 }
 
 func (b *TapLibvirtSpecGenerator) Generate() error {
@@ -120,4 +143,29 @@ func (b *TapLibvirtSpecGenerator) getTargetName() (string, error) {
 		return "", err
 	}
 	return tapName, nil
+}
+
+func (g *PasstLibvirtSpecGenerator) Generate() error {
+	idx := slices.IndexFunc(g.domain.Spec.Devices.Interfaces, func(iface api.Interface) bool {
+		return iface.Alias.GetName() == g.vmiSpecIface.Name
+	})
+
+	const notFound = -1
+	if notFound == idx {
+		return fmt.Errorf("spec interface %s not found in domain", g.vmiSpecIface.Name)
+	}
+
+	userDefinedMAC, err := virtnetlink.RetrieveMacAddressFromVMISpecIface(g.vmiSpecIface)
+	if err != nil {
+		return err
+	}
+	var mac string
+	if userDefinedMAC != nil {
+		mac = userDefinedMAC.String()
+	} else {
+		mac = g.netLinkIface.Attrs().HardwareAddr.String()
+	}
+	g.domain.Spec.Devices.Interfaces[idx].MAC = &api.MAC{MAC: mac}
+
+	return nil
 }
