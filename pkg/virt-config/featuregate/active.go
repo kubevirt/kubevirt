@@ -185,6 +185,11 @@ const (
 	// which allows terminating the VMI on guest reboot instead of silently rebooting,
 	// enabling the VM controller to recreate the VMI with updated configuration.
 	RebootPolicy = "RebootPolicy"
+
+	// Owner: sig-compute / @0xFelix
+	// Template enables the deployment of virt-template components by virt-operator.
+	// Alpha: v1.8.0
+	Template = "Template"
 )
 
 func init() {
@@ -225,4 +230,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: DisableNADResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
 }

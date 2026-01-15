@@ -220,3 +220,7 @@ func (config *ClusterConfig) ShouldDisableNADResourceInjection() bool {
 func (config *ClusterConfig) RebootPolicyEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.RebootPolicy)
 }
+
+func (config *ClusterConfig) TemplateEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.Template)
+}
