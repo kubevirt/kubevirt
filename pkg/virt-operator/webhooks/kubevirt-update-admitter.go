@@ -80,6 +80,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
+	results = append(results, validateVirtTemplateDeployment(&newKV.Spec.Configuration)...)
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
@@ -523,4 +524,27 @@ func validateFeatureGates(devConfig *v1.DeveloperConfiguration) (causes []metav1
 	}
 
 	return causes
+}
+
+func validateVirtTemplateDeployment(config *v1.KubeVirtConfiguration) []metav1.StatusCause {
+	virtTemplateDeployment := config.VirtTemplateDeployment
+	if virtTemplateDeployment == nil || virtTemplateDeployment.Enabled == nil || !*virtTemplateDeployment.Enabled {
+		return nil
+	}
+
+	var featureGates []string
+	if config.DeveloperConfiguration != nil {
+		featureGates = config.DeveloperConfiguration.FeatureGates
+	}
+	for _, fg := range featureGates {
+		if fg == featuregate.Template {
+			return nil
+		}
+	}
+
+	return []metav1.StatusCause{{
+		Type:    metav1.CauseTypeFieldValueInvalid,
+		Field:   "spec.configuration.virtTemplateDeployment.enabled",
+		Message: fmt.Sprintf("VirtTemplateDeployment cannot be enabled without enabling the %s feature gate", featuregate.Template),
+	}}
 }

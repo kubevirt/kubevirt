@@ -43,6 +43,67 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 	test := field.NewPath("test")
 	vmProfileField := test.Child("virtualMachineInstanceProfile")
 
+	DescribeTable("validateVirtTemplateDeployment", func(kvSpec v1.KubeVirtSpec, expectError bool) {
+		causes := validateVirtTemplateDeployment(&kvSpec.Configuration)
+		if expectError {
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("spec.configuration.virtTemplateDeployment.enabled"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should reject when VirtTemplateDeployment enabled without Template feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
+						Enabled: pointer.P(true),
+					},
+				},
+			},
+			true,
+		),
+		Entry("should allow when VirtTemplateDeployment enabled with Template feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.Template},
+					},
+					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
+						Enabled: pointer.P(true),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should allow when VirtTemplateDeployment is nil",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{},
+			},
+			false,
+		),
+		Entry("should allow when VirtTemplateDeployment.Enabled is nil",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
+						Enabled: nil,
+					},
+				},
+			},
+			false,
+		),
+		Entry("should allow when VirtTemplateDeployment.Enabled is false",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
+						Enabled: pointer.P(false),
+					},
+				},
+			},
+			false,
+		),
+	)
+
 	DescribeTable("validateSeccompConfiguration", func(seccompConfiguration *v1.SeccompConfiguration, expectedFields []string) {
 		causes := validateSeccompConfiguration(test, seccompConfiguration)
 		Expect(causes).To(HaveLen(len(expectedFields)))
