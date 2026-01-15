@@ -16,7 +16,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
@@ -225,7 +225,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachinePreference from v1beta1 without labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				preference := builder.NewPreference(
-					builder.WithPreferredCPUTopology(instancetypev1beta1.Sockets),
+					builder.WithPreferredCPUTopology(instancetypev1.Sockets),
 				)
 				preference, err := virtClient.VirtualMachinePreference(preference.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -237,7 +237,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachinePreference from v1beta1 with labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				preference := builder.NewPreference(
-					builder.WithPreferredCPUTopology(instancetypev1beta1.Sockets),
+					builder.WithPreferredCPUTopology(instancetypev1.Sockets),
 				)
 				preference, err := virtClient.VirtualMachinePreference(preference.Namespace).Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -249,7 +249,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineClusterPreference from v1beta1 without labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				preference := builder.NewClusterPreference(
-					builder.WithPreferredCPUTopology(instancetypev1beta1.Sockets),
+					builder.WithPreferredCPUTopology(instancetypev1.Sockets),
 				)
 				preference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -261,7 +261,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		Entry("VirtualMachineClusterPreference from v1beta1 with labels to latest",
 			func() (*appsv1.ControllerRevision, error) {
 				preference := builder.NewClusterPreference(
-					builder.WithPreferredCPUTopology(instancetypev1beta1.Sockets),
+					builder.WithPreferredCPUTopology(instancetypev1.Sockets),
 				)
 				preference, err := virtClient.VirtualMachineClusterPreference().Create(context.Background(), preference, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
