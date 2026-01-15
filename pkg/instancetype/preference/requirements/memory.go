@@ -36,8 +36,8 @@ const (
 )
 
 func checkMemory(
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) (conflict.Conflicts, error) {
 	errFmt := InsufficientVMMemoryResourcesErrorFmt

@@ -188,7 +188,7 @@ func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) 
 }
 
 func (h *revisionHandler) checkForInstancetypeConflicts(
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 	vmiMetadata *metav1.ObjectMeta,
 ) error {
