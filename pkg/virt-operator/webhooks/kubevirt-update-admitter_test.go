@@ -63,7 +63,10 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 					LocalhostProfile:      pointer.P("somethingNotImportant"),
 				},
 			},
-		}, []string{vmProfileField.Child("customProfile", "runtimeDefaultProfile").String(), vmProfileField.Child("customProfile", "localhostProfile").String()}),
+		}, []string{
+			vmProfileField.Child("customProfile", "runtimeDefaultProfile").String(),
+			vmProfileField.Child("customProfile", "localhostProfile").String(),
+		}),
 	)
 
 	DescribeTable("test validateCustomizeComponents", func(cc v1.CustomizeComponents, expectedCauses int) {
@@ -206,7 +209,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Expect(response).NotTo(BeNil())
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
-				Expect(response.Warnings).To(ContainElement("spec.configuration.mediatedDevicesConfiguration.mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
+				Expect(response.Warnings).To(ContainElement(
+				"spec.configuration.mediatedDevicesConfiguration.mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
 			} else {
 				Expect(response.Warnings).To(BeEmpty())
 			}
@@ -240,7 +244,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Expect(response).NotTo(BeNil())
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
-				Expect(response.Warnings).To(ContainElement("spec.configuration.mediatedDevicesConfiguration.nodeMediatedDeviceTypes[0].mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
+				Expect(response.Warnings).To(ContainElement(
+				"spec.configuration.mediatedDevicesConfiguration.nodeMediatedDeviceTypes[0].mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
 			} else {
 				Expect(response.Warnings).To(BeEmpty())
 			}
@@ -300,18 +305,27 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}))
 		},
-			Entry("with LiveMigration", featuregate.LiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.LiveMigrationGate, featuregate.GA)),
-			Entry("with SRIOVLiveMigration", featuregate.SRIOVLiveMigrationGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.SRIOVLiveMigrationGate, featuregate.GA)),
-			Entry("with NonRoot", featuregate.NonRoot, fmt.Sprintf(featuregate.WarningPattern, featuregate.NonRoot, featuregate.GA)),
-			Entry("with PSA", featuregate.PSA, fmt.Sprintf(featuregate.WarningPattern, featuregate.PSA, featuregate.GA)),
-			Entry("with CPUNodeDiscoveryGate", featuregate.CPUNodeDiscoveryGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.CPUNodeDiscoveryGate, featuregate.GA)),
-			Entry("with HotplugNICs", featuregate.HotplugNetworkIfacesGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.HotplugNetworkIfacesGate, featuregate.GA)),
+			Entry("with LiveMigration", featuregate.LiveMigrationGate,
+			fmt.Sprintf(featuregate.WarningPattern, featuregate.LiveMigrationGate, featuregate.GA)),
+			Entry("with SRIOVLiveMigration", featuregate.SRIOVLiveMigrationGate,
+			fmt.Sprintf(featuregate.WarningPattern, featuregate.SRIOVLiveMigrationGate, featuregate.GA)),
+			Entry("with NonRoot", featuregate.NonRoot,
+			fmt.Sprintf(featuregate.WarningPattern, featuregate.NonRoot, featuregate.GA)),
+			Entry("with PSA", featuregate.PSA,
+			fmt.Sprintf(featuregate.WarningPattern, featuregate.PSA, featuregate.GA)),
+			Entry("with CPUNodeDiscoveryGate", featuregate.CPUNodeDiscoveryGate,
+			fmt.Sprintf(featuregate.WarningPattern, featuregate.CPUNodeDiscoveryGate, featuregate.GA)),
+			Entry("with HotplugNICs", featuregate.HotplugNetworkIfacesGate,
+			fmt.Sprintf(featuregate.WarningPattern, featuregate.HotplugNetworkIfacesGate, featuregate.GA)),
 			Entry("with Passt", featuregate.PasstGate, featuregate.PasstDiscontinueMessage),
 			Entry("with MacvtapGate", featuregate.MacvtapGate, featuregate.MacvtapDiscontinueMessage),
 			Entry("with ExperimentalVirtiofsSupport", featuregate.VirtIOFSGate, featuregate.VirtioFsFeatureGateDiscontinueMessage),
-			Entry("with DisableMediatedDevicesHandling", featuregate.DisableMediatedDevicesHandling, "DisableMDEVConfiguration has been deprecated since v1.8.0"),
-			Entry("with DockerSELinuxMCSWorkaround", featuregate.DockerSELinuxMCSWorkaround, "DockerSELinuxMCSWorkaround has been deprecated since v1.4."),
-			Entry("with MultiArchitecture", featuregate.MultiArchitecture, "MultiArchitecture has been deprecated since v1.8.0"),
+			Entry("with DisableMediatedDevicesHandling", featuregate.DisableMediatedDevicesHandling,
+			"DisableMDEVConfiguration has been deprecated since v1.8.0"),
+			Entry("with DockerSELinuxMCSWorkaround", featuregate.DockerSELinuxMCSWorkaround,
+			"DockerSELinuxMCSWorkaround has been deprecated since v1.4."),
+			Entry("with MultiArchitecture", featuregate.MultiArchitecture,
+			"MultiArchitecture has been deprecated since v1.8.0"),
 		)
 
 		DescribeTable("should raise warning when archConfig is set for ppc64le", func(shouldWarn bool, archConfig *v1.ArchConfiguration) {
@@ -328,7 +342,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
-				Expect(response.Warnings).To(ContainElement("spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."))
+				Expect(response.Warnings).To(ContainElement(
+				"spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."))
 			} else {
 				Expect(response.Warnings).To(BeEmpty())
 			}
