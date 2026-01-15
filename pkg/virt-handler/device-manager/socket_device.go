@@ -121,6 +121,8 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 	}
 	dpi.healthCheck = dpi.healthCheckFunc
 
+	dpi.deviceNameByID = dpi.deviceNameByIDFunc
+
 	for i := 0; i < maxDevices; i++ {
 		deviceId := socketName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
@@ -261,4 +263,9 @@ func (dpi *SocketDevicePlugin) healthCheckFunc() error {
 			}
 		}
 	}
+}
+
+func (dpi *SocketDevicePlugin) deviceNameByIDFunc(_ string) string {
+	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
+	return fmt.Sprintf("socket device (%s)", devicePath)
 }

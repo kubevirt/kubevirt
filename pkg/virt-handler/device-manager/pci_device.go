@@ -29,7 +29,6 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -77,6 +76,7 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 		},
 		iommuToPCIMap: iommuToPCIMap,
 	}
+	dpi.deviceNameByID = dpi.deviceNameByIDFunc
 	dpi.healthCheck = dpi.healthCheckFunc
 	return dpi
 }
@@ -204,6 +204,14 @@ func (dpi *PCIDevicePlugin) healthCheckFunc() error {
 			}
 		}
 	}
+}
+
+func (dpi *PCIDevicePlugin) deviceNameByIDFunc(monDevId string) string {
+	pciID, ok := dpi.iommuToPCIMap[monDevId]
+	if !ok {
+		pciID = "not recognized"
+	}
+	return fmt.Sprintf("PCI device (pciAddr=%s, id=%s)", pciID, monDevId)
 }
 
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {
