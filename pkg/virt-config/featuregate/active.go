@@ -171,6 +171,11 @@ const (
 	// Owner: SIG network
 	// Beta: v1.8
 	PodSecondaryInterfaceNamingUpgrade = "PodSecondaryInterfaceNamingUpgrade"
+
+	// Owner: sig-compute / @0xFelix
+	// Template enables the deployment of virt-template components by virt-operator.
+	// Alpha: v1.8.0
+	Template = "Template"
 )
 
 func init() {
@@ -209,4 +214,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
 }
