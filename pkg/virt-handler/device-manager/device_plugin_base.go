@@ -51,11 +51,12 @@ type DevicePluginBase struct {
 	initialized       bool
 	lock              *sync.Mutex
 	deregistered      chan struct{}
-	deviceRoot        string                       // Absolute base path for where this DP is inside virt-handler (typically intended to be either "/" or util.HostRootMount)
-	devicePath        string                       // Device path on the host filesystem. When accessed from a virt-handler, it should be combined with deviceRoot.
-	setupDevicePlugin func() error                 // Optional function to perform additional setup steps that are not covered by the default implementation
-	deviceNameByID    func(deviceID string) string // Optional function to convert device id to a human-readable name for logging
-	healthCheck       func() error                 // Required function to perform health checks
+	deviceRoot        string                                                                                 // Absolute base path for where this DP is inside virt-handler (typically intended to be either "/" or util.HostRootMount)
+	devicePath        string                                                                                 // Device path on the host filesystem. When accessed from a virt-handler, it should be combined with deviceRoot.
+	allocateDP        func(context.Context, *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) // REQUIRED function to allocate the device.
+	setupDevicePlugin func() error                                                                           // Optional function to perform additional setup steps that are not covered by the default implementation
+	deviceNameByID    func(deviceID string) string                                                           // Optional function to convert device id to a human-readable name for logging
+	healthCheck       func() error                                                                           // Required function to perform health checks
 }
 
 func (dpi *DevicePluginBase) GetResourceName() string {
@@ -166,19 +167,10 @@ func (dpi *DevicePluginBase) GetDevicePluginOptions(_ context.Context, _ *plugin
 }
 
 func (dpi *DevicePluginBase) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.resourceName)
-	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
-	response := pluginapi.AllocateResponse{}
-	containerResponse := new(pluginapi.ContainerAllocateResponse)
-
-	dev := new(pluginapi.DeviceSpec)
-	dev.HostPath = dpi.devicePath
-	dev.ContainerPath = dpi.devicePath
-	containerResponse.Devices = []*pluginapi.DeviceSpec{dev}
-
-	response.ContainerResponses = []*pluginapi.ContainerAllocateResponse{containerResponse}
-
-	return &response, nil
+	if dpi.allocateDP != nil {
+		return dpi.allocateDP(ctx, r)
+	}
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (dpi *DevicePluginBase) stopDevicePlugin() error {
