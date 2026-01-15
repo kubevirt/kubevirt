@@ -44,8 +44,14 @@ import (
 
 var defaultBackoffTime = []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second}
 
+type devicePlugin interface {
+	Start(stop <-chan struct{}) error
+	GetResourceName() string
+	GetInitialized() bool
+}
+
 type controlledDevice struct {
-	devicePlugin Device
+	devicePlugin devicePlugin
 	started      bool
 	stopChan     chan struct{}
 	backoff      []time.Duration
@@ -108,14 +114,14 @@ func (c *controlledDevice) GetName() string {
 	return c.devicePlugin.GetResourceName()
 }
 
-func PermanentHostDevicePlugins(hypervisorDevice string, maxDevices int, permissions string) []Device {
+func PermanentHostDevicePlugins(hypervisorDevice string, maxDevices int, permissions string) []devicePlugin {
 	var permanentDevicePluginPaths = map[string]string{
 		hypervisorDevice: "/dev/" + hypervisorDevice,
 		"tun":            "/dev/net/tun",
 		"vhost-net":      "/dev/vhost-net",
 	}
 
-	ret := make([]Device, 0, len(permanentDevicePluginPaths))
+	ret := make([]devicePlugin, 0, len(permanentDevicePluginPaths))
 	for name, path := range permanentDevicePluginPaths {
 		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, name != hypervisorDevice))
 	}
@@ -128,7 +134,7 @@ type DeviceControllerInterface interface {
 }
 
 type DeviceController struct {
-	permanentPlugins         map[string]Device
+	permanentPlugins         map[string]devicePlugin
 	startedPlugins           map[string]controlledDevice
 	startedPluginsMutex      sync.Mutex
 	host                     string
@@ -151,11 +157,11 @@ func NewDeviceController(
 	host string,
 	maxDevices int,
 	permissions string,
-	permanentPlugins []Device,
+	permanentPlugins []devicePlugin,
 	clusterConfig *virtconfig.ClusterConfig,
 	nodeStore cache.Store,
 ) *DeviceController {
-	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
+	permanentPluginsMap := make(map[string]devicePlugin, len(permanentPlugins))
 	for i := range permanentPlugins {
 		permanentPluginsMap[permanentPlugins[i].GetResourceName()] = permanentPlugins[i]
 	}
@@ -182,7 +188,7 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 	return err == nil
 }
 
-func (c *DeviceController) updateTdxDevice() (Device, error) {
+func (c *DeviceController) updateTdxDevice() (devicePlugin, error) {
 	maxTDXVMs, err := cgroup.GetMiscCapacity("tdx")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get TDX capacity from misc.capacity: %v", err)
@@ -191,7 +197,7 @@ func (c *DeviceController) updateTdxDevice() (Device, error) {
 		socketPath := c.virtConfig.GetQGSSocketPath()
 		socketDir := path.Dir(socketPath)
 		socketFile := path.Base(socketPath)
-		var tdxPlugin Device
+		var tdxPlugin devicePlugin
 		var err error
 		if c.virtConfig.RequireQGS() {
 			tdxPlugin, err = NewSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
@@ -205,8 +211,8 @@ func (c *DeviceController) updateTdxDevice() (Device, error) {
 }
 
 // updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
-func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
-	var permittedDevices []Device
+func (c *DeviceController) updatePermittedHostDevicePlugins() []devicePlugin {
+	var permittedDevices []devicePlugin
 
 	if c.virtConfig.WorkloadEncryptionTDXEnabled() {
 		tdxPlugin, err := c.updateTdxDevice()
@@ -302,8 +308,8 @@ func removeSelectorSpaces(selectorName string) string {
 	return typeNameStr
 }
 
-func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]Device, map[string]struct{}) {
-	devicePluginsToRun := make(map[string]Device)
+func (c *DeviceController) splitPermittedDevices(devices []devicePlugin) (map[string]devicePlugin, map[string]struct{}) {
+	devicePluginsToRun := make(map[string]devicePlugin)
 	devicePluginsToStop := make(map[string]struct{})
 
 	// generate a map of currently started device plugins
@@ -456,7 +462,7 @@ func (c *DeviceController) refreshPermittedDevices() {
 	c.mdevRefreshWG.Done()
 }
 
-func (c *DeviceController) startDevice(resourceName string, dev Device) {
+func (c *DeviceController) startDevice(resourceName string, dev devicePlugin) {
 	c.stopDevice(resourceName)
 	controlledDev := controlledDevice{
 		devicePlugin: dev,
