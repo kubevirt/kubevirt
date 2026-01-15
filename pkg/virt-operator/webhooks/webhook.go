@@ -62,7 +62,6 @@ func (k *KubeVirtDeletionAdmitter) Admit(ctx context.Context, review *admissionv
 	}
 
 	vmis, err := k.client.VirtualMachineInstance(metav1.NamespaceAll).List(ctx, metav1.ListOptions{Limit: 2})
-
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -72,7 +71,6 @@ func (k *KubeVirtDeletionAdmitter) Admit(ctx context.Context, review *admissionv
 	}
 
 	vms, err := k.client.VirtualMachine(metav1.NamespaceAll).List(ctx, metav1.ListOptions{Limit: 2})
-
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
@@ -82,7 +80,6 @@ func (k *KubeVirtDeletionAdmitter) Admit(ctx context.Context, review *admissionv
 	}
 
 	vmirs, err := k.client.ReplicaSet(metav1.NamespaceAll).List(ctx, metav1.ListOptions{Limit: 2})
-
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	}
