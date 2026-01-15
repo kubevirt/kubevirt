@@ -25,7 +25,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -35,8 +35,8 @@ import (
 var _ = Describe("Preference.Clock", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
-		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
-		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
+		instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec
+		preferenceSpec   *instancetypev1.VirtualMachinePreferenceSpec
 
 		field      = k8sfield.NewPath("spec", "template", "spec")
 		vmiApplier = apply.NewVMIApplier()
@@ -47,8 +47,8 @@ var _ = Describe("Preference.Clock", func() {
 	})
 
 	It("should apply to VMI", func() {
-		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-			Clock: &v1beta1.ClockPreferences{
+		preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
+			Clock: &instancetypev1.ClockPreferences{
 				PreferredClockOffset: &virtv1.ClockOffset{
 					UTC: &virtv1.ClockOffsetUTC{
 						OffsetSeconds: pointer.P(30),

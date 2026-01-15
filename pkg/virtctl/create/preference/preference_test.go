@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/webhooks"
@@ -59,7 +59,7 @@ var _ = Describe("create preference", func() {
 
 			decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), out)
 			Expect(err).ToNot(HaveOccurred())
-			clusterPreference, ok := decodedObj.(*instancetypev1beta1.VirtualMachineClusterPreference)
+			clusterPreference, ok := decodedObj.(*instancetypev1.VirtualMachineClusterPreference)
 			Expect(ok).To(BeTrue())
 			Expect(validatePreferenceSpec(&clusterPreference.Spec)).To(BeEmpty())
 		})
@@ -71,13 +71,13 @@ var _ = Describe("create preference", func() {
 			decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), out)
 			Expect(err).ToNot(HaveOccurred())
 
-			var spec *instancetypev1beta1.VirtualMachinePreferenceSpec
+			var spec *instancetypev1.VirtualMachinePreferenceSpec
 			if namespaced {
-				preference, ok := decodedObj.(*instancetypev1beta1.VirtualMachinePreference)
+				preference, ok := decodedObj.(*instancetypev1.VirtualMachinePreference)
 				Expect(ok).To(BeTrue())
 				spec = &preference.Spec
 			} else {
-				clusterPreference, ok := decodedObj.(*instancetypev1beta1.VirtualMachineClusterPreference)
+				clusterPreference, ok := decodedObj.(*instancetypev1.VirtualMachineClusterPreference)
 				Expect(ok).To(BeTrue())
 				spec = &clusterPreference.Spec
 			}
@@ -118,7 +118,7 @@ var _ = Describe("create preference", func() {
 			Entry("VirtualMachineClusterPreference", "pc-q35-2.10"),
 		)
 
-		DescribeTable("with defined CPU topology", func(topology instancetypev1beta1.PreferredCPUTopology, extraArgs ...string) {
+		DescribeTable("with defined CPU topology", func(topology instancetypev1.PreferredCPUTopology, extraArgs ...string) {
 			args := append([]string{
 				setFlag(CPUTopologyFlag, string(topology)),
 			}, extraArgs...)
@@ -130,8 +130,8 @@ var _ = Describe("create preference", func() {
 			Expect(*spec.CPU.PreferredCPUTopology).To(Equal(topology))
 			Expect(validatePreferenceSpec(spec)).To(BeEmpty())
 		},
-			Entry("VirtualMachinePreference", instancetypev1beta1.DeprecatedPreferCores, setFlag(NamespacedFlag, "true")),
-			Entry("VirtualMachineClusterPreference", instancetypev1beta1.DeprecatedPreferThreads),
+			Entry("VirtualMachinePreference", instancetypev1.DeprecatedPreferCores, setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterPreference", instancetypev1.DeprecatedPreferThreads),
 		)
 	})
 
@@ -143,7 +143,7 @@ var _ = Describe("create preference", func() {
 		decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), out)
 		Expect(err).ToNot(HaveOccurred())
 
-		preference, ok := decodedObj.(*instancetypev1beta1.VirtualMachinePreference)
+		preference, ok := decodedObj.(*instancetypev1.VirtualMachinePreference)
 		Expect(ok).To(BeTrue())
 		Expect(preference.Namespace).To(Equal(namespace))
 	})
@@ -158,15 +158,15 @@ func runCmd(extraArgs ...string) ([]byte, error) {
 	return testing.NewRepeatableVirtctlCommandWithOut(args...)()
 }
 
-func getPreferenceSpec(bytes []byte) *instancetypev1beta1.VirtualMachinePreferenceSpec {
+func getPreferenceSpec(bytes []byte) *instancetypev1.VirtualMachinePreferenceSpec {
 	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
 	Expect(err).ToNot(HaveOccurred())
 
 	switch obj := decodedObj.(type) {
-	case *instancetypev1beta1.VirtualMachinePreference:
+	case *instancetypev1.VirtualMachinePreference:
 		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.SingularPreferenceResourceName))
 		return &obj.Spec
-	case *instancetypev1beta1.VirtualMachineClusterPreference:
+	case *instancetypev1.VirtualMachineClusterPreference:
 		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.ClusterSingularPreferenceResourceName))
 		return &obj.Spec
 	default:
@@ -175,6 +175,6 @@ func getPreferenceSpec(bytes []byte) *instancetypev1beta1.VirtualMachinePreferen
 	}
 }
 
-func validatePreferenceSpec(spec *instancetypev1beta1.VirtualMachinePreferenceSpec) []k8sv1.StatusCause {
+func validatePreferenceSpec(spec *instancetypev1.VirtualMachinePreferenceSpec) []k8sv1.StatusCause {
 	return webhooks.ValidatePreferenceSpec(field.NewPath("spec"), spec)
 }

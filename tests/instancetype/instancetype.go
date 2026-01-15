@@ -19,7 +19,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -58,7 +58,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		DescribeTable("[test_id:CNV-9083] should reject invalid instancetype", func(instancetype instancetypev1beta1.VirtualMachineInstancetype) {
+		DescribeTable("[test_id:CNV-9083] should reject invalid instancetype", func(instancetype instancetypev1.VirtualMachineInstancetype) {
 			_, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(nil)).
 				Create(context.Background(), &instancetype, metav1.CreateOptions{})
 			Expect(err).To(HaveOccurred())
@@ -67,34 +67,34 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			cause := apiStatus.Status().Details.Causes[0]
 			Expect(cause.Type).To(Equal(metav1.CauseTypeFieldValueRequired))
 		},
-			Entry("without CPU defined", instancetypev1beta1.VirtualMachineInstancetype{
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					Memory: instancetypev1beta1.MemoryInstancetype{
+			Entry("without CPU defined", instancetypev1.VirtualMachineInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					Memory: instancetypev1.MemoryInstancetype{
 						Guest: resource.MustParse("128M"),
 					},
 				},
 			}),
-			Entry("without CPU.Guest defined", instancetypev1beta1.VirtualMachineInstancetype{
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{},
-					Memory: instancetypev1beta1.MemoryInstancetype{
+			Entry("without CPU.Guest defined", instancetypev1.VirtualMachineInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{},
+					Memory: instancetypev1.MemoryInstancetype{
 						Guest: resource.MustParse("128M"),
 					},
 				},
 			}),
-			Entry("without Memory defined", instancetypev1beta1.VirtualMachineInstancetype{
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
+			Entry("without Memory defined", instancetypev1.VirtualMachineInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: 1,
 					},
 				},
 			}),
-			Entry("without Memory.Guest defined", instancetypev1beta1.VirtualMachineInstancetype{
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
+			Entry("without Memory.Guest defined", instancetypev1.VirtualMachineInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: 1,
 					},
-					Memory: instancetypev1beta1.MemoryInstancetype{},
+					Memory: instancetypev1.MemoryInstancetype{},
 				},
 			}),
 		)
@@ -167,7 +167,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preferenceNotFoundReason,
 				func(_ string) error {
 					preference := builder.NewClusterPreference(
-						builder.WithPreferredCPUTopology(instancetypev1beta1.Cores),
+						builder.WithPreferredCPUTopology(instancetypev1.Cores),
 					)
 					// FIXME(lyarwood): builder should provide WithName()
 					preference.GenerateName = ""
@@ -181,7 +181,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				preferenceNotFoundReason,
 				func(namespace string) error {
 					preference := builder.NewPreference(
-						builder.WithPreferredCPUTopology(instancetypev1beta1.Cores),
+						builder.WithPreferredCPUTopology(instancetypev1.Cores),
 					)
 					// FIXME(lyarwood): builder should provide WithName()
 					preference.GenerateName = ""
@@ -250,8 +250,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			clusterPreference := builder.NewClusterPreference()
-			clusterPreference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
-				PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+			clusterPreference.Spec.CPU = &instancetypev1.CPUPreferences{
+				PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 			}
 
 			clusterPreference, err = virtClient.VirtualMachineClusterPreference().
@@ -283,13 +283,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			preference := builder.NewPreference()
-			preference.Spec.CPU = &instancetypev1beta1.CPUPreferences{
-				PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+			preference.Spec.CPU = &instancetypev1.CPUPreferences{
+				PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 			}
-			preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
+			preference.Spec.Devices = &instancetypev1.DevicePreferences{
 				PreferredDiskBus: virtv1.DiskBusSATA,
 			}
-			preference.Spec.Features = &instancetypev1beta1.FeaturePreferences{
+			preference.Spec.Features = &instancetypev1.FeaturePreferences{
 				PreferredHyperv: &virtv1.FeatureHyperv{
 					VAPIC: &virtv1.FeatureState{
 						Enabled: pointer.P(true),
@@ -299,7 +299,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 					},
 				},
 			}
-			preference.Spec.Firmware = &instancetypev1beta1.FirmwarePreferences{
+			preference.Spec.Firmware = &instancetypev1.FirmwarePreferences{
 				PreferredUseBios: pointer.P(true),
 			}
 			preference.Spec.PreferredTerminationGracePeriodSeconds = pointer.P(int64(preferredTerminationGracePeriodSeconds))
@@ -330,7 +330,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			// Assert we've used sockets as instancetypev1beta1.Sockets was requested
+			// Assert we've used sockets as instancetypev1.Sockets was requested
 			Expect(vmi.Spec.Domain.CPU.Sockets).To(Equal(instancetype.Spec.CPU.Guest))
 			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetype.Spec.Memory.Guest))
 
@@ -472,7 +472,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		It("[test_id:CNV-9302] should apply preferences to default network interface", func() {
 			clusterPreference := builder.NewClusterPreference()
-			clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
+			clusterPreference.Spec.Devices = &instancetypev1.DevicePreferences{
 				PreferredInterfaceModel: virtv1.VirtIO,
 			}
 
@@ -497,7 +497,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 		It("[test_id:CNV-9303] should apply preferences to default volume disks", func() {
 			clusterPreference := builder.NewClusterPreference()
-			clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
+			clusterPreference.Spec.Devices = &instancetypev1.DevicePreferences{
 				PreferredDiskBus: virtv1.DiskBusVirtio,
 			}
 
@@ -533,9 +533,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating a VirtualMachinePreference")
 			preference := builder.NewPreference()
-			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
-				CPU: &instancetypev1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+			preference.Spec = instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 				},
 			}
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
@@ -559,14 +559,14 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			instancetypeRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			stashedInstancetype := &instancetypev1beta1.VirtualMachineInstancetype{}
+			stashedInstancetype := &instancetypev1.VirtualMachineInstancetype{}
 			Expect(json.Unmarshal(instancetypeRevision.Data.Raw, stashedInstancetype)).To(Succeed())
 			Expect(stashedInstancetype.Spec).To(Equal(instancetype.Spec))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			stashedPreference := &instancetypev1beta1.VirtualMachinePreference{}
+			stashedPreference := &instancetypev1.VirtualMachinePreference{}
 			Expect(json.Unmarshal(preferenceRevision.Data.Raw, stashedPreference)).To(Succeed())
 			Expect(stashedPreference.Spec).To(Equal(preference.Spec))
 
@@ -616,7 +616,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			instancetypeRevision, err = virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), newVM.Status.InstancetypeRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			stashedInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{}
+			stashedInstancetype = &instancetypev1.VirtualMachineInstancetype{}
 			Expect(json.Unmarshal(instancetypeRevision.Data.Raw, stashedInstancetype)).To(Succeed())
 			Expect(stashedInstancetype.Spec).To(Equal(updatedInstancetype.Spec))
 
@@ -666,7 +666,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			}, 5*time.Minute, time.Second).Should(Equal(metav1.StatusReasonNotFound))
 
 			By("Creating changed ControllerRevision")
-			stashedInstancetype := &instancetypev1beta1.VirtualMachineInstancetype{}
+			stashedInstancetype := &instancetypev1.VirtualMachineInstancetype{}
 			Expect(json.Unmarshal(instancetypeRevision.Data.Raw, stashedInstancetype)).To(Succeed())
 
 			stashedInstancetype.Spec.Memory.Guest.Add(resource.MustParse("10M"))
@@ -704,8 +704,8 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	Context("with inferFromVolume", func() {
 		var (
 			vm           *virtv1.VirtualMachine
-			instancetype *instancetypev1beta1.VirtualMachineInstancetype
-			preference   *instancetypev1beta1.VirtualMachinePreference
+			instancetype *instancetypev1.VirtualMachineInstancetype
+			preference   *instancetypev1.VirtualMachinePreference
 			sourceDV     *cdiv1beta1.DataVolume
 			namespace    string
 		)
@@ -777,9 +777,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			By("Creating a VirtualMachinePreference")
 			preference = builder.NewPreference()
-			preference.Spec = instancetypev1beta1.VirtualMachinePreferenceSpec{
-				CPU: &instancetypev1beta1.CPUPreferences{
-					PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+			preference.Spec = instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Cores),
 				},
 			}
 			preference, err = virtClient.VirtualMachinePreference(namespace).Create(context.Background(), preference, metav1.CreateOptions{})
@@ -1057,7 +1057,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			providedThreads  = 2
 		)
 
-		DescribeTable("should be accepted when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *virtv1.VirtualMachine) {
+		DescribeTable("should be accepted when", func(instancetype *instancetypev1.VirtualMachineInstancetype, preference *instancetypev1.VirtualMachinePreference, vm *virtv1.VirtualMachine) {
 			var err error
 			if instancetype != nil {
 				instancetype, err = virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -1073,23 +1073,23 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 		},
 			Entry("VirtualMachineInstancetype meets CPU requirements",
-				&instancetypev1beta1.VirtualMachineInstancetype{
+				&instancetypev1.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "instancetype-",
 					},
-					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1beta1.CPUInstancetype{
+					Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1.CPUInstancetype{
 							Guest: uint32(providedvCPUs),
 						},
 					},
 				},
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(providedvCPUs),
 							},
 						},
@@ -1116,23 +1116,23 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				},
 			),
 			Entry("VirtualMachineInstancetype meets Memory requirements",
-				&instancetypev1beta1.VirtualMachineInstancetype{
+				&instancetypev1.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "instancetype-",
 					},
-					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-						Memory: instancetypev1beta1.MemoryInstancetype{
+					Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+						Memory: instancetypev1.MemoryInstancetype{
 							Guest: resource.MustParse("2Gi"),
 						},
 					},
 				},
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							Memory: &instancetypev1.MemoryPreferenceRequirement{
 								Guest: resource.MustParse("2Gi"),
 							},
 						},
@@ -1160,13 +1160,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine meets CPU (preferSockets default) requirements",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(requiredNumvCPUs),
 							},
 						},
@@ -1197,16 +1197,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine meets CPU (preferCores) requirements",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1.CPUPreferences{
+							PreferredCPUTopology: pointer.P(instancetypev1.Cores),
 						},
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(providedvCPUs),
 							},
 						},
@@ -1237,13 +1237,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine meets 1 vCPU requirement through defaults - bug #10047",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(1),
 							},
 						},
@@ -1268,16 +1268,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine meets CPU (preferThreads) requirements",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: pointer.P(instancetypev1beta1.Threads),
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1.CPUPreferences{
+							PreferredCPUTopology: pointer.P(instancetypev1.Threads),
 						},
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(providedvCPUs),
 							},
 						},
@@ -1308,16 +1308,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine meets CPU (preferAny) requirements",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: pointer.P(instancetypev1beta1.Any),
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1.CPUPreferences{
+							PreferredCPUTopology: pointer.P(instancetypev1.Any),
 						},
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(requiredvCPUs),
 							},
 						},
@@ -1348,13 +1348,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine meets Memory requirements",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							Memory: &instancetypev1.MemoryPreferenceRequirement{
 								Guest: resource.MustParse("2Gi"),
 							},
 						},
@@ -1383,7 +1383,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 		)
 
-		DescribeTable("should be rejected when", func(instancetype *instancetypev1beta1.VirtualMachineInstancetype, preference *instancetypev1beta1.VirtualMachinePreference, vm *virtv1.VirtualMachine, errorSubString string) {
+		DescribeTable("should be rejected when", func(instancetype *instancetypev1.VirtualMachineInstancetype, preference *instancetypev1.VirtualMachinePreference, vm *virtv1.VirtualMachine, errorSubString string) {
 			var err error
 			if instancetype != nil {
 				instancetype, err = virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).Create(context.Background(), instancetype, metav1.CreateOptions{})
@@ -1401,23 +1401,23 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err.Error()).To(ContainSubstring(errorSubString))
 		},
 			Entry("VirtualMachineInstancetype does not meet CPU requirements",
-				&instancetypev1beta1.VirtualMachineInstancetype{
+				&instancetypev1.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "instancetype-",
 					},
-					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1beta1.CPUInstancetype{
+					Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1.CPUInstancetype{
 							Guest: uint32(1),
 						},
 					},
 				},
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(providedvCPUs),
 							},
 						},
@@ -1445,23 +1445,23 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 				"insufficient CPU resources",
 			),
 			Entry("VirtualMachineInstancetype does not meet Memory requirements",
-				&instancetypev1beta1.VirtualMachineInstancetype{
+				&instancetypev1.VirtualMachineInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "instancetype-",
 					},
-					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-						Memory: instancetypev1beta1.MemoryInstancetype{
+					Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+						Memory: instancetypev1.MemoryInstancetype{
 							Guest: resource.MustParse("1Gi"),
 						},
 					},
 				},
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							Memory: &instancetypev1.MemoryPreferenceRequirement{
 								Guest: resource.MustParse("2Gi"),
 							},
 						},
@@ -1490,13 +1490,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine does not meet CPU (preferSockets default) requirements",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(providedvCPUs),
 							},
 						},
@@ -1528,16 +1528,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine does not meet CPU (preferCores) requirements",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1.CPUPreferences{
+							PreferredCPUTopology: pointer.P(instancetypev1.Cores),
 						},
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(providedvCPUs),
 							},
 						},
@@ -1569,16 +1569,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine does not meet CPU (preferThreads) requirements",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: pointer.P(instancetypev1beta1.Threads),
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1.CPUPreferences{
+							PreferredCPUTopology: pointer.P(instancetypev1.Threads),
 						},
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(providedvCPUs),
 							},
 						},
@@ -1610,16 +1610,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine does not meet CPU (preferAny) requirements",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						CPU: &instancetypev1beta1.CPUPreferences{
-							PreferredCPUTopology: pointer.P(instancetypev1beta1.Any),
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						CPU: &instancetypev1.CPUPreferences{
+							PreferredCPUTopology: pointer.P(instancetypev1.Any),
 						},
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							CPU: &instancetypev1beta1.CPUPreferenceRequirement{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							CPU: &instancetypev1.CPUPreferenceRequirement{
 								Guest: uint32(requiredvCPUs),
 							},
 						},
@@ -1651,13 +1651,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine does not meet Memory requirements",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							Memory: &instancetypev1.MemoryPreferenceRequirement{
 								Guest: resource.MustParse("2Gi"),
 							},
 						},
@@ -1687,13 +1687,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			),
 			Entry("VirtualMachine does not meet Memory requirements or provide any guest visible memory - bug #14551",
 				nil,
-				&instancetypev1beta1.VirtualMachinePreference{
+				&instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "preference-",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Requirements: &instancetypev1beta1.PreferenceRequirements{
-							Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Requirements: &instancetypev1.PreferenceRequirements{
+							Memory: &instancetypev1.MemoryPreferenceRequirement{
 								Guest: resource.MustParse("2Gi"),
 							},
 						},

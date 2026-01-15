@@ -26,7 +26,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	api "kubevirt.io/api/instancetype"
-	"kubevirt.io/api/instancetype/v1"
+	v1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"

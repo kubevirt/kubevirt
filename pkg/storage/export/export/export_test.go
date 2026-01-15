@@ -62,7 +62,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
@@ -208,10 +208,10 @@ var _ = Describe("Export controller", func() {
 		secretInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Secret{})
 		kvInformer, _ = testutils.NewFakeInformerFor(&virtv1.KubeVirt{})
 		crdInformer, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
-		instancetypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
-		clusterInstancetypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
-		preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
-		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+		instancetypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineInstancetype{})
+		clusterInstancetypeInformer, _ = testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterInstancetype{})
+		preferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1.VirtualMachinePreference{})
+		clusterPreferenceInformer, _ = testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterPreference{})
 		controllerRevisionInformer, _ = testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		rqInformer, _ = testutils.NewFakeInformerFor(&k8sv1.ResourceQuota{})
 		nsInformer, _ = testutils.NewFakeInformerFor(&k8sv1.Namespace{})
@@ -1415,17 +1415,17 @@ var _ = Describe("Export controller", func() {
 	}
 	It("Should properly expand instance types of VMs", func() {
 		vm := createVM()
-		testInstanceType := &instancetypev1beta1.VirtualMachineInstancetype{
+		testInstanceType := &instancetypev1.VirtualMachineInstancetype{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       apiinstancetype.SingularResourceName,
-				APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-instance-type",
 				Namespace: vm.Namespace,
 			},
-			Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-				CPU: instancetypev1beta1.CPUInstancetype{
+			Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1.CPUInstancetype{
 					Guest: uint32(2),
 				},
 			},
@@ -1449,17 +1449,17 @@ var _ = Describe("Export controller", func() {
 				Cores: uint32(1),
 			},
 		}
-		testInstanceType := &instancetypev1beta1.VirtualMachineInstancetype{
+		testInstanceType := &instancetypev1.VirtualMachineInstancetype{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       apiinstancetype.SingularResourceName,
-				APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-instance-type",
 				Namespace: vm.Namespace,
 			},
-			Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-				CPU: instancetypev1beta1.CPUInstancetype{
+			Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1.CPUInstancetype{
 					Guest: uint32(2),
 				},
 			},

@@ -44,7 +44,7 @@ import (
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	instancetypeWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
@@ -1321,21 +1321,21 @@ var _ = Describe("Validating VM Admitter", func() {
 	Context("Instancetype", func() {
 		BeforeEach(func() {
 			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(
-				fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+				fakeclientset.NewSimpleClientset().InstancetypeV1().VirtualMachineClusterInstancetypes()).AnyTimes()
 
 			vmsAdmitter.InstancetypeAdmitter = instancetypeWebhooks.NewAdmitter(virtClient)
 		})
 		It("should not apply instancetype to the VMISpec of the original VM", func() {
 			const clusterInstancetypeName = "clusterInstancetype"
-			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+			clusterInstancetype := &instancetypev1.VirtualMachineClusterInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: clusterInstancetypeName,
 				},
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: uint32(2),
 					},
-					Memory: instancetypev1beta1.MemoryInstancetype{
+					Memory: instancetypev1.MemoryInstancetype{
 						Guest: resource.MustParse("128Mi"),
 					},
 				},

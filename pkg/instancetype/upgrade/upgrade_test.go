@@ -40,7 +40,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
 
@@ -185,16 +185,16 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		Entry("v1beta1 VirtualMachineClusterPreference & VirtualMachineClusterInstancetype with v1beta1 version label",
 			func() *appsv1.ControllerRevision {
 				cr := createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachineClusterInstancetype{
+					&instancetypev1.VirtualMachineClusterInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "instancetype",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
+						Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1.CPUInstancetype{
 								Guest: uint32(1),
 							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
+							Memory: instancetypev1.MemoryInstancetype{
 								Guest: resource.MustParse("128Mi"),
 							},
 						},
@@ -206,14 +206,14 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			},
 			func() *appsv1.ControllerRevision {
 				cr := createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachineClusterPreference{
+					&instancetypev1.VirtualMachineClusterPreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "preference",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+						Spec: instancetypev1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 							},
 						},
 					},
@@ -226,16 +226,16 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		Entry("v1beta1 VirtualMachinePreference & VirtualMachineInstancetype with v1beta1 version label",
 			func() *appsv1.ControllerRevision {
 				cr := createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachineInstancetype{
+					&instancetypev1.VirtualMachineInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "instancetype",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
+						Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1.CPUInstancetype{
 								Guest: uint32(1),
 							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
+							Memory: instancetypev1.MemoryInstancetype{
 								Guest: resource.MustParse("128Mi"),
 							},
 						},
@@ -247,14 +247,14 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			},
 			func() *appsv1.ControllerRevision {
 				cr := createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachinePreference{
+					&instancetypev1.VirtualMachinePreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "preference",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+						Spec: instancetypev1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 							},
 						},
 					},
@@ -267,16 +267,16 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		Entry("v1beta1 VirtualMachineClusterPreference & VirtualMachineClusterInstancetype without version label",
 			func() *appsv1.ControllerRevision {
 				cr := createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachineClusterInstancetype{
+					&instancetypev1.VirtualMachineClusterInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "instancetype",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
+						Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1.CPUInstancetype{
 								Guest: uint32(1),
 							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
+							Memory: instancetypev1.MemoryInstancetype{
 								Guest: resource.MustParse("128Mi"),
 							},
 						},
@@ -288,14 +288,14 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			},
 			func() *appsv1.ControllerRevision {
 				cr := createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachineClusterPreference{
+					&instancetypev1.VirtualMachineClusterPreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "preference",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+						Spec: instancetypev1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 							},
 						},
 					},
@@ -308,16 +308,16 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		Entry("v1beta1 VirtualMachinePreference & VirtualMachineInstancetype without version label",
 			func() *appsv1.ControllerRevision {
 				cr := createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachineInstancetype{
+					&instancetypev1.VirtualMachineInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "instancetype",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
+						Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1.CPUInstancetype{
 								Guest: uint32(1),
 							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
+							Memory: instancetypev1.MemoryInstancetype{
 								Guest: resource.MustParse("128Mi"),
 							},
 						},
@@ -329,14 +329,14 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			},
 			func() *appsv1.ControllerRevision {
 				cr := createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachinePreference{
+					&instancetypev1.VirtualMachinePreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "preference",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+						Spec: instancetypev1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 							},
 						},
 					},
@@ -388,16 +388,16 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		Entry("v1beta1 VirtualMachineClusterPreference & VirtualMachineClusterInstancetype",
 			func() *appsv1.ControllerRevision {
 				return createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachineClusterInstancetype{
+					&instancetypev1.VirtualMachineClusterInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "instancetype",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
+						Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1.CPUInstancetype{
 								Guest: uint32(1),
 							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
+							Memory: instancetypev1.MemoryInstancetype{
 								Guest: resource.MustParse("128Mi"),
 							},
 						},
@@ -406,14 +406,14 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			},
 			func() *appsv1.ControllerRevision {
 				return createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachineClusterPreference{
+					&instancetypev1.VirtualMachineClusterPreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "preference",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+						Spec: instancetypev1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 							},
 						},
 					},
@@ -423,16 +423,16 @@ var _ = Describe("ControllerRevision upgrades", func() {
 		Entry("v1beta1 VirtualMachinePreference & VirtualMachineInstancetype",
 			func() *appsv1.ControllerRevision {
 				return createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachineInstancetype{
+					&instancetypev1.VirtualMachineInstancetype{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "instancetype",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
+						Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1.CPUInstancetype{
 								Guest: uint32(1),
 							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
+							Memory: instancetypev1.MemoryInstancetype{
 								Guest: resource.MustParse("128Mi"),
 							},
 						},
@@ -441,14 +441,14 @@ var _ = Describe("ControllerRevision upgrades", func() {
 			},
 			func() *appsv1.ControllerRevision {
 				return createControllerRevisionFromObject(
-					&instancetypev1beta1.VirtualMachinePreference{
+					&instancetypev1.VirtualMachinePreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "preference",
 							Namespace: vm.Namespace,
 						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							CPU: &instancetypev1beta1.CPUPreferences{
-								PreferredCPUTopology: pointer.P(instancetypev1beta1.Sockets),
+						Spec: instancetypev1.VirtualMachinePreferenceSpec{
+							CPU: &instancetypev1.CPUPreferences{
+								PreferredCPUTopology: pointer.P(instancetypev1.Sockets),
 							},
 						},
 					},
@@ -481,16 +481,16 @@ var _ = Describe("ControllerRevision upgrades", func() {
 
 		// Create a ControllerRevision without version label to trigger upgrade
 		instancetypeCR := createControllerRevisionFromObject(
-			&instancetypev1beta1.VirtualMachineClusterInstancetype{
+			&instancetypev1.VirtualMachineClusterInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-instancetype",
 					Namespace: vm.Namespace,
 				},
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: uint32(2),
 					},
-					Memory: instancetypev1beta1.MemoryInstancetype{
+					Memory: instancetypev1.MemoryInstancetype{
 						Guest: resource.MustParse("256Mi"),
 					},
 				},

@@ -67,7 +67,7 @@ import (
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -2133,7 +2133,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		Context("Should delete resources not in install strategy", func() {
 			It("with instancetypes and preferences", func() {
-				instancetype := &v1beta1.VirtualMachineClusterInstancetype{
+				instancetype := &instancetypev1.VirtualMachineClusterInstancetype{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "clusterinstancetype-",
 						Labels: map[string]string{
@@ -2154,7 +2154,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					g.Expect(errors.ReasonForError(err)).Should(Equal(metav1.StatusReasonNotFound))
 				}, 1*time.Minute, 5*time.Second).Should(Succeed())
 
-				preference := &v1beta1.VirtualMachineClusterPreference{
+				preference := &instancetypev1.VirtualMachineClusterPreference{
 					ObjectMeta: metav1.ObjectMeta{
 						GenerateName: "clusterpreference-",
 						Labels: map[string]string{
@@ -2184,7 +2184,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				cpu         = uint32(1024)
 			)
 
-			var preferredTopology = v1beta1.Threads
+			var preferredTopology = instancetypev1.Threads
 
 			It("to instancetypes and preferences", func() {
 				By("Getting the deployed instancetypes")
@@ -2197,8 +2197,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				instancetype := originalInstancetype.DeepCopy()
 				instancetype.Annotations[keyTest] = valModified
 				instancetype.Labels[keyTest] = valModified
-				instancetype.Spec = v1beta1.VirtualMachineInstancetypeSpec{
-					CPU: v1beta1.CPUInstancetype{
+				instancetype.Spec = instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: cpu,
 					},
 				}
@@ -2228,8 +2228,8 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				preference := originalPreference.DeepCopy()
 				preference.Annotations[keyTest] = valModified
 				preference.Labels[keyTest] = valModified
-				preference.Spec = v1beta1.VirtualMachinePreferenceSpec{
-					CPU: &v1beta1.CPUPreferences{
+				preference.Spec = instancetypev1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1.CPUPreferences{
 						PreferredCPUTopology: &preferredTopology,
 					},
 				}

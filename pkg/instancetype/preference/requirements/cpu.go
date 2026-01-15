@@ -22,7 +22,7 @@ import (
 	"fmt"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"

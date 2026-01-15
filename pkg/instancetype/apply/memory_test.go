@@ -27,7 +27,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -36,8 +36,8 @@ import (
 var _ = Describe("instancetype.Spec.Memory", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
-		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
-		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
+		instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec
+		preferenceSpec   *instancetypev1.VirtualMachinePreferenceSpec
 
 		vmiApplier = apply.NewVMIApplier()
 		field      = k8sfield.NewPath("spec", "template", "spec")
@@ -46,8 +46,8 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 
 	BeforeEach(func() {
 		vmi = libvmi.New()
-		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
-			Memory: v1beta1.MemoryInstancetype{
+		instancetypeSpec = &instancetypev1.VirtualMachineInstancetypeSpec{
+			Memory: instancetypev1.MemoryInstancetype{
 				Guest: resource.MustParse("512M"),
 				Hugepages: &virtv1.Hugepages{
 					PageSize: "1Gi",
@@ -149,8 +149,8 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 		})
 
 	It("should return a conflict if memory request is already defined", func() {
-		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
-			Memory: v1beta1.MemoryInstancetype{
+		instancetypeSpec = &instancetypev1.VirtualMachineInstancetypeSpec{
+			Memory: instancetypev1.MemoryInstancetype{
 				Guest: resource.MustParse("512M"),
 			},
 		}
@@ -167,8 +167,8 @@ var _ = Describe("instancetype.Spec.Memory", func() {
 	})
 
 	It("should return a conflict if memory limit is already defined", func() {
-		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
-			Memory: v1beta1.MemoryInstancetype{
+		instancetypeSpec = &instancetypev1.VirtualMachineInstancetypeSpec{
+			Memory: instancetypev1.MemoryInstancetype{
 				Guest: resource.MustParse("512M"),
 			},
 		}

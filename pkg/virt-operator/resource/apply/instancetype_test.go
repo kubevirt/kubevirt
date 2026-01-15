@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/testing"
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
@@ -37,8 +37,8 @@ var _ = Describe("Apply Instancetypes", func() {
 			return true, nil, nil
 		})
 
-		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
-		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterInstancetype{})
+		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterPreference{})
 
 		reconciler = &Reconciler{
 			kv:        &v1.KubeVirt{},
@@ -51,25 +51,25 @@ var _ = Describe("Apply Instancetypes", func() {
 	})
 
 	Context("Instancetypes", func() {
-		var instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype
+		var instancetype *instancetypev1.VirtualMachineClusterInstancetype
 
 		BeforeEach(func() {
-			clusterInstancetypeClient := fakeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()
+			clusterInstancetypeClient := fakeClient.InstancetypeV1().VirtualMachineClusterInstancetypes()
 			virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(clusterInstancetypeClient).AnyTimes()
 
-			instancetype = &instancetypev1beta1.VirtualMachineClusterInstancetype{
+			instancetype = &instancetypev1.VirtualMachineClusterInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "clusterinstancetype",
 				},
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: 1,
 					},
 				},
 			}
 
 			reconciler.targetStrategy = &fake2.FakeStrategy{
-				FakeInstancetypes: []*instancetypev1beta1.VirtualMachineClusterInstancetype{instancetype},
+				FakeInstancetypes: []*instancetypev1.VirtualMachineClusterInstancetype{instancetype},
 			}
 
 			imageTag, imageRegistry, id := getTargetVersionRegistryID(reconciler.kv)
@@ -87,7 +87,7 @@ var _ = Describe("Apply Instancetypes", func() {
 			Expect(reconciler.createOrUpdateInstancetype(instancetype)).To(Succeed())
 		})
 
-		DescribeTable("should update instancetypes on sync when they are not equal", func(modifyFn func(*instancetypev1beta1.VirtualMachineClusterInstancetype)) {
+		DescribeTable("should update instancetypes on sync when they are not equal", func(modifyFn func(*instancetypev1.VirtualMachineClusterInstancetype)) {
 			modifiedInstancetype := instancetype.DeepCopy()
 			modifyFn(modifiedInstancetype)
 			reconciler.stores.ClusterInstancetype.Add(modifiedInstancetype)
@@ -95,13 +95,13 @@ var _ = Describe("Apply Instancetypes", func() {
 			Expect(reconciler.createOrUpdateInstancetype(instancetype)).To(Succeed())
 			Expect(*updateCalled).To(BeTrue())
 		},
-			Entry("on modified annotations", func(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) {
+			Entry("on modified annotations", func(instancetype *instancetypev1.VirtualMachineClusterInstancetype) {
 				instancetype.Annotations["test"] = "modified"
 			}),
-			Entry("on modified labels", func(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) {
+			Entry("on modified labels", func(instancetype *instancetypev1.VirtualMachineClusterInstancetype) {
 				instancetype.Labels["test"] = "modified"
 			}),
-			Entry("on modified spec", func(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) {
+			Entry("on modified spec", func(instancetype *instancetypev1.VirtualMachineClusterInstancetype) {
 				instancetype.Spec.CPU.Guest = 2
 			}),
 		)
@@ -119,26 +119,26 @@ var _ = Describe("Apply Instancetypes", func() {
 	})
 
 	Context("Preferences", func() {
-		var preference *instancetypev1beta1.VirtualMachineClusterPreference
+		var preference *instancetypev1.VirtualMachineClusterPreference
 
 		BeforeEach(func() {
-			clusterPreferenceClient := fakeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()
+			clusterPreferenceClient := fakeClient.InstancetypeV1().VirtualMachineClusterPreferences()
 			virtClient.EXPECT().VirtualMachineClusterPreference().Return(clusterPreferenceClient).AnyTimes()
 
-			preferredTopology := instancetypev1beta1.Cores
-			preference = &instancetypev1beta1.VirtualMachineClusterPreference{
+			preferredTopology := instancetypev1.Cores
+			preference = &instancetypev1.VirtualMachineClusterPreference{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "clusterpreference",
 				},
-				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1beta1.CPUPreferences{
+				Spec: instancetypev1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1.CPUPreferences{
 						PreferredCPUTopology: &preferredTopology,
 					},
 				},
 			}
 
 			reconciler.targetStrategy = &fake2.FakeStrategy{
-				FakePreferences: []*instancetypev1beta1.VirtualMachineClusterPreference{preference},
+				FakePreferences: []*instancetypev1.VirtualMachineClusterPreference{preference},
 			}
 
 			imageTag, imageRegistry, id := getTargetVersionRegistryID(reconciler.kv)
@@ -156,7 +156,7 @@ var _ = Describe("Apply Instancetypes", func() {
 			Expect(reconciler.createOrUpdatePreference(preference)).To(Succeed())
 		})
 
-		DescribeTable("should update preferences on sync when they are not equal", func(modifyFn func(*instancetypev1beta1.VirtualMachineClusterPreference)) {
+		DescribeTable("should update preferences on sync when they are not equal", func(modifyFn func(*instancetypev1.VirtualMachineClusterPreference)) {
 			modifiedPreference := preference.DeepCopy()
 			modifyFn(modifiedPreference)
 			reconciler.stores.ClusterPreference.Add(modifiedPreference)
@@ -164,14 +164,14 @@ var _ = Describe("Apply Instancetypes", func() {
 			Expect(reconciler.createOrUpdatePreference(preference)).To(Succeed())
 			Expect(*updateCalled).To(BeTrue())
 		},
-			Entry("on modified annotations", func(preference *instancetypev1beta1.VirtualMachineClusterPreference) {
+			Entry("on modified annotations", func(preference *instancetypev1.VirtualMachineClusterPreference) {
 				preference.Annotations["test"] = "modified"
 			}),
-			Entry("on modified labels", func(preference *instancetypev1beta1.VirtualMachineClusterPreference) {
+			Entry("on modified labels", func(preference *instancetypev1.VirtualMachineClusterPreference) {
 				preference.Labels["test"] = "modified"
 			}),
-			Entry("on modified spec", func(preference *instancetypev1beta1.VirtualMachineClusterPreference) {
-				preference.Spec.CPU.PreferredCPUTopology = pointer.P(instancetypev1beta1.Spread)
+			Entry("on modified spec", func(preference *instancetypev1.VirtualMachineClusterPreference) {
+				preference.Spec.CPU.PreferredCPUTopology = pointer.P(instancetypev1.Spread)
 			}),
 		)
 
