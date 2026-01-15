@@ -141,7 +141,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	return response
 }
 
-func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (newKV *v1.KubeVirt, oldKV *v1.KubeVirt, err error) {
+func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (newKV, oldKV *v1.KubeVirt, err error) {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, KubeVirtGroupVersionResource.Group, KubeVirtGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", KubeVirtGroupVersionResource)
 	}
