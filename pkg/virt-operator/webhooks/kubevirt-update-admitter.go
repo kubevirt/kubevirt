@@ -74,6 +74,14 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 		return resp
 	}
 
+	results := admitter.validateKubeVirtSpec(ctx, newKV, currKV)
+	response := validating_webhooks.NewAdmissionResponse(results)
+	response.Warnings = generateKubeVirtWarnings(newKV, currKV)
+
+	return response
+}
+
+func (admitter *KubeVirtUpdateAdmitter) validateKubeVirtSpec(ctx context.Context, newKV, currKV *v1.KubeVirt) []metav1.StatusCause {
 	var results []metav1.StatusCause
 
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
@@ -112,33 +120,46 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
 	}
 
-	response := validating_webhooks.NewAdmissionResponse(results)
+	return results
+}
+
+func generateKubeVirtWarnings(newKV, currKV *v1.KubeVirt) []string {
+	var warnings []string
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
 		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
-		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates)...)
+		warnings = append(warnings, warnDeprecatedFeatureGates(featureGates)...)
 	}
 
+	warnings = append(warnings, warnDeprecatedMediatedDevices(newKV.Spec.Configuration.MediatedDevicesConfiguration)...)
+	warnings = append(warnings, warnDeprecatedArchitectures(newKV.Spec.Configuration.ArchitectureConfiguration)...)
+
+	return warnings
+}
+
+func warnDeprecatedMediatedDevices(mdev *v1.MediatedDevicesConfiguration) []string {
+	if mdev == nil {
+		return nil
+	}
+
+	var warnings []string
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
-	if mdev := newKV.Spec.Configuration.MediatedDevicesConfiguration; mdev != nil {
-		f := field.NewPath("spec", "configuration", "mediatedDevicesConfiguration")
-		if mdev.MediatedDevicesTypes != nil {
-			fChild := f.Child("mediatedDevicesTypes")
-			response.Warnings = append(response.Warnings, fmt.Sprintf(mdevWarningfmt, fChild.String()))
-		}
+	f := field.NewPath("spec", "configuration", "mediatedDevicesConfiguration")
 
-		f = f.Child("nodeMediatedDeviceTypes")
-		for i, mdevType := range mdev.NodeMediatedDeviceTypes {
-			fChild := f.Index(i).Child("mediatedDevicesTypes")
-			if mdevType.MediatedDevicesTypes != nil {
-				response.Warnings = append(response.Warnings, fmt.Sprintf(mdevWarningfmt, fChild.String()))
-			}
+	if mdev.MediatedDevicesTypes != nil {
+		fChild := f.Child("mediatedDevicesTypes")
+		warnings = append(warnings, fmt.Sprintf(mdevWarningfmt, fChild.String()))
+	}
+
+	f = f.Child("nodeMediatedDeviceTypes")
+	for i, mdevType := range mdev.NodeMediatedDeviceTypes {
+		fChild := f.Index(i).Child("mediatedDevicesTypes")
+		if mdevType.MediatedDevicesTypes != nil {
+			warnings = append(warnings, fmt.Sprintf(mdevWarningfmt, fChild.String()))
 		}
 	}
 
-	response.Warnings = append(response.Warnings, warnDeprecatedArchitectures(newKV.Spec.Configuration.ArchitectureConfiguration)...)
-
-	return response
+	return warnings
 }
 
 func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (newKV, oldKV *v1.KubeVirt, err error) {
