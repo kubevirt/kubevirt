@@ -245,7 +245,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
 				Expect(response.Warnings).To(ContainElement(
-					"spec.configuration.mediatedDevicesConfiguration.nodeMediatedDeviceTypes[0].mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
+					"spec.configuration.mediatedDevicesConfiguration.nodeMediatedDeviceTypes[0]." +
+						"mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
 			} else {
 				Expect(response.Warnings).To(BeEmpty())
 			}
