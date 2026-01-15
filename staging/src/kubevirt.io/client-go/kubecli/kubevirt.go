@@ -46,7 +46,7 @@ import (
 	backupv1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	exportv1 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
-	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1"
 	migrationsv1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	poolv1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
 	snapshotv1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
@@ -69,10 +69,10 @@ type KubevirtClient interface {
 	VirtualMachineSnapshotContent(namespace string) snapshotv1.VirtualMachineSnapshotContentInterface
 	VirtualMachineRestore(namespace string) snapshotv1.VirtualMachineRestoreInterface
 	VirtualMachineExport(namespace string) exportv1.VirtualMachineExportInterface
-	VirtualMachineInstancetype(namespace string) instancetypev1beta1.VirtualMachineInstancetypeInterface
-	VirtualMachineClusterInstancetype() instancetypev1beta1.VirtualMachineClusterInstancetypeInterface
-	VirtualMachinePreference(namespace string) instancetypev1beta1.VirtualMachinePreferenceInterface
-	VirtualMachineClusterPreference() instancetypev1beta1.VirtualMachineClusterPreferenceInterface
+	VirtualMachineInstancetype(namespace string) instancetypev1.VirtualMachineInstancetypeInterface
+	VirtualMachineClusterInstancetype() instancetypev1.VirtualMachineClusterInstancetypeInterface
+	VirtualMachinePreference(namespace string) instancetypev1.VirtualMachinePreferenceInterface
+	VirtualMachineClusterPreference() instancetypev1.VirtualMachineClusterPreferenceInterface
 	MigrationPolicy() migrationsv1.MigrationPolicyInterface
 	ExpandSpec(namespace string) ExpandSpecInterface
 	ServerVersion() ServerVersionInterface
@@ -198,20 +198,20 @@ func (k kubevirtClient) VirtualMachineExport(namespace string) exportv1.VirtualM
 	return k.generatedKubeVirtClient.ExportV1beta1().VirtualMachineExports(namespace)
 }
 
-func (k kubevirtClient) VirtualMachineInstancetype(namespace string) instancetypev1beta1.VirtualMachineInstancetypeInterface {
-	return k.generatedKubeVirtClient.InstancetypeV1beta1().VirtualMachineInstancetypes(namespace)
+func (k kubevirtClient) VirtualMachineInstancetype(namespace string) instancetypev1.VirtualMachineInstancetypeInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1().VirtualMachineInstancetypes(namespace)
 }
 
-func (k kubevirtClient) VirtualMachineClusterInstancetype() instancetypev1beta1.VirtualMachineClusterInstancetypeInterface {
-	return k.generatedKubeVirtClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()
+func (k kubevirtClient) VirtualMachineClusterInstancetype() instancetypev1.VirtualMachineClusterInstancetypeInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1().VirtualMachineClusterInstancetypes()
 }
 
-func (k kubevirtClient) VirtualMachinePreference(namespace string) instancetypev1beta1.VirtualMachinePreferenceInterface {
-	return k.generatedKubeVirtClient.InstancetypeV1beta1().VirtualMachinePreferences(namespace)
+func (k kubevirtClient) VirtualMachinePreference(namespace string) instancetypev1.VirtualMachinePreferenceInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1().VirtualMachinePreferences(namespace)
 }
 
-func (k kubevirtClient) VirtualMachineClusterPreference() instancetypev1beta1.VirtualMachineClusterPreferenceInterface {
-	return k.generatedKubeVirtClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()
+func (k kubevirtClient) VirtualMachineClusterPreference() instancetypev1.VirtualMachineClusterPreferenceInterface {
+	return k.generatedKubeVirtClient.InstancetypeV1().VirtualMachineClusterPreferences()
 }
 
 func (k kubevirtClient) KubernetesSnapshotClient() k8ssnapshotclient.Interface {
