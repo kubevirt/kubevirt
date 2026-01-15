@@ -8951,6 +8951,9 @@
      },
      {
       "$ref": "#/parameters/namespace-nfszEHZ0"
+     },
+     {
+      "$ref": "#/parameters/preserveSession-FJbSIuEU"
      }
     ]
    },
@@ -10455,6 +10458,9 @@
      },
      {
       "$ref": "#/parameters/namespace-nfszEHZ0"
+     },
+     {
+      "$ref": "#/parameters/preserveSession-FJbSIuEU"
      }
     ]
    },
@@ -20409,6 +20415,13 @@
     "name": "port",
     "in": "query",
     "required": true
+   },
+   "preserveSession-FJbSIuEU": {
+    "uniqueItems": true,
+    "type": "boolean",
+    "description": "Connect only if ongoing session is not disturbed.",
+    "name": "preserveSession",
+    "in": "query"
    },
    "propagationPolicy-6jk3prlO": {
     "uniqueItems": true,
