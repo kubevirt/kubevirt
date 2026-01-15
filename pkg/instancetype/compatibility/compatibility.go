@@ -32,37 +32,37 @@ import (
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
-func GetInstancetypeSpec(revision *appsv1.ControllerRevision) (*v1beta1.VirtualMachineInstancetypeSpec, error) {
+func GetInstancetypeSpec(revision *appsv1.ControllerRevision) (*v1.VirtualMachineInstancetypeSpec, error) {
 	if err := Decode(revision); err != nil {
 		return nil, err
 	}
 	switch obj := revision.Data.Object.(type) {
 	case *v1.VirtualMachineInstancetype:
-		return convertV1InstancetypeSpecToV1beta1(&obj.Spec)
+		return &obj.Spec, nil
 	case *v1.VirtualMachineClusterInstancetype:
-		return convertV1InstancetypeSpecToV1beta1(&obj.Spec)
+		return &obj.Spec, nil
 	case *v1beta1.VirtualMachineInstancetype:
-		return &obj.Spec, nil
+		return convertV1beta1InstancetypeSpecToV1(&obj.Spec)
 	case *v1beta1.VirtualMachineClusterInstancetype:
-		return &obj.Spec, nil
+		return convertV1beta1InstancetypeSpecToV1(&obj.Spec)
 	default:
 		return nil, fmt.Errorf("unexpected type in ControllerRevision: %T", obj)
 	}
 }
 
-func GetPreferenceSpec(revision *appsv1.ControllerRevision) (*v1beta1.VirtualMachinePreferenceSpec, error) {
+func GetPreferenceSpec(revision *appsv1.ControllerRevision) (*v1.VirtualMachinePreferenceSpec, error) {
 	if err := Decode(revision); err != nil {
 		return nil, err
 	}
 	switch obj := revision.Data.Object.(type) {
 	case *v1.VirtualMachinePreference:
-		return convertV1PreferenceSpecToV1beta1(&obj.Spec)
+		return &obj.Spec, nil
 	case *v1.VirtualMachineClusterPreference:
-		return convertV1PreferenceSpecToV1beta1(&obj.Spec)
+		return &obj.Spec, nil
 	case *v1beta1.VirtualMachinePreference:
-		return &obj.Spec, nil
+		return convertV1beta1PreferenceSpecToV1(&obj.Spec)
 	case *v1beta1.VirtualMachineClusterPreference:
-		return &obj.Spec, nil
+		return convertV1beta1PreferenceSpecToV1(&obj.Spec)
 	default:
 		return nil, fmt.Errorf("unexpected type in ControllerRevision: %T", obj)
 	}
@@ -126,6 +126,22 @@ func convertV1InstancetypeSpecToV1beta1(in *v1.VirtualMachineInstancetypeSpec) (
 func convertV1PreferenceSpecToV1beta1(in *v1.VirtualMachinePreferenceSpec) (*v1beta1.VirtualMachinePreferenceSpec, error) {
 	out := &v1beta1.VirtualMachinePreferenceSpec{}
 	if err := Convert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePreferenceSpec(in, out, nil); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func convertV1beta1InstancetypeSpecToV1(in *v1beta1.VirtualMachineInstancetypeSpec) (*v1.VirtualMachineInstancetypeSpec, error) {
+	out := &v1.VirtualMachineInstancetypeSpec{}
+	if err := Convert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec(in, out, nil); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func convertV1beta1PreferenceSpecToV1(in *v1beta1.VirtualMachinePreferenceSpec) (*v1.VirtualMachinePreferenceSpec, error) {
+	out := &v1.VirtualMachinePreferenceSpec{}
+	if err := Convert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec(in, out, nil); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -243,6 +259,26 @@ func autoConvert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePrefer
 // Convert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePreferenceSpec is the public conversion function.
 func Convert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePreferenceSpec(in *v1.VirtualMachinePreferenceSpec, out *v1beta1.VirtualMachinePreferenceSpec, s conversion.Scope) error {
 	return autoConvert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePreferenceSpec(in, out, s)
+}
+
+// autoConvert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec performs the conversion from v1beta1 to v1.
+func autoConvert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec(in *v1beta1.VirtualMachineInstancetypeSpec, out *v1.VirtualMachineInstancetypeSpec, s conversion.Scope) error {
+	return convertViaJSON(in, out)
+}
+
+// Convert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec is the public conversion function.
+func Convert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec(in *v1beta1.VirtualMachineInstancetypeSpec, out *v1.VirtualMachineInstancetypeSpec, s conversion.Scope) error {
+	return autoConvert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec(in, out, s)
+}
+
+// autoConvert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec performs the conversion from v1beta1 to v1.
+func autoConvert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec(in *v1beta1.VirtualMachinePreferenceSpec, out *v1.VirtualMachinePreferenceSpec, s conversion.Scope) error {
+	return convertViaJSON(in, out)
+}
+
+// Convert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec is the public conversion function.
+func Convert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec(in *v1beta1.VirtualMachinePreferenceSpec, out *v1.VirtualMachinePreferenceSpec, s conversion.Scope) error {
+	return autoConvert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec(in, out, s)
 }
 
 // convertViaJSON converts between structurally identical types using JSON marshaling/unmarshaling.

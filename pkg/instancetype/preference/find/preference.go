@@ -26,8 +26,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 )
 
 type preferenceFinder struct {
@@ -42,7 +45,7 @@ func NewPreferenceFinder(store cache.Store, virtClient kubecli.KubevirtClient) *
 	}
 }
 
-func (f *preferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreference, error) {
+func (f *preferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1.VirtualMachinePreference, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
@@ -50,9 +53,23 @@ func (f *preferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.V
 		Namespace: vm.Namespace,
 		Name:      vm.Spec.Preference.Name,
 	}
+
+	// Helper function to convert v1beta1 to v1
+	convertFromV1beta1 := func(v1beta1Obj *v1beta1.VirtualMachinePreference) (*v1.VirtualMachinePreference, error) {
+		v1Obj := &v1.VirtualMachinePreference{}
+		if err := compatibility.Convert_v1beta1_VirtualMachinePreference_To_v1_VirtualMachinePreference(v1beta1Obj, v1Obj, nil); err != nil {
+			return nil, err
+		}
+		return v1Obj, nil
+	}
+
 	if f.store == nil {
-		return f.virtClient.VirtualMachinePreference(namespacedName.Namespace).Get(
+		v1beta1Obj, err := f.virtClient.VirtualMachinePreference(namespacedName.Namespace).Get(
 			context.Background(), namespacedName.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return convertFromV1beta1(v1beta1Obj)
 	}
 
 	obj, exists, err := f.store.GetByKey(namespacedName.String())
@@ -60,12 +77,16 @@ func (f *preferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.V
 		return nil, err
 	}
 	if !exists {
-		return f.virtClient.VirtualMachinePreference(namespacedName.Namespace).Get(
+		v1beta1Obj, err := f.virtClient.VirtualMachinePreference(namespacedName.Namespace).Get(
 			context.Background(), namespacedName.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return convertFromV1beta1(v1beta1Obj)
 	}
 	preference, ok := obj.(*v1beta1.VirtualMachinePreference)
 	if !ok {
 		return nil, fmt.Errorf("unknown object type found in VirtualMachinePreference informer")
 	}
-	return preference, nil
+	return convertFromV1beta1(preference)
 }
