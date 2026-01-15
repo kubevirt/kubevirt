@@ -57,16 +57,28 @@ func (o OSDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *
 		return err
 	}
 
+	o.configureSMBios(domain)
+	configureMachineType(vmi, domain)
+	configureBootMenu(vmi, domain)
+
+	return nil
+}
+
+func (o OSDomainConfigurator) configureSMBios(domain *api.Domain) {
 	if o.isSMBiosNeeded {
 		domain.Spec.OS.SMBios = &api.SMBios{
 			Mode: "sysinfo",
 		}
 	}
+}
 
+func configureMachineType(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	if machine := vmi.Spec.Domain.Machine; machine != nil {
 		domain.Spec.OS.Type.Machine = machine.Type
 	}
+}
 
+func configureBootMenu(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	// set bootmenu to give time to access bios
 	if vmi.ShouldStartPaused() {
 		const bootMenuTimeoutMS = uint(10000)
@@ -75,8 +87,6 @@ func (o OSDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *
 			Timeout: pointer.P(bootMenuTimeoutMS),
 		}
 	}
-
-	return nil
 }
 
 func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
@@ -85,50 +95,52 @@ func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.Virtua
 		return nil
 	}
 
-	if vmi.IsBootloaderEFI() {
-		domain.Spec.OS.BootLoader = &api.Loader{
-			Path:     o.efiConfiguration.EFICode,
-			ReadOnly: "yes",
-			Secure:   boolToYesNo(&o.efiConfiguration.SecureLoader, false),
-		}
+	o.configureEFI(vmi, domain)
+	configureBIOS(firmware, domain)
+	configureKernelBoot(vmi, firmware, domain)
 
-		if util.IsSEVSNPVMI(vmi) || util.IsTDXVMI(vmi) {
-			// Use stateless firmware for the TDX/SNP VMs
-			domain.Spec.OS.BootLoader.Type = "rom"
-			domain.Spec.OS.NVRam = nil
-		} else {
-			domain.Spec.OS.BootLoader.Type = "pflash"
-			domain.Spec.OS.NVRam = &api.NVRam{
-				Template: o.efiConfiguration.EFIVars,
-				NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
-			}
-		}
+	return configureACPI(firmware, domain, vmi.Spec.Volumes)
+}
+
+func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if !vmi.IsBootloaderEFI() || o.efiConfiguration == nil {
+		return
 	}
 
-	if firmware.Bootloader != nil && firmware.Bootloader.BIOS != nil {
-		if firmware.Bootloader.BIOS.UseSerial != nil && *firmware.Bootloader.BIOS.UseSerial {
-			domain.Spec.OS.BIOS = &api.BIOS{
-				UseSerial: "yes",
-			}
-		}
+	domain.Spec.OS.BootLoader = &api.Loader{
+		Path:     o.efiConfiguration.EFICode,
+		ReadOnly: "yes",
+		Secure:   boolToYesNo(&o.efiConfiguration.SecureLoader, false),
 	}
 
+	if util.IsSEVSNPVMI(vmi) || util.IsTDXVMI(vmi) {
+		// Use stateless firmware for the TDX/SNP VMs
+		domain.Spec.OS.BootLoader.Type = "rom"
+		domain.Spec.OS.NVRam = nil
+	} else {
+		domain.Spec.OS.BootLoader.Type = "pflash"
+		domain.Spec.OS.NVRam = &api.NVRam{
+			Template: o.efiConfiguration.EFIVars,
+			NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+		}
+	}
+}
+
+func configureBIOS(firmware *v1.Firmware, domain *api.Domain) {
+	if firmware.Bootloader == nil || firmware.Bootloader.BIOS == nil {
+		return
+	}
+
+	if firmware.Bootloader.BIOS.UseSerial != nil && *firmware.Bootloader.BIOS.UseSerial {
+		domain.Spec.OS.BIOS = &api.BIOS{
+			UseSerial: "yes",
+		}
+	}
+}
+
+func configureKernelBoot(vmi *v1.VirtualMachineInstance, firmware *v1.Firmware, domain *api.Domain) {
 	if util.HasKernelBootContainerImage(vmi) {
-		kb := firmware.KernelBoot
-
-		log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")
-		if kb.Container.KernelPath != "" {
-			kernelPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
-			log.Log.Object(vmi).Infof("setting kernel path for kernel boot: %s", kernelPath)
-			domain.Spec.OS.Kernel = kernelPath
-		}
-
-		if kb.Container.InitrdPath != "" {
-			initrdPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
-			log.Log.Object(vmi).Infof("setting initrd path for kernel boot: %s", initrdPath)
-			domain.Spec.OS.Initrd = initrdPath
-		}
-
+		configureKernelBootContainer(vmi, firmware.KernelBoot, domain)
 	}
 
 	// Define custom command-line arguments even if kernel-boot container is not defined
@@ -136,15 +148,25 @@ func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.Virtua
 		log.Log.Object(vmi).Infof("setting custom kernel arguments: %s", firmware.KernelBoot.KernelArgs)
 		domain.Spec.OS.KernelArgs = firmware.KernelBoot.KernelArgs
 	}
-
-	if err := convert_v1_Firmware_ACPI_To_related_apis(firmware, domain, vmi.Spec.Volumes); err != nil {
-		return err
-	}
-
-	return nil
 }
 
-func convert_v1_Firmware_ACPI_To_related_apis(firmware *v1.Firmware, domain *api.Domain, volumes []v1.Volume) error {
+func configureKernelBootContainer(vmi *v1.VirtualMachineInstance, kb *v1.KernelBoot, domain *api.Domain) {
+	log.Log.Object(vmi).Infof("kernel boot defined for VMI. Converting to domain XML")
+
+	if kb.Container.KernelPath != "" {
+		kernelPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.KernelPath)
+		log.Log.Object(vmi).Infof("setting kernel path for kernel boot: %s", kernelPath)
+		domain.Spec.OS.Kernel = kernelPath
+	}
+
+	if kb.Container.InitrdPath != "" {
+		initrdPath := containerdisk.GetKernelBootArtifactPathFromLauncherView(kb.Container.InitrdPath)
+		log.Log.Object(vmi).Infof("setting initrd path for kernel boot: %s", initrdPath)
+		domain.Spec.OS.Initrd = initrdPath
+	}
+}
+
+func configureACPI(firmware *v1.Firmware, domain *api.Domain, volumes []v1.Volume) error {
 	if firmware.ACPI == nil {
 		return nil
 	}
@@ -157,23 +179,25 @@ func convert_v1_Firmware_ACPI_To_related_apis(firmware *v1.Firmware, domain *api
 		domain.Spec.OS.ACPI = &api.OSACPI{}
 	}
 
-	if val, err := createACPITable("slic", firmware.ACPI.SlicNameRef, volumes); err != nil {
+	if err := appendACPITable("slic", firmware.ACPI.SlicNameRef, volumes, domain); err != nil {
 		return err
-	} else if val != nil {
-		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table, *val)
 	}
 
-	if val, err := createACPITable("msdm", firmware.ACPI.MsdmNameRef, volumes); err != nil {
-		return err
-	} else if val != nil {
-		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table, *val)
-	}
+	return appendACPITable("msdm", firmware.ACPI.MsdmNameRef, volumes, domain)
+}
 
-	// if field was set but volume was not found, helper function will return error
+func appendACPITable(tableType, volumeName string, volumes []v1.Volume, domain *api.Domain) error {
+	table, err := createACPITable(tableType, volumeName, volumes)
+	if err != nil {
+		return err
+	}
+	if table != nil {
+		domain.Spec.OS.ACPI.Table = append(domain.Spec.OS.ACPI.Table, *table)
+	}
 	return nil
 }
 
-func createACPITable(source, volumeName string, volumes []v1.Volume) (*api.ACPITable, error) {
+func createACPITable(tableType, volumeName string, volumes []v1.Volume) (*api.ACPITable, error) {
 	if volumeName == "" {
 		return nil, nil
 	}
@@ -185,17 +209,17 @@ func createACPITable(source, volumeName string, volumes []v1.Volume) (*api.ACPIT
 
 		if volume.Secret == nil {
 			// Unsupported. This should have been blocked by webhook, so warn user.
-			return nil, fmt.Errorf("Firmware's volume type is unsupported for %s", source)
+			return nil, fmt.Errorf("Firmware's volume type is unsupported for %s", tableType)
 		}
 
 		// Return path to table's binary data
 		sourcePath := config.GetSecretSourcePath(volumeName)
-		sourcePath = filepath.Join(sourcePath, fmt.Sprintf("%s.bin", source))
+		sourcePath = filepath.Join(sourcePath, fmt.Sprintf("%s.bin", tableType))
 		return &api.ACPITable{
-			Type: source,
+			Type: tableType,
 			Path: sourcePath,
 		}, nil
 	}
 
-	return nil, fmt.Errorf("Firmware's volume for %s was not found", source)
+	return nil, fmt.Errorf("Firmware's volume for %s was not found", tableType)
 }
