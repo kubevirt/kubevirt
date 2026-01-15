@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	launcherconfig "kubevirt.io/kubevirt/pkg/virt-launcher/config"
 
 	"golang.org/x/sys/unix"
 	k8sv1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -450,6 +451,10 @@ func NewDomainFromName(name string, vmiUID types.UID) *api.Domain {
 }
 
 func configureQemuConf(qemuFilename string) (err error) {
+	return configureQemuConfWithConfig(qemuFilename, launcherconfig.GetGlobalConfig())
+}
+
+func configureQemuConfWithConfig(qemuFilename string, cfg *launcherconfig.Config) (err error) {
 	qemuConf, err := os.OpenFile(qemuFilename, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -464,15 +469,17 @@ func configureQemuConf(qemuFilename string) (err error) {
 		return err
 	}
 
-	if debugLogsStr, ok := os.LookupEnv("VIRTIOFSD_DEBUG_LOGS"); ok && (debugLogsStr == "1") {
+	// Use config for virtiofsd debug logs instead of reading env var directly
+	if cfg != nil && cfg.VirtiofsdDebugLogsEnabled {
 		_, err = qemuConf.WriteString("virtiofsd_debug = 1\n")
 		if err != nil {
 			return err
 		}
 	}
 
-	if pathsStr, ok := os.LookupEnv(services.ENV_VAR_SHARED_FILESYSTEM_PATHS); ok {
-		paths := strings.Split(pathsStr, ":")
+	// Use config for shared filesystem paths instead of reading env var directly
+	if cfg != nil && cfg.HasSharedFilesystemPaths() {
+		paths := strings.Split(cfg.SharedFilesystemPaths, ":")
 		formatted := strings.Join(paths, "\", \"")
 		sharedFsEntry := fmt.Sprintf("shared_filesystems = [ \"%s\" ]\n", formatted)
 		_, err = qemuConf.WriteString(sharedFsEntry)
@@ -500,7 +507,16 @@ func copyFile(from, to string) error {
 	return err
 }
 
+// SetupLibvirt configures libvirt using the global config.
+// For explicit config injection, use SetupLibvirtWithConfig.
 func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
+	return l.SetupLibvirtWithConfig(customLogFilters, launcherconfig.GetGlobalConfig())
+}
+
+// SetupLibvirtWithConfig configures libvirt using the provided config.
+// This allows for explicit dependency injection of configuration values
+// that were read at the application's top level.
+func (l LibvirtWrapper) SetupLibvirtWithConfig(customLogFilters *string, cfg *launcherconfig.Config) (err error) {
 	runtimeQemuConfPath := qemuConfPath
 	if !l.root() {
 		runtimeQemuConfPath = qemuNonRootConfPath
@@ -513,7 +529,7 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 		}
 	}
 
-	if err := configureQemuConf(runtimeQemuConfPath); err != nil {
+	if err := configureQemuConfWithConfig(runtimeQemuConfPath, cfg); err != nil {
 		return err
 	}
 
@@ -522,11 +538,12 @@ func (l LibvirtWrapper) SetupLibvirt(customLogFilters *string) (err error) {
 		return err
 	}
 
+	// Use config values instead of reading environment variables directly
 	var libvirtLogVerbosityEnvVar *string
-	if envVarValue, envVarDefined := os.LookupEnv(services.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY); envVarDefined {
-		libvirtLogVerbosityEnvVar = &envVarValue
+	if cfg != nil && cfg.LogVerbosityRaw != "" {
+		libvirtLogVerbosityEnvVar = &cfg.LogVerbosityRaw
 	}
-	_, libvirtDebugLogsEnvVarDefined := os.LookupEnv(services.ENV_VAR_LIBVIRT_DEBUG_LOGS)
+	libvirtDebugLogsEnvVarDefined := cfg != nil && cfg.LibvirtDebugLogsEnabled
 
 	if logFilters, enableDebugLogs := getLibvirtLogFilters(customLogFilters, libvirtLogVerbosityEnvVar, libvirtDebugLogsEnvVarDefined); enableDebugLogs {
 		virtqemudConf, err := os.OpenFile(runtimeVirtqemudConfPath, os.O_APPEND|os.O_WRONLY, 0644)
