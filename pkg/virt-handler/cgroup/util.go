@@ -233,13 +233,6 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 			Permissions: permissions,
 			Allow:       toAllow,
 		},
-		{ // /dev/kvm (hardware virtualization extensions)
-			Type:        devices.CharDevice,
-			Major:       10,
-			Minor:       232,
-			Permissions: permissions,
-			Allow:       toAllow,
-		},
 		{ // /dev/net/tun (TAP/TUN network device)
 			Type:        devices.CharDevice,
 			Major:       10,

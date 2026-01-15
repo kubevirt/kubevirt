@@ -13,6 +13,7 @@ import (
 type VirtRuntime interface {
 	HandleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domain *api.Domain) error
 	AdjustResources(podIsoDetector isolation.PodIsolationDetector, vmi *v1.VirtualMachineInstance, config *v1.KubeVirtConfiguration) error
+	GetHypervisorDevice() string
 }
 
 func GetVirtRuntime(podIsolationDetector isolation.PodIsolationDetector, hypervisorName string) VirtRuntime {
