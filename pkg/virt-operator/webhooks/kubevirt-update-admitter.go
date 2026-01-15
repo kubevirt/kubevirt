@@ -103,7 +103,9 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.SeccompConfiguration, newKV.Spec.Configuration.SeccompConfiguration) {
 		results = append(results,
-			validateSeccompConfiguration(field.NewPath("spec").Child("configuration", "seccompConfiguration"), newKV.Spec.Configuration.SeccompConfiguration)...)
+			validateSeccompConfiguration(
+				field.NewPath("spec").Child("configuration", "seccompConfiguration"),
+				newKV.Spec.Configuration.SeccompConfiguration)...)
 	}
 
 	if newKV.Spec.Infra != nil {
@@ -203,8 +205,9 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 
 	if deprecatedAPI && currentAPI {
 		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("caRotateInterval, certRotateInterval and caOverlapInterval are deprecated and conflict with CertConfig defined rotation parameters"),
+			Type: metav1.CauseTypeFieldValueNotSupported,
+			Message: "caRotateInterval, certRotateInterval and caOverlapInterval are deprecated " +
+				"and conflict with CertConfig defined rotation parameters",
 		})
 	}
 
@@ -215,22 +218,25 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 
 	if caDuration.Duration < caRenewBefore.Duration {
 		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("CA RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.ca.duration < spec.certificateRotationStrategy.selfSigned.ca.renewBefore)"),
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: "CA RenewBefore cannot exceed Duration " +
+				"(spec.certificateRotationStrategy.selfSigned.ca.duration < spec.certificateRotationStrategy.selfSigned.ca.renewBefore)",
 		})
 	}
 
 	if certDuration.Duration < certRenewBefore.Duration {
 		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Cert RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.server.duration < spec.certificateRotationStrategy.selfSigned.server.renewBefore)"),
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: "Cert RenewBefore cannot exceed Duration " +
+				"(spec.certificateRotationStrategy.selfSigned.server.duration < spec.certificateRotationStrategy.selfSigned.server.renewBefore)",
 		})
 	}
 
 	if certDuration.Duration > caDuration.Duration {
 		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Certificate duration cannot exceed CA (spec.certificateRotationStrategy.selfSigned.server.duration > spec.certificateRotationStrategy.selfSigned.ca.duration)"),
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: "Certificate duration cannot exceed CA " +
+				"(spec.certificateRotationStrategy.selfSigned.server.duration > spec.certificateRotationStrategy.selfSigned.ca.duration)",
 		})
 	}
 
@@ -310,7 +316,9 @@ func validateSeccompConfiguration(fieldPath *field.Path, seccompConf *v1.Seccomp
 	return statuses
 }
 
-func validateWorkloadPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {
+func validateWorkloadPlacement(
+	ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient,
+) []metav1.StatusCause {
 	statuses := []metav1.StatusCause{}
 
 	const (
@@ -363,7 +371,9 @@ func validateWorkloadPlacement(ctx context.Context, namespace string, placementC
 	return statuses
 }
 
-func validateInfraPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {
+func validateInfraPlacement(
+	ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient,
+) []metav1.StatusCause {
 	statuses := []metav1.StatusCause{}
 
 	const (
