@@ -48,12 +48,10 @@ var _ = Describe("Socket device", func() {
 
 		ctrl := gomock.NewController(GinkgoT())
 		mockExec := selinux.NewMockExecutor(ctrl)
-		mockPermManager := NewMockPermissionManager(ctrl)
 		mockSelinux := selinux.NewMockSELinux(ctrl)
 		mockExec.EXPECT().NewSELinux().Return(mockSelinux, true, nil).AnyTimes()
 		mockSelinux.EXPECT().IsPermissive().Return(true).AnyTimes()
-		mockPermManager.EXPECT().ChownAtNoFollow(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, mockPermManager)
+		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, newPermissionManager())
 		Expect(err).ToNot(HaveOccurred())
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
