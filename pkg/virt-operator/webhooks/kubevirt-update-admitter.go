@@ -558,9 +558,13 @@ func validateRoleAggregationStrategy(config *v1.KubeVirtConfiguration) []metav1.
 		return nil
 	}
 
+	msg := fmt.Sprintf(
+		"RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate",
+		featuregate.OptOutRoleAggregation,
+	)
 	return []metav1.StatusCause{{
 		Type:    metav1.CauseTypeFieldValueInvalid,
 		Field:   "spec.configuration.roleAggregationStrategy",
-		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", featuregate.OptOutRoleAggregation),
+		Message: msg,
 	}}
 }
