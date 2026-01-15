@@ -19,7 +19,18 @@
 
 package dra
 
-import v1 "kubevirt.io/api/core/v1"
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	k8sv1 "k8s.io/api/core/v1"
+	v1 "kubevirt.io/api/core/v1"
+
+	// TODO: Replace with k8s.io types when KEP-5304 is implemented in kubernetes
+	"kubevirt.io/kubevirt/pkg/dra/metadata"
+)
 
 // IsAllDRAGPUsReconciled checks if all GPUs with DRA in the VMI spec have corresponding status entries populated
 // with either a PCI address (pGPU) or an mdev UUID (vGPU).  It is used by both virt-handler and virt-controller
@@ -96,4 +107,126 @@ func IsGPUDRA(gpu v1.GPU) bool {
 // IsHostDeviceDRA returns true if the HostDevice is a DRA GPU
 func IsHostDeviceDRA(hd v1.HostDevice) bool {
 	return hd.DeviceName == "" && hd.ClaimRequest != nil
+}
+
+// DRA Metadata Cache - reads KEP-5304 metadata files and provides device attribute lookups
+
+const (
+	DefaultMetadataBasePath = "/var/run/dra-device-attributes"
+	MetadataFileName        = "metadata.json"
+)
+
+// DRAFileData holds resolved DRA metadata indexed by VMI claim ref.
+type DRAFileData struct {
+	resolvedMetadata map[string]*metadata.DeviceMetadata
+}
+
+// NewDRAFileData creates a new cache, loads all metadata files from the default path,
+// and resolves them against the provided VMI resource claims.
+func NewDRAFileData(resourceClaims []k8sv1.PodResourceClaim) (*DRAFileData, error) {
+	return NewDRAFileDataWithBasePath(DefaultMetadataBasePath, resourceClaims)
+}
+
+// NewDRAFileDataWithBasePath creates a new cache with a custom base path (for testing).
+func NewDRAFileDataWithBasePath(basePath string, resourceClaims []k8sv1.PodResourceClaim) (*DRAFileData, error) {
+	cache := &DRAFileData{
+		resolvedMetadata: make(map[string]*metadata.DeviceMetadata),
+	}
+
+	claimsFromRC, claimsFromRCT, err := loadMetadataFiles(basePath)
+	if err != nil {
+		return cache, err
+	}
+
+	for _, rc := range resourceClaims {
+		if rc.ResourceClaimName != nil && *rc.ResourceClaimName != "" {
+			cache.resolvedMetadata[rc.Name] = claimsFromRC[*rc.ResourceClaimName]
+		} else {
+			cache.resolvedMetadata[rc.Name] = claimsFromRCT[rc.Name]
+		}
+	}
+
+	return cache, nil
+}
+
+func loadMetadataFiles(basePath string) (claimsFromRC, claimsFromRCT map[string]*metadata.DeviceMetadata, err error) {
+	claimsFromRC = make(map[string]*metadata.DeviceMetadata)
+	claimsFromRCT = make(map[string]*metadata.DeviceMetadata)
+
+	pattern := filepath.Join(basePath, "*", "*", MetadataFileName)
+	files, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to glob metadata files: %w", err)
+	}
+
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			continue
+		}
+
+		var md metadata.DeviceMetadata
+		if err := json.Unmarshal(data, &md); err != nil {
+			continue
+		}
+
+		if md.PodClaimName != "" {
+			claimsFromRCT[md.PodClaimName] = &md
+		}
+		claimsFromRC[md.Name] = &md
+	}
+
+	return claimsFromRC, claimsFromRCT, nil
+}
+
+// GetPCIAddressForClaim returns the PCI address for a device in the given claim and request.
+func (c *DRAFileData) GetPCIAddressForClaim(claimName, requestName string) (string, error) {
+	md := c.resolvedMetadata[claimName]
+	if md == nil {
+		return "", fmt.Errorf("metadata not found for claim %q", claimName)
+	}
+
+	device, err := getDeviceForRequest(md, requestName)
+	if err != nil {
+		return "", err
+	}
+
+	if attr, ok := device.Attributes[metadata.PCIBusIDAttribute]; ok {
+		if attr.StringValue != nil && *attr.StringValue != "" {
+			return *attr.StringValue, nil
+		}
+	}
+	return "", fmt.Errorf("pciBusID not found for claim %q request %q", claimName, requestName)
+}
+
+// GetMDevUUIDForClaim returns the mdev UUID for a device in the given claim and request.
+func (c *DRAFileData) GetMDevUUIDForClaim(claimName, requestName string) (string, error) {
+	md := c.resolvedMetadata[claimName]
+	if md == nil {
+		return "", fmt.Errorf("metadata not found for claim %q", claimName)
+	}
+
+	device, err := getDeviceForRequest(md, requestName)
+	if err != nil {
+		return "", err
+	}
+
+	if attr, ok := device.Attributes[metadata.MDevUUIDAttribute]; ok {
+		if attr.StringValue != nil && *attr.StringValue != "" {
+			return *attr.StringValue, nil
+		}
+	}
+	return "", fmt.Errorf("mdevUUID not found for claim %q request %q", claimName, requestName)
+}
+
+func getDeviceForRequest(md *metadata.DeviceMetadata, requestName string) (*metadata.Device, error) {
+	for _, req := range md.Requests {
+		if req.Name == requestName {
+			if len(req.Devices) == 0 {
+				return nil, fmt.Errorf("request %q has no devices", requestName)
+			}
+			return &req.Devices[0], nil
+		}
+	}
+	return nil, fmt.Errorf("request %q not found in metadata", requestName)
 }
