@@ -193,15 +193,8 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 		return statuses
 	}
 
-	deprecatedAPI := false
-	if certConfig.CARotateInterval != nil || certConfig.CertRotateInterval != nil || certConfig.CAOverlapInterval != nil {
-		deprecatedAPI = true
-	}
-
-	currentAPI := false
-	if certConfig.CA != nil || certConfig.Server != nil {
-		currentAPI = true
-	}
+	deprecatedAPI := certConfig.CARotateInterval != nil || certConfig.CertRotateInterval != nil || certConfig.CAOverlapInterval != nil
+	currentAPI := certConfig.CA != nil || certConfig.Server != nil
 
 	if deprecatedAPI && currentAPI {
 		statuses = append(statuses, metav1.StatusCause{
@@ -470,6 +463,7 @@ func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
 }
 
 func warnDeprecatedArchitectures(archConfiguration *v1.ArchConfiguration) []string {
+	//nolint:staticcheck // SA1019: we need to check deprecated field to warn users
 	if archConfiguration != nil && archConfiguration.Ppc64le != nil {
 		return []string{"spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."}
 	}
