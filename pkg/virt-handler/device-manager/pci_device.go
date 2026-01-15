@@ -76,6 +76,7 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 		},
 		iommuToPCIMap: iommuToPCIMap,
 	}
+	dpi.allocateDP = dpi.allocateDPFunc
 	dpi.deviceNameByID = dpi.deviceNameByIDFunc
 	dpi.healthCheck = dpi.healthCheckFunc
 	return dpi
@@ -101,7 +102,7 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 	return
 }
 
-func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *PCIDevicePlugin) allocateDPFunc(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.PCIResourcePrefix, dpi.resourceName)
 	allocatedDevices := []string{}
 	resp := new(pluginapi.AllocateResponse)

@@ -79,10 +79,9 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 		},
 		iommuToMDEVMap: iommuToMDEVMap,
 	}
-	dpi.healthCheck = dpi.healthCheckFunc
-
 	dpi.deviceNameByID = dpi.deviceNameByIDFunc
-
+	dpi.allocateDP = dpi.allocateDPFunc
+	dpi.healthCheck = dpi.healthCheckFunc
 	return dpi
 }
 
@@ -106,7 +105,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 	return
 }
 
-func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *MediatedDevicePlugin) allocateDPFunc(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Allocate: iommuMap: %v", dpi.iommuToMDEVMap)
 	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.MDevResourcePrefix, dpi.resourceName)
