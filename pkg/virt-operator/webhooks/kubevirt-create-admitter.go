@@ -67,5 +67,5 @@ func (k *kubeVirtCreateAdmitter) Admit(ctx context.Context, review *admissionv1.
 		fmt.Println("Allowed to create KV")
 		return webhookutils.NewPassingAdmissionResponse()
 	}
-	return webhooks.ToAdmissionResponseError(fmt.Errorf("Kubevirt is already created"))
+	return webhooks.ToAdmissionResponseError(fmt.Errorf("kubevirt is already created"))
 }
