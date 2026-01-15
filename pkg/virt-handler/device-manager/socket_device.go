@@ -42,22 +42,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
-
-type PermissionManager interface {
-	ChownAtNoFollow(path *safepath.Path, uid, gid int) error
-}
-
-type permissionManager struct{}
-
-func NewPermissionManager() PermissionManager {
-	return &permissionManager{}
-}
-
-func (p *permissionManager) ChownAtNoFollow(path *safepath.Path, uid, gid int) error {
-	return safepath.ChownAtNoFollow(path, uid, gid)
-}
-
 type SocketDevicePlugin struct {
 	*DevicePluginBase
 	socketRoot    string
@@ -65,7 +49,7 @@ type SocketDevicePlugin struct {
 	socket        string
 	socketName    string
 	executor      selinux.Executor
-	p             PermissionManager
+	p             permissionManager
 	healthChecks  bool
 	hostRootMount string
 }
@@ -163,7 +147,7 @@ func (dpi *SocketDevicePlugin) setSocketDirectoryPermissions() error {
 	return nil
 }
 
-func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p PermissionManager, useHostRootMount bool) (*SocketDevicePlugin, error) {
+func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p permissionManager, useHostRootMount bool) (*SocketDevicePlugin, error) {
 	socketRoot := "/"
 	if useHostRootMount {
 		socketRoot = util.HostRootMount
@@ -205,7 +189,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 }
 
 // NewOptionalSocketDevicePlugin creates a SocketDevicePlugin where health checks are disabled (so device is always healthy)
-func NewOptionalSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p PermissionManager, useHostRootMount bool) *SocketDevicePlugin {
+func NewOptionalSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p permissionManager, useHostRootMount bool) *SocketDevicePlugin {
 	dpi, _ := NewSocketDevicePlugin(socketName, socketDir, socket, maxDevices, executor, p, useHostRootMount)
 	dpi.healthChecks = false
 	return dpi
