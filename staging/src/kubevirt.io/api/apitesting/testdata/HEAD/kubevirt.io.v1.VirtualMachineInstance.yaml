@@ -639,23 +639,6 @@ status:
     cores: 4294967291
     sockets: 4294967289
     threads: 4294967289
-  deviceStatus:
-    gpuStatuses:
-    - deviceResourceClaimStatus:
-        attributes:
-          mDevUUID: mDevUUIDValue
-          pciAddress: pciAddressValue
-        name: nameValue
-        resourceClaimName: resourceClaimNameValue
-      name: nameValue
-    hostDeviceStatuses:
-    - deviceResourceClaimStatus:
-        attributes:
-          mDevUUID: mDevUUIDValue
-          pciAddress: pciAddressValue
-        name: nameValue
-        resourceClaimName: resourceClaimNameValue
-      name: nameValue
   evacuationNodeName: evacuationNodeNameValue
   fsFreezeStatus: fsFreezeStatusValue
   guestOSInfo:

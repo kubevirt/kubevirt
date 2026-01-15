@@ -1156,34 +1156,6 @@
         }
       }
     ],
-    "deviceStatus": {
-      "gpuStatuses": [
-        {
-          "name": "nameValue",
-          "deviceResourceClaimStatus": {
-            "name": "nameValue",
-            "resourceClaimName": "resourceClaimNameValue",
-            "attributes": {
-              "pciAddress": "pciAddressValue",
-              "mDevUUID": "mDevUUIDValue"
-            }
-          }
-        }
-      ],
-      "hostDeviceStatuses": [
-        {
-          "name": "nameValue",
-          "deviceResourceClaimStatus": {
-            "name": "nameValue",
-            "resourceClaimName": "resourceClaimNameValue",
-            "attributes": {
-              "pciAddress": "pciAddressValue",
-              "mDevUUID": "mDevUUIDValue"
-            }
-          }
-        }
-      ]
-    },
     "changedBlockTracking": {
       "state": "stateValue",
       "backupStatus": {
