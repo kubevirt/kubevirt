@@ -44,7 +44,7 @@ import (
 
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
-	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
@@ -57,7 +57,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	var mutator *VMsMutator
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
-	var fakeInstancetypeClients instancetypeclientset.InstancetypeV1beta1Interface
+	var fakeInstancetypeClients instancetypeclientset.InstancetypeV1Interface
 	var fakePreferenceClient instancetypeclientset.VirtualMachinePreferenceInterface
 	var fakeClusterPreferenceClient instancetypeclientset.VirtualMachineClusterPreferenceInterface
 	var k8sClient *k8sfake.Clientset

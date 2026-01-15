@@ -21,12 +21,12 @@ package apply
 
 import (
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-func applyFirmwarePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyFirmwarePreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Firmware == nil {
 		return
 	}

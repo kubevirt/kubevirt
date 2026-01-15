@@ -29,7 +29,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/yaml"
 
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/create/params"
@@ -118,15 +118,15 @@ func (c *createInstancetype) setDefaults(cmd *cobra.Command) error {
 	return nil
 }
 
-func (c *createInstancetype) optFns() map[string]func(*instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
-	return map[string]func(*instancetypev1beta1.VirtualMachineInstancetypeSpec) error{
+func (c *createInstancetype) optFns() map[string]func(*instancetypev1.VirtualMachineInstancetypeSpec) error {
+	return map[string]func(*instancetypev1.VirtualMachineInstancetypeSpec) error{
 		GPUFlag:             c.withGPUs,
 		HostDeviceFlag:      c.withHostDevices,
 		IOThreadsPolicyFlag: c.withIOThreadsPolicy,
 	}
 }
 
-func (c *createInstancetype) withGPUs(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) withGPUs(instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec) error {
 	for _, param := range c.gpus {
 		obj := gpu{}
 		if err := params.Map(GPUFlag, param, &obj); err != nil {
@@ -146,7 +146,7 @@ func (c *createInstancetype) withGPUs(instancetypeSpec *instancetypev1beta1.Virt
 	return nil
 }
 
-func (c *createInstancetype) withHostDevices(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) withHostDevices(instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec) error {
 	for _, param := range c.hostDevices {
 		obj := hostDevice{}
 		if err := params.Map(HostDeviceFlag, param, &obj); err != nil {
@@ -166,7 +166,7 @@ func (c *createInstancetype) withHostDevices(instancetypeSpec *instancetypev1bet
 	return nil
 }
 
-func (c *createInstancetype) withIOThreadsPolicy(instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) withIOThreadsPolicy(instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec) error {
 	var policy v1.IOThreadsPolicy
 	switch c.ioThreadsPolicy {
 	case string(v1.IOThreadsPolicyAuto):
@@ -198,20 +198,20 @@ func (c *createInstancetype) usage() string {
   {{ProgramName}} create instancetype --cpu 2 --memory 256Mi | kubectl create -f -`
 }
 
-func (c *createInstancetype) newInstancetype() *instancetypev1beta1.VirtualMachineInstancetype {
-	instancetype := &instancetypev1beta1.VirtualMachineInstancetype{
+func (c *createInstancetype) newInstancetype() *instancetypev1.VirtualMachineInstancetype {
+	instancetype := &instancetypev1.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineInstancetype",
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.name,
 		},
-		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1beta1.CPUInstancetype{
+		Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1.CPUInstancetype{
 				Guest: c.cpu,
 			},
-			Memory: instancetypev1beta1.MemoryInstancetype{
+			Memory: instancetypev1.MemoryInstancetype{
 				Guest: resource.MustParse(c.memory),
 			},
 		},
@@ -224,27 +224,27 @@ func (c *createInstancetype) newInstancetype() *instancetypev1beta1.VirtualMachi
 	return instancetype
 }
 
-func (c *createInstancetype) newClusterInstancetype() *instancetypev1beta1.VirtualMachineClusterInstancetype {
-	return &instancetypev1beta1.VirtualMachineClusterInstancetype{
+func (c *createInstancetype) newClusterInstancetype() *instancetypev1.VirtualMachineClusterInstancetype {
+	return &instancetypev1.VirtualMachineClusterInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineClusterInstancetype",
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.name,
 		},
-		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1beta1.CPUInstancetype{
+		Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1.CPUInstancetype{
 				Guest: c.cpu,
 			},
-			Memory: instancetypev1beta1.MemoryInstancetype{
+			Memory: instancetypev1.MemoryInstancetype{
 				Guest: resource.MustParse(c.memory),
 			},
 		},
 	}
 }
 
-func (c *createInstancetype) applyFlags(cmd *cobra.Command, instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec) error {
+func (c *createInstancetype) applyFlags(cmd *cobra.Command, instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec) error {
 	for flag := range c.optFns() {
 		if cmd.Flags().Changed(flag) {
 			if err := c.optFns()[flag](instancetypeSpec); err != nil {
