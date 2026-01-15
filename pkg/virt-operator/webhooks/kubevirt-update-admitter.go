@@ -267,7 +267,7 @@ func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.St
 	}
 
 	if len(tlsConfiguration.Ciphers) > 0 {
-		var idByName = kvtls.CipherSuiteNameMap()
+		idByName := kvtls.CipherSuiteNameMap()
 		for index, cipher := range tlsConfiguration.Ciphers {
 			if _, exists := idByName[cipher]; !exists {
 				statuses = append(statuses, metav1.StatusCause{
@@ -365,7 +365,6 @@ func validateWorkloadPlacement(ctx context.Context, namespace string, placementC
 	}
 
 	_, err := client.AppsV1().DaemonSets(namespace).Create(ctx, mockDaemonSet, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
-
 	if err != nil {
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -420,7 +419,6 @@ func validateInfraPlacement(ctx context.Context, namespace string, placementConf
 	}
 
 	_, err := client.AppsV1().Deployments(namespace).Create(ctx, mockDeployment, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
-
 	if err != nil {
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,

@@ -56,7 +56,7 @@ func (k *kubeVirtCreateAdmitter) Admit(ctx context.Context, review *admissionv1.
 	if resp := webhooks.ValidateSchema(v1.KubeVirtGroupVersionKind, review.Request.Object.Raw); resp != nil {
 		return resp
 	}
-	//TODO: Do we want semantic validation
+	// TODO: Do we want semantic validation
 
 	// Best effort
 	list, err := k.client.KubeVirt(k8sv1.NamespaceAll).List(ctx, metav1.ListOptions{})
