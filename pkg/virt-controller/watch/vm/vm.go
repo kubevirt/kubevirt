@@ -93,11 +93,13 @@ type CloneAuthFunc func(dv *cdiv1.DataVolume, requestNamespace, requestName stri
 const (
 	stoppingVmMsg                             = "Stopping VM"
 	startingVmMsg                             = "Starting VM"
+	hibernateVmMsg                            = "hibernating VM"
 	startingVmReceiverMsg                     = "Starting VM as receiver"
 	failedExtractVmkeyFromVmErrMsg            = "Failed to extract vmKey from VirtualMachine."
 	failedCreateCRforVmErrMsg                 = "Failed to create controller revision for VirtualMachine."
 	failedProcessDeleteNotificationErrMsg     = "Failed to process delete notification"
 	failureDeletingVmiErrFormat               = "Failure attempting to delete VMI: %v"
+	failureHibernateVmiErrFormat              = "Failure attempting to hibernate VMI: %v"
 	failedManualRecoveryRequiredCondSetErrMsg = "cannot start the VM since it has the manual recovery required condtion set"
 
 	// UnauthorizedDataVolumeCreateReason is added in an event when the DataVolume
@@ -125,6 +127,7 @@ const (
 	volumesUpdateErrorReason           = "VolumesUpdateError"
 	tolerationsChangeErrorReason       = "TolerationsChangeError"
 	annotationsLabelsChangeErrorReason = "AnnotationsLabelsChangeError"
+	failedSyncStopStrategyReason       = "FailedSyncStopStrategy"
 )
 
 const defaultMaxCrashLoopBackoffDelaySeconds = 300
@@ -1149,6 +1152,42 @@ func (c *Controller) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Virt
 			}
 		}
 		return vm, nil
+	case virtv1.RunStrategyHibernate:
+		// For this runStrategy, no VMI should be running under any circumstances.
+		// Set RunStrategyAlways/running = true if VM has StartRequest(start paused case).
+		if vmi == nil {
+			if hasStartRequest(vm) {
+				vmCopy := vm.DeepCopy()
+				runStrategy := virtv1.RunStrategyAlways
+				running := true
+
+				if vmCopy.Spec.RunStrategy != nil {
+					vmCopy.Spec.RunStrategy = &runStrategy
+				} else {
+					vmCopy.Spec.Running = &running
+				}
+				_, err := c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
+				return vm, common.NewSyncError(fmt.Errorf(startingVMIFailureFmt, err), failedCreateReason)
+			}
+		}
+		log.Log.Object(vm).Infof("%s with VMI in phase %s due to runStrategy: %s", hibernateVmMsg, vmi.Status.Phase, runStrategy)
+		vm, err = c.hibernateVMI(vm, vmi)
+		if err != nil {
+			return vm, common.NewSyncError(fmt.Errorf(failureHibernateVmiErrFormat, err), failedUpdateErrorReason)
+		}
+		vmiFailed := vmi.Status.Phase == virtv1.Failed
+		vmiSucceeded := vmi.Status.Phase == virtv1.Succeeded
+
+		if vmi.DeletionTimestamp == nil && (vmiFailed || vmiSucceeded) {
+			// For RerunOnFailure, this controller should only restart the VirtualMachineInstance if it failed.
+			log.Log.Object(vm).Infof("%s with VMI in phase %s and VM runStrategy: %s", stoppingVmMsg, vmi.Status.Phase, runStrategy)
+			vm, err = c.stopVMI(vm, vmi)
+			if err != nil {
+				log.Log.Object(vm).Errorf(failureDeletingVmiErrFormat, err)
+				return vm, common.NewSyncError(fmt.Errorf(failureDeletingVmiErrFormat, err), vmiFailedDeleteReason)
+			}
+		}
+		return vm, nil
 	default:
 		return vm, common.NewSyncError(fmt.Errorf("unknown runstrategy: %s", runStrategy), failedCreateReason)
 	}
@@ -1263,6 +1302,7 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 		log.Log.Object(vm).Reason(err).Error(failedCreateCRforVmErrMsg)
 		return vm, err
 	}
+
 	vmi.Status.VirtualMachineRevisionName = vmRevisionName
 
 	setGenerationAnnotationOnVmi(vm.Generation, vmi)
@@ -1450,6 +1490,51 @@ func (c *Controller) conditionallyBumpGenerationAnnotationOnVmi(vm *virtv1.Virtu
 	return vmi, nil
 }
 
+func (c *Controller) hibernateVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) (*virtv1.VirtualMachine, error) {
+	if vmi == nil || vmi.DeletionTimestamp != nil {
+		// nothing to do
+		return vm, nil
+	}
+	needSync := false
+	var stopStrategy virtv1.StopStrategy
+	patchSet := patch.New()
+	logMsg := fmt.Sprintf("Hibernate VM with mode: %s", string(*vm.Spec.HibernateStrategy.Mode))
+	if vm.Spec.HibernateStrategy != nil {
+		//TODO add save mode
+		switch *vm.Spec.HibernateStrategy.Mode {
+		case virtv1.HibernateModeSuspendToDisk:
+			if *vmi.Spec.StopStrategy != virtv1.StopStrategySuspendToDisk {
+				needSync = true
+				stopStrategy = virtv1.StopStrategySuspendToDisk
+				if vm.Spec.HibernateStrategy.WarningTimeoutSeconds != nil {
+					if *vmi.Spec.HibernationWarningTimeoutSeconds != *vm.Spec.HibernateStrategy.WarningTimeoutSeconds {
+						*vmi.Spec.HibernationWarningTimeoutSeconds = *vm.Spec.HibernateStrategy.WarningTimeoutSeconds
+					}
+				}
+
+			}
+		default:
+			return vm, common.NewSyncError(fmt.Errorf("unknown HibernateStrategy mode: %s", string(*vm.Spec.HibernateStrategy.Mode)), failedSyncStopStrategyReason)
+		}
+	}
+	if needSync {
+		patchSet.AddOption(
+			patch.WithReplace("/spec/stopStrategy", stopStrategy),
+		)
+		logMsg = fmt.Sprintf("%s, Setting stopStrategy to %s", logMsg, stopStrategy)
+		patchBytes, err := patchSet.GeneratePayload()
+		if err != nil {
+			return vm, err
+		}
+		_, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
+		if err == nil {
+			log.Log.Object(vmi).Infof("%s", logMsg)
+		}
+	}
+
+	return vm, nil
+}
+
 // Returns in seconds how long to wait before trying to start the VM again.
 func calculateStartBackoffTime(failCount int, maxDelay int) int {
 	// The algorithm is designed to work well with a dynamic maxDelay
@@ -1548,7 +1633,25 @@ func startFailureBackoffTimeLeft(vm *virtv1.VirtualMachine) int64 {
 	}
 	return 0
 }
+func syncHibernationStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	if vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy != virtv1.RunStrategyHibernate {
+		return
+	}
+	if vm.Status.HibernationStatus == nil {
+		vm.Status.HibernationStatus = &virtv1.VirtualMachineHibernationStatus{
+			Mode:             *vm.Spec.HibernateStrategy.Mode,
+			HibernationPhase: virtv1.HibernationPhasePending,
+		}
+	}
 
+	if vmi.Status.HibernationStatus != nil {
+		vm.Status.HibernationStatus.HibernationPhase = vmi.Status.HibernationStatus.HibernationPhase
+	}
+	if vm.Status.HibernationStatus.HibernationPhase == virtv1.HibernationPhaseFailed {
+		vm.Status.HibernationStatus.Reason = vmi.Status.HibernationStatus.Reason
+	}
+
+}
 func syncStartFailureStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
 	if shouldClearStartFailure(vm, vmi) {
 		// if a vmi associated with the vm hits a running phase, then reset the start failure counter
@@ -2463,6 +2566,7 @@ func (c *Controller) updateStatus(vm, vmOrig *virtv1.VirtualMachine, vmi *virtv1
 		popStateChangeRequest(vm)
 	}
 
+	syncHibernationStatus(vm, vmi)
 	syncStartFailureStatus(vm, vmi)
 	// On a successful migration, the volume change condition is removed and we need to detect the removal before the synchronization of the VMI
 	// condition to the VM

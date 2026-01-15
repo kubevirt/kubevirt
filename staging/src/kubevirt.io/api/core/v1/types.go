@@ -135,6 +135,10 @@ type VirtualMachineInstanceSpec struct {
 	//
 	// +optional
 	StopStrategy *StopStrategy `json:"stopStrategy,omitempty"`
+	//HibernationWarningTimeoutSeconds indicates the timeout alert duration for virtual machine hibernation,
+	//and re-triggers a hibernation request each time an alert is issued.
+	// +optional
+	HibernationWarningTimeoutSeconds *int64 `json:"hibernationWarningTimeoutSeconds,omitempty"`
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
@@ -348,6 +352,9 @@ type VirtualMachineInstanceStatus struct {
 	// +nullable
 	// +optional
 	ChangedBlockTracking *ChangedBlockTrackingStatus `json:"changedBlockTracking,omitempty" optional:"true"`
+	//VirtualMachineHibernationStatus represents the hibernation state.
+	//+optional
+	HibernationStatus *VirtualMachineHibernationStatus `json:"hibernationStatus,omitempty"`
 }
 
 // DeviceStatus has the information of all devices allocated spec.domain.devices
@@ -618,6 +625,11 @@ func (v *VirtualMachineInstance) ShouldStartPaused() bool {
 	return v.Spec.StartStrategy != nil && *v.Spec.StartStrategy == StartStrategyPaused
 }
 
+// ShouldSuspendToDisk returns true if VMI should be hibernate from with suspendToDisk mode
+func (v *VirtualMachineInstance) ShouldSuspendToDisk() bool {
+	return v.Spec.StopStrategy != nil && *v.Spec.StopStrategy == StopStrategySuspendToDisk
+}
+
 func (v *VirtualMachineInstance) IsRealtimeEnabled() bool {
 	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.Realtime != nil
 }
@@ -760,10 +772,8 @@ const (
 
 	// VirtualMachineInstanceEvictionRequested indicates that an eviction has been requested for the VMI
 	VirtualMachineInstanceEvictionRequested VirtualMachineInstanceConditionType = "EvictionRequested"
-	//VirtualMachineInstanceHibernationInProgress that vmi is Hibernating
-	VirtualMachineInstanceHibernationInProgress VirtualMachineInstanceConditionType = "HibernationInProgress"
-	//VirtualMachineInstanceHibernationInProgress that vmi is Resuming
-	VirtualMachineInstanceResumeInProgress VirtualMachineInstanceConditionType = "ResumeInProgress"
+	//VirtualMachineInstanceHibernationTriggered that vmi is Hibernating
+	VirtualMachineInstanceHibernationTriggered VirtualMachineInstanceConditionType = "HibernationTriggered"
 )
 
 // These are valid reasons for VMI conditions.
@@ -1131,7 +1141,8 @@ const (
 	WaitingForSync VirtualMachineInstancePhase = "WaitingForSync"
 	// Unknown means that for some reason the state of the VirtualMachineInstance could not be obtained, typically due
 	// to an error in communicating with the host of the VirtualMachineInstance.
-	Unknown VirtualMachineInstancePhase = "Unknown"
+	Unknown       VirtualMachineInstancePhase = "Unknown"
+	VMHibernating VirtualMachineInstancePhase = "Hibernating"
 )
 
 // Annotations in the KubeVirt custom resource are used to modify KubeVirt's behavior, often serving as workarounds for bugs in other layers.
@@ -1522,6 +1533,7 @@ const (
 	Resumed                      SyncEvent = "Resumed"
 	AccessCredentialsSyncFailed  SyncEvent = "AccessCredentialsSyncFailed"
 	AccessCredentialsSyncSuccess SyncEvent = "AccessCredentialsSyncSuccess"
+	Hibernating                  SyncEvent = "Hibernating"
 )
 
 func (s SyncEvent) String() string {
@@ -1989,8 +2001,8 @@ const (
 // VirtualMachineHibernateStrategy represents the strategy used to specify
 // the details of VM hibernation
 type VirtualMachineHibernateStrategy struct {
-	Mode                  *HibernateMode `json:"spec" valid:"required"`
-	WarningTimeoutSeconds int32          `json:"warningTimeoutSeconds,omitempty"`
+	Mode                  *HibernateMode `json:"mode" valid:"required"`
+	WarningTimeoutSeconds *int64         `json:"warningTimeoutSeconds,omitempty"`
 	// ClaimName is the name of the pvc that will contain the memory dump
 	ClaimName string `json:"claimName"`
 }
@@ -2297,7 +2309,7 @@ type VolumeSnapshotStatus struct {
 type VirtualMachineHibernationStatus struct {
 	// Mode is the configured or observed hibernation strategy.
 	// +optional
-	Mode string `json:"mode,omitempty"`
+	Mode HibernateMode `json:"mode,omitempty"`
 
 	// Phase represents the hibernation phase.
 	// +optional
@@ -2320,6 +2332,7 @@ type VirtualMachineHibernationStatus struct {
 type HibernationPhase string
 
 const (
+	HibernationPhasePending         HibernationPhase = "Pending"
 	HibernationPhaseInitial         HibernationPhase = "Initial"
 	HibernationPhasepvcCreate       HibernationPhase = "pvcCreate"
 	HibernationPhaseReadyToHotPlug  HibernationPhase = "ReadyToHotPlug"

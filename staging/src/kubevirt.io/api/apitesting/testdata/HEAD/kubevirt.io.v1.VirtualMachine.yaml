@@ -638,6 +638,7 @@ spec:
           requests:
             requestsKey: "0"
       evictionStrategy: evictionStrategyValue
+      hibernationWarningTimeoutSeconds: -32
       hostname: hostnameValue
       livenessProbe:
         exec:

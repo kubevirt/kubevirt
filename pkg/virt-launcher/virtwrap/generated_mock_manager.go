@@ -473,6 +473,20 @@ func (mr *MockDomainManagerMockRecorder) SoftRebootVMI(arg0 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SoftRebootVMI", reflect.TypeOf((*MockDomainManager)(nil).SoftRebootVMI), arg0)
 }
 
+// SuspendToDisk mocks base method.
+func (m *MockDomainManager) SuspendToDisk(vmi *v1.VirtualMachineInstance) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SuspendToDisk", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SuspendToDisk indicates an expected call of SuspendToDisk.
+func (mr *MockDomainManagerMockRecorder) SuspendToDisk(vmi any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuspendToDisk", reflect.TypeOf((*MockDomainManager)(nil).SuspendToDisk), vmi)
+}
+
 // SyncVMI mocks base method.
 func (m *MockDomainManager) SyncVMI(arg0 *v1.VirtualMachineInstance, arg1 bool, arg2 *v10.VirtualMachineOptions) (*api.DomainSpec, error) {
 	m.ctrl.T.Helper()

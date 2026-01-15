@@ -4727,14 +4727,14 @@ var CRDsValidation map[string]string = map[string]string{
               description: ClaimName is the name of the pvc that will contain the
                 memory dump
               type: string
-            spec:
+            mode:
               type: string
             warningTimeoutSeconds:
-              format: int32
+              format: int64
               type: integer
           required:
           - claimName
-          - spec
+          - mode
           type: object
         instancetype:
           description: InstancetypeMatcher references a instancetype that is used
@@ -7197,6 +7197,12 @@ var CRDsValidation map[string]string = map[string]string{
                     - "LiveMigrateIfPossible": the same as "LiveMigrate" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as "None".
                     - "External": the VirtualMachineInstance will be protected and 'vmi.Status.EvacuationNodeName' will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.
                   type: string
+                hibernationWarningTimeoutSeconds:
+                  description: |-
+                    HibernationWarningTimeoutSeconds indicates the timeout alert duration for virtual machine hibernation,
+                    and re-triggers a hibernation request each time an alert is issued.
+                  format: int64
+                  type: integer
                 hostname:
                   description: |-
                     Specifies the hostname of the vmi
@@ -12984,6 +12990,12 @@ var CRDsValidation map[string]string = map[string]string{
             - "LiveMigrateIfPossible": the same as "LiveMigrate" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as "None".
             - "External": the VirtualMachineInstance will be protected and 'vmi.Status.EvacuationNodeName' will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.
           type: string
+        hibernationWarningTimeoutSeconds:
+          description: |-
+            HibernationWarningTimeoutSeconds indicates the timeout alert duration for virtual machine hibernation,
+            and re-triggers a hibernation request each time an alert is issued.
+          format: int64
+          type: integer
         hostname:
           description: |-
             Specifies the hostname of the vmi
@@ -14341,6 +14353,30 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
             versionId:
               description: Version ID of the Guest OS
+              type: string
+          type: object
+        hibernationStatus:
+          description: VirtualMachineHibernationStatus represents the hibernation
+            state.
+          properties:
+            claim:
+              description: Claim is the name of the PVC used for storing hibernation
+                data.
+              type: string
+            filename:
+              description: Filename is the name / path of the saved image file produced
+                by the save operation.
+              type: string
+            mode:
+              description: Mode is the configured or observed hibernation strategy.
+              type: string
+            phase:
+              description: Phase represents the hibernation phase.
+              type: string
+            reason:
+              description: |-
+                Reason is empty if hibernation succeeded; otherwise contains a human-readable
+                reason explaining why hibernation failed.
               type: string
           type: object
         interfaces:
@@ -19297,6 +19333,12 @@ var CRDsValidation map[string]string = map[string]string{
                     - "LiveMigrateIfPossible": the same as "LiveMigrate" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as "None".
                     - "External": the VirtualMachineInstance will be protected and 'vmi.Status.EvacuationNodeName' will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.
                   type: string
+                hibernationWarningTimeoutSeconds:
+                  description: |-
+                    HibernationWarningTimeoutSeconds indicates the timeout alert duration for virtual machine hibernation,
+                    and re-triggers a hibernation request each time an alert is issued.
+                  format: int64
+                  type: integer
                 hostname:
                   description: |-
                     Specifies the hostname of the vmi
@@ -21827,14 +21869,14 @@ var CRDsValidation map[string]string = map[string]string{
                       description: ClaimName is the name of the pvc that will contain
                         the memory dump
                       type: string
-                    spec:
+                    mode:
                       type: string
                     warningTimeoutSeconds:
-                      format: int32
+                      format: int64
                       type: integer
                   required:
                   - claimName
-                  - spec
+                  - mode
                   type: object
                 instancetype:
                   description: InstancetypeMatcher references a instancetype that
@@ -24340,6 +24382,12 @@ var CRDsValidation map[string]string = map[string]string{
                             - "LiveMigrateIfPossible": the same as "LiveMigrate" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as "None".
                             - "External": the VirtualMachineInstance will be protected and 'vmi.Status.EvacuationNodeName' will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.
                           type: string
+                        hibernationWarningTimeoutSeconds:
+                          description: |-
+                            HibernationWarningTimeoutSeconds indicates the timeout alert duration for virtual machine hibernation,
+                            and re-triggers a hibernation request each time an alert is issued.
+                          format: int64
+                          type: integer
                         hostname:
                           description: |-
                             Specifies the hostname of the vmi
@@ -27275,14 +27323,14 @@ var CRDsValidation map[string]string = map[string]string{
                           description: ClaimName is the name of the pvc that will
                             contain the memory dump
                           type: string
-                        spec:
+                        mode:
                           type: string
                         warningTimeoutSeconds:
-                          format: int32
+                          format: int64
                           type: integer
                       required:
                       - claimName
-                      - spec
+                      - mode
                       type: object
                     instancetype:
                       description: InstancetypeMatcher references a instancetype that
@@ -29813,6 +29861,12 @@ var CRDsValidation map[string]string = map[string]string{
                                 - "LiveMigrateIfPossible": the same as "LiveMigrate" but only if the VirtualMachine is Live-Migratable, otherwise it will behave as "None".
                                 - "External": the VirtualMachineInstance will be protected and 'vmi.Status.EvacuationNodeName' will be set on eviction. This is mainly useful for cluster-api-provider-kubevirt (capk) which needs a way for VMI's to be blocked from eviction, yet signal capk that eviction has been called on the VMI so the capk controller can handle tearing the VMI down. Details can be found in the commit description https://github.com/kubevirt/kubevirt/commit/c1d77face705c8b126696bac9a3ee3825f27f1fa.
                               type: string
+                            hibernationWarningTimeoutSeconds:
+                              description: |-
+                                HibernationWarningTimeoutSeconds indicates the timeout alert duration for virtual machine hibernation,
+                                and re-triggers a hibernation request each time an alert is issued.
+                              format: int64
+                              type: integer
                             hostname:
                               description: |-
                                 Specifies the hostname of the vmi

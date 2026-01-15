@@ -668,6 +668,7 @@
     "evictionStrategy": "evictionStrategyValue",
     "startStrategy": "startStrategyValue",
     "stopStrategy": "stopStrategyValue",
+    "hibernationWarningTimeoutSeconds": -32,
     "terminationGracePeriodSeconds": -29,
     "volumes": [
       {
@@ -1187,6 +1188,13 @@
         "backupMsg": "backupMsgValue",
         "checkpointName": "checkpointNameValue"
       }
+    },
+    "hibernationStatus": {
+      "mode": "modeValue",
+      "phase": "phaseValue",
+      "claim": "claimValue",
+      "filename": "filenameValue",
+      "reason": "reasonValue"
     }
   }
 }

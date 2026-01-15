@@ -437,6 +437,7 @@ spec:
       requests:
         requestsKey: "0"
   evictionStrategy: evictionStrategyValue
+  hibernationWarningTimeoutSeconds: -32
   hostname: hostnameValue
   livenessProbe:
     exec:
@@ -655,6 +656,12 @@ status:
     prettyName: prettyNameValue
     version: versionValue
     versionId: versionIdValue
+  hibernationStatus:
+    claim: claimValue
+    filename: filenameValue
+    mode: modeValue
+    phase: phaseValue
+    reason: reasonValue
   interfaces:
   - infoSource: infoSourceValue
     interfaceName: interfaceNameValue

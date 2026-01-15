@@ -113,6 +113,7 @@ type LauncherClient interface {
 	GetDomainDirtyRateStats() (dirtyRateMbps int64, err error)
 	GetScreenshot(*v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *backupv1.BackupOptions) error
+	VirtualMachineSuspendToDisk(vmi *v1.VirtualMachineInstance) error
 }
 
 type VirtLauncherClient struct {
@@ -799,5 +800,24 @@ func (c *VirtLauncherClient) VirtualMachineBackup(vmi *v1.VirtualMachineInstance
 	response, err := c.v1client.BackupVirtualMachine(ctx, request)
 
 	err = handleError(err, "Backup", response)
+	return err
+}
+
+func (c *VirtLauncherClient) VirtualMachineSuspendToDisk(vmi *v1.VirtualMachineInstance) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.SuspendToDiskRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.VirtualMachineSuspendToDisk(ctx, request)
+	err = handleError(err, "SuspendToDisk", response)
 	return err
 }

@@ -721,6 +721,26 @@ func (mr *MockCmdClientMockRecorder) VirtualMachineMemoryDump(ctx, in any, opts 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineMemoryDump", reflect.TypeOf((*MockCmdClient)(nil).VirtualMachineMemoryDump), varargs...)
 }
 
+// VirtualMachineSuspendToDisk mocks base method.
+func (m *MockCmdClient) VirtualMachineSuspendToDisk(ctx context.Context, in *SuspendToDiskRequest, opts ...grpc.CallOption) (*Response, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "VirtualMachineSuspendToDisk", varargs...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VirtualMachineSuspendToDisk indicates an expected call of VirtualMachineSuspendToDisk.
+func (mr *MockCmdClientMockRecorder) VirtualMachineSuspendToDisk(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineSuspendToDisk", reflect.TypeOf((*MockCmdClient)(nil).VirtualMachineSuspendToDisk), varargs...)
+}
+
 // MockCmdServer is a mock of CmdServer interface.
 type MockCmdServer struct {
 	ctrl     *gomock.Controller
@@ -1253,4 +1273,19 @@ func (m *MockCmdServer) VirtualMachineMemoryDump(arg0 context.Context, arg1 *Mem
 func (mr *MockCmdServerMockRecorder) VirtualMachineMemoryDump(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineMemoryDump", reflect.TypeOf((*MockCmdServer)(nil).VirtualMachineMemoryDump), arg0, arg1)
+}
+
+// VirtualMachineSuspendToDisk mocks base method.
+func (m *MockCmdServer) VirtualMachineSuspendToDisk(arg0 context.Context, arg1 *SuspendToDiskRequest) (*Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VirtualMachineSuspendToDisk", arg0, arg1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VirtualMachineSuspendToDisk indicates an expected call of VirtualMachineSuspendToDisk.
+func (mr *MockCmdServerMockRecorder) VirtualMachineSuspendToDisk(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineSuspendToDisk", reflect.TypeOf((*MockCmdServer)(nil).VirtualMachineSuspendToDisk), arg0, arg1)
 }

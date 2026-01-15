@@ -861,3 +861,20 @@ func (l *Launcher) BackupVirtualMachine(_ context.Context, request *cmdv1.Backup
 	log.Log.Object(vmi).Info("VMI backup job initiated")
 	return response, nil
 }
+
+func (l *Launcher) VirtualMachineSuspendToDisk(_ context.Context, request *cmdv1.SuspendToDiskRequest) (*cmdv1.Response, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.SuspendToDisk(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed update VMI guest memory")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("guest memory has been updated")
+	return response, nil
+}

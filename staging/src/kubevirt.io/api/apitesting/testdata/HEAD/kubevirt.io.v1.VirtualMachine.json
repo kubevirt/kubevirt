@@ -734,6 +734,7 @@
         "evictionStrategy": "evictionStrategyValue",
         "startStrategy": "startStrategyValue",
         "stopStrategy": "stopStrategyValue",
+        "hibernationWarningTimeoutSeconds": -32,
         "terminationGracePeriodSeconds": -29,
         "volumes": [
           {

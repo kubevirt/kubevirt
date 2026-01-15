@@ -26544,7 +26544,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineHibernateStrategy(ref common.Re
 				Description: "VirtualMachineHibernateStrategy represents the strategy used to specify the details of VM hibernation",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"spec": {
+					"mode": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -26553,7 +26553,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineHibernateStrategy(ref common.Re
 					"warningTimeoutSeconds": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
-							Format: "int32",
+							Format: "int64",
 						},
 					},
 					"claimName": {
@@ -26565,7 +26565,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineHibernateStrategy(ref common.Re
 						},
 					},
 				},
-				Required: []string{"spec", "claimName"},
+				Required: []string{"mode", "claimName"},
 			},
 		},
 	}
@@ -28737,6 +28737,13 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceSpec(ref common.Referen
 							Format:      "",
 						},
 					},
+					"hibernationWarningTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HibernationWarningTimeoutSeconds indicates the timeout alert duration for virtual machine hibernation, and re-triggers a hibernation request each time an alert is issued.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"terminationGracePeriodSeconds": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.",
@@ -29146,11 +29153,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceStatus(ref common.Refer
 							Ref:         ref("kubevirt.io/api/core/v1.ChangedBlockTrackingStatus"),
 						},
 					},
+					"hibernationStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachineHibernationStatus represents the hibernation state.",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineHibernationStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.ChangedBlockTrackingStatus", "kubevirt.io/api/core/v1.DeviceStatus", "kubevirt.io/api/core/v1.KernelBootStatus", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.MemoryStatus", "kubevirt.io/api/core/v1.StorageMigratedVolumeInfo", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
+			"kubevirt.io/api/core/v1.CPUTopology", "kubevirt.io/api/core/v1.ChangedBlockTrackingStatus", "kubevirt.io/api/core/v1.DeviceStatus", "kubevirt.io/api/core/v1.KernelBootStatus", "kubevirt.io/api/core/v1.Machine", "kubevirt.io/api/core/v1.MemoryStatus", "kubevirt.io/api/core/v1.StorageMigratedVolumeInfo", "kubevirt.io/api/core/v1.TopologyHints", "kubevirt.io/api/core/v1.VirtualMachineHibernationStatus", "kubevirt.io/api/core/v1.VirtualMachineInstanceCondition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo", "kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationState", "kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface", "kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp", "kubevirt.io/api/core/v1.VolumeStatus"},
 	}
 }
 

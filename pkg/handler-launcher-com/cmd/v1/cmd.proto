@@ -38,6 +38,7 @@ service Cmd {
   rpc GetDomainDirtyRateStats(EmptyRequest) returns (DirtyRateStatsResponse) {}
   rpc GetScreenshot(VMIRequest) returns (ScreenshotResponse) {}
   rpc BackupVirtualMachine(BackupRequest) returns (Response) {}
+  rpc VirtualMachineSuspendToDisk(SuspendToDiskRequest)returns (Response) {}
 }
 
 message QemuVersionResponse {
@@ -195,6 +196,9 @@ message MemoryDumpRequest {
   string dumpPath = 2;
 }
 
+message SuspendToDiskRequest{
+  VMI vmi = 1;
+}
 message SEVInfoResponse {
   Response response = 1;
   bytes sevInfo = 2;

@@ -670,6 +670,7 @@ type VirDomain interface {
 	FSThaw(mounts []string, flags uint32) error
 	Screenshot(stream *libvirt.Stream, screen, flags uint32) (string, error)
 	BackupBegin(backupXML string, checkpointXML string, flags libvirt.DomainBackupBeginFlags) error
+	PMSuspendForDuration(target libvirt.NodeSuspendTarget, duration uint64, flags uint32) error
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {

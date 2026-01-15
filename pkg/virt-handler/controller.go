@@ -53,6 +53,7 @@ const (
 	unableCreateVirtLauncherConnectionFmt = "unable to create virt-launcher client connection: %v"
 	// This value was determined after consulting with libvirt developers and performing extensive testing.
 	parallelMultifdMigrationThreads = uint(8)
+	logTimestampFormat              = "2006-01-02T15:04:05.000000Z"
 )
 
 const (
@@ -87,6 +88,8 @@ const (
 
 	// MemoryHotplugFailedReason is the reason set when the VM cannot hotplug memory
 	memoryHotplugFailedReason = "Memory Hotplug Failed"
+	//VMISuspendToDisk is the reason set when VMI is hibernating
+	VMISuspendToDisk = "VirtualMachineInstance is hibernating"
 )
 
 type netconf interface {

@@ -5312,6 +5312,11 @@ func (in *VirtualMachineHibernateStrategy) DeepCopyInto(out *VirtualMachineHiber
 		*out = new(HibernateMode)
 		**out = **in
 	}
+	if in.WarningTimeoutSeconds != nil {
+		in, out := &in.WarningTimeoutSeconds, &out.WarningTimeoutSeconds
+		*out = new(int64)
+		**out = **in
+	}
 	return
 }
 
@@ -6345,6 +6350,11 @@ func (in *VirtualMachineInstanceSpec) DeepCopyInto(out *VirtualMachineInstanceSp
 		*out = new(StopStrategy)
 		**out = **in
 	}
+	if in.HibernationWarningTimeoutSeconds != nil {
+		in, out := &in.HibernationWarningTimeoutSeconds, &out.HibernationWarningTimeoutSeconds
+		*out = new(int64)
+		**out = **in
+	}
 	if in.TerminationGracePeriodSeconds != nil {
 		in, out := &in.TerminationGracePeriodSeconds, &out.TerminationGracePeriodSeconds
 		*out = new(int64)
@@ -6508,6 +6518,11 @@ func (in *VirtualMachineInstanceStatus) DeepCopyInto(out *VirtualMachineInstance
 		in, out := &in.ChangedBlockTracking, &out.ChangedBlockTracking
 		*out = new(ChangedBlockTrackingStatus)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.HibernationStatus != nil {
+		in, out := &in.HibernationStatus, &out.HibernationStatus
+		*out = new(VirtualMachineHibernationStatus)
+		**out = **in
 	}
 	return
 }

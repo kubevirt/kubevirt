@@ -42,6 +42,8 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/hibernation"
+
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
@@ -162,6 +164,7 @@ type DomainManager interface {
 	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
 	GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error)
 	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
+	SuspendToDisk(vmi *v1.VirtualMachineInstance) error
 }
 
 type LibvirtDomainManager struct {
@@ -172,8 +175,9 @@ type LibvirtDomainManager struct {
 	// mutex to control access to the guest time context
 	setGuestTimeLock sync.Mutex
 
-	credManager    *accesscredentials.AccessCredentialManager
-	storageManager *storage.StorageManager
+	credManager        *accesscredentials.AccessCredentialManager
+	storageManager     *storage.StorageManager
+	hibernationManager *hibernation.HibernationManager
 
 	hotplugHostDevicesInProgress chan struct{}
 
@@ -257,6 +261,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
 	manager.storageManager = storage.NewStorageManager(connection, metadataCache)
+	manager.hibernationManager = hibernation.NewHibernationManager(connection, metadataCache)
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock, metadataCache)
 
 	reCalcDomainStats := func() (*stats.DomainStats, error) {
@@ -1623,6 +1628,11 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 
 func (l *LibvirtDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
 	return l.storageManager.MemoryDump(vmi, dumpPath)
+}
+
+func (l *LibvirtDomainManager) SuspendToDisk(vmi *v1.VirtualMachineInstance) error {
+
+	return l.hibernationManager.SuspendToDisk(vmi)
 }
 
 func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {

@@ -802,6 +802,20 @@ func (mr *MockVirDomainMockRecorder) MigrateToURI3(arg0, arg1, arg2 any) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateToURI3", reflect.TypeOf((*MockVirDomain)(nil).MigrateToURI3), arg0, arg1, arg2)
 }
 
+// PMSuspendForDuration mocks base method.
+func (m *MockVirDomain) PMSuspendForDuration(target libvirt.NodeSuspendTarget, duration uint64, flags uint32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PMSuspendForDuration", target, duration, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// PMSuspendForDuration indicates an expected call of PMSuspendForDuration.
+func (mr *MockVirDomainMockRecorder) PMSuspendForDuration(target, duration, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PMSuspendForDuration", reflect.TypeOf((*MockVirDomain)(nil).PMSuspendForDuration), target, duration, flags)
+}
+
 // PinEmulator mocks base method.
 func (m *MockVirDomain) PinEmulator(cpumap []bool, flags libvirt.DomainModificationImpact) error {
 	m.ctrl.T.Helper()

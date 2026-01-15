@@ -137,7 +137,6 @@ API rule violation: names_match,kubevirt.io/api/core/v1,NetworkConfiguration,Dep
 API rule violation: names_match,kubevirt.io/api/core/v1,NetworkConfiguration,NetworkInterface
 API rule violation: names_match,kubevirt.io/api/core/v1,PITTimer,Enabled
 API rule violation: names_match,kubevirt.io/api/core/v1,RTCTimer,Enabled
-API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineHibernateStrategy,Mode
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineHibernationStatus,ClaimName
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineHibernationStatus,HibernationPhase
 API rule violation: names_match,kubevirt.io/api/core/v1,VirtualMachineInstanceFileSystemInfo,Filesystems

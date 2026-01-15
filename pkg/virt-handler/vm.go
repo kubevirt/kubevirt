@@ -837,6 +837,19 @@ func (c *VirtualMachineController) updatePausedConditions(vmi *v1.VirtualMachine
 	}
 }
 
+func (c *VirtualMachineController) updateHibernationConditions(vmi *v1.VirtualMachineInstance, domain *api.Domain, condManager *controller.VirtualMachineInstanceConditionManager) {
+
+	// Update paused condition in case VMI was start hibernate
+	if domain != nil && domain.Spec.Metadata.KubeVirt.Hibernation != nil && domain.Spec.Metadata.KubeVirt.Hibernation.StartTimestamp != nil {
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceHibernationTriggered) {
+			c.calculatePausedCondition(vmi, domain.Status.Reason)
+		}
+	} else if condManager.HasCondition(vmi, v1.VirtualMachineInstanceHibernationTriggered) {
+		c.logger.Object(vmi).V(3).Info("Removing HibernationInProgress condition")
+		condManager.RemoveCondition(vmi, v1.VirtualMachineInstanceHibernationTriggered)
+	}
+}
+
 func dumpTargetFile(vmiName, volName string) string {
 	targetFileName := fmt.Sprintf("%s-%s-%s.memory.dump", vmiName, volName, time.Now().Format("20060102-150405"))
 	return targetFileName
@@ -1030,6 +1043,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	}
 	cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
 	err = c.netStat.UpdateStatus(vmi, domain)
+	c.updateHibernationStatus(vmi, domain)
 	return err
 }
 
@@ -1041,6 +1055,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 		return err
 	}
 	c.updatePausedConditions(vmi, domain, condManager)
+	c.updateHibernationConditions(vmi, domain, condManager)
 
 	return nil
 }
@@ -1362,6 +1377,8 @@ func (c *VirtualMachineController) sync(key string,
 	shouldUpdate := false
 	// set to true when unrecoverable domain needs to be destroyed non-gracefully.
 	forceShutdownIrrecoverable := false
+	//set to true when domain needs to hibernate
+	shouldHibernate := false
 
 	c.logger.V(3).Infof("Processing event %v", key)
 
@@ -1391,6 +1408,11 @@ func (c *VirtualMachineController) sync(key string,
 		} else {
 			shouldDelete = true
 		}
+	}
+
+	if vmiExists && domainAlive && vmi.ShouldSuspendToDisk() {
+		c.logger.Object(vmi).V(3).Info("Hibernate strategy detected, proceeding to suspend the domain.")
+		shouldHibernate = true
 	}
 
 	// Determine removal of VirtualMachineInstance from cache should result in deletion.
@@ -1475,6 +1497,9 @@ func (c *VirtualMachineController) sync(key string,
 	case shouldUpdate:
 		c.logger.Object(vmi).V(3).Info("Processing vmi update")
 		syncErr = c.processVmUpdate(vmi, domain)
+	case shouldHibernate:
+		c.logger.Object(vmi).V(3).Info("Processing hibernate")
+		syncErr = c.processHibernate(vmi, domain)
 	default:
 		c.logger.Object(vmi).V(3).Info("No update processing required")
 	}
@@ -2484,4 +2509,104 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 		vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName = &backupMetadata.CheckpointName
 	}
 	// TODO: Handle backup failure (backupMetadata.Failed) and abort status (backupMetadata.AbortStatus)
+}
+func (c *VirtualMachineController) processHibernate(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+
+	switch *vmi.Spec.StopStrategy {
+	//TODO add save method process Hibernate
+	case v1.StopStrategySuspendToDisk:
+		return c.helperVmSuspendToDisk(vmi, domain)
+	}
+	return nil
+}
+
+func (c *VirtualMachineController) helperVmSuspendToDisk(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+
+	// Only attempt to hibernate if we still have a connection established with the pod.
+	client, err := c.launcherClients.GetVerifiedLauncherClient(vmi)
+	if err != nil {
+		return err
+	}
+	var hibernationTimeoutWarningSeconds int64
+	if vmi.Spec.HibernationWarningTimeoutSeconds != nil {
+		hibernationTimeoutWarningSeconds = *vmi.Spec.HibernationWarningTimeoutSeconds
+	}
+
+	//Attempt to re-trigger hibernation if the stopStrategy is consistently set.
+	if !c.shouldTriggerSuspendToDisk(vmi, domain, hibernationTimeoutWarningSeconds) {
+		return nil
+	}
+
+	err = client.VirtualMachineSuspendToDisk(vmi)
+	if err != nil && !cmdclient.IsDisconnected(err) {
+		// Only report err if it wasn't the result of a disconnect.
+		//
+		// Both virt-launcher and virt-handler are trying to destroy
+		// the VirtualMachineInstance at the same time. It's possible the client may get
+		// disconnected during the kill request, which shouldn't be
+		// considered an error.
+		return err
+	}
+
+	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Hibernating.String(), VMISuspendToDisk)
+
+	return nil
+}
+
+func (c *VirtualMachineController) shouldTriggerSuspendToDisk(vmi *v1.VirtualMachineInstance, domain *api.Domain, timeoutSeconds int64) bool {
+	if domain != nil {
+		if domain.Spec.Metadata.KubeVirt.Hibernation == nil {
+			return true
+		} else {
+			startTime := domain.Spec.Metadata.KubeVirt.Hibernation.StartTimestamp
+
+			currentTime := time.Now()
+
+			if !startTime.IsZero() {
+
+				trigDuration := time.Duration(timeoutSeconds) * time.Second
+				if currentTime.After(startTime.Add(trigDuration)) {
+					c.recorder.Event(vmi, k8sv1.EventTypeWarning, "SuspendToDiskTimeout",
+						fmt.Sprintf("The time when suspendToDisk was last triggered is %s. A timeout has occurred and suspendToDisk has been re-triggered.", startTime.Format(logTimestampFormat)))
+
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func (c *VirtualMachineController) updateHibernationStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if domain == nil || domain.Spec.Metadata.KubeVirt.Hibernation == nil || vmi.Spec.StopStrategy == nil {
+		return
+	}
+
+	if vmi.Status.HibernationStatus == nil {
+		vmi.Status.HibernationStatus = &v1.VirtualMachineHibernationStatus{
+			HibernationPhase: v1.HibernationPhasePending,
+		}
+	}
+	hibernationMetadata := domain.Spec.Metadata.KubeVirt.Hibernation
+
+	switch vmi.Status.HibernationStatus.HibernationPhase {
+	case v1.HibernationPhasePending:
+		if vmi.Spec.StopStrategy != nil {
+			vmi.Status.HibernationStatus.HibernationPhase = v1.HibernationPhaseInitial
+		}
+	case v1.HibernationPhaseInitial:
+		if hibernationMetadata.StartTimestamp != nil {
+			vmi.Status.HibernationStatus.HibernationPhase = v1.HibernationPhaseInProgress
+		}
+	case v1.HibernationPhaseInProgress:
+		if hibernationMetadata.Failed {
+			vmi.Status.HibernationStatus.HibernationPhase = v1.HibernationPhaseFailed
+			vmi.Status.HibernationStatus.Reason = hibernationMetadata.FailureReason
+		} else if vmi.IsFinal() {
+			vmi.Status.HibernationStatus.HibernationPhase = v1.HibernationPhaseCompleted
+		}
+	default:
+		return
+	}
 }

@@ -546,3 +546,17 @@ func (mr *MockLauncherClientMockRecorder) VirtualMachineMemoryDump(vmi, dumpPath
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineMemoryDump", reflect.TypeOf((*MockLauncherClient)(nil).VirtualMachineMemoryDump), vmi, dumpPath)
 }
+
+// VirtualMachineSuspendToDisk mocks base method.
+func (m *MockLauncherClient) VirtualMachineSuspendToDisk(vmi *v1.VirtualMachineInstance) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VirtualMachineSuspendToDisk", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// VirtualMachineSuspendToDisk indicates an expected call of VirtualMachineSuspendToDisk.
+func (mr *MockLauncherClientMockRecorder) VirtualMachineSuspendToDisk(vmi any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineSuspendToDisk", reflect.TypeOf((*MockLauncherClient)(nil).VirtualMachineSuspendToDisk), vmi)
+}

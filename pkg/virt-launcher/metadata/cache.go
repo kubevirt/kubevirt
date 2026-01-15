@@ -32,6 +32,7 @@ type Cache struct {
 	AccessCredential SafeData[api.AccessCredentialMetadata]
 	MemoryDump       SafeData[api.MemoryDumpMetadata]
 	Backup           SafeData[api.BackupMetadata]
+	Hibernation      SafeData[api.HibernationMetadata]
 
 	notificationSignal chan struct{}
 }
@@ -46,6 +47,7 @@ func NewCache() *Cache {
 	cache.AccessCredential.dirtyChanel = cache.notificationSignal
 	cache.MemoryDump.dirtyChanel = cache.notificationSignal
 	cache.Backup.dirtyChanel = cache.notificationSignal
+	cache.Hibernation.dirtyChanel = cache.notificationSignal
 	return cache
 }
 
