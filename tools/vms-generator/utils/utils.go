@@ -36,7 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
@@ -1064,21 +1064,21 @@ func generateCloudConfigString(cloudConfigElement ...string) string {
 		append([]string{cloudConfigHeader}, cloudConfigElement...), "\n")
 }
 
-func GetComputeSmallInstancetypeSpec() instancetypev1beta1.VirtualMachineInstancetypeSpec {
-	return instancetypev1beta1.VirtualMachineInstancetypeSpec{
-		CPU: instancetypev1beta1.CPUInstancetype{
+func GetComputeSmallInstancetypeSpec() instancetypev1.VirtualMachineInstancetypeSpec {
+	return instancetypev1.VirtualMachineInstancetypeSpec{
+		CPU: instancetypev1.CPUInstancetype{
 			Guest: uint32(1),
 		},
-		Memory: instancetypev1beta1.MemoryInstancetype{
+		Memory: instancetypev1.MemoryInstancetype{
 			Guest: resource.MustParse("128Mi"),
 		},
 	}
 }
 
-func GetVirtualMachineInstancetypeComputeSmall() *instancetypev1beta1.VirtualMachineInstancetype {
-	return &instancetypev1beta1.VirtualMachineInstancetype{
+func GetVirtualMachineInstancetypeComputeSmall() *instancetypev1.VirtualMachineInstancetype {
+	return &instancetypev1.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			Kind:       "VirtualMachineInstancetype",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -1088,10 +1088,10 @@ func GetVirtualMachineInstancetypeComputeSmall() *instancetypev1beta1.VirtualMac
 	}
 }
 
-func GetVirtualMachineClusterInstancetypeComputeSmall() *instancetypev1beta1.VirtualMachineClusterInstancetype {
-	return &instancetypev1beta1.VirtualMachineClusterInstancetype{
+func GetVirtualMachineClusterInstancetypeComputeSmall() *instancetypev1.VirtualMachineClusterInstancetype {
+	return &instancetypev1.VirtualMachineClusterInstancetype{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			Kind:       "VirtualMachineClusterInstancetype",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -1101,20 +1101,20 @@ func GetVirtualMachineClusterInstancetypeComputeSmall() *instancetypev1beta1.Vir
 	}
 }
 
-func GetVirtualMachineInstancetypeComputeLarge() *instancetypev1beta1.VirtualMachineInstancetype {
-	return &instancetypev1beta1.VirtualMachineInstancetype{
+func GetVirtualMachineInstancetypeComputeLarge() *instancetypev1.VirtualMachineInstancetype {
+	return &instancetypev1.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			Kind:       "VirtualMachineInstancetype",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: VirtualMachineInstancetypeComputeLarge,
 		},
-		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1beta1.CPUInstancetype{
+		Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1.CPUInstancetype{
 				Guest: uint32(4),
 			},
-			Memory: instancetypev1beta1.MemoryInstancetype{
+			Memory: instancetypev1.MemoryInstancetype{
 				Guest: resource.MustParse("2048Mi"),
 			},
 		},
@@ -1162,17 +1162,17 @@ func GetVmCirrosInstancetypeComputeLarge() *v1.VirtualMachine {
 	return vm
 }
 
-func GetVirtualMachinePreferenceVirtio() *instancetypev1beta1.VirtualMachinePreference {
-	return &instancetypev1beta1.VirtualMachinePreference{
+func GetVirtualMachinePreferenceVirtio() *instancetypev1.VirtualMachinePreference {
+	return &instancetypev1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			Kind:       "VirtualMachinePreference",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: VirtualMachinePreferenceVirtio,
 		},
-		Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-			Devices: &instancetypev1beta1.DevicePreferences{
+		Spec: instancetypev1.VirtualMachinePreferenceSpec{
+			Devices: &instancetypev1.DevicePreferences{
 				PreferredDiskBus:        v1.VirtIO,
 				PreferredInterfaceModel: v1.VirtIO,
 			},
@@ -1180,22 +1180,22 @@ func GetVirtualMachinePreferenceVirtio() *instancetypev1beta1.VirtualMachinePref
 	}
 }
 
-func GetVirtualMachinePreferenceWindows() *instancetypev1beta1.VirtualMachinePreference {
+func GetVirtualMachinePreferenceWindows() *instancetypev1.VirtualMachinePreference {
 	spinlocks := uint32(8191)
-	preferredCPUTopology := instancetypev1beta1.Sockets
-	return &instancetypev1beta1.VirtualMachinePreference{
+	preferredCPUTopology := instancetypev1.Sockets
+	return &instancetypev1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			Kind:       "VirtualMachinePreference",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: VirtualMachinePreferenceWindows,
 		},
-		Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-			CPU: &instancetypev1beta1.CPUPreferences{
+		Spec: instancetypev1.VirtualMachinePreferenceSpec{
+			CPU: &instancetypev1.CPUPreferences{
 				PreferredCPUTopology: &preferredCPUTopology,
 			},
-			Clock: &instancetypev1beta1.ClockPreferences{
+			Clock: &instancetypev1.ClockPreferences{
 				PreferredClockOffset: &v1.ClockOffset{UTC: &v1.ClockOffsetUTC{}},
 				PreferredTimer: &v1.Timer{
 					HPET:   &v1.HPETTimer{Enabled: pointer.P(false)},
@@ -1204,12 +1204,12 @@ func GetVirtualMachinePreferenceWindows() *instancetypev1beta1.VirtualMachinePre
 					Hyperv: &v1.HypervTimer{},
 				},
 			},
-			Devices: &instancetypev1beta1.DevicePreferences{
+			Devices: &instancetypev1.DevicePreferences{
 				PreferredDiskBus:        "sata",
 				PreferredInterfaceModel: "e1000",
 				PreferredTPM:            &v1.TPMDevice{},
 			},
-			Features: &instancetypev1beta1.FeaturePreferences{
+			Features: &instancetypev1.FeaturePreferences{
 				PreferredAcpi: &v1.FeatureState{},
 				PreferredApic: &v1.FeatureAPIC{},
 				PreferredHyperv: &v1.FeatureHyperv{
@@ -1219,7 +1219,7 @@ func GetVirtualMachinePreferenceWindows() *instancetypev1beta1.VirtualMachinePre
 				},
 				PreferredSmm: &v1.FeatureState{},
 			},
-			Firmware: &instancetypev1beta1.FirmwarePreferences{
+			Firmware: &instancetypev1.FirmwarePreferences{
 				PreferredEfi: &v1.EFI{
 					SecureBoot: pointer.P(true),
 				},
