@@ -59,10 +59,11 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/trace"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -3080,6 +3081,15 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 	if !netvmliveupdate.IsRestartRequired(currentVM, vmi) {
 		lastSeenVM.Spec.Template.Spec.Domain.Devices.Interfaces = currentVM.Spec.Template.Spec.Domain.Devices.Interfaces
 		lastSeenVM.Spec.Template.Spec.Networks = currentVM.Spec.Template.Spec.Networks
+	}
+
+	// NOTE: In the new version of KubeVirt, virt-controller sets .Spec.Template.Spec.Domain.Firmware.UUID for all
+	// existing virtual machines, which could previously be absent.
+	// This leads to the need for a restart because the old and new KVVM specs do not match.
+	// The fix allows avoiding a restart of virtual machines when upgrading kubvirt from version 1.3.1 to 1.6.2.
+	if lastSeenVM.Spec.Template.Spec.Domain.Firmware != nil && lastSeenVM.Spec.Template.Spec.Domain.Firmware.UUID == "" &&
+		currentVM.Spec.Template.Spec.Domain.Firmware != nil && currentVM.Spec.Template.Spec.Domain.Firmware.UUID != "" {
+		lastSeenVM.Spec.Template.Spec.Domain.Firmware.UUID = currentVM.Spec.Template.Spec.Domain.Firmware.UUID
 	}
 
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
