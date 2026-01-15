@@ -13,6 +13,7 @@ go_library(
         "hypervisor.go",
         "hypervisor_features.go",
         "input_device.go",
+        "iothreads.go",
         "launch_security.go",
         "os.go",
         "panic_devices.go",
