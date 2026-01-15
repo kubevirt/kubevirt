@@ -314,6 +314,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("with Passt", featuregate.PasstGate, featuregate.PasstDiscontinueMessage),
 			Entry("with MacvtapGate", featuregate.MacvtapGate, featuregate.MacvtapDiscontinueMessage),
 			Entry("with ExperimentalVirtiofsSupport", featuregate.VirtIOFSGate, featuregate.VirtioFsFeatureGateDiscontinueMessage),
+			Entry("with DockerSELinuxMCSWorkaround", featuregate.DockerSELinuxMCSWorkaround, "DockerSELinuxMCSWorkaround has been deprecated since v1.4."),
+			Entry("with MultiArchitecture", featuregate.MultiArchitecture, "MultiArchitecture has been deprecated since v1.8.0"),
 		)
 
 		DescribeTable("should raise warning when archConfig is set for ppc64le", func(shouldWarn bool, archConfig *v1.ArchConfiguration) {
