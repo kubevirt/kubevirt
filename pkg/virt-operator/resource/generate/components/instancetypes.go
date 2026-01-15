@@ -7,7 +7,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 )
 
 //go:embed data/common-instancetypes/common-clusterinstancetypes-bundle.yaml
@@ -16,16 +16,16 @@ var clusterInstancetypesBundle []byte
 //go:embed data/common-instancetypes/common-clusterpreferences-bundle.yaml
 var clusterPreferencesBundle []byte
 
-func NewClusterInstancetypes() ([]*instancetypev1beta1.VirtualMachineClusterInstancetype, error) {
-	return decodeResources[instancetypev1beta1.VirtualMachineClusterInstancetype](clusterInstancetypesBundle)
+func NewClusterInstancetypes() ([]*instancetypev1.VirtualMachineClusterInstancetype, error) {
+	return decodeResources[instancetypev1.VirtualMachineClusterInstancetype](clusterInstancetypesBundle)
 }
 
-func NewClusterPreferences() ([]*instancetypev1beta1.VirtualMachineClusterPreference, error) {
-	return decodeResources[instancetypev1beta1.VirtualMachineClusterPreference](clusterPreferencesBundle)
+func NewClusterPreferences() ([]*instancetypev1.VirtualMachineClusterPreference, error) {
+	return decodeResources[instancetypev1.VirtualMachineClusterPreference](clusterPreferencesBundle)
 }
 
 type clusterType interface {
-	instancetypev1beta1.VirtualMachineClusterInstancetype | instancetypev1beta1.VirtualMachineClusterPreference
+	instancetypev1.VirtualMachineClusterInstancetype | instancetypev1.VirtualMachineClusterPreference
 }
 
 func decodeResources[C clusterType](b []byte) ([]*C, error) {

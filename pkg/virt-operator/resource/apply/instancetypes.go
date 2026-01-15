@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/log"
 )
 
@@ -23,7 +23,7 @@ func (r *Reconciler) createOrUpdateInstancetypes() error {
 	return nil
 }
 
-func (r *Reconciler) findInstancetype(name string) (*instancetypev1beta1.VirtualMachineClusterInstancetype, error) {
+func (r *Reconciler) findInstancetype(name string) (*instancetypev1.VirtualMachineClusterInstancetype, error) {
 	obj, exists, err := r.stores.ClusterInstancetype.GetByKey(name)
 	if err != nil {
 		return nil, err
@@ -31,14 +31,14 @@ func (r *Reconciler) findInstancetype(name string) (*instancetypev1beta1.Virtual
 	if !exists {
 		return nil, errors.NewNotFound(v1.Resource("VirtualMachineClusterInstancetype"), name)
 	}
-	foundObj, ok := obj.(*instancetypev1beta1.VirtualMachineClusterInstancetype)
+	foundObj, ok := obj.(*instancetypev1.VirtualMachineClusterInstancetype)
 	if !ok {
 		return nil, fmt.Errorf("unknown object within VirtualMachineClusterInstancetype store")
 	}
 	return foundObj, nil
 }
 
-func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1beta1.VirtualMachineClusterInstancetype) error {
+func (r *Reconciler) createOrUpdateInstancetype(instancetype *instancetypev1.VirtualMachineClusterInstancetype) error {
 	foundObj, err := r.findInstancetype(instancetype.Name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
@@ -110,7 +110,7 @@ func (r *Reconciler) createOrUpdatePreferences() error {
 	return nil
 }
 
-func (r *Reconciler) findPreference(name string) (*instancetypev1beta1.VirtualMachineClusterPreference, error) {
+func (r *Reconciler) findPreference(name string) (*instancetypev1.VirtualMachineClusterPreference, error) {
 	obj, exists, err := r.stores.ClusterPreference.GetByKey(name)
 	if err != nil {
 		return nil, err
@@ -118,14 +118,14 @@ func (r *Reconciler) findPreference(name string) (*instancetypev1beta1.VirtualMa
 	if !exists {
 		return nil, errors.NewNotFound(v1.Resource("VirtualMachineClusterPreference"), name)
 	}
-	foundObj, ok := obj.(*instancetypev1beta1.VirtualMachineClusterPreference)
+	foundObj, ok := obj.(*instancetypev1.VirtualMachineClusterPreference)
 	if !ok {
 		return nil, fmt.Errorf("unknown object within VirtualMachineClusterPreference store")
 	}
 	return foundObj, nil
 }
 
-func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1beta1.VirtualMachineClusterPreference) error {
+func (r *Reconciler) createOrUpdatePreference(preference *instancetypev1.VirtualMachineClusterPreference) error {
 	foundObj, err := r.findPreference(preference.Name)
 	if err != nil && !errors.IsNotFound(err) {
 		return err
