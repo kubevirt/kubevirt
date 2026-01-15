@@ -419,7 +419,7 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 			fakeNodeStore.Add(node)
 
 			By("creating an empty device controller")
-			var noDevices []Device
+			var noDevices []devicePlugin
 			deviceController := NewDeviceController("master", 100, "rw", noDevices, fakeClusterConfig, fakeNodeStore)
 
 			if late {

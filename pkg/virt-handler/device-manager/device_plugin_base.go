@@ -35,6 +35,20 @@ import (
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
+const (
+	DeviceNamespace   = "devices.kubevirt.io"
+	connectionTimeout = 5 * time.Second
+)
+
+type devicePlugin interface {
+	Start(stop <-chan struct{}) error
+	ListAndWatch(*pluginapi.Empty, pluginapi.DevicePlugin_ListAndWatchServer) error
+	PreStartContainer(context.Context, *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error)
+	Allocate(context.Context, *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error)
+	GetResourceName() string
+	GetInitialized() bool
+}
+
 type DevicePluginBase struct {
 	devs              []*pluginapi.Device
 	server            *grpc.Server
