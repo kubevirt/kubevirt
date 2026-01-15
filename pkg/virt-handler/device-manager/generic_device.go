@@ -68,6 +68,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 			Health: pluginapi.Healthy,
 		})
 	}
+	dpi.deviceNameByID = dpi.deviceNameByIDFunc
 	dpi.setupDevicePlugin = dpi.setupDevicePluginFunc
 	return dpi
 }
@@ -218,4 +219,9 @@ func (dpi *GenericDevicePlugin) healthCheck() error {
 			}
 		}
 	}
+}
+
+func (dpi *GenericDevicePlugin) deviceNameByIDFunc(_ string) string {
+	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
+	return fmt.Sprintf("generic device (%s)", devicePath)
 }
