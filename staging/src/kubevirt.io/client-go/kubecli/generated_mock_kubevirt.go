@@ -89,7 +89,7 @@ import (
 	v1beta117 "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
 	v123 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	v1beta118 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
-	v1beta119 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1"
 	v1alpha110 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	v1beta120 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
 	v1beta121 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
@@ -1258,10 +1258,10 @@ func (mr *MockKubevirtClientMockRecorder) VirtualMachineClone(namespace any) *go
 }
 
 // VirtualMachineClusterInstancetype mocks base method.
-func (m *MockKubevirtClient) VirtualMachineClusterInstancetype() v1beta119.VirtualMachineClusterInstancetypeInterface {
+func (m *MockKubevirtClient) VirtualMachineClusterInstancetype() instancetypev1.VirtualMachineClusterInstancetypeInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VirtualMachineClusterInstancetype")
-	ret0, _ := ret[0].(v1beta119.VirtualMachineClusterInstancetypeInterface)
+	ret0, _ := ret[0].(instancetypev1.VirtualMachineClusterInstancetypeInterface)
 	return ret0
 }
 
@@ -1272,10 +1272,10 @@ func (mr *MockKubevirtClientMockRecorder) VirtualMachineClusterInstancetype() *g
 }
 
 // VirtualMachineClusterPreference mocks base method.
-func (m *MockKubevirtClient) VirtualMachineClusterPreference() v1beta119.VirtualMachineClusterPreferenceInterface {
+func (m *MockKubevirtClient) VirtualMachineClusterPreference() instancetypev1.VirtualMachineClusterPreferenceInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VirtualMachineClusterPreference")
-	ret0, _ := ret[0].(v1beta119.VirtualMachineClusterPreferenceInterface)
+	ret0, _ := ret[0].(instancetypev1.VirtualMachineClusterPreferenceInterface)
 	return ret0
 }
 
@@ -1342,10 +1342,10 @@ func (mr *MockKubevirtClientMockRecorder) VirtualMachineInstancePreset(namespace
 }
 
 // VirtualMachineInstancetype mocks base method.
-func (m *MockKubevirtClient) VirtualMachineInstancetype(namespace string) v1beta119.VirtualMachineInstancetypeInterface {
+func (m *MockKubevirtClient) VirtualMachineInstancetype(namespace string) instancetypev1.VirtualMachineInstancetypeInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VirtualMachineInstancetype", namespace)
-	ret0, _ := ret[0].(v1beta119.VirtualMachineInstancetypeInterface)
+	ret0, _ := ret[0].(instancetypev1.VirtualMachineInstancetypeInterface)
 	return ret0
 }
 
@@ -1370,10 +1370,10 @@ func (mr *MockKubevirtClientMockRecorder) VirtualMachinePool(namespace any) *gom
 }
 
 // VirtualMachinePreference mocks base method.
-func (m *MockKubevirtClient) VirtualMachinePreference(namespace string) v1beta119.VirtualMachinePreferenceInterface {
+func (m *MockKubevirtClient) VirtualMachinePreference(namespace string) instancetypev1.VirtualMachinePreferenceInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "VirtualMachinePreference", namespace)
-	ret0, _ := ret[0].(v1beta119.VirtualMachinePreferenceInterface)
+	ret0, _ := ret[0].(instancetypev1.VirtualMachinePreferenceInterface)
 	return ret0
 }
 

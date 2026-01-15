@@ -33,7 +33,7 @@ import (
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
-	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1"
 	"kubevirt.io/client-go/log"
 	kvtesting "kubevirt.io/client-go/testing"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -4592,7 +4592,7 @@ var _ = Describe("VirtualMachine", func() {
 				instancetypeObj *instancetypev1beta1.VirtualMachineInstancetype
 				preference      *instancetypev1beta1.VirtualMachinePreference
 
-				fakeInstancetypeClients       instancetypeclientset.InstancetypeV1beta1Interface
+				fakeInstancetypeClients       instancetypeclientset.InstancetypeV1Interface
 				fakeInstancetypeClient        instancetypeclientset.VirtualMachineInstancetypeInterface
 				fakeClusterInstancetypeClient instancetypeclientset.VirtualMachineClusterInstancetypeInterface
 				fakePreferenceClient          instancetypeclientset.VirtualMachinePreferenceInterface

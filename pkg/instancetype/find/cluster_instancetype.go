@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -41,10 +41,11 @@ func NewClusterInstancetypeFinder(store cache.Store, virtClient kubecli.Kubevirt
 	}
 }
 
-func (f *clusterInstancetypeFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineClusterInstancetype, error) {
+func (f *clusterInstancetypeFinder) Find(vm *virtv1.VirtualMachine) (*instancetypev1.VirtualMachineClusterInstancetype, error) {
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}
+
 	if f.store == nil {
 		return f.virtClient.VirtualMachineClusterInstancetype().Get(
 			context.Background(), vm.Spec.Instancetype.Name, metav1.GetOptions{})
@@ -58,7 +59,7 @@ func (f *clusterInstancetypeFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.Vi
 		return f.virtClient.VirtualMachineClusterInstancetype().Get(
 			context.Background(), vm.Spec.Instancetype.Name, metav1.GetOptions{})
 	}
-	instancetype, ok := obj.(*v1beta1.VirtualMachineClusterInstancetype)
+	instancetype, ok := obj.(*instancetypev1.VirtualMachineClusterInstancetype)
 	if !ok {
 		return nil, fmt.Errorf("unknown object type found in VirtualMachineClusterInstancetype informer")
 	}

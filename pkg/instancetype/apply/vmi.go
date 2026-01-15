@@ -23,14 +23,14 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 )
 
 type preferenceApplier interface {
-	Apply(*v1beta1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstanceSpec, *metav1.ObjectMeta)
+	Apply(*instancetypev1.VirtualMachinePreferenceSpec, *virtv1.VirtualMachineInstanceSpec, *metav1.ObjectMeta)
 }
 
 type vmiApplier struct {
@@ -45,8 +45,8 @@ func NewVMIApplier() *vmiApplier {
 
 func (a *vmiApplier) ApplyToVMI(
 	field *k8sfield.Path,
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 	vmiMetadata *metav1.ObjectMeta,
 ) conflict.Conflicts {
