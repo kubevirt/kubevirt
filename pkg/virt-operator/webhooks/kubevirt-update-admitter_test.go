@@ -462,7 +462,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				Expect(response.Result.Details.Causes).To(HaveLen(len(expectedConflictingGates)))
 				for _, gate := range expectedConflictingGates {
 					Expect(response.Result.Details.Causes).To(ContainElement(And(
-						HaveField("Message", fmt.Sprintf(`feature gate "%s" exists on both "FeatureGates" and "DisabledFeatureGates"`, gate)),
+						HaveField("Message", fmt.Sprintf("feature gate %q exists on both \"FeatureGates\" and \"DisabledFeatureGates\"", gate)),
 						HaveField("Type", metav1.CauseTypeForbidden),
 						HaveField("Field", field.NewPath("spec", "configuration", "developerConfiguration", "featureGates").String()),
 					)), `Expected to find conflict for gate: %s`, gate)
