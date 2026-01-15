@@ -42,29 +42,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
 
-//go:generate mockgen -source $GOFILE -package=$GOPACKAGE -destination=generated_mock_$GOFILE
-
-type PermissionManager interface {
-	ChownAtNoFollow(path *safepath.Path, uid, gid int) error
-}
-
-type permissionManager struct{}
-
-func NewPermissionManager() PermissionManager {
-	return &permissionManager{}
-}
-
-func (p *permissionManager) ChownAtNoFollow(path *safepath.Path, uid, gid int) error {
-	return safepath.ChownAtNoFollow(path, uid, gid)
-}
-
 type SocketDevicePlugin struct {
 	*DevicePluginBase
 	socketDir  string
 	socket     string
 	socketName string
 	executor   selinux.Executor
-	p          PermissionManager
+	p          permissionManager
 }
 
 func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
@@ -153,7 +137,7 @@ func (dpi *SocketDevicePlugin) setSocketDirectoryPermissions() error {
 	return nil
 }
 
-func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p PermissionManager) (*SocketDevicePlugin, error) {
+func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p permissionManager) (*SocketDevicePlugin, error) {
 	dpi := &SocketDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			health:       make(chan deviceHealth),
