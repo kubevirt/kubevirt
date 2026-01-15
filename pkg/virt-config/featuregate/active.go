@@ -165,6 +165,11 @@ const (
 	// Details of the new hypervisors should be specified via the
 	// HypervisorConfigurations field in KubeVirtConfiguration.
 	ConfigurableHypervisor = "ConfigurableHypervisor"
+
+	// Owner: sig-compute / @0xFelix
+	// Template enables the deployment of virt-template components by virt-operator.
+	// Alpha: v1.8.0
+	Template = "Template"
 )
 
 func init() {
@@ -202,4 +207,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
 }
