@@ -210,7 +210,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
 				Expect(response.Warnings).To(ContainElement(
-				"spec.configuration.mediatedDevicesConfiguration.mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
+					"spec.configuration.mediatedDevicesConfiguration.mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
 			} else {
 				Expect(response.Warnings).To(BeEmpty())
 			}
@@ -245,7 +245,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
 				Expect(response.Warnings).To(ContainElement(
-				"spec.configuration.mediatedDevicesConfiguration.nodeMediatedDeviceTypes[0].mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
+					"spec.configuration.mediatedDevicesConfiguration.nodeMediatedDeviceTypes[0].mediatedDevicesTypes is deprecated, use mediatedDeviceTypes"))
 			} else {
 				Expect(response.Warnings).To(BeEmpty())
 			}
@@ -306,26 +306,26 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			}))
 		},
 			Entry("with LiveMigration", featuregate.LiveMigrationGate,
-			fmt.Sprintf(featuregate.WarningPattern, featuregate.LiveMigrationGate, featuregate.GA)),
+				fmt.Sprintf(featuregate.WarningPattern, featuregate.LiveMigrationGate, featuregate.GA)),
 			Entry("with SRIOVLiveMigration", featuregate.SRIOVLiveMigrationGate,
-			fmt.Sprintf(featuregate.WarningPattern, featuregate.SRIOVLiveMigrationGate, featuregate.GA)),
+				fmt.Sprintf(featuregate.WarningPattern, featuregate.SRIOVLiveMigrationGate, featuregate.GA)),
 			Entry("with NonRoot", featuregate.NonRoot,
-			fmt.Sprintf(featuregate.WarningPattern, featuregate.NonRoot, featuregate.GA)),
+				fmt.Sprintf(featuregate.WarningPattern, featuregate.NonRoot, featuregate.GA)),
 			Entry("with PSA", featuregate.PSA,
-			fmt.Sprintf(featuregate.WarningPattern, featuregate.PSA, featuregate.GA)),
+				fmt.Sprintf(featuregate.WarningPattern, featuregate.PSA, featuregate.GA)),
 			Entry("with CPUNodeDiscoveryGate", featuregate.CPUNodeDiscoveryGate,
-			fmt.Sprintf(featuregate.WarningPattern, featuregate.CPUNodeDiscoveryGate, featuregate.GA)),
+				fmt.Sprintf(featuregate.WarningPattern, featuregate.CPUNodeDiscoveryGate, featuregate.GA)),
 			Entry("with HotplugNICs", featuregate.HotplugNetworkIfacesGate,
-			fmt.Sprintf(featuregate.WarningPattern, featuregate.HotplugNetworkIfacesGate, featuregate.GA)),
+				fmt.Sprintf(featuregate.WarningPattern, featuregate.HotplugNetworkIfacesGate, featuregate.GA)),
 			Entry("with Passt", featuregate.PasstGate, featuregate.PasstDiscontinueMessage),
 			Entry("with MacvtapGate", featuregate.MacvtapGate, featuregate.MacvtapDiscontinueMessage),
 			Entry("with ExperimentalVirtiofsSupport", featuregate.VirtIOFSGate, featuregate.VirtioFsFeatureGateDiscontinueMessage),
 			Entry("with DisableMediatedDevicesHandling", featuregate.DisableMediatedDevicesHandling,
-			"DisableMDEVConfiguration has been deprecated since v1.8.0"),
+				"DisableMDEVConfiguration has been deprecated since v1.8.0"),
 			Entry("with DockerSELinuxMCSWorkaround", featuregate.DockerSELinuxMCSWorkaround,
-			"DockerSELinuxMCSWorkaround has been deprecated since v1.4."),
+				"DockerSELinuxMCSWorkaround has been deprecated since v1.4."),
 			Entry("with MultiArchitecture", featuregate.MultiArchitecture,
-			"MultiArchitecture has been deprecated since v1.8.0"),
+				"MultiArchitecture has been deprecated since v1.8.0"),
 		)
 
 		DescribeTable("should raise warning when archConfig is set for ppc64le", func(shouldWarn bool, archConfig *v1.ArchConfiguration) {
@@ -343,7 +343,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
 				Expect(response.Warnings).To(ContainElement(
-				"spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."))
+					"spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."))
 			} else {
 				Expect(response.Warnings).To(BeEmpty())
 			}
