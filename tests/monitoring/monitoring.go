@@ -116,6 +116,13 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			By("Getting all schedulable nodes")
 			nodes := libnode.GetAllSchedulableNodes(virtClient)
 
+			DeferCleanup(func() {
+				By("Restoring kubevirt.io/schedulable label to all nodes")
+				for _, node := range nodes.Items {
+					libnode.SetNodeSchedulable(node.Name, virtClient)
+				}
+			})
+
 			By("Setting all nodes to unschedulable")
 			for _, node := range nodes.Items {
 				libnode.SetNodeUnschedulable(node.Name, virtClient)
@@ -123,11 +130,6 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 
 			By("Waiting for alert to appear")
 			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
-
-			By("Restoring kubevirt.io/schedulable label to all nodes")
-			for _, node := range nodes.Items {
-				libnode.SetNodeSchedulable(node.Name, virtClient)
-			}
 		})
 	})
 
