@@ -121,15 +121,15 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	if mdev := newKV.Spec.Configuration.MediatedDevicesConfiguration; mdev != nil {
 		f := field.NewPath("spec", "configuration", "mediatedDevicesConfiguration")
 		if mdev.MediatedDevicesTypes != nil {
-			f := f.Child("mediatedDevicesTypes")
-			response.Warnings = append(response.Warnings, fmt.Sprintf(mdevWarningfmt, f.String()))
+			fChild := f.Child("mediatedDevicesTypes")
+			response.Warnings = append(response.Warnings, fmt.Sprintf(mdevWarningfmt, fChild.String()))
 		}
 
 		f = f.Child("nodeMediatedDeviceTypes")
 		for i, mdevType := range mdev.NodeMediatedDeviceTypes {
-			f := f.Index(i).Child("mediatedDevicesTypes")
+			fChild := f.Index(i).Child("mediatedDevicesTypes")
 			if mdevType.MediatedDevicesTypes != nil {
-				response.Warnings = append(response.Warnings, fmt.Sprintf(mdevWarningfmt, f.String()))
+				response.Warnings = append(response.Warnings, fmt.Sprintf(mdevWarningfmt, fChild.String()))
 			}
 		}
 	}
