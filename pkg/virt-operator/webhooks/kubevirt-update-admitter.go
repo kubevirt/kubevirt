@@ -191,17 +191,17 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 		return statuses
 	}
 
-	deprecatedApi := false
+	deprecatedAPI := false
 	if certConfig.CARotateInterval != nil || certConfig.CertRotateInterval != nil || certConfig.CAOverlapInterval != nil {
-		deprecatedApi = true
+		deprecatedAPI = true
 	}
 
-	currentApi := false
+	currentAPI := false
 	if certConfig.CA != nil || certConfig.Server != nil {
-		currentApi = true
+		currentAPI = true
 	}
 
-	if deprecatedApi && currentApi {
+	if deprecatedAPI && currentAPI {
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueNotSupported,
 			Message: fmt.Sprintf("caRotateInterval, certRotateInterval and caOverlapInterval are deprecated and conflict with CertConfig defined rotation parameters"),
@@ -315,7 +315,7 @@ func validateWorkloadPlacement(ctx context.Context, namespace string, placementC
 		dsName    = "placement-validation-webhook"
 		mockLabel = "kubevirt.io/choose-me"
 		podName   = "placement-verification-pod"
-		mockUrl   = "test.only:latest"
+		mockURL   = "test.only:latest"
 	)
 
 	mockDaemonSet := &appsv1.DaemonSet{
@@ -339,7 +339,7 @@ func validateWorkloadPlacement(ctx context.Context, namespace string, placementC
 					Containers: []corev1.Container{
 						{
 							Name:  podName,
-							Image: mockUrl,
+							Image: mockURL,
 						},
 					},
 					// Inject placement fields here
@@ -369,7 +369,7 @@ func validateInfraPlacement(ctx context.Context, namespace string, placementConf
 		deploymentName = "placement-validation-webhook"
 		mockLabel      = "kubevirt.io/choose-me"
 		podName        = "placement-verification-pod"
-		mockUrl        = "test.only:latest"
+		mockURL        = "test.only:latest"
 	)
 
 	mockDeployment := &appsv1.Deployment{
@@ -394,7 +394,7 @@ func validateInfraPlacement(ctx context.Context, namespace string, placementConf
 					Containers: []corev1.Container{
 						{
 							Name:  podName,
-							Image: mockUrl,
+							Image: mockURL,
 						},
 					},
 					// Inject placement fields here
