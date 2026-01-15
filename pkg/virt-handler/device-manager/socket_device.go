@@ -122,6 +122,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 	dpi.healthCheck = dpi.healthCheckFunc
 
 	dpi.deviceNameByID = dpi.deviceNameByIDFunc
+	dpi.allocateDP = dpi.allocateDPFunc
 
 	for i := 0; i < maxDevices; i++ {
 		deviceId := socketName + strconv.Itoa(i)
@@ -147,31 +148,10 @@ func NewOptionalSocketDevicePlugin(socketName, socketDir, socket string, maxDevi
 	return dpi
 }
 
-// Register registers the device plugin for the given resourceName with Kubelet.
-func (dpi *SocketDevicePlugin) register() error {
-	conn, err := gRPCConnect(pluginapi.KubeletSocket, connectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	client := pluginapi.NewRegistrationClient(conn)
-	reqt := &pluginapi.RegisterRequest{
-		Version:      pluginapi.Version,
-		Endpoint:     path.Base(dpi.socketPath),
-		ResourceName: dpi.resourceName,
-	}
-
-	_, err = client.Register(context.Background(), reqt)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *SocketDevicePlugin) allocateDPFunc(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Socket Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Socket Allocate: request: %v", r.ContainerRequests)
+
 	response := pluginapi.AllocateResponse{}
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
 
