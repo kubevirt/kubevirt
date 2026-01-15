@@ -79,7 +79,7 @@ func (csr *ContainerSpecRenderer) envVars() []k8sv1.EnvVar {
 
 	if len(csr.sharedFilesystems) != 0 {
 		env = append(env, k8sv1.EnvVar{
-			Name:  ENV_VAR_SHARED_FILESYSTEM_PATHS,
+			Name:  util.ENV_VAR_SHARED_FILESYSTEM_PATHS,
 			Value: strings.Join(csr.sharedFilesystems, ":"),
 		})
 	}

@@ -59,9 +59,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
@@ -1116,65 +1113,14 @@ func setIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 	}
 }
 
-func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
+func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, builder *DomainBuilder, c *ConverterContext) (err error) {
 	var controllerDriver *api.ControllerDriver
 
 	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
+	precond.MustNotBeNil(builder)
 	precond.MustNotBeNil(c)
 
-	architecture := c.Architecture.GetArchitecture()
-	virtioModel := virtio.InterpretTransitionalModelType(
-		vmi.Spec.Domain.Devices.UseVirtioTransitional,
-		architecture,
-	)
-
-	builder := NewDomainBuilder(
-		metadata.DomainConfigurator{},
-		network.NewDomainConfigurator(
-			network.WithDomainAttachmentByInterfaceName(c.DomainAttachmentByInterfaceName),
-			network.WithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
-			network.WithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
-			network.WithROMTuningSupport(c.Architecture.IsROMTuningSupported()),
-			network.WithVirtioModel(virtioModel),
-		),
-		compute.TPMDomainConfigurator{},
-		compute.VSOCKDomainConfigurator{},
-		compute.NewHypervisorDomainConfigurator(c.AllowEmulation, c.KvmAvailable),
-		compute.NewLaunchSecurityDomainConfigurator(architecture),
-		compute.ChannelsDomainConfigurator{},
-		compute.ClockDomainConfigurator{},
-		compute.NewRNGDomainConfigurator(
-			compute.RNGWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
-			compute.RNGWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
-			compute.RNGWithVirtioModel(virtioModel),
-		),
-		compute.NewInputDeviceDomainConfigurator(architecture),
-		compute.NewBalloonDomainConfigurator(
-			compute.BalloonWithUseLaunchSecuritySEV(c.UseLaunchSecuritySEV),
-			compute.BalloonWithUseLaunchSecurityPV(c.UseLaunchSecurityPV),
-			compute.BalloonWithFreePageReporting(c.FreePageReporting),
-			compute.BalloonWithMemBalloonStatsPeriod(c.MemBalloonStatsPeriod),
-			compute.BalloonWithVirtioModel(virtioModel),
-		),
-		compute.NewGraphicsDomainConfigurator(architecture, c.BochsForEFIGuests),
-		compute.SoundDomainConfigurator{},
-		compute.NewHostDeviceDomainConfigurator(
-			c.GenericHostDevices,
-			c.GPUHostDevices,
-			c.SRIOVDevices,
-		),
-		compute.NewWatchdogDomainConfigurator(architecture),
-		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
-		compute.PanicDevicesDomainConfigurator{},
-		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
-		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
-		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), convertEFIConfiguration(c.EFIConfiguration)),
-		storage.NewVirtiofsConfigurator(),
-		compute.UsbRedirectDeviceDomainConfigurator{},
-		compute.NewControllersDomainConfigurator(c.Architecture.IsUSBNeeded(vmi)),
-		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
-	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
 	}

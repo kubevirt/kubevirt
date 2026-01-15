@@ -42,6 +42,7 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
@@ -1163,7 +1164,9 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 
-	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
+	domainBuilderFactory := hypervisor.KvmDomainBuilderFactory{} // TODO Get this from virt-launcher cmdline
+
+	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilderFactory.MakeDomainBuilder(c), c); err != nil {
 		logger.Error("Conversion failed.")
 		return nil, err
 	}

@@ -23,7 +23,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
@@ -292,7 +292,7 @@ var _ = Describe("LibvirtHelper", func() {
 
 		Context("with customLogFilters not defined", func() {
 
-			const verbosityThreshold = services.EXT_LOG_VERBOSITY_THRESHOLD
+			const verbosityThreshold = util.EXT_LOG_VERBOSITY_THRESHOLD
 
 			DescribeTable("logs should be enabled if debugLogs env var is defined when", func(libvirtLogVerbosityEnvVar *string) {
 				_, enableDebugLogs := getLibvirtLogFilters(nil, libvirtLogVerbosityEnvVar, true)
@@ -331,9 +331,9 @@ var _ = Describe("LibvirtHelper", func() {
 			// Random content to ensure we append properly
 			file.WriteString("dummy = 1\n")
 			Expect(file.Close()).To(Succeed())
-			Expect(os.Setenv(services.ENV_VAR_SHARED_FILESYSTEM_PATHS, envInput)).To(Succeed())
+			Expect(os.Setenv(util.ENV_VAR_SHARED_FILESYSTEM_PATHS, envInput)).To(Succeed())
 			DeferCleanup(func() {
-				Expect(os.Unsetenv(services.ENV_VAR_SHARED_FILESYSTEM_PATHS)).To(Succeed())
+				Expect(os.Unsetenv(util.ENV_VAR_SHARED_FILESYSTEM_PATHS)).To(Succeed())
 				Expect(os.RemoveAll(confPath)).To(Succeed())
 			})
 

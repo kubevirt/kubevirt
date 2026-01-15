@@ -43,6 +43,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -82,7 +83,8 @@ var _ = Describe("AccessCredentials", func() {
 			AllowEmulation: true,
 			SMBios:         &cmdv1.SMBios{},
 		}
-		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+		domainBuilderFactory := hypervisor.KvmDomainBuilderFactory{} // TODO : make this test hypervisor agnostic
+		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilderFactory.MakeDomainBuilder(c), c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		return &domain.Spec

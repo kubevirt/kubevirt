@@ -38,6 +38,7 @@ import (
 	"libvirt.org/go/libvirt"
 	"libvirt.org/go/libvirtxml"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -430,7 +431,8 @@ var _ = Describe("Manager", func() {
 			CPUSet:            []int{0, 1, 2, 3, 4, 5},
 			Topology:          topology,
 		}
-		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+		domainBuilderFactory := hypervisor.KvmDomainBuilderFactory{} // TODO : make this test hypervisor agnostic
+		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilderFactory.MakeDomainBuilder(c), c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		return &domain.Spec

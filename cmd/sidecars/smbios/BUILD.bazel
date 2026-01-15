@@ -46,6 +46,7 @@ go_test(
     race = "on",
     deps = [
         "//pkg/hooks/v1alpha1:go_default_library",
+        "//pkg/hypervisor:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",

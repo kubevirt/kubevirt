@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	hooksv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
@@ -54,7 +55,8 @@ var _ = Describe("SMBios sidecar", func() {
 		}
 
 		domain := &api.Domain{}
-		err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+		domainBuilderFactory := hypervisor.KvmDomainBuilderFactory{} // TODO : make this test hypervisor agnostic
+		err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilderFactory.MakeDomainBuilder(c), c)
 		Expect(err).ToNot(HaveOccurred())
 
 		xml, err := xml.Marshal(domain.Spec)

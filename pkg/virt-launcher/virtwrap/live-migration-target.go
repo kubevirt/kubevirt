@@ -42,6 +42,7 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
@@ -172,8 +173,9 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return fmt.Errorf("Failed to generate libvirt domain from VMI spec: %v", err)
 	}
 
+	domainBuilderFactory := hypervisor.KvmDomainBuilderFactory{} // TODO Get this from virt-launcher cmdline
 	domain := &api.Domain{}
-	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
+	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilderFactory.MakeDomainBuilder(c), c); err != nil {
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 
