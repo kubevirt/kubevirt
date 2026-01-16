@@ -13,11 +13,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
-	"kubevirt.io/client-go/kubecli"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -27,7 +29,6 @@ import (
 	utils "kubevirt.io/kubevirt/pkg/util"
 
 	"kubevirt.io/kubevirt/tests/decorators"
-	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libinstancetype/builder"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -35,14 +36,10 @@ import (
 )
 
 var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instance type and preference ControllerRevision Upgrades", decorators.SigCompute, decorators.SigComputeInstancetype, func() {
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
-	})
-
-	var vm *virtv1.VirtualMachine
-
+	var (
+		vm         *virtv1.VirtualMachine
+		virtClient kubecli.KubevirtClient
+	)
 	createControllerRevision := func(obj runtime.Object) (*appsv1.ControllerRevision, error) {
 		cr, err := revision.CreateControllerRevision(vm, obj)
 		Expect(err).ToNot(HaveOccurred())
@@ -104,6 +101,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 	}
 
 	BeforeEach(func() {
+		virtClient = kubevirt.Client()
 		// We create a fake instance type and preference here just to allow for
 		// the creation of the initial VirtualMachine. This then allows the
 		// creation of a ControllerRevision later on in the test to use the now
