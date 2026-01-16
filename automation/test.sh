@@ -56,6 +56,7 @@ if [ -z $TARGET ]; then
 fi
 
 export KUBEVIRT_DEPLOY_CDI=true
+export KUBEVIRT_CUSTOM_CDI_VERSION=v1.64.0
 if [[ ! $TARGET =~ .*kind.* ]]; then
   export FEATURE_GATES="NodeRestriction"
   export KUBEVIRT_PSA="true"
