@@ -6,6 +6,7 @@ go_library(
         "instancetype.go",
         "reference_policy.go",
         "upgrade.go",
+        "webhook.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/instancetype",
     visibility = ["//visibility:public"],
