@@ -272,6 +272,7 @@ func (Devices) SwaggerDoc() map[string]string {
 		"sound":                      "Whether to emulate a sound device.\n+optional",
 		"tpm":                        "Whether to emulate a TPM device.\n+optional",
 		"video":                      "Video describes the video device configuration for the vmi.\n+optional",
+		"iommu":                      "IOMMU configures an IOMMU device for the guest. Currently only smmuv3 is supported on arm64.\n+optional",
 	}
 }
 
@@ -299,6 +300,21 @@ func (TPMDevice) SwaggerDoc() map[string]string {
 func (VideoDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"type": "Type specifies the video device type (e.g., virtio, vga, bochs, ramfb).\nIf not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).\n+optional",
+	}
+}
+
+func (IOMMUDevice) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "IOMMUDevice represents an IOMMU device configuration",
+		"model":  "Model specifies the IOMMU model. Currently only \"smmuv3\" is supported (for arm64)\n+optional",
+		"driver": "Driver contains driver-specific configuration options\n+optional",
+	}
+}
+
+func (IOMMUDeviceDriver) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":       "IOMMUDeviceDriver contains IOMMU driver configuration",
+		"pciBus": "PCIBus specifies the index of the PCI bus controller that the IOMMU device is attached to\n+optional",
 	}
 }
 

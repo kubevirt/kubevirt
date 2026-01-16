@@ -6587,6 +6587,25 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                        iommu:
+                          description: IOMMU configures an IOMMU device for the guest.
+                            Currently only smmuv3 is supported on arm64.
+                          properties:
+                            driver:
+                              description: Driver contains driver-specific configuration
+                                options
+                              properties:
+                                pciBus:
+                                  description: PCIBus specifies the index of the PCI
+                                    bus controller that the IOMMU device is attached
+                                    to
+                                  type: integer
+                              type: object
+                            model:
+                              description: Model specifies the IOMMU model. Currently
+                                only "smmuv3" is supported (for arm64)
+                              type: string
+                          type: object
                         logSerialConsole:
                           description: |-
                             Whether to log the auto-attached default serial console or not.
@@ -12349,6 +12368,23 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                iommu:
+                  description: IOMMU configures an IOMMU device for the guest. Currently
+                    only smmuv3 is supported on arm64.
+                  properties:
+                    driver:
+                      description: Driver contains driver-specific configuration options
+                      properties:
+                        pciBus:
+                          description: PCIBus specifies the index of the PCI bus controller
+                            that the IOMMU device is attached to
+                          type: integer
+                      type: object
+                    model:
+                      description: Model specifies the IOMMU model. Currently only
+                        "smmuv3" is supported (for arm64)
+                      type: string
+                  type: object
                 logSerialConsole:
                   description: |-
                     Whether to log the auto-attached default serial console or not.
@@ -16146,6 +16182,23 @@ var CRDsValidation map[string]string = map[string]string{
                     type: object
                   maxItems: 256
                   type: array
+                iommu:
+                  description: IOMMU configures an IOMMU device for the guest. Currently
+                    only smmuv3 is supported on arm64.
+                  properties:
+                    driver:
+                      description: Driver contains driver-specific configuration options
+                      properties:
+                        pciBus:
+                          description: PCIBus specifies the index of the PCI bus controller
+                            that the IOMMU device is attached to
+                          type: integer
+                      type: object
+                    model:
+                      description: Model specifies the IOMMU model. Currently only
+                        "smmuv3" is supported (for arm64)
+                      type: string
+                  type: object
                 logSerialConsole:
                   description: |-
                     Whether to log the auto-attached default serial console or not.
@@ -18636,6 +18689,25 @@ var CRDsValidation map[string]string = map[string]string{
                             type: object
                           maxItems: 256
                           type: array
+                        iommu:
+                          description: IOMMU configures an IOMMU device for the guest.
+                            Currently only smmuv3 is supported on arm64.
+                          properties:
+                            driver:
+                              description: Driver contains driver-specific configuration
+                                options
+                              properties:
+                                pciBus:
+                                  description: PCIBus specifies the index of the PCI
+                                    bus controller that the IOMMU device is attached
+                                    to
+                                  type: integer
+                              type: object
+                            model:
+                              description: Model specifies the IOMMU model. Currently
+                                only "smmuv3" is supported (for arm64)
+                              type: string
+                          type: object
                         logSerialConsole:
                           description: |-
                             Whether to log the auto-attached default serial console or not.
@@ -23636,6 +23708,27 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: object
                                   maxItems: 256
                                   type: array
+                                iommu:
+                                  description: IOMMU configures an IOMMU device for
+                                    the guest. Currently only smmuv3 is supported
+                                    on arm64.
+                                  properties:
+                                    driver:
+                                      description: Driver contains driver-specific
+                                        configuration options
+                                      properties:
+                                        pciBus:
+                                          description: PCIBus specifies the index
+                                            of the PCI bus controller that the IOMMU
+                                            device is attached to
+                                          type: integer
+                                      type: object
+                                    model:
+                                      description: Model specifies the IOMMU model.
+                                        Currently only "smmuv3" is supported (for
+                                        arm64)
+                                      type: string
+                                  type: object
                                 logSerialConsole:
                                   description: |-
                                     Whether to log the auto-attached default serial console or not.
@@ -29077,6 +29170,27 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: object
                                       maxItems: 256
                                       type: array
+                                    iommu:
+                                      description: IOMMU configures an IOMMU device
+                                        for the guest. Currently only smmuv3 is supported
+                                        on arm64.
+                                      properties:
+                                        driver:
+                                          description: Driver contains driver-specific
+                                            configuration options
+                                          properties:
+                                            pciBus:
+                                              description: PCIBus specifies the index
+                                                of the PCI bus controller that the
+                                                IOMMU device is attached to
+                                              type: integer
+                                          type: object
+                                        model:
+                                          description: Model specifies the IOMMU model.
+                                            Currently only "smmuv3" is supported (for
+                                            arm64)
+                                          type: string
+                                      type: object
                                     logSerialConsole:
                                       description: |-
                                         Whether to log the auto-attached default serial console or not.

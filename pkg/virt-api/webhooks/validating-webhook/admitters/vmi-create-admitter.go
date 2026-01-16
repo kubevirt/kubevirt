@@ -236,6 +236,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateVideoConfig(field, spec, config)...)
 	causes = append(causes, validatePanicDevices(field, spec, config)...)
+	causes = append(causes, validateIOMMU(field, spec)...)
 
 	return causes
 }
@@ -540,6 +541,36 @@ func validateSoundDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "Sound device requires a name field.",
 			Field:   field.Child("Sound").String(),
+		})
+	}
+
+	return causes
+}
+
+func validateIOMMU(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	iommu := spec.Domain.Devices.IOMMU
+	if iommu == nil {
+		return causes
+	}
+
+	iommuField := field.Child("domain", "devices", "iommu")
+
+	// Validate model
+	if iommu.Model != "" && iommu.Model != "smmuv3" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "IOMMU model must be 'smmuv3'",
+			Field:   iommuField.Child("model").String(),
+		})
+	}
+
+	// Validate architecture - smmuv3 is only supported on arm64
+	if spec.Architecture != "" && spec.Architecture != "arm64" {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "IOMMU model smmuv3 is only supported on arm64 architecture",
+			Field:   iommuField.Child("model").String(),
 		})
 	}
 

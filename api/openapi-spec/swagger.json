@@ -14573,6 +14573,10 @@
        "$ref": "#/definitions/v1.Interface"
       }
      },
+     "iommu": {
+      "description": "IOMMU configures an IOMMU device for the guest. Currently only smmuv3 is supported on arm64.",
+      "$ref": "#/definitions/v1.IOMMUDevice"
+     },
      "logSerialConsole": {
       "description": "Whether to log the auto-attached default serial console or not. Serial console logs will be collect to a file and then streamed from a named `guest-console-log`. Not relevant if autoattachSerialConsole is disabled. Defaults to cluster wide setting on VirtualMachineOptions.",
       "type": "boolean"
@@ -15371,6 +15375,31 @@
      "action": {
       "description": "The action to take. Valid values are poweroff, reset, shutdown. Defaults to reset.",
       "type": "string"
+     }
+    }
+   },
+   "v1.IOMMUDevice": {
+    "description": "IOMMUDevice represents an IOMMU device configuration",
+    "type": "object",
+    "properties": {
+     "driver": {
+      "description": "Driver contains driver-specific configuration options",
+      "$ref": "#/definitions/v1.IOMMUDeviceDriver"
+     },
+     "model": {
+      "description": "Model specifies the IOMMU model. Currently only \"smmuv3\" is supported (for arm64)",
+      "type": "string"
+     }
+    }
+   },
+   "v1.IOMMUDeviceDriver": {
+    "description": "IOMMUDeviceDriver contains IOMMU driver configuration",
+    "type": "object",
+    "properties": {
+     "pciBus": {
+      "description": "PCIBus specifies the index of the PCI bus controller that the IOMMU device is attached to",
+      "type": "integer",
+      "format": "int32"
      }
     }
    },

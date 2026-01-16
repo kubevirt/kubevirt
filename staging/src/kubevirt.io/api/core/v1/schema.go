@@ -536,6 +536,9 @@ type Devices struct {
 	// Video describes the video device configuration for the vmi.
 	// +optional
 	Video *VideoDevice `json:"video,omitempty"`
+	// IOMMU configures an IOMMU device for the guest. Currently only smmuv3 is supported on arm64.
+	// +optional
+	IOMMU *IOMMUDevice `json:"iommu,omitempty"`
 }
 
 // Represent a subset of client devices that can be accessed by VMI. At the
@@ -578,6 +581,23 @@ type VideoDevice struct {
 	// If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).
 	// +optional
 	Type string `json:"type,omitempty"`
+}
+
+// IOMMUDevice represents an IOMMU device configuration
+type IOMMUDevice struct {
+	// Model specifies the IOMMU model. Currently only "smmuv3" is supported (for arm64)
+	// +optional
+	Model string `json:"model,omitempty"`
+	// Driver contains driver-specific configuration options
+	// +optional
+	Driver *IOMMUDeviceDriver `json:"driver,omitempty"`
+}
+
+// IOMMUDeviceDriver contains IOMMU driver configuration
+type IOMMUDeviceDriver struct {
+	// PCIBus specifies the index of the PCI bus controller that the IOMMU device is attached to
+	// +optional
+	PCIBus *uint `json:"pciBus,omitempty"`
 }
 
 type InputBus string
