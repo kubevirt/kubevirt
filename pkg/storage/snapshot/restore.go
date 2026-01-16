@@ -58,6 +58,8 @@ import (
 const (
 	RestoreNameAnnotation = "restore.kubevirt.io/name"
 
+	sourceUIDAnnotation = "restore.kubevirt.io/source-uid"
+
 	vmRestoreFinalizer = "snapshot.kubevirt.io/vmrestore-protection"
 
 	populatedForPVCAnnotation = "cdi.kubevirt.io/storage.populatedFor"
@@ -712,13 +714,14 @@ func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualM
 		}
 
 		// Step 1: Remove backend label from the original backend PVC
+		// when restoring to the same VM
 		updated, err := t.removeBackendLabelFromPVC(pvc, snapshotVM.Name)
 		if err != nil {
 			return false, err
 		}
 
 		// Step 2: Update the restore PVC with backend labels
-		isRestorePVCUpdated, err = t.updateRestorePVCWithBackendLabel(pvc)
+		isRestorePVCUpdated, err = t.updateRestorePVCWithBackendLabel(pvc.Name, snapshotVM.Name)
 		if err != nil {
 			return false, err
 		}
@@ -764,17 +767,19 @@ func (t *vmRestoreTarget) removeBackendLabelFromPVC(pvc *corev1.PersistentVolume
 	return false, nil
 }
 
-func (t *vmRestoreTarget) updateRestorePVCWithBackendLabel(originalPVC *corev1.PersistentVolumeClaim) (bool, error) {
+func (t *vmRestoreTarget) updateRestorePVCWithBackendLabel(originalPVCName, snapshotVMName string) (bool, error) {
+	var updated bool
 	for _, vr := range t.vmRestore.Status.Restores {
-		if vr.VolumeName == storageutils.BackendPVCVolumeName(t.vmRestore.Spec.Target.Name) {
+		if vr.VolumeName == storageutils.BackendPVCVolumeName(snapshotVMName) {
 			restorePVC, err := t.controller.getPVC(t.vmRestore.Namespace, vr.PersistentVolumeClaimName)
 			if err != nil {
 				return false, err
 			}
 
 			// This means the restore PVC is already updated
-			if restorePVC.Name == originalPVC.Name {
-				return true, nil
+			if restorePVC.Name == originalPVCName {
+				updated = true
+				break
 			}
 
 			// Patch restore PVC with backend label
@@ -805,7 +810,8 @@ func (t *vmRestoreTarget) updateRestorePVCWithBackendLabel(originalPVC *corev1.P
 			}
 		}
 	}
-	return false, nil
+
+	return updated || snapshotVMName != t.vmRestore.Spec.Target.Name, nil
 }
 
 func getCleanupLabelValue(vmRestore *snapshotv1.VirtualMachineRestore) string {
@@ -981,6 +987,17 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 	setLastRestoreAnnotation(t.vmRestore, newVM)
 	if snapshotVM.Name == newVM.Name {
 		setLegacyFirmwareUUID(newVM)
+	}
+
+	// Set source UID annotation to allow TPM clone.
+	// Libvirt expects the TPM contents to be under a directory named after the VM's UUID, so we need to preserve the original UUID
+	// and change it to the new one for the new VM to function properly.
+	if backendstorage.IsBackendStorageNeeded(snapshotVM) && snapshotVM.Name != newVM.Name {
+		if snapshotVM.Spec.Template.Spec.Domain.Firmware != nil && snapshotVM.Spec.Template.Spec.Domain.Firmware.UUID != "" {
+			newVM.Annotations[sourceUIDAnnotation] = string(snapshotVM.Spec.Template.Spec.Domain.Firmware.UUID)
+		} else {
+			newVM.Annotations[sourceUIDAnnotation] = string(firmware.CalculateLegacyUUID(snapshotVM.Name))
+		}
 	}
 
 	return newVM, nil

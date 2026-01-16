@@ -1,0 +1,4 @@
+exports_files(
+    ["tpm-clone-handler.sh"],
+    visibility = ["//visibility:public"],
+)

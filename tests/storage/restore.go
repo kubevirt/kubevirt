@@ -1381,7 +1381,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Entry("to a new VM", true),
 			)
 
-			DescribeTable("Should restore a vm with backend storage", func(onlineSnapshot bool) {
+			DescribeTable("Should restore a vm with backend storage", func(onlineSnapshot, newVM bool) {
 				vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 				vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
 				vm, vmi = createAndStartVM(vm)
@@ -1401,18 +1401,22 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					return console.LoginToFedora(vmi)
 				}
 
-				doRestoreNoVMStart("", loginFunc, onlineSnapshot, true, vm.Name)
-				startVMAfterRestore(vm.Name, "", true, loginFunc)
+				doRestoreNoVMStart("", loginFunc, onlineSnapshot, true, getTargetVMName(newVM, newVmName))
+				startVMAfterRestore(getTargetVMName(newVM, newVmName), "", true, loginFunc)
 				Expect(restore.Status.Restores).To(HaveLen(2))
 
-				By("Expect original backend PVC to be deleted")
-				Eventually(func() error {
-					_, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
-					return err
-				}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+				if !newVM {
+					By("Expect original backend PVC to be deleted")
+					Eventually(func() error {
+						_, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
+						return err
+					}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+				}
 			},
-				Entry("with offline snapshot", false),
-				Entry("with online snapshot", true),
+				Entry("with offline snapshot", false, false),
+				Entry("with online snapshot", true, false),
+				Entry("with online snapshot and restore to new VM", true, true),
+				Entry("with offline snapshot and restore to new VM", false, true),
 			)
 
 			DescribeTable("should reject vm start if restore in progress", func(deleteFunc string) {

@@ -10,6 +10,7 @@ go_library(
         "serialconsolelog.go",
         "sidecar.go",
         "template.go",
+        "tpmclonehandler.go",
         "virtiofs.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-controller/services",
