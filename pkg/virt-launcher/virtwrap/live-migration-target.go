@@ -173,7 +173,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	}
 
 	domain := &api.Domain{}
-	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, l.domainBuilderFactory.MakeDomainBuilder(c), c); err != nil {
+	if err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c); err != nil {
 		return fmt.Errorf("conversion failed: %v", err)
 	}
 

@@ -22,12 +22,12 @@ import (
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/builder"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
@@ -219,7 +219,7 @@ var _ = Describe("LibvirtHelper", func() {
 		vmi := api2.NewMinimalVMIWithNS(vmiNamespace, vmiName)
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		domain := &api.Domain{}
-		c := &converter.ConverterContext{
+		c := &builder.ConverterContext{
 			Architecture:     arch.NewConverter(runtime.GOARCH),
 			VirtualMachine:   vmi,
 			AllowEmulation:   true,
@@ -228,9 +228,7 @@ var _ = Describe("LibvirtHelper", func() {
 			PermanentVolumes: make(map[string]v1.VolumeStatus),
 		}
 
-		domainBuilder := hypervisor.NewDomainBuilderFactory(v1.KvmHypervisorName)
-
-		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilder.MakeDomainBuilder(c), c)).To(Succeed())
+		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		wantedSpec := &domain.Spec

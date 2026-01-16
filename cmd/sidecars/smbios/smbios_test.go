@@ -29,10 +29,10 @@ import (
 	. "github.com/onsi/gomega"
 
 	hooksv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/builder"
 
 	k8smeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
@@ -48,15 +48,15 @@ var _ = Describe("SMBios sidecar", func() {
 			},
 		}
 
-		c := &converter.ConverterContext{
+		c := &builder.ConverterContext{
 			Architecture:   archconverter.NewConverter(runtime.GOARCH),
 			VirtualMachine: vmi,
 			AllowEmulation: true,
+			HypervisorName: v1.KvmHypervisorName,
 		}
 
 		domain := &api.Domain{}
-		domainBuilderFactory := hypervisor.NewDomainBuilderFactory(v1.KvmHypervisorName)
-		err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilderFactory.MakeDomainBuilder(c), c)
+		err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
 		Expect(err).ToNot(HaveOccurred())
 
 		xml, err := xml.Marshal(domain.Spec)

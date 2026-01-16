@@ -17,7 +17,7 @@
  *
  */
 
-package converter_test
+package builder
 
 import (
 	"errors"
@@ -29,7 +29,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 )
 
 var _ = Describe("Domain Builder", func() {
@@ -37,7 +36,7 @@ var _ = Describe("Domain Builder", func() {
 		configurator1 := newStubConfigurator(nil)
 		configurator2 := newStubConfigurator(nil)
 
-		builder := converter.NewDomainBuilder(configurator1, configurator2)
+		builder := NewDomainBuilder(configurator1, configurator2)
 
 		vmi := libvmi.New()
 		var domain api.Domain
@@ -53,7 +52,7 @@ var _ = Describe("Domain Builder", func() {
 
 		configurator2 := newStubConfigurator(nil)
 
-		builder := converter.NewDomainBuilder(configurator1, configurator2)
+		builder := NewDomainBuilder(configurator1, configurator2)
 
 		vmi := libvmi.New()
 		var domain api.Domain
@@ -82,7 +81,7 @@ var _ = Describe("Domain Builder", func() {
 		vmi := libvmi.New()
 		var domain api.Domain
 
-		builder := converter.NewDomainBuilder(configurator1, configurator2)
+		builder := NewDomainBuilder(configurator1, configurator2)
 		Expect(builder.Build(vmi, &domain)).To(Succeed())
 
 		Expect(domain.Spec.Devices.Interfaces).To(Equal(expectedInterfaces))
@@ -109,7 +108,7 @@ var _ = Describe("Domain Builder", func() {
 		vmi := libvmi.New()
 		var domain api.Domain
 
-		builder := converter.NewDomainBuilder(configurator1, configurator2)
+		builder := NewDomainBuilder(configurator1, configurator2)
 		Expect(builder.Build(vmi, &domain)).To(Succeed())
 		Expect(domain.Spec.Name).To(Equal(secondDomainSpecName))
 	})
