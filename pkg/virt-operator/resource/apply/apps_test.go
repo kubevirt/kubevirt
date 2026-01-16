@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -695,6 +696,114 @@ var _ = Describe("Apply Apps", func() {
 						Expect(daemonSet.Spec.Template.Spec.Containers[0].Args).To(ContainElements("--migration-cn-types", "migration"))
 					},
 					CanaryUpgradeStatusWaitingDaemonSetRollout, false, false, true,
+				),
+				Entry("should detect and revert unauthorized env var modification",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						// Simulate external modification: add unauthorized env var
+						currentDs.Spec.Template.Spec.Containers[0].Env = append(
+							currentDs.Spec.Template.Spec.Containers[0].Env,
+							corev1.EnvVar{Name: "UNAUTHORIZED", Value: "true"},
+						)
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						// Verify unauthorized env var is gone and env matches expected
+						for _, env := range daemonSet.Spec.Template.Spec.Containers[0].Env {
+							Expect(env.Name).ToNot(Equal("UNAUTHORIZED"))
+						}
+					},
+					CanaryUpgradeStatusStarted, false, false, true,
+				),
+				Entry("should detect and revert unauthorized resource modification",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						// Simulate external modification: change resource limits
+						currentDs.Spec.Template.Spec.Containers[0].Resources.Limits = corev1.ResourceList{
+							corev1.ResourceCPU: *resource.NewMilliQuantity(9999, resource.DecimalSI),
+						}
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						// Verify unauthorized resource change is reverted (limits should not contain our malicious value)
+						cpuLimit, hasCPU := daemonSet.Spec.Template.Spec.Containers[0].Resources.Limits[corev1.ResourceCPU]
+						if hasCPU {
+							Expect(cpuLimit.MilliValue()).ToNot(Equal(int64(9999)))
+						}
+					},
+					CanaryUpgradeStatusStarted, false, false, true,
+				),
+				Entry("should detect and revert unauthorized image change",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						// Simulate external modification: change image
+						currentDs.Spec.Template.Spec.Containers[0].Image = "unauthorized/malicious:latest"
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						// Verify unauthorized image is reverted to expected registry
+						Expect(daemonSet.Spec.Template.Spec.Containers[0].Image).ToNot(ContainSubstring("unauthorized"))
+						Expect(daemonSet.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(Registry))
+					},
+					CanaryUpgradeStatusStarted, false, false, true,
+				),
+				Entry("should detect and revert unauthorized volume mount change",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						// Simulate external modification: add unauthorized volume mount
+						currentDs.Spec.Template.Spec.Containers[0].VolumeMounts = append(
+							currentDs.Spec.Template.Spec.Containers[0].VolumeMounts,
+							corev1.VolumeMount{Name: "unauthorized-mount", MountPath: "/bad"},
+						)
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						// Verify unauthorized volume mount is gone after patch
+						for _, vm := range daemonSet.Spec.Template.Spec.Containers[0].VolumeMounts {
+							Expect(vm.Name).ToNot(Equal("unauthorized-mount"))
+						}
+					},
+					CanaryUpgradeStatusStarted, false, false, true,
+				),
+				Entry("should detect and revert unauthorized security context change",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						// Save original security context for comparison
+						originalSC := newDs.Spec.Template.Spec.Containers[0].SecurityContext.DeepCopy()
+						// Simulate external modification: add unauthorized capabilities
+						currentDs.Spec.Template.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+							Privileged: originalSC.Privileged,
+							Capabilities: &corev1.Capabilities{
+								Add: []corev1.Capability{"NET_ADMIN", "SYS_ADMIN"},
+							},
+						}
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						// Verify unauthorized capabilities are reverted
+						sc := daemonSet.Spec.Template.Spec.Containers[0].SecurityContext
+						Expect(sc).ToNot(BeNil())
+						// The reverted security context should not have the unauthorized capabilities
+						if sc.Capabilities != nil && len(sc.Capabilities.Add) > 0 {
+							Expect(sc.Capabilities.Add).ToNot(ContainElement(corev1.Capability("NET_ADMIN")))
+						}
+					},
+					CanaryUpgradeStatusStarted, false, false, true,
 				),
 			)
 		})
