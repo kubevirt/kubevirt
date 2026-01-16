@@ -149,6 +149,7 @@ const (
 	// over user-initiated ones (e.g., hot plug operations).
 	// Owner: sig-compute / @fossedihelm
 	// Alpha: v1.7.0
+	// Beta: v1.8.0
 	//
 	MigrationPriorityQueue = "MigrationPriorityQueue"
 )
@@ -186,5 +187,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
 }
