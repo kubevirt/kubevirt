@@ -1056,3 +1056,51 @@ tests:
               namespace: "test-ns"
               status: "terminating"
               node: "worker-node-4"
+
+  # VirtualMachineInstanceHasEphemeralHotplugVolume
+  - interval: 1m
+    input_series:
+      # VMI without ephemeral hotplug volume
+      - series: 'kubevirt_vmi_contains_ephemeral_hotplug_volume{namespace="test-ns", name="vmi-no-hotplug", volume_name="persistent-vol"}'
+        values: "0x5"
+      # VMI with one ephemeral hotplug volume
+      - series: 'kubevirt_vmi_contains_ephemeral_hotplug_volume{namespace="test-ns", name="vmi-one-hotplug", volume_name="ephemeral-vol"}'
+        values: "_ _ 1 1 1 1"
+      # VMI with multiple ephemeral hotplug volumes
+      - series: 'kubevirt_vmi_contains_ephemeral_hotplug_volume{namespace="test-ns", name="vmi-multi-hotplug", volume_name="ephemeral-vol-1, ephemeral-vol-2"}'
+        values: "_ _ 1 1 1 1"
+
+    alert_rule_test:
+      # at 1m: no VMI with ephemeral hotplug volume
+      - eval_time: 1m
+        alertname: VirtualMachineInstanceHasEphemeralHotplugVolume
+        exp_alerts: []
+
+      # at 2m: both VMIs will trigger the alert
+      - eval_time: 2m
+        alertname: VirtualMachineInstanceHasEphemeralHotplugVolume
+        exp_alerts:
+          - exp_annotations:
+              summary: "Virtual Machine Instance has Ephemeral Hotplug Volume(s). Ephemeral Hotplugs are deprecated and must be converted to persistent volumes! In a future release, feature gate `DeclarativeHotplugVolumes` will replace `HotplugVolumes` and as a result, any remaining ephemeral hotplug volumes will be automatically unplugged"
+              description: "Virtual Machine Instance vmi-one-hotplug in namespace test-ns has ephemeral hotplug volume(s) ephemeral-vol."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineInstanceHasEphemeralHotplugVolume"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vmi-one-hotplug"
+              namespace: "test-ns"
+              volume_name: "ephemeral-vol"
+          - exp_annotations:
+              summary: "Virtual Machine Instance has Ephemeral Hotplug Volume(s). Ephemeral Hotplugs are deprecated and must be converted to persistent volumes! In a future release, feature gate `DeclarativeHotplugVolumes` will replace `HotplugVolumes` and as a result, any remaining ephemeral hotplug volumes will be automatically unplugged"
+              description: "Virtual Machine Instance vmi-multi-hotplug in namespace test-ns has ephemeral hotplug volume(s) ephemeral-vol-1, ephemeral-vol-2."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineInstanceHasEphemeralHotplugVolume"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vmi-multi-hotplug"
+              namespace: "test-ns"
+              volume_name: "ephemeral-vol-1, ephemeral-vol-2"

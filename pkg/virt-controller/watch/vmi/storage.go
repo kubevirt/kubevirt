@@ -20,6 +20,7 @@
 package vmi
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -88,6 +89,31 @@ func (c *Controller) updatePVC(old, cur interface{}) {
 	for _, vmi := range vmis {
 		log.Log.V(4).Object(curPVC).Infof("PVC updated for vmi %s", vmi.Name)
 		c.enqueueVirtualMachine(vmi)
+	}
+}
+
+// updateVM handles updates to a VM, enqueuing affected VMI only when VM's volumes update.
+// NOTE: this is temporary to support ephemeral hotplug volume metrics
+// will be removed once DeclarativeHotplugVolumes feature gate is enabled by default
+func (c *Controller) updateVM(prev, curr interface{}) {
+	currVM := curr.(*virtv1.VirtualMachine)
+	prevVM := prev.(*virtv1.VirtualMachine)
+	if currVM.ResourceVersion == prevVM.ResourceVersion {
+		return
+	}
+	// only requeue VMI if VM's volumes have changed
+	if !equality.Semantic.DeepEqual(currVM.Spec.Template.Spec.Volumes, prevVM.Spec.Template.Spec.Volumes) {
+		vmiKey := controller.NamespacedKey(currVM.Namespace, currVM.Name)
+		obj, exists, err := c.vmiIndexer.GetByKey(vmiKey)
+		if err != nil || !exists {
+			return
+		}
+		vmi := obj.(*virtv1.VirtualMachineInstance)
+		controllerRef := v1.GetControllerOf(vmi)
+		if controllerRef != nil && controllerRef.UID == currVM.UID {
+			log.Log.V(4).Object(currVM).Infof("VM volumes updated for vmi %s", vmi.Name)
+			c.enqueueVirtualMachine(vmi)
+		}
 	}
 }
 
@@ -263,6 +289,47 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 	})
 	vmi.Status.VolumeStatus = newStatus
 	return nil
+}
+
+func (c *Controller) checkEphemeralHotplugVolumes(vmi *virtv1.VirtualMachineInstance) {
+	vm := c.getOwnerVM(vmi)
+	if vmi == nil || vm == nil {
+		return
+	}
+
+	vmVolumeMap := map[string]struct{}{}
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		vmVolumeMap[volume.Name] = struct{}{}
+	}
+
+	annotations := vmi.Annotations
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	var ephemeralVols []string
+	// check if the vmi has any volumes that are not in the vm spec
+	for _, volume := range vmi.Spec.Volumes {
+		if !storagetypes.IsHotplugVolume(&volume) {
+			continue
+		}
+		if _, exists := vmVolumeMap[volume.Name]; !exists {
+			ephemeralVols = append(ephemeralVols, volume.Name)
+		}
+	}
+
+	if len(ephemeralVols) == 0 {
+		// no ephemeral hotplugs were found, remove label if it exists
+		delete(vmi.Annotations, virtv1.EphemeralHotplugAnnotation)
+	} else {
+		formattedVols, err := json.Marshal(ephemeralVols)
+		if err != nil {
+			log.Log.Reason(err).Error("could not serialize ephemeral volume list")
+			return
+		}
+		annotations[virtv1.EphemeralHotplugAnnotation] = string(formattedVols)
+		// will be patched at the end of updateStatus
+		vmi.Annotations = annotations
+	}
 }
 
 func phaseForUnpluggedVolume(phase virtv1.VolumePhase) virtv1.VolumePhase {
