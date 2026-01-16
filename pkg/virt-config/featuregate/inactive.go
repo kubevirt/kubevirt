@@ -112,6 +112,14 @@ const (
 	// Beta: v1.6.0
 	// GA: v1.8.0
 	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
+
+	// Owner: @varunrsekar
+	// Alpha: v1.6.0
+	// Beta: v1.7.0
+	// GA: v1.8.0
+	//
+	// PanicDevices allows defining panic devices for signaling crashes in the guest for a VirtualMachineInstance.
+	PanicDevicesGate = "PanicDevices"
 )
 
 func init() {
@@ -145,4 +153,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Deprecated, Message: "MultiArchitecture has been deprecated since v1.8.0"})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: GA})
 }
