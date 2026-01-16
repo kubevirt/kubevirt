@@ -780,6 +780,21 @@ func (c *Controller) processMigrationPhase(
 			!vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) &&
 			!vmiConditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionTrue) &&
 			!vmiConditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMigrationRequired, k8sv1.ConditionTrue) {
+
+			// Remove quota exclusion label from target pod after migration completion
+			if pod != nil && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetPod == pod.Name {
+				if _, exists := pod.Labels[virtv1.ResourceQuotaExclusionLabel]; exists {
+					podCopy := pod.DeepCopy()
+					delete(podCopy.Labels, virtv1.ResourceQuotaExclusionLabel)
+					_, err := c.clientset.CoreV1().Pods(podCopy.Namespace).Update(context.Background(), podCopy, v1.UpdateOptions{})
+					if err != nil {
+						return fmt.Errorf("failed to remove quota exclusion label from target pod after migration completion: %v", err)
+					} else {
+						return fmt.Errorf("removed quota exclusion label from target pod after migration completion")
+					}
+				}
+			}
+
 			migrationCopy.Status.Phase = virtv1.MigrationSucceeded
 			c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulMigrationReason, "Source node reported migration succeeded")
 		}
@@ -891,6 +906,7 @@ func (c *Controller) createTargetPod(migration *virtv1.VirtualMachineInstanceMig
 	maps.Copy(nodeSelector, templatePod.Spec.NodeSelector)
 	templatePod.Spec.NodeSelector = nodeSelector
 
+	templatePod.ObjectMeta.Labels[virtv1.ResourceQuotaExclusionLabel] = "true"
 	templatePod.ObjectMeta.Labels[virtv1.MigrationJobLabel] = string(migration.UID)
 	templatePod.ObjectMeta.Annotations[virtv1.MigrationJobNameAnnotation] = migration.Name
 

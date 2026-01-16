@@ -1149,6 +1149,9 @@ const (
 	// Absence of the label means the lowest priority (pod with a network priority label is more prioritized than a pod without a label).
 	// The lower the numerical value, the higher the priority.
 	NetworkPriorityLabel string = "network.deckhouse.io/pod-common-ip-priority"
+	// A special label that excludes the pod from resource quota calculations.
+	// Used during migration to allow target pod creation without quota restrictions.
+	ResourceQuotaExclusionLabel string = "resource-quota-overrides.deckhouse.io/ignore"
 	// A special annotation through which information is passed from virt-launcher to virt-handler indicating
 	// that the virtual machine has been suspended for offline migration.
 	VirtualMachineSuspendedMigratedAnnotation string = "kubevirt.io/vm-suspended-migrated"
