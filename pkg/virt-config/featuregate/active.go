@@ -151,6 +151,14 @@ const (
 	// Alpha: v1.7.0
 	//
 	MigrationPriorityQueue = "MigrationPriorityQueue"
+
+	// Owner: @harshitgupta1337
+	// Alpha: v1.8.0
+	// This feature is disabled by default. When enabled, it allows using
+	// hypervisors other than KVM for running VMs.
+	// Details of the new hypervisors should be specified via the
+	// HypervisorConfigurations field in KubeVirtConfiguration.
+	ConfigurableHypervisor = "ConfigurableHypervisor"
 )
 
 func init() {
@@ -185,6 +193,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Alpha})
 }

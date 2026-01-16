@@ -1145,6 +1145,25 @@ var CRDsValidation map[string]string = map[string]string{
                       type: object
                   type: object
               type: object
+            hypervisors:
+              description: Hypervisors holds information regarding the hypervisor
+                configurations supported on this cluster.
+              items:
+                description: HypervisorConfiguration holds information regarding the
+                  hypervisor present on cluster nodes.
+                properties:
+                  name:
+                    description: |-
+                      Name is the name of the hypervisor.
+                      Supported values are: "kvm", "hyperv-direct".
+                    enum:
+                    - kvm
+                    - hyperv-direct
+                    type: string
+                type: object
+              maxItems: 1
+              type: array
+              x-kubernetes-list-type: atomic
             imagePullPolicy:
               description: PullPolicy describes a policy for if/when to pull a container
                 image
