@@ -215,6 +215,35 @@ tests:
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
+  # Some virt operators are not ready
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: '1+0x11'
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-2"}'
+        values: '0+0x11'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-operator-1", phase="Running"}'
+        values: '1+0x11'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-operator-2", phase="Running"}'
+        values: '1+0x11'
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
+        values: '1+0x11'
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-2", condition="true"}'
+        values: '0+0x11'
+
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: LowReadyVirtOperatorsCount
+        exp_alerts:
+          - exp_annotations:
+              summary: "Some virt-operators are running but not ready."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowReadyVirtOperatorsCount"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
   # All virt controllers are not ready
   - interval: 1m
     input_series:

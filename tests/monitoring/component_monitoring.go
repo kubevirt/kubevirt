@@ -82,6 +82,7 @@ var (
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
 		lowCountAlert:        "LowVirtOperatorCount",
+		lowReadyAlert:        "LowReadyVirtOperatorsCount",
 	}
 )
 
@@ -193,6 +194,11 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 	})
 
 	Context("Low ready alerts", decorators.RequiresTwoSchedulableNodes, func() {
+		BeforeEach(func() {
+			By("Scaling up the operator to have running pods for the test")
+			scales.UpdateScale(virtOperator.deploymentName, int32(1))
+		})
+
 		It("LowReadyVirtControllersCount should be triggered when virt-controller pods exist but are not ready", func() {
 			virtControllerDeployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), virtController.deploymentName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -211,6 +217,26 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			Expect(err).ToNot(HaveOccurred())
 
 			libmonitoring.VerifyAlertExist(virtClient, virtController.lowReadyAlert)
+		})
+
+		It("LowReadyVirtOperatorsCount should be triggered when virt-operator pods exist but are not ready", func() {
+			virtOperatorDeployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), virtOperator.deploymentName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			container := &virtOperatorDeployment.Spec.Template.Spec.Containers[0]
+			container.Image = libregistry.GetUtilityImageFromRegistry("vm-killer") // any random image
+			container.Command = []string{"tail", "-f", "/dev/null"}
+			container.Args = []string{}
+			container.ReadinessProbe = nil
+			container.LivenessProbe = nil
+
+			patch, err := json.Marshal(virtOperatorDeployment)
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), virtOperatorDeployment.Name, types.MergePatchType, patch, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			libmonitoring.VerifyAlertExist(virtClient, virtOperator.lowReadyAlert)
 		})
 	})
 
@@ -309,18 +335,17 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 func restoreOperator(virtClient kubecli.KubevirtClient, scales *libmonitoring.Scaling) {
 	oldVirtOperatorReplicas := scales.GetScale(virtOperator.deploymentName)
 
-	for i := range oldVirtOperatorReplicas {
-		replica := i + 1
+	By(fmt.Sprintf("Restoring the operator scale to %d", oldVirtOperatorReplicas))
+	scales.RestoreScale(virtOperator.deploymentName)
 
-		By(fmt.Sprintf("Updating the operator scale to %d", replica))
-		scales.UpdateScale(virtOperator.deploymentName, int32(replica))
+	By("Waiting for the operator pods to be running")
+	libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_pods_running:count", float64(oldVirtOperatorReplicas))
 
-		By("Waiting for the operator to be up")
-		libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_up", float64(replica))
+	By("Waiting for the operator to be up")
+	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_up", float64(oldVirtOperatorReplicas))
 
-		By("Waiting for the operator to be ready")
-		libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_ready", float64(replica))
-	}
+	By("Waiting for the operator to be ready")
+	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_ready", float64(oldVirtOperatorReplicas))
 
 	By("Waiting for an operator to be leading")
 	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_leading", 1.0)
