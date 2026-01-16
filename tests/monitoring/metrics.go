@@ -88,6 +88,9 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migration_disk_transfer_rate_bytes":                    true,
 			"kubevirt_vmi_migration_start_time_seconds":                          true,
 			"kubevirt_vmi_migration_end_time_seconds":                            true,
+
+			// This metric is being tested in storage hotplug
+			"kubevirt_vmi_contains_ephemeral_hotplug_volume": true,
 		}
 
 		It("should contain virt components metrics", func() {
