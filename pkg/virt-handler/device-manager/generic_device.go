@@ -30,7 +30,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/util"
 	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
@@ -40,13 +39,13 @@ type GenericDevicePlugin struct {
 	permissions string
 }
 
-func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int, permissions string, preOpen bool) *GenericDevicePlugin {
+func NewGenericDevicePlugin(deviceName string, deviceRoot string, devicePath string, maxDevices int, permissions string, preOpen bool) *GenericDevicePlugin {
 	serverSock := SocketPath(deviceName)
 	dpi := &GenericDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			devs:         []*pluginapi.Device{},
 			socketPath:   serverSock,
-			deviceRoot:   util.HostRootMount,
+			deviceRoot:   deviceRoot,
 			devicePath:   devicePath,
 			healthUpdate: make(chan struct{}, 1),
 			done:         make(chan struct{}),

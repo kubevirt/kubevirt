@@ -124,7 +124,7 @@ func PermanentHostDevicePlugins(hypervisorDevice string, maxDevices int, permiss
 
 	ret := make([]devicePlugin, 0, len(permanentDevicePluginPaths))
 	for name, path := range permanentDevicePluginPaths {
-		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, name != hypervisorDevice))
+		ret = append(ret, NewGenericDevicePlugin(name, util.HostRootMount, path, maxDevices, permissions, name != hypervisorDevice))
 	}
 	return ret
 }
@@ -237,7 +237,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []devicePlugin {
 		if dev.IsAllowed() {
 			permittedDevices = append(
 				permittedDevices,
-				NewGenericDevicePlugin(dev.Name, dev.Path, c.maxDevices, c.permissions, true),
+				NewGenericDevicePlugin(dev.Name, util.HostRootMount, dev.Path, c.maxDevices, c.permissions, true),
 			)
 		}
 	}

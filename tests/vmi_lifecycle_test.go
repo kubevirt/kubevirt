@@ -628,7 +628,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 					return string(data)
 				}, 60, 1).Should(
 					ContainSubstring(
-						fmt.Sprintf("device socket file for device %s was removed, kubelet probably restarted.", deviceResourceName),
+						fmt.Sprintf("device socket file for device '%s' was removed, kubelet probably restarted.", deviceResourceName),
 					), "Should log device plugin restart")
 
 				// This is a little bit arbitrar

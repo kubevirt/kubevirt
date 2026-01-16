@@ -45,44 +45,46 @@ var _ = Describe("Mediated Devices Types configuration", func() {
 		name               string
 		availableInstances int
 	}
-	var fakeMdevBasePath string
-	var fakeMdevDevicesPath string
-	var configuredMdevTypesOnCards map[string]map[string]struct{}
-	var fakeNodeStore cache.Store
-	var mdevTypesDetailsMap = map[string]mdevTypesDetails{
-		"nvidia-222": {
-			name:               "GRID T4-1B",
-			availableInstances: 16,
-		},
-		"nvidia-223": {
-			name:               "GRID T4-2B",
-			availableInstances: 8,
-		},
-		"nvidia-224": {
-			name:               "GRID T4-2B4",
-			availableInstances: 8,
-		},
-		"nvidia-228": {
-			name:               "GRID T4-8A",
-			availableInstances: 2,
-		},
-		"nvidia-229": {
-			name:               "GRID T4-16A",
-			availableInstances: 1,
-		},
-		"i915-GVTg_V5_1": {
-			availableInstances: 1,
-		},
-		"i915-GVTg_V5_2": {
-			availableInstances: 1,
-		},
-		"i915-GVTg_V5_4": {
-			availableInstances: 1,
-		},
-		"i915-GVTg_V5_8": {
-			availableInstances: 2,
-		},
-	}
+	var (
+		fakeMdevBasePath           string
+		fakeMdevDevicesPath        string
+		configuredMdevTypesOnCards map[string]map[string]struct{}
+		fakeNodeStore              cache.Store
+		mdevTypesDetailsMap        = map[string]mdevTypesDetails{
+			"nvidia-222": {
+				name:               "GRID T4-1B",
+				availableInstances: 16,
+			},
+			"nvidia-223": {
+				name:               "GRID T4-2B",
+				availableInstances: 8,
+			},
+			"nvidia-224": {
+				name:               "GRID T4-2B4",
+				availableInstances: 8,
+			},
+			"nvidia-228": {
+				name:               "GRID T4-8A",
+				availableInstances: 2,
+			},
+			"nvidia-229": {
+				name:               "GRID T4-16A",
+				availableInstances: 1,
+			},
+			"i915-GVTg_V5_1": {
+				availableInstances: 1,
+			},
+			"i915-GVTg_V5_2": {
+				availableInstances: 1,
+			},
+			"i915-GVTg_V5_4": {
+				availableInstances: 1,
+			},
+			"i915-GVTg_V5_8": {
+				availableInstances: 2,
+			},
+		}
+	)
 
 	createTempMDEVSysfsStructure := func(pciMdevTypesMap map[string][]string) {
 		// create an alternative mdev_supported_types dir instead of /sys/bus/mdev/devices/
