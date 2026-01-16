@@ -17,6 +17,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -768,5 +769,68 @@ var _ = Describe("test configuration", func() {
 		Entry("reference when InstancetypeConfiguration.ReferencePolicy is nil", &v1.InstancetypeConfiguration{}, v1.Reference),
 		Entry("reference when InstancetypeConfiguration.ReferencePolicy is reference", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Reference)}, v1.Reference),
 		Entry("expand InstancetypeConfiguration.ReferencePolicy is expand", &v1.InstancetypeConfiguration{ReferencePolicy: pointer.P(v1.Expand)}, v1.Expand),
+	)
+
+	DescribeTable("MediatedDevicesHandlingDisabled", func(kubevirtConfig *v1.KubeVirtConfiguration, expectedHandling bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(kubevirtConfig)
+		Expect(clusterConfig.MediatedDevicesHandlingDisabled()).To(Equal(expectedHandling))
+	},
+		Entry("should return true when Enabled is false and FG missing",
+			&v1.KubeVirtConfiguration{
+				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
+					Enabled: pointer.P(false),
+				},
+			},
+			true,
+		),
+		Entry("should return true when MediatedDevicesConfiguration is nil and FG is present",
+			&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.DisableMediatedDevicesHandling},
+				},
+			},
+			true,
+		),
+		Entry("should return true when Enabled is nil and FG is present",
+			&v1.KubeVirtConfiguration{
+				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{},
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.DisableMediatedDevicesHandling},
+				},
+			},
+			true,
+		),
+		Entry("should return false when Enabled is explicitly true",
+			&v1.KubeVirtConfiguration{
+				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
+					Enabled: pointer.P(true),
+				},
+			},
+			false,
+		),
+		Entry("should return false when Enabled is explicitly true even when FG is present",
+			&v1.KubeVirtConfiguration{
+				MediatedDevicesConfiguration: &v1.MediatedDevicesConfiguration{
+					Enabled: pointer.P(true),
+				},
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{featuregate.DisableMediatedDevicesHandling},
+				},
+			},
+			false,
+		),
+		Entry("should return false when MediatedDevicesConfiguration is nil and FG missing",
+			&v1.KubeVirtConfiguration{
+				MediatedDevicesConfiguration: nil,
+				DeveloperConfiguration: &v1.DeveloperConfiguration{
+					FeatureGates: []string{},
+				},
+			},
+			false,
+		),
+		Entry("should return false when MediatedDevicesConfiguration and DeveloperConfiguration are nil",
+			&v1.KubeVirtConfiguration{},
+			false,
+		),
 	)
 })
