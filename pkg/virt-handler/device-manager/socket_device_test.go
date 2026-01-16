@@ -51,7 +51,7 @@ var _ = Describe("Socket device", func() {
 		mockSelinux := selinux.NewMockSELinux(ctrl)
 		mockExec.EXPECT().NewSELinux().Return(mockSelinux, true, nil).AnyTimes()
 		mockSelinux.EXPECT().IsPermissive().Return(true).AnyTimes()
-		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, newPermissionManager())
+		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, newPermissionManager(), false)
 		Expect(err).ToNot(HaveOccurred())
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")

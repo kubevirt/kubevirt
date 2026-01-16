@@ -30,6 +30,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/util"
+
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -193,7 +195,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []devicePlugin {
 	}
 
 	if c.virtConfig.PersistentReservationEnabled() {
-		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, newPermissionManager())
+		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, newPermissionManager(), false)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
 		} else {
@@ -245,7 +247,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []devicePlugin {
 	}
 
 	for resourceName, pluginDevices := range discoverAllowedUSBDevices(hostDevs.USB) {
-		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, pluginDevices))
+		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, util.HostRootMount, pluginDevices, newPermissionManager()))
 	}
 
 	return permittedDevices
