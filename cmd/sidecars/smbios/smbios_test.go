@@ -55,7 +55,7 @@ var _ = Describe("SMBios sidecar", func() {
 		}
 
 		domain := &api.Domain{}
-		domainBuilderFactory := hypervisor.KvmDomainBuilderFactory{} // TODO : make this test hypervisor agnostic
+		domainBuilderFactory := hypervisor.NewDomainBuilderFactory(v1.KvmHypervisorName)
 		err := converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilderFactory.MakeDomainBuilder(c), c)
 		Expect(err).ToNot(HaveOccurred())
 

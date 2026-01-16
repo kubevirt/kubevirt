@@ -47,6 +47,7 @@ import (
 	ephemeraldisk "kubevirt.io/kubevirt/pkg/ephemeral-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/ignition"
 	putil "kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -359,7 +360,7 @@ func main() {
 	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5*time.Second, "Interval between consecutive qemu agent calls for fsfreeze status command")
 	simulateCrash := pflag.Bool("simulate-crash", false, "Causes virt-launcher to immediately crash. This is used by functional tests to simulate crash loop scenarios.")
 	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
-	hypervisor := pflag.String("hypervisor", v1.KvmHypervisorName, "Hypervisor to be used by the VMI")
+	hypervisorName := pflag.String("hypervisor", v1.KvmHypervisorName, "Hypervisor to be used by the VMI")
 
 	pflag.CommandLine.AddGoFlag(goflag.CommandLine.Lookup("v"))
 	pflag.Parse()
@@ -376,7 +377,7 @@ func main() {
 		}
 	}
 
-	log.Log.V(2).Infof("Hypervisor set to %s", *hypervisor)
+	log.Log.V(2).Infof("Hypervisor set to %s", *hypervisorName)
 
 	// Initialize local and shared directories
 	initializeDirs(*ephemeralDiskDir, *containerDiskDir, *hotplugDiskDir, *uid)
@@ -432,7 +433,8 @@ func main() {
 	metadataCache := metadata.NewCache()
 
 	signalStopChan := make(chan struct{})
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled)
+
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, hypervisor.NewDomainBuilderFactory(*hypervisorName))
 	if err != nil {
 		panic(err)
 	}

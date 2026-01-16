@@ -64,6 +64,7 @@ go_test(
         "//pkg/downwardmetrics:go_default_library",
         "//pkg/ephemeral-disk/fake:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
+        "//pkg/hypervisor/kvm:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/os/disk:go_default_library",
         "//pkg/pointer:go_default_library",

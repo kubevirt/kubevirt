@@ -30,6 +30,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -69,6 +70,7 @@ var _ = Describe("Live migration source", func() {
 				virtconfig.DefaultDiskVerificationMemoryLimitBytes,
 				fakeCpuSetGetter,
 				false, // image volume enabled
+				hypervisor.NewDomainBuilderFactory(v1.KvmHypervisorName),
 			)
 			libvirtDomainManager = manager.(*LibvirtDomainManager)
 			libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)

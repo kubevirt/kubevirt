@@ -83,7 +83,7 @@ var _ = Describe("AccessCredentials", func() {
 			AllowEmulation: true,
 			SMBios:         &cmdv1.SMBios{},
 		}
-		domainBuilderFactory := hypervisor.KvmDomainBuilderFactory{} // TODO : make this test hypervisor agnostic
+		domainBuilderFactory := hypervisor.NewDomainBuilderFactory(v1.KvmHypervisorName)
 		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilderFactory.MakeDomainBuilder(c), c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 

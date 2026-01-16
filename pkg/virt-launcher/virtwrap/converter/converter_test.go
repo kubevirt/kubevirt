@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/ephemeral-disk/fake"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -305,6 +306,7 @@ var _ = Describe("Converter", func() {
 		var vmi *v1.VirtualMachineInstance
 
 		BeforeEach(func() {
+			domainBuilderFactory := kvm.KvmDomainBuilderFactory{}
 
 			vmi = &v1.VirtualMachineInstance{
 				ObjectMeta: k8smeta.ObjectMeta{
@@ -663,7 +665,7 @@ var _ = Describe("Converter", func() {
 				vmi.Spec.Domain.Devices.DisableHotplug = !enabled
 
 				domain := &api.Domain{}
-				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)
+				err := Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilderFactory.MakeDomainBuilder(c), c)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(domain.Spec.Devices.Controllers).To(ContainElement(
 					api.Controller{

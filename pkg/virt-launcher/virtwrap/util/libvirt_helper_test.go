@@ -22,6 +22,7 @@ import (
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -226,7 +227,10 @@ var _ = Describe("LibvirtHelper", func() {
 			HotplugVolumes:   make(map[string]v1.VolumeStatus),
 			PermanentVolumes: make(map[string]v1.VolumeStatus),
 		}
-		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
+
+		domainBuilder := hypervisor.NewDomainBuilderFactory(v1.KvmHypervisorName)
+
+		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, domainBuilder.MakeDomainBuilder(c), c)).To(Succeed())
 		api.NewDefaulter(runtime.GOARCH).SetObjectDefaults_Domain(domain)
 
 		wantedSpec := &domain.Spec
