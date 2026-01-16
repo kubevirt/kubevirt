@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "inference.go",
         "instancetype.go",
+        "memory_overcommit.go",
         "reference_policy.go",
         "upgrade.go",
         "webhook.go",

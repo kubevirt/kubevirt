@@ -135,46 +135,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 		)
 	})
 
-	Context("with cluster memory overcommit being applied", Serial, func() {
-		BeforeEach(func() {
-			kv := libkubevirt.GetCurrentKv(virtClient)
-
-			config := kv.Spec.Configuration
-			config.DeveloperConfiguration.MemoryOvercommit = 200
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-		})
-		It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", func() {
-			// Use an Alpine VMI so we have enough memory in the eventual instance type and launched VMI to get past validation checks
-			vmi := libvmifact.NewAlpine()
-
-			instancetype := builder.NewInstancetypeFromVMI(vmi)
-			instancetype.Spec.Memory.OvercommitPercent = 15
-
-			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
-				Create(context.Background(), instancetype, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			// Remove any requested resources from the VMI before generating the VM
-			vm := libvmi.NewVirtualMachine(vmi,
-				libvmi.WithInstancetype(instancetype.Name),
-				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
-			)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.BeReady())
-
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetype.Spec.Memory.Guest))
-			expectedOverhead := int64(float32(instancetype.Spec.Memory.Guest.Value()) * (1 - float32(instancetype.Spec.Memory.OvercommitPercent)/100))
-			Expect(expectedOverhead).ToNot(Equal(instancetype.Spec.Memory.Guest.Value()))
-			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
-			Expect(memRequest.Value()).To(Equal(expectedOverhead))
-		})
-	})
-
 	Context("Instancetype and preference application", func() {
 		var vmi *virtv1.VirtualMachineInstance
 		const (
@@ -304,35 +264,6 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(vmi.Annotations).To(HaveKeyWithValue("required-annotation-2", "2"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-1", "1"))
 			Expect(vmi.Annotations).To(HaveKeyWithValue("preferred-annotation-2", "2"))
-		})
-		It("should apply memory overcommit instancetype to VMI", func() {
-			// Use an Alpine VMI so we have enough memory in the eventual instance type and launched VMI to get past validation checks
-			vmi = libvmifact.NewAlpine()
-			instancetype := builder.NewInstancetypeFromVMI(vmi)
-			instancetype.Spec.Memory.OvercommitPercent = 15
-
-			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
-				Create(context.Background(), instancetype, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm := libvmi.NewVirtualMachine(vmi,
-				libvmi.WithInstancetype(instancetype.Name),
-				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
-			)
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.BeReady())
-
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(*vmi.Spec.Domain.Memory.Guest).To(Equal(instancetype.Spec.Memory.Guest))
-
-			expectedOverhead := int64(float32(instancetype.Spec.Memory.Guest.Value()) * (1 - float32(instancetype.Spec.Memory.OvercommitPercent)/100))
-			Expect(expectedOverhead).ToNot(Equal(instancetype.Spec.Memory.Guest.Value()))
-			memRequest := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory]
-			Expect(memRequest.Value()).To(Equal(expectedOverhead))
 		})
 
 		It("[test_id:CNV-9096] should fail if instancetype and VM define CPU", func() {
