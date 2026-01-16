@@ -20,6 +20,7 @@
 package virt_operator
 
 import (
+	"os"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,6 +28,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Reinitialization conditions", func() {
@@ -82,4 +84,150 @@ var _ = Describe("Reinitialization conditions", func() {
 		Entry("when ServiceMonitor is introduced and PrometheusRule is removed", false, true, true, false, false, true, true),
 		Entry("when ServiceMonitor is removed and PrometheusRule is introduced", true, false, false, true, true, false, true),
 	)
+})
+
+var _ = Describe("Client rate limiter configuration", func() {
+	AfterEach(func() {
+		// Clean up environment variables after each test
+		os.Unsetenv("VIRT_OPERATOR_CLIENT_QPS")
+		os.Unsetenv("VIRT_OPERATOR_CLIENT_BURST")
+	})
+
+	Context("getClientRateLimiterConfig", func() {
+		It("should return default values when no flags or env vars are set", func() {
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(virtconfig.DefaultVirtOperatorQPS))
+			Expect(burst).To(Equal(virtconfig.DefaultVirtOperatorBurst))
+		})
+
+		It("should use flag values when provided", func() {
+			qps, burst := getClientRateLimiterConfig(100.0, 200)
+			Expect(qps).To(Equal(float32(100.0)))
+			Expect(burst).To(Equal(200))
+		})
+
+		It("should use environment variables when flags are not set", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "150")
+			os.Setenv("VIRT_OPERATOR_CLIENT_BURST", "300")
+
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(float32(150.0)))
+			Expect(burst).To(Equal(300))
+		})
+
+		It("should prefer flags over environment variables", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "150")
+			os.Setenv("VIRT_OPERATOR_CLIENT_BURST", "300")
+
+			qps, burst := getClientRateLimiterConfig(100.0, 200)
+			Expect(qps).To(Equal(float32(100.0)))
+			Expect(burst).To(Equal(200))
+		})
+
+		It("should use default when QPS env var is invalid", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "invalid")
+			os.Setenv("VIRT_OPERATOR_CLIENT_BURST", "300")
+
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(virtconfig.DefaultVirtOperatorQPS))
+			Expect(burst).To(Equal(300))
+		})
+
+		It("should use default when Burst env var is invalid", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "150")
+			os.Setenv("VIRT_OPERATOR_CLIENT_BURST", "invalid")
+
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(float32(150.0)))
+			Expect(burst).To(Equal(virtconfig.DefaultVirtOperatorBurst))
+		})
+
+		It("should use default when QPS env var is negative", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "-100")
+			os.Setenv("VIRT_OPERATOR_CLIENT_BURST", "300")
+
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(virtconfig.DefaultVirtOperatorQPS))
+			Expect(burst).To(Equal(300))
+		})
+
+		It("should use default when Burst env var is negative", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "150")
+			os.Setenv("VIRT_OPERATOR_CLIENT_BURST", "-200")
+
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(float32(150.0)))
+			Expect(burst).To(Equal(virtconfig.DefaultVirtOperatorBurst))
+		})
+
+		It("should use default when QPS env var is zero", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "0")
+			os.Setenv("VIRT_OPERATOR_CLIENT_BURST", "300")
+
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(virtconfig.DefaultVirtOperatorQPS))
+			Expect(burst).To(Equal(300))
+		})
+
+		It("should use default when Burst env var is zero", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "150")
+			os.Setenv("VIRT_OPERATOR_CLIENT_BURST", "0")
+
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(float32(150.0)))
+			Expect(burst).To(Equal(virtconfig.DefaultVirtOperatorBurst))
+		})
+
+		It("should use default when QPS flag is negative", func() {
+			qps, burst := getClientRateLimiterConfig(-100.0, 200)
+			Expect(qps).To(Equal(virtconfig.DefaultVirtOperatorQPS))
+			Expect(burst).To(Equal(200))
+		})
+
+		It("should use default when Burst flag is negative", func() {
+			qps, burst := getClientRateLimiterConfig(100.0, -200)
+			Expect(qps).To(Equal(float32(100.0)))
+			Expect(burst).To(Equal(virtconfig.DefaultVirtOperatorBurst))
+		})
+
+		It("should handle QPS as float value", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "123.45")
+
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(float32(123.45)))
+			Expect(burst).To(Equal(virtconfig.DefaultVirtOperatorBurst))
+		})
+
+		It("should use only QPS from env when only QPS is set", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "150")
+
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(float32(150.0)))
+			Expect(burst).To(Equal(virtconfig.DefaultVirtOperatorBurst))
+		})
+
+		It("should use only Burst from env when only Burst is set", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_BURST", "300")
+
+			qps, burst := getClientRateLimiterConfig(0, 0)
+			Expect(qps).To(Equal(virtconfig.DefaultVirtOperatorQPS))
+			Expect(burst).To(Equal(300))
+		})
+
+		It("should use flag for QPS and env for Burst", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_BURST", "300")
+
+			qps, burst := getClientRateLimiterConfig(100.0, 0)
+			Expect(qps).To(Equal(float32(100.0)))
+			Expect(burst).To(Equal(300))
+		})
+
+		It("should use env for QPS and flag for Burst", func() {
+			os.Setenv("VIRT_OPERATOR_CLIENT_QPS", "150")
+
+			qps, burst := getClientRateLimiterConfig(0, 200)
+			Expect(qps).To(Equal(float32(150.0)))
+			Expect(burst).To(Equal(200))
+		})
+	})
 })
