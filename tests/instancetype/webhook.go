@@ -22,7 +22,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype and Preferences admission", Serial, decorators.SigCompute, decorators.SigComputeInstancetype, func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype and Preferences admission", decorators.SigCompute, decorators.SigComputeInstancetype, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

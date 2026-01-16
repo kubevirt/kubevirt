@@ -26,14 +26,14 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype memory overcommit", Serial, decorators.SigCompute, decorators.SigComputeInstancetype, func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Instancetype memory overcommit", decorators.SigCompute, decorators.SigComputeInstancetype, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
-	It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", func() {
+	It("should apply memory overcommit instancetype to VMI even with cluster overcommit set", Serial, func() {
 		kv := libkubevirt.GetCurrentKv(virtClient)
 
 		config := kv.Spec.Configuration
