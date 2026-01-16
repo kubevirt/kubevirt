@@ -20,7 +20,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Preference requirements", Serial, decorators.SigCompute, decorators.SigComputeInstancetype, func() {
+var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-compute] Preference requirements", decorators.SigCompute, decorators.SigComputeInstancetype, func() {
 	var (
 		guestMemory2GB = resource.MustParse("2Gi")
 		guestMemory1GB = resource.MustParse("1Gi")
