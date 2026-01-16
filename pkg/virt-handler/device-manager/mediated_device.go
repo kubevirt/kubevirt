@@ -118,7 +118,7 @@ func (dpi *MediatedDevicePlugin) allocateDPFunc(_ context.Context, r *pluginapi.
 					if errors.Is(err, os.ErrNotExist) {
 						log.DefaultLogger().Errorf("Mediated device %s with id %s for resource %s disappeared", mdevUUID, devID, dpi.resourceName)
 					}
-					return resp, fmt.Errorf("Failed to allocate resource %s", dpi.resourceName)
+					return resp, fmt.Errorf("failed to allocate resource for resourceName: %s", dpi.resourceName)
 				}
 
 				formattedVFIO := formatVFIODeviceSpecs(devID)

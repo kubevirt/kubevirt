@@ -23,7 +23,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -82,17 +82,19 @@ func NewFakePlugin(name string, path string) *FakePlugin {
 }
 
 var _ = Describe("Device Controller", func() {
-	var workDir string
-	var err error
-	var host string
-	var maxDevices int
-	var permissions string
-	var stop chan struct{}
-	var fakeConfigMap *virtconfig.ClusterConfig
-	var mockPCI *MockDeviceHandler
-	var ctrl *gomock.Controller
-	var fakeNodeStore cache.Store
-	var wg *sync.WaitGroup
+	var (
+		workDir       string
+		err           error
+		host          string
+		maxDevices    int
+		permissions   string
+		stop          chan struct{}
+		fakeConfigMap *virtconfig.ClusterConfig
+		mockPCI       *MockDeviceHandler
+		ctrl          *gomock.Controller
+		fakeNodeStore cache.Store
+		wg            *sync.WaitGroup
+	)
 
 	runDeviceController := func(deviceController *DeviceController) {
 		wg.Add(1)
@@ -129,8 +131,7 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		Expect(fakeConfigMap.GetPermittedHostDevices()).ToNot(BeNil())
-		workDir, err = os.MkdirTemp("", "kubevirt-test")
-		Expect(err).ToNot(HaveOccurred())
+		workDir = GinkgoT().TempDir()
 
 		host = "master"
 		maxDevices = 100
@@ -140,7 +141,6 @@ var _ = Describe("Device Controller", func() {
 	})
 
 	AfterEach(func() {
-		defer os.RemoveAll(workDir)
 		// Ensure the deviceController is stopped after each test to avoid leaking resources
 		stop <- struct{}{}
 		wg.Wait()
@@ -151,7 +151,7 @@ var _ = Describe("Device Controller", func() {
 		It("Should indicate if node has device", func() {
 			var noDevices []devicePlugin
 			deviceController := NewDeviceController(host, maxDevices, permissions, noDevices, fakeConfigMap, fakeNodeStore)
-			devicePath := path.Join(workDir, "fake-device")
+			devicePath := filepath.Join(workDir, "fake-device")
 			res := deviceController.NodeHasDevice(devicePath)
 			Expect(res).To(BeFalse())
 
@@ -177,8 +177,8 @@ var _ = Describe("Device Controller", func() {
 		BeforeEach(func() {
 			deviceName1 = "fake-device1"
 			deviceName2 = "fake-device2"
-			devicePath1 = path.Join(workDir, deviceName1)
-			devicePath2 = path.Join(workDir, deviceName2)
+			devicePath1 = filepath.Join(workDir, deviceName1)
+			devicePath2 = filepath.Join(workDir, deviceName2)
 			// only create the second device.
 			_, err = os.Create(devicePath2)
 			Expect(err).ToNot(HaveOccurred())

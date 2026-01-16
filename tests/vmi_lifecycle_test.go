@@ -625,13 +625,14 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				handlerNamespace := virtHandlerPod.GetObjectMeta().GetNamespace()
 				seconds := int64(10)
 				logsQuery := kubevirt.Client().CoreV1().Pods(handlerNamespace).GetLogs(handlerName, &k8sv1.PodLogOptions{SinceSeconds: &seconds, Container: "virt-handler"})
+				deviceResourceName := fmt.Sprintf("%s/%s", device_manager.DeviceNamespace, "kvm")
 				Eventually(func() string {
 					data, err := logsQuery.DoRaw(context.Background())
 					Expect(err).ToNot(HaveOccurred(), "Should get logs")
 					return string(data)
 				}, 60, 1).Should(
 					ContainSubstring(
-						fmt.Sprintf("device socket file for device %s was removed, kubelet probably restarted.", "kvm"),
+						fmt.Sprintf("device socket file for device '%s' was removed, kubelet probably restarted.", deviceResourceName),
 					), "Should log device plugin restart")
 
 				// This is a little bit arbitrar

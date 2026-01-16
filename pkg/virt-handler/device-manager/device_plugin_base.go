@@ -370,6 +370,15 @@ func (dpi *DevicePluginBase) GetInitialized() bool {
 	return dpi.initialized
 }
 
+func (dpi *DevicePluginBase) getDevHealthByIndex(index int) string {
+	dpi.lock.Lock()
+	defer dpi.lock.Unlock()
+	if index < 0 || index >= len(dpi.devs) {
+		return ""
+	}
+	return dpi.devs[index].Health
+}
+
 func (dpi *DevicePluginBase) setInitialized(initialized bool) {
 	dpi.lock.Lock()
 	dpi.initialized = initialized
