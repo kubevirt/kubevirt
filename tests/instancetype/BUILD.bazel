@@ -7,6 +7,7 @@ go_library(
         "instancetype.go",
         "memory_overcommit.go",
         "reference_policy.go",
+        "requirements.go",
         "revisions.go",
         "upgrade.go",
         "webhook.go",
