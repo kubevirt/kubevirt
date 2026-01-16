@@ -66,6 +66,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 )
 
 const (
@@ -1045,7 +1046,7 @@ func Convert_v1_Firmware_To_related_apis(vmi *v1.VirtualMachineInstance, domain 
 			domain.Spec.OS.BootLoader.Type = "pflash"
 			domain.Spec.OS.NVRam = &api.NVRam{
 				Template: c.EFIConfiguration.EFIVars,
-				NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+				NVRam:    filepath.Join(services.PathForNVram(vmi), efi.GetEFIVarsFileName(vmi)),
 			}
 		}
 	}

@@ -1272,6 +1272,9 @@ func (c *Controller) startVMI(vm *virtv1.VirtualMachine) (*virtv1.VirtualMachine
 	if val, ok := vm.Annotations["restore.kubevirt.io/source-uid"]; ok {
 		vmi.Annotations["restore.kubevirt.io/source-uid"] = val
 	}
+	if val, ok := vm.Annotations["restore.kubevirt.io/source-vm-name"]; ok {
+		vmi.Annotations["restore.kubevirt.io/source-vm-name"] = val
+	}
 
 	if vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver {
 		log.Log.Infof("Setting up receiver VMI %s/%s", vmi.Namespace, vmi.Name)

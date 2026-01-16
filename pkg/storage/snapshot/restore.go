@@ -52,6 +52,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+	"kubevirt.io/kubevirt/pkg/tpm"
 	firmware "kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 )
 
@@ -989,14 +990,22 @@ func (t *vmRestoreTarget) generateRestoredVMSpec(snapshotVM *snapshotv1.VirtualM
 		setLegacyFirmwareUUID(newVM)
 	}
 
-	// Set source UID annotation to allow TPM clone.
-	// Libvirt expects the TPM contents to be under a directory named after the VM's UUID, so we need to preserve the original UUID
-	// and change it to the new one for the new VM to function properly.
-	if backendstorage.IsBackendStorageNeeded(snapshotVM) && snapshotVM.Name != newVM.Name {
-		if snapshotVM.Spec.Template.Spec.Domain.Firmware != nil && snapshotVM.Spec.Template.Spec.Domain.Firmware.UUID != "" {
-			newVM.Annotations[sourceUIDAnnotation] = string(snapshotVM.Spec.Template.Spec.Domain.Firmware.UUID)
-		} else {
-			newVM.Annotations[sourceUIDAnnotation] = string(firmware.CalculateLegacyUUID(snapshotVM.Name))
+	if snapshotVM.Name != newVM.Name {
+		// Set source UID annotation to allow TPM clone.
+		// Libvirt expects the TPM contents to be under a directory named after the VM's UUID, so we need to preserve the original UUID
+		// and change it to the new one for the new VM to function properly.
+		if tpm.HasPersistentDevice(&snapshotVM.Spec.Template.Spec) {
+			if snapshotVM.Spec.Template.Spec.Domain.Firmware != nil && snapshotVM.Spec.Template.Spec.Domain.Firmware.UUID != "" {
+				newVM.Annotations[sourceUIDAnnotation] = string(snapshotVM.Spec.Template.Spec.Domain.Firmware.UUID)
+			} else {
+				newVM.Annotations[sourceUIDAnnotation] = string(firmware.CalculateLegacyUUID(snapshotVM.Name))
+			}
+		}
+		// Set source VM name annotation to allow EFI clone.
+		// We use the VM's name to build EFI vars file name, so we need to preserve the source VM name
+		// to reuse the original file.
+		if backendstorage.HasPersistentEFI(&snapshotVM.Spec.Template.Spec) {
+			newVM.Annotations[restoreSourceNameLabel] = snapshotVM.Name
 		}
 	}
 

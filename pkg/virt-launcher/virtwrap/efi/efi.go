@@ -20,8 +20,11 @@
 package efi
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+
+	v1 "kubevirt.io/api/core/v1"
 )
 
 const (
@@ -194,4 +197,13 @@ func getEFIBinaryIfExists(path, binary string) string {
 		return fullPath
 	}
 	return ""
+}
+
+func GetEFIVarsFileName(vmi *v1.VirtualMachineInstance) string {
+	vmName := vmi.Name
+	// If the VM is cloned or restored from another VM, use the original VM name for the NVRAM file
+	if val, ok := vmi.Annotations["restore.kubevirt.io/source-vm-name"]; ok {
+		vmName = val
+	}
+	return fmt.Sprintf("%s_VARS.fd", vmName)
 }

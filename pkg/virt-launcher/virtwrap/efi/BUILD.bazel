@@ -5,6 +5,7 @@ go_library(
     srcs = ["efi.go"],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi",
     visibility = ["//visibility:public"],
+    deps = ["//staging/src/kubevirt.io/api/core/v1:go_default_library"],
 )
 
 go_test(
