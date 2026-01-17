@@ -182,7 +182,7 @@ var _ = Describe("VirtualMachineClone Tests", Serial, func() {
 			return generateCloneFromVMWithParams(sourceVM.Name, sourceVM.Namespace, targetVMName)
 		}
 
-		Context("[sig-compute]simple VM and cloning operations", decorators.SigCompute, func() {
+		Context("[sig-compute]simple VM and cloning operations", decorators.SigCompute, decorators.WgS390x, func() {
 
 			expectVMRunnable := func(vm *virtv1.VirtualMachine) *virtv1.VirtualMachine {
 				return expectVMRunnable(vm, console.LoginToAlpine)
