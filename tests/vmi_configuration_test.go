@@ -851,7 +851,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:893][crit:medium][vendor:cnv-qe@redhat.com][level:component]with rng", func() {
-			It("[test_id:1674]should have the virtio rng device present when present", func() {
+			It("[test_id:1674]should have the virtio rng device present when present", decorators.WgS390x, func() {
 				rngVmi := libvmifact.NewAlpine(libvmi.WithRng())
 
 				By("Starting a VirtualMachineInstance")
@@ -864,8 +864,8 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 				By("Checking the virtio rng presence")
 				Expect(console.SafeExpectBatch(rngVmi, []expect.Batcher{
-					&expect.BSnd{S: "grep -c ^virtio /sys/devices/virtual/misc/hw_random/rng_available\n"},
-					&expect.BExp{R: console.RetValue("1")},
+					&expect.BSnd{S: "grep virtio_rng /sys/devices/virtual/misc/hw_random/rng_available\n"},
+					&expect.BExp{R: "virtio_rng"},
 				}, 400)).To(Succeed())
 			})
 
