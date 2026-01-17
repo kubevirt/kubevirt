@@ -51,7 +51,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring, func() {
+var _ = Describe("[sig-monitoring]Monitoring", decorators.SigMonitoring, func() {
 	var err error
 	var virtClient kubecli.KubevirtClient
 	var prometheusRule *promv1.PrometheusRule
@@ -115,7 +115,7 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 		})
 	})
 
-	Context("System Alerts", func() {
+	Context("System Alerts", Serial, func() {
 		var originalKv *v1.KubeVirt
 
 		BeforeEach(func() {
@@ -143,13 +143,13 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 		})
 	})
 
-	Context("Deprecation Alerts", decorators.SigMonitoring, func() {
+	Context("Deprecation Alerts", Serial, func() {
 		It("KubeVirtDeprecatedAPIRequested should be triggered when a deprecated API is requested", func() {
 			By("Creating a VMI with deprecated API version")
 			vmi := libvmifact.NewCirros()
 			vmi.APIVersion = "v1alpha3"
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the alert exists")
@@ -159,7 +159,6 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIRequested")
 		})
 	})
-
 })
 
 func disableVirtHandler(virtClient kubecli.KubevirtClient, originalKv *v1.KubeVirt) error {
