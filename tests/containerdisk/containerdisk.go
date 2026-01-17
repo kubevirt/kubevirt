@@ -37,6 +37,7 @@ const (
 	ContainerDiskEmpty                ContainerDisk = "empty"
 	ContainerDiskFedoraRealtime       ContainerDisk = "fedora-realtime"
 	KernelBoot                        ContainerDisk = "alpine-ext-kernel-boot-demo"
+	KernelBootS390xGuestless          ContainerDisk = "kubevirt_s390x_guestless_loop"
 )
 
 const (
@@ -72,6 +73,8 @@ func ContainerDiskFromRegistryFor(registry string, name ContainerDisk) string {
 		return fmt.Sprintf("%s/%s-container-disk:%s", registry, name, flags.KubeVirtUtilityVersionTag)
 	case KernelBoot:
 		return fmt.Sprintf("%s/alpine-ext-kernel-boot-demo:%s", registry, flags.KubeVirtUtilityVersionTag)
+	case KernelBootS390xGuestless:
+		return fmt.Sprintf("%s/kubevirt_s390x_guestless_loop:%s", registry, "latest")
 	}
 
 	panic(fmt.Sprintf("Unsupported registry disk %s", name))
