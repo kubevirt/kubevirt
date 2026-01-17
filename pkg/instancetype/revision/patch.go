@@ -29,6 +29,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
+const (
+	instancetypeStatusRefPath = "/status/instancetypeRef"
+	preferenceStatusRefPath   = "/status/preferenceRef"
+)
+
 func (h *revisionHandler) patchVM(
 	instancetypeStatusRef, preferenceStatusRef *virtv1.InstancetypeStatusRef,
 	vm *virtv1.VirtualMachine,
@@ -39,12 +44,17 @@ func (h *revisionHandler) patchVM(
 	if err != nil || len(revisionPatch) == 0 {
 		return err
 	}
-	if _, err := h.virtClient.VirtualMachine(vm.Namespace).PatchStatus(
+	patchedVM, err := h.virtClient.VirtualMachine(vm.Namespace).PatchStatus(
 		context.Background(), vm.Name, types.JSONPatchType, revisionPatch, metav1.PatchOptions{},
-	); err != nil {
+	)
+	if err != nil {
 		logger().Reason(err).Error("Failed to update VirtualMachine with instancetype and preference ControllerRevision references.")
 		return err
 	}
+	// Update the local vm ObjectMeta with the response to ensure ResourceVersion and other server-side fields are current
+	vm.ObjectMeta = patchedVM.ObjectMeta
+	vm.Status = patchedVM.Status
+
 	return nil
 }
 
@@ -52,13 +62,13 @@ func GeneratePatch(instancetypeStatusRef, preferenceStatusRef *virtv1.Instancety
 	patchSet := patch.New()
 	if instancetypeStatusRef != nil {
 		patchSet.AddOption(
-			patch.WithAdd("/status/instancetypeRef", instancetypeStatusRef),
+			patch.WithAdd(instancetypeStatusRefPath, instancetypeStatusRef),
 		)
 	}
 
 	if preferenceStatusRef != nil {
 		patchSet.AddOption(
-			patch.WithAdd("/status/preferenceRef", preferenceStatusRef),
+			patch.WithAdd(preferenceStatusRefPath, preferenceStatusRef),
 		)
 	}
 
