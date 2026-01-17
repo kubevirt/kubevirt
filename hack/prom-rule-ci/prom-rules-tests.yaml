@@ -738,6 +738,8 @@ tests:
         values: "_ _ _ _ _ _ _ 1+0x15"
       - series: 'kube_node_status_allocatable{node="node01", resource="devices_kubevirt_io_kvm"}'
         values: "1000+0x15 0+0x7"
+      - series: 'kube_node_spec_unschedulable{node="node01"}'
+        values: "0+0x22"
       - series: 'kubevirt_configuration_emulation_enabled'
         values: "0+0x22"
 
@@ -779,6 +781,8 @@ tests:
         values: "0+0x7 1+0x14"
       - series: 'kube_node_status_allocatable{node="node01", resource="devices_kubevirt_io_kvm"}'
         values: "0+0x21"
+      - series: 'kube_node_spec_unschedulable{node="node01"}'
+        values: "0+0x21"
       - series: 'kubevirt_configuration_emulation_enabled'
         values: "0+0x7 1+0x7 0+0x7"
 
@@ -803,6 +807,32 @@ tests:
 
       # has schedulable label, but no kvm allocatable and no emulation enabled
       - eval_time: 21m
+        alertname: KubeVirtNoAvailableNodesToRunVMs
+        exp_alerts:
+          - exp_annotations:
+              summary: "There are no available nodes in the cluster to run VMs."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtNoAvailableNodesToRunVMs"
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_component: "kubevirt"
+              kubernetes_operator_part_of: "kubevirt"
+              operator_health_impact: "critical"
+
+  # Test case: node has schedulable label but is unschedulable
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_labels{node="node01",label_kubevirt_io_schedulable="true"}'
+        values: "1+0x15"
+      - series: 'kube_node_status_allocatable{node="node01", resource="devices_kubevirt_io_kvm"}'
+        values: "1000+0x15"
+      - series: 'kube_node_spec_unschedulable{node="node01"}'
+        values: "1+0x15"
+      - series: 'kubevirt_configuration_emulation_enabled'
+        values: "0+0x15"
+
+    alert_rule_test:
+      # has schedulable label and kvm allocatable but node spec is unschedulable
+      - eval_time: 6m
         alertname: KubeVirtNoAvailableNodesToRunVMs
         exp_alerts:
           - exp_annotations:
