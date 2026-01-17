@@ -252,6 +252,40 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus)))
 		})
 
+		It("should create a virtual machine with sriov interface without explicit MAC and populate from network-status", func() {
+			vmi := newSRIOVVmi([]string{sriovnet1}, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
+			// Intentionally NOT setting MacAddress to test network-status MAC extraction
+
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
+
+			By("checking that SR-IOV interface status has a MAC address populated")
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+
+			var sriovInterface *v1.VirtualMachineInstanceNetworkInterface
+			for i := range vmi.Status.Interfaces {
+				iface := &vmi.Status.Interfaces[i]
+				if iface.Name == sriovnet1 {
+					sriovInterface = iface
+					break
+				}
+			}
+			Expect(sriovInterface).NotTo(BeNil(), "SR-IOV interface not found in VMI status")
+			Expect(sriovInterface.MAC).NotTo(BeEmpty(), "SR-IOV interface MAC should be populated from network-status annotation")
+
+			By("checking that the MAC is valid and exists in the guest")
+			mac := sriovInterface.MAC
+			ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 140*time.Second)
+			Expect(err).NotTo(HaveOccurred(), "Interface with MAC from status should exist in guest")
+			Expect(libnet.CheckMacAddress(vmi, ifaceName, mac)).To(Succeed())
+
+			By("checking virtual machine instance reports multus-status as info source")
+			Expect(vmispec.ContainsInfoSource(sriovInterface.InfoSource, vmispec.InfoSourceMultusStatus)).To(BeTrue(),
+				"SR-IOV interface should have multus-status as info source when MAC comes from network-status annotation")
+		})
+
 		Context("migration", decorators.RequiresTwoSchedulableNodes, func() {
 			BeforeEach(func() {
 				Expect(validateSRIOVSetup(sriovResourceName, 2)).To(Succeed(),
