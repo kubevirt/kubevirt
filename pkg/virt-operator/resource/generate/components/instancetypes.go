@@ -10,10 +10,10 @@ import (
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
-//go:embed data/common-clusterinstancetypes-bundle.yaml
+//go:embed data/common-instancetypes/common-clusterinstancetypes-bundle.yaml
 var clusterInstancetypesBundle []byte
 
-//go:embed data/common-clusterpreferences-bundle.yaml
+//go:embed data/common-instancetypes/common-clusterpreferences-bundle.yaml
 var clusterPreferencesBundle []byte
 
 func NewClusterInstancetypes() ([]*instancetypev1beta1.VirtualMachineClusterInstancetype, error) {
