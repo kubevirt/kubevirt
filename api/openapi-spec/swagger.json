@@ -17866,6 +17866,10 @@
     "description": "VirtualMachineInstanceBackupStatus tracks the information of the executed backup",
     "type": "object",
     "properties": {
+     "abortStatus": {
+      "description": "AbortStatus is the state of a backup abort requests which can vary since an abort request is asynchronous.",
+      "type": "string"
+     },
      "backupMsg": {
       "description": "BackupMsg resturns any relevant information like failure reason unfreeze failed etc...",
       "type": "string"
@@ -17885,6 +17889,10 @@
      "endTimestamp": {
       "description": "EndTimestamp is the timestamp when the backup ended",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "failed": {
+      "description": "Failed indiciates that the backup failed",
+      "type": "boolean"
      },
      "startTimestamp": {
       "description": "StartTimestamp is the timestamp when the backup started",
