@@ -232,21 +232,30 @@ func MountInfoRoot(r IsolationResult) (mountinfo *mount.Info, err error) {
 	return mountInfoFor(r, "/")
 }
 
-func mountsFilter(compare, m *mount.Info, source string) (bool, bool) {
+func mountsFilter(compare, m *mount.Info, source, podUID string) (bool, bool) {
 	nfsMatch := false
 	if strings.Contains(m.FSType, "nfs") && compare.FSType == m.FSType {
 		nfsMatch = m.Source != source
 	}
 
+	// Filter by pod UID if provided. Kubelet mounts volumes at paths like:
+	// /var/lib/kubelet/pods/<POD_UID>/volumes/...
+	// When multiple attachment pods exist with volumes from the same underlying
+	// device (same major:minor), we need the pod UID to disambiguate.
+	podUIDMismatch := false
+	if podUID != "" {
+		podUIDMismatch = !strings.Contains(m.Mountpoint, podUID)
+	}
+
 	return m.Major != compare.Major || m.Minor != compare.Minor ||
-		!strings.HasPrefix(compare.Root, m.Root) || nfsMatch, false
+		!strings.HasPrefix(compare.Root, m.Root) || nfsMatch || podUIDMismatch, false
 }
 
 // parentMountInfoFor takes the mountInfo record of a container (child) and
 // attempts to locate a mountpoint containing it on the parent.
-func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info, source string) (*mount.Info, error) {
+func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info, source, podUID string) (*mount.Info, error) {
 	mounts, err := parent.Mounts(func(m *mount.Info) (bool, bool) {
-		return mountsFilter(mountInfo, m, source)
+		return mountsFilter(mountInfo, m, source, podUID)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find mount for %v in the mount namespace of pid %d", mountInfo.Root, parent.Pid())
@@ -264,12 +273,12 @@ func parentMountInfoFor(parent IsolationResult, mountInfo *mount.Info, source st
 	return mounts[0], nil
 }
 
-func ParentPathForMount(parent IsolationResult, child IsolationResult, source, target string) (*safepath.Path, error) {
+func ParentPathForMount(parent IsolationResult, child IsolationResult, source, target, podUID string) (*safepath.Path, error) {
 	childMountInfo, err := mountInfoFor(child, target)
 	if err != nil {
 		return nil, err
 	}
-	parentMountInfo, err := parentMountInfoFor(parent, childMountInfo, source)
+	parentMountInfo, err := parentMountInfoFor(parent, childMountInfo, source, podUID)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +297,7 @@ func ParentPathForMount(parent IsolationResult, child IsolationResult, source, t
 // ParentPathForRootMount takes a container (child) and composes a path to
 // the root mount point in the context of the parent.
 func ParentPathForRootMount(parent IsolationResult, child IsolationResult) (*safepath.Path, error) {
-	return ParentPathForMount(parent, child, "", "/")
+	return ParentPathForMount(parent, child, "", "/", "")
 }
 
 func SafeJoin(res IsolationResult, elems ...string) (*safepath.Path, error) {
