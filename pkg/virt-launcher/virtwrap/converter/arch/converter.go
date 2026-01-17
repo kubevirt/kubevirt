@@ -20,8 +20,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
@@ -32,7 +30,7 @@ const (
 
 type Converter interface {
 	GetArchitecture() string
-	ScsiController(model string, driver *api.ControllerDriver) api.Controller
+	SCSIControllerModel(virtioModel string) string
 	IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	SupportCPUHotplug() bool
 	IsSMBiosNeeded() bool
@@ -55,15 +53,6 @@ func NewConverter(arch string) Converter {
 	default:
 		log.Log.Warning("Trying to create an arch converter from an unknown arch: " + arch + ". Falling back to AMD64")
 		return converterAMD64{}
-	}
-}
-
-func defaultSCSIController(model string, driver *api.ControllerDriver) api.Controller {
-	return api.Controller{
-		Type:   "scsi",
-		Index:  "0",
-		Model:  model,
-		Driver: driver,
 	}
 }
 

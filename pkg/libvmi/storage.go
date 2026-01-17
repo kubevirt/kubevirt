@@ -157,6 +157,12 @@ func WithPersistentVolumeClaimLun(diskName, pvcName string, reservation bool) Op
 	}
 }
 
+func WithDisk(diskName string, bus v1.DiskBus, opts ...DiskOption) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addDisk(vmi, newDisk(diskName, bus, opts...))
+	}
+}
+
 func WithHostDisk(diskName, path string, diskType v1.HostDiskType, opts ...HostDiskOption) Option {
 	var capacity string
 	if diskType == v1.HostDiskExistsOrCreate {

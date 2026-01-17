@@ -18,8 +18,6 @@ package arch
 
 import (
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
@@ -31,13 +29,8 @@ func (converterS390X) GetArchitecture() string {
 	return s390x
 }
 
-func (converterS390X) ScsiController(_ string, driver *api.ControllerDriver) api.Controller {
-	return api.Controller{
-		Type:   "scsi",
-		Index:  "0",
-		Model:  "virtio-scsi",
-		Driver: driver,
-	}
+func (converterS390X) SCSIControllerModel(_ string) string {
+	return "virtio-scsi"
 }
 
 func (converterS390X) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {

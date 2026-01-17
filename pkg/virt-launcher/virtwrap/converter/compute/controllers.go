@@ -26,18 +26,49 @@ import (
 )
 
 type ControllersDomainConfigurator struct {
-	isUSBNeeded bool
+	isUSBNeeded      bool
+	scsiModel        string
+	controllerDriver *api.ControllerDriver
 }
 
-func NewControllersDomainConfigurator(isUSBNeeded bool) ControllersDomainConfigurator {
-	return ControllersDomainConfigurator{
-		isUSBNeeded: isUSBNeeded,
+type controllersOption func(*ControllersDomainConfigurator)
+
+func NewControllersDomainConfigurator(options ...controllersOption) ControllersDomainConfigurator {
+	var configurator ControllersDomainConfigurator
+
+	for _, f := range options {
+		f(&configurator)
+	}
+
+	return configurator
+}
+
+func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newUSBController(c.isUSBNeeded))
+
+	if needsSCSIController(vmi) {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, c.controllerDriver))
+	}
+
+	return nil
+}
+
+func ControllersWithUSBNeeded(isUSBNeeded bool) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.isUSBNeeded = isUSBNeeded
 	}
 }
 
-func (c ControllersDomainConfigurator) Configure(_ *v1.VirtualMachineInstance, domain *api.Domain) error {
-	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newUSBController(c.isUSBNeeded))
-	return nil
+func ControllersWithSCSIModel(scsiModel string) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.scsiModel = scsiModel
+	}
+}
+
+func ControllersWithControllerDriver(controllerDriver *api.ControllerDriver) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.controllerDriver = controllerDriver
+	}
 }
 
 func newUSBController(usbNeeded bool) api.Controller {
@@ -52,4 +83,35 @@ func newUSBController(usbNeeded bool) api.Controller {
 		Index: "0",
 		Model: usbControllerModel,
 	}
+}
+
+func newSCSIController(controllerModel string, controllerDriver *api.ControllerDriver) api.Controller {
+	return api.Controller{
+		Type:   "scsi",
+		Index:  "0",
+		Model:  controllerModel,
+		Driver: controllerDriver,
+	}
+}
+
+func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if getBusFromDisk(disk) == v1.DiskBusSCSI {
+			return true
+		}
+	}
+	return !vmi.Spec.Domain.Devices.DisableHotplug
+}
+
+func getBusFromDisk(disk v1.Disk) v1.DiskBus {
+	if disk.LUN != nil {
+		return disk.LUN.Bus
+	}
+	if disk.Disk != nil {
+		return disk.Disk.Bus
+	}
+	if disk.CDRom != nil {
+		return disk.CDRom.Bus
+	}
+	return ""
 }
