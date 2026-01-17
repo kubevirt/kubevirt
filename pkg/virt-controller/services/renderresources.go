@@ -384,6 +384,15 @@ func WithPersistentReservation() ResourceRendererOption {
 	}
 }
 
+func WithIOMMUFD() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+		requestResource(&resources, IommuFDDevice)
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+	}
+}
+
 func copyResources(srcResources, dstResources k8sv1.ResourceList) {
 	for key, value := range srcResources {
 		dstResources[key] = value
@@ -489,6 +498,8 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 	if util.IsVFIOVMI(vmi) {
 		overhead.Add(resource.MustParse("1Gi"))
 	}
+	// TODO: calculate overhead for mixed assignment
+	// TODO: calculate overhead for CVMs
 
 	// DownardMetrics volumes are using emptyDirs backed by memory.
 	// the max. disk size is only 256Ki.
