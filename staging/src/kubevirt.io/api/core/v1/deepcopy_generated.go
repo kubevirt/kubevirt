@@ -562,6 +562,11 @@ func (in *CloudInitConfigDriveSource) DeepCopyInto(out *CloudInitConfigDriveSour
 		*out = new(corev1.LocalObjectReference)
 		**out = **in
 	}
+	if in.VendorDataSecretRef != nil {
+		in, out := &in.VendorDataSecretRef, &out.VendorDataSecretRef
+		*out = new(corev1.LocalObjectReference)
+		**out = **in
+	}
 	return
 }
 
@@ -585,6 +590,11 @@ func (in *CloudInitNoCloudSource) DeepCopyInto(out *CloudInitNoCloudSource) {
 	}
 	if in.NetworkDataSecretRef != nil {
 		in, out := &in.NetworkDataSecretRef, &out.NetworkDataSecretRef
+		*out = new(corev1.LocalObjectReference)
+		**out = **in
+	}
+	if in.VendorDataSecretRef != nil {
+		in, out := &in.VendorDataSecretRef, &out.VendorDataSecretRef
 		*out = new(corev1.LocalObjectReference)
 		**out = **in
 	}
