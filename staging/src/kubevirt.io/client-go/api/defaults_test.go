@@ -63,7 +63,7 @@ var _ = Describe("Defaults", func() {
 				VendorID:        &v1.FeatureVendorID{},
 				Frequencies:     &v1.FeatureState{},
 				Reenlightenment: &v1.FeatureState{},
-				TLBFlush:        &v1.FeatureState{},
+				TLBFlush:        &v1.TLBFlush{},
 			},
 		}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -97,20 +97,23 @@ var _ = Describe("Defaults", func() {
 		}
 		vmi.Spec.Domain.Features = &v1.Features{
 			ACPI: v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-			APIC: &v1.FeatureAPIC{Enabled: pointer.BoolPtr(false)},
+			APIC: &v1.FeatureAPIC{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(false)}},
 			Hyperv: &v1.FeatureHyperv{
-				Relaxed:         &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				VAPIC:           &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				Spinlocks:       &v1.FeatureSpinlocks{Enabled: pointer.BoolPtr(true)},
-				VPIndex:         &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				Runtime:         &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				SyNIC:           &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				SyNICTimer:      &v1.SyNICTimer{Enabled: pointer.BoolPtr(true), Direct: &v1.FeatureState{Enabled: pointer.BoolPtr(true)}},
+				Relaxed:   &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				VAPIC:     &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
+				Spinlocks: &v1.FeatureSpinlocks{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(true)}},
+				VPIndex:   &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
+				Runtime:   &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				SyNIC:     &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
+				SyNICTimer: &v1.SyNICTimer{
+					FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+					Direct:       &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				},
 				Reset:           &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				VendorID:        &v1.FeatureVendorID{Enabled: pointer.BoolPtr(true)},
+				VendorID:        &v1.FeatureVendorID{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(true)}},
 				Frequencies:     &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
 				Reenlightenment: &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				TLBFlush:        &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				TLBFlush:        &v1.TLBFlush{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(true)}},
 			},
 		}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
@@ -137,20 +140,20 @@ var _ = Describe("Defaults", func() {
 
 		vmi.Spec.Domain.Features = &v1.Features{
 			ACPI: v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-			APIC: &v1.FeatureAPIC{Enabled: pointer.BoolPtr(true)},
+			APIC: &v1.FeatureAPIC{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(true)}},
 			Hyperv: &v1.FeatureHyperv{
 				Relaxed:         &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
 				VAPIC:           &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				Spinlocks:       &v1.FeatureSpinlocks{Enabled: pointer.BoolPtr(false)},
+				Spinlocks:       &v1.FeatureSpinlocks{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(false)}},
 				VPIndex:         &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
 				Runtime:         &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
 				SyNIC:           &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				SyNICTimer:      &v1.SyNICTimer{Enabled: pointer.BoolPtr(false)},
+				SyNICTimer:      &v1.SyNICTimer{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(false)}},
 				Reset:           &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
-				VendorID:        &v1.FeatureVendorID{Enabled: pointer.BoolPtr(false)},
+				VendorID:        &v1.FeatureVendorID{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(false)}},
 				Frequencies:     &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
 				Reenlightenment: &v1.FeatureState{Enabled: pointer.BoolPtr(false)},
-				TLBFlush:        &v1.FeatureState{Enabled: pointer.BoolPtr(true)},
+				TLBFlush:        &v1.TLBFlush{FeatureState: v1.FeatureState{Enabled: pointer.BoolPtr(true)}},
 			},
 		}
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
