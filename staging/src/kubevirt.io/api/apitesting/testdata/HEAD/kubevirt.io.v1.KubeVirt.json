@@ -404,7 +404,8 @@
             }
           ]
         }
-      }
+      },
+      "roleAggregationStrategy": "roleAggregationStrategyValue"
     },
     "infra": {
       "nodePlacement": {
