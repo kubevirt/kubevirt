@@ -19255,6 +19255,28 @@ func schema_kubevirtio_api_core_v1_CloudInitConfigDriveSource(ref common.Referen
 							Format:      "",
 						},
 					},
+					"metaDataSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MetaDataSecretRef references a k8s secret that contains config drive metadata.",
+							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
+						},
+					},
+					"metaData": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MetaData contains config drive inline cloud-init metadata as key-value pairs.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -19308,6 +19330,28 @@ func schema_kubevirtio_api_core_v1_CloudInitNoCloudSource(ref common.ReferenceCa
 							Description: "NetworkData contains NoCloud inline cloud-init networkdata.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"metaDataSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MetaDataSecretRef references a k8s secret that contains NoCloud metadata.",
+							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
+						},
+					},
+					"metaData": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MetaData contains NoCloud inline cloud-init metadata as key-value pairs.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},

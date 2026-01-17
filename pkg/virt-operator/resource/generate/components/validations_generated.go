@@ -7861,6 +7861,27 @@ var CRDsValidation map[string]string = map[string]string{
                           The Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
                           More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html
                         properties:
+                          metaData:
+                            additionalProperties:
+                              type: string
+                            description: MetaData contains config drive inline cloud-init
+                              metadata as key-value pairs.
+                            type: object
+                          metaDataSecretRef:
+                            description: MetaDataSecretRef references a k8s secret
+                              that contains config drive metadata.
+                            properties:
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                            type: object
+                            x-kubernetes-map-type: atomic
                           networkData:
                             description: NetworkData contains config drive inline
                               cloud-init networkdata.
@@ -7914,6 +7935,27 @@ var CRDsValidation map[string]string = map[string]string{
                           The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
                           More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
                         properties:
+                          metaData:
+                            additionalProperties:
+                              type: string
+                            description: MetaData contains NoCloud inline cloud-init
+                              metadata as key-value pairs.
+                            type: object
+                          metaDataSecretRef:
+                            description: MetaDataSecretRef references a k8s secret
+                              that contains NoCloud metadata.
+                            properties:
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                            type: object
+                            x-kubernetes-map-type: atomic
                           networkData:
                             description: NetworkData contains NoCloud inline cloud-init
                               networkdata.
@@ -13612,6 +13654,27 @@ var CRDsValidation map[string]string = map[string]string{
                   The Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
                   More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html
                 properties:
+                  metaData:
+                    additionalProperties:
+                      type: string
+                    description: MetaData contains config drive inline cloud-init
+                      metadata as key-value pairs.
+                    type: object
+                  metaDataSecretRef:
+                    description: MetaDataSecretRef references a k8s secret that contains
+                      config drive metadata.
+                    properties:
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
                   networkData:
                     description: NetworkData contains config drive inline cloud-init
                       networkdata.
@@ -13665,6 +13728,27 @@ var CRDsValidation map[string]string = map[string]string{
                   The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
                   More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
                 properties:
+                  metaData:
+                    additionalProperties:
+                      type: string
+                    description: MetaData contains NoCloud inline cloud-init metadata
+                      as key-value pairs.
+                    type: object
+                  metaDataSecretRef:
+                    description: MetaDataSecretRef references a k8s secret that contains
+                      NoCloud metadata.
+                    properties:
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
                   networkData:
                     description: NetworkData contains NoCloud inline cloud-init networkdata.
                     type: string
@@ -19910,6 +19994,27 @@ var CRDsValidation map[string]string = map[string]string{
                           The Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
                           More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html
                         properties:
+                          metaData:
+                            additionalProperties:
+                              type: string
+                            description: MetaData contains config drive inline cloud-init
+                              metadata as key-value pairs.
+                            type: object
+                          metaDataSecretRef:
+                            description: MetaDataSecretRef references a k8s secret
+                              that contains config drive metadata.
+                            properties:
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                            type: object
+                            x-kubernetes-map-type: atomic
                           networkData:
                             description: NetworkData contains config drive inline
                               cloud-init networkdata.
@@ -19963,6 +20068,27 @@ var CRDsValidation map[string]string = map[string]string{
                           The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
                           More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
                         properties:
+                          metaData:
+                            additionalProperties:
+                              type: string
+                            description: MetaData contains NoCloud inline cloud-init
+                              metadata as key-value pairs.
+                            type: object
+                          metaDataSecretRef:
+                            description: MetaDataSecretRef references a k8s secret
+                              that contains NoCloud metadata.
+                            properties:
+                              name:
+                                default: ""
+                                description: |-
+                                  Name of the referent.
+                                  This field is effectively required, but due to backwards compatibility is
+                                  allowed to be empty. Instances of this type with an empty value here are
+                                  almost certainly wrong.
+                                  More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                type: string
+                            type: object
+                            x-kubernetes-map-type: atomic
                           networkData:
                             description: NetworkData contains NoCloud inline cloud-init
                               networkdata.
@@ -24925,6 +25051,27 @@ var CRDsValidation map[string]string = map[string]string{
                                   The Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
                                   More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html
                                 properties:
+                                  metaData:
+                                    additionalProperties:
+                                      type: string
+                                    description: MetaData contains config drive inline
+                                      cloud-init metadata as key-value pairs.
+                                    type: object
+                                  metaDataSecretRef:
+                                    description: MetaDataSecretRef references a k8s
+                                      secret that contains config drive metadata.
+                                    properties:
+                                      name:
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        type: string
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   networkData:
                                     description: NetworkData contains config drive
                                       inline cloud-init networkdata.
@@ -24979,6 +25126,27 @@ var CRDsValidation map[string]string = map[string]string{
                                   The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
                                   More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
                                 properties:
+                                  metaData:
+                                    additionalProperties:
+                                      type: string
+                                    description: MetaData contains NoCloud inline
+                                      cloud-init metadata as key-value pairs.
+                                    type: object
+                                  metaDataSecretRef:
+                                    description: MetaDataSecretRef references a k8s
+                                      secret that contains NoCloud metadata.
+                                    properties:
+                                      name:
+                                        default: ""
+                                        description: |-
+                                          Name of the referent.
+                                          This field is effectively required, but due to backwards compatibility is
+                                          allowed to be empty. Instances of this type with an empty value here are
+                                          almost certainly wrong.
+                                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                        type: string
+                                    type: object
+                                    x-kubernetes-map-type: atomic
                                   networkData:
                                     description: NetworkData contains NoCloud inline
                                       cloud-init networkdata.
@@ -30371,6 +30539,29 @@ var CRDsValidation map[string]string = map[string]string{
                                       The Config Drive data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
                                       More info: https://cloudinit.readthedocs.io/en/latest/topics/datasources/configdrive.html
                                     properties:
+                                      metaData:
+                                        additionalProperties:
+                                          type: string
+                                        description: MetaData contains config drive
+                                          inline cloud-init metadata as key-value
+                                          pairs.
+                                        type: object
+                                      metaDataSecretRef:
+                                        description: MetaDataSecretRef references
+                                          a k8s secret that contains config drive
+                                          metadata.
+                                        properties:
+                                          name:
+                                            default: ""
+                                            description: |-
+                                              Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            type: string
+                                        type: object
+                                        x-kubernetes-map-type: atomic
                                       networkData:
                                         description: NetworkData contains config drive
                                           inline cloud-init networkdata.
@@ -30428,6 +30619,27 @@ var CRDsValidation map[string]string = map[string]string{
                                       The NoCloud data will be added as a disk to the vmi. A proper cloud-init installation is required inside the guest.
                                       More info: http://cloudinit.readthedocs.io/en/latest/topics/datasources/nocloud.html
                                     properties:
+                                      metaData:
+                                        additionalProperties:
+                                          type: string
+                                        description: MetaData contains NoCloud inline
+                                          cloud-init metadata as key-value pairs.
+                                        type: object
+                                      metaDataSecretRef:
+                                        description: MetaDataSecretRef references
+                                          a k8s secret that contains NoCloud metadata.
+                                        properties:
+                                          name:
+                                            default: ""
+                                            description: |-
+                                              Name of the referent.
+                                              This field is effectively required, but due to backwards compatibility is
+                                              allowed to be empty. Instances of this type with an empty value here are
+                                              almost certainly wrong.
+                                              More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                            type: string
+                                        type: object
+                                        x-kubernetes-map-type: atomic
                                       networkData:
                                         description: NetworkData contains NoCloud
                                           inline cloud-init networkdata.
