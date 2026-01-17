@@ -190,6 +190,15 @@ var _ = Describe("VMI network spec", func() {
 				)
 				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
 			})
+
+			It("should allow migration if the VMI uses passtBinding to connect to the pod network", func() {
+				network := podNetwork(podNet0)
+				vmi := libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(podNet0)),
+					libvmi.WithNetwork(&network),
+				)
+				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
+			})
 		})
 	})
 
