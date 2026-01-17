@@ -94,13 +94,13 @@ func (DeviceStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "DeviceStatus has the information of all devices allocated spec.domain.devices\n+k8s:openapi-gen=true",
 		"gpuStatuses":        "GPUStatuses reflects the state of GPUs requested in spec.domain.devices.gpus\n+listType=atomic\n+optional",
-		"hostDeviceStatuses": "HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices\nDRA\n+listType=atomic\n+optional",
+		"hostDeviceStatuses": "HostDeviceStatuses reflects the state of DRA devices requested in spec.domain.devices.hostDevices\nand DRA networks requested in spec.networks\n+listType=atomic\n+optional",
 	}
 }
 
 func (DeviceStatusInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"name":                      "Name of the device as specified in spec.domain.devices.gpus.name or spec.domain.devices.hostDevices.name",
+		"name":                      "Name of the device as specified in spec.domain.devices.gpus.name, spec.domain.devices.hostDevices.name, or spec.networks.name",
 		"deviceResourceClaimStatus": "DeviceResourceClaimStatus reflects the DRA related information for the device",
 	}
 }
