@@ -44,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	v1 "kubevirt.io/api/core/v1"
 	api2 "kubevirt.io/client-go/api"
@@ -3899,6 +3900,192 @@ var _ = Describe("calculateHotplugPortCount", func() {
 		Entry("with 3G memory and 12 ports in use", uint64(3*gb), 12, 6),
 		Entry("with 3G memory and 16 ports in use", uint64(3*gb), 16, 6),
 	)
+})
+
+var _ = Describe("syncDiskExpansion", func() {
+	var (
+		ctrl       *gomock.Controller
+		mockDomain *cli.MockVirDomain
+		manager    *LibvirtDomainManager
+		domain     *api.Domain
+	)
+
+	BeforeEach(func() {
+		ctrl = gomock.NewController(GinkgoT())
+		mockDomain = cli.NewMockVirDomain(ctrl)
+		manager = &LibvirtDomainManager{
+			diskGuestSizeCache: make(map[string]uint64),
+		}
+		domain = &api.Domain{
+			Spec: api.DomainSpec{},
+		}
+	})
+
+	It("should not expand disk if expand disk is disabled", func() {
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			ExpandDisksEnabled: false, // This will cause shouldExpandOnline to be false
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		// BlockResize should not be called
+		mockDomain.EXPECT().BlockResize(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		err := manager.syncDiskExpansion(domain, mockDomain)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should set the guest size cache if not exists, and later use it if exists", func() {
+		guestSize := int64(20 * 1024 * 1024) // 20MiB
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			ExpandDisksEnabled: true,
+			Capacity:           &guestSize,
+			FilesystemOverhead: ptr.To(v1.Percent("0")),
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: uint64(guestSize),
+		}, nil).Times(1)
+
+		// First time should call GetBlockInfo and set cache
+		err := manager.syncDiskExpansion(domain, mockDomain)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manager.diskGuestSizeCache[disk.Source.File]).To(Equal(uint64(guestSize)))
+
+		// Second time should use cache
+		err = manager.syncDiskExpansion(domain, mockDomain)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should not expand disk if guest size is equal to possible size", func() {
+		capacity := int64(20 * 1024 * 1024) // 20MiB
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			ExpandDisksEnabled: true,
+			Capacity:           &capacity,
+			FilesystemOverhead: ptr.To(v1.Percent("0")),
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		guestSize := uint64(capacity)
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: guestSize,
+		}, nil)
+
+		// BlockResize should not be called
+		mockDomain.EXPECT().BlockResize(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		err := manager.syncDiskExpansion(domain, mockDomain)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should not expand disk if guest size is greater than possible size", func() {
+		capacity := int64(10 * 1024 * 1024) // 10MiB
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			ExpandDisksEnabled: true,
+			Capacity:           &capacity,
+			FilesystemOverhead: ptr.To(v1.Percent("0")),
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		guestSize := uint64(20 * 1024 * 1024) // 20MiB
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: guestSize,
+		}, nil)
+
+		// BlockResize should not be called
+		mockDomain.EXPECT().BlockResize(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		err := manager.syncDiskExpansion(domain, mockDomain)
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	It("should expand disk if guest size is smaller than possible size and set cache to new size", func() {
+		capacity := int64(20 * 1024 * 1024) // 20MiB
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			ExpandDisksEnabled: true,
+			Capacity:           &capacity,
+			FilesystemOverhead: ptr.To(v1.Percent("0")),
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		guestSize := uint64(10 * 1024 * 1024) // 10MiB, less than possibleGuestSize
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: guestSize,
+		}, nil)
+
+		// Expect BlockResize to be called
+		possibleSize, ok := possibleGuestSize(disk)
+		Expect(ok).To(BeTrue())
+		mockDomain.EXPECT().BlockResize(disk.Source.File, uint64(possibleSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES).Return(nil)
+
+		err := manager.syncDiskExpansion(domain, mockDomain)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manager.diskGuestSizeCache[disk.Source.File]).To(Equal(uint64(possibleSize)))
+	})
+
+	It("should not set cache to new size if BlockResize fails", func() {
+		capacity := int64(20 * 1024 * 1024) // 20MiB
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			ExpandDisksEnabled: true,
+			Capacity:           &capacity,
+			FilesystemOverhead: ptr.To(v1.Percent("0")),
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		guestSize := uint64(10 * 1024 * 1024) // 10MiB, less than possibleGuestSize
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: guestSize,
+		}, nil)
+
+		// Expect BlockResize to be called
+		possibleSize, ok := possibleGuestSize(disk)
+		Expect(ok).To(BeTrue())
+		mockDomain.EXPECT().BlockResize(disk.Source.File, uint64(possibleSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES).Return(fmt.Errorf("resize failed"))
+
+		err := manager.syncDiskExpansion(domain, mockDomain)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(manager.diskGuestSizeCache[disk.Source.File]).To(Equal(uint64(guestSize)))
+	})
+
+	It("should not expand disk if possibleGuestSize returns an error", func() {
+		disk := api.Disk{
+			Source: api.DiskSource{
+				File: "/test/disk.img",
+			},
+			ExpandDisksEnabled: true,
+			// Missing Capacity to make possibleGuestSize fail
+		}
+		domain.Spec.Devices.Disks = []api.Disk{disk}
+
+		// Mock shouldExpandOnline dependencies
+		mockDomain.EXPECT().GetBlockInfo(disk.Source.File, uint32(0)).Return(&libvirt.DomainBlockInfo{
+			Capacity: 10 * 1024 * 1024, // 10MiB, less than possibleGuestSize
+		}, nil)
+
+		// BlockResize should not be called
+		mockDomain.EXPECT().BlockResize(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+		err := manager.syncDiskExpansion(domain, mockDomain)
+		Expect(err).ToNot(HaveOccurred())
+	})
 })
 
 func newVMI(namespace, name string) *v1.VirtualMachineInstance {
