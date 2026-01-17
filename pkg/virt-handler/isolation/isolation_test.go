@@ -253,9 +253,76 @@ var _ = Describe("IsolationResult", func() {
 					},
 					rootMountPoint,
 				})
-				path, err := ParentPathForMount(mockIsolationResultNode, mockIsolationResultContainer, "somehost:/somepath", "/target")
+				path, err := ParentPathForMount(mockIsolationResultNode, mockIsolationResultContainer, "somehost:/somepath", "/target", "")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root", tmpDir, "/match")))
+			})
+
+			It("Should find the correct mount based on pod UID when multiple pods have volumes from the same device", func() {
+				// This test simulates issue #16520: when multiple attachment pods exist
+				// with volumes from the same underlying device (same major:minor), we need
+				// the pod UID to disambiguate and select the correct mount.
+				const targetPodUID = "target-pod-uid-1234"
+				const wrongPodUID = "wrong-pod-uid-5678"
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/var/lib/kubelet/pods", targetPodUID, "volumes/kubernetes.io~csi/pvc-123/mount"), os.ModePerm)).To(Succeed())
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/var/lib/kubelet/pods", wrongPodUID, "volumes/kubernetes.io~csi/pvc-123/mount"), os.ModePerm)).To(Succeed())
+				initMountsMock(mockIsolationResultContainer, []*mount.Info{
+					{
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/target",
+						Root:       "/",
+					},
+					rootMountPoint,
+				})
+				initMountsMock(mockIsolationResultNode, []*mount.Info{
+					{
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/var/lib/kubelet/pods/" + wrongPodUID + "/volumes/kubernetes.io~csi/pvc-123/mount",
+						Root:       "/",
+					}, {
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/var/lib/kubelet/pods/" + targetPodUID + "/volumes/kubernetes.io~csi/pvc-123/mount",
+						Root:       "/",
+					},
+					rootMountPoint,
+				})
+				path, err := ParentPathForMount(mockIsolationResultNode, mockIsolationResultContainer, "", "/target", targetPodUID)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root", tmpDir, "/var/lib/kubelet/pods", targetPodUID, "volumes/kubernetes.io~csi/pvc-123/mount")))
+			})
+
+			It("Should find the correct mount for hostPath-backed volumes using root mount as parent", func() {
+				// Regression test: for hostPath PVC-backed volumes, the only matching
+				// parent mount in the node's mountinfo is the root filesystem mount at "/".
+				// The pod UID filter must NOT filter out non-kubelet-pods mounts like "/".
+				Expect(os.MkdirAll(filepath.Join(tmpDir, "/mnt/local-storage/hotplug-test"), os.ModePerm)).To(Succeed())
+				const attachPodUID = "attach-pod-uid-abcd"
+				initMountsMock(mockIsolationResultContainer, []*mount.Info{
+					{
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/var/run/kubevirt/hotplug-disks/testvolume",
+						Root:       "/mnt/local-storage/hotplug-test",
+					},
+					rootMountPoint,
+				})
+				// Node mountinfo: only the root mount (no pod-specific bind mount exists
+				// for hostPath volumes).
+				initMountsMock(mockIsolationResultNode, []*mount.Info{
+					{
+						Major:      200,
+						Minor:      123,
+						Mountpoint: "/",
+						Root:       "/",
+					},
+					rootMountPoint,
+				})
+				path, err := ParentPathForMount(mockIsolationResultNode, mockIsolationResultContainer, "", "/var/run/kubevirt/hotplug-disks/testvolume", attachPodUID)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root", tmpDir, "/mnt/local-storage/hotplug-test")))
 			})
 
 			It("Should find the longest root, if major and minor match", func() {
@@ -288,7 +355,7 @@ var _ = Describe("IsolationResult", func() {
 					},
 					rootMountPoint,
 				})
-				path, err := ParentPathForMount(mockIsolationResultNode, mockIsolationResultContainer, "", "/target")
+				path, err := ParentPathForMount(mockIsolationResultNode, mockIsolationResultContainer, "", "/target", "")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(unsafepath.UnsafeAbsolute(path.Raw())).To(Equal(filepath.Join("/proc/self/root", tmpDir, "/match/something")))
 			})
