@@ -142,8 +142,10 @@ var (
 		parent isolation.IsolationResult,
 		child isolation.IsolationResult,
 		findmntInfo FindmntInfo,
+		podUID string,
+		kubeletPodsDir string,
 	) (*safepath.Path, error) {
-		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target)
+		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target, podUID, kubeletPodsDir)
 	}
 )
 
@@ -357,10 +359,11 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
 		}
 
 		mountDirectory := m.isDirectoryMounted(vmi, volumeStatus.Name)
-		if sourceUID == "" {
-			sourceUID = volumeStatus.HotplugVolume.AttachPodUID
+		volumeSourceUID := sourceUID
+		if volumeSourceUID == "" {
+			volumeSourceUID = volumeStatus.HotplugVolume.AttachPodUID
 		}
-		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, sourceUID, record, mountDirectory, cgroupManager); err != nil {
+		if err := m.mountHotplugVolume(vmi, volumeStatus.Name, volumeSourceUID, record, mountDirectory, cgroupManager); err != nil {
 			return err
 		}
 	}
@@ -608,7 +611,7 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 	for _, findmnt := range findmounts {
 		if filepath.Base(findmnt.Target) == volume {
 			source := findmnt.GetSourcePath()
-			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt)
+			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt, string(sourceUID), m.kubeletPodsDir)
 			exists := !errors.Is(err, os.ErrNotExist)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, err
