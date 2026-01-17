@@ -113,10 +113,24 @@ func haveCurrentNetsChanged(desiredNetsByName, currentNetsByName map[string]v1.N
 	for currentNetName, currentNet := range currentNetsByName {
 		desiredNet := desiredNetsByName[currentNetName]
 
-		if !reflect.DeepEqual(desiredNet, currentNet) {
+		if !areNormalizedNetsEqual(desiredNet, currentNet) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func areNormalizedNetsEqual(net1, net2 v1.Network) bool {
+	normalizedNet1 := net1.DeepCopy()
+	if normalizedNet1.Multus != nil {
+		normalizedNet1.Multus.NetworkName = ""
+	}
+
+	normalizedNet2 := net2.DeepCopy()
+	if normalizedNet2.Multus != nil {
+		normalizedNet2.Multus.NetworkName = ""
+	}
+
+	return reflect.DeepEqual(normalizedNet1, normalizedNet2)
 }

@@ -20,12 +20,15 @@
 package migration
 
 import (
+	"encoding/json"
 	"slices"
 	"time"
 
 	k8scorev1 "k8s.io/api/core/v1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -56,11 +59,12 @@ func NewEvaluatorWithTimeProvider(timeProvider timeProviderFunc) Evaluator {
 	return Evaluator{timeProvider: timeProvider}
 }
 
-func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance) k8scorev1.ConditionStatus {
+func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) k8scorev1.ConditionStatus {
 	result := shouldVMIBeMarkedForAutoMigration(
 		vmi.Spec.Domain.Devices.Interfaces,
 		vmi.Spec.Networks,
 		vmi.Status.Interfaces,
+		pod,
 	)
 
 	switch result {
@@ -86,6 +90,7 @@ func shouldVMIBeMarkedForAutoMigration(
 	ifaces []v1.Interface,
 	nets []v1.Network,
 	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+	pod *k8scorev1.Pod,
 ) migrationRequirementKind {
 	secondaryIfaces := vmispec.FilterInterfacesByNetworks(
 		ifaces,
@@ -93,6 +98,8 @@ func shouldVMIBeMarkedForAutoMigration(
 	)
 
 	ifaceStatusesByName := vmispec.IndexInterfaceStatusByName(ifaceStatuses, nil)
+
+	netsByName := vmispec.IndexNetworkSpecByName(nets)
 
 	for _, iface := range secondaryIfaces {
 		ifaceStatus, ifaceStatusExists := ifaceStatusesByName[iface.Name]
@@ -110,9 +117,43 @@ func shouldVMIBeMarkedForAutoMigration(
 			!vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain) {
 			return pendingMigration
 		}
-	}
 
+		if iface.State != v1.InterfaceStateAbsent && ifaceStatusExists {
+			net, netExists := netsByName[iface.Name]
+			if netExists && net.Multus != nil {
+				if net.Multus.NetworkName != nadNameFromPod(pod, ifaceStatus.PodInterfaceName) {
+					return immediateMigration
+				}
+			}
+		}
+	}
 	return notRequired
+}
+
+type MultusNetSelectionElement struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Interface string `json:"interface"`
+}
+
+func nadNameFromPod(pod *k8scorev1.Pod, ifaceName string) string {
+	if pod == nil {
+		return ""
+	}
+	annot, ok := pod.Annotations[networkv1.NetworkAttachmentAnnot]
+	if !ok {
+		return ""
+	}
+	var elements []MultusNetSelectionElement
+	if err := json.Unmarshal([]byte(annot), &elements); err != nil {
+		return ""
+	}
+	for _, element := range elements {
+		if element.Interface == ifaceName {
+			return element.Name
+		}
+	}
+	return ""
 }
 
 func lookupMigrationRequiredCondition(conditions []v1.VirtualMachineInstanceCondition) *v1.VirtualMachineInstanceCondition {
