@@ -21,13 +21,7 @@
 set -e
 
 PROJECT_ROOT="$(readlink -e "$(dirname "${BASH_SOURCE[0]}")"/../../)"
-export METRICS_DOC_PATH="${METRICS_DOC_PATH:-${PROJECT_ROOT}/docs/observability/metrics.md}"
 export METRICS_COLLECTOR_PATH="${METRICS_COLLECTOR_PATH:-${PROJECT_ROOT}/tools/prom-metrics-collector}"
-
-if [[ ! -f "$METRICS_DOC_PATH" ]]; then
-    echo "Invalid METRICS_DOC_PATH: $METRICS_DOC_PATH is not a valid file path"
-    exit 1
-fi
 
 if [[ ! -d "$METRICS_COLLECTOR_PATH" ]]; then
     echo "Invalid METRICS_COLLECTOR_PATH: $METRICS_COLLECTOR_PATH is not a valid directory path"
@@ -36,6 +30,6 @@ fi
 
 # Get the metrics list
 go build -o _out/prom-metrics-collector "$METRICS_COLLECTOR_PATH/..."
-json_output=$(_out/prom-metrics-collector "$METRICS_DOC_PATH" 2>/dev/null)
+json_output=$(_out/prom-metrics-collector 2>/dev/null)
 
 echo "$json_output"
