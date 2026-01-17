@@ -153,11 +153,16 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 		updatedMultusAnnotation,
 	)
 
-	if updatedMultusAnnotation == currentMultusAnnotation {
+	mergedMultusAnnotation, err := multus.MergeNetworkSelectionElements(updatedMultusAnnotation, currentMultusAnnotation)
+	if err != nil {
 		return "", false
 	}
 
-	return updatedMultusAnnotation, true
+	if mergedMultusAnnotation == currentMultusAnnotation {
+		return "", false
+	}
+
+	return mergedMultusAnnotation, true
 }
 
 func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
