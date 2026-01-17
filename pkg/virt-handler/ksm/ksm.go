@@ -53,6 +53,9 @@ const (
 	nPagesInitDefault      = 100
 	sleepMsBaselineDefault = 100 // 10ms in oVirt seemed really low
 	freePercentDefault     = 0.2
+	ksmLoopIntervalMinutes = 3 * time.Minute
+	requiredMemInfoFields  = 2
+	ksmFilePermissions     = 0o600
 )
 
 var (
@@ -87,7 +90,9 @@ type Handler struct {
 	loopChan       chan struct{}
 }
 
-func NewHandler(nodeName string, client k8scorev1.CoreV1Interface, nodeStore cache.Store, clusterConfig *virtconfig.ClusterConfig) *Handler {
+func NewHandler(
+	nodeName string, client k8scorev1.CoreV1Interface, nodeStore cache.Store, clusterConfig *virtconfig.ClusterConfig,
+) *Handler {
 	return &Handler{
 		isLoopRunning:  false,
 		clusterConfig:  clusterConfig,
@@ -114,13 +119,13 @@ func (k *Handler) Start() {
 
 func (k *Handler) loop() {
 	k.spin()
-	ticker := time.NewTicker(3 * time.Minute)
+	ticker := time.NewTicker(ksmLoopIntervalMinutes)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-k.extChangesChan:
 			k.spin()
-			ticker.Reset(3 * time.Minute)
+			ticker.Reset(ksmLoopIntervalMinutes)
 		case <-ticker.C:
 			k.spin()
 		case <-k.loopChan:
@@ -241,7 +246,7 @@ func (k *Handler) disableKSM() {
 	}
 
 	if value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]; found && value == "true" {
-		if err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644); err != nil {
+		if err := os.WriteFile(ksmRunPath, []byte("0\n"), ksmFilePermissions); err != nil {
 			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
 		}
 	}
@@ -267,9 +272,7 @@ func (k *Handler) getNode() (*k8sv1.Node, error) {
 }
 
 // Inspired from https://github.com/artyom/meminfo
-func getTotalAndAvailableMem() (uint64, uint64, error) {
-	var total, available uint64
-
+func getTotalAndAvailableMem() (total, available uint64, err error) {
 	f, err := os.Open(memInfoPath)
 	if err != nil {
 		return 0, 0, err
@@ -277,7 +280,7 @@ func getTotalAndAvailableMem() (uint64, uint64, error) {
 	defer f.Close()
 	s := bufio.NewScanner(f)
 	found := 0
-	for s.Scan() && found < 2 {
+	for s.Scan() && found < requiredMemInfoFields {
 		switch {
 		case bytes.HasPrefix(s.Bytes(), []byte(`MemTotal:`)):
 			_, err = fmt.Sscanf(s.Text(), "MemTotal:%d", &total)
@@ -292,7 +295,7 @@ func getTotalAndAvailableMem() (uint64, uint64, error) {
 			return 0, 0, err
 		}
 	}
-	if found != 2 {
+	if found != requiredMemInfoFields {
 		return 0, 0, fmt.Errorf("failed to find total and available memory")
 	}
 
@@ -320,6 +323,7 @@ func calculateNewRunSleepAndPages(node *k8sv1.Node, running bool) (ksmState, err
 	nPagesMin := getIntParam(node, v1.KSMPagesMinOverride, nPagesMinDefault, 0, math.MaxInt)
 	nPagesMax := getIntParam(node, v1.KSMPagesMaxOverride, nPagesMaxDefault, nPagesMin, math.MaxInt)
 	nPagesInit := getIntParam(node, v1.KSMPagesInitOverride, nPagesInitDefault, nPagesMin, nPagesMax)
+	//nolint:gosec // sleepMsBaseline is constrained to be >= 1, so conversion to uint64 is safe
 	sleepMsBaseline := uint64(getIntParam(node, v1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
 	freePercent := getFloatParam(node, v1.KSMFreePercentOverride, freePercentDefault, 0, 1)
 	ksm := ksmState{running: running}
@@ -373,16 +377,16 @@ func writeKsmValuesToFiles(ksm ksmState) error {
 	if ksm.running {
 		run = "1"
 
-		err := os.WriteFile(ksmSleepPath, []byte(strconv.FormatUint(ksm.sleep, 10)), 0644)
+		err := os.WriteFile(ksmSleepPath, []byte(strconv.FormatUint(ksm.sleep, 10)), ksmFilePermissions)
 		if err != nil {
 			return err
 		}
-		err = os.WriteFile(ksmPagesPath, []byte(strconv.Itoa(ksm.pages)), 0644)
+		err = os.WriteFile(ksmPagesPath, []byte(strconv.Itoa(ksm.pages)), ksmFilePermissions)
 		if err != nil {
 			return err
 		}
 	}
-	err := os.WriteFile(ksmRunPath, []byte(run), 0644)
+	err := os.WriteFile(ksmRunPath, []byte(run), ksmFilePermissions)
 	if err != nil {
 		return err
 	}
@@ -390,7 +394,7 @@ func writeKsmValuesToFiles(ksm ksmState) error {
 	return nil
 }
 
-func loadKSM() (bool, bool) {
+func loadKSM() (available, enabled bool) {
 	ksmValue, err := os.ReadFile(ksmRunPath)
 	if err != nil {
 		log.DefaultLogger().Warningf("An error occurred while reading the ksm module file; Maybe it is not available: %s", err)
