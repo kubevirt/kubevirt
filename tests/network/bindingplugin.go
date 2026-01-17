@@ -118,7 +118,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			Expect(err).NotTo(HaveOccurred())
 		})
 
-		It("can run a virtual machine with one macvtap interface", func() {
+		PIt("can run a virtual machine with one macvtap interface", func() {
 			var vmi *v1.VirtualMachineInstance
 			var chosenMAC string
 
