@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+	"kubevirt.io/kubevirt/tests/watcher"
 )
 
 var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedulableNodes, func() {
@@ -141,13 +142,9 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 			}
 
 			By("Starting the VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
-
 			By("Checking that the VirtualMachineInstance console has expected output")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-			// Need to wait for cloud init to finish and start the agent inside the vmi.
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			Expect(err).ToNot(HaveOccurred())
 
 			runStressTest(vmi, "350M")
 
@@ -224,10 +221,7 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 				applyKubevirtCR()
 
 				By("Waiting for the VirtualMachine to be ready")
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
-
-				// Need to wait for cloud init to finish and start the agent inside the vmi.
-				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToFedoraWaitAgent)
 
 				runStressTest(vmi, "350M")
 
@@ -298,13 +292,9 @@ func VMIMigrationWithGuestAgent(virtClient kubecli.KubevirtClient, pvName string
 		AlignPolicyAndVmi(vmi, migrationPolicy)
 		migrationPolicy = CreateMigrationPolicy(virtClient, migrationPolicy)
 	}
-	vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
-
-	// Wait for cloud init to finish and start the agent inside the vmi.
-	Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
 	By("Checking that the VirtualMachineInstance console has expected output")
-	Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
+	vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(180), libwait.WithWarningsPolicy(&watcher.WarningsPolicy{FailOnWarnings: false}))
+	Expect(err).ToNot(HaveOccurred())
 
 	if mode == v1.MigrationPostCopy {
 		By("Running stress test to allow transition to post-copy")
