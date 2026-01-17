@@ -384,3 +384,30 @@ func TestErrWithMsgf(t *testing.T) {
 	assert(t, logEntry[11].(string) == "test", "Logged line did not contain message")
 	tearDown()
 }
+
+func TestInfofVerbosity(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(INFO)
+	log.SetVerbosityLevel(2)
+
+	logCalled = false
+	log.V(3).Infof("This should not be logged: verbosity %d", 3)
+	assert(t, !logCalled, "V(3).Infof() should not log when verbosity level is 2")
+
+	logCalled = false
+	log.V(2).Infof("This should be logged: verbosity %d", 2)
+	assert(t, logCalled, "V(2).Infof() should log when verbosity level is 2")
+
+	logEntry := logParams[len(logParams)-1].([]interface{})
+	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+	assert(t, logEntry[1].(string) == LogLevelNames[INFO], "Logged line was not INFO level")
+
+	warningLog := log.Level(WARNING)
+	logCalled = false
+	logParams = make([]interface{}, 0)
+	warningLog.V(3).Infof("This should not be logged: verbosity %d", 3)
+	assert(t, !logCalled, "V(3).Infof() should not log when verbosity level is 2, even after Level(WARNING)")
+
+	tearDown()
+}
