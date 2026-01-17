@@ -148,6 +148,11 @@ const (
 	// Alpha: v1.7.0
 	//
 	MigrationPriorityQueue = "MigrationPriorityQueue"
+
+	// Enables using the spec.domain.memory.ReservedOverhead field which
+	// can specify some required memory overhead as well as whether VM
+	// memory (and overhead) needs to be locked or not
+	ReservedOverheadMemlock = "ReservedOverheadMemlock"
 )
 
 func init() {
@@ -183,4 +188,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 }
