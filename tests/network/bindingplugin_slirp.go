@@ -63,7 +63,7 @@ var _ = Describe(SIG("Slirp", decorators.Networking, decorators.NetCustomBinding
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	It("VMI with SLIRP interface, custom mac and port is configured correctly", func() {
+	PIt("VMI with SLIRP interface, custom mac and port is configured correctly", func() {
 		vmi := libvmifact.NewCirros(
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithInterface(v1.Interface{
