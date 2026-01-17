@@ -418,13 +418,19 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *v1.V
 		}
 	}
 
+	// Collect host devices and networks based on their respective feature gates
+	var allDeviceInfo []DeviceInfo
+
 	if c.clusterConfig.HostDevicesWithDRAEnabled() {
 		hostDeviceInfo, err := c.getHostDevicesFromVMISpec(vmi)
 		if err != nil {
 			return err
 		}
+		allDeviceInfo = append(allDeviceInfo, hostDeviceInfo...)
+	}
 
-		hostDeviceStatuses, err = c.getHostDeviceStatuses(hostDeviceInfo, pod)
+	if len(allDeviceInfo) > 0 {
+		hostDeviceStatuses, err = c.getHostDeviceStatuses(allDeviceInfo, pod)
 		if err != nil {
 			return err
 		}
@@ -586,6 +592,12 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 	}
 	if resourceClaim.Status.Allocation.Devices.Results == nil {
 		return nil, nil
+	}
+
+	// TODO check if we need it since we made requestName on networks mandatory
+	// depends on what we decide for hostDevices and GPU (but basically this is correct)
+	if requestName == "" && len(resourceClaim.Status.Allocation.Devices.Results) == 1 {
+		return resourceClaim.Status.Allocation.Devices.Results[0].DeepCopy(), nil
 	}
 
 	for _, status := range resourceClaim.Status.Allocation.Devices.Results {

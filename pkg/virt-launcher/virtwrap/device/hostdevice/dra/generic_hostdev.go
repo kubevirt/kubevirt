@@ -66,6 +66,12 @@ func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 
 	for _, hdStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
 		hdStatus := hdStatus.DeepCopy()
+
+		// Skip network devices - they are handled by SR-IOV DRA code
+		if isNetworkDevice(vmi, hdStatus.Name) {
+			continue
+		}
+
 		if hdStatus.DeviceResourceClaimStatus != nil && hdStatus.DeviceResourceClaimStatus.Attributes != nil {
 			if hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
 				hostAddr, err := device.NewPciAddressField(*hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress)
@@ -92,6 +98,12 @@ func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, er
 
 	for _, hdStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
 		hdStatus := hdStatus.DeepCopy()
+
+		// Skip network devices - they are handled by SR-IOV DRA code
+		if isNetworkDevice(vmi, hdStatus.Name) {
+			continue
+		}
+
 		if hdStatus.DeviceResourceClaimStatus != nil && hdStatus.DeviceResourceClaimStatus.Attributes != nil {
 			if hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
 				continue
@@ -108,6 +120,17 @@ func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, er
 		}
 	}
 	return hostDevices, nil
+}
+
+// isNetworkDevice checks if a device status name corresponds to a network
+func isNetworkDevice(vmi *v1.VirtualMachineInstance, deviceName string) bool {
+	// Check if this name matches a network name
+	for _, net := range vmi.Spec.Networks {
+		if net.Name == deviceName && drautil.IsNetworkDRA(net) {
+			return true
+		}
+	}
+	return false
 }
 
 func validateCreationOfDRAHostDevices(genericHostDevices []v1.HostDevice, hostDevices []api.HostDevice) error {
