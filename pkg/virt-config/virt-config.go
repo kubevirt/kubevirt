@@ -30,8 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 const (
@@ -474,8 +472,7 @@ func (c *ClusterConfig) GetInstancetypeReferencePolicy() v1.InstancetypeReferenc
 }
 
 func (c *ClusterConfig) ClusterProfilerEnabled() bool {
-	return c.GetConfig().DeveloperConfiguration.ClusterProfiler ||
-		c.isFeatureGateDefined(featuregate.ClusterProfiler)
+	return c.GetConfig().DeveloperConfiguration.ClusterProfiler
 }
 
 func (c *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
