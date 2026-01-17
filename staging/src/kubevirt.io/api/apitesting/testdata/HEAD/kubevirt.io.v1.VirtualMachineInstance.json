@@ -769,6 +769,10 @@
           "claimName": "claimNameValue",
           "readOnly": true,
           "hotpluggable": true
+        },
+        "containerPath": {
+          "path": "pathValue",
+          "readOnly": true
         }
       }
     ],

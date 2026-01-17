@@ -8016,6 +8016,28 @@ var CRDsValidation map[string]string = map[string]string{
                         required:
                         - image
                         type: object
+                      containerPath:
+                        description: |-
+                          ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+                          The path must correspond to a volumeMount in the virt-launcher container.
+                          More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+                        properties:
+                          path:
+                            description: |-
+                              Path is the absolute path in the virt-launcher container to expose to the VM.
+                              The path must:
+                              - Be an absolute path (start with /)
+                              - Correspond to a volumeMount in the virt-launcher pod
+                              - Not contain path traversal attempts (..)
+                            type: string
+                          readOnly:
+                            description: |-
+                              ReadOnly specifies whether the volume should be mounted read-only in the VM.
+                              Defaults to true for security.
+                            type: boolean
+                        required:
+                        - path
+                        type: object
                       dataVolume:
                         description: |-
                           DataVolume represents the dynamic creation a PVC for this volume as well as
@@ -13762,6 +13784,28 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                 required:
                 - image
+                type: object
+              containerPath:
+                description: |-
+                  ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+                  The path must correspond to a volumeMount in the virt-launcher container.
+                  More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+                properties:
+                  path:
+                    description: |-
+                      Path is the absolute path in the virt-launcher container to expose to the VM.
+                      The path must:
+                      - Be an absolute path (start with /)
+                      - Correspond to a volumeMount in the virt-launcher pod
+                      - Not contain path traversal attempts (..)
+                    type: string
+                  readOnly:
+                    description: |-
+                      ReadOnly specifies whether the volume should be mounted read-only in the VM.
+                      Defaults to true for security.
+                    type: boolean
+                required:
+                - path
                 type: object
               dataVolume:
                 description: |-
@@ -20065,6 +20109,28 @@ var CRDsValidation map[string]string = map[string]string{
                         required:
                         - image
                         type: object
+                      containerPath:
+                        description: |-
+                          ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+                          The path must correspond to a volumeMount in the virt-launcher container.
+                          More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+                        properties:
+                          path:
+                            description: |-
+                              Path is the absolute path in the virt-launcher container to expose to the VM.
+                              The path must:
+                              - Be an absolute path (start with /)
+                              - Correspond to a volumeMount in the virt-launcher pod
+                              - Not contain path traversal attempts (..)
+                            type: string
+                          readOnly:
+                            description: |-
+                              ReadOnly specifies whether the volume should be mounted read-only in the VM.
+                              Defaults to true for security.
+                            type: boolean
+                        required:
+                        - path
+                        type: object
                       dataVolume:
                         description: |-
                           DataVolume represents the dynamic creation a PVC for this volume as well as
@@ -25080,6 +25146,28 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: string
                                 required:
                                 - image
+                                type: object
+                              containerPath:
+                                description: |-
+                                  ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+                                  The path must correspond to a volumeMount in the virt-launcher container.
+                                  More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+                                properties:
+                                  path:
+                                    description: |-
+                                      Path is the absolute path in the virt-launcher container to expose to the VM.
+                                      The path must:
+                                      - Be an absolute path (start with /)
+                                      - Correspond to a volumeMount in the virt-launcher pod
+                                      - Not contain path traversal attempts (..)
+                                    type: string
+                                  readOnly:
+                                    description: |-
+                                      ReadOnly specifies whether the volume should be mounted read-only in the VM.
+                                      Defaults to true for security.
+                                    type: boolean
+                                required:
+                                - path
                                 type: object
                               dataVolume:
                                 description: |-
@@ -30531,6 +30619,28 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                     required:
                                     - image
+                                    type: object
+                                  containerPath:
+                                    description: |-
+                                      ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+                                      The path must correspond to a volumeMount in the virt-launcher container.
+                                      More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+                                    properties:
+                                      path:
+                                        description: |-
+                                          Path is the absolute path in the virt-launcher container to expose to the VM.
+                                          The path must:
+                                          - Be an absolute path (start with /)
+                                          - Correspond to a volumeMount in the virt-launcher pod
+                                          - Not contain path traversal attempts (..)
+                                        type: string
+                                      readOnly:
+                                        description: |-
+                                          ReadOnly specifies whether the volume should be mounted read-only in the VM.
+                                          Defaults to true for security.
+                                        type: boolean
+                                    required:
+                                    - path
                                     type: object
                                   dataVolume:
                                     description: |-
