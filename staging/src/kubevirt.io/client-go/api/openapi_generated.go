@@ -443,6 +443,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.HyperVPassthrough":                                                       schema_kubevirtio_api_core_v1_HyperVPassthrough(ref),
 		"kubevirt.io/api/core/v1.HypervTimer":                                                             schema_kubevirtio_api_core_v1_HypervTimer(ref),
 		"kubevirt.io/api/core/v1.I6300ESBWatchdog":                                                        schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref),
+		"kubevirt.io/api/core/v1.IOMMUDevice":                                                             schema_kubevirtio_api_core_v1_IOMMUDevice(ref),
+		"kubevirt.io/api/core/v1.IOMMUDeviceDriver":                                                       schema_kubevirtio_api_core_v1_IOMMUDeviceDriver(ref),
 		"kubevirt.io/api/core/v1.InitrdInfo":                                                              schema_kubevirtio_api_core_v1_InitrdInfo(ref),
 		"kubevirt.io/api/core/v1.Input":                                                                   schema_kubevirtio_api_core_v1_Input(ref),
 		"kubevirt.io/api/core/v1.InstancetypeConfiguration":                                               schema_kubevirtio_api_core_v1_InstancetypeConfiguration(ref),
@@ -20387,11 +20389,17 @@ func schema_kubevirtio_api_core_v1_Devices(ref common.ReferenceCallback) common.
 							Ref:         ref("kubevirt.io/api/core/v1.VideoDevice"),
 						},
 					},
+					"iommu": {
+						SchemaProps: spec.SchemaProps{
+							Description: "IOMMU configures an IOMMU device for the guest. Currently only smmuv3 is supported on arm64.",
+							Ref:         ref("kubevirt.io/api/core/v1.IOMMUDevice"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.ClientPassthroughDevices", "kubevirt.io/api/core/v1.Disk", "kubevirt.io/api/core/v1.DownwardMetrics", "kubevirt.io/api/core/v1.Filesystem", "kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.Input", "kubevirt.io/api/core/v1.Interface", "kubevirt.io/api/core/v1.PanicDevice", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.SoundDevice", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VideoDevice", "kubevirt.io/api/core/v1.Watchdog"},
+			"kubevirt.io/api/core/v1.ClientPassthroughDevices", "kubevirt.io/api/core/v1.Disk", "kubevirt.io/api/core/v1.DownwardMetrics", "kubevirt.io/api/core/v1.Filesystem", "kubevirt.io/api/core/v1.GPU", "kubevirt.io/api/core/v1.HostDevice", "kubevirt.io/api/core/v1.IOMMUDevice", "kubevirt.io/api/core/v1.Input", "kubevirt.io/api/core/v1.Interface", "kubevirt.io/api/core/v1.PanicDevice", "kubevirt.io/api/core/v1.Rng", "kubevirt.io/api/core/v1.SoundDevice", "kubevirt.io/api/core/v1.TPMDevice", "kubevirt.io/api/core/v1.VideoDevice", "kubevirt.io/api/core/v1.Watchdog"},
 	}
 }
 
@@ -21835,6 +21843,54 @@ func schema_kubevirtio_api_core_v1_I6300ESBWatchdog(ref common.ReferenceCallback
 							Description: "The action to take. Valid values are poweroff, reset, shutdown. Defaults to reset.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_IOMMUDevice(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "IOMMUDevice represents an IOMMU device configuration",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Model specifies the IOMMU model. Currently only \"smmuv3\" is supported (for arm64)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"driver": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Driver contains driver-specific configuration options",
+							Ref:         ref("kubevirt.io/api/core/v1.IOMMUDeviceDriver"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.IOMMUDeviceDriver"},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_IOMMUDeviceDriver(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "IOMMUDeviceDriver contains IOMMU driver configuration",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"pciBus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PCIBus specifies the index of the PCI bus controller that the IOMMU device is attached to",
+							Type:        []string{"integer"},
+							Format:      "int32",
 						},
 					},
 				},

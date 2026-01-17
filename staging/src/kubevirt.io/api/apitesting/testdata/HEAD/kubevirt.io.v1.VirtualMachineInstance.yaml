@@ -324,6 +324,10 @@ spec:
         sriov: {}
         state: stateValue
         tag: tagValue
+      iommu:
+        driver:
+          pciBus: 18446744073709551610
+        model: modelValue
       logSerialConsole: true
       networkInterfaceMultiqueue: true
       panicDevices:

@@ -122,3 +122,10 @@ func WithPanicDevice(model v1.PanicDeviceModel) Option {
 		vmi.Spec.Domain.Devices.PanicDevices = append(vmi.Spec.Domain.Devices.PanicDevices, v1.PanicDevice{Model: &model})
 	}
 }
+
+// WithIOMMU adds an IOMMU device configuration to the VMI
+func WithIOMMU(iommu *v1.IOMMUDevice) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		vmi.Spec.Domain.Devices.IOMMU = iommu
+	}
+}

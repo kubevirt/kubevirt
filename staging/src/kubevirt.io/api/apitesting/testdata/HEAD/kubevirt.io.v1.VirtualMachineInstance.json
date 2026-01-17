@@ -368,6 +368,12 @@
         },
         "video": {
           "type": "typeValue"
+        },
+        "iommu": {
+          "model": "modelValue",
+          "driver": {
+            "pciBus": 18446744073709551610
+          }
         }
       },
       "ioThreadsPolicy": "ioThreadsPolicyValue",

@@ -592,6 +592,7 @@ type Devices struct {
 	TPMs         []TPM              `xml:"tpm,omitempty"`
 	VSOCK        *VSOCK             `xml:"vsock,omitempty"`
 	Memory       *MemoryDevice      `xml:"memory,omitempty"`
+	IOMMU        *IOMMU             `xml:"iommu,omitempty"`
 }
 
 type PanicDevice struct {
@@ -1303,6 +1304,17 @@ type RngBackend struct {
 	Model string `xml:"model,attr"`
 	// specifies the source of entropy to be used
 	Source string `xml:",chardata"`
+}
+
+// IOMMU represents the <iommu> device element in libvirt XML
+type IOMMU struct {
+	Model  string       `xml:"model,attr"`
+	Driver *IOMMUDriver `xml:"driver,omitempty"`
+}
+
+// IOMMUDriver represents driver configuration for the IOMMU device
+type IOMMUDriver struct {
+	PCIBus *uint `xml:"pciBus,attr,omitempty"`
 }
 
 type IOThreads struct {
