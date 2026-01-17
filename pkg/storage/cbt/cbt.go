@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -297,12 +298,35 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 		volume.VolumeSource.HostDisk != nil
 }
 
-func SetChangedBlockTrackingOnVMIFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+// HandleChangedBlockTracking updates CBT status based on domain state.
+// If CBT is transitioning from Initializing to Enabled and there are trackers with checkpoints,
+// they will be marked for redefinition before enabling CBT.
+func HandleChangedBlockTracking(
+	vmi *v1.VirtualMachineInstance,
+	domain *api.Domain,
+	trackerInformer cache.SharedIndexInformer,
+	clientset kubecli.KubevirtClient,
+) error {
 	if domain == nil || vmi.Status.ChangedBlockTracking == nil || cbtStateDisabled(vmi.Status.ChangedBlockTracking) {
-		return
+		return nil
 	}
 
-	cbtSet := true
+	if !allDisksHaveDataStore(vmi, domain) {
+		return nil
+	}
+
+	// Before transitioning from Initializing to Enabled, mark trackers with checkpoints for redefinition
+	if CompareCBTState(vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing) {
+		if err := markTrackersForRedefinition(vmi, trackerInformer, clientset); err != nil {
+			return err
+		}
+	}
+
+	SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+	return nil
+}
+
+func allDisksHaveDataStore(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 	for _, volume := range vmi.Spec.Volumes {
 		if !IsCBTEligibleVolume(&volume) {
 			continue
@@ -312,21 +336,16 @@ func SetChangedBlockTrackingOnVMIFromDomain(vmi *v1.VirtualMachineInstance, doma
 			if disk.Alias.GetName() == volume.Name {
 				found = true
 				if disk.Source.DataStore == nil {
-					cbtSet = false
+					return false
 				}
 				break
 			}
 		}
-		// If we didn't find a matching disk for an eligible volume, disable CBT
 		if !found {
-			cbtSet = false
-			break
+			return false
 		}
 	}
-
-	if cbtSet {
-		SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
-	}
+	return true
 }
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {

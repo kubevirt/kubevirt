@@ -46,8 +46,18 @@ func IsChangedBlockTrackingInitializing(vmi *v1.VirtualMachineInstance) bool {
 		vmi.Status.ChangedBlockTracking.State == v1.ChangedBlockTrackingInitializing
 }
 
-func ShouldCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance) bool {
-	return IsChangedBlockTrackingInitializing(vmi)
+func shouldCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance, isHotplug bool, hotplugPhase v1.VolumePhase) bool {
+	if IsChangedBlockTrackingInitializing(vmi) {
+		return true
+	}
+
+	if !IsChangedBlockTrackingEnabled(vmi) {
+		return false
+	}
+
+	// For hotplug volumes with CBT enabled, only create overlay when mounted but not yet in domain.
+	// Once VolumeReady, the volume is in the domain and the overlay was already created.
+	return isHotplug && hotplugPhase == v1.HotplugVolumeMounted
 }
 
 func ShouldApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance) bool {
@@ -117,6 +127,22 @@ func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error 
 	return nil
 }
 
+func DeleteQCOW2Overlay(vmi *v1.VirtualMachineInstance, volumeName string) error {
+	if !ShouldApplyChangedBlockTracking(vmi) {
+		return nil
+	}
+
+	overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
+	if err := os.Remove(overlayPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete QCOW2 overlay %s for volume %s: %w", overlayPath, volumeName, err)
+	}
+	log.Log.Infof("QCOW2 overlay %s deleted for unplugged volume %s", overlayPath, volumeName)
+	return nil
+}
+
 func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *converter.ConverterContext) error {
 	logger := log.Log.Object(vmi)
 	applyCBTMap := make(map[string]string)
@@ -132,21 +158,18 @@ func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *converter.Conv
 
 		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
 		logger.V(3).Infof("QCOW2 overlay path is %s", overlayPath)
-		if !ShouldCreateQCOW2Overlay(vmi) {
+
+		hotplugStatus, isHotplug := c.HotplugVolumes[volumeName]
+
+		if !shouldCreateQCOW2Overlay(vmi, isHotplug, hotplugStatus.Phase) {
 			applyCBTMap[volumeName] = overlayPath
 			continue
 		}
 
-		var imagePath string
-		blockDev := false
-		if c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName] {
-			imagePath = converter.GetBlockDeviceVolumePath(volumeName)
-			blockDev = true
-		} else {
-			imagePath = converter.GetFilesystemVolumePath(volumeName)
-		}
+		isBlock := c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName]
+		imagePath := converter.GetVolumeImagePath(volumeName, isBlock, isHotplug)
 
-		err := CreateQCOW2Overlay(overlayPath, imagePath, blockDev)
+		err := CreateQCOW2Overlay(overlayPath, imagePath, isBlock)
 		if err != nil {
 			return err
 		}

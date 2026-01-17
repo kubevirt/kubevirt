@@ -8354,6 +8354,25 @@ var CRDsValidation map[string]string = map[string]string{
                   description: StartTimestamp is the timestamp when the backup started
                   format: date-time
                   type: string
+                volumes:
+                  description: Volumes lists the volumes included in the backup
+                  items:
+                    description: BackupVolumeInfo contains information about a volume
+                      included in a backup
+                    properties:
+                      diskTarget:
+                        description: DiskTarget is the disk target device name at
+                          backup time
+                        type: string
+                      volumeName:
+                        description: VolumeName is the volume name from VMI spec
+                        type: string
+                    required:
+                    - diskTarget
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
               type: object
             state:
               description: State represents the current CBT state
@@ -9080,6 +9099,25 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        includedVolumes:
+          description: IncludedVolumes lists the volumes that were included in the
+            backup
+          items:
+            description: BackupVolumeInfo contains information about a volume included
+              in a backup
+            properties:
+              diskTarget:
+                description: DiskTarget is the disk target device name at backup time
+                type: string
+              volumeName:
+                description: VolumeName is the volume name from VMI spec
+                type: string
+            required:
+            - diskTarget
+            - volumeName
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         type:
           description: Type indicates if the backup was full or incremental
           type: string
@@ -9150,16 +9188,42 @@ var CRDsValidation map[string]string = map[string]string{
         rule: self == oldSelf
     status:
       properties:
+        checkpointRedefinitionRequired:
+          description: |-
+            CheckpointRedefinitionRequired is set to true by virt-handler when the VM
+            restarts and has a checkpoint that needs to be redefined in libvirt.
+            virt-controller will process this flag, attempt redefinition, and clear it.
+          type: boolean
         latestCheckpoint:
           description: |-
             LatestCheckpoint is the metadata of the checkpoint of
-            the latest preformed backup
+            the latest performed backup
           properties:
             creationTime:
               format: date-time
               type: string
             name:
               type: string
+            volumes:
+              description: Volumes lists volumes and their disk targets at backup
+                time
+              items:
+                description: BackupVolumeInfo contains information about a volume
+                  included in a backup
+                properties:
+                  diskTarget:
+                    description: DiskTarget is the disk target device name at backup
+                      time
+                    type: string
+                  volumeName:
+                    description: VolumeName is the volume name from VMI spec
+                    type: string
+                required:
+                - diskTarget
+                - volumeName
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
           type: object
       type: object
   required:
@@ -14098,6 +14162,25 @@ var CRDsValidation map[string]string = map[string]string{
                   description: StartTimestamp is the timestamp when the backup started
                   format: date-time
                   type: string
+                volumes:
+                  description: Volumes lists the volumes included in the backup
+                  items:
+                    description: BackupVolumeInfo contains information about a volume
+                      included in a backup
+                    properties:
+                      diskTarget:
+                        description: DiskTarget is the disk target device name at
+                          backup time
+                        type: string
+                      volumeName:
+                        description: VolumeName is the volume name from VMI spec
+                        type: string
+                    required:
+                    - diskTarget
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
               type: object
             state:
               description: State represents the current CBT state
@@ -30885,6 +30968,27 @@ var CRDsValidation map[string]string = map[string]string{
                                 backup started
                               format: date-time
                               type: string
+                            volumes:
+                              description: Volumes lists the volumes included in the
+                                backup
+                              items:
+                                description: BackupVolumeInfo contains information
+                                  about a volume included in a backup
+                                properties:
+                                  diskTarget:
+                                    description: DiskTarget is the disk target device
+                                      name at backup time
+                                    type: string
+                                  volumeName:
+                                    description: VolumeName is the volume name from
+                                      VMI spec
+                                    type: string
+                                required:
+                                - diskTarget
+                                - volumeName
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
                           type: object
                         state:
                           description: State represents the current CBT state

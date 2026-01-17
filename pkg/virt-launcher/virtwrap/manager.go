@@ -154,6 +154,7 @@ type DomainManager interface {
 	GuestPing(string) error
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
 	BackupVirtualMachine(*v1.VirtualMachineInstance, *backupv1.BackupOptions) error
+	RedefineCheckpoint(*v1.VirtualMachineInstance, *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error)
 	GetQemuVersion() (string, error)
 	UpdateVCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	GetSEVInfo() (*v1.SEVPlatformInfo, error)
@@ -1233,7 +1234,8 @@ func (l *LibvirtDomainManager) syncDisks(
 
 	// Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
-		logger.V(1).Infof("Detaching disk %s, target %s", detachDisk.Alias.GetName(), detachDisk.Target.Device)
+		volumeName := detachDisk.Alias.GetName()
+		logger.V(1).Infof("Detaching disk %s, target %s", volumeName, detachDisk.Target.Device)
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
@@ -1242,6 +1244,10 @@ func (l *LibvirtDomainManager) syncDisks(
 		err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectDeviceLiveAndConfigLibvirtFlags)
 		if err != nil {
 			logger.Reason(err).Error("detaching device")
+			return err
+		}
+		if err := storage.DeleteQCOW2Overlay(vmi, volumeName); err != nil {
+			logger.Reason(err).Error("deleting CBT overlay")
 			return err
 		}
 	}
@@ -2540,4 +2546,8 @@ func (l *LibvirtDomainManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstan
 		// TODO: Implement backup abort functionality
 		return fmt.Errorf("recieved unknown backup command")
 	}
+}
+
+func (l *LibvirtDomainManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
+	return l.storageManager.RedefineCheckpoint(vmi, checkpoint)
 }

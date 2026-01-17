@@ -27,9 +27,12 @@ import (
 	. "github.com/onsi/gomega"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 )
 
 func AttachmentPodName(vmi *v1.VirtualMachineInstance) string {
@@ -133,4 +136,111 @@ func VerifyVolumeAndDiskInVMISpec(virtClient kubecli.KubevirtClient, vmi *v1.Vir
 
 		return nil
 	}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+}
+
+func WaitForHotplugToComplete(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, volumeName, dvName string, added bool) {
+	Eventually(func() error {
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		found := false
+		for _, volume := range vmi.Spec.Volumes {
+			if volume.Name == volumeName && volume.DataVolume != nil && volume.DataVolume.Name == dvName {
+				found = true
+				break
+			}
+		}
+		if found != added {
+			return fmt.Errorf("volume %s in VM %s not in expected state %t, spec not updated", volumeName, vm.Name, added)
+		}
+		found = false
+		for _, vs := range vmi.Status.VolumeStatus {
+			if vs.Name == volumeName {
+				if added && vs.Phase == v1.VolumeReady {
+					return nil
+				}
+				if !added {
+					found = true
+					break
+				}
+			}
+		}
+		if !added && !found {
+			return nil
+		}
+		return fmt.Errorf("volume %s in VM %s not in expected state %t, status not updated", volumeName, vm.Name, added)
+	}, 240*time.Second, 2*time.Second).Should(Succeed())
+}
+
+func AddHotplugDiskAndVolume(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, volumeName, dvName string) *v1.VirtualMachine {
+	vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	vmCpy := vm.DeepCopy()
+	disks := vmCpy.Spec.Template.Spec.Domain.Devices.Disks
+	volumes := vmCpy.Spec.Template.Spec.Volumes
+	disks = append(disks, v1.Disk{
+		Name: volumeName,
+		DiskDevice: v1.DiskDevice{
+			Disk: &v1.DiskTarget{
+				Bus: v1.DiskBusSCSI,
+			},
+		},
+	})
+	volumes = append(volumes, v1.Volume{
+		Name: volumeName,
+		VolumeSource: v1.VolumeSource{
+			DataVolume: &v1.DataVolumeSource{
+				Name:         dvName,
+				Hotpluggable: true,
+			},
+		},
+	})
+
+	patchObj := patch.New()
+	patchObj.AddOption(patch.WithReplace("/spec/template/spec/domain/devices/disks", disks))
+	patchObj.AddOption(patch.WithReplace("/spec/template/spec/volumes", volumes))
+	patchBytes, err := patchObj.GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+
+	vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	return vm
+}
+
+func RemoveHotplugDiskAndVolume(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, volumeName string) *v1.VirtualMachine {
+	vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	var disks []v1.Disk
+	for _, disk := range vm.Spec.Template.Spec.Domain.Devices.Disks {
+		if disk.Name != volumeName {
+			disks = append(disks, disk)
+		}
+	}
+	var volumes []v1.Volume
+	for _, volume := range vm.Spec.Template.Spec.Volumes {
+		if volume.Name != volumeName {
+			volumes = append(volumes, volume)
+		}
+	}
+
+	patchObj := patch.New()
+	if len(disks) == 0 {
+		patchObj.AddOption(patch.WithRemove("/spec/template/spec/domain/devices/disks"))
+	} else {
+		patchObj.AddOption(patch.WithAdd("/spec/template/spec/domain/devices/disks", disks))
+	}
+	if len(volumes) == 0 {
+		patchObj.AddOption(patch.WithRemove("/spec/template/spec/volumes"))
+	} else {
+		patchObj.AddOption(patch.WithAdd("/spec/template/spec/volumes", volumes))
+	}
+
+	patchBytes, err := patchObj.GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+	vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	return vm
 }
