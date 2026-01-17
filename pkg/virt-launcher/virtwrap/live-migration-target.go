@@ -163,7 +163,14 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		err := l.linkImageVolumeFilePaths(vmi)
 		if err != nil {
 			logger.Reason(err).Error("failed link ImageVolumeFilePaths")
-			return err
+		}
+	}
+
+	if l.libvirtHooksServerAndClientEnabled {
+		if l.hookServer != nil {
+			if err := l.hookServer.Start(vmi); err != nil {
+				return err
+			}
 		}
 	}
 
