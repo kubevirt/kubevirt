@@ -1377,9 +1377,11 @@ func (c *VirtualMachineController) sync(key string,
 	}
 
 	domainAlive := domainExists &&
-		domain.Status.Status != api.Shutoff &&
-		domain.Status.Status != api.Crashed &&
-		domain.Status.Status != ""
+		((domain.Status.Status != api.Shutoff &&
+			domain.Status.Status != api.Crashed &&
+			domain.Status.Status != "") ||
+			// 	Ignoring transient Shutoff/Unknown status for recently created domain
+			isRecentlyCreatedDomain(domain))
 
 	forceShutdownIrrecoverable = domainExists && domainPausedFailedPostCopy(domain)
 
@@ -1502,6 +1504,12 @@ func (c *VirtualMachineController) sync(key string,
 	c.logger.Object(vmi).V(3).Info("Synchronization loop succeeded.")
 	return nil
 
+}
+
+func isRecentlyCreatedDomain(domain *api.Domain) bool {
+	return domain.Status.Status == api.Shutoff && domain.Status.Reason == api.ReasonUnknown &&
+		domain.Spec.Metadata.KubeVirt.StartTimestamp != nil &&
+		time.Since(domain.Spec.Metadata.KubeVirt.StartTimestamp.Time) < 30*time.Second
 }
 
 func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstance) error {

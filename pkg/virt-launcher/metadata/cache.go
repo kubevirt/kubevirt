@@ -20,6 +20,7 @@
 package metadata
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -28,6 +29,7 @@ import (
 type Cache struct {
 	UID              SafeData[types.UID]
 	Migration        SafeData[api.MigrationMetadata]
+	StartTimestamp   SafeData[metav1.Time]
 	GracePeriod      SafeData[api.GracePeriodMetadata]
 	AccessCredential SafeData[api.AccessCredentialMetadata]
 	MemoryDump       SafeData[api.MemoryDumpMetadata]
@@ -42,6 +44,7 @@ func NewCache() *Cache {
 	}
 	cache.UID.dirtyChanel = cache.notificationSignal
 	cache.Migration.dirtyChanel = cache.notificationSignal
+	cache.StartTimestamp.dirtyChanel = cache.notificationSignal
 	cache.GracePeriod.dirtyChanel = cache.notificationSignal
 	cache.AccessCredential.dirtyChanel = cache.notificationSignal
 	cache.MemoryDump.dirtyChanel = cache.notificationSignal
