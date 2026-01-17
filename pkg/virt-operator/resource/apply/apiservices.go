@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +13,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/resourcemerge"
 )
 
 func (r *Reconciler) createOrUpdateAPIServices(caBundle []byte) error {
@@ -60,14 +60,13 @@ func (r *Reconciler) createOrUpdateAPIService(apiService *apiregv1.APIService, c
 		return nil
 	}
 
-	modified := resourcemerge.BoolPtr(false)
-	resourcemerge.EnsureObjectMeta(modified, &cachedAPIService.ObjectMeta, apiService.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&cachedAPIService.ObjectMeta, apiService.ObjectMeta)
 	serviceSame := equality.Semantic.DeepEqual(cachedAPIService.Spec.Service, apiService.Spec.Service)
 	certsSame := equality.Semantic.DeepEqual(apiService.Spec.CABundle, cachedAPIService.Spec.CABundle)
 	prioritySame := cachedAPIService.Spec.VersionPriority == apiService.Spec.VersionPriority && cachedAPIService.Spec.GroupPriorityMinimum == apiService.Spec.GroupPriorityMinimum
 	insecureSame := cachedAPIService.Spec.InsecureSkipTLSVerify == apiService.Spec.InsecureSkipTLSVerify
 	// there was no change to metadata, the service and priorities were right
-	if !*modified && serviceSame && prioritySame && insecureSame && certsSame {
+	if !modified && serviceSame && prioritySame && insecureSame && certsSame {
 		log.Log.V(4).Infof("apiservice %v is up-to-date", apiService.GetName())
 
 		return nil
