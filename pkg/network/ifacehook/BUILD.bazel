@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["iface_hook.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/network/ifacehook",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/network/link:go_default_library",
+        "//pkg/network/namescheme:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "iface_hook_test.go",
+        "ifacehook_suite_test.go",
+    ],
+    embed = [":go_default_library"],
+    race = "on",
+    deps = [
+        "//pkg/libvmi:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/libvirt.org/go/libvirtxml:go_default_library",
+    ],
+)

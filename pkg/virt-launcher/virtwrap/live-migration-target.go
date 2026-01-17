@@ -166,6 +166,11 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 			return err
 		}
 	}
+	if l.hookServer != nil {
+		if err := l.hookServer.Start(vmi); err != nil {
+			return err
+		}
+	}
 
 	c, err := l.generateConverterContext(vmi, allowEmulation, options, true)
 	if err != nil {

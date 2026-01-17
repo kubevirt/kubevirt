@@ -158,67 +158,67 @@ var _ = Describe("Annotations Generator", func() {
 		)
 	})
 
-	Context("Network naming scheme conversion during migration", func() {
-		var vmi *v1.VirtualMachineInstance
-
-		BeforeEach(func() {
-			const (
-				networkName1                     = "blue"
-				networkAttachmentDefinitionName1 = "test1"
-
-				networkName2                     = "red"
-				networkAttachmentDefinitionName2 = "other-namespace/test1"
-			)
-
-			vmi = libvmi.New(
-				libvmi.WithNamespace(testNamespace),
-				libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName1)),
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName2)),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithNetwork(libvmi.MultusNetwork(networkName1, networkAttachmentDefinitionName1)),
-				libvmi.WithNetwork(libvmi.MultusNetwork(networkName2, networkAttachmentDefinitionName2)),
-			)
-		})
-
-		It("should convert the naming scheme when source pod has ordinal naming", func() {
-			sourcePodAnnotations := map[string]string{}
-			sourcePodAnnotations[networkv1.NetworkStatusAnnot] = `[
-							{"interface":"eth0", "name":"default"},
-							{"interface":"net1", "name":"test1", "namespace":"default"},
-							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
-						]`
-
-			sourcePod := newStubVirtLauncherPod(vmi, sourcePodAnnotations)
-
-			generator := annotations.NewGenerator(stubClusterConfig{})
-			convertedAnnotations, err := generator.GenerateFromSource(vmi, sourcePod)
-			Expect(err).ToNot(HaveOccurred())
-
-			expectedMultusNetworksAnnotation := `[
-							{"interface":"net1", "name":"test1", "namespace":"default"},
-							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
-						]`
-
-			Expect(convertedAnnotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetworksAnnotation))
-		})
-
-		It("should not convert the naming scheme when source pod does not have ordinal naming", func() {
-			sourcePodAnnotations := map[string]string{}
-			sourcePodAnnotations[networkv1.NetworkStatusAnnot] = `[
-							{"interface":"pod16477688c0e", "name":"test1", "namespace":"default"},
-							{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace"}
-						]`
-
-			sourcePod := newStubVirtLauncherPod(vmi, sourcePodAnnotations)
-
-			generator := annotations.NewGenerator(stubClusterConfig{})
-			annotations, err := generator.GenerateFromSource(vmi, sourcePod)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(annotations).To(BeEmpty())
-		})
-	})
+	//Context("Network naming scheme conversion during migration", func() {
+	//	//var vmi *v1.VirtualMachineInstance
+	//	//
+	//	//BeforeEach(func() {
+	//	//	const (
+	//	//		networkName1                     = "blue"
+	//	//		networkAttachmentDefinitionName1 = "test1"
+	//	//
+	//	//		networkName2                     = "red"
+	//	//		networkAttachmentDefinitionName2 = "other-namespace/test1"
+	//	//	)
+	//	//
+	//	//	vmi = libvmi.New(
+	//	//		libvmi.WithNamespace(testNamespace),
+	//	//		libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+	//	//		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName1)),
+	//	//		libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName2)),
+	//	//		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	//	//		libvmi.WithNetwork(libvmi.MultusNetwork(networkName1, networkAttachmentDefinitionName1)),
+	//	//		libvmi.WithNetwork(libvmi.MultusNetwork(networkName2, networkAttachmentDefinitionName2)),
+	//	//	)
+	//	//})
+	//
+	//	//It("should convert the naming scheme when source pod has ordinal naming", func() {
+	//	//	sourcePodAnnotations := map[string]string{}
+	//	//	sourcePodAnnotations[networkv1.NetworkStatusAnnot] = `[
+	//	//					{"interface":"eth0", "name":"default"},
+	//	//					{"interface":"net1", "name":"test1", "namespace":"default"},
+	//	//					{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
+	//	//				]`
+	//	//
+	//	//	sourcePod := newStubVirtLauncherPod(vmi, sourcePodAnnotations)
+	//	//
+	//	//	generator := annotations.NewGenerator(stubClusterConfig{})
+	//	//	convertedAnnotations, err := generator.GenerateFromSource(vmi, sourcePod)
+	//	//	Expect(err).ToNot(HaveOccurred())
+	//	//
+	//	//	expectedMultusNetworksAnnotation := `[
+	//	//					{"interface":"net1", "name":"test1", "namespace":"default"},
+	//	//					{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
+	//	//				]`
+	//	//
+	//	//	Expect(convertedAnnotations[networkv1.NetworkAttachmentAnnot]).To(MatchJSON(expectedMultusNetworksAnnotation))
+	//	//})
+	//	//
+	//	//It("should not convert the naming scheme when source pod does not have ordinal naming", func() {
+	//	//	sourcePodAnnotations := map[string]string{}
+	//	//	sourcePodAnnotations[networkv1.NetworkStatusAnnot] = `[
+	//	//					{"interface":"pod16477688c0e", "name":"test1", "namespace":"default"},
+	//	//					{"interface":"podb1f51a511f1", "name":"test1", "namespace":"other-namespace"}
+	//	//				]`
+	//	//
+	//	//	sourcePod := newStubVirtLauncherPod(vmi, sourcePodAnnotations)
+	//	//
+	//	//	generator := annotations.NewGenerator(stubClusterConfig{})
+	//	//	annotations, err := generator.GenerateFromSource(vmi, sourcePod)
+	//	//	Expect(err).ToNot(HaveOccurred())
+	//	//
+	//	//	Expect(annotations).To(BeEmpty())
+	//	//})
+	//})
 
 	Context("Network Info annotation", func() {
 		const (

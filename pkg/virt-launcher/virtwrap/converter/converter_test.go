@@ -303,6 +303,7 @@ var _ = Describe("Converter", func() {
 	Context("with v1.VirtualMachineInstance", func() {
 
 		var vmi *v1.VirtualMachineInstance
+		const domainType = "kvm"
 
 		BeforeEach(func() {
 

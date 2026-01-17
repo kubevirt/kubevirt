@@ -265,6 +265,9 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 			err        error
 		)
 		podIfaceName := podIfaceNameByVMINetwork[iface.Name]
+		vmiNetwork := vmispec.LookupNetworkByName(n.vmiSpecNets, iface.Name)
+		tapDeviceName := link.GenerateTapDeviceName(podIfaceName, *vmiNetwork)
+		fmt.Printf("DEBUG: tap device name %s iface %v\n", tapDeviceName, iface)
 
 		switch {
 		case iface.Bridge != nil:
