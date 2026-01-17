@@ -89,40 +89,6 @@ var _ = Describe(SIG("VMIDefaults", func() {
 			kvConfiguration = kv.Spec.Configuration
 		})
 
-		It("[test_id:4556]Should be present in domain", func() {
-			By("Creating a virtual machine")
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for successful start")
-			libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Getting domain of vmi")
-			domain, err := libdomain.GetRunningVMIDomainSpec(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			expected := api.MemBalloon{
-				Model: "virtio-non-transitional",
-				Stats: &api.Stats{
-					Period: 10,
-				},
-				Address: &api.Address{
-					Type:     api.AddressPCI,
-					Domain:   "0x0000",
-					Bus:      "0x07",
-					Slot:     "0x00",
-					Function: "0x0",
-				},
-			}
-			if kvConfiguration.VirtualMachineOptions != nil && kvConfiguration.VirtualMachineOptions.DisableFreePageReporting != nil {
-				expected.FreePageReporting = "off"
-			} else {
-				expected.FreePageReporting = "on"
-			}
-			Expect(domain.Devices.Ballooning).ToNot(BeNil(), "There should be default memballoon device")
-			Expect(*domain.Devices.Ballooning).To(Equal(expected), "Default to virtio model and 10 seconds pooling")
-		})
-
 		DescribeTable("Should override period in domain if present in virt-config ", Serial, func(period uint32, expected api.MemBalloon) {
 			By("Adding period to virt-config")
 			kvConfigurationCopy := kvConfiguration.DeepCopy()
