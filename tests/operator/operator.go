@@ -32,12 +32,10 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -45,7 +43,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/coreos/go-semver/semver"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/google/go-github/v32/github"
 
@@ -105,6 +102,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/operator/resourcefiles"
+	"kubevirt.io/kubevirt/tests/operator/version"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -668,7 +666,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			previousImageTag := flags.PreviousReleaseTag
 			previousImageRegistry := flags.PreviousReleaseRegistry
 			if previousImageTag == "" {
-				previousImageTag, err = detectLatestUpstreamOfficialTag()
+				previousImageTag, err = version.DetectLatestUpstreamOfficialTag()
 				Expect(err).ToNot(HaveOccurred())
 				By(fmt.Sprintf("By Using detected tag %s for previous kubevirt", previousImageTag))
 			} else {
@@ -2463,84 +2461,6 @@ func getUpstreamReleaseAssetURL(tag string, assetName string) string {
 
 	Fail(fmt.Sprintf("Asset %s not found in release %s of kubevirt upstream repo", assetName, tag))
 	return ""
-}
-
-func detectLatestUpstreamOfficialTag() (string, error) {
-	client := github.NewClient(&http.Client{
-		Timeout: 5 * time.Second,
-	})
-
-	var err error
-	var releases []*github.RepositoryRelease
-
-	Eventually(func() error {
-		releases, _, err = client.Repositories.ListReleases(context.Background(), "kubevirt", "kubevirt", &github.ListOptions{PerPage: 10000})
-
-		return err
-	}, 10*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
-
-	var vs []*semver.Version
-
-	for _, release := range releases {
-		if *release.Draft ||
-			*release.Prerelease ||
-			len(release.Assets) == 0 {
-
-			continue
-		}
-		tagName := strings.TrimPrefix(*release.TagName, "v")
-		v, err := semver.NewVersion(tagName)
-		ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to parse latest release tag")
-		vs = append(vs, v)
-	}
-
-	if len(vs) == 0 {
-		return "", fmt.Errorf("no kubevirt releases found")
-	}
-
-	// descending order from most recent.
-	sort.Sort(sort.Reverse(semver.Versions(vs)))
-
-	// most recent tag
-	tag := fmt.Sprintf("v%v", vs[0])
-
-	// tag hint gives us information about the most recent tag in the current branch
-	// this is executing in. We want to make sure we are using the previous most
-	// recent official release from the branch we're in if possible. Note that this is
-	// all best effort. If a tag hint can't be detected, we move on with the most
-	// recent release from master.
-	tagHint := strings.TrimPrefix(getTagHint(), "v")
-	hint, err := semver.NewVersion(tagHint)
-
-	if tagHint != "" && err == nil {
-		for _, v := range vs {
-			if v.LessThan(*hint) || v.Equal(*hint) {
-				tag = fmt.Sprintf("v%v", v)
-				By(fmt.Sprintf("Choosing tag %s influenced by tag hint %s", tag, tagHint))
-				break
-			}
-		}
-	}
-
-	By(fmt.Sprintf("By detecting latest upstream official tag %s for current branch", tag))
-	return tag, nil
-}
-
-func getTagHint() string {
-	//git describe --tags --abbrev=0 "$(git rev-parse HEAD)"
-	cmd := exec.Command("git", "rev-parse", "HEAD")
-	cmdOutput, err := cmd.Output()
-	if err != nil {
-		return ""
-	}
-
-	cmd = exec.Command("git", "describe", "--tags", "--abbrev=0", strings.TrimSpace(string(cmdOutput)))
-	cmdOutput, err = cmd.Output()
-	if err != nil {
-		return ""
-	}
-
-	return strings.TrimSpace(strings.Split(string(cmdOutput), "-rc")[0])
 }
 
 func atLeastOnePendingPodExistInDeployment(virtClient kubecli.KubevirtClient, deploymentName string) bool {
