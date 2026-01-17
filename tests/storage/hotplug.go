@@ -1598,7 +1598,7 @@ var _ = Describe(SIG("Hotplug", func() {
 		)
 
 		createVMWithRatio := func(memRatio, cpuRatio float64) *v1.VirtualMachine {
-			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
 			memLimit := int64(1024 * 1024 * 128) //128Mi
 			memRequest := int64(math.Ceil(float64(memLimit) / memRatio))
@@ -2088,7 +2088,7 @@ var _ = Describe(SIG("Hotplug", func() {
 
 		It("on an offline VM", func() {
 			By("Creating VirtualMachine")
-			vm, err = virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewCirros()), metav1.CreateOptions{})
+			vm, err = virtClient.VirtualMachine(testsuite.NamespaceTestDefault).Create(context.Background(), libvmi.NewVirtualMachine(libvmifact.NewAlpine()), metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			By("Adding test volumes")
 			pv2, pvc2, err := CreatePVandPVCwithSCSIDisk(nodeName, device, testsuite.NamespaceTestDefault, "scsi-disks-test2", "scsipv2", "scsipvc2")
