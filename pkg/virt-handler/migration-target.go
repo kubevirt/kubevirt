@@ -301,11 +301,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 	// If the migrated VMI requires dedicated CPUs, report the new pod CPU set to the source node
 	// via the VMI migration status in order to patch the domain pre migration
 	if vmi.IsCPUDedicated() {
-		err := c.reportDedicatedCPUSetForMigratingVMI(vmi)
-		if err != nil {
-			return err
-		}
-		err = c.reportTargetTopologyForMigratingVMI(vmi)
+		err := c.reportTargetTopologyForMigratingVMI(vmi)
 		if err != nil {
 			return err
 		}
@@ -812,27 +808,6 @@ func (c *MigrationTargetController) updateDomainFunc(old, new interface{}) {
 	if err == nil {
 		c.queue.Add(key)
 	}
-}
-
-func (c *MigrationTargetController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	cgroupManager, err := getCgroupManager(vmi, c.host)
-	if err != nil {
-		return err
-	}
-
-	cpusetStr, err := cgroupManager.GetCpuSet()
-	if err != nil {
-		return err
-	}
-
-	cpuSet, err := hardware.ParseCPUSetLine(cpusetStr, 50000)
-	if err != nil {
-		return fmt.Errorf("failed to parse target VMI cpuset: %v", err)
-	}
-
-	vmi.Status.MigrationState.TargetCPUSet = cpuSet
-
-	return nil
 }
 
 func (c *MigrationTargetController) reportTargetTopologyForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
