@@ -17,7 +17,7 @@
  *
  */
 
-package netbinding
+package resources
 
 import (
 	k8scorev1 "k8s.io/api/core/v1"
