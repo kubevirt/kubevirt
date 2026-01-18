@@ -602,7 +602,7 @@ var _ = Describe("CBT", func() {
 			return disk
 		}
 
-		DescribeTable("should handle CBT enablement based on volume/disk configuration",
+		DescribeTable("should handle CBT enablement when initializing based on volume/disk configuration",
 			func(volumes []v1.Volume, disks []api.Disk, expectedState v1.ChangedBlockTrackingState) {
 				vmi.Spec.Volumes = volumes
 				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: disks}}}
@@ -634,24 +634,35 @@ var _ = Describe("CBT", func() {
 				v1.ChangedBlockTrackingInitializing),
 		)
 
-		DescribeTable("should handle edge cases",
-			func(setupFunc func(), expectedState v1.ChangedBlockTrackingState) {
-				setupFunc()
-				Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(expectedState))
+		DescribeTable("should not update VMI CBT state when",
+			func(cbtState *v1.ChangedBlockTrackingState, domainIsNil bool) {
+				if cbtState != nil {
+					cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, *cbtState)
+				} else {
+					vmi.Status.ChangedBlockTracking = nil
+				}
+				vmi.Spec.Volumes = []v1.Volume{pvcVolume("pvc1", "test-pvc")}
+
+				var domain *api.Domain
+				if !domainIsNil {
+					domain = &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: []api.Disk{diskWithDataStore("pvc1", true)}}}}
+				}
+
+				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+
+				if cbtState == nil {
+					Expect(vmi.Status.ChangedBlockTracking).To(BeNil())
+				} else {
+					Expect(vmi.Status.ChangedBlockTracking.State).To(Equal(*cbtState))
+				}
 			},
-			Entry("domain is nil", func() {
-				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, nil)
-			}, v1.ChangedBlockTrackingInitializing),
-			Entry("VMI CBT status is nil", func() {
-				vmi.Status.ChangedBlockTracking = nil
-				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: []api.Disk{diskWithDataStore("pvc1", true)}}}}
-				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
-			}, v1.ChangedBlockTrackingUndefined),
-			Entry("VMI CBT status is disabled", func() {
-				vmi.Status.ChangedBlockTracking.State = v1.ChangedBlockTrackingDisabled
-				domain := &api.Domain{Spec: api.DomainSpec{Devices: api.Devices{Disks: []api.Disk{diskWithDataStore("pvc1", true)}}}}
-				cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
-			}, v1.ChangedBlockTrackingDisabled),
+			Entry("domain is nil", pointer.P(v1.ChangedBlockTrackingInitializing), true),
+			Entry("status is nil", nil, false),
+			Entry("status is Undefined", pointer.P(v1.ChangedBlockTrackingUndefined), false),
+			Entry("status is Enabled", pointer.P(v1.ChangedBlockTrackingEnabled), false),
+			Entry("status is Disabled", pointer.P(v1.ChangedBlockTrackingDisabled), false),
+			Entry("status is PendingRestart", pointer.P(v1.ChangedBlockTrackingPendingRestart), false),
+			Entry("status is FGDisabled", pointer.P(v1.ChangedBlockTrackingFGDisabled), false),
 		)
 	})
 })

@@ -69,8 +69,12 @@ func cbtStateDisabled(status *v1.ChangedBlockTrackingStatus) bool {
 		CompareCBTState(status, v1.ChangedBlockTrackingDisabled)
 }
 
+func CBTStateInitializing(status *v1.ChangedBlockTrackingStatus) bool {
+	return CompareCBTState(status, v1.ChangedBlockTrackingInitializing)
+}
+
 func HasCBTStateEnabled(status *v1.ChangedBlockTrackingStatus) bool {
-	return CompareCBTState(status, v1.ChangedBlockTrackingInitializing) ||
+	return CBTStateInitializing(status) ||
 		CompareCBTState(status, v1.ChangedBlockTrackingEnabled)
 }
 
@@ -298,7 +302,7 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 }
 
 func SetChangedBlockTrackingOnVMIFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	if domain == nil || vmi.Status.ChangedBlockTracking == nil || cbtStateDisabled(vmi.Status.ChangedBlockTracking) {
+	if domain == nil || !CBTStateInitializing(vmi.Status.ChangedBlockTracking) {
 		return
 	}
 
