@@ -62,7 +62,7 @@ func newVirtIOInterfaceManager(
 	}
 }
 
-func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain) error {
+func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain, updatedDomain *api.Domain) error {
 	for _, network := range networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, indexedDomainInterfaces(currentDomain)) {
 		log.Log.Infof("will hot plug %s", network.Name)
 
@@ -94,7 +94,6 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 }
 
 func (vim *virtIOInterfaceManager) updateDomainLinkState(currentDomain, desiredDomain *api.Domain) error {
-
 	currentDomainIfacesByAlias := indexedDomainInterfaces(currentDomain)
 	for _, desiredIface := range desiredDomain.Spec.Devices.Interfaces {
 		curIface, ok := currentDomainIfacesByAlias[desiredIface.Alias.GetName()]
@@ -108,7 +107,6 @@ func (vim *virtIOInterfaceManager) updateDomainLinkState(currentDomain, desiredD
 				return err
 			}
 		}
-
 	}
 	return nil
 }
