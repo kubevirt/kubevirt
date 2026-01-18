@@ -6,6 +6,7 @@ set -xe
 
 PF_COUNT_PER_NODE=${PF_COUNT_PER_NODE:-1}
 [ $PF_COUNT_PER_NODE -le 0 ] && echo "FATAL: PF_COUNT_PER_NODE must be a positive integer" >&2 && exit 1
+KUBEVIRT_USE_DRA=${KUBEVIRT_USE_DRA:-false}
 
 SCRIPT_PATH=$(dirname "$(realpath "$0")")
 
@@ -59,14 +60,20 @@ node::configure_sriov_vfs "${worker_nodes[*]}" "$VFS_DRIVER" "$VFS_DRIVER_KMODUL
 
 ## Deploy Multus and SRIOV components
 sriov_components::deploy_multus
-sriov_components::deploy \
+
+if [[ "$KUBEVIRT_USE_DRA" != "true" ]]; then
+  sriov_components::deploy \
   "$PFS_IN_USE" \
   "$VFS_DRIVER" \
   "$SRIOVDP_RESOURCE_PREFIX" "$SRIOVDP_RESOURCE_NAME" \
   "$SRIOV_NODE_LABEL_KEY" "$SRIOV_NODE_LABEL_VALUE"
 
-# Verify that each sriov capable node has sriov VFs allocatable resource
-validate_nodes_sriov_allocatable_resource
+  # Verify that each sriov capable node has sriov VFs allocatable resource
+  validate_nodes_sriov_allocatable_resource
+else
+  sriov_components::deploy_dra
+fi
+
 sriov_components::wait_pods_ready
 
 _kubectl get nodes
