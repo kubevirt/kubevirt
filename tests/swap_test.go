@@ -110,8 +110,8 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			vmi.Spec.Domain.Memory = &virtv1.Memory{Guest: &vmiMemSizeMi}
 
 			By("Starting the VirtualMachineInstance")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			Expect(err).ToNot(HaveOccurred())
 			By("Consume more memory than the node's memory")
 			err = fillMemWithStressFedoraVMI(vmi, memToUseInTheVmKib)
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -164,8 +164,8 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			vmiToFillTargetNodeMem.Spec.Domain.Resources.Requests["memory"] = vmiMemReq
 
 			By("Starting the VirtualMachineInstance")
-			vmiToFillTargetNodeMem = libvmops.RunVMIAndExpectLaunch(vmiToFillTargetNodeMem, libvmops.StartupTimeoutSecondsHuge)
-			Expect(console.LoginToFedora(vmiToFillTargetNodeMem)).To(Succeed())
+			vmiToFillTargetNodeMem, err = libwait.CreateVMIAndWaitForLogin(vmiToFillTargetNodeMem, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			Expect(err).ToNot(HaveOccurred())
 
 			By("reaching memory overcommitment in the target node")
 			err = fillMemWithStressFedoraVMI(vmiToFillTargetNodeMem, memToUseInTargetNodeVmKib)
@@ -181,8 +181,8 @@ var _ = Describe("[sig-compute]SwapTest", decorators.RequiresTwoSchedulableNodes
 			//add label the source node to make sure that the vm we want to migrate will be scheduled to the source node
 
 			By("Starting the VirtualMachineInstance that we should migrate to the target node")
-			vmiToMigrate = libvmops.RunVMIAndExpectLaunch(vmiToMigrate, libvmops.StartupTimeoutSecondsHuge)
-			Expect(console.LoginToFedora(vmiToMigrate)).To(Succeed())
+			vmiToMigrate, err = libwait.CreateVMIAndWaitForLogin(vmiToMigrate, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+			Expect(err).ToNot(HaveOccurred())
 
 			// execute a migration, wait for finalized state
 			By("Starting the Migration")

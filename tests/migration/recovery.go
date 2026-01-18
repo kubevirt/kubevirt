@@ -94,7 +94,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 		By("Starting the VM")
 		vm = libvmops.StartVirtualMachine(vm)
 		vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running})
-		Expect(console.LoginToFedora(vmi)).To(Succeed())
+		Expect(console.LoginToFedoraWaitAgent(vmi)).To(Succeed())
 		pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 		Expect(err).NotTo(HaveOccurred())
 

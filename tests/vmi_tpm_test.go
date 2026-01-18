@@ -29,6 +29,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -45,10 +46,8 @@ var _ = Describe("[sig-compute]vTPM", decorators.SigCompute, func() {
 				libnet.WithMasqueradeNetworking(),
 				libvmi.WithTPM(false),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
-
-			By("Logging in")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsSmall))
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Ensuring a TPM device is present")
 			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{

@@ -155,9 +155,8 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 					libvmi.WithNetwork(libvmi.MultusNetwork(macvtapNetworkName, macvtapNetworkName)),
 				)
 				var err error
-				serverVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), serverVMI, metav1.CreateOptions{})
+				serverVMI, err = libwait.CreateVMIAndWaitForLogin(serverVMI, console.LoginToFedoraWaitAgent)
 				Expect(err).ToNot(HaveOccurred(), "should create VMI successfully")
-				serverVMI = libwait.WaitUntilVMIReady(serverVMI, console.LoginToFedora)
 
 				Expect(serverVMI.Status.Interfaces).NotTo(BeEmpty(), "a migrate-able VMI must have network interfaces")
 

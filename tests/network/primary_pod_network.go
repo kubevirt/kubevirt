@@ -116,11 +116,8 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 					tmpVmi, err := newFedoraWithGuestAgentAndDefaultInterface(libvmi.InterfaceDeviceWithMasqueradeBinding())
 					Expect(err).NotTo(HaveOccurred())
 
-					tmpVmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), tmpVmi, metav1.CreateOptions{})
+					vmi, err = libwait.CreateVMIAndWaitForLogin(tmpVmi, console.LoginToFedoraWaitAgent)
 					Expect(err).NotTo(HaveOccurred())
-					vmi = libwait.WaitUntilVMIReady(tmpVmi, console.LoginToFedora)
-
-					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				})
 
 				It("[test_id:4153]should report PodIP/s as its own on interface status", func() {

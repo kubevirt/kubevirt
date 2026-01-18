@@ -206,6 +206,18 @@ func WaitUntilVMIReady(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFu
 	return vmi
 }
 
+func CreateVMIAndWaitForLogin(
+	vmi *v1.VirtualMachineInstance, loginFunc console.LoginToFunction, opts ...Option,
+) (*v1.VirtualMachineInstance, error) {
+	createdVMI, err := kubevirt.Client().VirtualMachineInstance(
+		testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return WaitUntilVMIReady(createdVMI, loginFunc, opts...), nil
+}
+
 // WaitForVirtualMachineToDisappearWithTimeout blocks for the passed seconds until the specified VirtualMachineInstance disappears
 func WaitForVirtualMachineToDisappearWithTimeout(vmi *v1.VirtualMachineInstance, seconds int) {
 	virtClient, err := kubecli.GetKubevirtClient()

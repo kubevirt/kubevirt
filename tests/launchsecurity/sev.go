@@ -316,13 +316,12 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		DescribeTable("should start a SEV or SEV-ES VM",
 			func(withES bool, withSNP bool, sevstr string) {
 				vmi := newSEVFedora(withES, withSNP)
-				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
-
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToFedora(vmi)).To(Succeed())
+				By("Create and expect the VirtualMachineInstance console")
+				vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsXHuge))
+				Expect(err).ToNot(HaveOccurred())
 
 				By("Verifying that SEV is enabled in the guest")
-				err := console.SafeExpectBatch(vmi, []expect.Batcher{
+				err = console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
 					&expect.BSnd{S: "dmesg | grep --color=never SEV\n"},
@@ -415,7 +414,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Eventually(ThisVMI(vmi), 30*time.Second, time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 			By("Waiting for the VirtualMachineInstance to become ready")
-			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
+			libwait.WaitUntilVMIReady(vmi, console.LoginToFedoraWaitAgent)
 		})
 	})
 })

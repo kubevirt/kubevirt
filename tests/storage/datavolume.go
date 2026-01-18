@@ -1053,10 +1053,9 @@ var _ = Describe(SIG("DataVolume Integration", func() {
 			By("Making sure the slow Fedora import is complete before creating the VMI")
 			libstorage.EventuallyDV(dataVolume, 500, HaveSucceeded())
 
-			vmi = createAndWaitForVMIReady(vmi, dataVolume)
-
 			By("Expecting the VirtualMachineInstance console")
-			Expect(console.LoginToFedora(vmi)).To(Succeed())
+			vmi, err = libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent)
+			Expect(err).ToNot(HaveOccurred())
 
 			getImageActualSize := func(vmi *v1.VirtualMachineInstance) int64 {
 				qemuImgInfo := getQemuImgInfo(vmi)

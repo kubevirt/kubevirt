@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -47,9 +48,9 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
 )
 
 var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedulableNodes, func() {
@@ -120,13 +121,8 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 						}
 
 						By("Starting the VirtualMachineInstance")
-						vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
-
-						By("Checking that the VirtualMachineInstance console has expected output")
-						Expect(console.LoginToFedora(vmi)).To(Succeed())
-
-						// Need to wait for cloud init to finish and start the agent inside the vmi.
-						Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+						vmi, err := libwait.CreateVMIAndWaitForLogin(vmi, console.LoginToFedoraWaitAgent, libwait.WithTimeout(libvmops.StartupTimeoutSecondsHuge))
+						Expect(err).ToNot(HaveOccurred())
 
 						runStressTest(vmi, "350M")
 
