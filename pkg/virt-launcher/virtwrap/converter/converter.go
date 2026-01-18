@@ -1117,7 +1117,6 @@ func setIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 }
 
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
-	var controllerDriver *api.ControllerDriver
 
 	precond.MustNotBeNil(vmi)
 	precond.MustNotBeNil(domain)
@@ -1128,6 +1127,14 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		vmi.Spec.Domain.Devices.UseVirtioTransitional,
 		architecture,
 	)
+	scsiControllerModel := c.Architecture.SCSIControllerModel(virtioModel)
+
+	var controllerDriver *api.ControllerDriver
+	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
+		controllerDriver = &api.ControllerDriver{
+			IOMMU: "on",
+		}
+	}
 
 	builder := NewDomainBuilder(
 		metadata.DomainConfigurator{},
@@ -1172,7 +1179,11 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), convertEFIConfiguration(c.EFIConfiguration)),
 		storage.NewVirtiofsConfigurator(),
 		compute.UsbRedirectDeviceDomainConfigurator{},
-		compute.NewControllersDomainConfigurator(c.Architecture.IsUSBNeeded(vmi)),
+		compute.NewControllersDomainConfigurator(
+			compute.ControllersWithUSBNeeded(c.Architecture.IsUSBNeeded(vmi)),
+			compute.ControllersWithSCSIModel(scsiControllerModel),
+			compute.ControllersWithControllerDriver(controllerDriver),
+		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
@@ -1194,12 +1205,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	// set the maximum number of sockets here to allow hot-plug CPUs
 	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.Architecture.SupportCPUHotplug() {
 		domainVCPUTopologyForHotplug(vmi, domain)
-	}
-
-	if c.UseLaunchSecuritySEV || c.UseLaunchSecurityPV {
-		controllerDriver = &api.ControllerDriver{
-			IOMMU: "on",
-		}
 	}
 
 	if err = setupDomainMemory(vmi, domain); err != nil {
@@ -1317,11 +1322,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
-	if needsSCSIController(vmi) {
-		scsiController := c.Architecture.ScsiController(virtio.InterpretTransitionalModelType(&c.UseVirtioTransitional, c.Architecture.GetArchitecture()), controllerDriver)
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, scsiController)
-	}
-
 	if c.Architecture.SupportPCIHole64Disabling() && shouldDisablePCIHole64(vmi) {
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers,
 			api.Controller{
@@ -1432,33 +1432,11 @@ func boolToString(value *bool, defaultPositive bool, positive string, negative s
 	return toString(*value)
 }
 
-func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {
-	for _, disk := range vmi.Spec.Domain.Devices.Disks {
-		if getBusFromDisk(disk) == v1.DiskBusSCSI {
-			return true
-		}
-	}
-	return !vmi.Spec.Domain.Devices.DisableHotplug
-}
-
 func shouldDisablePCIHole64(vmi *v1.VirtualMachineInstance) bool {
 	if val, ok := vmi.Annotations[v1.DisablePCIHole64]; ok {
 		return strings.EqualFold(val, "true")
 	}
 	return false
-}
-
-func getBusFromDisk(disk v1.Disk) v1.DiskBus {
-	if disk.LUN != nil {
-		return disk.LUN.Bus
-	}
-	if disk.Disk != nil {
-		return disk.Disk.Bus
-	}
-	if disk.CDRom != nil {
-		return disk.CDRom.Bus
-	}
-	return ""
 }
 
 func getPrefixFromBus(bus v1.DiskBus) string {
