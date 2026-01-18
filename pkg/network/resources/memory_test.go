@@ -17,11 +17,13 @@
  *
  */
 
-package netbinding_test
+package resources_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/network/resources"
 
 	k8scorev1 "k8s.io/api/core/v1"
 
@@ -30,7 +32,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/network/netbinding"
 )
 
 var _ = Describe("Network Binding plugin compute resource overhead", func() {
@@ -43,7 +44,7 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 
 	DescribeTable("Memory overhead should be zero",
 		func(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) {
-			memoryCalculator := netbinding.MemoryCalculator{}
+			memoryCalculator := resources.MemoryCalculator{}
 
 			actualResult := memoryCalculator.Calculate(vmi, registeredPlugins)
 			Expect(actualResult.Value()).To(BeZero())
@@ -91,7 +92,7 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 
 	DescribeTable("It should calculate memory overhead",
 		func(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin, expectedValue resource.Quantity) {
-			memoryCalculator := netbinding.MemoryCalculator{}
+			memoryCalculator := resources.MemoryCalculator{}
 
 			actualResult := memoryCalculator.Calculate(vmi, registeredPlugins)
 			Expect(actualResult.Value()).To(Equal(expectedValue.Value()))
