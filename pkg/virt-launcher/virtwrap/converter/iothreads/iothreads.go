@@ -101,14 +101,8 @@ func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
 	}
 }
 
-func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint, ioThreadCount, autoThreads int) {
+func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint, autoThreads int) {
 	currentAutoThread := defaultIOThread
-	if ioThreadCount != 0 {
-		if domain.Spec.IOThreads == nil {
-			domain.Spec.IOThreads = &api.IOThreads{}
-		}
-		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
-	}
 	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
 		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
 		iothreads := &api.DiskIOThreads{}
