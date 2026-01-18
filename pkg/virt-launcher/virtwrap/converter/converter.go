@@ -1061,6 +1061,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	hasIOThreads := iothreads.HasIOThreads(vmi)
+	var poolSize, totalThreads uint
+	if hasIOThreads {
+		poolSize, totalThreads = iothreads.CalculateThreadAllocation(vmi)
+	}
 
 	builder := NewDomainBuilder(
 		metadata.DomainConfigurator{},
@@ -1112,6 +1116,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
 		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation()),
+		compute.NewIOThreadsDomainConfigurator(totalThreads),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
@@ -1249,7 +1254,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	if hasIOThreads {
-		poolSize, totalThreads := iothreads.CalculateThreadAllocation(vmi)
 		iothreads.SetIOThreads(vmi, domain, vcpus, poolSize, totalThreads)
 	}
 
