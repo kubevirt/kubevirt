@@ -52,7 +52,7 @@ var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", fu
 		primed              bool
 		vmCount             = getVMCount()
 		vmBatchStartupLimit = getVMBatchStartupLimit()
-		metricsPath         = filepath.Join(os.Getenv("ARTIFACTS"), "VMI-kwok-perf-audit-results.json")
+		artifactsDir        = os.Getenv("ARTIFACTS")
 	)
 
 	BeforeEach(func() {
@@ -98,7 +98,7 @@ var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", fu
 				deleteAndVerifyFakeVMIBatch(virtClient, vmBatchStartupLimit)
 
 				By("Collecting metrics")
-				collectMetrics(startTime, metricsPath)
+				collectMetrics(startTime, filepath.Join(artifactsDir, "VMI-perf-audit-results.json"))
 			})
 		})
 
@@ -114,7 +114,7 @@ var _ = Describe(KWOK("Control Plane Performance Density Testing using kwok", fu
 				deleteAndVerifyFakeVMBatch(virtClient, vmBatchStartupLimit)
 
 				By("Collecting metrics")
-				collectMetrics(startTime, metricsPath)
+				collectMetrics(startTime, filepath.Join(artifactsDir, "VM-perf-audit-results.json"))
 			})
 		})
 	})
