@@ -21,6 +21,7 @@ package network
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -227,19 +228,23 @@ func WithNetworkIfacesResources(
 	domainSpec *api.DomainSpec,
 	count int,
 	f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error),
-) (cli.VirDomain, error) {
+) (retDomainClient cli.VirDomain, err error) {
 	if count > 0 {
 		domainSpecWithIfacesResource := AppendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
-		dom, err := f(vmi, domainSpecWithIfacesResource)
-		if err != nil {
-			return nil, err
+		dom, domErr := f(vmi, domainSpecWithIfacesResource)
+		if domErr != nil {
+			return nil, domErr
 		}
 
-		defer dom.Free()
+		defer func() {
+			if freeErr := dom.Free(); freeErr != nil {
+				err = errors.Join(err, freeErr)
+			}
+		}()
 
-		domainSpecWithoutIfacePlaceholders, err := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
-		if err != nil {
-			return nil, err
+		domainSpecWithoutIfacePlaceholders, domErr := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
+		if domErr != nil {
+			return nil, domErr
 		}
 		domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
 		// Only the devices are taken into account because some parameters are not assured to be returned when
