@@ -126,7 +126,13 @@ func (vim *virtIOInterfaceManager) updateIfaceInDomain(domIfaceToUpdate *api.Int
 }
 
 func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain) error {
-	for _, domainIface := range interfacesToHotUnplug(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, currentDomain.Spec.Devices.Interfaces) {
+	ifacesToHotUnplug := interfacesToHotUnplug(
+		vmi.Spec.Domain.Devices.Interfaces,
+		vmi.Spec.Networks,
+		currentDomain.Spec.Devices.Interfaces,
+	)
+
+	for _, domainIface := range ifacesToHotUnplug {
 		log.Log.Infof("preparing to hot-unplug %s", domainIface.Alias.GetName())
 
 		ifaceXML, err := xml.Marshal(domainIface)
@@ -142,7 +148,11 @@ func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachi
 	return nil
 }
 
-func interfacesToHotUnplug(vmiSpecInterfaces []v1.Interface, vmiSpecNets []v1.Network, domainSpecInterfaces []api.Interface) []api.Interface {
+func interfacesToHotUnplug(
+	vmiSpecInterfaces []v1.Interface,
+	vmiSpecNets []v1.Network,
+	domainSpecInterfaces []api.Interface,
+) []api.Interface {
 	ifaces2remove := netvmispec.FilterInterfacesSpec(vmiSpecInterfaces, func(iface v1.Interface) bool {
 		return iface.State == v1.InterfaceStateAbsent
 	})
@@ -173,7 +183,10 @@ func lookupDomainInterfaceByName(domainIfaces []api.Interface, networkName strin
 	return nil
 }
 
-func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineInstance, indexedDomainIfaces map[string]api.Interface) []v1.Network {
+func networksToHotplugWhoseInterfacesAreNotInTheDomain(
+	vmi *v1.VirtualMachineInstance,
+	indexedDomainIfaces map[string]api.Interface,
+) []v1.Network {
 	var networksToHotplug []v1.Network
 	interfacesToHoplug := netvmispec.IndexInterfaceStatusByName(
 		vmi.Status.Interfaces,
@@ -209,7 +222,12 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 // As its last step, it reads the generated configuration and removes the network interfaces
 // so none will be created with the domain creation.
 // The dependent devices are left in the configuration, to allow future hotplug.
-func WithNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
+func WithNetworkIfacesResources(
+	vmi *v1.VirtualMachineInstance,
+	domainSpec *api.DomainSpec,
+	count int,
+	f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error),
+) (cli.VirDomain, error) {
 	if count > 0 {
 		domainSpecWithIfacesResource := AppendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
 		dom, err := f(vmi, domainSpecWithIfacesResource)
