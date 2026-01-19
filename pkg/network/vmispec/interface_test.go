@@ -104,6 +104,12 @@ var _ = Describe("VMI network spec", func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				),
 			),
+			Entry("when the VMI uses passtBinding to connect to the pod network",
+				libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding(podNet0)),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				),
+			),
 		)
 
 		DescribeTable("shouldn't allow migration", func(vmi *v1.VirtualMachineInstance) {
@@ -133,6 +139,7 @@ var _ = Describe("VMI network spec", func() {
 		deviceInfoPlugin:    {DownwardAPI: v1.DeviceInfo},
 		nonDeviceInfoPlugin: {},
 	}
+
 	Context("binding plugin network with device info", func() {
 		It("returns false given non binding-plugin interface", func() {
 			Expect(netvmispec.HasBindingPluginDeviceInfo(
