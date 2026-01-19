@@ -87,6 +87,12 @@ func WithRunStrategy(strategy v1.VirtualMachineRunStrategy) VMOption {
 	}
 }
 
+func WithRebootPolicy(policy v1.RebootPolicy) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Spec.Template.Spec.Domain.RebootPolicy = &policy
+	}
+}
+
 func WithDataVolumeTemplate(datavolume *cdiv1.DataVolume) VMOption {
 	return func(vm *v1.VirtualMachine) {
 		vm.Spec.DataVolumeTemplates = append(vm.Spec.DataVolumeTemplates,

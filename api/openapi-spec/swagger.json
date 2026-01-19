@@ -14929,6 +14929,10 @@
       "description": "Memory allow specifying the VMI memory features.",
       "$ref": "#/definitions/v1.Memory"
      },
+     "rebootPolicy": {
+      "description": "RebootPolicy specifies how the guest should behave on reboot. Reboot (default): The guest is allowed to reboot silently. Terminate: The VMI will be terminated on guest reboot, allowing higher level controllers (such as the VM controller) to recreate the VMI with any updated configuration such as boot order changes.",
+      "type": "string"
+     },
      "resources": {
       "description": "Resources describes the Compute Resources required by this vmi.",
       "default": {},

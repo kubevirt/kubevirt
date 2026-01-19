@@ -1269,6 +1269,17 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	// In case the RebootPolicy is not set, we rely on libvirt default behavior
+	// that is to reboot the guest silently.
+	if vmi.Spec.Domain.RebootPolicy != nil {
+		switch *vmi.Spec.Domain.RebootPolicy {
+		case v1.RebootPolicyTerminate:
+			domain.Spec.OnReboot = api.DomainOnRebootDestroy
+		case v1.RebootPolicyReboot:
+			domain.Spec.OnReboot = api.DomainOnRebootRestart
+		}
+	}
+
 	return nil
 }
 
