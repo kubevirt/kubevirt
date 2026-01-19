@@ -28,6 +28,7 @@ import (
 type ControllersDomainConfigurator struct {
 	isUSBNeeded      bool
 	scsiModel        string
+	virtioModel      string
 	controllerDriver *api.ControllerDriver
 }
 
@@ -48,6 +49,10 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 
 	if requiresSCSIController(vmi) {
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, c.controllerDriver))
+	}
+
+	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newVirtioSerialController(c.virtioModel, c.controllerDriver))
 	}
 
 	return nil
@@ -71,6 +76,12 @@ func ControllersWithControllerDriver(controllerDriver *api.ControllerDriver) con
 	}
 }
 
+func ControllersWithVirtioModel(virtioModel string) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.virtioModel = virtioModel
+	}
+}
+
 func newUSBController(usbNeeded bool) api.Controller {
 	usbControllerModel := "none"
 
@@ -88,6 +99,15 @@ func newUSBController(usbNeeded bool) api.Controller {
 func newSCSIController(controllerModel string, controllerDriver *api.ControllerDriver) api.Controller {
 	return api.Controller{
 		Type:   "scsi",
+		Index:  "0",
+		Model:  controllerModel,
+		Driver: controllerDriver,
+	}
+}
+
+func newVirtioSerialController(controllerModel string, controllerDriver *api.ControllerDriver) api.Controller {
+	return api.Controller{
+		Type:   "virtio-serial",
 		Index:  "0",
 		Model:  controllerModel,
 		Driver: controllerDriver,
