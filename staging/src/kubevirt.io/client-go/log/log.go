@@ -222,7 +222,7 @@ func (l FilteredVerbosityLogger) Infof(msg string, args ...interface{}) {
 }
 
 func (l FilteredVerbosityLogger) Object(obj LoggableObject) *FilteredVerbosityLogger {
-	l.filteredLogger.Object(obj)
+	l.filteredLogger = *l.filteredLogger.Object(obj)
 	return &l
 }
 
