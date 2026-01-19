@@ -71,7 +71,7 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[stri
 	switch {
 	case primaryIface == nil:
 		return fmt.Errorf("no primary interface found for network %s", podNetwork.Name)
-	case primaryIface.Masquerade != nil:
+	case primaryIface.Masquerade != nil || primaryIface.PasstBinding != nil:
 		return nil
 	case primaryIface.Bridge != nil:
 		if _, isLiveMigrationAllowed := vmi.Annotations[v1.AllowPodBridgeNetworkLiveMigrationAnnotation]; isLiveMigrationAllowed {
