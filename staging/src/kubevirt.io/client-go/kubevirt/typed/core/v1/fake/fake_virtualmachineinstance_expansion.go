@@ -181,3 +181,10 @@ func (c *fakeVirtualMachineInstances) Backup(ctx context.Context, name string, b
 
 	return err
 }
+
+func (c *fakeVirtualMachineInstances) MonitoringQuery(ctx context.Context, name string, command string, arguments map[string]interface{}) (map[string]interface{}, error) {
+	_, err := c.Fake.
+		Invokes(testing.NewGetSubresourceAction(c.Resource(), c.Namespace(), "monitoring/query", name), nil)
+
+	return nil, err
+}
