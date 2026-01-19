@@ -46,7 +46,7 @@ func NewControllersDomainConfigurator(options ...controllersOption) ControllersD
 func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newUSBController(c.isUSBNeeded))
 
-	if needsSCSIController(vmi) {
+	if requiresSCSIController(vmi) {
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, c.controllerDriver))
 	}
 
@@ -94,13 +94,18 @@ func newSCSIController(controllerModel string, controllerDriver *api.ControllerD
 	}
 }
 
-func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {
+func requiresSCSIController(vmi *v1.VirtualMachineInstance) bool {
+	if !vmi.Spec.Domain.Devices.DisableHotplug {
+		return true
+	}
+
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		if getBusFromDisk(disk) == v1.DiskBusSCSI {
 			return true
 		}
 	}
-	return !vmi.Spec.Domain.Devices.DisableHotplug
+
+	return false
 }
 
 func getBusFromDisk(disk v1.Disk) v1.DiskBus {
