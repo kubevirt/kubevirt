@@ -222,7 +222,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, decorators.ImageVolume, func() {
+	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, decorators.ImageVolume, decorators.NoFlakeCheck, func() {
 		BeforeEach(func() {
 			v, err := getKubernetesVersion()
 			Expect(err).ToNot(HaveOccurred())
