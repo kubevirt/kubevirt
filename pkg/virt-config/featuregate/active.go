@@ -165,6 +165,14 @@ const (
 	// Details of the new hypervisors should be specified via the
 	// HypervisorConfigurations field in KubeVirtConfiguration.
 	ConfigurableHypervisor = "ConfigurableHypervisor"
+
+	// Owner: sig-compute / @MarSik
+	// Alpha: v1.8.0
+	//
+	// RebootPolicy enables setting the RebootPolicy field on VMI's DomainSpec
+	// which allows terminating the VMI on guest reboot instead of silently rebooting,
+	// enabling the VM controller to recreate the VMI with updated configuration.
+	RebootPolicy = "RebootPolicy"
 )
 
 func init() {
@@ -202,4 +210,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
 }
