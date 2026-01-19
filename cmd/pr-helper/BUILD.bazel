@@ -24,20 +24,12 @@ pkg_tar(
 oci_image(
     name = "version-container",
     base = "//:passwd-image",
-    tars = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": [
-            ":multipath",
-            ":entrypoint",
-            "//rpm:pr-helper_aarch64",
-            ":get-version",
-        ],
-        "//conditions:default": [
-            ":multipath",
-            ":entrypoint",
-            "//rpm:pr-helper_x86_64",
-            ":get-version",
-        ],
-    }),
+    tars = [
+        ":multipath",
+        ":entrypoint",
+        "//bazel/compat:pr-helper",
+        ":get-version",
+    ],
 )
 
 oci_image(

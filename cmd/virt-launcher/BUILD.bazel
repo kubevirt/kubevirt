@@ -1,9 +1,8 @@
 load("@bazeldnf//bazeldnf:defs.bzl", "xattrs")
-load("@io_bazel_rules_docker//contrib:group.bzl", "group_entry", "group_file")
-load("@io_bazel_rules_docker//contrib:passwd.bzl", "passwd_entry", "passwd_file")
 load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
 load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
+load("//bazel:image.bzl", "provision_user")
 load("//staging/src/kubevirt.io/client-go/version:def.bzl", "version_x_defs")
 
 go_library(
@@ -74,51 +73,16 @@ xattrs(
     tar = ":virt-launcher-tar",
 )
 
-passwd_entry(
-    name = "root-user",
-    gid = 0,
-    home = "/root",
-    info = "root",
-    shell = "/bin/bash",
-    uid = 0,
-    username = "root",
-)
+QEMU_ID = 107
 
-group_entry(
-    name = "qemu-group",
-    gid = 107,
+provision_user(
+    name = "user-layer",
+    gid = QEMU_ID,
     groupname = "qemu",
-)
-
-group_entry(
-    name = "root-group",
-    gid = 0,
-    groupname = "root",
-)
-
-group_file(
-    name = "group",
-    entries = [
-        ":qemu-group",
-        ":root-group",
-    ],
-)
-
-passwd_entry(
-    name = "qemu-user",
-    gid = 107,
-    home = "/home/qemu",
+    provision_root_user = True,  # CI requires this user for some reason
     shell = "/bin/bash",
-    uid = 107,
+    uid = QEMU_ID,
     username = "qemu",
-)
-
-passwd_file(
-    name = "passwd",
-    entries = [
-        ":qemu-user",
-        ":root-user",
-    ],
 )
 
 pkg_tar(
@@ -128,17 +92,6 @@ pkg_tar(
         ":virtqemud.conf",
     ],
     package_dir = "/etc/libvirt",
-)
-
-pkg_tar(
-    name = "passwd-tar",
-    srcs = [
-        ":group",
-        ":passwd",
-    ],
-    mode = "0644",
-    package_dir = "etc",
-    visibility = ["//visibility:public"],
 )
 
 pkg_tar(
@@ -179,38 +132,20 @@ pkg_tar(
 
 oci_image(
     name = "version-container",
-    base = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "@go_image_base_aarch64",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "@go_image_base_s390x",
-        "//conditions:default": "@go_image_base",
-    }),
-    tars = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": [
-            "//rpm:launcherbase_aarch64",
-            ":get-version-tar",
-            ":libvirt-config",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":qemu-kvm-modules-dir-tar",
-        ],
-        "@io_bazel_rules_go//go/platform:linux_s390x": [
-            "//rpm:launcherbase_s390x",
-            ":get-version-tar",
-            ":libvirt-config",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":qemu-kvm-modules-dir-tar",
-        ],
-        "//conditions:default": [
-            "//rpm:launcherbase_x86_64",
-            ":get-version-tar",
-            ":libvirt-config",
-            ":passwd-tar",
-            ":nsswitch-tar",
-            ":qemu-hook-tar",
-            ":qemu-kvm-modules-dir-tar",
-        ],
-    }),
+    base = "//bazel/compat:go_image_base",
+    tars = [
+        # order of layes matter, the first layer is the base image
+        # second layer should be all the extra RPMs we install
+        # then our customization layers should be included, in order
+        # of least often modified to most often modified
+        "//bazel/compat:launcherbase",
+        ":libvirt-config",
+        ":user-layer",
+        ":qemu-kvm-modules-dir-tar",
+        ":nsswitch-tar",
+        ":qemu-hook-tar",
+        ":get-version-tar",
+    ],
 )
 
 oci_image(

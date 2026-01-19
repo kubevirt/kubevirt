@@ -59,21 +59,22 @@ oci_image(
     ],
 )
 
+alias(
+    name = "appliance_layer",
+    actual = select({
+        "@io_bazel_rules_go//go/platform:linux_s390x": ":appliance_layer_s390x",
+        "//conditions:default": ":appliance_layer_x86_64",
+    }),
+)
+
 oci_image(
     name = "libguestfs-tools-image",
     base = ":version-container",
     entrypoint = ["/entrypoint.sh"],
-    tars = select({
-        "@io_bazel_rules_go//go/platform:linux_s390x": [
-            ":appliance_layer_s390x",
-            "//rpm:libguestfs-tools_s390x",
-            ":entrypoint",
-        ],
-        "//conditions:default": [
-            ":appliance_layer_x86_64",
-            "//rpm:libguestfs-tools_x86_64",
-            ":entrypoint",
-        ],
-    }),
+    tars = [
+        ":appliance_layer",
+        "//bazel/compat:libguestfs-tools",
+        ":entrypoint",
+    ],
     visibility = ["//visibility:public"],
 )
