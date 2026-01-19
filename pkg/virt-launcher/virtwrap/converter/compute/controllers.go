@@ -95,12 +95,17 @@ func newSCSIController(controllerModel string, controllerDriver *api.ControllerD
 }
 
 func needsSCSIController(vmi *v1.VirtualMachineInstance) bool {
+	if !vmi.Spec.Domain.Devices.DisableHotplug {
+		return true
+	}
+
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		if getBusFromDisk(disk) == v1.DiskBusSCSI {
 			return true
 		}
 	}
-	return !vmi.Spec.Domain.Devices.DisableHotplug
+
+	return false
 }
 
 func getBusFromDisk(disk v1.Disk) v1.DiskBus {
