@@ -72,6 +72,7 @@ var (
 	GuestAgentProbes                     = Label("guest-agent-probes")
 	Passt                                = Label("passt")
 	ImageVolume                          = Label("ImageVolume")
+	RebootPolicy                         = Label("RebootPolicy")
 
 	/* Storage classes */
 

@@ -219,7 +219,11 @@ type DomainSpec struct {
 	NUMATune       *NUMATune       `xml:"numatune"`
 	IOThreads      *IOThreads      `xml:"iothreads,omitempty"`
 	LaunchSecurity *LaunchSecurity `xml:"launchSecurity,omitempty"`
+	OnReboot       string          `xml:"on_reboot,omitempty"`
 }
+
+const DomainOnRebootDestroy = "destroy"
+const DomainOnRebootRestart = "restart"
 
 type CPUTune struct {
 	VCPUPin     []CPUTuneVCPUPin     `xml:"vcpupin"`
