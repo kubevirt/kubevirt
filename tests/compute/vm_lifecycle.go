@@ -32,6 +32,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	"kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -39,6 +40,9 @@ import (
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
+
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	kubevirtconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 )
 
 var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
@@ -118,6 +122,73 @@ var _ = Describe(SIG("[rfe_id:1177][crit:medium] VirtualMachine", func() {
 		Entry("with Fedora based VMI", libvmifact.NewFedora),
 		Entry("with unresponsive empty-disk VMI", libvmifact.NewGuestless),
 	)
+
+	Context("with reboot policy", Serial, func() {
+		BeforeEach(func() {
+			kubevirtconfig.EnableFeatureGate(featuregate.RebootPolicy)
+		})
+
+		It("[test_id:XXX]should terminate on guest reboot", func() {
+			const rebootCommand = `#!/bin/sh
+			sleep 30
+			reboot
+			`
+			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine(
+				libvmi.WithCloudInitNoCloud(cloudinit.WithNoCloudEncodedUserData(rebootCommand))),
+				libvmi.WithRebootPolicy(v1.RebootPolicyTerminate),
+				libvmi.WithRunStrategy(v1.RunStrategyOnce),
+			)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VM to be ready")
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			// Make sure it starts
+			By("Waiting for VMI to be running")
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
+
+			// And quits upon the reboot command from inside of the guest
+			By("Waiting for the VMI to be destroyed on guest reboot")
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveSucceeded())
+		})
+
+		It("should recreate VMI on guest reboot with runStrategy Always", func() {
+			By("Creating a VM with runStrategy Always and rebootPolicy Terminate")
+			vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork())),
+				libvmi.WithRebootPolicy(v1.RebootPolicyTerminate),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			)
+			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for VM to be ready")
+			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+			By("Waiting for VMI to be running")
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
+
+			By("Waiting for guest agent to be connected")
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Getting the current VMI UID")
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			oldUID := vmi.UID
+
+			By("Triggering a soft reboot via guest agent")
+			err = virtClient.VirtualMachineInstance(vm.Namespace).SoftReboot(context.Background(), vm.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for the VMI to be recreated with a new UID")
+			Eventually(matcher.ThisVMI(vmi), 240*time.Second, 1*time.Second).Should(matcher.BeRestarted(oldUID))
+
+			By("Verifying the new VMI is running")
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
+		})
+	})
 
 	Context("with paused vmi", func() {
 		It("[test_id:4598][test_id:3060]should signal paused/unpaused state with condition", decorators.Conformance, func() {
