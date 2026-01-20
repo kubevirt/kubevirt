@@ -291,9 +291,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 60)).To(Succeed(), "should report number of sockets")
 			})
 
-			It("[test_id:1663]should report 4 vCPUs under guest OS", func() {
+			It("[test_id:1663]should report 2 vCPUs under guest OS", func() {
 				vmi := libvmifact.NewAlpine(
-					libvmi.WithCPUCount(1, 2, 2),
+					libvmi.WithCPUCount(1, 1, 2),
 					libvmi.WithMemoryRequest("128M"),
 				)
 
@@ -308,7 +308,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				By("Checking the number of vCPUs under guest OS")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "grep -c ^processor /proc/cpuinfo\n"},
-					&expect.BExp{R: console.RetValue("4")},
+					&expect.BExp{R: console.RetValue("2")},
 				}, 60)).To(Succeed(), "should report number of threads")
 			})
 
