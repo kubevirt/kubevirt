@@ -144,7 +144,7 @@ var _ = Describe("Template", func() {
 					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 						return hooks.UnmarshalHookSidecarList(vmi)
 					}),
-				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
+				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -3049,7 +3049,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
+				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
 			)
 			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
 				Name: "testvmi", Namespace: "default", UID: "1234",
@@ -5681,7 +5681,7 @@ var _ = Describe("Template", func() {
 
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&kvConfig.Spec.Configuration)
 
-			netBindingPluginMemoryOverheadCalculator := &stubNetBindingPluginMemoryCalculator{}
+			netBindingPluginMemoryOverheadCalculator := &stubNetMemoryCalculator{}
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,
 				"/var/run/kubevirt",
@@ -5697,7 +5697,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
+				WithNetMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
 			)
 
 			vmi := libvmi.New(
@@ -6117,11 +6117,11 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 	return timeoutString
 }
 
-type stubNetBindingPluginMemoryCalculator struct {
+type stubNetMemoryCalculator struct {
 	calculatedMemoryOverhead bool
 }
 
-func (smc *stubNetBindingPluginMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+func (smc *stubNetMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}
