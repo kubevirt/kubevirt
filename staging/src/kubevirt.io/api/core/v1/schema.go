@@ -827,13 +827,13 @@ type SEVPolicy struct {
 }
 
 type SEVSNP struct {
-	Policy string `json:"policy,omitempty"`
-	VCEK string `json:"vcek,omitempty"`
-	AuthorKey string `json:"authorKey,omitempty"`
-	KernelHashes string `json:"kernelHashes,omitempty"`
-	Cbitpos string `json:"cbitpos,omitempty"`
-	IdBlock string `json:"idBlock,omitempty"`
-	IdAuth string `json:"idAuth,omitempty"`
+	Policy          string `json:"policy,omitempty"`
+	VCEK            string `json:"vcek,omitempty"`
+	AuthorKey       string `json:"authorKey,omitempty"`
+	KernelHashes    string `json:"kernelHashes,omitempty"`
+	Cbitpos         string `json:"cbitpos,omitempty"`
+	IdBlock         string `json:"idBlock,omitempty"`
+	IdAuth          string `json:"idAuth,omitempty"`
 	ReducedPhysBits string `json:"reducedPhysBits,omitempty"`
 }
 

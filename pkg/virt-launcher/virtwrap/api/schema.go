@@ -1151,33 +1151,32 @@ type Entry struct {
 //END OS --------------------
 //BEGIN LaunchSecurity --------------------
 
-type LaunchSecurity struct {
-	Type   string             `xml:"type,attr"`
-	Policy string             `xml:"policy,omitempty"`
-	SEV    *LaunchSecuritySEV `xml:"-"`
-	SNP    *LaunchSecuritySNP `xml:"-"`
+type LaunchSecuritySEVCommon struct {
+	Policy          string `xml:"policy,omitempty"`
+	KernelHashes    string `xml:"kernelHashes,attr,omitempty"`
+	Cbitpos         string `xml:"cbitpos,omitempty"`
+	ReducedPhysBits string `xml:"reducedPhysBits,omitempty"`
 }
 
 type LaunchSecuritySEV struct {
-	Policy          string `xml:"policy,attr,omitempty"`
-	KernelHashes    string `xml:"kernelHashes,attr,omitempty"`
-	DHCert          string `xml:"dhCert,omitempty"`
-	Session         string `xml:"session,omitempty"`
-	Cbitpos         string `xml:"cbitpos,omitempty"`
-	ReducedPhysBits string `xml:"reducedPhysBits,omitempty"`
+	DHCert  string `xml:"dhCert,omitempty"`
+	Session string `xml:"session,omitempty"`
 }
 
 type LaunchSecuritySNP struct {
 	VCEK                    string `xml:"vcek,attr,omitempty"`
 	AuthorKey               string `xml:"authorKey,attr,omitempty"`
-	KernelHashes            string `xml:"kernelHashes,attr,omitempty"`
 	HostData                string `xml:"hostData,omitempty"`
 	GuestVisibleWorkarounds string `xml:"guestVisibleWorkarounds,omitempty"`
 	IdBlock                 string `xml:"idBlock,omitempty"`
 	IdAuth                  string `xml:"idAuth,omitempty"`
-	Cbitpos                 string `xml:"cbitpos,omitempty"`
-	Policy                  string `xml:"policy,attr,omitempty"`
-	ReducedPhysBits         string `xml:"reducedPhysBits,omitempty"`
+}
+
+type LaunchSecurity struct {
+	Type string `xml:"type,attr"`
+	LaunchSecuritySEVCommon
+	LaunchSecuritySEV
+	LaunchSecuritySNP
 }
 
 //END LaunchSecurity --------------------

@@ -46,7 +46,7 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 
 	switch l.architecture {
 	case "amd64":
-		domain.Spec.LaunchSecurity = amd64LaunchSecurity(vmi)
+		domain.Spec.LaunchSecurity = Amd64LaunchSecurity(vmi)
 	case "arm64":
 		domain.Spec.LaunchSecurity = nil
 	case "s390x":
@@ -59,62 +59,64 @@ func (l LaunchSecurityDomainConfigurator) Configure(vmi *v1.VirtualMachineInstan
 	return nil
 }
 
-func configureSEVSNPLaunchSecurity(snpConfig *v1.SNP) *api.LaunchSecurity {
+func ConfigureSEVSNPLaunchSecurity(snpConfig *v1.SEVSNP) *api.LaunchSecurity {
 	snpPolicyBits := launchsecurity.SEVSNPPolicyToBits(snpConfig)
 	domain := &api.LaunchSecurity{
 		Type: "sev-snp",
 	}
 	if snpConfig.Policy != "" {
-		// TODO: handle custom policy
+		domain.LaunchSecuritySEVCommon.Policy = snpConfig.Policy
 	} else {
 		// Use Default Policy
-		domain.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
+		domain.LaunchSecuritySEVCommon.Policy = "0x" + strconv.FormatUint(uint64(snpPolicyBits), 16)
 	}
 	if snpConfig.VCEK != "" {
-		domain.SNP.VCEK = snpConfig.VCEK
+		domain.LaunchSecuritySNP.VCEK = snpConfig.VCEK
 	}
 	if snpConfig.AuthorKey != "" {
-		domain.SNP.AuthorKey = snpConfig.AuthorKey
+		domain.LaunchSecuritySNP.AuthorKey = snpConfig.AuthorKey
 	}
 	if snpConfig.KernelHashes != "" {
-		domain.SNP.KernelHashes = snpConfig.KernelHashes
+		domain.LaunchSecuritySEVCommon.KernelHashes = snpConfig.KernelHashes
 	}
 	if snpConfig.Cbitpos != "" {
-		domain.SNP.Cbitpos = snpConfig.Cbitpos
+		domain.LaunchSecuritySEVCommon.Cbitpos = snpConfig.Cbitpos
 	}
 	if snpConfig.IdBlock != "" {
-		domain.SNP.IdBlock = snpConfig.IdBlock
+		domain.LaunchSecuritySNP.IdBlock = snpConfig.IdBlock
 	}
 	if snpConfig.IdAuth != "" {
-		domain.SNP.IdAuth = snpConfig.IdAuth
+		domain.LaunchSecuritySNP.IdAuth = snpConfig.IdAuth
 	}
 	if snpConfig.ReducedPhysBits != "" {
-		domain.SNP.ReducedPhysBits = snpConfig.ReducedPhysBits
+		domain.LaunchSecuritySEVCommon.ReducedPhysBits = snpConfig.ReducedPhysBits
 	}
 	return domain
 }
 
-func configureSEVLaunchSecurity(sevConfig *v1.SEV) *api.LaunchSecurity {
+func ConfigureSEVLaunchSecurity(sevConfig *v1.SEV) *api.LaunchSecurity {
 	sevPolicyBits := launchsecurity.SEVPolicyToBits(sevConfig.Policy)
 	domain := &api.LaunchSecurity{
-		Type:   "sev",
-		Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+		Type: "sev",
+		LaunchSecuritySEVCommon: api.LaunchSecuritySEVCommon{
+			Policy: "0x" + strconv.FormatUint(uint64(sevPolicyBits), 16),
+		},
 	}
 	if sevConfig.DHCert != "" {
-		domain.SEV.DHCert = sevConfig.DHCert
+		domain.LaunchSecuritySEV.DHCert = sevConfig.DHCert
 	}
 	if sevConfig.Session != "" {
-		domain.SEV.Session = sevConfig.Session
+		domain.LaunchSecuritySEV.Session = sevConfig.Session
 	}
 	return domain
 }
 
-func amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
+func Amd64LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
 	launchSec := vmi.Spec.Domain.LaunchSecurity
-	if launchSec.SEV == nil && launchSec.SNP != nil {
-		return configureSEVSNPLaunchSecurity(launchSec.SNP)
+	if launchSec.SNP != nil {
+		return ConfigureSEVSNPLaunchSecurity(launchSec.SNP)
 	} else if launchSec.SEV != nil {
-		return configureSEVLaunchSecurity(launchSec.SEV)
+		return ConfigureSEVLaunchSecurity(launchSec.SEV)
 	} else if launchSec.TDX != nil {
 		return &api.LaunchSecurity{
 			Type: "tdx",

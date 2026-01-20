@@ -397,7 +397,16 @@
           "session": "sessionValue",
           "dhCert": "dhCertValue"
         },
-        "snp": {},
+        "snp": {
+          "policy": "policyValue",
+          "vcek": "vcekValue",
+          "authorKey": "authorKeyValue",
+          "kernelHashes": "kernelHashesValue",
+          "cbitpos": "cbitposValue",
+          "idBlock": "idBlockValue",
+          "idAuth": "idAuthValue",
+          "reducedPhysBits": "reducedPhysBitsValue"
+        },
         "tdx": {}
       },
       "rebootPolicy": "rebootPolicyValue"

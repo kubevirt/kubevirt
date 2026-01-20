@@ -622,7 +622,15 @@ spec:
             policy:
               encryptedState: true
             session: sessionValue
-          snp: {}
+          snp:
+            authorKey: authorKeyValue
+            cbitpos: cbitposValue
+            idAuth: idAuthValue
+            idBlock: idBlockValue
+            kernelHashes: kernelHashesValue
+            policy: policyValue
+            reducedPhysBits: reducedPhysBitsValue
+            vcek: vcekValue
           tdx: {}
         machine:
           type: typeValue
