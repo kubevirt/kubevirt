@@ -454,6 +454,41 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		})
 
+		It("should requeue VMI when domain UID mismatches and old launcher is still responsive", func() {
+			// Test for the fix: when there's a UID mismatch between the new VMI and the
+			// existing domain, and the old launcher client is still responsive (not expired,
+			// but initialized), the controller must requeue the VMI key to retry later.
+			// Previously, this case would return nil without requeue, causing the VMI to hang.
+			newUID := types.UID("new-vmi-uid")
+			oldUID := types.UID("old-domain-uid")
+
+			// Create a new VMI with a new UID
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = newUID
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+
+			// Create a domain with the old UID (simulating a stale domain from a previous VMI)
+			domain := api.NewMinimalDomainWithUUID("testvmi", oldUID)
+			domain.Status.Status = api.Running
+
+			// Configure the mock launcher client to be responsive:
+			// - Initialized: true (client has been set up)
+			// - UnResponsive: false (client is still alive and responding)
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{
+				Initialized:  true,
+				UnResponsive: false,
+			}
+
+			addVMI(vmi, domain)
+
+			sanityExecute()
+
+			// The key should have been requeued via AddAfter, not dropped
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(BeNumerically(">", 0),
+				"VMI key should be requeued when old launcher is responsive during UID mismatch")
+		})
+
 		It("should silently retry if the command socket is not yet ready", func() {
 			vmi := NewScheduledVMI(vmiTestUUID, "notexisingpoduid", host)
 			// the socket dir must exist, to not go immediately to failed
