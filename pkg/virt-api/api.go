@@ -1064,6 +1064,9 @@ func (app *virtAPIApp) registerMutatingWebhook(informers *webhooks.Informers) {
 	http.HandleFunc(components.VMCloneCreateMutatePath, func(w http.ResponseWriter, r *http.Request) {
 		mutating_webhook.ServeClones(w, r)
 	})
+	http.HandleFunc(components.VirtLauncherPodMutatePath, func(w http.ResponseWriter, r *http.Request) {
+		mutating_webhook.ServeVirtLauncherPods(w, r, app.clusterConfig, app.virtCli)
+	})
 }
 
 func (app *virtAPIApp) setupTLS(k8sCAManager kvtls.KubernetesCAManager, kubevirtCAManager kvtls.ClientCAManager) {

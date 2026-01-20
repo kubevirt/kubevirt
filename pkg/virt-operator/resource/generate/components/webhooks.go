@@ -984,3 +984,5 @@ const MigrationPolicyCreateValidatePath = "/migration-policy-validate-create"
 const VMCloneCreateValidatePath = "/vm-clone-validate-create"
 
 const VMCloneCreateMutatePath = "/vm-clone-mutate-create"
+
+const VirtLauncherPodMutatePath = "/virt-launcher-pod-mutate"
