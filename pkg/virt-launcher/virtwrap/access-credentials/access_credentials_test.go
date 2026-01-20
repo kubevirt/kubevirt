@@ -32,12 +32,14 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	k8sv1 "k8s.io/api/core/v1"
 	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -64,7 +66,7 @@ var _ = Describe("AccessCredentials", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		mockLibvirt = testing.NewLibvirt(ctrl)
 
-		manager = NewManager(mockLibvirt.VirtConnection, &lock, metadata.NewCache())
+		manager = NewManager(mockLibvirt.VirtConnection, &lock, metadata.NewCache(), nil)
 		manager.resyncCheckIntervalSeconds = 1
 		tmpDir, err = os.MkdirTemp("", "credential-test")
 		Expect(err).ToNot(HaveOccurred())
@@ -124,7 +126,9 @@ var _ = Describe("AccessCredentials", func() {
 		mockLibvirt.DomainEXPECT().AuthorizedSSHKeysSet(user, authorizedKeys, gomock.Any()).Return(nil).Times(1)
 		mockLibvirt.DomainEXPECT().Free().Times(1)
 
-		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
+		deprecated, err := manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)
+		Expect(deprecated).To(BeFalse())
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should dynamically update ssh key with old qemu agent", func() {
@@ -205,7 +209,9 @@ var _ = Describe("AccessCredentials", func() {
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedFileChmodCmd, domName).Return(expectedExecReturn, nil).Times(1)
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(expectedStatusCmd, domName).Return(expectedFileChmodRes, nil).Times(1)
 
-		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).To(Succeed())
+		deprecated, err := manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)
+		Expect(deprecated).To(BeTrue())
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	It("should fail to update ssh key if both methods return error", func() {
@@ -222,8 +228,9 @@ var _ = Describe("AccessCredentials", func() {
 		// Detect user home dir
 		mockLibvirt.ConnectionEXPECT().QemuAgentCommand(gomock.Any(), gomock.Any()).Return("", libvirt.ERR_INTERNAL_ERROR).AnyTimes()
 
-		Expect(manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)).
-			To(MatchError(ContainSubstring("failed to set SSH keys")))
+		deprecated, err := manager.agentSetAuthorizedKeys(domName, user, authorizedKeys)
+		Expect(deprecated).To(BeFalse())
+		Expect(err).To(MatchError(ContainSubstring("failed to set SSH keys")))
 	})
 
 	It("should support multiple ssh keys in one secret value", func() {
@@ -370,4 +377,28 @@ var _ = Describe("AccessCredentials", func() {
 
 		manager.watchSecrets(vmi)
 	})
+
+	It("should send event if deprecated flow was used", func() {
+		fakeVmi := &v1.VirtualMachineInstance{}
+
+		var eventSent atomic.Bool
+		manager.eventSender = &fakeEventSender{SendK8sEventFunc: func(vmi *v1.VirtualMachineInstance, severity, reason, message string) error {
+			Expect(vmi).To(BeIdenticalTo(fakeVmi))
+			Expect(severity).To(Equal(k8sv1.EventTypeWarning))
+			Expect(reason).To(Equal(v1.AccessCredentialsSyncSuccess.String()))
+			eventSent.Store(true)
+			return nil
+		}}
+
+		manager.reportAccessCredentialResult(fakeVmi, true, "", true)
+		Expect(eventSent.Load()).Should(BeTrue())
+	})
 })
+
+type fakeEventSender struct {
+	SendK8sEventFunc func(vmi *v1.VirtualMachineInstance, severity, reason, message string) error
+}
+
+func (f *fakeEventSender) SendK8sEvent(vmi *v1.VirtualMachineInstance, severity, reason, message string) error {
+	return f.SendK8sEventFunc(vmi, severity, reason, message)
+}
