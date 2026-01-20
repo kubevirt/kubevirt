@@ -82,50 +82,46 @@ var _ = Describe("VMI network spec", func() {
 			nonMigratablePlugin: {},
 		}
 
-		Context("vmi", func() {
-			It("shouldn't allow migration if the VMI use non-migratable binding plugin to connect to the pod network", func() {
-				network := podNetwork(podNet0)
-				vmi := libvmi.New(
-					libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, nonMigratablePlugin)),
-					libvmi.WithNetwork(&network),
-				)
-				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).ToNot(Succeed())
-			})
-			It("shouldn't allow migration if the VMI uses bridge binding to connect to the pod network", func() {
-				network := podNetwork(podNet0)
-				vmi := libvmi.New(
-					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-					libvmi.WithNetwork(&network),
-				)
-				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).ToNot(Succeed())
-			})
-			It("should allow migration if the VMI uses masquerade to connect to the pod network", func() {
-				network := podNetwork(podNet0)
-				vmi := libvmi.New(
+		DescribeTable("should allow migration", func(vmi *v1.VirtualMachineInstance) {
+			Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
+		},
+			Entry("when the VMI uses masquerade to connect to the pod network",
+				libvmi.New(
 					libvmi.WithInterface(*v1.DefaultMasqueradeNetworkInterface()),
-					libvmi.WithNetwork(&network),
-				)
-				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
-			})
-			It("should allow migration if the VMI use bridge to connect to the pod network and has AllowLiveMigrationBridgePodNetwork annotation",
-				func() {
-					network := podNetwork(podNet0)
-					vmi := libvmi.New(
-						libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
-						libvmi.WithNetwork(&network),
-						libvmi.WithAnnotation(v1.AllowPodBridgeNetworkLiveMigrationAnnotation, ""),
-					)
-					Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
-				})
-			It("should allow migration if the VMI use migratable binding plugin to connect to the pod network", func() {
-				network := podNetwork(podNet0)
-				vmi := libvmi.New(
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				),
+			),
+			Entry("when the VMI uses bridge to connect to the pod network and has AllowLiveMigrationBridgePodNetwork annotation",
+				libvmi.New(
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+					libvmi.WithAnnotation(v1.AllowPodBridgeNetworkLiveMigrationAnnotation, ""),
+				),
+			),
+			Entry("when the VMI uses migratable binding plugin to connect to the pod network",
+				libvmi.New(
 					libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, migratablePlugin)),
-					libvmi.WithNetwork(&network),
-				)
-				Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).To(Succeed())
-			})
-		})
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				),
+			),
+		)
+
+		DescribeTable("shouldn't allow migration", func(vmi *v1.VirtualMachineInstance) {
+			Expect(netvmispec.VerifyVMIMigratable(vmi, bindingPlugins)).ToNot(Succeed())
+		},
+			Entry("when the VMI uses bridge binding to connect to the pod network",
+				libvmi.New(
+					libvmi.WithInterface(*v1.DefaultBridgeNetworkInterface()),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				),
+			),
+			Entry("when the VMI uses non-migratable binding plugin to connect to the pod network",
+				libvmi.New(
+					libvmi.WithInterface(interfaceWithBindingPlugin(podNet0, nonMigratablePlugin)),
+					libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				),
+			),
+		)
 	})
 
 	const (
@@ -171,13 +167,6 @@ var _ = Describe("VMI network spec", func() {
 		})
 	})
 })
-
-func podNetwork(name string) v1.Network {
-	return v1.Network{
-		Name:          name,
-		NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
-	}
-}
 
 func interfaceWithBindingPlugin(name, pluginName string) v1.Interface {
 	return v1.Interface{
