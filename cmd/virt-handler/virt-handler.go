@@ -372,6 +372,22 @@ func (app *virtHandlerApp) Run() {
 	netStat := netsetup.NewNetStat()
 	passtRepairHandler := passt.NewRepairManager(app.clusterConfig)
 
+	// Bootstrapping. From here on the startup order matters
+
+	factory.Start(stop)
+	go domainSharedInformer.Run(stop)
+	go nodeInformer.Run(stop)
+	cache.WaitForCacheSync(
+		stop,
+		vmiInformer.HasSynced,
+		vmiSourceInformer.HasSynced,
+		vmiTargetInformer.HasSynced,
+		domainSharedInformer.HasSynced,
+		factory.CRD().HasSynced,
+		factory.KubeVirt().HasSynced,
+		nodeInformer.HasSynced,
+	)
+
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
 		app.virtCli,
@@ -453,12 +469,6 @@ func (app *virtHandlerApp) Run() {
 	go app.migrationCertManager.Start()
 	go app.vsockClientCertManager.Start()
 
-	// Bootstrapping. From here on the startup order matters
-
-	factory.Start(stop)
-	go domainSharedInformer.Run(stop)
-	go nodeInformer.Run(stop)
-
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
 		// relabel tun device
@@ -479,17 +489,6 @@ func (app *virtHandlerApp) Run() {
 		//an error occurred
 		panic(fmt.Errorf("failed to detect the presence of selinux: %v", err))
 	}
-
-	cache.WaitForCacheSync(
-		stop,
-		vmiInformer.HasSynced,
-		vmiSourceInformer.HasSynced,
-		vmiTargetInformer.HasSynced,
-		domainSharedInformer.HasSynced,
-		factory.CRD().HasSynced,
-		factory.KubeVirt().HasSynced,
-		nodeInformer.HasSynced,
-	)
 
 	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)
