@@ -120,6 +120,13 @@ const (
 	// DisableMediatedDevicesHandling disables the handling of mediated
 	// devices, its creation and deletion
 	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
+
+	// Owner: sig-storage
+	// Alpha: v0.48.0
+	// GA: v1.8.0
+	//
+	// ExpandDisksGate allows for expanding the storage available for in-use virtual machines.
+	ExpandDisksGate = "ExpandDisks"
 )
 
 func init() {
@@ -154,4 +161,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Deprecated, Message: "MultiArchitecture has been deprecated since v1.8.0"})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Deprecated, Message: "DisableMDEVConfiguration has been deprecated since v1.8.0"})
+	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: GA})
 }

@@ -743,7 +743,6 @@ type Disk struct {
 	BlockIO            *BlockIO      `xml:"blockio,omitempty"`
 	FilesystemOverhead *v1.Percent   `xml:"filesystemOverhead,omitempty"`
 	Capacity           *int64        `xml:"capacity,omitempty"`
-	ExpandDisksEnabled bool          `xml:"expandDisksEnabled,omitempty"`
 	Shareable          *Shareable    `xml:"shareable,omitempty"`
 }
 

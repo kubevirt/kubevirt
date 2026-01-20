@@ -107,7 +107,6 @@ type ConverterContext struct {
 	EphemeraldiskCreator            ephemeraldisk.EphemeralDiskCreatorInterface
 	VolumesDiscardIgnore            []string
 	Topology                        *cmdv1.Topology
-	ExpandDisksEnabled              bool
 	UseLaunchSecuritySEV            bool // For AMD SEV/ES/SNP
 	UseLaunchSecurityTDX            bool // For Intel TDX
 	UseLaunchSecurityPV             bool // For IBM SE(s390-pv)
@@ -200,7 +199,6 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		if ok && volumeStatus.PersistentVolumeClaimInfo != nil {
 			disk.FilesystemOverhead = volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead
 			disk.Capacity = storagetypes.GetDiskCapacity(volumeStatus.PersistentVolumeClaimInfo)
-			disk.ExpandDisksEnabled = c.ExpandDisksEnabled
 		}
 	}
 	if numQueues != nil && disk.Target.Bus == v1.DiskBusVirtio {

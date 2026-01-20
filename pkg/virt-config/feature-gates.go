@@ -45,10 +45,6 @@ func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 	return false
 }
 
-func (config *ClusterConfig) ExpandDisksEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.ExpandDisksGate)
-}
-
 func (config *ClusterConfig) CPUManagerEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.CPUManager)
 }

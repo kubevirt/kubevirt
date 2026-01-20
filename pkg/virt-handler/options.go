@@ -60,9 +60,7 @@ func virtualMachineOptions(
 		if clusterConfig.VGADisplayForEFIGuestsEnabled() {
 			bochsDisplay = false
 		}
-		options.ExpandDisksEnabled = clusterConfig.ExpandDisksEnabled()
 		options.ClusterConfig = &cmdv1.ClusterConfig{
-			ExpandDisksEnabled:        clusterConfig.ExpandDisksEnabled(),
 			FreePageReportingDisabled: clusterConfig.IsFreePageReportingDisabled(),
 			BochsDisplayForEFIGuests:  bochsDisplay,
 			SerialConsoleLogDisabled:  clusterConfig.IsSerialConsoleLogDisabled(),

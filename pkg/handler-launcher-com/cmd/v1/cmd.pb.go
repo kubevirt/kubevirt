@@ -367,6 +367,7 @@ func (m *DiskInfo) GetVirtualSize() uint64 {
 }
 
 type ClusterConfig struct {
+	// Deprecated
 	ExpandDisksEnabled        bool `protobuf:"varint,1,opt,name=ExpandDisksEnabled" json:"ExpandDisksEnabled,omitempty"`
 	FreePageReportingDisabled bool `protobuf:"varint,2,opt,name=FreePageReportingDisabled" json:"FreePageReportingDisabled,omitempty"`
 	BochsDisplayForEFIGuests  bool `protobuf:"varint,3,opt,name=BochsDisplayForEFIGuests" json:"BochsDisplayForEFIGuests,omitempty"`
