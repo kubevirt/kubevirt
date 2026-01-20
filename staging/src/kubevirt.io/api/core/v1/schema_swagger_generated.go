@@ -47,8 +47,8 @@ func (ServiceAccountVolumeSource) SwaggerDoc() map[string]string {
 func (ContainerPathVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":         "ContainerPathVolumeSource represents a path from the virt-launcher container\nto be exposed to the VM via virtiofs. The path must correspond to an existing\nvolumeMount in the virt-launcher pod's compute container.",
-		"path":     "Path is the absolute path within the virt-launcher container to expose to the VM.\nThe path must correspond to an existing volumeMount in the compute container.",
-		"readOnly": "ReadOnly controls whether the volume is exposed as read-only to the VM.\nDefaults to true. Write access is not currently supported.\n+optional\n+kubebuilder:default:=true",
+		"path":     "Path is the absolute path within the virt-launcher container to expose to the VM.\nThe path must correspond to an existing volumeMount in the compute container.\n+kubebuilder:validation:MaxLength=4096\n+kubebuilder:validation:XValidation:rule=\"self.startsWith('/')\",message=\"path must be absolute (start with '/')\"\n+kubebuilder:validation:XValidation:rule=\"!self.contains('..')\",message=\"path must not contain '..'\"",
+		"readOnly": "ReadOnly controls whether the volume is exposed as read-only to the VM.\nDefaults to true. Write access is not currently supported.\n+optional\n+kubebuilder:default:=true\n+kubebuilder:validation:XValidation:rule=\"self == true\",message=\"readOnly must be true, write access is not supported\"",
 	}
 }
 
