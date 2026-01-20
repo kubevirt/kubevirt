@@ -126,9 +126,13 @@ type ServiceAccountVolumeSource struct {
 // ContainerPathVolumeSource represents a path from the virt-launcher container
 // to be exposed to the VM via virtiofs. The path must correspond to an existing
 // volumeMount in the virt-launcher pod's compute container.
+// +kubebuilder:validation:XValidation:rule="!has(self.readOnly) || self.readOnly == true",message="readOnly must be true or unset, write access is not supported"
 type ContainerPathVolumeSource struct {
 	// Path is the absolute path within the virt-launcher container to expose to the VM.
 	// The path must correspond to an existing volumeMount in the compute container.
+	// +kubebuilder:validation:MaxLength=4096
+	// +kubebuilder:validation:XValidation:rule="self.startsWith('/')",message="path must be absolute (start with '/')"
+	// +kubebuilder:validation:XValidation:rule="!self.contains('..')",message="path must not contain '..'"
 	Path string `json:"path"`
 	// ReadOnly controls whether the volume is exposed as read-only to the VM.
 	// Defaults to true. Write access is not currently supported.
