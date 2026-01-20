@@ -38,6 +38,7 @@ type MockWorkQueue[T comparable] struct {
 	addWG            *sync.WaitGroup
 	rateLimitedEnque int32
 	addAfterEnque    int32
+	addAfterKeys     []T
 	wgLock           sync.Mutex
 }
 
@@ -60,6 +61,7 @@ func (q *MockWorkQueue[T]) AddAfter(item T, duration time.Duration) {
 	atomic.AddInt32(&q.addAfterEnque, 1)
 	q.wgLock.Lock()
 	defer q.wgLock.Unlock()
+	q.addAfterKeys = append(q.addAfterKeys, item)
 	if q.addWG != nil {
 		q.addWG.Done()
 	}
@@ -71,6 +73,12 @@ func (q *MockWorkQueue[T]) GetRateLimitedEnqueueCount() int {
 
 func (q *MockWorkQueue[T]) GetAddAfterEnqueueCount() int {
 	return int(atomic.LoadInt32(&q.addAfterEnque))
+}
+
+func (q *MockWorkQueue[T]) GetAddAfterKeys() []T {
+	q.wgLock.Lock()
+	defer q.wgLock.Unlock()
+	return q.addAfterKeys
 }
 
 // ExpectAdds allows setting the amount of expected enqueues.
@@ -96,7 +104,7 @@ func (q *MockWorkQueue[T]) Wait() {
 }
 
 func NewMockWorkQueue[T comparable](queue workqueue.TypedRateLimitingInterface[T]) *MockWorkQueue[T] {
-	return &MockWorkQueue[T]{queue, nil, 0, 0, sync.Mutex{}}
+	return &MockWorkQueue[T]{queue, nil, 0, 0, nil, sync.Mutex{}}
 }
 
 func NewFakeInformerFor(obj runtime.Object) (cache.SharedIndexInformer, *framework.FakeControllerSource) {
