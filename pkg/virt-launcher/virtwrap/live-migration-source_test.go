@@ -71,6 +71,8 @@ var _ = Describe("Live migration source", func() {
 				false, // image volume enabled
 				false, // libvirt hooks server and client enabled
 				nil,
+
+				nil, // no virt-lint
 			)
 			libvirtDomainManager = manager.(*LibvirtDomainManager)
 			libvirtDomainManager.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
