@@ -146,6 +146,27 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
+cc_library(
+    name = "virt-lint-libs",
+    srcs = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:virt-lint-libs_aarch64/usr/lib64"],
+        "@io_bazel_rules_go//go/platform:linux_s390x": ["//rpm:virt-lint-libs_s390x/usr/lib64"],
+        "//conditions:default": ["//rpm:virt-lint-libs_x86_64/usr/lib64"],
+    }),
+    hdrs = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": ["//rpm:virt-lint-libs_aarch64/usr/include/virt_lint"],
+        "@io_bazel_rules_go//go/platform:linux_s390x": ["//rpm:virt-lint-libs_s390x/usr/include/virt_lint"],
+        "//conditions:default": ["//rpm:virt-lint-libs_x86_64/usr/include/virt_lint"],
+    }),
+    linkstatic = 1,
+    strip_include_prefix = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "/rpm/virt-lint-libs_aarch64/usr/include/",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "/rpm/virt-lint-libs_s390x/usr/include/",
+        "//conditions:default": "/rpm/virt-lint-libs_x86_64/usr/include/virt_lint",
+    }),
+    visibility = ["//visibility:public"],
+)
+
 passwd_entry(
     name = "nonroot-user",
     gid = 1001,
