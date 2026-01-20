@@ -60,53 +60,33 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[stri
 		return nil
 	}
 
-	_, allowPodBridgeNetworkLiveMigration := vmi.Annotations[v1.AllowPodBridgeNetworkLiveMigrationAnnotation]
-	if allowPodBridgeNetworkLiveMigration && isPodNetworkWithBridgeBindingInterface(vmi.Spec.Networks, ifaces) {
+	podNetwork := LookupPodNetwork(vmi.Spec.Networks)
+	if podNetwork == nil {
 		return nil
 	}
-	if IsPodNetworkWithMasqueradeBindingInterface(vmi.Spec.Networks, ifaces) ||
-		IsPodNetworkWithMigratableBindingPlugin(vmi.Spec.Networks, ifaces, bindingPlugins) {
+
+	primaryIface := LookupInterfaceByName(ifaces, podNetwork.Name)
+
+	switch {
+	case primaryIface == nil:
+		return fmt.Errorf("no primary interface found for network %s", podNetwork.Name)
+	case primaryIface.Masquerade != nil:
 		return nil
+	case primaryIface.Bridge != nil:
+		if _, isLiveMigrationAllowed := vmi.Annotations[v1.AllowPodBridgeNetworkLiveMigrationAnnotation]; isLiveMigrationAllowed {
+			return nil
+		}
+	case primaryIface.Binding != nil:
+		if binding, exist := bindingPlugins[primaryIface.Binding.Name]; exist && binding.Migration != nil {
+			return nil
+		}
+	default:
 	}
 
 	return fmt.Errorf(
 		"cannot migrate VMI which does not use masquerade, bridge with %s VM annotation or a migratable plugin to connect to the pod network",
 		v1.AllowPodBridgeNetworkLiveMigrationAnnotation,
 	)
-}
-
-func IsPodNetworkWithMigratableBindingPlugin(
-	networks []v1.Network,
-	ifaces []v1.Interface,
-	bindingPlugins map[string]v1.InterfaceBindingPlugin,
-) bool {
-	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
-		if podInterface := LookupInterfaceByName(ifaces, podNetwork.Name); podInterface != nil {
-			if podInterface.Binding != nil {
-				binding, exist := bindingPlugins[podInterface.Binding.Name]
-				return exist && binding.Migration != nil
-			}
-		}
-	}
-	return false
-}
-
-func IsPodNetworkWithMasqueradeBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
-	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
-		if podInterface := LookupInterfaceByName(ifaces, podNetwork.Name); podInterface != nil {
-			return podInterface.Masquerade != nil
-		}
-	}
-	return true
-}
-
-func isPodNetworkWithBridgeBindingInterface(networks []v1.Network, ifaces []v1.Interface) bool {
-	if podNetwork := LookupPodNetwork(networks); podNetwork != nil {
-		if podInterface := LookupInterfaceByName(ifaces, podNetwork.Name); podInterface != nil {
-			return podInterface.Bridge != nil
-		}
-	}
-	return true
 }
 
 func LookupInterfaceStatusByMac(
