@@ -535,6 +535,43 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		containers = append(containers, sidecarContainer)
 	}
 
+	const tcpdumpScript = `# Start tcpdump in background
+echo "Starting tcpdump... "
+tcpdump -i %s tcp -w /debug/virt-launcher.pcap &
+TCPDUMP_PID=$!
+
+echo "Monitoring for virt-launcher-monitor exit..."
+while true; do
+    if [ ! -f "/debug/virt-launcher-monitor.pid" ]; then
+        echo "virt-launcher-monitor exited, shutting down tcpdump..."
+        kill -TERM $TCPDUMP_PID 2>/dev/null
+        wait $TCPDUMP_PID 2>/dev/null
+        exit 0
+    fi
+    sleep 1
+done`
+
+	if tcpdumpIface, exists := vmi.Annotations["kubevirt.io/tcpdump"]; exists {
+
+		containers = append(containers, k8sv1.Container{
+			Name:    "tcpdump",
+			Image:   "quay.io/rh-ee-ndothan/netshoot:filecaps",
+			Command: []string{"/bin/bash", "-c"},
+			Args:    []string{fmt.Sprintf(tcpdumpScript, tcpdumpIface)},
+			VolumeMounts: []k8sv1.VolumeMount{{
+				Name:      "debug-vol",
+				MountPath: "/debug",
+			}},
+			SecurityContext: &k8sv1.SecurityContext{
+				Capabilities: &k8sv1.Capabilities{
+					Add: []k8sv1.Capability{
+						"NET_ADMIN",
+						"NET_RAW",
+					},
+				},
+			},
+		})
+	}
 	podAnnotations, err := t.generatePodAnnotations(vmi)
 	if err != nil {
 		return nil, err
