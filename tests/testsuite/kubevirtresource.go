@@ -119,7 +119,6 @@ func AdjustKubeVirtResource() {
 		featuregate.DeclarativeHotplugVolumesGate,
 		featuregate.NodeRestrictionGate,
 		featuregate.DecentralizedLiveMigration,
-		featuregate.VideoConfig,
 		featuregate.UtilityVolumesGate,
 		featuregate.MigrationPriorityQueue,
 		featuregate.RebootPolicy,
