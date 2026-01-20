@@ -16,8 +16,8 @@ go_library(
     deps = [
         "//vendor/github.com/cyphar/filepath-securejoin:go_default_library",
         "//vendor/github.com/moby/sys/mountinfo:go_default_library",
+        "//vendor/github.com/moby/sys/userns:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
-        "//vendor/github.com/opencontainers/runc/libcontainer/userns:go_default_library",
         "//vendor/github.com/opencontainers/runc/libcontainer/utils:go_default_library",
         "//vendor/github.com/sirupsen/logrus:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
