@@ -28,6 +28,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -447,7 +448,24 @@ func main() {
 		stopChan,
 		hookFuncs...,
 	)
-	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, *libvirtHooksServerAndClientEnabled, preMigrationHookServer)
+
+	virtLintChannel := make(chan util.VirtLintEvent)
+	defer close(virtLintChannel)
+
+	// This might be done in startDomainEventMonitoring instead, this is
+	// just to try out whether it works, true PoC style.
+	go func() {
+		for msg := range virtLintChannel {
+			eventMessage := fmt.Sprintf("Validation from virt-lint returned %s: %s", strings.ToLower(msg.Severity), msg.Message)
+			err := notifier.SendK8sEvent(vmi, "Warning", "Starting", eventMessage)
+			if err != nil {
+				log.Log.Object(vmi).Reason(err).Warning("Error sending k8s event")
+			}
+		}
+	}()
+
+	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, *libvirtHooksServerAndClientEnabled, preMigrationHookServer, virtLintChannel)
+
 	if err != nil {
 		panic(err)
 	}
