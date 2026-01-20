@@ -485,6 +485,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
 		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
 		"memoryDump":            "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+		"containerPath":         "ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.\nThe path must correspond to a volumeMount in the virt-launcher container.\nMore info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md\n+optional",
 	}
 }
 
@@ -512,6 +513,14 @@ func (PersistentVolumeClaimVolumeSource) SwaggerDoc() map[string]string {
 
 func (MemoryDumpVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{}
+}
+
+func (ContainerPathVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "ContainerPathVolumeSource represents a path in the virt-launcher pod that should\nbe exposed to the VM via virtiofs. The path must correspond to a volumeMount in\nthe virt-launcher container to ensure security and proper access control.",
+		"path":     "Path is the absolute path in the virt-launcher container to expose to the VM.\nThe path must:\n- Be an absolute path (start with /)\n- Not contain path traversal attempts (..)\n\nNote: CEL validation provides basic string-level checks. Full runtime validation\n(including symlink resolution and volumeMount verification) will be implemented\nin virt-launcher conversion logic in a future PR (Phase 2).\n+kubebuilder:validation:Required\n+kubebuilder:validation:MinLength=1\n+kubebuilder:validation:XValidation:rule=\"self.startsWith('/')\",message=\"path must be an absolute path starting with /\"\n+kubebuilder:validation:XValidation:rule=\"!self.contains('..')\",message=\"path must not contain '..'\"",
+		"readOnly": "ReadOnly specifies whether the volume should be mounted read-only in the VM.\nDefaults to true for security. Write access is not currently supported.\n+optional\n+kubebuilder:default=true\n+kubebuilder:validation:XValidation:rule=\"self == true\",message=\"write access not yet supported, readOnly must be true\"",
+	}
 }
 
 func (EphemeralVolumeSource) SwaggerDoc() map[string]string {

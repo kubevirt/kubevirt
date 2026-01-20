@@ -14150,6 +14150,24 @@
      }
     }
    },
+   "v1.ContainerPathVolumeSource": {
+    "description": "ContainerPathVolumeSource represents a path in the virt-launcher pod that should be exposed to the VM via virtiofs. The path must correspond to a volumeMount in the virt-launcher container to ensure security and proper access control.",
+    "type": "object",
+    "required": [
+     "path"
+    ],
+    "properties": {
+     "path": {
+      "description": "Path is the absolute path in the virt-launcher container to expose to the VM. The path must: - Be an absolute path (start with /) - Not contain path traversal attempts (..)\n\nNote: CEL validation provides basic string-level checks. Full runtime validation (including symlink resolution and volumeMount verification) will be implemented in virt-launcher conversion logic in a future PR (Phase 2).",
+      "type": "string",
+      "default": ""
+     },
+     "readOnly": {
+      "description": "ReadOnly specifies whether the volume should be mounted read-only in the VM. Defaults to true for security. Write access is not currently supported.",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.ControllerRevisionRef": {
     "type": "object",
     "properties": {
@@ -19559,6 +19577,10 @@
      "containerDisk": {
       "description": "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
       "$ref": "#/definitions/v1.ContainerDiskSource"
+     },
+     "containerPath": {
+      "description": "ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM. The path must correspond to a volumeMount in the virt-launcher container. More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md",
+      "$ref": "#/definitions/v1.ContainerPathVolumeSource"
      },
      "dataVolume": {
       "description": "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",

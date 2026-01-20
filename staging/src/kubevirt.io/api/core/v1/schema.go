@@ -922,6 +922,11 @@ type VolumeSource struct {
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
 	// MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
 	MemoryDump *MemoryDumpVolumeSource `json:"memoryDump,omitempty"`
+	// ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+	// The path must correspond to a volumeMount in the virt-launcher container.
+	// More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+	// +optional
+	ContainerPath *ContainerPathVolumeSource `json:"containerPath,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable
@@ -962,6 +967,32 @@ type MemoryDumpVolumeSource struct {
 	// Directly attached to the virt launcher
 	// +optional
 	PersistentVolumeClaimVolumeSource `json:",inline"`
+}
+
+// ContainerPathVolumeSource represents a path in the virt-launcher pod that should
+// be exposed to the VM via virtiofs. The path must correspond to a volumeMount in
+// the virt-launcher container to ensure security and proper access control.
+type ContainerPathVolumeSource struct {
+	// Path is the absolute path in the virt-launcher container to expose to the VM.
+	// The path must:
+	// - Be an absolute path (start with /)
+	// - Not contain path traversal attempts (..)
+	//
+	// Note: CEL validation provides basic string-level checks. Full runtime validation
+	// (including symlink resolution and volumeMount verification) will be implemented
+	// in virt-launcher conversion logic in a future PR (Phase 2).
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:XValidation:rule="self.startsWith('/')",message="path must be an absolute path starting with /"
+	// +kubebuilder:validation:XValidation:rule="!self.contains('..')",message="path must not contain '..'"
+	Path string `json:"path"`
+
+	// ReadOnly specifies whether the volume should be mounted read-only in the VM.
+	// Defaults to true for security. Write access is not currently supported.
+	// +optional
+	// +kubebuilder:default=true
+	// +kubebuilder:validation:XValidation:rule="self == true",message="write access not yet supported, readOnly must be true"
+	ReadOnly *bool `json:"readOnly,omitempty"`
 }
 
 type EphemeralVolumeSource struct {

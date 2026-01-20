@@ -8016,6 +8016,43 @@ var CRDsValidation map[string]string = map[string]string{
                         required:
                         - image
                         type: object
+                      containerPath:
+                        description: |-
+                          ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+                          The path must correspond to a volumeMount in the virt-launcher container.
+                          More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+                        properties:
+                          path:
+                            description: |-
+                              Path is the absolute path in the virt-launcher container to expose to the VM.
+                              The path must:
+                              - Be an absolute path (start with /)
+                              - Not contain path traversal attempts (..)
+
+                              Note: CEL validation provides basic string-level checks. Full runtime validation
+                              (including symlink resolution and volumeMount verification) will be implemented
+                              in virt-launcher conversion logic in a future PR (Phase 2).
+                            minLength: 1
+                            type: string
+                            x-kubernetes-validations:
+                            - message: path must be an absolute path starting with
+                                /
+                              rule: self.startsWith('/')
+                            - message: path must not contain '..'
+                              rule: '!self.contains(''..'')'
+                          readOnly:
+                            default: true
+                            description: |-
+                              ReadOnly specifies whether the volume should be mounted read-only in the VM.
+                              Defaults to true for security. Write access is not currently supported.
+                            type: boolean
+                            x-kubernetes-validations:
+                            - message: write access not yet supported, readOnly must
+                                be true
+                              rule: self == true
+                        required:
+                        - path
+                        type: object
                       dataVolume:
                         description: |-
                           DataVolume represents the dynamic creation a PVC for this volume as well as
@@ -13762,6 +13799,41 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                 required:
                 - image
+                type: object
+              containerPath:
+                description: |-
+                  ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+                  The path must correspond to a volumeMount in the virt-launcher container.
+                  More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+                properties:
+                  path:
+                    description: |-
+                      Path is the absolute path in the virt-launcher container to expose to the VM.
+                      The path must:
+                      - Be an absolute path (start with /)
+                      - Not contain path traversal attempts (..)
+
+                      Note: CEL validation provides basic string-level checks. Full runtime validation
+                      (including symlink resolution and volumeMount verification) will be implemented
+                      in virt-launcher conversion logic in a future PR (Phase 2).
+                    minLength: 1
+                    type: string
+                    x-kubernetes-validations:
+                    - message: path must be an absolute path starting with /
+                      rule: self.startsWith('/')
+                    - message: path must not contain '..'
+                      rule: '!self.contains(''..'')'
+                  readOnly:
+                    default: true
+                    description: |-
+                      ReadOnly specifies whether the volume should be mounted read-only in the VM.
+                      Defaults to true for security. Write access is not currently supported.
+                    type: boolean
+                    x-kubernetes-validations:
+                    - message: write access not yet supported, readOnly must be true
+                      rule: self == true
+                required:
+                - path
                 type: object
               dataVolume:
                 description: |-
@@ -20065,6 +20137,43 @@ var CRDsValidation map[string]string = map[string]string{
                         required:
                         - image
                         type: object
+                      containerPath:
+                        description: |-
+                          ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+                          The path must correspond to a volumeMount in the virt-launcher container.
+                          More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+                        properties:
+                          path:
+                            description: |-
+                              Path is the absolute path in the virt-launcher container to expose to the VM.
+                              The path must:
+                              - Be an absolute path (start with /)
+                              - Not contain path traversal attempts (..)
+
+                              Note: CEL validation provides basic string-level checks. Full runtime validation
+                              (including symlink resolution and volumeMount verification) will be implemented
+                              in virt-launcher conversion logic in a future PR (Phase 2).
+                            minLength: 1
+                            type: string
+                            x-kubernetes-validations:
+                            - message: path must be an absolute path starting with
+                                /
+                              rule: self.startsWith('/')
+                            - message: path must not contain '..'
+                              rule: '!self.contains(''..'')'
+                          readOnly:
+                            default: true
+                            description: |-
+                              ReadOnly specifies whether the volume should be mounted read-only in the VM.
+                              Defaults to true for security. Write access is not currently supported.
+                            type: boolean
+                            x-kubernetes-validations:
+                            - message: write access not yet supported, readOnly must
+                                be true
+                              rule: self == true
+                        required:
+                        - path
+                        type: object
                       dataVolume:
                         description: |-
                           DataVolume represents the dynamic creation a PVC for this volume as well as
@@ -25080,6 +25189,43 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: string
                                 required:
                                 - image
+                                type: object
+                              containerPath:
+                                description: |-
+                                  ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+                                  The path must correspond to a volumeMount in the virt-launcher container.
+                                  More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+                                properties:
+                                  path:
+                                    description: |-
+                                      Path is the absolute path in the virt-launcher container to expose to the VM.
+                                      The path must:
+                                      - Be an absolute path (start with /)
+                                      - Not contain path traversal attempts (..)
+
+                                      Note: CEL validation provides basic string-level checks. Full runtime validation
+                                      (including symlink resolution and volumeMount verification) will be implemented
+                                      in virt-launcher conversion logic in a future PR (Phase 2).
+                                    minLength: 1
+                                    type: string
+                                    x-kubernetes-validations:
+                                    - message: path must be an absolute path starting
+                                        with /
+                                      rule: self.startsWith('/')
+                                    - message: path must not contain '..'
+                                      rule: '!self.contains(''..'')'
+                                  readOnly:
+                                    default: true
+                                    description: |-
+                                      ReadOnly specifies whether the volume should be mounted read-only in the VM.
+                                      Defaults to true for security. Write access is not currently supported.
+                                    type: boolean
+                                    x-kubernetes-validations:
+                                    - message: write access not yet supported, readOnly
+                                        must be true
+                                      rule: self == true
+                                required:
+                                - path
                                 type: object
                               dataVolume:
                                 description: |-
@@ -30531,6 +30677,43 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                     required:
                                     - image
+                                    type: object
+                                  containerPath:
+                                    description: |-
+                                      ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM.
+                                      The path must correspond to a volumeMount in the virt-launcher container.
+                                      More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md
+                                    properties:
+                                      path:
+                                        description: |-
+                                          Path is the absolute path in the virt-launcher container to expose to the VM.
+                                          The path must:
+                                          - Be an absolute path (start with /)
+                                          - Not contain path traversal attempts (..)
+
+                                          Note: CEL validation provides basic string-level checks. Full runtime validation
+                                          (including symlink resolution and volumeMount verification) will be implemented
+                                          in virt-launcher conversion logic in a future PR (Phase 2).
+                                        minLength: 1
+                                        type: string
+                                        x-kubernetes-validations:
+                                        - message: path must be an absolute path starting
+                                            with /
+                                          rule: self.startsWith('/')
+                                        - message: path must not contain '..'
+                                          rule: '!self.contains(''..'')'
+                                      readOnly:
+                                        default: true
+                                        description: |-
+                                          ReadOnly specifies whether the volume should be mounted read-only in the VM.
+                                          Defaults to true for security. Write access is not currently supported.
+                                        type: boolean
+                                        x-kubernetes-validations:
+                                        - message: write access not yet supported,
+                                            readOnly must be true
+                                          rule: self == true
+                                    required:
+                                    - path
                                     type: object
                                   dataVolume:
                                     description: |-

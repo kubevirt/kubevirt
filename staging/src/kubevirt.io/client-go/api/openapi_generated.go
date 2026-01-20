@@ -381,6 +381,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.ConfigMapVolumeSource":                                                   schema_kubevirtio_api_core_v1_ConfigMapVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ContainerDiskInfo":                                                       schema_kubevirtio_api_core_v1_ContainerDiskInfo(ref),
 		"kubevirt.io/api/core/v1.ContainerDiskSource":                                                     schema_kubevirtio_api_core_v1_ContainerDiskSource(ref),
+		"kubevirt.io/api/core/v1.ContainerPathVolumeSource":                                               schema_kubevirtio_api_core_v1_ContainerPathVolumeSource(ref),
 		"kubevirt.io/api/core/v1.ControllerRevisionRef":                                                   schema_kubevirtio_api_core_v1_ControllerRevisionRef(ref),
 		"kubevirt.io/api/core/v1.CustomBlockSize":                                                         schema_kubevirtio_api_core_v1_CustomBlockSize(ref),
 		"kubevirt.io/api/core/v1.CustomProfile":                                                           schema_kubevirtio_api_core_v1_CustomProfile(ref),
@@ -19540,6 +19541,35 @@ func schema_kubevirtio_api_core_v1_ContainerDiskSource(ref common.ReferenceCallb
 	}
 }
 
+func schema_kubevirtio_api_core_v1_ContainerPathVolumeSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ContainerPathVolumeSource represents a path in the virt-launcher pod that should be exposed to the VM via virtiofs. The path must correspond to a volumeMount in the virt-launcher container to ensure security and proper access control.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"path": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Path is the absolute path in the virt-launcher container to expose to the VM. The path must: - Be an absolute path (start with /) - Not contain path traversal attempts (..)\n\nNote: CEL validation provides basic string-level checks. Full runtime validation (including symlink resolution and volumeMount verification) will be implemented in virt-launcher conversion logic in a future PR (Phase 2).",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"readOnly": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReadOnly specifies whether the volume should be mounted read-only in the VM. Defaults to true for security. Write access is not currently supported.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"path"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_ControllerRevisionRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -29661,12 +29691,18 @@ func schema_kubevirtio_api_core_v1_Volume(ref common.ReferenceCallback) common.O
 							Ref:         ref("kubevirt.io/api/core/v1.MemoryDumpVolumeSource"),
 						},
 					},
+					"containerPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM. The path must correspond to a volumeMount in the virt-launcher container. More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md",
+							Ref:         ref("kubevirt.io/api/core/v1.ContainerPathVolumeSource"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
+			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.ContainerPathVolumeSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
 	}
 }
 
@@ -29836,11 +29872,17 @@ func schema_kubevirtio_api_core_v1_VolumeSource(ref common.ReferenceCallback) co
 							Ref:         ref("kubevirt.io/api/core/v1.MemoryDumpVolumeSource"),
 						},
 					},
+					"containerPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ContainerPath represents a path in the virt-launcher pod that should be exposed to the VM. The path must correspond to a volumeMount in the virt-launcher container. More info: https://github.com/kubevirt/enhancements/blob/main/proposals/containerpath-volumes.md",
+							Ref:         ref("kubevirt.io/api/core/v1.ContainerPathVolumeSource"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
+			"kubevirt.io/api/core/v1.CloudInitConfigDriveSource", "kubevirt.io/api/core/v1.CloudInitNoCloudSource", "kubevirt.io/api/core/v1.ConfigMapVolumeSource", "kubevirt.io/api/core/v1.ContainerDiskSource", "kubevirt.io/api/core/v1.ContainerPathVolumeSource", "kubevirt.io/api/core/v1.DataVolumeSource", "kubevirt.io/api/core/v1.DownwardAPIVolumeSource", "kubevirt.io/api/core/v1.DownwardMetricsVolumeSource", "kubevirt.io/api/core/v1.EmptyDiskSource", "kubevirt.io/api/core/v1.EphemeralVolumeSource", "kubevirt.io/api/core/v1.HostDisk", "kubevirt.io/api/core/v1.MemoryDumpVolumeSource", "kubevirt.io/api/core/v1.PersistentVolumeClaimVolumeSource", "kubevirt.io/api/core/v1.SecretVolumeSource", "kubevirt.io/api/core/v1.ServiceAccountVolumeSource", "kubevirt.io/api/core/v1.SysprepSource"},
 	}
 }
 
