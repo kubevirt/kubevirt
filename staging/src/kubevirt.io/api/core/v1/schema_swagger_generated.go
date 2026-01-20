@@ -44,6 +44,14 @@ func (ServiceAccountVolumeSource) SwaggerDoc() map[string]string {
 	}
 }
 
+func (ContainerPathVolumeSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "ContainerPathVolumeSource represents a path from the virt-launcher container\nto be exposed to the VM via virtiofs. The path must correspond to an existing\nvolumeMount in the virt-launcher pod's compute container.",
+		"path":     "Path is the absolute path within the virt-launcher container to expose to the VM.\nThe path must correspond to an existing volumeMount in the compute container.",
+		"readOnly": "ReadOnly controls whether the volume is exposed as read-only to the VM.\nDefaults to true. Write access is not currently supported.\n+optional\n+kubebuilder:default:=true",
+	}
+}
+
 func (DownwardMetricsVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
@@ -486,6 +494,7 @@ func (VolumeSource) SwaggerDoc() map[string]string {
 		"serviceAccount":        "ServiceAccountVolumeSource represents a reference to a service account.\nThere can only be one volume of this type!\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/\n+optional",
 		"downwardMetrics":       "DownwardMetrics adds a very small disk to VMIs which contains a limited view of host and guest\nmetrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.",
 		"memoryDump":            "MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi",
+		"containerPath":         "ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.\nThe path must correspond to an existing volumeMount in the compute container.\n+optional",
 	}
 }
 
