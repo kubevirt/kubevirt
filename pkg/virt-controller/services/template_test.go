@@ -140,7 +140,7 @@ var _ = Describe("Template", func() {
 					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 						return hooks.UnmarshalHookSidecarList(vmi)
 					}),
-				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
+				WithNetMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -3042,7 +3042,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
+				WithNetMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
 			)
 			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
 				Name: "testvmi", Namespace: "default", UID: "1234",
@@ -5729,7 +5729,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
+				WithNetMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
 			)
 
 			vmi := libvmi.New(
