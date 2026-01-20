@@ -21,7 +21,6 @@ package cgroup
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -54,9 +53,6 @@ type Manager interface {
 
 	// GetCgroupVersion returns the current cgroup version (i.e. v1 or v2)
 	GetCgroupVersion() CgroupVersion
-
-	// GetCpuSet returns the cpu set
-	GetCpuSet() (string, error)
 
 	// SetCpuSet returns the cpu set
 	SetCpuSet(subcgroup string, cpulist []int) error
@@ -157,21 +153,6 @@ func GetGlobalCpuSetPath() string {
 		return filepath.Join(cgroupconsts.CgroupBasePath, "cpuset.cpus.effective")
 	}
 	return filepath.Join(cgroupconsts.CgroupBasePath, "cpuset", "cpuset.cpus")
-}
-
-func getCpuSetPath(manager Manager, cpusetFile string) (string, error) {
-	cpuSubsystemPath, err := manager.GetBasePathToHostSubsystem("cpuset")
-	if err != nil {
-		return "", err
-	}
-
-	cpuset, err := os.ReadFile(filepath.Join(cpuSubsystemPath, cpusetFile))
-	if err != nil {
-		return "", err
-	}
-
-	cpusetStr := strings.TrimSpace(string(cpuset))
-	return cpusetStr, nil
 }
 
 // detectVMIsolation detects VM's IsolationResult, which can then be useful for receiving information such as PID.

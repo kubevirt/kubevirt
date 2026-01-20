@@ -14703,6 +14703,8 @@ var CRDsValidation map[string]string = map[string]string{
               description: |-
                 If the VMI requires dedicated CPUs, this field will
                 hold the dedicated CPU set on the target node
+                Deprecated: The VirtualMachineInstance field "TargetCPUSet" is deprecated
+                and will no longer be populated starting from version 1.8.
               items:
                 type: integer
               type: array
@@ -15296,6 +15298,8 @@ var CRDsValidation map[string]string = map[string]string{
               description: |-
                 If the VMI requires dedicated CPUs, this field will
                 hold the dedicated CPU set on the target node
+                Deprecated: The VirtualMachineInstance field "TargetCPUSet" is deprecated
+                and will no longer be populated starting from version 1.8.
               items:
                 type: integer
               type: array

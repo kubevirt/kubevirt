@@ -109,10 +109,6 @@ func (v *v2Manager) GetCgroupVersion() CgroupVersion {
 	return V2
 }
 
-func (v *v2Manager) GetCpuSet() (string, error) {
-	return getCpuSetPath(v, "cpuset.cpus.effective")
-}
-
 func (v *v2Manager) CreateChildCgroup(name string, subSystem string) error {
 	subSysPath, err := v.GetBasePathToHostSubsystem(subSystem)
 	if err != nil {

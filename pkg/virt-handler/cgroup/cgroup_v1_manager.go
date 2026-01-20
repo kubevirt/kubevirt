@@ -132,10 +132,6 @@ func getCurrentlyDefinedRules(runcManager runc_cgroups.Manager) ([]*devices.Rule
 	return currentRules, nil
 }
 
-func (v *v1Manager) GetCpuSet() (string, error) {
-	return getCpuSetPath(v, "cpuset.cpus")
-}
-
 func rw_filecontents(fReadPath string, fWritePath string) (err error) {
 	rFile, err := os.Open(fReadPath)
 	if err != nil {
