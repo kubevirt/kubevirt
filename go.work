@@ -53,3 +53,6 @@ replace k8s.io/sample-cli-plugin => k8s.io/sample-cli-plugin v0.34.2
 replace k8s.io/sample-controller => k8s.io/sample-controller v0.34.2
 
 replace k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20250710124328-f3f2b991d03b
+
+// TODO: remove once the project upgrade k8s dependencies to v0.35 and go 1.25
+replace github.com/envoyproxy/go-control-plane/envoy => github.com/envoyproxy/go-control-plane/envoy v1.32.4
