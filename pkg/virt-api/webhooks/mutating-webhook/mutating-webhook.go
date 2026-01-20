@@ -90,3 +90,7 @@ func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {
 func ServeClones(resp http.ResponseWriter, req *http.Request) {
 	serve(resp, req, mutators.NewCloneCreateMutator())
 }
+
+func ServeVirtLauncherPods(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
+	serve(resp, req, mutators.NewVirtLauncherPodMutator(clusterConfig, virtCli))
+}
