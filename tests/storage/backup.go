@@ -93,12 +93,12 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Creating the backup")
 		backupName := backupName(vm.Name)
-		createAndVerifyFullVMBackup(virtClient, backupName, vm.Name, vm.Namespace, targetPVC.Name)
+		createAndVerifyFullVMBackup(virtClient, backupName, vm.Name, vm.Namespace, targetPVC.Name, waitBackupSucceeded)
 		if expectedBackupCount > 1 {
 			By("Deleting the backup")
 			deleteVMBackup(virtClient, vm.Namespace, backupName)
 			By("Creating another backup")
-			createAndVerifyFullVMBackup(virtClient, backupName, vm.Name, vm.Namespace, targetPVC.Name)
+			createAndVerifyFullVMBackup(virtClient, backupName, vm.Name, vm.Namespace, targetPVC.Name, waitBackupSucceeded)
 		}
 		expectedDiskSize := resource.MustParse(cd.AlpineVolumeSize)
 		expectedDiskSizes := []int64{expectedDiskSize.Value()}
@@ -648,6 +648,50 @@ var _ = Describe(SIG("Backup", func() {
 		Expect(tracker.Status.LatestCheckpoint.Name).ToNot(Equal(firstCheckpoint.Name),
 			"Second checkpoint should have a different name")
 	})
+
+	It("Should handle backup failure due to insufficient target PVC size in push mode", func() {
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		smallFSDv := libdv.NewDataVolume(
+			libdv.WithNamespace(vm.Namespace),
+			libdv.WithForceBindAnnotation(),
+			libdv.WithBlankImageSource(),
+			libdv.WithStorage(
+				libdv.StorageWithFilesystemVolumeMode(),
+				libdv.StorageWithAccessMode(corev1.ReadWriteOnce),
+				libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+				libdv.StorageWithStorageClass(libstorage.Config.StorageClassCSI),
+			),
+		)
+		smallFSDv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(smallFSDv.Namespace).Create(context.Background(), smallFSDv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		libstorage.EventuallyDV(smallFSDv, 180, matcher.HaveSucceeded())
+
+		By("Creating full backup and wait for it to fail")
+		backup := createAndVerifyFullVMBackup(virtClient, backupName(vm.Name), vm.Name, vm.Namespace, smallFSDv.Name, waitBackupFailed)
+		for _, cond := range backup.Status.Conditions {
+			if cond.Type == backupv1.ConditionFailed {
+				Expect(cond.Reason).To(Or(ContainSubstring("No space left on device"), ContainSubstring("not in a running state")))
+			}
+		}
+	})
 }))
 
 func backupName(vmName string) string {
@@ -710,14 +754,18 @@ func newBackupWithTracker(backupName, namespace, pvcName, trackerName string) *b
 	return vmBackup
 }
 
-func createAndVerifyFullVMBackup(virtClient kubecli.KubevirtClient, backupName, vmName, namespace, pvcName string) {
+type verifyBackupFunc func(virtClient kubecli.KubevirtClient, namespace string, backupName string) *backupv1.VirtualMachineBackup
+
+func createAndVerifyFullVMBackup(virtClient kubecli.KubevirtClient, backupName, vmName, namespace, pvcName string, verifyBackup verifyBackupFunc) *backupv1.VirtualMachineBackup {
 	vmbackup := newBackupWithSource(backupName, vmName, namespace, pvcName)
 
 	_, err := virtClient.VirtualMachineBackup(vmbackup.Namespace).Create(context.Background(), vmbackup, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	vmbackup = waitBackupSucceeded(virtClient, namespace, vmbackup.Name)
+	vmbackup = verifyBackup(virtClient, namespace, vmbackup.Name)
 	Expect(vmbackup.Status.Type).To(Equal(backupv1.Full))
+
+	return vmbackup
 }
 
 func createAndVerifyBackupWithTracker(virtClient kubecli.KubevirtClient, backupName, namespace, pvcName, trackerName string) *backupv1.VirtualMachineBackup {
@@ -764,6 +812,38 @@ func waitBackupSucceeded(virtClient kubecli.KubevirtClient, namespace string, ba
 	))
 
 	events.ExpectEvent(vmbackup, corev1.EventTypeNormal, "VirtualMachineBackupCompletedSuccessfully")
+	return vmbackup
+}
+
+func waitBackupFailed(virtClient kubecli.KubevirtClient, namespace string, backupName string) *backupv1.VirtualMachineBackup {
+	var vmbackup *backupv1.VirtualMachineBackup
+
+	By(fmt.Sprintf("Waiting for VirtualMachineBackup %s/%s to fail", namespace, backupName))
+	Eventually(func() *backupv1.VirtualMachineBackupStatus {
+		var err error
+		vmbackup, err = virtClient.VirtualMachineBackup(namespace).Get(context.Background(), backupName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		return vmbackup.Status
+	}, 180*time.Second, 2*time.Second).Should(And(
+		Not(BeNil()),
+		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"Conditions": ContainElements(
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":   Equal(backupv1.ConditionFailed),
+					"Status": Equal(corev1.ConditionTrue),
+					"Reason": ContainSubstring("VirtualMachineBackup failed")}),
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":   Equal(backupv1.ConditionDone),
+					"Status": Equal(corev1.ConditionTrue)}),
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":   Equal(backupv1.ConditionProgressing),
+					"Status": Equal(corev1.ConditionFalse)}),
+			),
+		})),
+	))
+
+	events.ExpectEvent(vmbackup, corev1.EventTypeWarning, "VirtualMachineBackupFailed")
 	return vmbackup
 }
 
