@@ -189,6 +189,18 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 	}
 
+	// Check if pod is missing expected virtiofs containers for ContainerPath volumes.
+	// This can happen if the feature gate was disabled after the VMI was created,
+	// causing the pod mutating webhook to not inject the required containers.
+	if !isTempPod(pod) {
+		missingContainers := virtiofs.MissingContainerPathContainers(vmi, pod)
+		if len(missingContainers) > 0 {
+			err := fmt.Errorf("pod is missing virtiofs containers for ContainerPath volumes: %v", missingContainers)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, virtv1.MissingVirtiofsContainersReason, "Pod sync error: %v", err)
+			return common.NewSyncError(err, virtv1.MissingVirtiofsContainersReason), pod
+		}
+	}
+
 	if !isTempPod(pod) && controller.IsPodReady(pod) {
 		newAnnotations := map[string]string{descheduler.EvictOnlyAnnotation: ""}
 		maps.Copy(newAnnotations, c.netAnnotationsGenerator.GenerateFromActivePod(vmi, pod))
