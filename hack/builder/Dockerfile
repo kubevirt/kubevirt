@@ -18,6 +18,7 @@ RUN dnf install -y dnf-plugins-core && \
     dnf install -y --setopt=install_weak_deps=False \
         java-11-openjdk-devel \
         libvirt-devel \
+        virt-lint-devel \
         cpio \
         patch \
         make \

@@ -191,6 +191,22 @@ pkg_tar(
     package_dir = "/",
 )
 
+pkg_tar(
+    name = "virt-lint-validators-overrides-tar",
+    srcs = [
+        "validators/common_p/check_pcie_root_ports.py",
+    ],
+    package_dir = "/etc/virt-lint/validators/common_p",
+)
+
+pkg_tar(
+    name = "virt-lint-validators-kubevirt-tar",
+    srcs = [
+        "validators/kubevirt/check_ovmf_secure.py",
+    ],
+    package_dir = "/etc/virt-lint/validators/kubevirt",
+)
+
 oci_image(
     name = "version-container",
     base = select({
@@ -236,6 +252,10 @@ oci_image(
     name = "virt-launcher-image",
     base = ":version-container",
     entrypoint = ["/usr/bin/virt-launcher"],
-    tars = [":setcaps"],
+    tars = [
+        ":setcaps",
+        ":virt-lint-validators-overrides-tar",
+        ":virt-lint-validators-kubevirt-tar",
+    ],
     visibility = ["//visibility:public"],
 )

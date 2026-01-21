@@ -268,7 +268,7 @@ var _ = Describe("LibvirtHelper", func() {
 		mockLibvirt.ConnectionEXPECT().DomainDefineXML(string(mutatedSpecXml)).Return(mockLibvirt.VirtDomain, nil)
 		mockLibvirt.DomainEXPECT().Free()
 
-		dom, err := SetDomainSpecStrWithHooks(mockLibvirt.VirtConnection, vmi, wantedSpec)
+		dom, err := SetDomainSpecStrWithHooks(mockLibvirt.VirtConnection, vmi, wantedSpec, nil, nil)
 		Expect(err).NotTo(HaveOccurred())
 		dom.Free()
 

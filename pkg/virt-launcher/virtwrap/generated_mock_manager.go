@@ -16,6 +16,7 @@ import (
 	gomock "go.uber.org/mock/gomock"
 	v1alpha1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
+	libvirt "libvirt.org/go/libvirt"
 
 	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
@@ -217,6 +218,20 @@ func (m *MockDomainManager) GetLaunchMeasurement(arg0 *v1.VirtualMachineInstance
 func (mr *MockDomainManagerMockRecorder) GetLaunchMeasurement(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLaunchMeasurement", reflect.TypeOf((*MockDomainManager)(nil).GetLaunchMeasurement), arg0)
+}
+
+// GetLibvirtConnect mocks base method.
+func (m *MockDomainManager) GetLibvirtConnect() *libvirt.Connect {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLibvirtConnect")
+	ret0, _ := ret[0].(*libvirt.Connect)
+	return ret0
+}
+
+// GetLibvirtConnect indicates an expected call of GetLibvirtConnect.
+func (mr *MockDomainManagerMockRecorder) GetLibvirtConnect() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLibvirtConnect", reflect.TypeOf((*MockDomainManager)(nil).GetLibvirtConnect))
 }
 
 // GetQemuVersion mocks base method.
