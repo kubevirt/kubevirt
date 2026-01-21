@@ -63,6 +63,8 @@ const (
 	defaultKWOKNodeDeleteTimeout     = 10 * time.Minute
 	defaultMachineType               = "q35"
 	defaultVirtAPIReplicaCount       = 2
+	ArchAMD64                        = "amd64"
+	ArchS390x                        = "s390x"
 )
 
 const HostPathBase = "/tmp/hostImages"
