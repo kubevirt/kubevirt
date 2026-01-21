@@ -84,6 +84,7 @@ centos_extra="
   coreutils-single
   glibc-minimal-langpack
   libcurl-minimal
+  openssl-fips-provider
 "
 
 # create a rpmtree for our test image with misc. tools.
@@ -317,6 +318,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --name passt_tree_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
+        glibc-minimal-langpack \
         passt-${PASST_VERSION}
 
     bazel run \
@@ -446,6 +448,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --name passt_tree_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
+        glibc-minimal-langpack \
         passt-${PASST_VERSION}
 
     bazel run \
@@ -600,6 +603,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --name passt_tree_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
+        glibc-minimal-langpack \
         passt-${PASST_VERSION}
 
     # create a rpmtree for virt-handler
