@@ -3395,7 +3395,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// TODO: Refactor
 			envVars := util.NewEnvVarMap(config.GetExtraEnv())
 			envVarManager := util.DefaultEnvVarManager
-			for _, envVar := range *envVars {
+			for _, envVar := range envVars {
 				envVarManager.Setenv(envVar.Name, envVar.Value)
 			}
 			deploymentConfigJson, err := config.GetJson()
