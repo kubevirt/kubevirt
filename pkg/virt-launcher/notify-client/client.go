@@ -358,7 +358,7 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 	default:
 		switch {
 		case libvirtEvent.JobCompletedEvent != nil:
-			processJobCompletedEvent(client, domain, d, libvirtEvent.JobCompletedEvent, metadataCache, events)
+			processJobCompletedEvent(client, domain, d, c, libvirtEvent.JobCompletedEvent, metadataCache, events)
 		case libvirtEvent.Event != nil:
 			processLifecycleEvent(client, domain, libvirtEvent.Event, metadataCache, events, c, vmi)
 		}
@@ -650,14 +650,15 @@ func (n *Notifier) Close() {
 
 }
 
-func processJobCompletedEvent(client *Notifier, domain *api.Domain, d cli.VirDomain, jobCompletedEvent *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache, events chan watch.Event) {
+func processJobCompletedEvent(client *Notifier, domain *api.Domain, d cli.VirDomain, c cli.Connection, jobCompletedEvent *libvirt.DomainEventJobCompleted, metadataCache *metadata.Cache, events chan watch.Event) {
 	if jobCompletedEvent.Info.Operation != libvirt.DOMAIN_JOB_OPERATION_BACKUP {
 		log.Log.V(3).Infof("Recieved a job completion event for operation %v", jobCompletedEvent.Info.Operation)
 
 		return
 	}
 
-	storage.HandleBackupJobCompletedEvent(d, jobCompletedEvent, metadataCache)
+	storageManager := storage.NewStorageManager(c, metadataCache)
+	storageManager.HandleBackupJobCompletedEvent(d, jobCompletedEvent)
 	if value, exists := metadataCache.Backup.Load(); exists {
 		domain.Spec.Metadata.KubeVirt.Backup = &value
 	}

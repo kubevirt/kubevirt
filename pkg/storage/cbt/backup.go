@@ -46,6 +46,8 @@ import (
 )
 
 const (
+	AbortBackupFailedNoBackupErr = "failed to abort backup - vmi is not being backed up"
+
 	vmBackupFinalizer = "backup.kubevirt.io/vmbackup-protection"
 
 	backupInitializingEvent         = "VirtualMachineBackupInitializing"

@@ -528,6 +528,8 @@ func (VirtualMachineInstanceBackupStatus) SwaggerDoc() map[string]string {
 		"startTimestamp": "StartTimestamp is the timestamp when the backup started",
 		"endTimestamp":   "EndTimestamp is the timestamp when the backup ended",
 		"completed":      "Completed indicates the backup completed",
+		"failed":         "Failed indiciates that the backup failed",
+		"abortStatus":    "AbortStatus is the state of a backup abort requests which can vary\nsince an abort request is asynchronous.",
 		"backupMsg":      "BackupMsg resturns any relevant information like failure reason\nunfreeze failed etc...\n+optional",
 		"checkpointName": "CheckpointName is the name of the checkpoint created for the backup\n+optional",
 		"volumes":        "Volumes lists the volumes included in the backup\n+optional\n+listType=atomic",
