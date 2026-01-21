@@ -986,3 +986,63 @@ const VMCloneCreateValidatePath = "/vm-clone-validate-create"
 const VMCloneCreateMutatePath = "/vm-clone-mutate-create"
 
 const VirtLauncherPodMutatePath = "/virt-launcher-pod-mutate"
+
+const VirtLauncherPodMutatingWebhookName = "virt-launcher-pod-mutator"
+
+func NewVirtLauncherPodMutatingWebhookConfiguration(installNamespace string) *admissionregistrationv1.MutatingWebhookConfiguration {
+	path := VirtLauncherPodMutatePath
+	// Use Ignore so we don't block pod creation if virt-api is unavailable
+	failurePolicy := admissionregistrationv1.Ignore
+	// Reinvoke if other mutators make changes, ensuring we run after external mutators
+	reinvocationPolicy := admissionregistrationv1.IfNeededReinvocationPolicy
+
+	return &admissionregistrationv1.MutatingWebhookConfiguration{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: admissionregistrationv1.SchemeGroupVersion.String(),
+			Kind:       "MutatingWebhookConfiguration",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: VirtLauncherPodMutatingWebhookName,
+			Labels: map[string]string{
+				virtv1.AppLabel:       VirtLauncherPodMutatingWebhookName,
+				virtv1.ManagedByLabel: virtv1.ManagedByLabelOperatorValue,
+			},
+			Annotations: map[string]string{
+				certificatesSecretAnnotationKey: VirtApiCertSecretName,
+			},
+		},
+		Webhooks: []admissionregistrationv1.MutatingWebhook{
+			{
+				Name:                    "virt-launcher-pod-mutator.kubevirt.io",
+				AdmissionReviewVersions: []string{"v1"},
+				SideEffects:             &sideEffectNone,
+				FailurePolicy:           &failurePolicy,
+				ReinvocationPolicy:      &reinvocationPolicy,
+				TimeoutSeconds:          &defaultTimeoutSeconds,
+				Rules: []admissionregistrationv1.RuleWithOperations{{
+					Operations: []admissionregistrationv1.OperationType{
+						admissionregistrationv1.Create,
+					},
+					Rule: admissionregistrationv1.Rule{
+						APIGroups:   []string{""},
+						APIVersions: []string{"v1"},
+						Resources:   []string{"pods"},
+					},
+				}},
+				ClientConfig: admissionregistrationv1.WebhookClientConfig{
+					Service: &admissionregistrationv1.ServiceReference{
+						Namespace: installNamespace,
+						Name:      VirtApiServiceName,
+						Path:      &path,
+					},
+				},
+				// Only match virt-launcher pods
+				ObjectSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						virtv1.AppLabel: "virt-launcher",
+					},
+				},
+			},
+		},
+	}
+}

@@ -16,6 +16,9 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
 func (r *Reconciler) createOrUpdateValidatingWebhookConfigurations(caBundle []byte) error {
@@ -238,9 +241,55 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 
 func (r *Reconciler) createOrUpdateMutatingWebhookConfigurations(caBundle []byte) error {
 	for _, webhook := range r.targetStrategy.MutatingWebhookConfigurations() {
+		// The virt-launcher pod mutator webhook is feature-gated behind ContainerPathVolumes.
+		// It's included in MutatingWebhookConfigurations() so the cleanup loop doesn't delete it,
+		// but sync is handled separately by createOrDeleteContainerPathVolumesWebhook which
+		// checks the feature gate and creates or deletes accordingly.
+		// This mirrors how ExportProxyDeployments are handled: included in Deployments() for
+		// cleanup purposes, but synced via a separate feature-gated loop.
+		if webhook.Name == components.VirtLauncherPodMutatingWebhookName {
+			continue
+		}
 		err := r.createOrUpdateMutatingWebhookConfiguration(webhook, caBundle)
 		if err != nil {
 			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *Reconciler) createOrDeleteContainerPathVolumesWebhook(caBundle []byte) error {
+	webhook := components.NewVirtLauncherPodMutatingWebhookConfiguration(r.kv.Namespace)
+
+	if r.isFeatureGateEnabled(featuregate.ContainerPathVolumesGate) {
+		return r.createOrUpdateMutatingWebhookConfiguration(webhook, caBundle)
+	}
+
+	// Feature gate is disabled, delete the webhook if it exists
+	_, exists, _ := r.stores.MutatingWebhookCache.Get(webhook)
+	if !exists {
+		// Also check directly in case cache is not populated
+		_, err := r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(
+			context.Background(), webhook.Name, metav1.GetOptions{})
+		if errors.IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		exists = true
+	}
+
+	if exists {
+		if key, err := controller.KeyFunc(webhook); err == nil {
+			r.expectations.MutatingWebhook.AddExpectedDeletion(r.kvKey, key)
+			err := r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(
+				context.Background(), webhook.Name, metav1.DeleteOptions{})
+			if err != nil {
+				r.expectations.MutatingWebhook.DeletionObserved(r.kvKey, key)
+				return fmt.Errorf("unable to delete mutatingwebhook %s: %v", webhook.Name, err)
+			}
+			log.Log.V(2).Infof("mutatingwebhookconfiguration %v deleted (feature gate disabled)", webhook.Name)
 		}
 	}
 
