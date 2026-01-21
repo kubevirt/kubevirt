@@ -59,6 +59,7 @@ var (
 	ErrVolumeDoesntExist  = errors.New("volume doesnt exist")
 	ErrVolumeNotBound     = errors.New("volume not bound")
 	ErrVolumeNotPopulated = errors.New("volume not populated")
+	ErrVolumeBeingDeleted = errors.New("volume is being deleted")
 )
 
 type snapshotSource interface {
@@ -157,7 +158,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	err = s.verifyVolumes(pvcNames.List())
 	if err != nil {
 		switch errors.Unwrap(err) {
-		case ErrVolumeDoesntExist, ErrVolumeNotBound, ErrVolumeNotPopulated:
+		case ErrVolumeDoesntExist, ErrVolumeNotBound, ErrVolumeNotPopulated, ErrVolumeBeingDeleted:
 			s.state.lockMsg += fmt.Sprintf(" source %s/%s %s", s.vm.Namespace, s.vm.Name, err.Error())
 			log.Log.Error(s.state.lockMsg)
 			return false, nil
@@ -261,6 +262,9 @@ func (s *vmSnapshotSource) verifyVolumes(pvcNames []string) error {
 		pvc := obj.(*corev1.PersistentVolumeClaim).DeepCopy()
 		if pvc.Status.Phase != corev1.ClaimBound {
 			return fmt.Errorf("%w: %s", ErrVolumeNotBound, pvcName)
+		}
+		if pvc.DeletionTimestamp != nil {
+			return fmt.Errorf("%w: %s", ErrVolumeBeingDeleted, pvcName)
 		}
 		getDVFunc := func(name, namespace string) (*cdiv1.DataVolume, error) {
 			dv, err := storagetypes.GetDataVolumeFromCache(namespace, name, s.controller.DVInformer.GetStore())
