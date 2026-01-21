@@ -922,6 +922,38 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		}))))
 	})
 
+	It("should fail when VMI has ContainerPath volumes but feature gate is disabled", func() {
+		vmi := newPendingVirtualMachine("testvmi")
+
+		// Add ContainerPath volume with matching filesystem
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, virtv1.Volume{
+			Name: "token-volume",
+			VolumeSource: virtv1.VolumeSource{
+				ContainerPath: &virtv1.ContainerPathVolumeSource{
+					Path: "/var/run/secrets/token",
+				},
+			},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, virtv1.Filesystem{
+			Name:     "token-volume",
+			Virtiofs: &virtv1.FilesystemVirtiofs{},
+		})
+
+		addVirtualMachine(vmi)
+
+		// Feature gate is disabled by default in tests
+		sanityExecute()
+
+		testutils.ExpectEvent(recorder, virtv1.ContainerPathVolumesDisabledReason)
+		vmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vmi.Status.Conditions).To(ContainElement(MatchFields(IgnoreExtras, Fields{
+			"Type":   Equal(virtv1.VirtualMachineInstanceSynchronized),
+			"Status": Equal(k8sv1.ConditionFalse),
+			"Reason": Equal(virtv1.ContainerPathVolumesDisabledReason),
+		})))
+	})
+
 	Context("On valid VirtualMachineInstance given", func() {
 		It("should create a corresponding Pod on VirtualMachineInstance creation with proper annotation", func() {
 			vmi := newPendingVirtualMachine("testvmi")

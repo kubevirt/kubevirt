@@ -803,6 +803,9 @@ const (
 
 	// GuestNotRunningReason indicates on the Ready condition on the VMI if the underlying guest VM is not running
 	GuestNotRunningReason = "GuestNotRunning"
+
+	// ContainerPathVolumesDisabledReason indicates that the VMI has ContainerPath volumes but the feature gate is disabled
+	ContainerPathVolumesDisabledReason = "ContainerPathVolumesDisabled"
 )
 
 type VirtualMachineInstanceMigrationConditionType string

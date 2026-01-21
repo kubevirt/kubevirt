@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
 func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (common.SyncError, *k8sv1.Pod) {
@@ -134,6 +135,14 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		if !backendStorageReady {
 			log.Log.V(2).Object(vmi).Infof("Delaying pod creation while backend storage populates.")
 			return common.NewSyncError(fmt.Errorf("PVC pending"), controller.BackendStorageNotReadyReason), pod
+		}
+
+		// Block pod creation if VMI uses ContainerPath volumes but feature gate is disabled
+		containerPathVolumes := virtiofs.GetContainerPathVolumesWithFilesystems(vmi)
+		if len(containerPathVolumes) > 0 && !c.clusterConfig.ContainerPathVolumesEnabled() {
+			err := fmt.Errorf("VMI has ContainerPath volumes but the ContainerPathVolumes feature gate is disabled")
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, virtv1.ContainerPathVolumesDisabledReason, "Cannot create pod: %v", err)
+			return common.NewSyncError(err, virtv1.ContainerPathVolumesDisabledReason), pod
 		}
 
 		var templatePod *k8sv1.Pod
