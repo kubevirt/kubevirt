@@ -917,6 +917,26 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"instancetype":                       "Instancetype configuration\n+nullable",
 		"hypervisors":                        "Hypervisors holds information regarding the hypervisor configurations supported on this cluster.\n+listType=atomic\n+kubebuilder:validation:MaxItems:=1",
 		"changedBlockTrackingLabelSelectors": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.\nEnabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.\n+nullable",
+		"confidentialCompute":                "QGS configuration for attestation on the Intel TDX Platform\n+nullable",
+	}
+}
+
+func (TDXAttestationConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":                        "QGSConfiguration holds QGS configuration",
+		"enforced":                "Indicates whether TDX VM should enforce the existence of QGS (required for attestation) to be scheduled\n+kubebuilder:default=false",
+		"qgsSocketPath":           "Socket path pointing to the Quote Generation Service\n+kubebuilder:default=/var/run/tdx-qgs/qgs.socket",
+		"modifySocketPermissions": "Whether KubeVirt should modify the QGS socket permissions to ensure it is owned by QEMU.\nWhen set to false, cluster admin is responsible for ensuring the socket will be accessible to QEMU.\n+kubebuilder:default=true",
+	}
+}
+
+func (TDXConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
+func (ConfidentialComputeConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"tdx": "TDX configuration for attestation on the Intel TDX Platform\n+nullable",
 	}
 }
 

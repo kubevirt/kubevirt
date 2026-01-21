@@ -412,6 +412,15 @@
             }
           ]
         }
+      },
+      "confidentialCompute": {
+        "tdx": {
+          "attestation": {
+            "enforced": true,
+            "qgsSocketPath": "qgsSocketPathValue",
+            "modifySocketPermissions": true
+          }
+        }
       }
     },
     "infra": {

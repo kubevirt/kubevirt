@@ -35,47 +35,50 @@ import (
 )
 
 const (
-	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
-	ParallelMigrationsPerClusterDefault      uint32 = 5
-	BandwidthPerMigrationDefault                    = "0Mi"
-	MigrationAllowAutoConverge               bool   = false
-	MigrationAllowPostCopy                   bool   = false
-	MigrationProgressTimeout                 int64  = 150
-	MigrationCompletionTimeoutPerGiB         int64  = 150
-	MigrationUtilityVolumesTimeoutSeconds    int64  = 150
-	DefaultAMD64MachineType                         = "q35"
-	DefaultAARCH64MachineType                       = "virt"
-	DefaultS390XMachineType                         = "s390-ccw-virtio"
-	DefaultCPURequest                               = "100m"
-	DefaultMemoryOvercommit                         = 100
-	DefaultAMD64EmulatedMachines                    = "q35*,pc-q35*"
-	DefaultAARCH64EmulatedMachines                  = "virt*"
-	DefaultS390XEmulatedMachines                    = "s390-ccw-virtio*"
-	DefaultLessPVCSpaceToleration                   = 10
-	DefaultMinimumReservePVCBytes                   = 131072
-	DefaultNodeSelectors                            = ""
-	DefaultNetworkInterface                         = "bridge"
-	DefaultImagePullPolicy                          = k8sv1.PullIfNotPresent
-	DefaultAllowEmulation                           = false
-	DefaultUnsafeMigrationOverride                  = false
-	DefaultPermitSlirpInterface                     = false
-	SmbiosConfigDefaultFamily                       = "KubeVirt"
-	SmbiosConfigDefaultManufacturer                 = "KubeVirt"
-	SmbiosConfigDefaultProduct                      = "None"
-	DefaultPermitBridgeInterfaceOnPodNetwork        = true
-	DefaultSELinuxLauncherType                      = ""
-	SupportedGuestAgentVersions                     = "2.*,3.*,4.*,5.*"
-	DefaultARCHOVMFPath                             = "/usr/share/OVMF"
-	DefaultAARCH64OVMFPath                          = "/usr/share/AAVMF"
-	DefaultS390xOVMFPath                            = ""
-	DefaultMemBalloonStatsPeriod             uint32 = 10
-	DefaultCPUAllocationRatio                       = 10
-	DefaultDiskVerificationMemoryLimitBytes         = 2000 * 1024 * 1024
-	DefaultVirtAPILogVerbosity                      = 2
-	DefaultVirtControllerLogVerbosity               = 2
-	DefaultVirtHandlerLogVerbosity                  = 2
-	DefaultVirtLauncherLogVerbosity                 = 2
-	DefaultVirtOperatorLogVerbosity                 = 2
+	ParallelOutboundMigrationsPerNodeDefault     uint32 = 2
+	ParallelMigrationsPerClusterDefault          uint32 = 5
+	BandwidthPerMigrationDefault                        = "0Mi"
+	MigrationAllowAutoConverge                   bool   = false
+	MigrationAllowPostCopy                       bool   = false
+	MigrationProgressTimeout                     int64  = 150
+	MigrationCompletionTimeoutPerGiB             int64  = 150
+	MigrationUtilityVolumesTimeoutSeconds        int64  = 150
+	DefaultAMD64MachineType                             = "q35"
+	DefaultAARCH64MachineType                           = "virt"
+	DefaultS390XMachineType                             = "s390-ccw-virtio"
+	DefaultCPURequest                                   = "100m"
+	DefaultMemoryOvercommit                             = 100
+	DefaultAMD64EmulatedMachines                        = "q35*,pc-q35*"
+	DefaultAARCH64EmulatedMachines                      = "virt*"
+	DefaultS390XEmulatedMachines                        = "s390-ccw-virtio*"
+	DefaultLessPVCSpaceToleration                       = 10
+	DefaultMinimumReservePVCBytes                       = 131072
+	DefaultNodeSelectors                                = ""
+	DefaultNetworkInterface                             = "bridge"
+	DefaultImagePullPolicy                              = k8sv1.PullIfNotPresent
+	DefaultAllowEmulation                               = false
+	DefaultUnsafeMigrationOverride                      = false
+	DefaultPermitSlirpInterface                         = false
+	SmbiosConfigDefaultFamily                           = "KubeVirt"
+	SmbiosConfigDefaultManufacturer                     = "KubeVirt"
+	SmbiosConfigDefaultProduct                          = "None"
+	DefaultPermitBridgeInterfaceOnPodNetwork            = true
+	DefaultSELinuxLauncherType                          = ""
+	SupportedGuestAgentVersions                         = "2.*,3.*,4.*,5.*"
+	DefaultARCHOVMFPath                                 = "/usr/share/OVMF"
+	DefaultAARCH64OVMFPath                              = "/usr/share/AAVMF"
+	DefaultS390xOVMFPath                                = ""
+	DefaultMemBalloonStatsPeriod                 uint32 = 10
+	DefaultCPUAllocationRatio                           = 10
+	DefaultDiskVerificationMemoryLimitBytes             = 2000 * 1024 * 1024
+	DefaultVirtAPILogVerbosity                          = 2
+	DefaultVirtControllerLogVerbosity                   = 2
+	DefaultVirtHandlerLogVerbosity                      = 2
+	DefaultVirtLauncherLogVerbosity                     = 2
+	DefaultVirtOperatorLogVerbosity                     = 2
+	DefaultTDXAttestationEnforced                       = false
+	DefaultQGSSocketPath                                = "/var/run/tdx-qgs/qgs.socket"
+	DefaultTDXAttestationModifySocketPermissions        = true
 
 	// Default REST configuration settings
 	DefaultVirtHandlerQPS         float32 = 50
@@ -103,6 +106,29 @@ func (c *ClusterConfig) GetMemBalloonStatsPeriod() uint32 {
 
 func (c *ClusterConfig) AllowEmulation() bool {
 	return c.GetConfig().DeveloperConfiguration.UseEmulation
+}
+
+func (c *ClusterConfig) RequireQGS() bool {
+	cfg := c.GetConfig().ConfidentialCompute
+	if cfg == nil || cfg.TDX == nil || cfg.TDX.Attestation == nil || cfg.TDX.Attestation.Enforced == nil {
+		return DefaultTDXAttestationEnforced
+	}
+	return *cfg.TDX.Attestation.Enforced
+}
+func (c *ClusterConfig) GetQGSSocketPath() string {
+	cfg := c.GetConfig().ConfidentialCompute
+	if cfg == nil || cfg.TDX == nil || cfg.TDX.Attestation == nil || cfg.TDX.Attestation.QgsSocketPath == nil {
+		return DefaultQGSSocketPath
+	}
+	return *cfg.TDX.Attestation.QgsSocketPath
+}
+
+func (c *ClusterConfig) ShouldModifyQGSSocketPermissions() bool {
+	cfg := c.GetConfig().ConfidentialCompute
+	if cfg == nil || cfg.TDX == nil || cfg.TDX.Attestation == nil || cfg.TDX.Attestation.ModifySocketPermissions == nil {
+		return DefaultTDXAttestationModifySocketPermissions
+	}
+	return *cfg.TDX.Attestation.ModifySocketPermissions
 }
 
 func (c *ClusterConfig) GetMigrationConfiguration() *v1.MigrationConfiguration {
