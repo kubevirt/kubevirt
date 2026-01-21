@@ -26,6 +26,11 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, co
 	containers := []k8sv1.Container{}
 	for _, volume := range vmi.Spec.Volumes {
 		if _, isPassthroughFSVolume := passthroughFSVolumes[volume.Name]; isPassthroughFSVolume {
+			// Skip ContainerPath volumes - they are handled by the pod mutating webhook
+			// because external mutators inject the actual volumes after pod creation
+			if volume.ContainerPath != nil {
+				continue
+			}
 			resources := virtiofs.ResourcesForVirtioFSContainer(vmi.IsCPUDedicated(), vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed(), config)
 			container := generateContainerFromVolume(&volume, image, resources)
 			containers = append(containers, container)
