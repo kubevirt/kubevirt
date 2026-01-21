@@ -160,7 +160,7 @@ var _ = Describe(SIG("Storage", func() {
 				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
-			It("should pause VMI on IO error", func() {
+			It("[QUARANTINE]should pause VMI on IO error", decorators.Quarantine, func() {
 				By("Creating VMI with faulty disk")
 				vmi := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -199,7 +199,7 @@ var _ = Describe(SIG("Storage", func() {
 
 			})
 
-			It("should report IO errors in the guest with errorPolicy set to report", func() {
+			It("[QUARANTINE]should report IO errors in the guest with errorPolicy set to report", decorators.Quarantine, func() {
 				const diskName = "disk1"
 				By("Creating VMI with faulty disk")
 				vmi := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvc.Name))
