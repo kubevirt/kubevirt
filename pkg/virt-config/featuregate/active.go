@@ -78,6 +78,14 @@ const (
 	// bind mounts in virt-handler.
 	ImageVolume = "ImageVolume"
 
+	// Owner: @Barakmor1
+	// Alpha: v1.8.0
+	//
+	// LibvirtHooksServerAndClient The LibvirtHooksServerAndClient FG enables running pre-migration
+	// hooks on the target virt-launcher pod, allowing domain XML mutations to be applied
+	// on the target before migration starts.
+	LibvirtHooksServerAndClient = "LibvirtHooksServerAndClient"
+
 	// Owner: @shellyka13
 	// Alpha: v1.6.0
 	//
@@ -151,6 +159,7 @@ const (
 )
 
 func init() {
+	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ImageVolume, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: Alpha})
