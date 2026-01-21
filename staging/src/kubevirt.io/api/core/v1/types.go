@@ -3114,6 +3114,10 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
 
+	// QGS configuration for attestation on the Intel TDX Platform
+	// +nullable
+	ConfidentialCompute *ConfidentialComputeConfiguration `json:"confidentialCompute,omitempty"`
+
 	// RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated
 	// to the default Kubernetes roles (admin, edit, view).
 	// When set to "AggregateToDefault" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
@@ -3123,6 +3127,26 @@ type KubeVirtConfiguration struct {
 	// +optional
 	// +kubebuilder:validation:Enum=AggregateToDefault;Manual
 	RoleAggregationStrategy *RoleAggregationStrategy `json:"roleAggregationStrategy,omitempty"`
+}
+
+// QGSConfiguration holds QGS configuration
+type TDXAttestationConfiguration struct {
+	// Indicates whether TDX VM should enforce the existence of QGS (required for attestation) to be scheduled
+	// +kubebuilder:default=false
+	Enforced *bool `json:"enforced,omitempty"`
+	// Socket path pointing to the Quote Generation Service
+	// +kubebuilder:default=/var/run/tdx-qgs/qgs.socket
+	QgsSocketPath *string `json:"qgsSocketPath,omitempty"`
+}
+
+type TDXConfiguration struct {
+	Attestation *TDXAttestationConfiguration `json:"attestation,omitempty"`
+}
+
+type ConfidentialComputeConfiguration struct {
+	// TDX configuration for attestation on the Intel TDX Platform
+	// +nullable
+	TDX *TDXConfiguration `json:"tdx,omitempty"`
 }
 
 const (
