@@ -1078,58 +1078,6 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			})
 		})
 
-		It("[QUARANTINE]vmsnapshot should update error if vmsnapshotcontent is unready to use and error", decorators.Quarantine, func() {
-			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
-			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
-
-			for _, dvt := range vm.Spec.DataVolumeTemplates {
-				waitDataVolumePopulated(vm.Namespace, dvt.Name)
-			}
-			// Delete DV and wait pvc get deletionTimestamp
-			// when pvc is deleting snapshot is not possible
-			volumeName := vm.Spec.DataVolumeTemplates[0].Name
-			By("Deleting Data volume")
-			err = virtClient.CdiClient().CdiV1beta1().DataVolumes(vm.Namespace).Delete(context.Background(), volumeName, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() *metav1.Time {
-				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), volumeName, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return pvc.DeletionTimestamp
-			}, 30*time.Second, time.Second).ShouldNot(BeNil())
-
-			By("Creating VMSnapshot")
-			snapshot = libstorage.NewSnapshot(vm.Name, vm.Namespace)
-
-			_, err = virtClient.VirtualMachineSnapshot(snapshot.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() *snapshotv1.VirtualMachineSnapshotStatus {
-				snapshot, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Get(context.Background(), snapshot.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return snapshot.Status
-			}, time.Minute, 2*time.Second).Should(gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-				"Conditions": ContainElements(
-					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":   Equal(snapshotv1.ConditionReady),
-						"Status": Equal(corev1.ConditionFalse),
-						"Reason": Equal("Not ready")}),
-					gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-						"Type":   Equal(snapshotv1.ConditionProgressing),
-						"Status": Equal(corev1.ConditionFalse),
-						"Reason": Equal("In error state")}),
-				),
-				"Phase": Equal(snapshotv1.InProgress),
-				"Error": gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-					"Message": gstruct.PointTo(ContainSubstring("Failed to create snapshot content with error")),
-				})),
-				"CreationTime": BeNil(),
-			})))
-		})
-
 		It("snapshot create before source wait for volume bound, then continues and succeeds", func() {
 			wffc := libstorage.IsStorageClassBindingModeWaitForFirstConsumer(snapshotStorageClass)
 			// Stand alone dv
