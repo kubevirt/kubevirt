@@ -222,17 +222,17 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, func() {
+	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, decorators.ImageVolume, decorators.NoFlakeCheck, func() {
 		BeforeEach(func() {
 			v, err := getKubernetesVersion()
 			Expect(err).ToNot(HaveOccurred())
 			if v < "1.35" {
-				// Skip the test if the Kubernetes version is lower than 1.33
+				// Fail the test if the Kubernetes version is lower than 1.33
 				// ImageVolume won't work for versions < 1.33 because of this bug:
 				// https://github.com/kubernetes/kubernetes/pull/130394
 				// Additionally there is currently no way to enable k8s ImageVolume FG
 				// through kubevirtci. It is enabled by default since 1.35.
-				Skip("this test requires Kubernetes version >= 1.35")
+				Fail("this test requires Kubernetes version >= 1.35")
 			}
 		})
 

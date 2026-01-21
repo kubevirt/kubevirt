@@ -35,7 +35,6 @@ import (
 	metricsutil "github.com/rhobs/operator-observability-toolkit/pkg/testutil"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -320,10 +319,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
 		ip := libnet.GetIP(handlerMetricIPs, family)
-
-		if netutils.IsIPv6String(ip) {
-			Skip("Skip testing with IPv6 until https://github.com/kubevirt/kubevirt/issues/4145 is fixed")
-		}
 
 		concurrency := 100 // random value "much higher" than maxRequestsInFlight
 
