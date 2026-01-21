@@ -81,6 +81,7 @@ const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const SevDevice = "devices.kubevirt.io/sev"
+const TdxDevice = "devices.kubevirt.io/tdx"
 const VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
 const PrDevice = "devices.kubevirt.io/pr-helper"
 
