@@ -254,6 +254,35 @@ var _ = Describe(SIG("Hotplug", func() {
 		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
 	}
 
+	verifyVolumeAndDiskVMIRemoved := func(vmi *v1.VirtualMachineInstance, volumeNames ...string) {
+		nameMap := make(map[string]bool)
+		for _, volumeName := range volumeNames {
+			nameMap[volumeName] = true
+		}
+		Eventually(func() error {
+			updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+
+			for _, volume := range updatedVMI.Spec.Volumes {
+				if _, ok := nameMap[volume.Name]; ok {
+					return fmt.Errorf("waiting on VMI volume to be removed")
+				}
+			}
+			for _, disk := range updatedVMI.Spec.Domain.Devices.Disks {
+				if _, ok := nameMap[disk.Name]; ok {
+					return fmt.Errorf("waiting on VMI disk to be removed")
+				}
+			}
+
+			return nil
+		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
 	verifyNoVolumeAttached := func(vmi *v1.VirtualMachineInstance, volumeNames ...string) {
 		By("Verify that the number of attached volumes does not change")
 		volumeNamesMap := make(map[string]struct{}, len(volumeNames))
@@ -761,6 +790,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			for _, volumeName := range dvNames {
 				By("removing volume " + volumeName + " from VM")
 				removeVolumeVM(vm.Name, vm.Namespace, volumeName, false)
+				verifyVolumeAndDiskVMRemoved(vm, volumeName)
 			}
 			for _, volumeName := range dvNames {
 				verifyVolumeNolongerAccessible(vmi, volumeName)
@@ -1174,6 +1204,8 @@ var _ = Describe(SIG("Hotplug", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				verifyVolumeAndDiskVMRemoved(vm, "testvolume")
+
 				By("Verifying that the hotplugged volume can be unplugged after a restart")
 				verifyVolumeNolongerAccessible(vmi, targets[0])
 			})
@@ -1263,6 +1295,8 @@ var _ = Describe(SIG("Hotplug", func() {
 				verifySingleAttachmentPod(virtClient, vmi)
 				removeVolumeVM(vmi.Name, vmi.Namespace, "block", false)
 				removeVolumeVM(vmi.Name, vmi.Namespace, "fs", false)
+				verifyVolumeAndDiskVMRemoved(vm, "block")
+				verifyVolumeAndDiskVMRemoved(vm, "fs")
 
 				for i := 0; i < 2; i++ {
 					verifyVolumeNolongerAccessible(vmi, targets[i])
@@ -1374,6 +1408,8 @@ var _ = Describe(SIG("Hotplug", func() {
 
 				By("Verifying the volume can be detached and reattached after migration")
 				removeVolumeFunc(vmi.Name, vmi.Namespace, volumeName, false)
+
+				verifyVolumeAndDiskVMIRemoved(vmi, volumeName)
 				verifyVolumeNolongerAccessible(vmi, targets[0])
 				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, v1.DiskBusSCSI, false, "")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -1902,6 +1938,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifySingleAttachmentPod(virtClient, vmi)
 			By(removingVolumeFromVM)
 			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		})
 	})
@@ -1999,6 +2036,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifySingleAttachmentPod(virtClient, vmi)
 			By(removingVolumeFromVM)
 			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		},
 			Entry("without dedicated IO and shared policy", false),
@@ -2055,6 +2093,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifySingleAttachmentPod(virtClient, vmi)
 			By(removingVolumeFromVM)
 			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		})
 	})
