@@ -20,7 +20,9 @@
 package install
 
 import (
+	"context"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -92,6 +94,56 @@ var _ = Describe("Install Strategy", func() {
 				newNS("monitoring"),
 			),
 		)
+
+		It("should retry when ServiceAccount is temporarily unavailable", func() {
+			// Create a fake client with initially no ServiceAccount
+			client := fake.NewSimpleClientset(newNS("openshift-monitoring"))
+			
+			// Start a goroutine that creates the ServiceAccount after a delay
+			go func() {
+				time.Sleep(500 * time.Millisecond)
+				_, _ = client.CoreV1().ServiceAccounts("openshift-monitoring").Create(
+					context.Background(),
+					newSA("openshift-monitoring", "prometheus-k8s"),
+					metav1.CreateOptions{},
+				)
+			}()
+
+			// The retry logic should find the ServiceAccount once it's created
+			ns, err := getMonitorNamespaceWithRetry(
+				client.CoreV1(),
+				config.GetPotentialMonitorNamespaces(),
+				config.GetMonitorServiceAccountName(),
+				3,
+				200*time.Millisecond,
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ns).To(Equal("openshift-monitoring"))
+		})
+
+		It("should create ServiceMonitor when namespace is explicitly configured even if SA not found", func() {
+			// Simulate upgrade scenario where ServiceAccount is temporarily missing
+			// but ServiceMonitorNamespace is explicitly configured
+			configWithExplicitNs := util.GetTargetConfigFromKV(&v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageRegistry:           "fake-registry",
+					ImageTag:                "v9.9.9",
+					ServiceMonitorNamespace: "openshift-monitoring", // Explicitly configured
+				},
+			})
+
+			// Generate strategy with empty monitorNamespace (simulating SA not found)
+			// but with explicit configuration
+			strategy, err := GenerateCurrentInstallStrategy(configWithExplicitNs, "", namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			// ServiceMonitor should still be created because it's explicitly configured
+			Expect(strategy.ServiceMonitors()).To(HaveLen(1))
+			Expect(strategy.PrometheusRules()).To(HaveLen(1))
+		})
 	})
 
 	Context("should generate", func() {
