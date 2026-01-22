@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	matcher "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -223,7 +223,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			err := virtClient.CoreV1().Pods(helperPod.Namespace).Delete(context.Background(), helperPod.Name, k8smetav1.DeleteOptions{})
 			ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		}()
-		EventuallyWithOffset(1, ThisPod(helperPod), 30).Should(BeInPhase(k8sv1.PodRunning))
+		EventuallyWithOffset(1, matcher.ThisPod(helperPod), 30).Should(matcher.BeInPhase(k8sv1.PodRunning))
 
 		execOnHelperPod := func(command string) (string, error) {
 			stdout, err := exec.ExecuteCommandOnPod(
@@ -351,7 +351,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			vmi := newSEVFedora(false, false, libvmi.WithSEVAttestation())
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVMI(vmi), 60).Should(BeInPhase(v1.Scheduled))
+			Eventually(matcher.ThisVMI(vmi), 60).Should(matcher.BeInPhase(v1.Scheduled))
 
 			By("Querying virsh nodesevinfo")
 			nodeSevInfo := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "nodesevinfo"})
@@ -366,12 +366,12 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(sevPlatformInfo).To(Equal(expectedSEVPlatformInfo))
 
 			By("Setting up session parameters")
-			vmi, err = ThisVMI(vmi)()
+			vmi, err = matcher.ThisVMI(vmi)()
 			Expect(err).ToNot(HaveOccurred())
 			sevSessionOptions, tikBase64, tekBase64 := prepareSession(virtClient, vmi.Status.NodeName, sevPlatformInfo.PDH)
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).SEVSetupSession(context.Background(), vmi.Name, sevSessionOptions)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVMI(vmi), 60).Should(And(BeRunning(), HaveConditionTrue(v1.VirtualMachineInstancePaused)))
+			Eventually(matcher.ThisVMI(vmi), 60).Should(And(matcher.BeRunning(), matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused)))
 
 			By("Querying virsh domlaunchsecinfo 1")
 			domLaunchSecInfo := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "domlaunchsecinfo", "1"})
@@ -411,7 +411,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			By("Unpausing the VirtualMachineInstance")
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVMI(vmi), 30*time.Second, time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 			By("Waiting for the VirtualMachineInstance to become ready")
 			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
