@@ -348,9 +348,9 @@ func getMonitorNamespaceWithRetry(clientset k8coresv1.CoreV1Interface, potention
 	backoff := initialBackoff
 	var lastErr error
 
-	for attempt := 0; attempt <= maxRetries; attempt++ {
-		if attempt > 0 {
-			log.Log.Infof("Retry attempt %d/%d to find monitoring ServiceAccount %s, waiting %v", attempt, maxRetries, monitorServiceAccount, backoff)
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			log.Log.Infof("Retry attempt %d/%d to find monitoring ServiceAccount %s, waiting %v", attempt-1, maxRetries-1, monitorServiceAccount, backoff)
 			time.Sleep(backoff)
 			backoff *= 2 // Exponential backoff
 		}
@@ -372,7 +372,7 @@ func getMonitorNamespaceWithRetry(clientset k8coresv1.CoreV1Interface, potention
 				}
 
 				if saExists {
-					if attempt > 0 {
+					if attempt > 1 {
 						log.Log.Infof("Successfully found monitoring ServiceAccount %s in namespace %s after %d attempts", monitorServiceAccount, ns, attempt)
 					}
 					return ns, nil
@@ -386,7 +386,7 @@ func getMonitorNamespaceWithRetry(clientset k8coresv1.CoreV1Interface, potention
 	// All retries exhausted
 	if lastErr != nil {
 		log.Log.Warningf("Failed to find monitoring ServiceAccount %s after %d attempts in namespaces %v: %v", 
-			monitorServiceAccount, maxRetries+1, potentionalMonitorNamespaces, lastErr)
+			monitorServiceAccount, maxRetries, potentionalMonitorNamespaces, lastErr)
 	}
 	return "", nil
 }
@@ -559,10 +559,8 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		if explicitServiceMonitorNs != "" && !isServiceAccountFound {
 			log.Log.Warningf("ServiceMonitorNamespace is explicitly configured as %s, but ServiceAccount %s was not found in monitoring namespaces %v. Creating ServiceMonitor anyway to avoid disabling monitoring during upgrades. If this is incorrect, monitoring may not work until the ServiceAccount is created.",
 				explicitServiceMonitorNs, monitorServiceAccount, config.GetPotentialMonitorNamespaces())
-			// Use the first potential namespace as fallback for RBAC
-			if len(config.GetPotentialMonitorNamespaces()) > 0 {
-				monitorNamespace = config.GetPotentialMonitorNamespaces()[0]
-			}
+			// Use the explicit ServiceMonitor namespace for RBAC to keep them in sync
+			monitorNamespace = explicitServiceMonitorNs
 		}
 
 		rbaclist = append(rbaclist, rbac.GetAllServiceMonitor(config.GetNamespace(), monitorNamespace, monitorServiceAccount)...)
