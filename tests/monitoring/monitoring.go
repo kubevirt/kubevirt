@@ -63,7 +63,9 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 	Context("Kubevirt alert rules", func() {
 		BeforeEach(func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
-			prometheusRule, err = monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), "prometheus-kubevirt-rules", metav1.GetOptions{})
+			prometheusRule, err = monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), "prometheus-kubevirt-rules", metav1.GetOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -89,7 +91,7 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 	})
 
 	Context("Migration Alerts", decorators.SigComputeMigrations, func() {
-		PIt("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times during the last 24 hours", func() {
+		PIt("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times", func() {
 			By("Starting the VirtualMachineInstance")
 			vmi := libvmi.New(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("2Mi"))
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
@@ -108,10 +110,13 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 
 			// delete VMI
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
+				context.Background(), vmi.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
 
 			By("Waiting for VMI to disappear")
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			const vmiDisappearTimeout = 240
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, vmiDisappearTimeout)
 		})
 	})
 
@@ -122,19 +127,31 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			originalKv = libkubevirt.GetCurrentKv(virtClient)
 		})
 
-		It("KubeVirtNoAvailableNodesToRunVMs should be triggered when there are no available nodes in the cluster to run VMs", func() {
+		It("KubeVirtNoAvailableNodesToRunVMs should be triggered when no nodes can run VMs", func() {
+			const (
+				handlerWaitTimeout = 90 * time.Second
+				handlerPollTime    = 5 * time.Second
+				alertTimeout       = 10 * time.Minute
+			)
+
 			By("Scaling down virt-handler")
 			err := disableVirtHandler(virtClient, originalKv)
 			Expect(err).ToNot(HaveOccurred(), "Failed to disable virt-handler")
 
 			By("Ensuring virt-handler is unschedulable on all nodes")
-			waitForVirtHandlerNodeSelector(1, virtClient, originalKv.Namespace, "does-not-exist", 90*time.Second, 5*time.Second)
+			waitForVirtHandlerNodeSelector(
+				1, virtClient, originalKv.Namespace, "does-not-exist", handlerWaitTimeout, handlerPollTime,
+			)
 
 			By("Verifying virt-handler has no available pods")
-			waitForVirtHandlerPodCount(1, virtClient, originalKv.Namespace, 0, 90*time.Second, 5*time.Second)
+			waitForVirtHandlerPodCount(
+				1, virtClient, originalKv.Namespace, 0, handlerWaitTimeout, handlerPollTime,
+			)
 
 			By("Verifying KubeVirtNoAvailableNodesToRunVMs alert exists if emulation is disabled")
-			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
+			libmonitoring.VerifyAlertExistWithCustomTime(
+				virtClient, "KubeVirtNoAvailableNodesToRunVMs", alertTimeout,
+			)
 
 			By("Restoring virt-handler")
 			err = restoreVirtHandler(virtClient, originalKv)
@@ -149,17 +166,21 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			vmi := libvmifact.NewCirros()
 			vmi.APIVersion = "v1alpha3"
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(
+				context.Background(), vmi, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtDeprecatedAPIRequested")
 
 			By("Verifying the alert disappears")
-			libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIRequested")
+			const deprecatedAPIAlertTimeout = 15 * time.Minute
+			libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(
+				virtClient, deprecatedAPIAlertTimeout, "KubeVirtDeprecatedAPIRequested",
+			)
 		})
 	})
-
 })
 
 func disableVirtHandler(virtClient kubecli.KubevirtClient, originalKv *v1.KubeVirt) error {
@@ -179,7 +200,9 @@ func disableVirtHandler(virtClient kubecli.KubevirtClient, originalKv *v1.KubeVi
 		return err
 	}
 
-	_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(
+		context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{},
+	)
 	return err
 }
 
@@ -189,11 +212,18 @@ func restoreVirtHandler(virtClient kubecli.KubevirtClient, originalKv *v1.KubeVi
 		return err
 	}
 
-	_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(
+		context.Background(), originalKv.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{},
+	)
 	return err
 }
 
-func waitForVirtHandlerNodeSelector(offset int, virtClient kubecli.KubevirtClient, namespace, expectedValue string, timeout, polling time.Duration) {
+func waitForVirtHandlerNodeSelector(
+	offset int,
+	virtClient kubecli.KubevirtClient,
+	namespace, expectedValue string,
+	timeout, polling time.Duration,
+) {
 	EventuallyWithOffset(offset, func() (string, error) {
 		vh, err := virtClient.AppsV1().DaemonSets(namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
 		if err != nil {
@@ -203,7 +233,13 @@ func waitForVirtHandlerNodeSelector(offset int, virtClient kubecli.KubevirtClien
 	}).WithTimeout(timeout).WithPolling(polling).Should(Equal(expectedValue))
 }
 
-func waitForVirtHandlerPodCount(offset int, virtClient kubecli.KubevirtClient, namespace string, expectedCount int, timeout, polling time.Duration) {
+func waitForVirtHandlerPodCount(
+	offset int,
+	virtClient kubecli.KubevirtClient,
+	namespace string,
+	expectedCount int,
+	timeout, polling time.Duration,
+) {
 	EventuallyWithOffset(offset, func() (int, error) {
 		vh, err := virtClient.AppsV1().DaemonSets(namespace).Get(context.Background(), virtHandler.deploymentName, metav1.GetOptions{})
 		if err != nil {
@@ -221,8 +257,14 @@ func checkRequiredAnnotations(rule promv1.Rule) {
 	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("runbook_url", ContainSubstring(rule.Alert)),
 		"%s runbook_url doesn't include alert name", rule.Alert)
 
-	resp, err := http.Head(rule.Annotations["runbook_url"])
+	client := &http.Client{}
+	req, err := http.NewRequestWithContext(
+		context.Background(), http.MethodHead, rule.Annotations["runbook_url"], http.NoBody,
+	)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook request failed", rule.Alert))
+	resp, err := client.Do(req)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook is not available", rule.Alert))
+	defer resp.Body.Close()
 	ExpectWithOffset(1, resp.StatusCode).Should(Equal(http.StatusOK), fmt.Sprintf("%s runbook is not available", rule.Alert))
 }
 

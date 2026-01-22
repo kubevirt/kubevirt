@@ -38,7 +38,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -56,7 +56,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 	})
 
 	Context("Prometheus metrics", Ordered, func() {
-		var excludedMetrics = map[string]bool{
+		excludedMetrics := map[string]bool{
 			// virt-api
 			// can later be added in pre-existing feature tests
 			"kubevirt_portforward_active_tunnels":                true,
@@ -221,7 +221,8 @@ func fetchPrometheusKubevirtMetrics(virtClient kubecli.KubevirtClient) *libmonit
 }
 
 func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient, query string) *libmonitoring.QueryRequestResult {
-	metrics, err := libmonitoring.QueryRange(virtClient, query, time.Now().Add(-1*time.Minute), time.Now(), 15*time.Second)
+	const queryStep = 15 * time.Second
+	metrics, err := libmonitoring.QueryRange(virtClient, query, time.Now().Add(-1*time.Minute), time.Now(), queryStep)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(metrics.Status).To(Equal("success"))
@@ -245,7 +246,10 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
 
 	By("Waiting for the VM domainstats metrics to be reported")
-	libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_filesystem_capacity_bytes", map[string]string{"namespace": vm.Namespace, "name": vm.Name}, 0, ">", 0)
+	fsLabels := map[string]string{"namespace": vm.Namespace, "name": vm.Name}
+	libmonitoring.WaitForMetricValueWithLabelsToBe(
+		virtClient, "kubevirt_vmi_filesystem_capacity_bytes", fsLabels, 0, ">", 0,
+	)
 
 	By("Deleting the VirtualMachine")
 	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
@@ -275,7 +279,8 @@ func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+	const vmReadyTimeout = 300 * time.Second
+	Eventually(matcher.ThisVM(vm)).WithTimeout(vmReadyTimeout).WithPolling(time.Second).Should(matcher.BeReady())
 	libwait.WaitForSuccessfulVMIStart(vmi)
 
 	return vm
