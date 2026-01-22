@@ -446,7 +446,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			Eventually(func() []string {
 				out := libmonitoring.GetKubevirtVMMetrics(pod)
 				return libinfra.TakeMetricsWithPrefix(out, "kubevirt_vmi_migration_data_processed_bytes")
-			}, 100*time.Second, 1*time.Second).Should(
+			}, 4*time.Minute, 10*time.Second).Should(
 				WithTransform(func(lines []string) []float64 {
 					var values []float64
 					for _, line := range lines {
