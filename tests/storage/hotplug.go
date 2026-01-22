@@ -2040,7 +2040,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		},
 			Entry("without dedicated IO and shared policy", false),
-			Entry("[QUARANTINE]with dedicated IO and auto policy", decorators.Quarantine, true),
+			Entry("with dedicated IO and auto policy", true),
 		)
 	})
 
