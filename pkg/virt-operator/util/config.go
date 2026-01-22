@@ -636,14 +636,14 @@ func (c *KubeVirtDeploymentConfig) GetJson() (string, error) {
 	return string(json), nil
 }
 
-func NewEnvVarMap(envMap map[string]string) *[]k8sv1.EnvVar {
+func NewEnvVarMap(envMap map[string]string) []k8sv1.EnvVar {
 	env := []k8sv1.EnvVar{}
 
 	for k, v := range envMap {
 		env = append(env, k8sv1.EnvVar{Name: k, Value: v})
 	}
 
-	return &env
+	return env
 }
 
 func IsValidLabel(label string) bool {

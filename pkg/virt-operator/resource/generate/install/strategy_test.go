@@ -322,7 +322,7 @@ var _ = Describe("Install Strategy", func() {
 		// Mimic generateInstallStrategyJob
 		// TODO: Refactor
 		envVars := util.NewEnvVarMap(config.GetExtraEnv())
-		for _, envVar := range *envVars {
+		for _, envVar := range envVars {
 			envVarManager.Setenv(envVar.Name, envVar.Value)
 		}
 		deploymentConfigJson, err := config.GetJson()

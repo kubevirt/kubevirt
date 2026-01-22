@@ -153,7 +153,7 @@ func NewExportProxyService(namespace string) *corev1.Service {
 	}
 }
 
-func newPodTemplateSpec(podName, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) *corev1.PodTemplateSpec {
+func newPodTemplateSpec(podName, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars []corev1.EnvVar) *corev1.PodTemplateSpec {
 	podTemplateSpec := &corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -194,8 +194,8 @@ func newPodTemplateSpec(podName, productName, productVersion, productComponent, 
 		podTemplateSpec.ObjectMeta.Labels[virtv1.AppComponentLabel] = productComponent
 	}
 
-	if envVars != nil && len(*envVars) != 0 {
-		podTemplateSpec.Spec.Containers[0].Env = *envVars
+	if len(envVars) != 0 {
+		podTemplateSpec.Spec.Containers[0].Env = envVars
 	}
 
 	return podTemplateSpec
@@ -239,7 +239,7 @@ func attachCertificateSecret(spec *corev1.PodSpec, secretName string, mountPath 
 	spec.Containers[0].VolumeMounts = append(spec.Containers[0].VolumeMounts, secretVolumeMount)
 }
 
-func newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars *[]corev1.EnvVar) *appsv1.Deployment {
+func newBaseDeployment(deploymentName, imageName, namespace, repository, version, productName, productVersion, productComponent, image string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, podAffinity *corev1.Affinity, envVars []corev1.EnvVar) *appsv1.Deployment {
 	if image == "" {
 		image = fmt.Sprintf("%s/%s%s", repository, imageName, AddVersionSeparatorPrefix(version))
 	}
@@ -738,7 +738,7 @@ func NewSynchronizationControllerDeployment(config *operatorutil.KubeVirtDeploym
 	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
 
 	env := operatorutil.NewEnvVarMap(config.GetExtraEnv())
-	*env = append(*env, corev1.EnvVar{
+	env = append(env, corev1.EnvVar{
 		Name: "MY_POD_IP",
 		ValueFrom: &corev1.EnvVarSource{
 			FieldRef: &corev1.ObjectFieldSelector{

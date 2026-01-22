@@ -88,7 +88,7 @@ var _ = Describe("Operator Config", func() {
 				{Name: key2, Value: val2},
 			}
 
-			Expect(*envObjects).To(ConsistOf(expected))
+			Expect(envObjects).To(ConsistOf(expected))
 		})
 	})
 
