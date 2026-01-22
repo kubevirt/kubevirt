@@ -52,7 +52,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		diskSecret = "qwerty123"
 	)
 
-	newSEVFedora := func(withES bool, withSNP bool, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	newSEVFedora := func(withES, withSNP bool, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 		const secureBoot = false
 		sevOptions := []libvmi.Option{
 			libvmi.WithUefi(secureBoot),
@@ -212,7 +212,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		return uint(val)
 	}
 
-	prepareSession := func(virtClient kubecli.KubevirtClient, nodeName string, pdh string) (*v1.SEVSessionOptions, string, string) {
+	prepareSession := func(virtClient kubecli.KubevirtClient, nodeName, pdh string) (*v1.SEVSessionOptions, string, string) {
 		helperPod := libpod.RenderPrivilegedPod("sev-helper", []string{"sleep"}, []string{"infinity"})
 		helperPod.Spec.NodeName = nodeName
 
@@ -312,9 +312,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 	})
 
 	Context("lifecycle", func() {
-
 		DescribeTable("should start a SEV or SEV-ES VM",
-			func(withES bool, withSNP bool, sevstr string) {
+			func(withES, withSNP bool, sevstr string) {
 				vmi := newSEVFedora(withES, withSNP)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
 
