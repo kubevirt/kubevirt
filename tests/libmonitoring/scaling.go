@@ -36,7 +36,9 @@ func NewScaling(virtClient kubecli.KubevirtClient, deployments []string) *Scalin
 func (s *Scaling) BackupScale(operatorName string) {
 	By("Backing up scale for " + operatorName)
 	Eventually(func() error {
-		virtOperatorCurrentScale, err := s.virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).GetScale(context.TODO(), operatorName, metav1.GetOptions{})
+		virtOperatorCurrentScale, err := s.virtClient.AppsV1().
+			Deployments(flags.KubeVirtInstallNamespace).
+			GetScale(context.TODO(), operatorName, metav1.GetOptions{})
 		if err == nil {
 			s.scales[operatorName] = virtOperatorCurrentScale.Spec.Replicas
 		}
@@ -52,22 +54,30 @@ func (s *Scaling) UpdateScale(operatorName string, replicas int32) {
 	By(fmt.Sprintf("Updating scale for %s to %d", operatorName, replicas))
 
 	Eventually(func() error {
-		scale, err := s.virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).GetScale(context.TODO(), operatorName, metav1.GetOptions{})
+		scale, err := s.virtClient.AppsV1().
+			Deployments(flags.KubeVirtInstallNamespace).
+			GetScale(context.TODO(), operatorName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 
 		scale.Spec.Replicas = replicas
 
-		_, err = s.virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).UpdateScale(context.TODO(), operatorName, scale, metav1.UpdateOptions{})
+		_, err = s.virtClient.AppsV1().
+			Deployments(flags.KubeVirtInstallNamespace).
+			UpdateScale(context.TODO(), operatorName, scale, metav1.UpdateOptions{})
 		return err
 	}, 30*time.Second, 1*time.Second).Should(Succeed())
 
 	Eventually(func() int32 {
-		deployment, err := s.virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.TODO(), operatorName, metav1.GetOptions{})
+		deployment, err := s.virtClient.AppsV1().
+			Deployments(flags.KubeVirtInstallNamespace).
+			Get(context.TODO(), operatorName, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		return deployment.Status.ReadyReplicas
-	}, 2*time.Minute, 10*time.Second).Should(Equal(replicas), "failed to verify updated replicas for %s", operatorName)
+	}, 2*time.Minute, 10*time.Second).Should(
+		Equal(replicas), "failed to verify updated replicas for %s", operatorName,
+	)
 }
 
 func (s *Scaling) RestoreAllScales() {
