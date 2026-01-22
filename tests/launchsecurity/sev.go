@@ -142,7 +142,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		err = binary.Write(secret, binary.LittleEndian, uint32(uuidLen+sizeLen+len(diskSecret)+1))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		// 40:40+len(diskSecret)+1
-		secret.Write([]byte(diskSecret))
+		secret.WriteString(diskSecret)
 		// write zeroes
 		secret.Write(make([]byte, l-secret.Len()))
 		ExpectWithOffset(1, secret.Len()).To(Equal(l))
@@ -156,7 +156,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ctr := cipher.NewCTR(aes, iv)
 		encryptedSecret := make([]byte, secret.Len())
-		cipher.Stream.XORKeyStream(ctr, encryptedSecret, secret.Bytes())
+		ctr.XORKeyStream(encryptedSecret, secret.Bytes())
 
 		// AMD SEV specification, section 6.6 LAUNCH_SECRET:
 		//   Header: FLAGS + IV + HMAC
