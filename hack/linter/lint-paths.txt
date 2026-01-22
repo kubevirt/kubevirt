@@ -80,6 +80,7 @@ tests/libconfigmap
 tests/libdomain
 tests/libinstancetype
 tests/libkubevirt
+tests/libmonitoring
 tests/libnamespace
 tests/libnet
 tests/libnode
