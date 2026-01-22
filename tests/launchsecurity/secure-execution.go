@@ -43,7 +43,8 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 )
 
-var _ = Describe("[sig-compute]IBM Secure Execution", decorators.SecureExecution, decorators.SigCompute, decorators.RequiresS390X, Serial, func() {
+var _ = Describe("[sig-compute]IBM Secure Execution",
+	decorators.SecureExecution, decorators.SigCompute, decorators.RequiresS390X, Serial, func() {
 	Context("Node Labels", func() {
 		It("Should have nodes with Secure Execution Label", func() {
 			virtclient := kubevirt.Client()
@@ -80,7 +81,8 @@ var _ = Describe("[sig-compute]IBM Secure Execution", decorators.SecureExecution
 			vmi.Spec.Domain.LaunchSecurity = &kubevirtv1.LaunchSecurity{}
 
 			By("Launching a non-SE VM to convert it to Secure Execution")
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, 240)
+			const secureExecutionStartupTimeout = 240
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, secureExecutionStartupTimeout)
 
 			By("Logging in to non-SE VM")
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -92,7 +94,9 @@ var _ = Describe("[sig-compute]IBM Secure Execution", decorators.SecureExecution
 			Expect(console.RunCommand(vmi, "cat /proc/cmdline > /tmp/parmfile.txt", commandTimeout)).To(Succeed())
 
 			By("Creating the encrypted boot image")
-			Expect(console.RunCommand(vmi, "genprotimg --no-verify -o /boot/sdboot -i /boot/vmlinuz-*.s390x -r /boot/initramfs-*.s390x.img -p /tmp/parmfile.txt -k /mnt/secex-hostkey.crt", commandTimeout)).To(Succeed())
+			genprotimgCmd := "genprotimg --no-verify -o /boot/sdboot -i /boot/vmlinuz-*.s390x " +
+				"-r /boot/initramfs-*.s390x.img -p /tmp/parmfile.txt -k /mnt/secex-hostkey.crt"
+			Expect(console.RunCommand(vmi, genprotimgCmd, commandTimeout)).To(Succeed())
 
 			By("Calling zipl to boot from the encrypted image")
 			Expect(console.RunCommand(vmi, "zipl -t /boot -i /boot/sdboot", commandTimeout)).To(Succeed())
