@@ -593,7 +593,9 @@ func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMa
 func replaceMigratedVolumesStatus(vmi *v1.VirtualMachineInstance) {
 	replaceVolsStatus := make(map[string]*v1.PersistentVolumeClaimInfo)
 	for _, v := range vmi.Status.MigratedVolumes {
-		replaceVolsStatus[v.SourcePVCInfo.ClaimName] = v.DestinationPVCInfo
+		if v.SourcePVCInfo != nil {
+			replaceVolsStatus[v.SourcePVCInfo.ClaimName] = v.DestinationPVCInfo
+		}
 	}
 	for i, v := range vmi.Status.VolumeStatus {
 		if v.PersistentVolumeClaimInfo == nil {
