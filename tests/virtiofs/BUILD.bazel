@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "config.go",
+        "containerpath.go",
         "datavolume.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/virtiofs",
