@@ -58,7 +58,7 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 	})
 
 	Context("Prometheus metrics", Ordered, func() {
-		var excludedMetrics = map[string]bool{
+		excludedMetrics := map[string]bool{
 			// virt-api
 			// can later be added in pre-existing feature tests
 			"kubevirt_portforward_active_tunnels":                true,
@@ -194,7 +194,10 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 					Namespace: vm.Namespace,
 				},
 			}
-			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmiRef, 240*time.Second)).To(Succeed())
+			const vmiDisappearTimeout = 240
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(
+				vmiRef, time.Duration(vmiDisappearTimeout)*time.Second,
+			)).To(Succeed())
 
 			By("Waiting until the phase transition from deletion metric is reported")
 			Eventually(func() []testing.PromResult {
@@ -247,7 +250,6 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 	})
 
 	Context("Configuration metrics", Serial, func() {
-
 		It("kubevirt_configuration_emulation_enabled is 1 when useEmulation=true", func() {
 			updateUseEmulationAndWaitForMetric(virtClient, true)
 		})
@@ -263,7 +265,8 @@ func fetchPrometheusKubevirtMetrics(virtClient kubecli.KubevirtClient) *libmonit
 }
 
 func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient, query string) *libmonitoring.QueryRequestResult {
-	metrics, err := libmonitoring.QueryRange(virtClient, query, time.Now().Add(-1*time.Minute), time.Now(), 15*time.Second)
+	const queryStep = 15 * time.Second
+	metrics, err := libmonitoring.QueryRange(virtClient, query, time.Now().Add(-1*time.Minute), time.Now(), queryStep)
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(metrics.Status).To(Equal("success"))
@@ -289,7 +292,9 @@ func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vm := createRunningVM(virtClient, vmi, v1.RunStrategyAlways, true)
 
 	By("Waiting for the VM to be reported")
-	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_number_of_vms", 1, map[string]string{"namespace": vm.Namespace}, 1)
+	libmonitoring.WaitForMetricValueWithLabels(
+		virtClient, "kubevirt_number_of_vms", 1, map[string]string{"namespace": vm.Namespace}, 1,
+	)
 
 	By("Waiting for the VMI to be reported")
 	labels := map[string]string{
@@ -299,7 +304,10 @@ func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
 
 	By("Waiting for the VM domainstats metrics to be reported")
-	libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_filesystem_capacity_bytes", map[string]string{"namespace": vm.Namespace, "name": vm.Name}, 0, ">", 0)
+	fsLabels := map[string]string{"namespace": vm.Namespace, "name": vm.Name}
+	libmonitoring.WaitForMetricValueWithLabelsToBe(
+		virtClient, "kubevirt_vmi_filesystem_capacity_bytes", fsLabels, 0, ">", 0,
+	)
 
 	return vm
 }
