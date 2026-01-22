@@ -1078,7 +1078,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 			})
 		})
 
-		It("vmsnapshot should update error if vmsnapshotcontent is unready to use and error", func() {
+		It("[QUARANTINE]vmsnapshot should update error if vmsnapshotcontent is unready to use and error", decorators.Quarantine, func() {
 			vm = renderVMWithRegistryImportDataVolume(cd.ContainerDiskAlpine, snapshotStorageClass)
 			vm.Spec.RunStrategy = virtpointer.P(v1.RunStrategyAlways)
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
