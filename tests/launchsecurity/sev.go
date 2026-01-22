@@ -222,7 +222,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		helperPod.Spec.NodeName = nodeName
 
 		var err error
-		helperPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(helperPod)).Create(context.Background(), helperPod, k8smetav1.CreateOptions{})
+		helperPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(helperPod)).Create(
+			context.Background(), helperPod, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		defer func() {
 			deleteErr := virtClient.CoreV1().Pods(helperPod.Namespace).Delete(context.Background(), helperPod.Name, k8smetav1.DeleteOptions{})
@@ -355,7 +356,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := newSEVFedora(false, false, libvmi.WithSEVAttestation())
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(
+				context.Background(), vmi, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(matcher.ThisVMI(vmi), 60).Should(matcher.BeInPhase(v1.Scheduled))
 
@@ -418,7 +420,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			By("Unpausing the VirtualMachineInstance")
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(
+				matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 			By("Waiting for the VirtualMachineInstance to become ready")
 			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
