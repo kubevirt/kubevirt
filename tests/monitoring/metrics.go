@@ -159,6 +159,9 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
+	By("Waiting for VM to delete")
+	Eventually(ThisVM(vm), 300*time.Second, 1*time.Second).ShouldNot(Exist())
+
 	By("Waiting for the VM deletion to be reported")
 	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", -1)
 }
