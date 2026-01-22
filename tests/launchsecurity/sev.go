@@ -109,15 +109,15 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		// passed between the firmware and the CPU driver are little-endian
 		// formatted. Applies to UUIDs as well.
 		writeUUID := func(w io.Writer, uuid uuid.UUID) {
-			var err error
-			err = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint32(uuid[0:4]))
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
-			err = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint16(uuid[4:6]))
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
-			err = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint16(uuid[6:8]))
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
-			_, err = w.Write(uuid[8:])
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
+			var writeErr error
+			writeErr = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint32(uuid[0:4]))
+			ExpectWithOffset(2, writeErr).ToNot(HaveOccurred())
+			writeErr = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint16(uuid[4:6]))
+			ExpectWithOffset(2, writeErr).ToNot(HaveOccurred())
+			writeErr = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint16(uuid[6:8]))
+			ExpectWithOffset(2, writeErr).ToNot(HaveOccurred())
+			_, writeErr = w.Write(uuid[8:])
+			ExpectWithOffset(2, writeErr).ToNot(HaveOccurred())
 		}
 
 		const (
@@ -220,17 +220,17 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		helperPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(helperPod)).Create(context.Background(), helperPod, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		defer func() {
-			err := virtClient.CoreV1().Pods(helperPod.Namespace).Delete(context.Background(), helperPod.Name, k8smetav1.DeleteOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			deleteErr := virtClient.CoreV1().Pods(helperPod.Namespace).Delete(context.Background(), helperPod.Name, k8smetav1.DeleteOptions{})
+			ExpectWithOffset(1, deleteErr).ToNot(HaveOccurred())
 		}()
 		EventuallyWithOffset(1, matcher.ThisPod(helperPod), 30).Should(matcher.BeInPhase(k8sv1.PodRunning))
 
 		execOnHelperPod := func(command string) (string, error) {
-			stdout, err := exec.ExecuteCommandOnPod(
+			execStdout, execErr := exec.ExecuteCommandOnPod(
 				helperPod,
 				helperPod.Spec.Containers[0].Name,
 				[]string{"/bin/bash", "-c", command})
-			return strings.TrimSpace(stdout), err
+			return strings.TrimSpace(execStdout), execErr
 		}
 
 		_, err = execOnHelperPod(fmt.Sprintf("echo %s | base64 --decode > pdh.bin", pdh))
@@ -283,9 +283,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			}
 
 			Eventually(func() bool {
-				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				val, ok := node.Status.Allocatable[sevResourceName]
+				allocatableNode, nodeErr := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+				Expect(nodeErr).ToNot(HaveOccurred())
+				val, ok := allocatableNode.Status.Allocatable[sevResourceName]
 				return ok && !val.IsZero()
 			}, 180*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("Allocatable SEV should not be zero on %s", nodeName))
 		})
