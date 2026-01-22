@@ -74,7 +74,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		tik, err := base64.StdEncoding.DecodeString(tikBase64)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		h := hmac.New(sha256.New, tik)
-		err = binary.Write(h, binary.LittleEndian, uint8(0x04))
+		const sevLaunchMeasurementPrefix = 0x04
+		err = binary.Write(h, binary.LittleEndian, uint8(sevLaunchMeasurementPrefix))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		err = binary.Write(h, binary.LittleEndian, uint8(sevMeasurementInfo.APIMajor))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -149,7 +150,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 
 		// The data protection scheme utilizes AES-128 CTR mode:
 		//   C = AES-128-CTR(M; K, IV)
-		iv := make([]byte, 16)
+		const aesBlockSize = 16
+		iv := make([]byte, aesBlockSize)
 		_, err = rand.Read(iv)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		aes, err := aes.NewCipher(tek)
@@ -160,7 +162,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 
 		// AMD SEV specification, section 6.6 LAUNCH_SECRET:
 		//   Header: FLAGS + IV + HMAC
-		header := bytes.NewBuffer(make([]byte, 0, 52))
+		const sevSecretHeaderSize = 52
+		header := bytes.NewBuffer(make([]byte, 0, sevSecretHeaderSize))
 		// 0:4 FLAGS.COMPRESSED
 		err = binary.Write(header, binary.LittleEndian, uint32(0))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -169,7 +172,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		// HMAC(0x01 || FLAGS || IV || GUEST_LENGTH ||
 		//      TRANS_LENGTH || DATA || MEASURE; GCTX.TIK)
 		h := hmac.New(sha256.New, tik)
-		err = binary.Write(h, binary.LittleEndian, uint8(0x01))
+		const sevLaunchSecretPrefix = 0x01
+		err = binary.Write(h, binary.LittleEndian, uint8(sevLaunchSecretPrefix))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		h.Write(header.Bytes()[0:20]) // FLAGS || IV
 		err = binary.Write(h, binary.LittleEndian, uint32(l))
@@ -195,8 +199,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			if line == "" {
 				continue
 			}
+			const expectedFieldCount = 2
 			data := strings.Split(line, ":")
-			ExpectWithOffset(1, data).To(HaveLen(2))
+			ExpectWithOffset(1, data).To(HaveLen(expectedFieldCount))
 			entries[strings.TrimSpace(data[0])] = strings.TrimSpace(data[1])
 		}
 		for _, key := range expectedKeys {
@@ -321,6 +326,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Verifying that SEV is enabled in the guest")
+				const consoleTimeout = 60
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
@@ -328,7 +334,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 					&expect.BExp{R: "Memory Encryption Features active: AMD " + sevstr},
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
-				}, 60)
+				}, consoleTimeout)
 				Expect(err).ToNot(HaveOccurred())
 			},
 			// SEV-ES disabled, SEV enabled
@@ -394,8 +400,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			By(fmt.Sprintf("Computing sha256sum %s", domainSpec.OS.BootLoader.Path))
 			sha256sum := libpod.RunCommandOnVmiPod(vmi, []string{"sha256sum", domainSpec.OS.BootLoader.Path})
 			Expect(sha256sum).ToNot(BeEmpty())
+			const sha256HexLength = 64
 			expectedSEVMeasurementInfo.LoaderSHA = strings.TrimSpace(strings.Split(sha256sum, " ")[0])
-			Expect(expectedSEVMeasurementInfo.LoaderSHA).To(HaveLen(64))
+			Expect(expectedSEVMeasurementInfo.LoaderSHA).To(HaveLen(sha256HexLength))
 
 			By("Querying launch measurement")
 			sevMeasurementInfo, err := virtClient.VirtualMachineInstance(vmi.Namespace).SEVQueryLaunchMeasurement(context.Background(), vmi.Name)
