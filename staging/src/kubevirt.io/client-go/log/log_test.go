@@ -287,26 +287,6 @@ func TestCriticalMessage(t *testing.T) {
 	tearDown()
 }
 
-func TestObject(t *testing.T) {
-	setUp()
-	log := MakeLogger(MockLogger{})
-	log.SetLogLevel(INFO)
-	vm := v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{Namespace: "test"}}
-	log.Object(&vm).Log("test", "message")
-	logEntry := logParams[0].([]interface{})
-	assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
-	assert(t, logEntry[1].(string) == LogLevelNames[INFO], "Logged line was not of level infoLevel")
-	assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
-	assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
-	assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
-	assert(t, logEntry[7].(string) == "test", "Component was not logged")
-	assert(t, logEntry[8].(string) == "namespace", "Logged line did not contain object namespace")
-	assert(t, logEntry[10].(string) == "name", "Logged line did not contain object name")
-	assert(t, logEntry[12].(string) == "kind", "Logged line did not contain object kind")
-	assert(t, logEntry[14].(string) == "uid", "Logged line did not contain UUID")
-	tearDown()
-}
-
 func TestError(t *testing.T) {
 	setUp()
 	log := MakeLogger(MockLogger{})
@@ -382,5 +362,92 @@ func TestErrWithMsgf(t *testing.T) {
 	assert(t, logEntry[9].(error).Error() == "testerror", "Logged line did not contain message header")
 	assert(t, logEntry[10].(string) == "msg", "Logged line did not contain message header")
 	assert(t, logEntry[11].(string) == "test", "Logged line did not contain message")
+	tearDown()
+}
+
+func TestObjectLogging(t *testing.T) {
+	tests := []struct {
+		name      string
+		configure func(log *FilteredLogger)
+		logFunc   func(log *FilteredLogger, vm *v1.VirtualMachineInstance)
+	}{
+		{
+			name: "simple",
+			logFunc: func(log *FilteredLogger, vm *v1.VirtualMachineInstance) {
+				log.Object(vm).Log("test", "message")
+			},
+		},
+		{
+			name: "change verbosity",
+			configure: func(log *FilteredLogger) {
+				_ = log.SetVerbosityLevel(6)
+			},
+			logFunc: func(log *FilteredLogger, vm *v1.VirtualMachineInstance) {
+				log.Level(INFO).V(3).Object(vm).Log("test", "message")
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			setUp()
+			log := MakeLogger(MockLogger{})
+			log.SetLogLevel(INFO)
+			if tc.configure != nil {
+				tc.configure(log)
+			}
+
+			vm := v1.VirtualMachineInstance{ObjectMeta: v12.ObjectMeta{Namespace: "test"}}
+			tc.logFunc(log, &vm)
+
+			logEntry := logParams[0].([]interface{})
+			assert(t, logEntry[0].(string) == "level", "Logged line did not have level entry")
+			assert(t, logEntry[1].(string) == LogLevelNames[INFO], "Logged line was not of level infoLevel")
+			assert(t, logEntry[2].(string) == "timestamp", "Logged line is not expected format")
+			assert(t, logEntry[4].(string) == "pos", "Logged line was not pos")
+			assert(t, logEntry[6].(string) == "component", "Logged line is not expected format")
+			assert(t, logEntry[7].(string) == "test", "Component was not logged")
+			assert(t, logEntry[8].(string) == "namespace", "Logged line did not contain object namespace")
+			assert(t, logEntry[10].(string) == "name", "Logged line did not contain object name")
+			assert(t, logEntry[12].(string) == "kind", "Logged line did not contain object kind")
+			assert(t, logEntry[14].(string) == "uid", "Logged line did not contain UUID")
+			tearDown()
+		})
+	}
+}
+
+func TestObjectContextLeakage(t *testing.T) {
+	setUp()
+	log := MakeLogger(MockLogger{})
+	log.SetLogLevel(INFO)
+	if err := log.SetVerbosityLevel(0); err != nil {
+		t.Fatal(err)
+	}
+
+	vm := v1.VirtualMachineInstance{
+		ObjectMeta: v12.ObjectMeta{Name: "leak-test"},
+	}
+
+	// Simulate logging with verbosity in different orders.
+	for range 10 {
+		log.V(3).Object(&vm).Info("noop")
+		log.Object(&vm).V(3).Info("noop")
+	}
+
+	// Ensure the mock is empty before the check.
+	assert(t, !logCalled, "Expected no log output during loop")
+	assert(t, len(logParams) == 0, fmt.Sprintf("Expected no log params during loop, got %d entries", len(logParams)))
+
+	// Ensure object context did not leak into the base logger.
+	log.Error("post-check")
+	assert(t, logCalled, "Expected post-check log to reach logger")
+	assert(t, len(logParams) == 1, fmt.Sprintf("Expected 1 log entry, got %d", len(logParams)))
+	logEntry := logParams[0].([]interface{})
+	for _, item := range logEntry {
+		if s, ok := item.(string); ok {
+			assert(t, s != "leak-test", fmt.Sprintf("Unexpected object context on base logger: %v", logEntry))
+		}
+	}
+
 	tearDown()
 }
