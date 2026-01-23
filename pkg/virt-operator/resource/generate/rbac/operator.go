@@ -314,6 +314,59 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 					"patch",
 				},
 			},
+			{
+				APIGroups: []string{
+					"template.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinetemplates",
+					"virtualmachinetemplaterequests",
+				},
+				Verbs: []string{
+					"create",
+					"delete",
+					"deletecollection",
+					"get",
+					"list",
+					"patch",
+					"update",
+					"watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"template.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinetemplates/status",
+					"virtualmachinetemplaterequests/status",
+				},
+				Verbs: []string{
+					"get",
+					"patch",
+				},
+			},
+			{
+				APIGroups: []string{
+					"template.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinetemplates/finalizers",
+					"virtualmachinetemplaterequests/finalizers",
+				},
+				Verbs: []string{
+					"update",
+				},
+			},
+			{
+				// for ClusterRole virt-template-metrics-reader
+				NonResourceURLs: []string{
+					"/metrics",
+				},
+				Verbs: []string{
+					"get",
+				},
+			},
 		},
 	}
 
@@ -485,6 +538,9 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 					components.VirtExportProxyCertSecretName,
 					components.VirtSynchronizationControllerCertSecretName,
 					components.VirtSynchronizationControllerServerCertSecretName,
+					components.VirtTemplateApiCertSecretName,
+					components.VirtTemplateWebhookCertSecretName,
+					components.VirtTemplateControllerMetricsCertSecretName,
 				},
 				Verbs: []string{
 					"create",

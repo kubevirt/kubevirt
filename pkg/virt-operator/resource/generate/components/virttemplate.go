@@ -46,6 +46,11 @@ import (
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
+const (
+	VirtTemplateApiserverDeploymentName  = "virt-template-apiserver"
+	VirtTemplateControllerDeploymentName = "virt-template-controller"
+)
+
 //go:embed data/virt-template/install-virt-operator.yaml
 var virtTemplateBundle []byte
 
