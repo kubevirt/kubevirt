@@ -135,10 +135,6 @@ func (plugin *USBDevicePlugin) devicesToKubeVirtDevicePlugin() []*pluginapi.Devi
 	return devices
 }
 
-func (plugin *USBDevicePlugin) GetDeviceName() string {
-	return plugin.resourceName
-}
-
 func (plugin *USBDevicePlugin) healthCheckFunc() error {
 	monitoredDevices := make(map[string]string)
 	watcher, err := fsnotify.NewWatcher()
