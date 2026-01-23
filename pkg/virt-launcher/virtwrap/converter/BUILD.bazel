@@ -79,6 +79,8 @@ go_test(
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/network:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",
+        "//pkg/virt-launcher/virtwrap/device/hostdevice/generic:go_default_library",
+        "//pkg/virt-launcher/virtwrap/device/hostdevice/gpu:go_default_library",
         "//pkg/virt-launcher/virtwrap/launchsecurity:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
