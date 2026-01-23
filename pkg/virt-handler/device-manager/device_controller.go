@@ -55,7 +55,7 @@ func (c *controlledDevice) Start() {
 
 	logger := log.DefaultLogger()
 	dev := c.devicePlugin
-	deviceName := dev.GetDeviceName()
+	deviceName := dev.GetResourceName()
 	logger.Infof("Starting a device plugin for device: %s", deviceName)
 	retries := 0
 
@@ -100,7 +100,7 @@ func (c *controlledDevice) Stop() {
 }
 
 func (c *controlledDevice) GetName() string {
-	return c.devicePlugin.GetDeviceName()
+	return c.devicePlugin.GetResourceName()
 }
 
 func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
@@ -146,7 +146,7 @@ func NewDeviceController(
 ) *DeviceController {
 	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
 	for i := range permanentPlugins {
-		permanentPluginsMap[permanentPlugins[i].GetDeviceName()] = permanentPlugins[i]
+		permanentPluginsMap[permanentPlugins[i].GetResourceName()] = permanentPlugins[i]
 	}
 
 	controller := &DeviceController{
@@ -272,10 +272,10 @@ func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]D
 	}
 
 	for _, device := range devices {
-		if _, isRunning := c.startedPlugins[device.GetDeviceName()]; !isRunning {
-			devicePluginsToRun[device.GetDeviceName()] = device
+		if _, isRunning := c.startedPlugins[device.GetResourceName()]; !isRunning {
+			devicePluginsToRun[device.GetResourceName()] = device
 		} else {
-			delete(devicePluginsToStop, device.GetDeviceName())
+			delete(devicePluginsToStop, device.GetResourceName())
 		}
 	}
 
