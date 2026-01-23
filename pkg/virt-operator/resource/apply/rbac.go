@@ -16,6 +16,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
 
@@ -120,10 +121,11 @@ func getRbacCreateFunction(r *Reconciler, obj runtime.Object) (createFunc func()
 		}
 	case *rbacv1.RoleBinding:
 		roleBinding := obj.(*rbacv1.RoleBinding)
+		components.UpdateTemplateAuthReaderNamespace(roleBinding, namespace)
 
 		createFunc = func() error {
 			raiseExpectation(r.expectations.RoleBinding)
-			_, err := rbacObj.RoleBindings(namespace).Create(context.Background(), roleBinding, metav1.CreateOptions{})
+			_, err := rbacObj.RoleBindings(roleBinding.Namespace).Create(context.Background(), roleBinding, metav1.CreateOptions{})
 			lowerExpectationIfErr(r.expectations.RoleBinding, err)
 			return err
 		}
@@ -162,9 +164,10 @@ func getRbacUpdateFunction(r *Reconciler, obj runtime.Object) (updateFunc func()
 		}
 	case *rbacv1.RoleBinding:
 		roleBinding := obj.(*rbacv1.RoleBinding)
+		components.UpdateTemplateAuthReaderNamespace(roleBinding, namespace)
 
 		updateFunc = func() (err error) {
-			_, err = rbacObj.RoleBindings(namespace).Update(context.Background(), roleBinding, metav1.UpdateOptions{})
+			_, err = rbacObj.RoleBindings(roleBinding.Namespace).Update(context.Background(), roleBinding, metav1.UpdateOptions{})
 			return err
 		}
 	case *rbacv1.ClusterRoleBinding:

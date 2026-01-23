@@ -57,7 +57,9 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	if kv.Spec.Infra != nil && kv.Spec.Infra.Replicas != nil {
 		replicas := int32(*kv.Spec.Infra.Replicas)
-		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != replicas {
+		if (deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != replicas) &&
+			deployment.Name != components.VirtTemplateApiserverDeploymentName &&
+			deployment.Name != components.VirtTemplateControllerDeploymentName {
 			deployment.Spec.Replicas = &replicas
 			r.recorder.Eventf(deployment, corev1.EventTypeWarning, "AdvancedFeatureUse", "applying custom number of infra replica. this is an advanced feature that prevents "+
 				"auto-scaling for core kubevirt components. Please use with caution!")
