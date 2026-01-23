@@ -54,7 +54,7 @@ func (fp *FakePlugin) Start(_ <-chan struct{}) (err error) {
 	return fp.Error
 }
 
-func (fp *FakePlugin) GetDeviceName() string {
+func (fp *FakePlugin) GetResourceName() string {
 	return fp.deviceName
 }
 

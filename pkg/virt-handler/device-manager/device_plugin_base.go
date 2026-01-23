@@ -48,11 +48,10 @@ type DevicePluginBase struct {
 	deregistered      chan struct{}
 	deviceRoot        string
 	devicePath        string
-	deviceName        string
 	setupDevicePlugin func() error // Optional function to perform additional setup steps that are not covered by the default implementation
 }
 
-func (dpi *DevicePluginBase) GetDeviceName() string {
+func (dpi *DevicePluginBase) GetResourceName() string {
 	return dpi.resourceName
 }
 
@@ -155,7 +154,7 @@ func (dpi *DevicePluginBase) GetDevicePluginOptions(_ context.Context, _ *plugin
 }
 
 func (dpi *DevicePluginBase) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.deviceName)
+	log.DefaultLogger().Infof("Generic Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Generic Allocate: request: %v", r.ContainerRequests)
 	response := pluginapi.AllocateResponse{}
 	containerResponse := new(pluginapi.ContainerAllocateResponse)

@@ -148,7 +148,7 @@ func (plugin *USBDevicePlugin) setInitialized(initialized bool) {
 	plugin.lock.Unlock()
 }
 
-func (plugin *USBDevicePlugin) GetDeviceName() string {
+func (plugin *USBDevicePlugin) GetResourceName() string {
 	return plugin.resourceName
 }
 
