@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -43,7 +44,6 @@ type SocketDevicePlugin struct {
 	socketRoot    string
 	socketDir     string
 	socket        string
-	socketName    string
 	executor      selinux.Executor
 	p             permissionManager
 	healthChecks  bool
@@ -115,7 +115,6 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 		socketRoot:   socketRoot,
 		socket:       socket,
 		socketDir:    socketDir,
-		socketName:   socketName,
 		executor:     executor,
 		p:            p,
 		healthChecks: true,
@@ -123,7 +122,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 	dpi.healthCheck = dpi.healthCheckFunc
 
 	for i := 0; i < maxDevices; i++ {
-		deviceId := dpi.socketName + strconv.Itoa(i)
+		deviceId := socketName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,
 			Health: pluginapi.Healthy,
@@ -169,7 +168,7 @@ func (dpi *SocketDevicePlugin) register() error {
 }
 
 func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
-	log.DefaultLogger().Infof("Socket Allocate: resourceName: %s", dpi.socketName)
+	log.DefaultLogger().Infof("Socket Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Socket Allocate: request: %v", r.ContainerRequests)
 	response := pluginapi.AllocateResponse{}
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
@@ -218,7 +217,7 @@ func (dpi *SocketDevicePlugin) healthCheckFunc() error {
 		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("could not stat the device: %v", err)
 		}
-		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.socketName)
+		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.resourceName)
 		dpi.sendHealthUpdate(false)
 	}
 	logger.Infof("device '%s' is present.", devicePath)
@@ -244,20 +243,20 @@ func (dpi *SocketDevicePlugin) healthCheckFunc() error {
 			if event.Name == devicePath && dpi.healthChecks {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.socketName)
+					logger.Infof("monitored device %s appeared", dpi.resourceName)
 					dpi.sendHealthUpdate(true)
 					if err := dpi.setSocketDirectoryPermissions(); err != nil {
-						logger.Warningf("failed to set directory permissions for socket device %s", dpi.socketName)
+						logger.Warningf("failed to set directory permissions for socket device %s", dpi.resourceName)
 					}
 					if err := dpi.setSocketPermissions(); err != nil {
-						logger.Warningf("failed to set socket permissions for socket device %s", dpi.socketName)
+						logger.Warningf("failed to set socket permissions for socket device %s", dpi.resourceName)
 					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.socketName)
+					logger.Infof("monitored device %s disappeared", dpi.resourceName)
 					dpi.sendHealthUpdate(false)
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.socketName)
+				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
 				return nil
 			}
 		}
