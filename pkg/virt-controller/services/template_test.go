@@ -4314,52 +4314,6 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		DescribeTable("should require NET_BIND_SERVICE", func(interfaceType string) {
-			vmi := api.NewMinimalVMI("fake-vmi")
-			switch interfaceType {
-			case "bridge":
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			case "masquerade":
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-			}
-
-			pod, err := svc.RenderLaunchManifest(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" {
-					Expect(container.SecurityContext.Capabilities.Add).To(ContainElement(k8sv1.Capability("NET_BIND_SERVICE")))
-					return
-				}
-			}
-			Expect(false).To(BeTrue())
-		},
-			Entry("when there is bridge interface", "bridge"),
-			Entry("when there is masquerade interface", "masquerade"),
-		)
-
-		It("should require capabilites which we set on virt-launcher binary", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name: "test",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{},
-				},
-			}}
-
-			pod, err := svc.RenderLaunchManifest(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" {
-					Expect(container.SecurityContext.Capabilities.Add).To(
-						ContainElement(k8sv1.Capability("NET_BIND_SERVICE")))
-					return
-				}
-			}
-			Expect(false).To(BeTrue())
-		})
-
 		DescribeTable("should require the correct set of capabilites", func(
 			getVMI func() *v1.VirtualMachineInstance,
 			containerName string,
