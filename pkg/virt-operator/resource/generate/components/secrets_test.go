@@ -269,7 +269,11 @@ var _ = Describe("Certificate Management", func() {
 			caCrt, err := LoadCertificates(caSecret)
 			Expect(err).NotTo(HaveOccurred())
 			var crtSecret *v12.Secret
-			for _, s := range NewCertSecrets("test", "test") {
+			secrets := append(
+				NewCertSecrets("test", "test"),
+				NewVirtTemplateCertSecrets("test")...,
+			)
+			for _, s := range secrets {
 				if s.Name == scretName {
 					crtSecret = s
 					break
@@ -286,6 +290,9 @@ var _ = Describe("Certificate Management", func() {
 			Entry("virt-api", VirtApiCertSecretName),
 			Entry("virt-operator", VirtOperatorCertSecretName),
 			Entry("virt-exportproxy", VirtExportProxyCertSecretName),
+			Entry("virt-template-api", VirtTemplateApiCertSecretName),
+			Entry("virt-template-webhook", VirtTemplateWebhookCertSecretName),
+			Entry("virt-template-controller-metrics", VirtTemplateControllerMetricsCertSecretName),
 		)
 
 		It("should suggest earlier rotation if CA expires before cert", func() {
@@ -317,7 +324,10 @@ var _ = Describe("Certificate Management", func() {
 	})
 
 	It("should set the right namespaces on the certificate secrets", func() {
-		secrets := NewCertSecrets("install_namespace", "operator_namespace")
+		secrets := append(
+			NewVirtTemplateCertSecrets("install_namespace"),
+			NewCertSecrets("install_namespace", "operator_namespace")...,
+		)
 		for _, secret := range secrets[:len(secrets)-1] {
 			Expect(secret.Namespace).To(Equal("install_namespace"))
 			Expect(secret.Name).ToNot(Equal(VirtOperatorCertSecretName))
@@ -337,7 +347,10 @@ var _ = Describe("Certificate Management", func() {
 	})
 
 	It("should populate secrets with certificates", func() {
-		secrets := NewCertSecrets("install_namespace", "operator_namespace")
+		secrets := append(
+			NewCertSecrets("install_namespace", "operator_namespace"),
+			NewVirtTemplateCertSecrets("install_namespace")...,
+		)
 		caSecrets := NewCACertSecrets("test")
 		var caSecret *v12.Secret
 		for _, ca := range caSecrets {
