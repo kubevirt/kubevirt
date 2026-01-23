@@ -1088,6 +1088,9 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 			vmCopy.Spec = *indexVMSpec(&pool.Spec, index)
 			vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, revisionName)
 
+			// Preserve VM identity/specific fields that were set during VM creation
+			preserveVMIdentityFields(vm, vmCopy)
+
 			_, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 			if err != nil {
 				c.recorder.Eventf(pool, k8score.EventTypeWarning, FailedUpdateVirtualMachineReason, "Error updating virtual machine %s/%s: %v", vm.Name, vm.Namespace, err)
@@ -2078,4 +2081,27 @@ func nodeSelectorRequirementsAsSelector(nsm *[]k8score.NodeSelectorRequirement) 
 	}
 
 	return selector, nil
+}
+
+func preserveVMIdentityFields(originalVM, updatedVM *virtv1.VirtualMachine) {
+	if originalVM.Spec.Template == nil || updatedVM.Spec.Template == nil {
+		return
+	}
+
+	originalSpec := &originalVM.Spec.Template.Spec
+	updatedSpec := &updatedVM.Spec.Template.Spec
+
+	// preserve firmware UUID and Serial, as they are generated at creation time
+	// and should never change as they identify the VM to the guest OS
+	if originalSpec.Domain.Firmware != nil {
+		if updatedSpec.Domain.Firmware == nil {
+			updatedSpec.Domain.Firmware = &virtv1.Firmware{}
+		}
+		if originalSpec.Domain.Firmware.UUID != "" {
+			updatedSpec.Domain.Firmware.UUID = originalSpec.Domain.Firmware.UUID
+		}
+		if originalSpec.Domain.Firmware.Serial != "" {
+			updatedSpec.Domain.Firmware.Serial = originalSpec.Domain.Firmware.Serial
+		}
+	}
 }

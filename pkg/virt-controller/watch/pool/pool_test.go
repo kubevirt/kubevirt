@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -223,6 +224,10 @@ var _ = Describe("Pool", func() {
 				vmCopy.Spec = *indexVMSpec(&updatedPoolSpec, i)
 				vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, newPoolRevision.Name)
 				vmCopy.Finalizers = []string{poolv1.VirtualMachinePoolControllerFinalizer}
+				vmCopy.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
+					UUID:   types.UID(fmt.Sprintf("test-uuid-%d", i)),
+					Serial: fmt.Sprintf("test-serial-%d", i),
+				}
 
 				markVmAsReady(vmCopy)
 				vmi := createReadyVMI(vmCopy, oldPoolRevision)
@@ -683,6 +688,43 @@ var _ = Describe("Pool", func() {
 			}
 
 			Expect(testing.FilterActions(&fakeVirtClient.Fake, "update", "virtualmachines")).To(HaveLen(5))
+		})
+
+		It("should preserve VM firmware identity fields when updating a VM using opportunistic update strategy", func() {
+			pool, vm := DefaultPool(1)
+			pool.Spec.UpdateStrategy = &poolv1.VirtualMachinePoolUpdateStrategy{
+				Opportunistic: &poolv1.VirtualMachineOpportunisticUpdateStrategy{},
+			}
+
+			oldPoolRevision := createPoolRevision(pool)
+
+			addPool(pool)
+			addCR(oldPoolRevision)
+
+			createVMsWithOrdinal(pool, 1, oldPoolRevision, oldPoolRevision, vm)
+
+			vm, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).Get(context.TODO(), fmt.Sprintf("%s-0", pool.Name), metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vm.Spec.Template.Spec.Domain.Firmware.UUID).To(Equal(types.UID(fmt.Sprintf("test-uuid-0"))))
+			Expect(vm.Spec.Template.Spec.Domain.Firmware.Serial).To(Equal(fmt.Sprintf("test-serial-0")))
+
+			pool.Generation = 123
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = map[string]string{"newkey": "newval"}
+			newPoolRevision := createPoolRevision(pool)
+
+			controller.poolIndexer.Update(pool)
+
+			addCR(newPoolRevision)
+
+			sanityExecute()
+
+			vms, err := fakeVirtClient.KubevirtV1().VirtualMachines(pool.Namespace).List(context.TODO(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vms.Items).To(HaveLen(1))
+			Expect(vms.Items[0].Spec.Template.Spec.Domain.Firmware.UUID).To(Equal(types.UID(fmt.Sprintf("test-uuid-0"))))
+			Expect(vms.Items[0].Spec.Template.Spec.Domain.Firmware.Serial).To(Equal(fmt.Sprintf("test-serial-0")))
+
+			Expect(testing.FilterActions(&fakeVirtClient.Fake, "update", "virtualmachines")).To(HaveLen(1))
 		})
 
 		It("should update VMIs using node selector filtering for proactive update strategy for the VMs that are upto date", func() {
