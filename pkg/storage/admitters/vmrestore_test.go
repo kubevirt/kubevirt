@@ -551,7 +551,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec.volumeOwnershipPolicy"))
 			})
 
-			DescribeTable("Should reject restore when using backend storage and restoring to different VM", func(doesTargetExist bool) {
+			DescribeTable("Should accept restore when using backend storage and restoring to different VM", func(doesTargetExist bool) {
 				const targetVMName = "new-test-vm"
 				targetVM := &v1.VirtualMachine{}
 
@@ -609,10 +609,7 @@ var _ = Describe("Validating VirtualMachineRestore Admitter", func() {
 				ar := createRestoreAdmissionReview(restore)
 				resp := createTestVMRestoreAdmitter(config, snapshot, vmSnapshotContent, targetVM).Admit(context.Background(), ar)
 
-				Expect(resp.Allowed).To(BeFalse())
-				Expect(resp.Result.Details.Causes).To(HaveLen(1))
-				Expect(resp.Result.Details.Causes[0].Field).To(Equal("spec"))
-				Expect(resp.Result.Details.Causes[0].Message).To(ContainSubstring("Restore to a different VM is not supported when snapshotted VM has backend storage (persistent TPM or EFI)"))
+				Expect(resp.Allowed).To(BeTrue())
 			},
 				Entry("target doesn't exist", false),
 				Entry("target exists", true),
