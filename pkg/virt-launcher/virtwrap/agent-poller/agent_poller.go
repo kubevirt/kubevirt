@@ -30,6 +30,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 // AgentCommand is a command executable on guest agent
@@ -205,6 +206,18 @@ func (s *AsyncAgentStore) GetUsers(limit int) []api.User {
 	return limitedUsers
 }
 
+func (s *AsyncAgentStore) GetLoad() *stats.DomainStatsLoad {
+	data, ok := s.store.Load(libvirt.DOMAIN_GUEST_INFO_LOAD)
+
+	load := stats.DomainStatsLoad{}
+	if !ok {
+		return &load
+	}
+
+	load = data.(stats.DomainStatsLoad)
+	return &load
+}
+
 // PollerWorker collects the data from the guest agent
 // only unique items are stored as configuration
 type PollerWorker struct {
@@ -305,6 +318,10 @@ func CreatePoller(
 			{
 				CallTick:  qemuAgentUserInterval,
 				InfoTypes: libvirt.DOMAIN_GUEST_INFO_USERS,
+			},
+			{
+				CallTick:  qemuAgentSysInterval,
+				InfoTypes: libvirt.DOMAIN_GUEST_INFO_LOAD,
 			},
 		},
 	}
@@ -424,6 +441,10 @@ func fetchAndStoreGuestInfo(infoTypes libvirt.DomainGuestInfoTypes, agentPoller 
 		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_TIMEZONE, convertToTimezone(guestInfo))
 	}
 
+	if infoTypes&libvirt.DOMAIN_GUEST_INFO_LOAD != 0 {
+		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_LOAD, convertToLoad(guestInfo))
+	}
+
 	if infoTypes&libvirt.DOMAIN_GUEST_INFO_USERS != 0 {
 		agentPoller.agentStore.Store(libvirt.DOMAIN_GUEST_INFO_USERS, convertToUsers(guestInfo))
 	}
@@ -497,6 +518,22 @@ func convertToTimezone(guestInfo *libvirt.DomainGuestInfo) api.Timezone {
 		}
 	}
 	return timezone
+}
+
+func convertToLoad(guestInfo *libvirt.DomainGuestInfo) stats.DomainStatsLoad {
+	load := stats.DomainStatsLoad{}
+
+	if guestInfo.Load != nil {
+		load = stats.DomainStatsLoad{
+			Load1mSet:  guestInfo.Load.Load1MSet,
+			Load1m:     guestInfo.Load.Load1M,
+			Load5mSet:  guestInfo.Load.Load5MSet,
+			Load5m:     guestInfo.Load.Load5M,
+			Load15mSet: guestInfo.Load.Load15MSet,
+			Load15m:    guestInfo.Load.Load15M,
+		}
+	}
+	return load
 }
 
 func convertToUsers(guestInfo *libvirt.DomainGuestInfo) []api.User {
