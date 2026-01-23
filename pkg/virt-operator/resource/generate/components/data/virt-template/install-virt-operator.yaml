@@ -1,0 +1,1283 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: virtualmachinetemplaterequests.template.kubevirt.io
+spec:
+  group: template.kubevirt.io
+  names:
+    kind: VirtualMachineTemplateRequest
+    listKind: VirtualMachineTemplateRequestList
+    plural: virtualmachinetemplaterequests
+    shortNames:
+    - vmtr
+    - vmtrs
+    singular: virtualmachinetemplaterequest
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.templateRef.name
+      name: Template
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Progressing")].status
+      name: Progressing
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: VirtualMachineTemplateRequest is the Schema for the virtualmachinetemplaterequests
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of the template requests
+            properties:
+              templateName:
+                description: |-
+                  TemplateName holds the optional name for the new VirtualMachineTemplate.
+                  If not specified the template will have the same name as the VirtualMachineTemplateRequest.
+                type: string
+              virtualMachineRef:
+                description: VirtualMachineReference holds a reference to a VirtualMachine.kubevirt.io
+                properties:
+                  name:
+                    description: Name is the name of the VirtualMachine.
+                    type: string
+                  namespace:
+                    description: Namespace is the namespace of the VirtualMachine.
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+            required:
+            - virtualMachineRef
+            type: object
+            x-kubernetes-validations:
+            - message: spec is immutable
+              rule: self == oldSelf
+          status:
+            description: Status defines the observed state of the template request
+            properties:
+              conditions:
+                description: |-
+                  Conditions represent the current state of the template request.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Condition types include:
+                  - "Ready": the template was created successfully
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              templateRef:
+                description: TemplateRef is a reference to the created VirtualMachineTemplate.
+                properties:
+                  name:
+                    default: ""
+                    description: |-
+                      Name of the referent.
+                      This field is effectively required, but due to backwards compatibility is
+                      allowed to be empty. Instances of this type with an empty value here are
+                      almost certainly wrong.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    type: string
+                type: object
+                x-kubernetes-map-type: atomic
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+  name: virtualmachinetemplates.template.kubevirt.io
+spec:
+  group: template.kubevirt.io
+  names:
+    kind: VirtualMachineTemplate
+    listKind: VirtualMachineTemplateList
+    plural: virtualmachinetemplates
+    shortNames:
+    - vmt
+    - vmts
+    singular: virtualmachinetemplate
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: VirtualMachineTemplate is the Schema for the virtualmachinetemplates
+          API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of the template
+            properties:
+              message:
+                description: |-
+                  Message is an optional instructional message for this template.
+                  This field should inform the user how to utilize the newly created VirtualMachine.
+                type: string
+              parameters:
+                description: Parameters is an optional list of Parameters used during
+                  processing of the template.
+                items:
+                  description: |-
+                    Parameter defines a name/value combination that is to be substituted during
+                    processing of the template.
+                  properties:
+                    description:
+                      description: Description is the description of the parameter.
+                        Optional.
+                      type: string
+                    displayName:
+                      description: |-
+                        DisplayName is an alternative name that can be shown in a UI
+                        instead of the parameter's name. Optional.
+                      type: string
+                    from:
+                      description: From is used as input for the generator specified
+                        in Generate. Optional.
+                      pattern: \[([a-zA-Z0-9\-\\]+)\](\{(\w+)\})
+                      type: string
+                    generate:
+                      description: |-
+                        Generate specifies the generator to be used to generate a Value for this
+                        parameter. The From field can be used to provide input to this generator
+                        If empty, no generator is being used, leaving the result Value untouched. Optional.
+
+                        The only supported generator is "expression", which accepts a From
+                        value with a regex-like syntax, which should follow the form of "[a-zA-Z0-9]{length}".
+                        The expression defines the range and length of the resulting random characters.
+
+                        The following character classes are supported in the range:
+
+                        range | characters
+                      enum:
+                      - expression
+                      type: string
+                    name:
+                      description: |-
+                        Name is the name of the parameter. It can be referenced in
+                        the template VirtualMachine using ${PARAMETER_NAME}. Required.
+                      type: string
+                    required:
+                      description: |-
+                        Indicates that the parameter must have a Value or valid Generate and From values.
+                        Defaults to false. Optional.
+                      type: boolean
+                    value:
+                      description: |-
+                        Value holds the value of the Parameter. If specified, a generator will be
+                        ignored. The value replaces all occurrences of the ${PARAMETER_NAME}
+                        expression during processing of the template. Optional.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              virtualMachine:
+                description: |-
+                  VirtualMachine is the template VirtualMachine to include in this template.
+                  If a namespace value is hardcoded, it will be removed during processing of the
+                  template. If the namespace value however contains a ${PARAMETER_REFERENCE},
+                  the resolved value after parameter substitution will be respected and the
+                  VirtualMachine will be created in that namespace.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+            required:
+            - virtualMachine
+            type: object
+          status:
+            description: Status defines the observed state of the template
+            properties:
+              conditions:
+                description: |-
+                  Conditions represent the current state of the template.
+                  Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                  Condition types include:
+                  - "Ready": the template is ready to be processed
+
+                  The status of each condition is one of True, False, or Unknown.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-apiserver
+  name: virt-template-apiserver
+  namespace: kubevirt
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-controller-manager
+  name: virt-template-controller-manager
+  namespace: kubevirt
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-leader-election-role
+  name: virt-template-leader-election-role
+  namespace: kubevirt
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: virt-template-apiserver-role
+rules:
+- apiGroups:
+  - kubevirt.io
+  resources:
+  - virtualmachines
+  verbs:
+  - create
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates
+  - virtualmachinetemplates/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: virt-template-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  - pods
+  verbs:
+  - create
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - datavolumes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - cdi.kubevirt.io
+  resources:
+  - datavolumes/source
+  verbs:
+  - create
+- apiGroups:
+  - snapshot.kubevirt.io
+  resources:
+  - virtualmachinesnapshotcontents
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - snapshot.kubevirt.io
+  resources:
+  - virtualmachinesnapshots
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - subresources.kubevirt.io
+  resources:
+  - expand-vm-spec
+  verbs:
+  - update
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplaterequests
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplaterequests/finalizers
+  - virtualmachinetemplates/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplaterequests/status
+  - virtualmachinetemplates/status
+  verbs:
+  - get
+  - patch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-metrics-auth-role
+  name: virt-template-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-metrics-reader
+  name: virt-template-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-virtualmachinetemplate-admin-role
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: virt-template-virtualmachinetemplate-admin-role
+rules:
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-virtualmachinetemplate-editor-role
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: virt-template-virtualmachinetemplate-editor-role
+rules:
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-virtualmachinetemplate-viewer-role
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  name: virt-template-virtualmachinetemplate-viewer-role
+rules:
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-virtualmachinetemplaterequest-admin-role
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+  name: virt-template-virtualmachinetemplaterequest-admin-role
+rules:
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplaterequests
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplaterequests/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-virtualmachinetemplaterequest-editor-role
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+  name: virt-template-virtualmachinetemplaterequest-editor-role
+rules:
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplaterequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplaterequests/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-virtualmachinetemplaterequest-viewer-role
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+  name: virt-template-virtualmachinetemplaterequest-viewer-role
+rules:
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplaterequests
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplaterequests/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-apiserver-auth-reader
+  name: virt-template-apiserver-auth-reader
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: extension-apiserver-authentication-reader
+subjects:
+- kind: ServiceAccount
+  name: virt-template-apiserver
+  namespace: kubevirt
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-leader-election-rolebinding
+  name: virt-template-leader-election-rolebinding
+  namespace: kubevirt
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: virt-template-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: virt-template-controller-manager
+  namespace: kubevirt
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-apiserver-rolebinding
+  name: virt-template-apiserver-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: virt-template-apiserver-role
+subjects:
+- kind: ServiceAccount
+  name: virt-template-apiserver
+  namespace: kubevirt
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-apiserver-system-auth-delegator
+  name: virt-template-apiserver:system:auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+- kind: ServiceAccount
+  name: virt-template-apiserver
+  namespace: kubevirt
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-manager-rolebinding
+  name: virt-template-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: virt-template-manager-role
+subjects:
+- kind: ServiceAccount
+  name: virt-template-controller-manager
+  namespace: kubevirt
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-metrics-auth-rolebinding
+  name: virt-template-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: virt-template-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: virt-template-controller-manager
+  namespace: kubevirt
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-api-service
+  name: virt-template-api-service
+  namespace: kubevirt
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    app.kubernetes.io/name: virt-template
+    control-plane: apiserver
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    control-plane: controller-manager
+    kubevirt.io: virt-template-controller-manager-metrics-service
+  name: virt-template-controller-manager-metrics-service
+  namespace: kubevirt
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    app.kubernetes.io/name: virt-template
+    control-plane: controller-manager
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-webhook-service
+  name: virt-template-webhook-service
+  namespace: kubevirt
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    app.kubernetes.io/name: virt-template
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    control-plane: apiserver
+    kubevirt.io: virt-template-apiserver
+  name: virt-template-apiserver
+  namespace: kubevirt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: virt-template
+      control-plane: apiserver
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: apiserver
+      labels:
+        app.kubernetes.io/name: virt-template
+        control-plane: apiserver
+        np.kubevirt.io/allow-access-cluster-services: "true"
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - arm64
+                - s390x
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
+      containers:
+      - args:
+        - --disable-http2-serving
+        - --secure-port=9443
+        - --tls-cert-file=/tmp/k8s-api-server/api-cert/tls.crt
+        - --tls-private-key-file=/tmp/k8s-api-server/api-cert/tls.key
+        command:
+        - /apiserver
+        image: quay.io/kubevirt/virt-template-apiserver:v0.1.3
+        livenessProbe:
+          httpGet:
+            path: /livez
+            port: 9443
+            scheme: HTTPS
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: apiserver
+        ports:
+        - containerPort: 9443
+          name: api
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 9443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp/k8s-api-server/api-cert
+          name: api-cert
+          readOnly: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: virt-template-apiserver
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: api-cert
+        secret:
+          secretName: kubevirt-virt-template-api-certs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    control-plane: controller-manager
+    kubevirt.io: virt-template-controller
+  name: virt-template-controller
+  namespace: kubevirt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: virt-template
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: virt-template
+        control-plane: controller-manager
+        np.kubevirt.io/allow-access-cluster-services: "true"
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                - amd64
+                - arm64
+                - s390x
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                - linux
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        - --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
+        - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+        command:
+        - /manager
+        image: quay.io/kubevirt/virt-template-controller:v0.1.3
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /tmp/k8s-metrics-server/metrics-certs
+          name: metrics-certs
+          readOnly: true
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: webhook-certs
+          readOnly: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: virt-template-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: kubevirt-virt-template-webhook-certs
+      - name: metrics-certs
+        secret:
+          items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
+          optional: false
+          secretName: kubevirt-virt-template-controller-metrics-certs
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-vmtr-authz
+  name: virt-template-vmtr-authz
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+    - apiGroups:
+      - template.kubevirt.io
+      apiVersions:
+      - v1alpha1
+      operations:
+      - CREATE
+      resources:
+      - virtualmachinetemplaterequests
+  validations:
+  - expression: authorizer.group('kubevirt.io').resource('virtualmachines').namespace(variables.sourceNS).check('get').allowed()
+    messageExpression: '''User is not allowed to get VirtualMachines in namespace
+      '' + variables.sourceNS'
+    reason: Forbidden
+  - expression: authorizer.group('snapshot.kubevirt.io').resource('virtualmachinesnapshots').namespace(variables.sourceNS).check('create').allowed()
+    messageExpression: '''User is not allowed to create VirtualMachineSnapshots in
+      namespace '' + variables.sourceNS'
+    reason: Forbidden
+  - expression: authorizer.group('snapshot.kubevirt.io').resource('virtualmachinesnapshotcontents').namespace(variables.sourceNS).check('get').allowed()
+    messageExpression: '''User is not allowed to get VirtualMachineSnapshotContents
+      in namespace '' + variables.sourceNS'
+    reason: Forbidden
+  - expression: authorizer.group('subresources.kubevirt.io').resource('expand-vm-spec').namespace(variables.sourceNS).check('update').allowed()
+    messageExpression: '''User is not allowed to expand VM spec in namespace '' +
+      variables.sourceNS'
+    reason: Forbidden
+  - expression: authorizer.group('cdi.kubevirt.io').resource('datavolumes').namespace(variables.targetNS).check('create').allowed()
+    messageExpression: '''User is not allowed to create DataVolumes in namespace ''
+      + variables.targetNS'
+    reason: Forbidden
+  - expression: authorizer.group('template.kubevirt.io').resource('virtualmachinetemplates').namespace(variables.targetNS).check('create').allowed()
+    messageExpression: '''User is not allowed to create VirtualMachineTemplates in
+      namespace '' + variables.targetNS'
+    reason: Forbidden
+  variables:
+  - expression: object.spec.virtualMachineRef.namespace
+    name: sourceNS
+  - expression: object.metadata.namespace
+    name: targetNS
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-vmtr-authz
+  name: virt-template-vmtr-authz
+spec:
+  policyName: virt-template-vmtr-authz
+  validationActions:
+  - Deny
+---
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-apiserver-aggregator
+  name: v1alpha1.subresources.template.kubevirt.io
+spec:
+  group: subresources.template.kubevirt.io
+  groupPriorityMinimum: 1000
+  service:
+    name: virt-template-api-service
+    namespace: kubevirt
+  version: v1alpha1
+  versionPriority: 15
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-allow-apiserver-ingress
+  name: virt-template-allow-apiserver-ingress
+  namespace: kubevirt
+spec:
+  ingress:
+  - ports:
+    - port: 9443
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: virt-template
+      control-plane: apiserver
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-allow-metrics-traffic
+  name: virt-template-allow-metrics-traffic
+  namespace: kubevirt
+spec:
+  ingress:
+  - ports:
+    - port: 8443
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: virt-template
+      control-plane: controller-manager
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-allow-webhook-traffic
+  name: virt-template-allow-webhook-traffic
+  namespace: kubevirt
+spec:
+  ingress:
+  - ports:
+    - port: 9443
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: virt-template
+      control-plane: controller-manager
+  policyTypes:
+  - Ingress
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: virt-template-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: virt-template-webhook-service
+      namespace: kubevirt
+      path: /validate-template-kubevirt-io-v1alpha1-virtualmachinetemplate
+  failurePolicy: Fail
+  name: vvirtualmachinetemplate-v1alpha1.kb.io
+  rules:
+  - apiGroups:
+    - template.kubevirt.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - virtualmachinetemplates
+  sideEffects: None
