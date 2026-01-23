@@ -2065,7 +2065,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			// since they where the `lastGeneration` was set to -1 on the KubeVirt CR
 			Expect(kvTestData.resourceChanges["mutatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["mutatingwebhookconfigurations"][Added]))
 			Expect(kvTestData.resourceChanges["validatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["validatingwebhookconfigurations"][Added]))
-			Expect(kvTestData.resourceChanges["deployements"][Patched]).To(Equal(kvTestData.resourceChanges["deployements"][Added]))
+			Expect(kvTestData.resourceChanges["deployments"][Patched]).To(Equal(kvTestData.resourceChanges["deployments"][Added]))
 			// Expecting to drop certificate
 			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(kvTestData.resourceChanges["daemonsets"][Added]))
 		})
