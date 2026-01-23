@@ -312,6 +312,8 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 		newLabels[kubevirtv1.TDXLabel] = "true"
 	}
 
+	// TODO: handle iommufd
+
 	return newLabels
 }
 

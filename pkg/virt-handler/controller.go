@@ -271,6 +271,12 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		}
 	}
 
+	if util.IsIOMMUFDVMI(vmi) {
+		if err := c.claimDeviceOwnership(virtLauncherRootMount, "iommu"); err != nil {
+			return fmt.Errorf("failed to set up file ownership for /dev/iommu: %v", err)
+		}
+	}
+
 	if err := c.configureHostDisks(vmi, virtLauncherRootMount, recorder); err != nil {
 		return err
 	}

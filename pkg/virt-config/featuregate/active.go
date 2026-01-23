@@ -156,6 +156,9 @@ const (
 	// Alpha: v1.7.0
 	//
 	MigrationPriorityQueue = "MigrationPriorityQueue"
+
+	// IOMMUFD introduces the usage of the IOMMUFD user API for modern Host Devices Assignment.
+	IOMMUFDGate = "IOMMUFD"
 )
 
 func init() {
@@ -192,4 +195,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: IOMMUFDGate, State: Alpha})
 }
