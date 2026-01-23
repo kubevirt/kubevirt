@@ -841,6 +841,7 @@ func (k *KubeVirtTestData) genericCreateFunc() func(action testing.Action) (hand
 }
 
 func (k *KubeVirtTestData) addResource(obj runtime.Object, config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
+	resourceKey := ""
 	switch resource := obj.(type) {
 	case *k8sv1.ServiceAccount:
 		injectMetadata(&obj.(*k8sv1.ServiceAccount).ObjectMeta, config)
@@ -896,6 +897,7 @@ func (k *KubeVirtTestData) addResource(obj runtime.Object, config *util.KubeVirt
 	case *secv1.SecurityContextConstraints:
 		injectMetadata(&obj.(*secv1.SecurityContextConstraints).ObjectMeta, config)
 		k.addSCC(resource)
+		resourceKey = "securitycontextconstraints"
 	case *promv1.ServiceMonitor:
 		injectMetadata(&obj.(*promv1.ServiceMonitor).ObjectMeta, config)
 		k.addServiceMonitor(resource)
@@ -911,11 +913,14 @@ func (k *KubeVirtTestData) addResource(obj runtime.Object, config *util.KubeVirt
 	case *admissionregistrationv1.ValidatingAdmissionPolicy:
 		injectMetadata(&obj.(*admissionregistrationv1.ValidatingAdmissionPolicy).ObjectMeta, config)
 		k.addValidatingAdmissionPolicy(resource)
+		resourceKey = "validatingadmissionpolicies"
 	default:
 		Fail("unknown resource type")
 	}
 	split := strings.Split(fmt.Sprintf("%T", obj), ".")
-	resourceKey := strings.ToLower(split[len(split)-1]) + "s"
+	if resourceKey == "" {
+		resourceKey = strings.ToLower(split[len(split)-1]) + "s"
+	}
 	if _, ok := k.resourceChanges[resourceKey]; !ok {
 		k.resourceChanges[resourceKey] = make(map[string]int)
 	}
