@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -274,6 +275,7 @@ var _ = Describe("Restore controller", func() {
 			pvcInformer, _ := testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
+			jobInformer, _ := testutils.NewFakeInformerFor(&batchv1.Job{})
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -295,6 +297,7 @@ var _ = Describe("Restore controller", func() {
 				Recorder:                  recorder,
 				VolumeSnapshotProvider:    fakeVolumeSnapshotProvider,
 				CRInformer:                crInformer,
+				JobInformer:               jobInformer,
 			}
 			controller.Init()
 
