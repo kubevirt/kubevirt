@@ -126,7 +126,7 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		case "amd64":
 			domain.Spec.OS.NVRam = &api.NVRam{
 				Format: "raw",
-				NVRam:  nvramPath(vmi),
+				NVRam:  NVRamPath(vmi),
 			}
 		case "arm64":
 			// Use the existing EFI backend-storage mount instead of libvirt's
@@ -152,12 +152,15 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		domain.Spec.OS.BootLoader.Type = "pflash"
 		domain.Spec.OS.NVRam = &api.NVRam{
 			Template: o.efiConfiguration.EFIVars,
-			NVRam:    nvramPath(vmi),
+			NVRam:    NVRamPath(vmi),
 		}
 	}
 }
 
-func nvramPath(vmi *v1.VirtualMachineInstance) string {
+// NVRamPath returns the path libvirt uses to persist the EFI NVRAM (varstore)
+// for the given VMI. It is the single source of truth for this location so that
+// consumers (e.g. the fsfreeze NVRAM sync) target the exact same file.
+func NVRamPath(vmi *v1.VirtualMachineInstance) string {
 	if util.HasDeclarativeVMState(vmi) {
 		return util.VMStateCanonicalEFIVarsPath()
 	}
