@@ -45,5 +45,6 @@ go_test(
         "//vendor/github.com/onsi/gomega/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
     ],
 )

@@ -7362,6 +7362,26 @@ var CRDsValidation map[string]string = map[string]string{
                               Default 10.0.2.0/24 if not specified.
                             type: string
                         type: object
+                      resourceClaim:
+                        description: |-
+                          ResourceClaimNetworkSource represents a network resource requested
+                          via a Kubernetes ResourceClaim.
+                        properties:
+                          claimName:
+                            description: |-
+                              ClaimName references the name of a ResourceClaim in the
+                              VMI's namespace that provides the network resource.
+                            type: string
+                          requestName:
+                            description: |-
+                              RequestName (optional) specifies which request from the
+                              ResourceClaim.spec.devices.requests array this network
+                              source corresponds to. This is necessary if a single
+                              claim provides multiple network devices.
+                            type: string
+                        required:
+                        - claimName
+                        type: object
                     required:
                     - name
                     type: object
@@ -13114,6 +13134,26 @@ var CRDsValidation map[string]string = map[string]string{
                       Default 10.0.2.0/24 if not specified.
                     type: string
                 type: object
+              resourceClaim:
+                description: |-
+                  ResourceClaimNetworkSource represents a network resource requested
+                  via a Kubernetes ResourceClaim.
+                properties:
+                  claimName:
+                    description: |-
+                      ClaimName references the name of a ResourceClaim in the
+                      VMI's namespace that provides the network resource.
+                    type: string
+                  requestName:
+                    description: |-
+                      RequestName (optional) specifies which request from the
+                      ResourceClaim.spec.devices.requests array this network
+                      source corresponds to. This is necessary if a single
+                      claim provides multiple network devices.
+                    type: string
+                required:
+                - claimName
+                type: object
             required:
             - name
             type: object
@@ -14195,8 +14235,8 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                   name:
-                    description: Name of the device as specified in spec.domain.devices.gpus.name
-                      or spec.domain.devices.hostDevices.name
+                    description: Name of the device as specified in spec.domain.devices.gpus.name,
+                      spec.domain.devices.hostDevices.name, or spec.networks.name
                     type: string
                 required:
                 - name
@@ -14205,8 +14245,8 @@ var CRDsValidation map[string]string = map[string]string{
               x-kubernetes-list-type: atomic
             hostDeviceStatuses:
               description: |-
-                HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices
-                DRA
+                HostDeviceStatuses reflects the state of DRA devices requested in spec.domain.devices.hostDevices
+                and DRA networks requested in spec.networks
               items:
                 properties:
                   deviceResourceClaimStatus:
@@ -14237,8 +14277,8 @@ var CRDsValidation map[string]string = map[string]string{
                         type: string
                     type: object
                   name:
-                    description: Name of the device as specified in spec.domain.devices.gpus.name
-                      or spec.domain.devices.hostDevices.name
+                    description: Name of the device as specified in spec.domain.devices.gpus.name,
+                      spec.domain.devices.hostDevices.name, or spec.networks.name
                     type: string
                 required:
                 - name
@@ -19411,6 +19451,26 @@ var CRDsValidation map[string]string = map[string]string{
                               Default 10.0.2.0/24 if not specified.
                             type: string
                         type: object
+                      resourceClaim:
+                        description: |-
+                          ResourceClaimNetworkSource represents a network resource requested
+                          via a Kubernetes ResourceClaim.
+                        properties:
+                          claimName:
+                            description: |-
+                              ClaimName references the name of a ResourceClaim in the
+                              VMI's namespace that provides the network resource.
+                            type: string
+                          requestName:
+                            description: |-
+                              RequestName (optional) specifies which request from the
+                              ResourceClaim.spec.devices.requests array this network
+                              source corresponds to. This is necessary if a single
+                              claim provides multiple network devices.
+                            type: string
+                        required:
+                        - claimName
+                        type: object
                     required:
                     - name
                     type: object
@@ -24422,6 +24482,26 @@ var CRDsValidation map[string]string = map[string]string{
                                       CIDR for vm network.
                                       Default 10.0.2.0/24 if not specified.
                                     type: string
+                                type: object
+                              resourceClaim:
+                                description: |-
+                                  ResourceClaimNetworkSource represents a network resource requested
+                                  via a Kubernetes ResourceClaim.
+                                properties:
+                                  claimName:
+                                    description: |-
+                                      ClaimName references the name of a ResourceClaim in the
+                                      VMI's namespace that provides the network resource.
+                                    type: string
+                                  requestName:
+                                    description: |-
+                                      RequestName (optional) specifies which request from the
+                                      ResourceClaim.spec.devices.requests array this network
+                                      source corresponds to. This is necessary if a single
+                                      claim provides multiple network devices.
+                                    type: string
+                                required:
+                                - claimName
                                 type: object
                             required:
                             - name
@@ -29866,6 +29946,26 @@ var CRDsValidation map[string]string = map[string]string{
                                           CIDR for vm network.
                                           Default 10.0.2.0/24 if not specified.
                                         type: string
+                                    type: object
+                                  resourceClaim:
+                                    description: |-
+                                      ResourceClaimNetworkSource represents a network resource requested
+                                      via a Kubernetes ResourceClaim.
+                                    properties:
+                                      claimName:
+                                        description: |-
+                                          ClaimName references the name of a ResourceClaim in the
+                                          VMI's namespace that provides the network resource.
+                                        type: string
+                                      requestName:
+                                        description: |-
+                                          RequestName (optional) specifies which request from the
+                                          ResourceClaim.spec.devices.requests array this network
+                                          source corresponds to. This is necessary if a single
+                                          claim provides multiple network devices.
+                                        type: string
+                                    required:
+                                    - claimName
                                     type: object
                                 required:
                                 - name
