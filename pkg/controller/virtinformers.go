@@ -335,6 +335,9 @@ type KubeInformerFactory interface {
 	// Pod returns an informer for ALL Pods in the system
 	Pod() cache.SharedIndexInformer
 
+	// Job returns an informer for ALL Jobs in the system
+	Job() cache.SharedIndexInformer
+
 	ResourceQuota() cache.SharedIndexInformer
 
 	K8SInformerFactory() informers.SharedInformerFactory
@@ -1565,6 +1568,13 @@ func (f *kubeInformerFactory) Pod() cache.SharedIndexInformer {
 	return f.getInformer("podInformer", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.CoreV1().RESTClient(), "pods", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &k8sv1.Pod{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	})
+}
+
+func (f *kubeInformerFactory) Job() cache.SharedIndexInformer {
+	return f.getInformer("jobInformer", func() cache.SharedIndexInformer {
+		lw := cache.NewListWatchFromClient(f.clientSet.BatchV1().RESTClient(), "jobs", k8sv1.NamespaceAll, fields.Everything())
+		return cache.NewSharedIndexInformer(lw, &batchv1.Job{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 
