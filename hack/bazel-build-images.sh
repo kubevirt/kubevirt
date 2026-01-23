@@ -27,6 +27,7 @@ source hack/config.sh
 other_images_default="
     //cmd/sidecars:sidecar-shim-image
     //cmd/libguestfs:libguestfs-tools-image
+    //cmd/test-helpers:test-helpers-image
     //containerimages:alpine-container-disk-image
     //containerimages:alpine-with-test-tooling
     //containerimages:fedora-with-test-tooling
