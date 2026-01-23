@@ -32,6 +32,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -903,6 +904,31 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 					if err != nil {
 						r.expectations.Deployment.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete deployment: %v", err)
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	// remove unused podDisruptionBudgets
+	objects = r.stores.PodDisruptionBudgetCache.List()
+	for _, obj := range objects {
+		if pdb, ok := obj.(*policyv1.PodDisruptionBudget); ok && pdb.DeletionTimestamp == nil {
+			found := false
+			for _, targetDeployment := range r.targetStrategy.Deployments() {
+				if targetDeployment.Name+"-pdb" == pdb.Name && targetDeployment.Namespace == pdb.Namespace {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(pdb); err == nil {
+					r.expectations.PodDisruptionBudget.AddExpectedDeletion(r.kvKey, key)
+					err = r.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Delete(context.Background(), pdb.Name, metav1.DeleteOptions{})
+					if err != nil {
+						r.expectations.PodDisruptionBudget.DeletionObserved(r.kvKey, key)
+						log.Log.Errorf("Failed to delete poddisruptionbudget: %v", err)
 						return err
 					}
 				}
