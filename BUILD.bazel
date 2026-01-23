@@ -364,6 +364,13 @@ oci_push(
 )
 
 oci_push(
+    name = "push-test-helpers",
+    testonly = True,
+    image = "//cmd/test-helpers:test-helpers-image",
+    repository = "quay.io/kubevirt/test-helpers",
+)
+
+oci_push(
     name = "push-winrmcli",
     image = "//images/winrmcli:winrmcli-image",
     repository = "quay.io/kubevirt/winrmcli",
