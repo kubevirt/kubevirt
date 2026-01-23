@@ -308,6 +308,9 @@ func GenerateReceiverMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMa
 		if err != nil {
 			return nil, err
 		}
+		if pvc == nil {
+			continue
+		}
 		migVol := virtv1.StorageMigratedVolumeInfo{
 			VolumeName: v.Name,
 			DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
