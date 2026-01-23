@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"time"
 
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -37,6 +38,7 @@ import (
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	watchutil "kubevirt.io/kubevirt/pkg/virt-controller/watch/util"
 )
 
@@ -53,10 +55,13 @@ type VMRestoreController struct {
 	PVCInformer               cache.SharedIndexInformer
 	StorageClassInformer      cache.SharedIndexInformer
 	CRInformer                cache.SharedIndexInformer
+	JobInformer               cache.SharedIndexInformer
 
 	VolumeSnapshotProvider VolumeSnapshotProvider
 
 	Recorder record.EventRecorder
+
+	TemplateService *services.TemplateService
 
 	vmRestoreQueue workqueue.TypedRateLimitingInterface[string]
 }
@@ -104,6 +109,17 @@ func (ctrl *VMRestoreController) Init() error {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc:    ctrl.handleVM,
 			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVM(newObj) },
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = ctrl.JobInformer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    ctrl.handleJob,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleJob(newObj) },
+			DeleteFunc: ctrl.handleJob,
 		},
 	)
 	if err != nil {
@@ -234,6 +250,23 @@ func (ctrl *VMRestoreController) handleVM(obj interface{}) {
 
 		for _, k := range keys {
 			ctrl.vmRestoreQueue.Add(k)
+		}
+	}
+}
+
+func (ctrl *VMRestoreController) handleJob(obj interface{}) {
+	if unknown, ok := obj.(cache.DeletedFinalStateUnknown); ok && unknown.Obj != nil {
+		obj = unknown.Obj
+	}
+
+	if job, ok := obj.(*batchv1.Job); ok {
+		for _, ownerRef := range job.OwnerReferences {
+			if ownerRef.Kind == "VirtualMachineRestore" && ownerRef.Controller != nil && *ownerRef.Controller {
+				objName := cacheKeyFunc(job.Namespace, ownerRef.Name)
+				log.Log.V(3).Infof("Handling Job %s/%s, Restore %s", job.Namespace, job.Name, objName)
+				ctrl.vmRestoreQueue.Add(objName)
+				return
+			}
 		}
 	}
 }
