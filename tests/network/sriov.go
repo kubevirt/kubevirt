@@ -94,8 +94,13 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 
-		Expect(validateSRIOVSetup(sriovResourceName, 1)).To(Succeed(),
-			"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
+		// Skip device plugin resource validation for DRA tests
+		// DRA uses ResourceClaims instead of device plugin resources
+
+		// if os.Getenv("KUBEVIRT_USE_DRA") != "true" {
+		// 	Expect(validateSRIOVSetup(sriovResourceName, 1)).To(Succeed(),
+		// 		"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
+		// }
 	})
 
 	Context("VMI connected to single SRIOV network", func() {
@@ -474,6 +479,537 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 	})
 
+	// DRA-based SR-IOV Tests
+	// These tests mirror the Multus-based SR-IOV tests above, but use DRA (Dynamic Resource Allocation)
+	// for device management instead of NetworkAttachmentDefinition + device plugin approach.
+	//
+	// DRA SR-IOV uses BOTH NetworkAttachmentDefinition (for CNI config) AND ResourceClaimTemplate
+	// (for device allocation with VfConfig parameters).
+	//
+	// Tests EXCLUDED from DRA (not yet supported):
+	// - Migration tests: DRA network migration support is future work
+	Context("VMI connected to single DRA SR-IOV network", decorators.DRANetwork, func() {
+		var (
+			claimName    = "dra-sriov-claim"
+			networkName  = "dra-sriov-net"
+			templateName = "single-vf-dra-sriov-net"
+			driverName   = "sriovnetwork.k8snetworkplumbingwg.io"
+		)
+
+		BeforeEach(func() {
+			// Create both NAD and ResourceClaimTemplate (production-like setup)
+			err := libnet.CreateSRIOVNetworkWithDRA(
+				context.Background(),
+				testsuite.NamespaceTestDefault,
+				networkName,
+				driverName,
+				defaultVLAN,
+			)
+			Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
+
+			DeferCleanup(func() {
+				err := libnet.DeleteResourceClaimTemplate(context.Background(), testsuite.NamespaceTestDefault, "single-vf-"+networkName)
+				Expect(err).NotTo(HaveOccurred())
+				// NAD cleanup happens automatically via test namespace cleanup
+			})
+		})
+
+		It("should have cloud-init meta_data with tagged interface and aligned cpus to DRA sriov interface numa node for VMIs with dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
+			vmi := newDRASRIOVVmi([]string{claimName}, templateName, libvmi.WithCloudInitConfigDrive(libvmici.WithConfigDriveNetworkData(defaultCloudInitNetworkData())))
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 4,
+				DedicatedCPUPlacement: true,
+			}
+
+			for idx, iface := range vmi.Spec.Domain.Devices.Interfaces {
+				if iface.Name == claimName {
+					iface.Tag = "specialNet"
+					vmi.Spec.Domain.Devices.Interfaces[idx] = iface
+				}
+			}
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
+
+			domSpec, err := libdomain.GetRunningVMIDomainSpec(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			nic := domSpec.Devices.HostDevices[0]
+			// find the SRIOV interface
+			for _, iface := range domSpec.Devices.HostDevices {
+				if iface.Alias.GetName() == claimName {
+					nic = iface
+				}
+			}
+			address := nic.Address
+			pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
+			srcAddr := nic.Source.Address
+			sourcePCIAddress := fmt.Sprintf("%s:%s:%s.%s", srcAddr.Domain[2:], srcAddr.Bus[2:], srcAddr.Slot[2:], srcAddr.Function[2:])
+			alignedCPUsInt, err := hardware.LookupDeviceVCPUAffinity(sourcePCIAddress, domSpec)
+			Expect(err).ToNot(HaveOccurred())
+			deviceData := []cloudinit.DeviceData{
+				{
+					Type:        cloudinit.NICMetadataType,
+					Bus:         nic.Address.Type,
+					Address:     pciAddrStr,
+					Tags:        []string{"specialNet"},
+					AlignedCPUs: alignedCPUsInt,
+				},
+			}
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			metadataStruct := cloudinit.ConfigDriveMetadata{
+				InstanceID: fmt.Sprintf("%s.%s", vmi.Name, vmi.Namespace),
+				Hostname:   dns.SanitizeHostname(vmi),
+				UUID:       string(vmi.Spec.Domain.Firmware.UUID),
+				Devices:    &deviceData,
+			}
+
+			buf, err := json.Marshal(metadataStruct)
+			Expect(err).ToNot(HaveOccurred())
+			By("mouting cloudinit iso")
+			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
+
+			By("checking cloudinit meta-data")
+			const consoleCmd = `cat /mnt/openstack/latest/meta_data.json; printf "@@"`
+			res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+				&expect.BSnd{S: consoleCmd + console.CRLF},
+				&expect.BExp{R: `(.*)@@`},
+			}, 15)
+			Expect(err).ToNot(HaveOccurred())
+			rawOutput := res[len(res)-1].Output
+			Expect(trimRawString2JSON(rawOutput)).To(MatchJSON(buf))
+		})
+
+		It("[test_id:DRA-1754]should create a virtual machine with DRA sriov interface", func() {
+			vmi := newDRASRIOVVmi([]string{claimName}, templateName, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
+
+			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
+
+			By("checking virtual machine instance has two interfaces")
+			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
+		})
+
+		It("[test_id:DRA-1754]should create a virtual machine with DRA sriov interface with all pci devices on the root bus", func() {
+			vmi := newDRASRIOVVmi([]string{claimName}, templateName, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
+			vmi.Annotations = map[string]string{
+				v1.PlacePCIDevicesOnRootComplex: "true",
+			}
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
+
+			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
+
+			By("checking virtual machine instance has two interfaces")
+			expectedInterfaces := []string{"eth0", "eth1"}
+			checkInterfacesInGuest(vmi, expectedInterfaces)
+
+			for _, iface := range expectedInterfaces {
+				Expect(isInterfaceOnRootPCIComplex(vmi, iface)).To(BeTrue(), fmt.Sprintf("Expected interface %s on PCI root complex", iface))
+			}
+		})
+
+		It("[test_id:DRA-3959]should create a virtual machine with DRA sriov interface and dedicatedCPUs", decorators.RequiresNodeWithCPUManager, func() {
+			vmi := newDRASRIOVVmi([]string{claimName}, templateName, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
+			vmi.Spec.Domain.CPU = &v1.CPU{
+				Cores:                 2,
+				DedicatedCPUPlacement: true,
+			}
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
+
+			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
+
+			By("checking virtual machine instance has two interfaces")
+			checkInterfacesInGuest(vmi, []string{"eth0", "eth1"})
+		})
+
+		It("[test_id:DRA-3985]should create a virtual machine with DRA sriov interface with custom MAC address", func() {
+			const mac = "de:ad:00:00:be:ef"
+			vmi := newDRASRIOVVmi([]string{claimName}, templateName, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())))
+			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
+
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
+
+			By("checking virtual machine instance has an interface with the requested MAC address")
+			ifaceName, err := findIfaceByMAC(virtClient, vmi, mac, 140*time.Second)
+			Expect(err).NotTo(HaveOccurred())
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(libnet.CheckMacAddress(vmi, ifaceName, mac)).To(Succeed())
+
+			By("checking virtual machine instance reports the expected network name")
+			// TODO maybe need retry, not sure yet
+			Expect(getInterfaceNetworkNameByMAC(vmi, mac)).To(Equal(claimName))
+			By("checking virtual machine instance reports the expected info source")
+			networkInterface := vmispec.LookupInterfaceStatusByMac(vmi.Status.Interfaces, mac)
+			Expect(networkInterface).NotTo(BeNil(), "interface not found")
+			Expect(networkInterface.InfoSource).To(Equal(vmispec.NewInfoSource(
+				vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent)))
+		})
+
+		Context("memory hotplug", Serial, decorators.RequiresTwoSchedulableNodes, func() {
+			BeforeEach(func() {
+				virtClient := kubevirt.Client()
+				updateStrategy := &v1.KubeVirtWorkloadUpdateStrategy{
+					WorkloadUpdateMethods: []v1.WorkloadUpdateMethod{v1.WorkloadUpdateMethodLiveMigrate},
+				}
+				rolloutStrategy := pointer.P(v1.VMRolloutStrategyLiveUpdate)
+				err := config.RegisterKubevirtConfigChange(
+					config.WithWorkloadUpdateStrategy(updateStrategy),
+					config.WithVMRolloutStrategy(rolloutStrategy),
+				)
+				Expect(err).ToNot(HaveOccurred())
+
+				currentKv := libkubevirt.GetCurrentKv(virtClient)
+				config.WaitForConfigToBePropagatedToComponent(
+					"kubevirt.io=virt-controller",
+					currentKv.ResourceVersion,
+					config.ExpectResourceVersionToBeLessEqualThanConfigVersion,
+					time.Minute)
+			})
+
+			// TODO fix later, and also add the migration one
+			PIt("Should successfully reattach DRA host-device", func() {
+				const (
+					initialGuestMemory      = "1Gi"
+					updatedGuestMemory      = "3Gi"
+					sriovNetworkLogicalName = "dra-sriov-network"
+				)
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithGuestMemory(initialGuestMemory),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(sriovNetworkLogicalName)),
+					libvmi.WithNetwork(libvmi.DRANetwork(sriovNetworkLogicalName, claimName, "vf")),
+					libvmi.WithResourceClaimTemplate(claimName, templateName),
+				)
+				vmi.Spec.Domain.Resources.Requests = nil
+
+				vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
+
+				vm, err := kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(matcher.ThisVM(vm)).WithTimeout(6 * time.Minute).WithPolling(3 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+				vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Hotplugging additional memory")
+				patchData, err := patch.GenerateTestReplacePatch(
+					"/spec/template/spec/domain/memory/guest",
+					initialGuestMemory,
+					updatedGuestMemory,
+				)
+				Expect(err).NotTo(HaveOccurred())
+
+				_, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, patchData, k8smetav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Ensuring the VMI has more available guest memory")
+				initialGuestMemoryQuantity := resource.MustParse(initialGuestMemory)
+				Eventually(func() int64 {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					return vmi.Status.Memory.GuestCurrent.Value()
+				}).
+					WithTimeout(5 * time.Minute).
+					WithPolling(5 * time.Second).
+					Should(BeNumerically(">", initialGuestMemoryQuantity.Value()))
+
+				By("Ensuring DRA SR-IOV device was hotplugged to the VMI")
+				Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+					vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).
+						Get(context.Background(), vm.Name, k8smetav1.GetOptions{})
+					Expect(err).NotTo(HaveOccurred())
+					return vmi.Status.Interfaces
+				}).
+					WithTimeout(1 * time.Minute).
+					WithPolling(5 * time.Second).
+					Should(ConsistOf(
+						MatchFields(IgnoreExtras, Fields{
+							"Name":       Equal(sriovNetworkLogicalName),
+							"InfoSource": ContainSubstring(vmispec.InfoSourceDomain),
+						}),
+					))
+			})
+		})
+	})
+
+	Context("VMI connected to two DRA SR-IOV networks", decorators.DRANetwork, func() {
+		var (
+			claim1       = "dra-sriov-claim-1"
+			claim2       = "dra-sriov-claim-2"
+			networkName1 = "dra-sriov-net-1"
+			networkName2 = "dra-sriov-net-2"
+			template1    = "single-vf-dra-sriov-net-1"
+			template2    = "single-vf-dra-sriov-net-2"
+			driverName   = "sriovnetwork.k8snetworkplumbingwg.io"
+		)
+
+		BeforeEach(func() {
+			// Create NAD and ResourceClaimTemplate for each network
+			for _, netName := range []string{networkName1, networkName2} {
+				err := libnet.CreateSRIOVNetworkWithDRA(
+					context.Background(),
+					testsuite.NamespaceTestDefault,
+					netName,
+					driverName,
+					defaultVLAN,
+				)
+				Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
+			}
+
+			DeferCleanup(func() {
+				for _, tmpl := range []string{template1, template2} {
+					err := libnet.DeleteResourceClaimTemplate(context.Background(), testsuite.NamespaceTestDefault, tmpl)
+					Expect(err).NotTo(HaveOccurred())
+				}
+			})
+		})
+
+		It("[test_id:DRA-1755]should create a virtual machine with two DRA sriov interfaces referring different claims", func() {
+			// Create VMI with two claims, each using its own template
+			vmi := libvmifact.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(claim1)),
+				libvmi.WithNetwork(libvmi.DRANetwork(claim1, claim1, "vf")),
+				libvmi.WithResourceClaimTemplate(claim1, template1),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(claim2)),
+				libvmi.WithNetwork(libvmi.DRANetwork(claim2, claim2, "vf")),
+				libvmi.WithResourceClaimTemplate(claim2, template2),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())),
+			)
+			vmi.Spec.Domain.Devices.Interfaces[1].PciAddress = "0000:06:00.0"
+			vmi.Spec.Domain.Devices.Interfaces[2].PciAddress = "0000:07:00.0"
+
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi)
+
+			Expect(checkDefaultInterfaceInPod(vmi)).To(Succeed())
+
+			By("checking virtual machine instance has three interfaces")
+			checkInterfacesInGuest(vmi, []string{"eth0", "eth1", "eth2"})
+
+			Expect(pciAddressExistsInGuest(vmi, vmi.Spec.Domain.Devices.Interfaces[1].PciAddress)).To(Succeed())
+			Expect(pciAddressExistsInGuest(vmi, vmi.Spec.Domain.Devices.Interfaces[2].PciAddress)).To(Succeed())
+		})
+	})
+
+	Context("Connected to multiple DRA SR-IOV networks", decorators.DRANetwork, func() {
+		var (
+			driverName = "sriovnetwork.k8snetworkplumbingwg.io"
+			claims     = []string{"dra-claim-1", "dra-claim-2", "dra-claim-3", "dra-claim-4"}
+			networks   = []string{"dra-net-1", "dra-net-2", "dra-net-3", "dra-net-4"}
+			templates  = []string{"single-vf-dra-net-1", "single-vf-dra-net-2", "single-vf-dra-net-3", "single-vf-dra-net-4"}
+		)
+
+		BeforeEach(func() {
+			// Create NAD and ResourceClaimTemplate for each network
+			for _, netName := range networks {
+				err := libnet.CreateSRIOVNetworkWithDRA(
+					context.Background(),
+					testsuite.NamespaceTestDefault,
+					netName,
+					driverName,
+					defaultVLAN,
+				)
+				Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
+			}
+
+			DeferCleanup(func() {
+				for _, tmpl := range templates {
+					err := libnet.DeleteResourceClaimTemplate(context.Background(), testsuite.NamespaceTestDefault, tmpl)
+					Expect(err).NotTo(HaveOccurred())
+				}
+			})
+		})
+
+		It("should correctly plug all the DRA interfaces based on the specified MAC and (guest) PCI addresses", func() {
+			macAddressTemplate := "de:ad:00:be:ef:%02d"
+			pciAddressTemplate := "0000:2%d:00.0"
+
+			// Build VMI with all 4 claims and their templates
+			vmi := libvmifact.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(defaultCloudInitNetworkData())),
+			)
+			for i, claimName := range claims {
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(claimName))(vmi)
+				libvmi.WithNetwork(libvmi.DRANetwork(claimName, claimName, "vf"))(vmi)
+				libvmi.WithResourceClaimTemplate(claimName, templates[i])(vmi)
+			}
+			for i := range claims {
+				secondaryInterfaceIdx := i + 1
+				vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIdx].MacAddress = fmt.Sprintf(macAddressTemplate, secondaryInterfaceIdx)
+				vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIdx].PciAddress = fmt.Sprintf(pciAddressTemplate, secondaryInterfaceIdx)
+			}
+
+			vmi, err := createVMIAndWait(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+				if iface.SRIOV == nil {
+					continue
+				}
+				guestInterfaceName, err := findIfaceByMAC(virtClient, vmi, iface.MacAddress, 30*time.Second)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pciAddressExistsInGuestInterface(vmi, iface.PciAddress, guestInterfaceName)).To(Succeed())
+			}
+		})
+	})
+
+	Context("VMI connected to link-enabled DRA SR-IOV network", decorators.DRANetwork, func() {
+		var (
+			networkNameLinked  = "dra-sriov-net-linked"
+			templateNameLinked = "single-vf-dra-sriov-net-linked"
+			driverName         = "sriovnetwork.k8snetworkplumbingwg.io"
+			sriovNode          = "sriov-worker"
+		)
+
+		BeforeEach(func() {
+			// Create NAD and ResourceClaimTemplate for link-enabled network
+			err := libnet.CreateSRIOVNetworkWithDRA(
+				context.Background(),
+				testsuite.NamespaceTestDefault,
+				networkNameLinked,
+				driverName,
+				defaultVLAN,
+				libnet.WithLinkState(),
+			)
+			Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
+
+			DeferCleanup(func() {
+				err := libnet.DeleteResourceClaimTemplate(context.Background(), testsuite.NamespaceTestDefault, templateNameLinked)
+				Expect(err).NotTo(HaveOccurred())
+			})
+		})
+
+		It("[test_id:DRA-3956]should connect to another machine with DRA sriov interface over IP", func() {
+			cidrA := "192.168.1.1/24"
+			cidrB := "192.168.1.2/24"
+			ipA, err := libnet.CidrToIP(cidrA)
+			Expect(err).ToNot(HaveOccurred())
+			ipB, err := libnet.CidrToIP(cidrB)
+			Expect(err).ToNot(HaveOccurred())
+
+			// create two vms on the same DRA sriov network (each gets its own claim from template)
+			vmi1, err := createDRASRIOVVmiOnNode(sriovNode, "dra-claim-linked-1", templateNameLinked, cidrA)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi1)
+			vmi2, err := createDRASRIOVVmiOnNode(sriovNode, "dra-claim-linked-2", templateNameLinked, cidrB)
+			Expect(err).ToNot(HaveOccurred())
+			DeferCleanup(deleteVMI, vmi2)
+
+			vmi1, err = waitVMI(vmi1)
+			Expect(err).NotTo(HaveOccurred())
+			vmi2, err = waitVMI(vmi2)
+			Expect(err).NotTo(HaveOccurred())
+
+			Eventually(func() error {
+				return libnet.PingFromVMConsole(vmi1, ipB)
+			}, 15*time.Second, time.Second).Should(Succeed())
+			Eventually(func() error {
+				return libnet.PingFromVMConsole(vmi2, ipA)
+			}, 15*time.Second, time.Second).Should(Succeed())
+		})
+
+		Context("With VLAN", func() {
+			const (
+				cidrVlaned1         = "192.168.0.1/24"
+				networkVlanned1     = "dra-net-vlan-1"
+				networkVlanned2     = "dra-net-vlan-2"
+				networkNonVlanned   = "dra-net-no-vlan"
+				templateVlanned1    = "single-vf-dra-net-vlan-1"
+				templateVlanned2    = "single-vf-dra-net-vlan-2"
+				templateNonVlanned  = "single-vf-dra-net-no-vlan"
+				claimNameVlanned1   = "dra-claim-vlan-1"
+				claimNameVlanned2   = "dra-claim-vlan-2"
+				claimNameNonVlanned = "dra-claim-no-vlan"
+				driverName          = "sriovnetwork.k8snetworkplumbingwg.io"
+			)
+			var ipVlaned1 string
+
+			BeforeEach(func() {
+				var err error
+				ipVlaned1, err = libnet.CidrToIP(cidrVlaned1)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Create NAD and ResourceClaimTemplate for VLAN tests
+				for _, netName := range []string{networkVlanned1, networkVlanned2, networkNonVlanned} {
+					vlanID := specificVLAN
+					if netName == networkNonVlanned {
+						vlanID = defaultVLAN
+					}
+					err := libnet.CreateSRIOVNetworkWithDRA(
+						context.Background(),
+						testsuite.NamespaceTestDefault,
+						netName,
+						driverName,
+						vlanID,
+						libnet.WithLinkState(),
+					)
+					Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
+				}
+
+				DeferCleanup(func() {
+					for _, tmpl := range []string{templateVlanned1, templateVlanned2, templateNonVlanned} {
+						err := libnet.DeleteResourceClaimTemplate(context.Background(), testsuite.NamespaceTestDefault, tmpl)
+						Expect(err).NotTo(HaveOccurred())
+					}
+				})
+			})
+
+			It("should be able to ping between two VMIs with the same VLAN over DRA SRIOV network", func() {
+				vlanedVMI1, err := createDRASRIOVVmiOnNode(sriovNode, claimNameVlanned1, templateVlanned1, cidrVlaned1)
+				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(deleteVMI, vlanedVMI1)
+				vlanedVMI2, err := createDRASRIOVVmiOnNode(sriovNode, claimNameVlanned2, templateVlanned2, "192.168.0.2/24")
+				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(deleteVMI, vlanedVMI2)
+
+				_, err = waitVMI(vlanedVMI1)
+				Expect(err).NotTo(HaveOccurred())
+				vlanedVMI2, err = waitVMI(vlanedVMI2)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("pinging from vlanedVMI2 to vlanedVMI1 over vlan")
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(vlanedVMI2, ipVlaned1)
+				}, 15*time.Second, time.Second).ShouldNot(HaveOccurred())
+			})
+
+			It("should NOT be able to ping between Vlaned VMI and a non Vlaned VMI using DRA", func() {
+				vlanedVMI, err := createDRASRIOVVmiOnNode(sriovNode, claimNameVlanned1, templateVlanned1, cidrVlaned1)
+				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(deleteVMI, vlanedVMI)
+				nonVlanedVMI, err := createDRASRIOVVmiOnNode(sriovNode, claimNameNonVlanned, templateNonVlanned, "192.168.0.3/24")
+				Expect(err).ToNot(HaveOccurred())
+				DeferCleanup(deleteVMI, nonVlanedVMI)
+
+				_, err = waitVMI(vlanedVMI)
+				Expect(err).NotTo(HaveOccurred())
+				nonVlanedVMI, err = waitVMI(nonVlanedVMI)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("pinging between nonVlanedVMI and the vlaned vmi")
+				Eventually(func() error {
+					return libnet.PingFromVMConsole(nonVlanedVMI, ipVlaned1)
+				}, 15*time.Second, time.Second).Should(HaveOccurred())
+			})
+		})
+	})
+
 	Context("VMI connected to link-enabled SRIOV network", func() {
 		var sriovNode string
 
@@ -687,6 +1223,29 @@ func newSRIOVVmi(networks []string, opts ...libvmi.Option) *v1.VirtualMachineIns
 	return libvmifact.NewFedora(opts...)
 }
 
+// newDRASRIOVVmi creates a VMI with DRA-based SR-IOV networks
+// claimNames: list of claim names to use
+// templateName: the ResourceClaimTemplate name to reference (can be empty for pre-created claims)
+func newDRASRIOVVmi(claimNames []string, templateName string, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	options := []libvmi.Option{
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	}
+
+	for _, claimName := range claimNames {
+		options = append(options,
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(claimName)),
+			libvmi.WithNetwork(libvmi.DRANetwork(claimName, claimName, "vf")),
+		)
+		// Add ResourceClaim reference with template
+		if templateName != "" {
+			options = append(options, libvmi.WithResourceClaimTemplate(claimName, templateName))
+		}
+	}
+	opts = append(options, opts...)
+	return libvmifact.NewFedora(opts...)
+}
+
 func checkInterfacesInGuest(vmi *v1.VirtualMachineInstance, interfaces []string) {
 	for _, iface := range interfaces {
 		Expect(libnet.InterfaceExists(vmi, iface)).To(Succeed())
@@ -843,6 +1402,36 @@ func createSRIOVVmiOnNode(nodeName, networkName, cidr string) (*v1.VirtualMachin
 	// no DHCP server to serve the address to the guest
 	networkData := netcloudinit.CreateNetworkDataWithStaticIPsByMac(networkName, mac.String(), cidr)
 	vmi := newSRIOVVmi([]string{networkName}, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)))
+	libvmi.WithNodeAffinityFor(nodeName)(vmi)
+	const secondaryInterfaceIndex = 1
+	vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIndex].MacAddress = mac.String()
+
+	virtCli := kubevirt.Client()
+	vmi, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	return vmi, nil
+}
+
+// createDRASRIOVVmiOnNode creates a VMI on the specified node, connected to the specified DRA SR-IOV network.
+// claimName: the claim name to use
+// templateName: the ResourceClaimTemplate name to reference
+func createDRASRIOVVmiOnNode(nodeName, claimName, templateName, cidr string) (*v1.VirtualMachineInstance, error) {
+	// Explicitly choose different random mac addresses instead of relying on kubemacpool to do it:
+	// 1) we don't at the moment deploy kubemacpool in kind providers
+	// 2) even if we would do, it's probably a good idea to have the suite not depend on this fact
+	//
+	// This step is needed to guarantee that no VFs on the PF carry a duplicate MAC address that may affect
+	// ability of VMIs to send and receive ICMP packets on their ports.
+	mac, err := libnet.GenerateRandomMac()
+	if err != nil {
+		return nil, err
+	}
+
+	// manually configure IP/link on sriov interfaces because there is
+	// no DHCP server to serve the address to the guest
+	// Use "eth1" as interface name instead of claimName to avoid Linux ifname length limits
+	networkData := netcloudinit.CreateNetworkDataWithStaticIPsByMac("eth1", mac.String(), cidr)
+	vmi := newDRASRIOVVmi([]string{claimName}, templateName, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)))
 	libvmi.WithNodeAffinityFor(nodeName)(vmi)
 	const secondaryInterfaceIndex = 1
 	vmi.Spec.Domain.Devices.Interfaces[secondaryInterfaceIndex].MacAddress = mac.String()
