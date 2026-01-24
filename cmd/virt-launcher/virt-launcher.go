@@ -31,13 +31,11 @@ import (
 	"syscall"
 	"time"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/cpuhook"
-
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/types"
-	"libvirt.org/go/libvirt"
-
 	"k8s.io/apimachinery/pkg/watch"
+
+	"libvirt.org/go/libvirt"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -58,6 +56,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	notifyclient "kubevirt.io/kubevirt/pkg/virt-launcher/notify-client"
 	premigrationhookserver "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/cpuhook"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/standalone"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -354,6 +354,7 @@ func main() {
 	runWithNonRoot := pflag.Bool("run-as-nonroot", false, "Run virtqemud with the 'virt' user")
 	imageVolumeEnabled := pflag.Bool("image-volume", false, "Generated with ImageVolume instead of containerDisk") //remove this once ImageVolume is GAed
 	libvirtHooksServerAndClientEnabled := pflag.Bool("libvirt-hook-server-and-client", false, "Enable pre-migration hooks on the target virt-launcher pod")
+	ifacesOrdinalNamingUpgradeEnabled := pflag.Bool("upgrade-ordinal-ifaces", false, "Enable upgrade of ordinal ifaces naming scheme")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	diskMemoryLimitBytes := pflag.Int64("disk-memory-limit", virtconfig.DefaultDiskVerificationMemoryLimitBytes, "Memory limit for disk verification")
 	ovmfPath := pflag.String("ovmf-path", "/usr/share/OVMF", "The directory that contains the EFI roms (like OVMF_CODE.fd)")
@@ -437,6 +438,9 @@ func main() {
 
 	hookFuncs := []premigrationhookserver.HookFunc{
 		cpuhook.CPUDedicatedHook,
+	}
+	if *ifacesOrdinalNamingUpgradeEnabled {
+		hookFuncs = append(hookFuncs, network.UpgradeOrdinalNamingScheme)
 	}
 
 	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(
