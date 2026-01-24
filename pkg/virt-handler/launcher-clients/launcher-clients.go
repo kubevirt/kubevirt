@@ -20,22 +20,19 @@
 package launcher_clients
 
 import (
-	goerror "errors"
+	"context"
 	"fmt"
-	"io"
 	"net"
-	"path/filepath"
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
-	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 )
 
 type LauncherClientsManager interface {
@@ -149,7 +146,7 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 
 	clientInfo, exists := l.launcherClients.Load(vmi.UID)
 	if exists {
-		if clientInfo.Ready == true {
+		if clientInfo.Ready {
 			// use cached socket if we previously established a connection
 			socketFile = clientInfo.SocketFile
 		} else {
@@ -192,81 +189,15 @@ func (l *launcherClientsManager) IsLauncherClientUnresponsive(vmi *v1.VirtualMac
 	return cmdclient.IsSocketUnresponsive(socketFile), true, nil
 }
 
-func handleDomainNotifyPipe(domainPipeStopChan chan struct{}, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
-
-	fdChan := make(chan net.Conn, 100)
-
-	// Close listener and exit when stop encountered
-	go func() {
-		<-domainPipeStopChan
-		log.Log.Object(vmi).Infof("closing notify pipe listener for vmi")
-		if err := ln.Close(); err != nil {
-			log.Log.Object(vmi).Infof("failed closing notify pipe listener for vmi: %v", err)
-		}
-	}()
-
-	// Listen for new connections,
-	go func(vmi *v1.VirtualMachineInstance, ln net.Listener, domainPipeStopChan chan struct{}) {
-		for {
-			fd, err := ln.Accept()
-			if err != nil {
-				if goerror.Is(err, net.ErrClosed) {
-					// As Accept blocks, closing it is our mechanism to exit this loop
-					return
-				}
-				log.Log.Reason(err).Error("Domain pipe accept error encountered.")
-				// keep listening until stop invoked
-				time.Sleep(1 * time.Second)
-			} else {
-				fdChan <- fd
-			}
-		}
-	}(vmi, ln, domainPipeStopChan)
+func handleDomainNotifyPipe(ctx context.Context, ln net.Listener, virtShareDir string, vmi *v1.VirtualMachineInstance) {
+	logger := log.Log.Object(vmi)
+	fdChan := pipe.ChanFromListener(ctx, logger, ln)
 
 	// Process new connections
 	// exit when stop encountered
-	go func(vmi *v1.VirtualMachineInstance, fdChan chan net.Conn, domainPipeStopChan chan struct{}) {
-		for {
-			select {
-			case <-domainPipeStopChan:
-				return
-			case fd := <-fdChan:
-				go func(vmi *v1.VirtualMachineInstance) {
-					defer fd.Close()
-
-					// pipe the VMI domain-notify.sock to the virt-handler domain-notify.sock
-					// so virt-handler receives notifications from the VMI
-					conn, err := net.Dial("unix", filepath.Join(virtShareDir, "domain-notify.sock"))
-					if err != nil {
-						log.Log.Reason(err).Error("error connecting to domain-notify.sock for proxy connection")
-						return
-					}
-					defer conn.Close()
-
-					log.Log.Object(vmi).Infof("Accepted new notify pipe connection for vmi")
-					copyErr := make(chan error, 2)
-					go func() {
-						_, err := io.Copy(fd, conn)
-						copyErr <- err
-					}()
-					go func() {
-						_, err := io.Copy(conn, fd)
-						copyErr <- err
-					}()
-
-					// wait until one of the copy routines exit then
-					// let the fd close
-					err = <-copyErr
-					if err != nil {
-						log.Log.Object(vmi).Infof("closing notify pipe connection for vmi with error: %v", err)
-					} else {
-						log.Log.Object(vmi).Infof("gracefully closed notify pipe connection for vmi")
-					}
-
-				}(vmi)
-			}
-		}
-	}(vmi, fdChan, domainPipeStopChan)
+	go pipe.Pipe(ctx, fdChan, func(conn net.Conn) {
+		pipe.Proxy(logger, conn, pipe.NewConnectToNotifyFunc(virtShareDir))
+	})
 }
 
 func (l *launcherClientsManager) startDomainNotifyPipe(domainPipeStopChan chan struct{}, vmi *v1.VirtualMachineInstance) error {
@@ -276,35 +207,16 @@ func (l *launcherClientsManager) startDomainNotifyPipe(domainPipeStopChan chan s
 		return fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
 	}
 
-	// inject the domain-notify.sock into the VMI pod.
-	root, err := res.MountRoot()
+	listener, err := pipe.InjectNotify(res, l.virtShareDir, util.IsNonRootVMI(vmi))
 	if err != nil {
 		return err
 	}
-	socketDir, err := root.AppendAndResolveWithRelativeRoot(l.virtShareDir)
-	if err != nil {
-		return err
-	}
-
-	listener, err := safepath.ListenUnixNoFollow(socketDir, "domain-notify-pipe.sock")
-	if err != nil {
-		log.Log.Reason(err).Error("failed to create unix socket for proxy service")
-		return err
-	}
-	socketPath, err := safepath.JoinNoFollow(socketDir, "domain-notify-pipe.sock")
-	if err != nil {
-		return err
-	}
-
-	if util.IsNonRootVMI(vmi) {
-		err := diskutils.DefaultOwnershipManager.SetFileOwnership(socketPath)
-		if err != nil {
-			log.Log.Reason(err).Error("unable to change ownership for domain notify")
-			return err
-		}
-	}
-
-	handleDomainNotifyPipe(domainPipeStopChan, listener, l.virtShareDir, vmi)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		<-domainPipeStopChan
+		cancel()
+	}()
+	handleDomainNotifyPipe(ctx, listener, l.virtShareDir, vmi)
 
 	return nil
 }
