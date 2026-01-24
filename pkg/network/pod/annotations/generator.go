@@ -57,10 +57,17 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := multus.GenerateCNIAnnotation(
+
+	namingScheme := namescheme.CreateHashedNetworkNameScheme(nonAbsentNets)
+	if value := vmi.Labels["use-ordinal"]; value == "true" {
+		namingScheme = namescheme.CreateOrdinalNetworkNameScheme(nonAbsentNets)
+	}
+
+	multusAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
 		vmi.Namespace,
 		nonAbsentIfaces,
 		nonAbsentNets,
+		namingScheme,
 		g.clusterConfigurer.GetNetworkBindings(),
 	)
 	if err != nil {
