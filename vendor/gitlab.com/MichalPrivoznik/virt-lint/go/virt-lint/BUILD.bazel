@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["virt-lint.go"],
+    cdeps = ["//:virt-lint-libs"],
+    cgo = True,
+    importmap = "kubevirt.io/kubevirt/vendor/gitlab.com/MichalPrivoznik/virt-lint/go/virt-lint",
+    importpath = "gitlab.com/MichalPrivoznik/virt-lint/go/virt-lint",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/libvirt.org/go/libvirt:go_default_library"],
+)

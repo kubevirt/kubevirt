@@ -1,0 +1,16 @@
+repositories:
+- arch: x86_64
+  baseurl: https://virt-lint.k8r.cz/x86_64/
+  name: custom-build-x86_64
+  gpgcheck: 0
+  repo_gpgcheck: 0
+- arch: aarch64
+  baseurl: https://virt-lint.k8r.cz/aarch64/
+  name: custom-build-aarch64
+  gpgcheck: 0
+  repo_gpgcheck: 0
+- arch: s390x
+  baseurl: https://virt-lint.k8r.cz/s390x/
+  name: custom-build-s390x
+  gpgcheck: 0
+  repo_gpgcheck: 0
