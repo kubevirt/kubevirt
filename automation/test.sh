@@ -112,6 +112,7 @@ case "$TARGET" in
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
     ;;
   *sig-compute-parallel*)
+    export KUBEVIRT_NO_BAZEL=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
     ;;
   *sig-compute-conformance*)
@@ -305,7 +306,7 @@ build_images() {
     # we repeat the build images action
     local tries=3
     for i in $(seq 1 $tries); do
-        make bazel-build-images && return
+        make container-build-images && return
         rc=$?
     done
 
@@ -649,7 +650,7 @@ spec:
 EOF
 fi
 
-
+unset KUBEVIRT_NO_BAZEL
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
 
