@@ -32,12 +32,12 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-type hookFunc func(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error
+type HookFunc func(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error
 
 // PreMigrationHookServer handles libvirt premigration hook communication via unix socket
 type PreMigrationHookServer struct {
 	vmi       *v1.VirtualMachineInstance
-	hooks     []hookFunc
+	hooks     []HookFunc
 	stopChan  chan struct{}
 	done      chan struct{}
 	startOnce sync.Once
@@ -45,7 +45,7 @@ type PreMigrationHookServer struct {
 }
 
 // NewPreMigrationHookServer creates a new premigration hook server with registered hooks
-func NewPreMigrationHookServer(stopChan chan struct{}, hooks ...hookFunc) *PreMigrationHookServer {
+func NewPreMigrationHookServer(stopChan chan struct{}, hooks ...HookFunc) *PreMigrationHookServer {
 	server := &PreMigrationHookServer{
 		hooks:    hooks,
 		stopChan: stopChan,

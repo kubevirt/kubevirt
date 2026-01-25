@@ -434,7 +434,15 @@ func main() {
 	metadataCache := metadata.NewCache()
 
 	signalStopChan := make(chan struct{})
-	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(stopChan, cpuhook.CPUDedicatedHook)
+
+	hookFuncs := []premigrationhookserver.HookFunc{
+		cpuhook.CPUDedicatedHook,
+	}
+
+	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(
+		stopChan,
+		hookFuncs...,
+	)
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, *libvirtHooksServerAndClientEnabled, preMigrationHookServer)
 	if err != nil {
 		panic(err)
