@@ -16751,6 +16751,9 @@
      },
      "pod": {
       "$ref": "#/definitions/v1.PodNetwork"
+     },
+     "resourceClaim": {
+      "$ref": "#/definitions/v1.ResourceClaimNetworkSource"
      }
     }
    },
@@ -17302,6 +17305,26 @@
      "memLock": {
       "description": "RequiresLock determines whether the VM's and its overhead memory need to be locked or not. It is a common practice to enable this if vDPA, VFIO or any other specialized hardware that depends on DMA is being used by the VM. False - (Default) memory lock RLimits are not modified. True - Memory lock RLimits will be updated to consider VM memory\n       size and memory overhead",
       "type": "string"
+     }
+    }
+   },
+   "v1.ResourceClaimNetworkSource": {
+    "description": "ResourceClaimNetworkSource represents a network resource requested via a Kubernetes ResourceClaim.",
+    "type": "object",
+    "required": [
+     "claimName",
+     "requestName"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "ClaimName references the name of an entry in the VMI's spec.resourceClaims[] array.",
+      "type": "string",
+      "default": ""
+     },
+     "requestName": {
+      "description": "RequestName specifies which request from the ResourceClaim.spec.devices.requests array this network source corresponds to.",
+      "type": "string",
+      "default": ""
      }
     }
    },
