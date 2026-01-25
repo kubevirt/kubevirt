@@ -114,8 +114,8 @@ func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod 
 func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) map[string]string {
 	annotations := map[string]string{}
 
-	if deviceInfoAnnotation := g.generateDeviceInfoAnnotation(vmi, pod); deviceInfoAnnotation != "" {
-		annotations[downwardapi.NetworkInfoAnnot] = deviceInfoAnnotation
+	if networkInfoAnnotation := g.generateNetworkInfoAnnotation(vmi, pod); networkInfoAnnotation != "" {
+		annotations[downwardapi.NetworkInfoAnnot] = networkInfoAnnotation
 	}
 
 	if updatedMultusAnnotation, shouldUpdate := g.generateMultusAnnotation(vmi, pod); shouldUpdate {
@@ -159,7 +159,7 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 	return updatedMultusAnnotation, true
 }
 
-func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
+func (g Generator) generateNetworkInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
 	ifaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.SRIOV != nil || vmispec.HasBindingPluginDeviceInfo(iface, g.clusterConfigurer.GetNetworkBindings())
 	})
