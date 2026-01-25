@@ -953,6 +953,14 @@ func (MultusNetwork) SwaggerDoc() map[string]string {
 	}
 }
 
+func (ResourceClaimNetworkSource) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":            "ResourceClaimNetworkSource represents a network resource requested\nvia a Kubernetes ResourceClaim.",
+		"claimName":   "ClaimName references the name of an entry in the\nVMI's spec.resourceClaims[] array.\n+kubebuilder:validation:MinLength=1",
+		"requestName": "RequestName specifies which request from the\nResourceClaim.spec.devices.requests array this network\nsource corresponds to.\n+kubebuilder:validation:MinLength=1",
+	}
+}
+
 func (CPUTopology) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":        "CPUTopology allows specifying the amount of cores, sockets\nand threads.",
