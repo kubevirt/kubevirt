@@ -1740,6 +1740,12 @@ type Network struct {
 type NetworkSource struct {
 	Pod    *PodNetwork    `json:"pod,omitempty"`
 	Multus *MultusNetwork `json:"multus,omitempty"`
+	// ResourceClaim represents a network resource requested
+	// via a VMI spec.resourceClaims[] entry, backed by either a
+	// Kubernetes ResourceClaim or ResourceClaimTemplate.
+	// This field should only be configured if the NetworkDevicesWithDRA feature-gate is enabled.
+	// This feature is in alpha.
+	ResourceClaim *ClaimRequest `json:"resourceClaim,omitempty"`
 }
 
 // Represents the stock pod network interface.
