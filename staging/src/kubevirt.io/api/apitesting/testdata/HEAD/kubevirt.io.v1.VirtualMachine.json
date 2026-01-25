@@ -918,6 +918,10 @@
             "multus": {
               "networkName": "networkNameValue",
               "default": true
+            },
+            "resourceClaim": {
+              "claimName": "claimNameValue",
+              "requestName": "requestNameValue"
             }
           }
         ],
