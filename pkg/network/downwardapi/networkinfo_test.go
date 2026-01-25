@@ -34,13 +34,14 @@ var _ = Describe("Network info", func() {
 	It("should create network info annotation value", func() {
 		deviceInfoFoo := &networkv1.DeviceInfo{Type: "fooType"}
 		networkDeviceInfoMap := map[string]*networkv1.DeviceInfo{"foo": deviceInfoFoo, "boo": nil}
+		networkDeviceMacMap := map[string]string{"foo": "", "boo": ""}
 
 		expectedInterfaces := []downwardapi.Interface{
 			{Network: "foo", DeviceInfo: deviceInfoFoo},
 			{Network: "boo"},
 		}
 
-		annotation := downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)
+		annotation := downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap, networkDeviceMacMap)
 		networkInfo := downwardapi.NetworkInfo{}
 		err := json.Unmarshal([]byte(annotation), &networkInfo)
 		Expect(err).ToNot(HaveOccurred())
@@ -49,8 +50,9 @@ var _ = Describe("Network info", func() {
 
 	It("should create an empty network info annotation value when there are no networks", func() {
 		networkDeviceInfoMap := map[string]*networkv1.DeviceInfo{}
+		networkDeviceMacMap := map[string]string{}
 
-		Expect(downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)).To(Equal("{}"))
+		Expect(downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap, networkDeviceMacMap)).To(Equal("{}"))
 	})
 
 	It("should produce a deterministic and output sorted by network name regardless of the map key order", func() {
@@ -70,8 +72,10 @@ var _ = Describe("Network info", func() {
 			"netA": deviceInfo1,
 		}
 
-		annotationValue1 := downwardapi.CreateNetworkInfoAnnotationValue(deviceInfoByNetName1)
-		annotationValue2 := downwardapi.CreateNetworkInfoAnnotationValue(deviceInfoByNetName2)
+		emptyDeviceMacByNetName := map[string]string{}
+
+		annotationValue1 := downwardapi.CreateNetworkInfoAnnotationValue(deviceInfoByNetName1, emptyDeviceMacByNetName)
+		annotationValue2 := downwardapi.CreateNetworkInfoAnnotationValue(deviceInfoByNetName2, emptyDeviceMacByNetName)
 		Expect(annotationValue1).To(Equal(annotationValue2))
 
 		var actualNetworkInfo downwardapi.NetworkInfo
@@ -87,4 +91,49 @@ var _ = Describe("Network info", func() {
 
 		Expect(actualNetworkInfo).To(Equal(expectedNetworkInfo))
 	})
+
+	DescribeTable("Should add mac addresses",
+		func(deviceInfoMap map[string]*networkv1.DeviceInfo, deviceMacMap map[string]string, expected downwardapi.NetworkInfo) {
+			annotationValue := downwardapi.CreateNetworkInfoAnnotationValue(deviceInfoMap, deviceMacMap)
+
+			var actualNetworkInfo downwardapi.NetworkInfo
+			Expect(json.Unmarshal([]byte(annotationValue), &actualNetworkInfo)).To(Succeed())
+
+			Expect(actualNetworkInfo).To(Equal(expected))
+		},
+		Entry("with deviceinfos",
+			map[string]*networkv1.DeviceInfo{
+				"netWithSomeDeviceInfo":  {Type: "type1"},
+				"netWithEmptyDeviceInfo": {},
+				"netWithoutDeviceInfo":   nil,
+			},
+			map[string]string{
+				"netWithSomeDeviceInfo":  "0c:42:a1:22:a3:52",
+				"netWithoutDeviceInfo":   "0c:42:a1:22:a3:54",
+				"netWithEmptyDeviceInfo": "0c:42:a1:22:a3:53",
+			},
+			downwardapi.NetworkInfo{
+				Interfaces: []downwardapi.Interface{
+					{Network: "netWithEmptyDeviceInfo", DeviceInfo: &networkv1.DeviceInfo{}, Mac: "0c:42:a1:22:a3:53"},
+					{Network: "netWithSomeDeviceInfo", DeviceInfo: &networkv1.DeviceInfo{Type: "type1"}, Mac: "0c:42:a1:22:a3:52"},
+					{Network: "netWithoutDeviceInfo", Mac: "0c:42:a1:22:a3:54"},
+				},
+			},
+		),
+		Entry("without deviceinfos",
+			map[string]*networkv1.DeviceInfo{},
+			map[string]string{
+				"netA": "0c:42:a1:22:a3:52",
+				"netC": "0c:42:a1:22:a3:54",
+				"netB": "0c:42:a1:22:a3:53",
+			},
+			downwardapi.NetworkInfo{
+				Interfaces: []downwardapi.Interface{
+					{Network: "netA", Mac: "0c:42:a1:22:a3:52"},
+					{Network: "netB", Mac: "0c:42:a1:22:a3:53"},
+					{Network: "netC", Mac: "0c:42:a1:22:a3:54"},
+				},
+			},
+		),
+	)
 })
