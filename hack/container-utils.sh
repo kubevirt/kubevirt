@@ -19,43 +19,43 @@
 
 # Create buildah unshare context for rootless builds if needed (Podman only)
 setup_buildah_context() {
-  if [[ "${KUBEVIRT_CRI}" == "podman" ]]; then
-    if ! podman system info | grep -q "rootless: false"; then
-      echo "Running in rootless mode"
-      export BUILDAH_ISOLATION=chroot
+    if [[ "${KUBEVIRT_CRI}" == "podman" ]]; then
+        if ! podman system info | grep -q "rootless: false"; then
+            echo "Running in rootless mode"
+            export BUILDAH_ISOLATION=chroot
+        fi
     fi
-  fi
 }
 
 # Save image digest to file similar to Bazel
 save_image_digest() {
-  local image_name=$1
-  local full_tag=$2
-  local arch=$3
+    local image_name=$1
+    local full_tag=$2
+    local arch=$3
 
-  mkdir -p ${DIGESTS_DIR}/${arch}/${image_name}
+    mkdir -p ${DIGESTS_DIR}/${arch}/${image_name}
 
-  # Get image digest
-  digest=$(${KUBEVIRT_CRI} inspect ${full_tag} --format '{{.Digest}}' 2>/dev/null || echo "no-digest")
-  echo "${digest}" >${DIGESTS_DIR}/${arch}/${image_name}/${image_name}.json.sha256
+    # Get image digest
+    digest=$(${KUBEVIRT_CRI} inspect ${full_tag} --format '{{.Digest}}' 2>/dev/null || echo "no-digest")
+    echo "${digest}" >${DIGESTS_DIR}/${arch}/${image_name}/${image_name}.json.sha256
 }
 
 # Build multi-arch manifest
 create_manifest() {
-  local image_name=$1
-  local tags=("$@")
+    local image_name=$1
+    local tags=("$@")
 
-  local manifest_name="${DOCKER_PREFIX}/${IMAGE_PREFIX}${image_name}:${DOCKER_TAG}"
+    local manifest_name="${DOCKER_PREFIX}/${IMAGE_PREFIX}${image_name}:${DOCKER_TAG}"
 
-  if [[ "${KUBEVIRT_CRI}" == "podman" ]]; then
-    podman manifest create ${manifest_name}
+    if [[ "${KUBEVIRT_CRI}" == "podman" ]]; then
+        podman manifest create ${manifest_name}
 
-    for tag in "${tags[@]}"; do
-      podman manifest add ${manifest_name} ${tag}
-    done
-  elif [[ "${KUBEVIRT_CRI}" == "docker" ]]; then
-    docker buildx imagetools create -t ${manifest_name} "${tags[@]}"
-  fi
+        for tag in "${tags[@]}"; do
+            podman manifest add ${manifest_name} ${tag}
+        done
+    elif [[ "${KUBEVIRT_CRI}" == "docker" ]]; then
+        docker buildx imagetools create -t ${manifest_name} "${tags[@]}"
+    fi
 
-  echo "Created manifest: ${manifest_name}"
+    echo "Created manifest: ${manifest_name}"
 }

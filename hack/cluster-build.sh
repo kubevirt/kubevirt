@@ -31,73 +31,73 @@ source hack/config.sh
 echo "Building ..."
 
 if [ "${KUBEVIRT_NO_BAZEL}" = "true" ]; then
-  echo "==============================================="
-  echo "Using Container Build (Podman/Docker)"
-  echo "KUBEVIRT_NO_BAZEL=true"
-  echo "==============================================="
+    echo "==============================================="
+    echo "Using Container Build (Podman/Docker)"
+    echo "KUBEVIRT_NO_BAZEL=true"
+    echo "==============================================="
 
-  # Set common environment variables for container build
-  if [ -z "${DOCKER_PREFIX}" ]; then
-    if [ -n "${docker_prefix}" ]; then
-      DOCKER_PREFIX="${docker_prefix}"
-      echo "Using registry from provider config: ${DOCKER_PREFIX}"
+    # Set common environment variables for container build
+    if [ -z "${DOCKER_PREFIX}" ]; then
+        if [ -n "${docker_prefix}" ]; then
+            DOCKER_PREFIX="${docker_prefix}"
+            echo "Using registry from provider config: ${DOCKER_PREFIX}"
+        else
+            DOCKER_PREFIX="quay.io/kubevirt"
+            echo "Using default registry: ${DOCKER_PREFIX}"
+        fi
     else
-      DOCKER_PREFIX="quay.io/kubevirt"
-      echo "Using default registry: ${DOCKER_PREFIX}"
+        echo "Using DOCKER_PREFIX from environment: ${DOCKER_PREFIX}"
     fi
-  else
-    echo "Using DOCKER_PREFIX from environment: ${DOCKER_PREFIX}"
-  fi
 
-  export BUILD_ARCH=${BUILD_ARCH}
-  export DOCKER_PREFIX
-  export DOCKER_TAG
-  export IMAGE_PREFIX
-  export KUBEVIRT_CRI=${KUBEVIRT_CRI:-$(determine_cri_bin)}
-  export BUILDER_IMAGE
+    export BUILD_ARCH=${BUILD_ARCH}
+    export DOCKER_PREFIX
+    export DOCKER_TAG
+    export IMAGE_PREFIX
+    export KUBEVIRT_CRI=${KUBEVIRT_CRI:-$(determine_cri_bin)}
+    export BUILDER_IMAGE
 
-  echo ""
-  echo "Building functional test binaries"
-  ${KUBEVIRT_PATH}hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/go-build-functests.sh"
-
-  echo "Building container images"
-  ${KUBEVIRT_PATH}hack/multi-arch-container.sh
-
-  echo ""
-  echo "Pushing images to cluster registry"
-  ${KUBEVIRT_PATH}hack/push-images-container.sh
-
-  if [ -n "${DOCKER_TAG_ALT}" ]; then
     echo ""
-    echo "Pushing images with alt tag"
+    echo "Building functional test binaries"
+    ${KUBEVIRT_PATH}hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/go-build-functests.sh"
 
-    # First re-tag images with alt tag
-    for image in virt-operator virt-api virt-controller virt-handler virt-launcher virt-exportserver virt-exportproxy; do
-      ${KUBEVIRT_CRI} tag \
-        ${DOCKER_PREFIX}/${IMAGE_PREFIX}${image}:${DOCKER_TAG} \
-        ${DOCKER_PREFIX}/${IMAGE_PREFIX_ALT}${image}:${DOCKER_TAG_ALT}
-    done
+    echo "Building container images"
+    ${KUBEVIRT_PATH}hack/multi-arch-container.sh
 
-    # Push with alt tag and prefix
-    DOCKER_TAG=${DOCKER_TAG_ALT} \
-      IMAGE_PREFIX=${IMAGE_PREFIX_ALT} \
-      PUSH_TARGETS="virt-operator virt-api virt-controller virt-handler virt-launcher virt-exportserver virt-exportproxy" \
-      ${KUBEVIRT_PATH}hack/push-images-container.sh
-  fi
+    echo ""
+    echo "Pushing images to cluster registry"
+    ${KUBEVIRT_PATH}hack/push-images-container.sh
 
-  echo ""
-  echo "Creating multi-arch manifests"
-  hack/push-container-manifest.sh
+    if [ -n "${DOCKER_TAG_ALT}" ]; then
+        echo ""
+        echo "Pushing images with alt tag"
+
+        # First re-tag images with alt tag
+        for image in virt-operator virt-api virt-controller virt-handler virt-launcher virt-exportserver virt-exportproxy; do
+            ${KUBEVIRT_CRI} tag \
+                ${DOCKER_PREFIX}/${IMAGE_PREFIX}${image}:${DOCKER_TAG} \
+                ${DOCKER_PREFIX}/${IMAGE_PREFIX_ALT}${image}:${DOCKER_TAG_ALT}
+        done
+
+        # Push with alt tag and prefix
+        DOCKER_TAG=${DOCKER_TAG_ALT} \
+            IMAGE_PREFIX=${IMAGE_PREFIX_ALT} \
+            PUSH_TARGETS="virt-operator virt-api virt-controller virt-handler virt-launcher virt-exportserver virt-exportproxy" \
+            ${KUBEVIRT_PATH}hack/push-images-container.sh
+    fi
+
+    echo ""
+    echo "Creating multi-arch manifests"
+    hack/push-container-manifest.sh
 
 else
-  echo "==============================================="
-  echo "Using Bazel Build"
-  echo "==============================================="
+    echo "==============================================="
+    echo "Using Bazel Build"
+    echo "==============================================="
 
-  # Build everything and publish it (existing Bazel workflow)
-  ${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-build-functests.sh"
-  ${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/multi-arch.sh push-images"
-  BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} hack/push-container-manifest.sh
+    # Build everything and publish it (existing Bazel workflow)
+    ${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-build-functests.sh"
+    ${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/multi-arch.sh push-images"
+    BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} hack/push-container-manifest.sh
 fi
 
 # Push virt-template images

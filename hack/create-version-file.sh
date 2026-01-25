@@ -22,14 +22,14 @@ set -e
 
 VERSION_FILE=${1:-/workspace/.version}
 
-if git rev-parse --git-dir > /dev/null 2>&1; then
+if git rev-parse --git-dir >/dev/null 2>&1; then
     GIT_VERSION=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 else
     GIT_VERSION="unknown"
 fi
 
 # Create the version file
-echo "${GIT_VERSION}" > "${VERSION_FILE}"
+echo "${GIT_VERSION}" >"${VERSION_FILE}"
 chmod 755 "${VERSION_FILE}"
 
 echo "Created ${VERSION_FILE} with version: ${GIT_VERSION}"

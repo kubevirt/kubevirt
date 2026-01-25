@@ -102,7 +102,7 @@ echo "==============================================="
 
 check_image_exists() {
     local full_tag=$1
-    
+
     if ${KUBEVIRT_CRI} image exists "${full_tag}" 2>/dev/null; then
         return 0
     elif ${KUBEVIRT_CRI} image inspect "${full_tag}" &>/dev/null; then
@@ -121,7 +121,7 @@ for image in ${PUSH_TARGETS_ARRAY[@]}; do
         for arch in ${BUILD_ARCH//,/ }; do
             ARCH_TAG=$(format_archname ${arch} tag)
             full_tag="${DOCKER_PREFIX}/${IMAGE_PREFIX}${image}:${DOCKER_TAG}-${ARCH_TAG}"
-            
+
             if ! check_image_exists "${full_tag}"; then
                 MISSING_IMAGES+=("${full_tag}")
             else
@@ -130,7 +130,7 @@ for image in ${PUSH_TARGETS_ARRAY[@]}; do
         done
     else
         full_tag="${DOCKER_PREFIX}/${IMAGE_PREFIX}${image}:${DOCKER_TAG}"
-        
+
         if ! check_image_exists "${full_tag}"; then
             MISSING_IMAGES+=("${full_tag}")
         else
@@ -151,7 +151,7 @@ fi
 push_image() {
     local image_name=$1
     local arch=$2
-    
+
     # Determine tag
     if [ "$build_count" -gt 1 ]; then
         local arch_tag=$(format_archname ${arch} tag)
@@ -159,10 +159,10 @@ push_image() {
     else
         local full_tag="${DOCKER_PREFIX}/${IMAGE_PREFIX}${image_name}:${DOCKER_TAG}"
     fi
-    
+
     echo "Pushing ${image_name}"
     echo "Tag: ${full_tag}"
-    
+
     local push_flags=""
     if [[ "${full_tag}" == localhost:* ]] || [[ "${full_tag}" == registry:* ]]; then
         # Local registry - disable TLS verification
@@ -174,16 +174,16 @@ push_image() {
         fi
         echo "Using insecure registry flags: ${push_flags}"
     fi
-    
+
     if ${KUBEVIRT_CRI} push ${push_flags} "${full_tag}"; then
         echo "Successfully pushed"
-        
+
         # Create digest marker file
         local digest_dir="${DIGESTS_DIR}/${arch}/${image_name}"
         mkdir -p "${digest_dir}"
         touch "${digest_dir}/${image_name}.image"
         echo "- Created digest marker: ${digest_dir}/${image_name}.image"
-        
+
         PUSH_SUCCESS+=("${image_name}:${full_tag}")
         return 0
     else
