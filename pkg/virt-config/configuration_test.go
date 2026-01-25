@@ -8,11 +8,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
+	cdiCore "kubevirt.io/containerized-data-importer-api/pkg/apis/core"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -833,6 +836,57 @@ var _ = Describe("test configuration", func() {
 			false,
 		),
 	)
+
+	Context("HasDataSourceAPI", func() {
+		var crdInformer cache.SharedIndexInformer
+		var kvInformer cache.SharedIndexInformer
+		var cfg *virtconfig.ClusterConfig
+
+		BeforeEach(func() {
+			crdInformer, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
+			kvInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
+
+			var err error
+			cfg, err = virtconfig.NewClusterConfig(crdInformer, kvInformer, "kubevirt")
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("returns true for a CDI DataSource CRD", func() {
+			crd := &extv1.CustomResourceDefinition{
+				Spec: extv1.CustomResourceDefinitionSpec{
+					Group: cdiCore.GroupName,
+					Names: extv1.CustomResourceDefinitionNames{Kind: "DataSource"},
+				},
+			}
+			crdInformer.GetStore().Replace([]interface{}{crd}, "1")
+
+			Expect(cfg.HasDataSourceAPI()).To(BeTrue())
+		})
+
+		It("returns false when group is wrong even if kind matches", func() {
+			crd := &extv1.CustomResourceDefinition{
+				Spec: extv1.CustomResourceDefinitionSpec{
+					Group: "not.kubevirt.io",
+					Names: extv1.CustomResourceDefinitionNames{Kind: "DataSource"},
+				},
+			}
+			crdInformer.GetStore().Replace([]interface{}{crd}, "1")
+
+			Expect(cfg.HasDataSourceAPI()).To(BeFalse())
+		})
+
+		It("returns false when kind differs even if group matches", func() {
+			crd := &extv1.CustomResourceDefinition{
+				Spec: extv1.CustomResourceDefinitionSpec{
+					Group: cdiCore.GroupName,
+					Names: extv1.CustomResourceDefinitionNames{Kind: "NotDataSource"},
+				},
+			}
+			crdInformer.GetStore().Replace([]interface{}{crd}, "1")
+
+			Expect(cfg.HasDataSourceAPI()).To(BeFalse())
+		})
+	})
 
 	Context("GetHypervisor", func() {
 		var KvmHypervisorConfig = v1.HypervisorConfiguration{

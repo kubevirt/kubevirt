@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring"
 	k8sv1 "k8s.io/api/core/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -33,6 +34,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	cdiCore "kubevirt.io/containerized-data-importer-api/pkg/apis/core"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -119,19 +121,19 @@ func (c *ClusterConfig) configUpdated(_, _ interface{}) {
 }
 
 func isDataVolumeCrd(crd *extv1.CustomResourceDefinition) bool {
-	return crd.Spec.Names.Kind == "DataVolume"
+	return crd.Spec.Names.Kind == "DataVolume" && crd.Spec.Group == cdiCore.GroupName
 }
 
 func isDataSourceCrd(crd *extv1.CustomResourceDefinition) bool {
-	return crd.Spec.Names.Kind == "DataSource"
+	return crd.Spec.Names.Kind == "DataSource" && crd.Spec.Group == cdiCore.GroupName
 }
 
 func isServiceMonitor(crd *extv1.CustomResourceDefinition) bool {
-	return crd.Spec.Names.Kind == "ServiceMonitor"
+	return crd.Spec.Names.Kind == "ServiceMonitor" && crd.Spec.Group == monitoring.GroupName
 }
 
 func isPrometheusRules(crd *extv1.CustomResourceDefinition) bool {
-	return crd.Spec.Names.Kind == "PrometheusRule"
+	return crd.Spec.Names.Kind == "PrometheusRule" && crd.Spec.Group == monitoring.GroupName
 }
 
 func (c *ClusterConfig) crdAddedDeleted(obj interface{}) {
