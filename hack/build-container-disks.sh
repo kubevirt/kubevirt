@@ -34,10 +34,13 @@ CACHE_DIR=${CACHE_DIR:-${BUILD_OUTPUT_DIR}/container-disks}
 # Detect architecture
 PLATFORM=$(uname -m)
 case ${PLATFORM} in
-    x86_64* | i?86_64* | amd64*) BUILD_ARCH=${BUILD_ARCH:-amd64} ;;
-    aarch64* | arm64*) BUILD_ARCH=${BUILD_ARCH:-arm64} ;;
-    s390x) BUILD_ARCH=${BUILD_ARCH:-s390x} ;;
-    *) echo "Unsupported architecture: ${PLATFORM}"; exit 1 ;;
+x86_64* | i?86_64* | amd64*) BUILD_ARCH=${BUILD_ARCH:-amd64} ;;
+aarch64* | arm64*) BUILD_ARCH=${BUILD_ARCH:-arm64} ;;
+s390x) BUILD_ARCH=${BUILD_ARCH:-s390x} ;;
+*)
+    echo "Unsupported architecture: ${PLATFORM}"
+    exit 1
+    ;;
 esac
 
 echo "==============================================="
@@ -59,11 +62,11 @@ build_container_disk() {
     local filename=$(basename "$url")
     local cached_file="${CACHE_DIR}/${filename}"
     local sha_file="${CACHE_DIR}/${filename}.sha256"
-    
+
     echo "Building ${name}"
     echo "URL: ${url}"
     echo "Package dir: ${package_dir}"
-    
+
     # Check if cached file exists and has correct checksum
     local needs_download=true
     if [[ -f "${cached_file}" && -f "${sha_file}" ]]; then
@@ -80,27 +83,27 @@ build_container_disk() {
             echo "SHA changed, will re-download"
         fi
     fi
-    
+
     if [[ "${needs_download}" == "true" ]]; then
         curl -L -o "${cached_file}.tmp" "${url}"
-        
+
         echo "${sha256}  ${cached_file}.tmp" | sha256sum -c - || {
             echo "ERROR: Checksum verification failed for ${name}"
             rm -f "${cached_file}.tmp"
             return 1
         }
-        
+
         mv "${cached_file}.tmp" "${cached_file}"
-        echo "${sha256}" > "${sha_file}"
+        echo "${sha256}" >"${sha_file}"
         echo "Downloaded successfully"
     fi
-    
+
     # Create Containerfile
-    cat > "${CACHE_DIR}/Containerfile.${name}" <<DOCKERFILE
+    cat >"${CACHE_DIR}/Containerfile.${name}" <<DOCKERFILE
 FROM scratch
 COPY --chown=107:107 --chmod=0440 ${filename} ${package_dir}/${filename}
 DOCKERFILE
-    
+
     # Build image
     local full_tag="${DOCKER_PREFIX}/${IMAGE_PREFIX}${name}:${DOCKER_TAG}"
     echo "Building image: ${full_tag}"
@@ -109,51 +112,51 @@ DOCKERFILE
         -f "${CACHE_DIR}/Containerfile.${name}" \
         -t "${full_tag}" \
         "${CACHE_DIR}/"
-    
+
     save_image_digest "${name}" "${full_tag}" "${BUILD_ARCH}"
-    
+
     rm -f "${CACHE_DIR}/Containerfile.${name}"
-    
+
     echo "Successfully built ${full_tag}"
 }
 
 case ${BUILD_ARCH} in
-    amd64)
-        build_container_disk "alpine-container-disk-demo" \
-            "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-virt-3.20.1-x86_64.iso" \
-            "f87a0fd3ab0e65d2a84acd5dad5f8b6afce51cb465f65dd6f8a3810a3723b6e4"
-        
-        build_container_disk "cirros-container-disk-demo" \
-            "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img" \
-            "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464"
-        
-        build_container_disk "cirros-custom-container-disk-demo" \
-            "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img" \
-            "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464" \
-            "/custom-disk"
-        ;;
-    arm64)
-        build_container_disk "alpine-container-disk-demo" \
-            "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/aarch64/alpine-virt-3.20.1-aarch64.iso" \
-            "ca2f0e8aa7a1d7917bce7b9e7bd413772b64ec529a1938d20352558f90a5035a"
-        
-        build_container_disk "cirros-container-disk-demo" \
-            "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-aarch64-disk.img" \
-            "889c1117647b3b16cfc47957931c6573bf8e755fc9098fdcad13727b6c9f2629"
-        
-        build_container_disk "cirros-custom-container-disk-demo" \
-            "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-aarch64-disk.img" \
-            "889c1117647b3b16cfc47957931c6573bf8e755fc9098fdcad13727b6c9f2629" \
-            "/custom-disk"
-        ;;
-    s390x)
-        build_container_disk "alpine-container-disk-demo" \
-            "https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/s390x/alpine-standard-3.18.8-s390x.iso" \
-            "4ca1462252246d53e4949523b87fcea088e8b4992dbd6df792818c5875069b16"
-        
-        # Cirros not available for s390x
-        echo "Skipping cirros images (not available for s390x)"
-        ;;
+amd64)
+    build_container_disk "alpine-container-disk-demo" \
+        "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/x86_64/alpine-virt-3.20.1-x86_64.iso" \
+        "f87a0fd3ab0e65d2a84acd5dad5f8b6afce51cb465f65dd6f8a3810a3723b6e4"
+
+    build_container_disk "cirros-container-disk-demo" \
+        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img" \
+        "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464"
+
+    build_container_disk "cirros-custom-container-disk-demo" \
+        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img" \
+        "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464" \
+        "/custom-disk"
+    ;;
+arm64)
+    build_container_disk "alpine-container-disk-demo" \
+        "https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/aarch64/alpine-virt-3.20.1-aarch64.iso" \
+        "ca2f0e8aa7a1d7917bce7b9e7bd413772b64ec529a1938d20352558f90a5035a"
+
+    build_container_disk "cirros-container-disk-demo" \
+        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-aarch64-disk.img" \
+        "889c1117647b3b16cfc47957931c6573bf8e755fc9098fdcad13727b6c9f2629"
+
+    build_container_disk "cirros-custom-container-disk-demo" \
+        "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-aarch64-disk.img" \
+        "889c1117647b3b16cfc47957931c6573bf8e755fc9098fdcad13727b6c9f2629" \
+        "/custom-disk"
+    ;;
+s390x)
+    build_container_disk "alpine-container-disk-demo" \
+        "https://dl-cdn.alpinelinux.org/alpine/v3.18/releases/s390x/alpine-standard-3.18.8-s390x.iso" \
+        "4ca1462252246d53e4949523b87fcea088e8b4992dbd6df792818c5875069b16"
+
+    # Cirros not available for s390x
+    echo "Skipping cirros images (not available for s390x)"
+    ;;
 esac
 
 if [[ "${BUILD_ARCH}" != "s390x" ]]; then

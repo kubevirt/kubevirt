@@ -51,8 +51,8 @@ echo "Target builder image: ${BUILDER_IMAGE}"
 CONTAINERFILES=$(find "${REPO_ROOT}" -name "Containerfile" -type f \
     ! -path "*/vendor/*" \
     ! -path "*/_out/*" \
-    ! -path "*/bazel-*/*" \
-    | sort)
+    ! -path "*/bazel-*/*" |
+    sort)
 
 if [[ -z "${CONTAINERFILES}" ]]; then
     echo "Warning: No Containerfiles found in repository"
@@ -68,23 +68,23 @@ echo "Updating Containerfiles..."
 for containerfile in ${CONTAINERFILES}; do
     # Get the current builder image from the Containerfile
     current_builder=$(grep '^ARG BUILDER_IMAGE=' "${containerfile}" 2>/dev/null | head -1 | cut -d'=' -f2 || echo "")
-    
+
     if [[ -z "${current_builder}" ]]; then
         echo "SKIPPED: ${containerfile} - no BUILDER_IMAGE ARG found"
         SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
         continue
     fi
-    
+
     # Check if already up to date
     if [[ "${current_builder}" == "${BUILDER_IMAGE}" ]]; then
         echo "OK: ${containerfile}"
         SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
         continue
     fi
-    
+
     # Update the Containerfile
     sed -i "s|^ARG BUILDER_IMAGE=.*|ARG BUILDER_IMAGE=${BUILDER_IMAGE}|" "${containerfile}"
-    
+
     echo "UPDATED: ${containerfile}"
     echo "${current_builder} → ${BUILDER_IMAGE}"
     UPDATED_COUNT=$((UPDATED_COUNT + 1))

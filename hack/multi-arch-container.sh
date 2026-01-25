@@ -42,28 +42,28 @@ if [ "$build_count" -gt 1 ]; then
         tag=$(format_archname $arch tag)
 
         BUILD_ARCH=$arch \
-        DOCKER_TAG=$DOCKER_TAG-$tag \
+            DOCKER_TAG=$DOCKER_TAG-$tag \
+            DOCKER_PREFIX=${DOCKER_PREFIX} \
+            IMAGE_PREFIX=${IMAGE_PREFIX} \
+            KUBEVIRT_CRI=${KUBEVIRT_CRI} \
+            BUILDER_IMAGE=${BUILDER_IMAGE} \
+            ./hack/build-images-container.sh
+    done
+
+    echo "Multi-arch container build completed successfully"
+else
+    echo "Single architecture build: ${BUILD_ARCH}"
+
+    arch=$(format_archname ${BUILD_ARCH})
+
+    BUILD_ARCH=${arch} \
+        DOCKER_TAG=${DOCKER_TAG} \
         DOCKER_PREFIX=${DOCKER_PREFIX} \
         IMAGE_PREFIX=${IMAGE_PREFIX} \
         KUBEVIRT_CRI=${KUBEVIRT_CRI} \
         BUILDER_IMAGE=${BUILDER_IMAGE} \
         ./hack/build-images-container.sh
-    done
-    
-    echo "Multi-arch container build completed successfully"
-else
-    echo "Single architecture build: ${BUILD_ARCH}"
-    
-    arch=$(format_archname ${BUILD_ARCH})
-    
-    BUILD_ARCH=${arch} \
-    DOCKER_TAG=${DOCKER_TAG} \
-    DOCKER_PREFIX=${DOCKER_PREFIX} \
-    IMAGE_PREFIX=${IMAGE_PREFIX} \
-    KUBEVIRT_CRI=${KUBEVIRT_CRI} \
-    BUILDER_IMAGE=${BUILDER_IMAGE} \
-    ./hack/build-images-container.sh
-    
+
     echo ""
     echo "Single-arch container build completed successfully"
 fi

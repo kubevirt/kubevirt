@@ -28,10 +28,13 @@ echo "Using container engine: ${KUBEVIRT_CRI}"
 
 PLATFORM=$(uname -m)
 case ${PLATFORM} in
-    x86_64* | i?86_64* | amd64*) BUILD_ARCH=${BUILD_ARCH:-amd64} ;;
-    aarch64* | arm64*) BUILD_ARCH=${BUILD_ARCH:-arm64} ;;
-    s390x) BUILD_ARCH=${BUILD_ARCH:-s390x} ;;
-    *) echo "Unsupported architecture: ${PLATFORM}"; exit 1 ;;
+x86_64* | i?86_64* | amd64*) BUILD_ARCH=${BUILD_ARCH:-amd64} ;;
+aarch64* | arm64*) BUILD_ARCH=${BUILD_ARCH:-arm64} ;;
+s390x) BUILD_ARCH=${BUILD_ARCH:-s390x} ;;
+*)
+    echo "Unsupported architecture: ${PLATFORM}"
+    exit 1
+    ;;
 esac
 
 DOCKER_TAG=${DOCKER_TAG:-devel}
@@ -63,19 +66,19 @@ BAZEL_ARCH=$(format_archname ${BUILD_ARCH})
 
 # Distroless base image digests per architecture - matches WORKSPACE
 case ${PLATFORM_ARCH} in
-    amd64)
-        DISTROLESS_DIGEST="sha256:0ba6aa6b538aeae3d0f716ea8837703eb147173cd673241662e89adb794da829"
-        ;;
-    arm64)
-        DISTROLESS_DIGEST="sha256:9ee08ca352647dad1511153afb18f4a6dbb4f56bafc7d618d0082c16a14cfdf1"
-        ;;
-    s390x)
-        DISTROLESS_DIGEST="sha256:6e2e356c462d69668a0313bf45ed3de614e9d4e0b9c03fa081d3bcae143a58ba"
-        ;;
-    *)
-        echo "Error: Unsupported architecture ${PLATFORM_ARCH} (from BUILD_ARCH=${BUILD_ARCH})"
-        exit 1
-        ;;
+amd64)
+    DISTROLESS_DIGEST="sha256:0ba6aa6b538aeae3d0f716ea8837703eb147173cd673241662e89adb794da829"
+    ;;
+arm64)
+    DISTROLESS_DIGEST="sha256:9ee08ca352647dad1511153afb18f4a6dbb4f56bafc7d618d0082c16a14cfdf1"
+    ;;
+s390x)
+    DISTROLESS_DIGEST="sha256:6e2e356c462d69668a0313bf45ed3de614e9d4e0b9c03fa081d3bcae143a58ba"
+    ;;
+*)
+    echo "Error: Unsupported architecture ${PLATFORM_ARCH} (from BUILD_ARCH=${BUILD_ARCH})"
+    exit 1
+    ;;
 esac
 
 DISTROLESS_BASE_IMAGE="gcr.io/distroless/base-debian12@${DISTROLESS_DIGEST}"
@@ -129,61 +132,61 @@ BUILD_TARGETS=(${PUSH_TARGETS:-${default_targets}})
 
 get_containerfile_path() {
     local image_name=$1
-    
+
     # Map image names to their Containerfile locations
     case "$image_name" in
-        virt-operator|virt-api|virt-controller|virt-handler|virt-launcher|virt-exportserver|virt-exportproxy)
-            echo "cmd/${image_name}/Containerfile"
-            ;;
-        virt-synchronization-controller)
-            echo "cmd/synchronization-controller/Containerfile"
-            ;;
-        pr-helper)
-            echo "cmd/${image_name}/Containerfile"
-            ;;
-        vm-killer)
-            echo "images/vm-killer/Containerfile"
-            ;;
-        kubevirt-testing-base)
-            echo "images/kubevirt-testing-base/Containerfile"
-            ;;
-        disks-images-provider)
-            echo "images/disks-images-provider/Containerfile"
-            ;;
-        winrmcli)
-            echo "images/winrmcli/Containerfile"
-            ;;
-        conformance)
-            echo "tests/conformance/Containerfile"
-            ;;
-        libguestfs-tools)
-            echo "cmd/libguestfs/Containerfile"
-            ;;
-        sidecar-shim)
-            echo "cmd/sidecars/Containerfile"
-            ;;
-        network-slirp-binding)
-            echo "cmd/sidecars/network-slirp-binding/Containerfile"
-            ;;
-        network-passt-binding)
-            echo "cmd/cniplugins/passt-binding/Containerfile"
-            ;;
-        network-passt-binding-cni)
-            echo "cmd/cniplugins/passt-binding/cmd/Containerfile"
-            ;;
-        example-hook-sidecar)
-            echo "cmd/sidecars/smbios/Containerfile"
-            ;;
-        example-disk-mutation-hook-sidecar)
-            echo "cmd/sidecars/disk-mutation/Containerfile"
-            ;;
-        example-cloudinit-hook-sidecar)
-            echo "cmd/sidecars/cloudinit/Containerfile"
-            ;;
-        *)
-            echo "ERROR: Unknown image: $image_name" >&2
-            return 1
-            ;;
+    virt-operator | virt-api | virt-controller | virt-handler | virt-launcher | virt-exportserver | virt-exportproxy)
+        echo "cmd/${image_name}/Containerfile"
+        ;;
+    virt-synchronization-controller)
+        echo "cmd/synchronization-controller/Containerfile"
+        ;;
+    pr-helper)
+        echo "cmd/${image_name}/Containerfile"
+        ;;
+    vm-killer)
+        echo "images/vm-killer/Containerfile"
+        ;;
+    kubevirt-testing-base)
+        echo "images/kubevirt-testing-base/Containerfile"
+        ;;
+    disks-images-provider)
+        echo "images/disks-images-provider/Containerfile"
+        ;;
+    winrmcli)
+        echo "images/winrmcli/Containerfile"
+        ;;
+    conformance)
+        echo "tests/conformance/Containerfile"
+        ;;
+    libguestfs-tools)
+        echo "cmd/libguestfs/Containerfile"
+        ;;
+    sidecar-shim)
+        echo "cmd/sidecars/Containerfile"
+        ;;
+    network-slirp-binding)
+        echo "cmd/sidecars/network-slirp-binding/Containerfile"
+        ;;
+    network-passt-binding)
+        echo "cmd/cniplugins/passt-binding/Containerfile"
+        ;;
+    network-passt-binding-cni)
+        echo "cmd/cniplugins/passt-binding/cmd/Containerfile"
+        ;;
+    example-hook-sidecar)
+        echo "cmd/sidecars/smbios/Containerfile"
+        ;;
+    example-disk-mutation-hook-sidecar)
+        echo "cmd/sidecars/disk-mutation/Containerfile"
+        ;;
+    example-cloudinit-hook-sidecar)
+        echo "cmd/sidecars/cloudinit/Containerfile"
+        ;;
+    *)
+        echo "ERROR: Unknown image: $image_name" >&2
+        return 1
+        ;;
     esac
 }
 
@@ -192,23 +195,23 @@ build_image() {
     local containerfile=$2
     local context=${3:-.}
     local extra_build_args=${4:-}
-    
+
     local full_tag="${DOCKER_PREFIX}/${IMAGE_PREFIX}${image_name}:${DOCKER_TAG}"
-    
+
     echo "Building ${image_name} for ${BUILD_ARCH} (linux/${PLATFORM_ARCH})"
-    
+
     local build_cmd="${KUBEVIRT_CRI} build ${BUILD_ARGS} --platform linux/${PLATFORM_ARCH}"
-    
+
     if [[ -n "${extra_build_args}" ]]; then
         build_cmd+=" ${extra_build_args}"
     fi
-    
+
     build_cmd+=" -f ${containerfile} -t ${full_tag} ${context}"
-    
+
     eval ${build_cmd}
-    
+
     save_image_digest "${image_name}" "${full_tag}" "${BUILD_ARCH}"
-    
+
     echo "Successfully built ${full_tag}"
 }
 
@@ -216,12 +219,12 @@ build_image() {
 is_retagged_image() {
     local image_name=$1
     case "$image_name" in
-        fedora-with-test-tooling-container-disk|alpine-with-test-tooling-container-disk|fedora-realtime-container-disk|alpine-ext-kernel-boot-demo)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
+    fedora-with-test-tooling-container-disk | alpine-with-test-tooling-container-disk | fedora-realtime-container-disk | alpine-ext-kernel-boot-demo)
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
     esac
 }
 
@@ -229,56 +232,56 @@ is_retagged_image() {
 is_container_disk_image() {
     local image_name=$1
     case "$image_name" in
-        alpine-container-disk-demo|cirros-container-disk-demo|cirros-custom-container-disk-demo|virtio-container-disk)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
+    alpine-container-disk-demo | cirros-container-disk-demo | cirros-custom-container-disk-demo | virtio-container-disk)
+        return 0
+        ;;
+    *)
+        return 1
+        ;;
     esac
 }
 
 # Retag a single upstream image
 retag_single_image() {
     local image_name=$1
-    
+
     case "$image_name" in
-        fedora-with-test-tooling-container-disk)
-            local normalized_arch=$(format_archname ${BUILD_ARCH} tag)
-            case ${normalized_arch} in
-                amd64)
-                    DIGEST="sha256:897af945d1c58366086d5933ae4f341a5f1413b88e6c7f2b659436adc5d0f522"
-                    ;;
-                arm64)
-                    DIGEST="sha256:3d5a2a95f7f9382dc6730073fe19a6b1bc668b424c362339c88c6a13dff2ef49"
-                    ;;
-                s390x)
-                    DIGEST="sha256:3d9f468750d90845a81608ea13c85237ea295c6295c911a99dc5e0504c8bc05b"
-                    ;;
-                *)
-                    echo "ERROR: Unsupported architecture ${normalized_arch} for fedora-with-test-tooling"
-                    exit 1
-                    ;;
-            esac
-            SOURCE_IMAGE="quay.io/kubevirtci/fedora-with-test-tooling@${DIGEST}"
+    fedora-with-test-tooling-container-disk)
+        local normalized_arch=$(format_archname ${BUILD_ARCH} tag)
+        case ${normalized_arch} in
+        amd64)
+            DIGEST="sha256:897af945d1c58366086d5933ae4f341a5f1413b88e6c7f2b659436adc5d0f522"
             ;;
-        alpine-with-test-tooling-container-disk)
-            SOURCE_IMAGE="quay.io/kubevirtci/alpine-with-test-tooling-container-disk@sha256:882450d4a0141d29422d049390cae59176c1a9ddf75bd9f3ecdd5a9081c7d95b"
+        arm64)
+            DIGEST="sha256:3d5a2a95f7f9382dc6730073fe19a6b1bc668b424c362339c88c6a13dff2ef49"
             ;;
-        fedora-realtime-container-disk)
-            SOURCE_IMAGE="quay.io/kubevirt/fedora-realtime-container-disk@sha256:f91379d202a5493aba9ce06870b5d1ada2c112f314530c9820a9ad07426aa565"
-            ;;
-        alpine-ext-kernel-boot-demo)
-            SOURCE_IMAGE="quay.io/kubevirt/alpine-ext-kernel-boot-demo@sha256:de4bc8de772ff7570e6dda871ea9cdd502feeeff1973f16f84bfbd60ff8f4149"
+        s390x)
+            DIGEST="sha256:3d9f468750d90845a81608ea13c85237ea295c6295c911a99dc5e0504c8bc05b"
             ;;
         *)
-            echo "ERROR: Unknown retagged image: $image_name" >&2
-            return 1
+            echo "ERROR: Unsupported architecture ${normalized_arch} for fedora-with-test-tooling"
+            exit 1
             ;;
+        esac
+        SOURCE_IMAGE="quay.io/kubevirtci/fedora-with-test-tooling@${DIGEST}"
+        ;;
+    alpine-with-test-tooling-container-disk)
+        SOURCE_IMAGE="quay.io/kubevirtci/alpine-with-test-tooling-container-disk@sha256:882450d4a0141d29422d049390cae59176c1a9ddf75bd9f3ecdd5a9081c7d95b"
+        ;;
+    fedora-realtime-container-disk)
+        SOURCE_IMAGE="quay.io/kubevirt/fedora-realtime-container-disk@sha256:f91379d202a5493aba9ce06870b5d1ada2c112f314530c9820a9ad07426aa565"
+        ;;
+    alpine-ext-kernel-boot-demo)
+        SOURCE_IMAGE="quay.io/kubevirt/alpine-ext-kernel-boot-demo@sha256:de4bc8de772ff7570e6dda871ea9cdd502feeeff1973f16f84bfbd60ff8f4149"
+        ;;
+    *)
+        echo "ERROR: Unknown retagged image: $image_name" >&2
+        return 1
+        ;;
     esac
-    
+
     local target_tag="${DOCKER_PREFIX}/${IMAGE_PREFIX}${image_name}:${DOCKER_TAG}"
-    
+
     echo "${image_name}"
     echo "Source: ${SOURCE_IMAGE}"
     ${KUBEVIRT_CRI} pull ${SOURCE_IMAGE}
@@ -310,7 +313,7 @@ for image in ${BUILD_TARGETS[@]}; do
         CONTAINER_DISK_IMAGES+=" ${image}"
     else
         REGULAR_BUILD_IMAGES+=" ${image}"
-        
+
         # Check if this image needs kubevirt-testing-base
         if [[ "${image}" == "disks-images-provider" || "${image}" == "winrmcli" ]]; then
             NEEDS_TESTING_BASE=true
@@ -338,7 +341,7 @@ for image in ${BUILD_TARGETS[@]}; do
             echo "==> Skipping ${image} (not available for ${BUILD_ARCH})"
             continue
         fi
-        
+
         retag_single_image "${image}"
     fi
 done
@@ -348,25 +351,25 @@ for image in ${REGULAR_BUILD_IMAGES}; do
     if [[ "${image}" == "kubevirt-testing-base" && "${NEEDS_TESTING_BASE}" == "true" ]]; then
         continue
     fi
-    
+
     containerfile=$(get_containerfile_path "${image}")
-    
+
     if [ $? -ne 0 ]; then
         echo "ERROR: Failed to get Containerfile path for ${image}"
         exit 1
     fi
-    
+
     if [ ! -f "${containerfile}" ]; then
         echo "ERROR: Containerfile not found for ${image}: ${containerfile}"
         echo "       This image needs to be implemented."
         exit 1
     fi
-    
+
     extra_args=""
     if [[ "${image}" == "disks-images-provider" || "${image}" == "winrmcli" ]]; then
         extra_args="--build-arg TESTING_BASE_IMAGE=${DOCKER_PREFIX}/kubevirt-testing-base:${DOCKER_TAG}"
     fi
-    
+
     build_image "${image}" \
         "${containerfile}" \
         "." \
@@ -376,11 +379,11 @@ done
 if [[ -n "${CONTAINER_DISK_IMAGES}" ]]; then
     echo "Building container disk images via build-container-disks.sh"
     BUILD_ARCH=${BUILD_ARCH} \
-    DOCKER_TAG=${DOCKER_TAG} \
-    DOCKER_PREFIX=${DOCKER_PREFIX} \
-    IMAGE_PREFIX=${IMAGE_PREFIX} \
-    KUBEVIRT_CRI=${KUBEVIRT_CRI} \
-    ./hack/build-container-disks.sh
+        DOCKER_TAG=${DOCKER_TAG} \
+        DOCKER_PREFIX=${DOCKER_PREFIX} \
+        IMAGE_PREFIX=${IMAGE_PREFIX} \
+        KUBEVIRT_CRI=${KUBEVIRT_CRI} \
+        ./hack/build-container-disks.sh
 fi
 
 # Cleanup .version file that was created during the build

@@ -41,44 +41,44 @@ if [ "$build_count" -gt 1 ]; then
         echo "=========================================="
         echo "Pushing for architecture: $arch"
         echo "=========================================="
-        
+
         arch=$(format_archname $arch)
         tag=$(format_archname $arch tag)
-        
+
         BUILD_ARCH=$arch \
-        DOCKER_TAG=$DOCKER_TAG-$tag \
-        DOCKER_PREFIX=${DOCKER_PREFIX} \
-        IMAGE_PREFIX=${IMAGE_PREFIX} \
-        KUBEVIRT_CRI=${KUBEVIRT_CRI} \
-        ./hack/push-images-container.sh
+            DOCKER_TAG=$DOCKER_TAG-$tag \
+            DOCKER_PREFIX=${DOCKER_PREFIX} \
+            IMAGE_PREFIX=${IMAGE_PREFIX} \
+            KUBEVIRT_CRI=${KUBEVIRT_CRI} \
+            ./hack/push-images-container.sh
     done
-    
+
     echo ""
     echo "=========================================="
     echo "Creating multi-arch manifests"
     echo "=========================================="
-    
+
     # Create multi-arch manifests
     BUILD_ARCH=${BUILD_ARCH} \
-    DOCKER_PREFIX=${DOCKER_PREFIX} \
-    DOCKER_TAG=${DOCKER_TAG} \
-    KUBEVIRT_CRI=${KUBEVIRT_CRI} \
-    ./hack/push-container-manifest.sh
-    
+        DOCKER_PREFIX=${DOCKER_PREFIX} \
+        DOCKER_TAG=${DOCKER_TAG} \
+        KUBEVIRT_CRI=${KUBEVIRT_CRI} \
+        ./hack/push-container-manifest.sh
+
     echo ""
     echo "Multi-arch container push completed successfully"
 else
     echo "Single architecture push: ${BUILD_ARCH}"
-    
+
     arch=$(format_archname ${BUILD_ARCH})
-    
+
     BUILD_ARCH=${arch} \
-    DOCKER_TAG=${DOCKER_TAG} \
-    DOCKER_PREFIX=${DOCKER_PREFIX} \
-    IMAGE_PREFIX=${IMAGE_PREFIX} \
-    KUBEVIRT_CRI=${KUBEVIRT_CRI} \
-    ./hack/push-images-container.sh
-    
+        DOCKER_TAG=${DOCKER_TAG} \
+        DOCKER_PREFIX=${DOCKER_PREFIX} \
+        IMAGE_PREFIX=${IMAGE_PREFIX} \
+        KUBEVIRT_CRI=${KUBEVIRT_CRI} \
+        ./hack/push-images-container.sh
+
     echo ""
     echo "Single-arch container push completed successfully"
 fi
