@@ -104,7 +104,7 @@ oci_image(
     name = "alpine-with-test-tooling",
     base = select({
         "@io_bazel_rules_go//go/platform:linux_arm64": "@alpine_with_test_tooling",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "@alpine_with_test_tooling",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@alpine_with_test_tooling_s390x",
         "//conditions:default": "@alpine_with_test_tooling",
     }),
     visibility = ["//visibility:public"],

@@ -369,7 +369,13 @@ oci_pull(
 
 oci_pull(
     name = "alpine_with_test_tooling",
-    digest = "sha256:882450d4a0141d29422d049390cae59176c1a9ddf75bd9f3ecdd5a9081c7d95b",
+    digest = "sha256:8c8e8bb6cd81c75e492c678abb3e5f186d52eba2174ebabc328316250acfea58",
+    image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
+)
+
+oci_pull(
+    name = "alpine_with_test_tooling_s390x",
+    digest = "sha256:1a52903133c00507607e8a82308a34923e89288d852762b9f4d5da227767e965",
     image = "quay.io/kubevirtci/alpine-with-test-tooling-container-disk",
 )
 
