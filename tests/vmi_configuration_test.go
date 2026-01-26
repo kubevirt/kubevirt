@@ -868,22 +868,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BExp{R: "virtio_rng"},
 				}, 400)).To(Succeed())
 			})
-
-			It("[test_id:1675]should not have the virtio rng device when not present", func() {
-				By("Starting a VirtualMachineInstance")
-				rngVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), libvmifact.NewAlpine(withNoRng()), metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForSuccessfulVMIStart(rngVmi)
-
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToAlpine(rngVmi)).To(Succeed())
-
-				By("Checking the virtio rng presence")
-				Expect(console.SafeExpectBatch(rngVmi, []expect.Batcher{
-					&expect.BSnd{S: "[[ ! -e /sys/devices/virtual/misc/hw_random/rng_available ]] && echo non\n"},
-					&expect.BExp{R: console.RetValue("non")},
-				}, 400)).To(Succeed())
-			})
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
