@@ -32,6 +32,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -190,6 +191,18 @@ func haveExportProxyDeploymentsRolledOver(targetStrategy install.StrategyInterfa
 
 func haveSynchronizationControllerDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
 	for _, deployment := range targetStrategy.SynchronizationControllerDeployments() {
+		if !util.DeploymentIsReady(kv, deployment, stores) {
+			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
+			// not rolled out yet
+			return false
+		}
+	}
+
+	return true
+}
+
+func haveVirtTemplateDeploymentsRolledOver(targetStrategy install.StrategyInterface, kv *v1.KubeVirt, stores util.Stores) bool {
+	for _, deployment := range targetStrategy.VirtTemplateDeployments() {
 		if !util.DeploymentIsReady(kv, deployment, stores) {
 			log.Log.V(2).Infof("Waiting on deployment %v to roll over to latest version", deployment.GetName())
 			// not rolled out yet
@@ -383,11 +396,15 @@ func (r *Reconciler) Sync(queue workqueue.TypedRateLimitingInterface[string]) (b
 	exportProxyDeploymentsRolledOver := !exportProxyEnabled || haveExportProxyDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 	synchronizationControllerEnabled := r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
 	synchronizationControllerDeploymentRolledOver := !synchronizationControllerEnabled || haveSynchronizationControllerDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
+	virtTemplateDeploymentEnabled := r.virtTemplateDeploymentEnabled()
+	virtTemplateDeploymentsRolledOver := !virtTemplateDeploymentEnabled || haveVirtTemplateDeploymentsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	daemonSetsRolledOver := haveDaemonSetsRolledOver(r.targetStrategy, r.kv, r.stores)
 
 	infrastructureRolledOver := false
-	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver && exportProxyDeploymentsRolledOver && daemonSetsRolledOver && synchronizationControllerDeploymentRolledOver {
+	if apiDeploymentsRolledOver && controllerDeploymentsRolledOver &&
+		exportProxyDeploymentsRolledOver && daemonSetsRolledOver &&
+		synchronizationControllerDeploymentRolledOver && virtTemplateDeploymentsRolledOver {
 		// infrastructure has rolled over and is available
 		infrastructureRolledOver = true
 	} else if (targetVersion == observedVersion) && (targetImageRegistry == observedImageRegistry) {
@@ -598,6 +615,22 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 	// create/update Synchronization controller Deployments
 	for _, deployment := range r.targetStrategy.SynchronizationControllerDeployments() {
 		if r.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration) {
+			deployment, err := r.syncDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+		} else if err := r.deleteDeployment(deployment); err != nil {
+			return false, err
+		}
+	}
+
+	// create/update virt-template Deployments
+	for _, deployment := range r.targetStrategy.VirtTemplateDeployments() {
+		if r.virtTemplateDeploymentEnabled() {
 			deployment, err := r.syncDeployment(deployment)
 			if err != nil {
 				return false, err
@@ -903,6 +936,31 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 					if err != nil {
 						r.expectations.Deployment.DeletionObserved(r.kvKey, key)
 						log.Log.Errorf("Failed to delete deployment: %v", err)
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	// remove unused podDisruptionBudgets
+	objects = r.stores.PodDisruptionBudgetCache.List()
+	for _, obj := range objects {
+		if pdb, ok := obj.(*policyv1.PodDisruptionBudget); ok && pdb.DeletionTimestamp == nil {
+			found := false
+			for _, targetDeployment := range r.targetStrategy.Deployments() {
+				if targetDeployment.Name+"-pdb" == pdb.Name && targetDeployment.Namespace == pdb.Namespace {
+					found = true
+					break
+				}
+			}
+			if !found {
+				if key, err := controller.KeyFunc(pdb); err == nil {
+					r.expectations.PodDisruptionBudget.AddExpectedDeletion(r.kvKey, key)
+					err = r.clientset.PolicyV1().PodDisruptionBudgets(pdb.Namespace).Delete(context.Background(), pdb.Name, metav1.DeleteOptions{})
+					if err != nil {
+						r.expectations.PodDisruptionBudget.DeletionObserved(r.kvKey, key)
+						log.Log.Errorf("Failed to delete poddisruptionbudget: %v", err)
 						return err
 					}
 				}
@@ -1224,6 +1282,19 @@ func (r *Reconciler) commonInstancetypesDeploymentEnabled() bool {
 	if config != nil && config.Enabled != nil {
 		return *config.Enabled
 	}
+	return true
+}
+
+func (r *Reconciler) virtTemplateDeploymentEnabled() bool {
+	if !r.isFeatureGateEnabled(featuregate.Template) {
+		return false
+	}
+
+	config := r.kv.Spec.Configuration.VirtTemplateDeployment
+	if config != nil && config.Enabled != nil {
+		return *config.Enabled
+	}
+
 	return true
 }
 

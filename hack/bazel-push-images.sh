@@ -23,6 +23,9 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
+# Source virt-template version for its images
+source hack/virt-template/default.sh
+
 # Build core images for all architectures
 default_targets="
     virt-operator
@@ -39,6 +42,8 @@ default_targets="
     sidecar-shim
     disks-images-provider
     libguestfs-tools
+    virt-template-apiserver
+    virt-template-controller
 "
 
 # Add additional images for non-s390x architectures only
@@ -64,9 +69,18 @@ fi
 
 PUSH_TARGETS=(${PUSH_TARGETS:-${default_targets}})
 
-for tag in ${docker_tag} ${docker_tag_alt}; do
-    for target in ${PUSH_TARGETS[@]}; do
+# Get tags to push for a target (virt-template uses its own version, others use docker_tag/docker_tag_alt)
+function get_tags_for_target() {
+    local target=$1
+    if is_virt_template_target "${target}"; then
+        echo "${virt_template_version}"
+    else
+        echo "${docker_tag} ${docker_tag_alt}"
+    fi
+}
 
+for target in ${PUSH_TARGETS[@]}; do
+    for tag in $(get_tags_for_target "${target}"); do
         bazel run \
             --config=${ARCHITECTURE} \
             //:push-${target} -- --repository ${docker_prefix}/${image_prefix}${target} --tag ${tag}
@@ -78,9 +92,14 @@ done
 if [[ $image_prefix_alt ]]; then
     for target in ${PUSH_TARGETS[@]}; do
 
+        if is_virt_template_target "${target}"; then
+            tag=${virt_template_version}
+        else
+            tag=${docker_tag}
+        fi
         bazel run \
             --config=${ARCHITECTURE} \
-            //:push-${target} -- --repository ${docker_prefix}/${image_prefix_alt}${target} --tag ${docker_tag}
+            //:push-${target} -- --repository ${docker_prefix}/${image_prefix_alt}${target} --tag ${tag}
 
     done
 fi

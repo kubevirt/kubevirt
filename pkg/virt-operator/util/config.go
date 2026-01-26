@@ -55,6 +55,8 @@ const (
 	GsImageEnvName                            = "GS_IMAGE"
 	PrHelperImageEnvName                      = "PR_HELPER_IMAGE"
 	SidecarShimImageEnvName                   = "SIDECAR_SHIM_IMAGE"
+	VirtTemplateApiserverImageEnvName         = "VIRT_TEMPLATE_APISERVER_IMAGE"
+	VirtTemplateControllerImageEnvName        = "VIRT_TEMPLATE_CONTROLLER_IMAGE"
 	RunbookURLTemplate                        = "RUNBOOK_URL_TEMPLATE"
 
 	KubeVirtVersionEnvName = "KUBEVIRT_VERSION"
@@ -83,6 +85,9 @@ const (
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesPersistentReservationEnabled = "PersistentReservationEnabled"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesVirtTemplateDeploymentEnabled = "VirtTemplateDeploymentEnabled"
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
@@ -121,6 +126,8 @@ type ComponentImages struct {
 	VirtExportProxyImage               string `json:"virtExportProxyImage,omitempty" optional:"true"`
 	VirtExportServerImage              string `json:"virtExportServerImage,omitempty" optional:"true"`
 	VirtSynchronizationControllerImage string `json:"virtSynchronizationControllerImage,omitempty" optional:"true"`
+	VirtTemplateApiserverImage         string `json:"virtTemplateApiserverImage,omitempty" optional:"true"`
+	VirtTemplateControllerImage        string `json:"virtTemplateControllerImage,omitempty" optional:"true"`
 	GsImage                            string `json:"GsImage,omitempty" optional:"true"`
 	PrHelperImage                      string `json:"PrHelperImage,omitempty" optional:"true"`
 	SidecarShimImage                   string `json:"SidecarShimImage,omitempty" optional:"true"`
@@ -162,6 +169,11 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		for _, v := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
 			if v == featuregate.PersistentReservation {
 				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+			} else if v == featuregate.Template {
+				virtTemplateDeployment := kv.Spec.Configuration.VirtTemplateDeployment
+				if virtTemplateDeployment == nil || (virtTemplateDeployment.Enabled != nil && *virtTemplateDeployment.Enabled) {
+					additionalProperties[AdditionalPropertiesVirtTemplateDeploymentEnabled] = ""
+				}
 			}
 		}
 	}
@@ -282,11 +294,13 @@ func getConfig(providedRegistry, providedTag, namespace string, additionalProper
 	exportProxyImage := envVarManager.Getenv(VirtExportProxyImageEnvName)
 	exportServerImage := envVarManager.Getenv(VirtExportServerImageEnvName)
 	synchronizationControllerImage := envVarManager.Getenv(VirtSynchronizationControllerImageEnvName)
+	virtTemplateApiserverImage := envVarManager.Getenv(VirtTemplateApiserverImageEnvName)
+	virtTemplateControllerImage := envVarManager.Getenv(VirtTemplateControllerImageEnvName)
 	GsImage := envVarManager.Getenv(GsImageEnvName)
 	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 	SidecarShimImage := envVarManager.Getenv(SidecarShimImageEnvName)
 
-	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv)
+	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv)
 }
 
 func VerifyEnv() error {
@@ -320,7 +334,7 @@ func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]
 	return passthroughEnv
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:        registry,
 		ImagePrefix:     imagePrefix,
@@ -334,6 +348,8 @@ func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorI
 			VirtExportProxyImage:               exportProxyImage,
 			VirtExportServerImage:              exportServerImage,
 			VirtSynchronizationControllerImage: synchronizationControllerImage,
+			VirtTemplateApiserverImage:         virtTemplateApiserverImage,
+			VirtTemplateControllerImage:        virtTemplateControllerImage,
 			GsImage:                            gsImage,
 			PrHelperImage:                      prHelperImage,
 			SidecarShimImage:                   sidecarShimImage,
@@ -412,6 +428,14 @@ func (c *KubeVirtDeploymentConfig) GetExportServerVersion() string {
 	}
 
 	return c.KubeVirtVersion
+}
+
+func (c *KubeVirtDeploymentConfig) GetVirtTemplateApiserverImage() string {
+	return c.VirtTemplateApiserverImage
+}
+
+func (c *KubeVirtDeploymentConfig) GetVirtTemplateControllerImage() string {
+	return c.VirtTemplateControllerImage
 }
 
 func (c *KubeVirtDeploymentConfig) GetPrHelperVersion() string {
@@ -493,6 +517,11 @@ func (c *KubeVirtDeploymentConfig) GetImagePullSecrets() []k8sv1.LocalObjectRefe
 
 func (c *KubeVirtDeploymentConfig) PersistentReservationEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesPersistentReservationEnabled]
+	return enabled
+}
+
+func (c *KubeVirtDeploymentConfig) VirtTemplateDeploymentEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesVirtTemplateDeploymentEnabled]
 	return enabled
 }
 
