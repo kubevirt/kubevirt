@@ -369,6 +369,18 @@ oci_push(
     repository = "quay.io/kubevirt/winrmcli",
 )
 
+oci_push(
+    name = "push-virt-template-apiserver",
+    image = "//images/virt-template:virt-template-apiserver-image",
+    repository = "quay.io/kubevirt/virt-template-apiserver",
+)
+
+oci_push(
+    name = "push-virt-template-controller",
+    image = "//images/virt-template:virt-template-controller-image",
+    repository = "quay.io/kubevirt/virt-template-controller",
+)
+
 genrule(
     name = "build-virtctl",
     srcs = [
