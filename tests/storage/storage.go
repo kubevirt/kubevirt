@@ -134,42 +134,40 @@ var _ = Describe(SIG("Storage", func() {
 		Context("with error disk", Serial, func() {
 			var (
 				nodeName, address, device string
-
-				pvc *k8sv1.PersistentVolumeClaim
-				pv  *k8sv1.PersistentVolume
+				pv                        *k8sv1.PersistentVolume
+				pvc                       *k8sv1.PersistentVolumeClaim
+				vmi                       *v1.VirtualMachineInstance
 			)
-
-			cleanUp := func(vmi *v1.VirtualMachineInstance) {
-				By("Cleaning up")
-				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
-				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180*time.Second)).To(Succeed())
-			}
 
 			BeforeEach(func() {
 				nodeName = libnode.GetNodeNameWithHandler()
 				address, device = CreateErrorDisk(nodeName)
 				pv, pvc, err = CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
 				Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
+				DeferCleanup(func() {
+					Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+					RemoveSCSIDisk(nodeName, address)
+				})
 			})
 
 			AfterEach(func() {
 				// In order to remove the scsi debug module, the SCSI device cannot be in used by the VM.
-				// For this reason, we manually clean-up the VM  before removing the kernel module.
-				RemoveSCSIDisk(nodeName, address)
-				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
+				// For this reason, we manually clean-up the VM  before removing the kernel module as part of DeferCleanup.
+				if vmi != nil {
+					err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+					Expect(err).To(Or(
+						Not(HaveOccurred()),
+						MatchError(errors.IsNotFound, "errors.IsNotFound"),
+					))
+					Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, time.Second*180)).To(Succeed())
+				}
+				vmi = nil
 			})
 
 			It("[QUARANTINE]should pause VMI on IO error", decorators.Quarantine, func() {
 				By("Creating VMI with faulty disk")
-				vmi := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
-
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithFailOnWarnings(false),
-					libwait.WithTimeout(180),
-				)
+				vmi = libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
+				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 				By("Reading from disk")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should login")
@@ -194,37 +192,24 @@ var _ = Describe(SIG("Storage", func() {
 
 				By("Expecting VMI to NOT be paused")
 				Eventually(ThisVMI(vmi), 100*time.Second, time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
-
-				cleanUp(vmi)
-
 			})
 
-			It("[QUARANTINE]should report IO errors in the guest with errorPolicy set to report", decorators.Quarantine, func() {
+			It("should report IO errors in the guest with errorPolicy set to report", func() {
 				const diskName = "disk1"
 				By("Creating VMI with faulty disk")
-				vmi := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvc.Name))
+				vmi = libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvc.Name))
 				for i, d := range vmi.Spec.Domain.Devices.Disks {
 					if d.Name == diskName {
 						vmi.Spec.Domain.Devices.Disks[i].ErrorPolicy = pointer.P(v1.DiskErrorPolicyReport)
 					}
 				}
-
-				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), failedCreateVMI)
-
-				libwait.WaitForSuccessfulVMIStart(vmi,
-					libwait.WithFailOnWarnings(false),
-					libwait.WithTimeout(180),
-				)
+				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 				By("Writing to disk")
 				Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should login")
 				checkResultShellCommandOnVmi(vmi, "dd if=/dev/zero of=/dev/vdb",
 					"dd: error writing '/dev/vdb': I/O error", 20)
-
-				cleanUp(vmi)
 			})
-
 		})
 
 		Context("[rfe_id:3106][crit:medium][vendor:cnv-qe@redhat.com][level:component]with Alpine PVC", func() {
