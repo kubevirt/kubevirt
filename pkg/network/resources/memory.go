@@ -22,6 +22,8 @@ package resources
 import (
 	k8scorev1 "k8s.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/network/vmispec"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -33,9 +35,17 @@ func (mc MemoryCalculator) Calculate(
 	vmi *v1.VirtualMachineInstance,
 	registeredPlugins map[string]v1.InterfaceBindingPlugin,
 ) resource.Quantity {
-	return sumPluginsMemoryRequests(
+	totalMemory := resource.Quantity{}
+
+	if vmispec.HasPasstBinding(vmi) {
+		totalMemory.Add(getPasstMemoryOverhead())
+	}
+
+	totalMemory.Add(sumPluginsMemoryRequests(
 		filterUniquePlugins(vmi.Spec.Domain.Devices.Interfaces, registeredPlugins),
-	)
+	))
+
+	return totalMemory
 }
 
 func filterUniquePlugins(interfaces []v1.Interface, registeredPlugins map[string]v1.InterfaceBindingPlugin) []v1.InterfaceBindingPlugin {
@@ -82,4 +92,9 @@ func sumPluginsMemoryRequests(uniquePlugins []v1.InterfaceBindingPlugin) resourc
 	}
 
 	return result
+}
+
+func getPasstMemoryOverhead() resource.Quantity {
+	const passtComputeMemoryOverheadWhenAllPortsAreForwarded = "250Mi"
+	return resource.MustParse(passtComputeMemoryOverheadWhenAllPortsAreForwarded)
 }
