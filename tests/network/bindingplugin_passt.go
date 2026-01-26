@@ -165,57 +165,29 @@ var _ = Describe(
 			})
 
 			Context("TCP with port specification", Ordered, decorators.OncePerOrderedCleanup, func() {
-				var clientVMI *v1.VirtualMachineInstance
-				var serverVMI *v1.VirtualMachineInstance
-
 				const highTCPPort = 8080
-
-				BeforeAll(func() {
-					clientVMI, serverVMI, err = createClientServerPasstVMIsWithTCPServer(highTCPPort)
-					Expect(err).ToNot(HaveOccurred())
-				})
-				DescribeTable("connectivity", func(ipFamily k8sv1.IPFamily) {
-					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
-
-					serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
-					Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
-
-					By("Connecting from the client VM")
-					Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, highTCPPort), 30*time.Second)).To(Succeed())
-
-					By("Connecting from the client VM to a port not specified on the VM spec")
-					Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, highTCPPort+1), 30)).NotTo(Succeed())
-				},
-					Entry("[IPv4]", k8sv1.IPv4Protocol),
-					Entry("[IPv6]", k8sv1.IPv6Protocol),
-				)
-			})
-
-			Context("TCP with low port specification", Ordered, decorators.OncePerOrderedCleanup, func() {
-				var clientVMI *v1.VirtualMachineInstance
-				var serverVMI *v1.VirtualMachineInstance
-
 				const lowTCPPort = 80
 
-				BeforeAll(func() {
-					clientVMI, serverVMI, err = createClientServerPasstVMIsWithTCPServer(lowTCPPort)
-					Expect(err).ToNot(HaveOccurred())
-				})
+				DescribeTable("connectivity",
+					func(tcpPort int, ipFamily k8sv1.IPFamily) {
+						clientVMI, serverVMI, createErr := createClientServerPasstVMIsWithTCPServer(tcpPort)
+						Expect(createErr).ToNot(HaveOccurred())
 
-				DescribeTable("connectivity", func(ipFamily k8sv1.IPFamily) {
-					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
+						libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
 
-					serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
-					Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
+						serverIP := libnet.GetVmiPrimaryIPByFamily(serverVMI, ipFamily)
+						Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed())
 
-					By("Connecting from the client VM")
-					Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, lowTCPPort), 30*time.Second)).To(Succeed())
+						By("Connecting from the client VM")
+						Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, tcpPort), 30*time.Second)).To(Succeed())
 
-					By("Connecting from the client VM to a port not specified on the VM spec")
-					Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, lowTCPPort+1), 30)).NotTo(Succeed())
-				},
-					Entry("[IPv4]", k8sv1.IPv4Protocol),
-					Entry("[IPv6]", k8sv1.IPv6Protocol),
+						By("Connecting from the client VM to a port not specified on the VM spec")
+						Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, tcpPort+1), 30)).NotTo(Succeed())
+					},
+					Entry("[IPv4] high port", highTCPPort, k8sv1.IPv4Protocol),
+					Entry("[IPv6] high port", highTCPPort, k8sv1.IPv6Protocol),
+					Entry("[IPv4] low port", lowTCPPort, k8sv1.IPv4Protocol),
+					Entry("[IPv6] low port", lowTCPPort, k8sv1.IPv6Protocol),
 				)
 			})
 
