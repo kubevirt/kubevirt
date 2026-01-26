@@ -107,7 +107,6 @@ linters:
       - examples$
       - (^|/)vendor/
       - tests/network/bindingplugin_macvtap\.go$
-      - tests/network/bindingplugin_passt\.go$
       - tests/network/bindingplugin_slirp\.go$
       - tests/network/dual_stack_cluster\.go$
       - tests/network/framework\.go$
@@ -145,7 +144,6 @@ formatters:
       - examples$
       - (^|/)vendor/
       - tests/network/bindingplugin_macvtap\.go$
-      - tests/network/bindingplugin_passt\.go$
       - tests/network/bindingplugin_slirp\.go$
       - tests/network/dual_stack_cluster\.go$
       - tests/network/framework\.go$
