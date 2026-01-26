@@ -199,6 +199,32 @@ var _ = Describe("Network Binding plugin compute resource overhead", func() {
 			},
 			resource.MustParse("500Mi"),
 		),
+		Entry("when vmi has passt binding",
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("")),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			),
+			map[string]v1.InterfaceBindingPlugin{},
+			resource.MustParse("250Mi"),
+		),
+		Entry("when vmi has passt binding and a binding plugin",
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("")),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithInterface(v1.Interface{Name: iface1name, Binding: &v1.PluginBinding{Name: plugin1name}}),
+				libvmi.WithNetwork(&v1.Network{Name: iface1name}),
+			),
+			map[string]v1.InterfaceBindingPlugin{
+				plugin1name: newPlugin(
+					&v1.ResourceRequirementsWithoutClaims{
+						Requests: map[k8scorev1.ResourceName]resource.Quantity{
+							k8scorev1.ResourceMemory: resource.MustParse("500Mi"),
+						},
+					},
+				),
+			},
+			resource.MustParse("750Mi"),
+		),
 	)
 })
 
