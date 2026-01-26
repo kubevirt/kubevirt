@@ -85,6 +85,7 @@ tests/libssh
 tests/libvmifact
 tests/libvmops
 tests/libwait
+tests/network
 tests/numa
 tests/usb
 tests/virtctl
