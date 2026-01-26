@@ -375,16 +375,24 @@ func (c *Controller) requireVolumesUpdate(vmi *virtv1.VirtualMachineInstance) bo
 	if controller.NewVirtualMachineInstanceConditionManager().HasCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange) {
 		return false
 	}
-	migVolsMap := make(map[string]string)
+	sourceClaimsByVolumes := make(map[string]string)
 	for _, v := range vmi.Status.MigratedVolumes {
-		migVolsMap[v.SourcePVCInfo.ClaimName] = v.DestinationPVCInfo.ClaimName
+		sourceClaimsByVolumes[v.VolumeName] = v.SourcePVCInfo.ClaimName
 	}
 	for _, v := range vmi.Spec.Volumes {
-		claim := storagetypes.PVCNameFromVirtVolume(&v)
-		if claim == "" {
+		specClaim := storagetypes.PVCNameFromVirtVolume(&v)
+		if specClaim == "" {
 			continue
 		}
-		if _, ok := migVolsMap[claim]; !ok {
+		sourceClaim, ok := sourceClaimsByVolumes[v.Name]
+		if !ok {
+			// This spec.volume was not migrated, so we should ignore it.
+			continue
+		}
+		if sourceClaim != specClaim {
+			// If at least one spec claim differs from the source claim,
+			// then spec.volumes have already been patched, the volumes were changed,
+			// and they should be migrated.
 			return true
 		}
 	}

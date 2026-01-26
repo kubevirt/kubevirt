@@ -28,13 +28,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	k8sv1 "k8s.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -182,12 +184,12 @@ func ValidateVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachi
 	return nil
 }
 
-// VolumeMigrationCancel cancels the volume migraton
+// VolumeMigrationCancel cancels the volume migration
 func VolumeMigrationCancel(clientset kubecli.KubevirtClient, vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) (bool, error) {
-	if !IsVolumeMigrating(vmi) || !changeMigratedVolumes(vmi, vm) {
+	if !IsVolumeMigrating(vmi) || !migrationVolumesChanged(vmi, vm) {
 		return false, nil
 	}
-	// A volumem migration can be canceled only if the original set of volumes is restored
+	// A volume migration can be canceled only if the original set of volumes is restored
 	if revertedToOldVolumes(vmi, vm) {
 		vmiCopy, err := PatchVMIVolumes(clientset, vmi, vm)
 		if err != nil {
@@ -199,7 +201,7 @@ func VolumeMigrationCancel(clientset kubecli.KubevirtClient, vmi *virtv1.Virtual
 	return true, fmt.Errorf(InvalidUpdateErrMsg)
 }
 
-func changeMigratedVolumes(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) bool {
+func migrationVolumesChanged(vmi *virtv1.VirtualMachineInstance, vm *virtv1.VirtualMachine) bool {
 	updatedVols := updatedVolumesMapping(vmi, vm)
 	for _, migVol := range vmi.Status.MigratedVolumes {
 		if _, ok := updatedVols[migVol.VolumeName]; ok {
