@@ -26,6 +26,7 @@ import (
 	golog "log"
 	"net/http"
 	"os"
+	"strconv"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
@@ -49,6 +50,7 @@ import (
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/flowcontrol"
 
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -76,6 +78,10 @@ const (
 
 	// Default address that virt-operator listens on.
 	defaultHost = "0.0.0.0"
+
+	// Environment variable names for client rate limiting configuration
+	EnvVirtOperatorClientQPS   = "VIRT_OPERATOR_CLIENT_QPS"
+	EnvVirtOperatorClientBurst = "VIRT_OPERATOR_CLIENT_BURST"
 )
 
 type VirtOperatorApp struct {
@@ -103,6 +109,47 @@ type VirtOperatorApp struct {
 	ctx context.Context
 
 	reInitChan chan string
+
+	clientQPS   float32
+	clientBurst int
+}
+
+func getClientRateLimiterConfig(qpsFlag float32, burstFlag int) (float32, int) {
+	qps := qpsFlag
+	burst := burstFlag
+
+	// Check environment variables if flags not set
+	if qps == 0 {
+		if envQPS := os.Getenv(EnvVirtOperatorClientQPS); envQPS != "" {
+			if parsed, err := strconv.ParseFloat(envQPS, 32); err == nil && parsed > 0 {
+				qps = float32(parsed)
+			} else {
+				log.Log.Warningf("Invalid %s value '%s', using default", EnvVirtOperatorClientQPS, envQPS)
+			}
+		}
+	}
+
+	if burst == 0 {
+		if envBurst := os.Getenv(EnvVirtOperatorClientBurst); envBurst != "" {
+			if parsed, err := strconv.Atoi(envBurst); err == nil && parsed > 0 {
+				burst = parsed
+			} else {
+				log.Log.Warningf("Invalid %s value '%s', using default", EnvVirtOperatorClientBurst, envBurst)
+			}
+		}
+	}
+
+	// Validate final values
+	if qps <= 0 {
+		log.Log.Warningf("Invalid QPS value %f, using default", qps)
+		qps = virtconfig.DefaultVirtOperatorQPS
+	}
+	if burst <= 0 {
+		log.Log.Warningf("Invalid Burst value %d, using default", burst)
+		burst = virtconfig.DefaultVirtOperatorBurst
+	}
+
+	return qps, burst
 }
 
 func Execute() {
@@ -140,10 +187,13 @@ func Execute() {
 	if err != nil {
 		panic(err)
 	}
+	qps, burst := getClientRateLimiterConfig(app.clientQPS, app.clientBurst)
+	config.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(qps, burst)
+	log.Log.Infof("Using client rate limiter with QPS=%f, Burst=%d", qps, burst)
 
 	app.aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
-	app.clientSet, err = kubecli.GetKubevirtClient()
+	app.clientSet, err = kubecli.GetKubevirtClientFromRESTConfig(config)
 
 	if err != nil {
 		golog.Fatal(err)
@@ -465,6 +515,11 @@ func (app *VirtOperatorApp) AddFlags() {
 	app.Port = defaultPort
 
 	app.AddCommonFlags()
+
+	pflag.Float32Var(&app.clientQPS, "client-qps", 0,
+		"QPS to use for Kubernetes client (default uses DefaultVirtOperatorQPS)")
+	pflag.IntVar(&app.clientBurst, "client-burst", 0,
+		"Burst to use for Kubernetes client (default uses DefaultVirtOperatorBurst)")
 }
 
 func (app *VirtOperatorApp) prepareCertManagers() {
