@@ -60,6 +60,8 @@ type NewClusterServiceVersionData struct {
 	VirtExportProxyImage               string
 	VirtExportServerImage              string
 	VirtSynchronizationControllerImage string
+	VirtTemplateApiserverImage         string
+	VirtTemplateControllerImage        string
 	GsImage                            string
 	PrHelperImage                      string
 	SidecarShimImage                   string
@@ -166,6 +168,8 @@ func NewClusterServiceVersion(data *NewClusterServiceVersionData) (*csvv1.Cluste
 		data.VirtExportProxyImage,
 		data.VirtExportServerImage,
 		data.VirtSynchronizationControllerImage,
+		data.VirtTemplateApiserverImage,
+		data.VirtTemplateControllerImage,
 		data.GsImage,
 		data.PrHelperImage,
 		data.SidecarShimImage,

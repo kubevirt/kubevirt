@@ -264,7 +264,9 @@ func updateDeployment(deployment *appsv1.Deployment, config *operatorutil.KubeVi
 
 	container := &deployment.Spec.Template.Spec.Containers[0]
 
-	if config.GetImageRegistry() != "" || config.GetImagePrefix() != "" {
+	if overrideImage := getOverrideImageForDeployment(deployment.Name, config); overrideImage != "" {
+		container.Image = overrideImage
+	} else if config.GetImageRegistry() != "" || config.GetImagePrefix() != "" {
 		container.Image = replaceImageRegistryAndPrefix(container.Image, config.GetImageRegistry(), config.GetImagePrefix())
 	}
 
@@ -284,6 +286,17 @@ func updateDeployment(deployment *appsv1.Deployment, config *operatorutil.KubeVi
 	}
 
 	return nil
+}
+
+func getOverrideImageForDeployment(deploymentName string, config *operatorutil.KubeVirtDeploymentConfig) string {
+	switch deploymentName {
+	case "virt-template-apiserver":
+		return config.GetVirtTemplateApiserverImage()
+	case "virt-template-controller":
+		return config.GetVirtTemplateControllerImage()
+	default:
+		return ""
+	}
 }
 
 func replaceImageRegistryAndPrefix(image, newRegistry, newPrefix string) string {
