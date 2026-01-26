@@ -171,30 +171,8 @@ var _ = Describe(
 				const highTCPPort = 8080
 
 				BeforeAll(func() {
-					namespace := testsuite.GetTestNamespace(nil)
-
-					clientVMI = libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithPasstInterfaceWithPort(),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-						context.Background(), clientVMI, metav1.CreateOptions{})
+					clientVMI, serverVMI, err = createClientServerPasstVMIsWithTCPServer(highTCPPort)
 					Expect(err).ToNot(HaveOccurred())
-
-					ports := []v1.Port{{Name: "http", Port: highTCPPort, Protocol: "TCP"}}
-					serverVMI = libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(ports...)),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-						context.Background(), serverVMI, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					waitUntilVMIsReady(console.LoginToAlpine, clientVMI, serverVMI)
-
-					vmnetserver.StartTCPServer(serverVMI, highTCPPort, console.LoginToAlpine)
-					By("starting a TCP server on a port not specified on the VM spec")
-					vmnetserver.StartTCPServer(serverVMI, highTCPPort+1, console.LoginToAlpine)
 				})
 				DescribeTable("connectivity", func(ipFamily k8sv1.IPFamily) {
 					libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
@@ -220,30 +198,8 @@ var _ = Describe(
 				const lowTCPPort = 80
 
 				BeforeAll(func() {
-					namespace := testsuite.GetTestNamespace(nil)
-
-					clientVMI = libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithPasstInterfaceWithPort(),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-						context.Background(), clientVMI, metav1.CreateOptions{})
+					clientVMI, serverVMI, err = createClientServerPasstVMIsWithTCPServer(lowTCPPort)
 					Expect(err).ToNot(HaveOccurred())
-
-					ports := []v1.Port{{Name: "http", Port: lowTCPPort, Protocol: "TCP"}}
-					serverVMI = libvmifact.NewAlpineWithTestTooling(
-						libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(ports...)),
-						libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					)
-					serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
-						context.Background(), serverVMI, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-
-					waitUntilVMIsReady(console.LoginToAlpine, clientVMI, serverVMI)
-
-					vmnetserver.StartTCPServer(serverVMI, lowTCPPort, console.LoginToAlpine)
-					By("starting a TCP server on a port not specified on the VM spec")
-					vmnetserver.StartTCPServer(serverVMI, lowTCPPort+1, console.LoginToAlpine)
 				})
 
 				DescribeTable("connectivity", func(ipFamily k8sv1.IPFamily) {
@@ -455,6 +411,39 @@ func startPasstVMI() *v1.VirtualMachineInstance {
 		context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi
+}
+
+func createClientServerPasstVMIsWithTCPServer(tcpPort int) (client, server *v1.VirtualMachineInstance, err error) {
+	namespace := testsuite.GetTestNamespace(nil)
+
+	clientVMI := libvmifact.NewAlpineWithTestTooling(
+		libvmi.WithPasstInterfaceWithPort(),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
+	clientVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+		context.Background(), clientVMI, metav1.CreateOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ports := []v1.Port{{Name: "http", Port: int32(tcpPort), Protocol: "TCP"}} //nolint:gosec // tcpPort is a test constant
+	serverVMI := libvmifact.NewAlpineWithTestTooling(
+		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin(ports...)),
+		libvmi.WithNetwork(v1.DefaultPodNetwork()),
+	)
+	serverVMI, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+		context.Background(), serverVMI, metav1.CreateOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	waitUntilVMIsReady(console.LoginToAlpine, clientVMI, serverVMI)
+
+	vmnetserver.StartTCPServer(serverVMI, tcpPort, console.LoginToAlpine)
+	By("starting a TCP server on a port not specified on the VM spec")
+	vmnetserver.StartTCPServer(serverVMI, tcpPort+1, console.LoginToAlpine)
+
+	return clientVMI, serverVMI, nil
 }
 
 func waitUntilVMIsReady(loginTo console.LoginToFunction, vmis ...*v1.VirtualMachineInstance) {
