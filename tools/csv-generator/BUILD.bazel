@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virt-operator/resource/generate/csv:go_default_library",
+        "//pkg/virt-operator/util:go_default_library",
         "//tools/util:go_default_library",
     ],
 )
