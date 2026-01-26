@@ -181,3 +181,12 @@ func hasVirtioIface(vmi *v1.VirtualMachineInstance) bool {
 	}
 	return false
 }
+
+func HasPasstBinding(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.PasstBinding != nil {
+			return true
+		}
+	}
+	return false
+}
