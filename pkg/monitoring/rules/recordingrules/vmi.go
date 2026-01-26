@@ -41,4 +41,20 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 		MetricType: operatormetrics.GaugeType,
 		Expr:       intstr.FromString("kubevirt_vmi_memory_available_bytes-kubevirt_vmi_memory_usable_bytes"),
 	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_vcpu_count",
+			Help: "The number of the VMI vCPUs.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("count by (namespace, name, node) (kubevirt_vmi_vcpu_seconds_total)"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_guest_vcpu_queue",
+			Help: "Guest queue length.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("clamp_min(kubevirt_vmi_guest_load_1m - kubevirt_vmi_vcpu_count, 0)"),
+	},
 }
