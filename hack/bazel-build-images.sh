@@ -32,6 +32,8 @@ other_images_default="
     //containerimages:fedora-with-test-tooling
     //images/disks-images-provider:disks-images-provider-image
     //images/vm-killer:vm-killer-image
+    //images/virt-template:virt-template-apiserver-image
+    //images/virt-template:virt-template-controller-image
 "
 
 other_images_x86_64_aarch64="
