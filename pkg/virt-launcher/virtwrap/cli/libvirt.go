@@ -756,7 +756,7 @@ func ExecuteWithAgentTimeout(domain VirDomain, timeoutSeconds int, operationName
 	}
 
 	defer func() {
-		if err := domain.AgentSetResponseTimeout(-1, 0); err != nil {
+		if err := domain.AgentSetResponseTimeout(int(libvirt.DOMAIN_AGENT_RESPONSE_TIMEOUT_DEFAULT), 0); err != nil {
 			log.Log.Warningf("Failed to reset agent timeout after %s: %v", operationName, err)
 		}
 	}()
