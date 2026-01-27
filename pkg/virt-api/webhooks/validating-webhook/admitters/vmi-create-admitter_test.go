@@ -3446,12 +3446,23 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 		}
 
+		enablePersistentReservation := func() {
+			kvConfig := kv.DeepCopy()
+			kvConfig.Spec.Configuration.PersistentReservationConfiguration = &v1.PersistentReservationConfiguration{
+				Enabled: pointer.P(true),
+			}
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
+		}
+
 		BeforeEach(func() {
 			vmi = api.NewMinimalVMI("testvmi")
-			enableFeatureGates(featuregate.PersistentReservation)
 		})
 
-		Context("feature gate enabled", func() {
+		Context("persistent reservation enabled", func() {
+			BeforeEach(func() {
+				enablePersistentReservation()
+			})
+
 			It("should accept vmi with no persistent reservation defined", func() {
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(BeEmpty())
@@ -3464,13 +3475,12 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 		})
 
-		Context("feature gate disabled", func() {
-			It("should reject when the feature gate is disabled", func() {
-				disableFeatureGates()
+		Context("persistent reservation disabled", func() {
+			It("should reject when persistent reservation is disabled", func() {
 				addLunDiskWithPersistentReservation(vmi)
 				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 				Expect(causes).To(HaveLen(1))
-				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.PersistentReservation)))
+				Expect(causes[0].Message).To(Equal("persistent reservation is not enabled in kubevirt config"))
 			})
 		})
 	})

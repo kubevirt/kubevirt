@@ -107,7 +107,7 @@ const (
 	MultiArchitecture = "MultiArchitecture"
 
 	// VirtIOFSConfigVolumesGate enables the use of virtiofs for config volumes, i.e., config-maps, secrets, downwardAPI, etc.
-	// Ownwers: @germag @jcanocan
+	// Owners: @germag @jcanocan
 	// Alpha: v1.5.0
 	// Beta: v1.6.0
 	// GA: v1.8.0
@@ -120,6 +120,13 @@ const (
 	// DisableMediatedDevicesHandling disables the handling of mediated
 	// devices, its creation and deletion
 	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
+
+	// Owner: sig-storage
+	// Alpha: v1.0.0
+	// GA: v1.8.0
+	//
+	// PersistentReservation enables the use of the SCSI persistent reservation in VMs using the pr-helper daemon
+	PersistentReservation = "PersistentReservation"
 )
 
 func init() {
@@ -142,6 +149,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: AutoResourceLimitsGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(
 		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})

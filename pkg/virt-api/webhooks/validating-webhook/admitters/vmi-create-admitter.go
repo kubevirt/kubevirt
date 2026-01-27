@@ -1965,7 +1965,7 @@ func validatePersistentReservation(field *k8sfield.Path, spec *v1.VirtualMachine
 	if !config.PersistentReservationEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.PersistentReservation),
+			Message: "persistent reservation is not enabled in kubevirt config",
 			Field:   field.Child("domain", "devices", "disks", "luns", "reservation").String(),
 		})
 	}

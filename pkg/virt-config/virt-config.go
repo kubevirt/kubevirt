@@ -508,3 +508,12 @@ func GetHypervisorFromKvConfig(kvConfig *v1.KubeVirtConfiguration, configHypervi
 		Name: v1.KvmHypervisorName,
 	}
 }
+
+func (c *ClusterConfig) PersistentReservationEnabled() bool {
+	config := c.GetConfig().PersistentReservationConfiguration
+	if config != nil && config.Enabled != nil {
+		return *config.Enabled
+	}
+
+	return c.isFeatureGateDefined(featuregate.PersistentReservation)
+}
