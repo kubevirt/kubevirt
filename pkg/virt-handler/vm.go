@@ -1377,9 +1377,11 @@ func (c *VirtualMachineController) sync(key string,
 	}
 
 	domainAlive := domainExists &&
-		domain.Status.Status != api.Shutoff &&
-		domain.Status.Status != api.Crashed &&
-		domain.Status.Status != ""
+		((domain.Status.Status != api.Shutoff &&
+			domain.Status.Status != api.Crashed &&
+			domain.Status.Status != "") ||
+			// 	Ignoring transient Shutoff/Unknown status for recently created domain
+			isStartingUp(domain))
 
 	forceShutdownIrrecoverable = domainExists && domainPausedFailedPostCopy(domain)
 
@@ -1502,6 +1504,12 @@ func (c *VirtualMachineController) sync(key string,
 	c.logger.Object(vmi).V(3).Info("Synchronization loop succeeded.")
 	return nil
 
+}
+
+func isStartingUp(domain *api.Domain) bool {
+	// Handle old launchers where the StartingUp field does not exist.
+	// Old launcher should not reach this code since
+	return domain.Spec.Metadata.KubeVirt.StartingUp != nil && *domain.Spec.Metadata.KubeVirt.StartingUp
 }
 
 func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstance) error {
@@ -2345,6 +2353,10 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			case api.ReasonMigrated:
 				// if the domain migrated, we no longer know the phase.
 				return vmi.Status.Phase, nil
+			case api.ReasonUnknown:
+				// Shutoff/Unknown during startup has been handled.
+				// We can fail the VMI here.
+				return v1.Failed, nil
 			}
 		case api.Paused:
 			switch domain.Status.Reason {
