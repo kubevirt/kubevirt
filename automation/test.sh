@@ -635,6 +635,21 @@ spec:
 EOF
 fi
 
+if [[ $TARGET =~ sig-storage ]]; then
+  # sig-storage cares about persistent reservation, others don't
+  kubectl patch -n ${namespace} kv kubevirt --type merge -p '
+  {
+    "spec": {
+      "configuration": {
+        "persistentReservationConfiguration": {
+          "enabled": true
+        }
+      }
+    }
+  }'
+  kubectl wait -n ${namespace} kv kubevirt --for condition=Available --timeout 5m
+fi
+
 
 # Run functional tests
 FUNC_TEST_ARGS=$ginko_params FUNC_TEST_LABEL_FILTER="--label-filter=(!flake-check)&&(${label_filter})" make functest
