@@ -56,6 +56,7 @@ generate:
 	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh && hack/bazel-fmt.sh"
 	hack/dockerized hack/sync-kubevirtci.sh
 	hack/dockerized hack/common-instancetypes/sync.sh
+	hack/dockerized hack/virt-template/sync.sh
 	./hack/update-generated-api-testdata.sh
 
 generate-verify: generate
