@@ -571,7 +571,11 @@ spec:
                 enabled: true
               enabled: true
             tlbflush:
+              direct:
+                enabled: true
               enabled: true
+              extended:
+                enabled: true
             vapic:
               enabled: true
             vendorid:

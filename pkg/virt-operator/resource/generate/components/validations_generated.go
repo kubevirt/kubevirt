@@ -6870,6 +6870,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       type: boolean
                                   type: object
                                 enabled:
+                                  description: |-
+                                    Enabled determines if the feature should be enabled or disabled on the guest.
+                                    Defaults to true.
                                   type: boolean
                               type: object
                             tlbflush:
@@ -6877,11 +6880,33 @@ var CRDsValidation map[string]string = map[string]string{
                                 TLBFlush improves performances in overcommited environments. Requires vpindex.
                                 Defaults to the machine type setting.
                               properties:
+                                direct:
+                                  description: |-
+                                    Direct allows sending the TLB flush command directly to the hypervisor.
+                                    It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                                  properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled determines if the feature should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
                                 enabled:
                                   description: |-
                                     Enabled determines if the feature should be enabled or disabled on the guest.
                                     Defaults to true.
                                   type: boolean
+                                extended:
+                                  description: Extended allows the guest to execute
+                                    partial TLB flushes. It can be helpful for general
+                                    purpose workloads.
+                                  properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled determines if the feature should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
                               type: object
                             vapic:
                               description: |-
@@ -10137,6 +10162,9 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                     enabled:
+                      description: |-
+                        Enabled determines if the feature should be enabled or disabled on the guest.
+                        Defaults to true.
                       type: boolean
                   type: object
                 tlbflush:
@@ -10144,11 +10172,32 @@ var CRDsValidation map[string]string = map[string]string{
                     TLBFlush improves performances in overcommited environments. Requires vpindex.
                     Defaults to the machine type setting.
                   properties:
+                    direct:
+                      description: |-
+                        Direct allows sending the TLB flush command directly to the hypervisor.
+                        It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                      properties:
+                        enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
+                          type: boolean
+                      type: object
                     enabled:
                       description: |-
                         Enabled determines if the feature should be enabled or disabled on the guest.
                         Defaults to true.
                       type: boolean
+                    extended:
+                      description: Extended allows the guest to execute partial TLB
+                        flushes. It can be helpful for general purpose workloads.
+                      properties:
+                        enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
+                          type: boolean
+                      type: object
                   type: object
                 vapic:
                   description: |-
@@ -12629,6 +12678,9 @@ var CRDsValidation map[string]string = map[string]string{
                               type: boolean
                           type: object
                         enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
                           type: boolean
                       type: object
                     tlbflush:
@@ -12636,11 +12688,32 @@ var CRDsValidation map[string]string = map[string]string{
                         TLBFlush improves performances in overcommited environments. Requires vpindex.
                         Defaults to the machine type setting.
                       properties:
+                        direct:
+                          description: |-
+                            Direct allows sending the TLB flush command directly to the hypervisor.
+                            It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                          properties:
+                            enabled:
+                              description: |-
+                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                Defaults to true.
+                              type: boolean
+                          type: object
                         enabled:
                           description: |-
                             Enabled determines if the feature should be enabled or disabled on the guest.
                             Defaults to true.
                           type: boolean
+                        extended:
+                          description: Extended allows the guest to execute partial
+                            TLB flushes. It can be helpful for general purpose workloads.
+                          properties:
+                            enabled:
+                              description: |-
+                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                Defaults to true.
+                              type: boolean
+                          type: object
                       type: object
                     vapic:
                       description: |-
@@ -16426,6 +16499,9 @@ var CRDsValidation map[string]string = map[string]string{
                               type: boolean
                           type: object
                         enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
                           type: boolean
                       type: object
                     tlbflush:
@@ -16433,11 +16509,32 @@ var CRDsValidation map[string]string = map[string]string{
                         TLBFlush improves performances in overcommited environments. Requires vpindex.
                         Defaults to the machine type setting.
                       properties:
+                        direct:
+                          description: |-
+                            Direct allows sending the TLB flush command directly to the hypervisor.
+                            It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                          properties:
+                            enabled:
+                              description: |-
+                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                Defaults to true.
+                              type: boolean
+                          type: object
                         enabled:
                           description: |-
                             Enabled determines if the feature should be enabled or disabled on the guest.
                             Defaults to true.
                           type: boolean
+                        extended:
+                          description: Extended allows the guest to execute partial
+                            TLB flushes. It can be helpful for general purpose workloads.
+                          properties:
+                            enabled:
+                              description: |-
+                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                Defaults to true.
+                              type: boolean
+                          type: object
                       type: object
                     vapic:
                       description: |-
@@ -18919,6 +19016,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       type: boolean
                                   type: object
                                 enabled:
+                                  description: |-
+                                    Enabled determines if the feature should be enabled or disabled on the guest.
+                                    Defaults to true.
                                   type: boolean
                               type: object
                             tlbflush:
@@ -18926,11 +19026,33 @@ var CRDsValidation map[string]string = map[string]string{
                                 TLBFlush improves performances in overcommited environments. Requires vpindex.
                                 Defaults to the machine type setting.
                               properties:
+                                direct:
+                                  description: |-
+                                    Direct allows sending the TLB flush command directly to the hypervisor.
+                                    It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                                  properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled determines if the feature should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
                                 enabled:
                                   description: |-
                                     Enabled determines if the feature should be enabled or disabled on the guest.
                                     Defaults to true.
                                   type: boolean
+                                extended:
+                                  description: Extended allows the guest to execute
+                                    partial TLB flushes. It can be helpful for general
+                                    purpose workloads.
+                                  properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled determines if the feature should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
                               type: object
                             vapic:
                               description: |-
@@ -23921,6 +24043,9 @@ var CRDsValidation map[string]string = map[string]string{
                                               type: boolean
                                           type: object
                                         enabled:
+                                          description: |-
+                                            Enabled determines if the feature should be enabled or disabled on the guest.
+                                            Defaults to true.
                                           type: boolean
                                       type: object
                                     tlbflush:
@@ -23928,11 +24053,33 @@ var CRDsValidation map[string]string = map[string]string{
                                         TLBFlush improves performances in overcommited environments. Requires vpindex.
                                         Defaults to the machine type setting.
                                       properties:
+                                        direct:
+                                          description: |-
+                                            Direct allows sending the TLB flush command directly to the hypervisor.
+                                            It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                                          properties:
+                                            enabled:
+                                              description: |-
+                                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                                Defaults to true.
+                                              type: boolean
+                                          type: object
                                         enabled:
                                           description: |-
                                             Enabled determines if the feature should be enabled or disabled on the guest.
                                             Defaults to true.
                                           type: boolean
+                                        extended:
+                                          description: Extended allows the guest to
+                                            execute partial TLB flushes. It can be
+                                            helpful for general purpose workloads.
+                                          properties:
+                                            enabled:
+                                              description: |-
+                                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                                Defaults to true.
+                                              type: boolean
+                                          type: object
                                       type: object
                                     vapic:
                                       description: |-
@@ -25943,6 +26090,9 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                     enabled:
+                      description: |-
+                        Enabled determines if the feature should be enabled or disabled on the guest.
+                        Defaults to true.
                       type: boolean
                   type: object
                 tlbflush:
@@ -25950,11 +26100,32 @@ var CRDsValidation map[string]string = map[string]string{
                     TLBFlush improves performances in overcommited environments. Requires vpindex.
                     Defaults to the machine type setting.
                   properties:
+                    direct:
+                      description: |-
+                        Direct allows sending the TLB flush command directly to the hypervisor.
+                        It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                      properties:
+                        enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
+                          type: boolean
+                      type: object
                     enabled:
                       description: |-
                         Enabled determines if the feature should be enabled or disabled on the guest.
                         Defaults to true.
                       type: boolean
+                    extended:
+                      description: Extended allows the guest to execute partial TLB
+                        flushes. It can be helpful for general purpose workloads.
+                      properties:
+                        enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
+                          type: boolean
+                      type: object
                   type: object
                 vapic:
                   description: |-
@@ -29362,6 +29533,9 @@ var CRDsValidation map[string]string = map[string]string{
                                                   type: boolean
                                               type: object
                                             enabled:
+                                              description: |-
+                                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                                Defaults to true.
                                               type: boolean
                                           type: object
                                         tlbflush:
@@ -29369,11 +29543,34 @@ var CRDsValidation map[string]string = map[string]string{
                                             TLBFlush improves performances in overcommited environments. Requires vpindex.
                                             Defaults to the machine type setting.
                                           properties:
+                                            direct:
+                                              description: |-
+                                                Direct allows sending the TLB flush command directly to the hypervisor.
+                                                It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                                              properties:
+                                                enabled:
+                                                  description: |-
+                                                    Enabled determines if the feature should be enabled or disabled on the guest.
+                                                    Defaults to true.
+                                                  type: boolean
+                                              type: object
                                             enabled:
                                               description: |-
                                                 Enabled determines if the feature should be enabled or disabled on the guest.
                                                 Defaults to true.
                                               type: boolean
+                                            extended:
+                                              description: Extended allows the guest
+                                                to execute partial TLB flushes. It
+                                                can be helpful for general purpose
+                                                workloads.
+                                              properties:
+                                                enabled:
+                                                  description: |-
+                                                    Enabled determines if the feature should be enabled or disabled on the guest.
+                                                    Defaults to true.
+                                                  type: boolean
+                                              type: object
                                           type: object
                                         vapic:
                                           description: |-

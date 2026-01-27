@@ -345,18 +345,23 @@ var _ = Describe("Converter", func() {
 				KVM:        &v1.FeatureKVM{Hidden: true},
 				Pvspinlock: &v1.FeatureState{Enabled: pointer.P(false)},
 				Hyperv: &v1.FeatureHyperv{
-					Relaxed:         &v1.FeatureState{Enabled: pointer.P(false)},
-					VAPIC:           &v1.FeatureState{Enabled: pointer.P(true)},
-					Spinlocks:       &v1.FeatureSpinlocks{Enabled: pointer.P(true)},
-					VPIndex:         &v1.FeatureState{Enabled: pointer.P(true)},
-					Runtime:         &v1.FeatureState{Enabled: pointer.P(false)},
-					SyNIC:           &v1.FeatureState{Enabled: pointer.P(true)},
-					SyNICTimer:      &v1.SyNICTimer{Enabled: pointer.P(true), Direct: &v1.FeatureState{Enabled: pointer.P(true)}},
-					Reset:           &v1.FeatureState{Enabled: pointer.P(true)},
-					VendorID:        &v1.FeatureVendorID{Enabled: pointer.P(false), VendorID: "myvendor"},
+					Relaxed:   &v1.FeatureState{Enabled: pointer.P(false)},
+					VAPIC:     &v1.FeatureState{Enabled: pointer.P(true)},
+					Spinlocks: &v1.FeatureSpinlocks{FeatureState: v1.FeatureState{Enabled: pointer.P(true)}},
+					VPIndex:   &v1.FeatureState{Enabled: pointer.P(true)},
+					Runtime:   &v1.FeatureState{Enabled: pointer.P(false)},
+					SyNIC:     &v1.FeatureState{Enabled: pointer.P(true)},
+					SyNICTimer: &v1.SyNICTimer{
+						FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
+						Direct:       &v1.FeatureState{Enabled: pointer.P(true)},
+					},
+					Reset: &v1.FeatureState{Enabled: pointer.P(true)},
+					VendorID: &v1.FeatureVendorID{
+						FeatureState: v1.FeatureState{Enabled: pointer.P(false)},
+						VendorID:     "myvendor"},
 					Frequencies:     &v1.FeatureState{Enabled: pointer.P(false)},
 					Reenlightenment: &v1.FeatureState{Enabled: pointer.P(false)},
-					TLBFlush:        &v1.FeatureState{Enabled: pointer.P(true)},
+					TLBFlush:        &v1.TLBFlush{FeatureState: v1.FeatureState{Enabled: pointer.P(true)}},
 					IPI:             &v1.FeatureState{Enabled: pointer.P(true)},
 					EVMCS:           &v1.FeatureState{Enabled: pointer.P(false)},
 				},
@@ -2069,6 +2074,19 @@ var _ = Describe("Converter", func() {
 					Direct: &api.FeatureState{State: "on"},
 				},
 				VAPIC: &api.FeatureState{State: "on"},
+			}),
+			Entry("Convert TLBFlush with enabled features", &v1.FeatureHyperv{
+				TLBFlush: &v1.TLBFlush{
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
+					Direct:       &v1.FeatureState{Enabled: pointer.P(true)},
+					Extended:     &v1.FeatureState{Enabled: pointer.P(true)},
+				},
+			}, &api.FeatureHyperv{
+				TLBFlush: &api.TLBFlush{
+					State:    "on",
+					Direct:   &api.FeatureState{State: "on"},
+					Extended: &api.FeatureState{State: "on"},
+				},
 			}),
 		)
 

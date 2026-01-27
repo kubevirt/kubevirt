@@ -126,7 +126,7 @@ func convert_v1_FeatureHyperv_To_api_FeatureHyperv(source *v1.FeatureHyperv, hyp
 	hyperv.VPIndex = convertFeatureState(source.VPIndex)
 	hyperv.Frequencies = convertFeatureState(source.Frequencies)
 	hyperv.Reenlightenment = convertFeatureState(source.Reenlightenment)
-	hyperv.TLBFlush = convertFeatureState(source.TLBFlush)
+	hyperv.TLBFlush = convertTLBFlushFeature(source.TLBFlush)
 	hyperv.IPI = convertFeatureState(source.IPI)
 	hyperv.EVMCS = convertFeatureState(source.EVMCS)
 	return nil
@@ -155,5 +155,28 @@ func convertV1ToAPISyNICTimer(syNICTimer *v1.SyNICTimer) *api.SyNICTimer {
 			State: boolToOnOff(syNICTimer.Direct.Enabled, true),
 		}
 	}
+	return result
+}
+
+func convertTLBFlushFeature(tlbFlush *v1.TLBFlush) *api.TLBFlush {
+	if tlbFlush == nil {
+		return nil
+	}
+
+	result := &api.TLBFlush{
+		State: boolToOnOff(tlbFlush.Enabled, true),
+	}
+
+	if tlbFlush.Direct != nil {
+		result.Direct = &api.FeatureState{
+			State: boolToOnOff(tlbFlush.Direct.Enabled, true),
+		}
+	}
+	if tlbFlush.Extended != nil {
+		result.Extended = &api.FeatureState{
+			State: boolToOnOff(tlbFlush.Extended.Enabled, true),
+		}
+	}
+
 	return result
 }

@@ -543,6 +543,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.SyNICTimer":                                                              schema_kubevirtio_api_core_v1_SyNICTimer(ref),
 		"kubevirt.io/api/core/v1.SysprepSource":                                                           schema_kubevirtio_api_core_v1_SysprepSource(ref),
 		"kubevirt.io/api/core/v1.TDX":                                                                     schema_kubevirtio_api_core_v1_TDX(ref),
+		"kubevirt.io/api/core/v1.TLBFlush":                                                                schema_kubevirtio_api_core_v1_TLBFlush(ref),
 		"kubevirt.io/api/core/v1.TLSConfiguration":                                                        schema_kubevirtio_api_core_v1_TLSConfiguration(ref),
 		"kubevirt.io/api/core/v1.TPMDevice":                                                               schema_kubevirtio_api_core_v1_TPMDevice(ref),
 		"kubevirt.io/api/core/v1.Timer":                                                                   schema_kubevirtio_api_core_v1_Timer(ref),
@@ -21066,7 +21067,7 @@ func schema_kubevirtio_api_core_v1_FeatureHyperv(ref common.ReferenceCallback) c
 					"tlbflush": {
 						SchemaProps: spec.SchemaProps{
 							Description: "TLBFlush improves performances in overcommited environments. Requires vpindex. Defaults to the machine type setting.",
-							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
+							Ref:         ref("kubevirt.io/api/core/v1.TLBFlush"),
 						},
 					},
 					"ipi": {
@@ -21085,7 +21086,7 @@ func schema_kubevirtio_api_core_v1_FeatureHyperv(ref common.ReferenceCallback) c
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.FeatureSpinlocks", "kubevirt.io/api/core/v1.FeatureState", "kubevirt.io/api/core/v1.FeatureVendorID", "kubevirt.io/api/core/v1.SyNICTimer"},
+			"kubevirt.io/api/core/v1.FeatureSpinlocks", "kubevirt.io/api/core/v1.FeatureState", "kubevirt.io/api/core/v1.FeatureVendorID", "kubevirt.io/api/core/v1.SyNICTimer", "kubevirt.io/api/core/v1.TLBFlush"},
 	}
 }
 
@@ -25899,8 +25900,9 @@ func schema_kubevirtio_api_core_v1_SyNICTimer(ref common.ReferenceCallback) comm
 				Properties: map[string]spec.Schema{
 					"enabled": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"direct": {
@@ -25950,6 +25952,39 @@ func schema_kubevirtio_api_core_v1_TDX(ref common.ReferenceCallback) common.Open
 				Type: []string{"object"},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_TLBFlush(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"direct": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Direct allows sending the TLB flush command directly to the hypervisor. It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
+						},
+					},
+					"extended": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Extended allows the guest to execute partial TLB flushes. It can be helpful for general purpose workloads.",
+							Ref:         ref("kubevirt.io/api/core/v1.FeatureState"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.FeatureState"},
 	}
 }
 

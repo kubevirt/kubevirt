@@ -630,7 +630,9 @@ func (Features) SwaggerDoc() map[string]string {
 }
 
 func (SyNICTimer) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"direct": "+optional",
+	}
 }
 
 func (FeatureState) SwaggerDoc() map[string]string {
@@ -642,22 +644,26 @@ func (FeatureState) SwaggerDoc() map[string]string {
 
 func (FeatureAPIC) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"enabled":        "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
 		"endOfInterrupt": "EndOfInterrupt enables the end of interrupt notification in the guest.\nDefaults to false.\n+optional",
 	}
 }
 
 func (FeatureSpinlocks) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"enabled":   "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
 		"spinlocks": "Retries indicates the number of retries.\nMust be a value greater or equal 4096.\nDefaults to 4096.\n+optional",
 	}
 }
 
 func (FeatureVendorID) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"enabled":  "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
 		"vendorid": "VendorID sets the hypervisor vendor id, visible to the vmi.\nString up to twelve characters.",
+	}
+}
+
+func (TLBFlush) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"direct":   "Direct allows sending the TLB flush command directly to the hypervisor.\nIt can be useful to optimize performance in nested virtualization cases, such as Windows VBS.\n+optional",
+		"extended": "Extended allows the guest to execute partial TLB flushes. It can be helpful for general purpose workloads.\n+optional",
 	}
 }
 

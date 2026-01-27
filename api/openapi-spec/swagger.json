@@ -14966,7 +14966,7 @@
      },
      "tlbflush": {
       "description": "TLBFlush improves performances in overcommited environments. Requires vpindex. Defaults to the machine type setting.",
-      "$ref": "#/definitions/v1.FeatureState"
+      "$ref": "#/definitions/v1.TLBFlush"
      },
      "vapic": {
       "description": "VAPIC improves the paravirtualized handling of interrupts. Defaults to the machine type setting.",
@@ -17514,6 +17514,7 @@
       "$ref": "#/definitions/v1.FeatureState"
      },
      "enabled": {
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.",
       "type": "boolean"
      }
     }
@@ -17534,6 +17535,23 @@
    },
    "v1.TDX": {
     "type": "object"
+   },
+   "v1.TLBFlush": {
+    "type": "object",
+    "properties": {
+     "direct": {
+      "description": "Direct allows sending the TLB flush command directly to the hypervisor. It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "enabled": {
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.",
+      "type": "boolean"
+     },
+     "extended": {
+      "description": "Extended allows the guest to execute partial TLB flushes. It can be helpful for general purpose workloads.",
+      "$ref": "#/definitions/v1.FeatureState"
+     }
+    }
    },
    "v1.TLSConfiguration": {
     "description": "TLSConfiguration holds TLS options",

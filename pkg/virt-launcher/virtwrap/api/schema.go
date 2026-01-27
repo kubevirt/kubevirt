@@ -330,7 +330,7 @@ type FeatureHyperv struct {
 	VendorID        *FeatureVendorID  `xml:"vendor_id,omitempty"`
 	Frequencies     *FeatureState     `xml:"frequencies,omitempty"`
 	Reenlightenment *FeatureState     `xml:"reenlightenment,omitempty"`
-	TLBFlush        *FeatureState     `xml:"tlbflush,omitempty"`
+	TLBFlush        *TLBFlush         `xml:"tlbflush,omitempty"`
 	IPI             *FeatureState     `xml:"ipi,omitempty"`
 	EVMCS           *FeatureState     `xml:"evmcs,omitempty"`
 }
@@ -343,6 +343,12 @@ type FeatureSpinlocks struct {
 type SyNICTimer struct {
 	Direct *FeatureState `xml:"direct,omitempty"`
 	State  string        `xml:"state,attr,omitempty"`
+}
+
+type TLBFlush struct {
+	Direct   *FeatureState `xml:"direct,omitempty"`
+	Extended *FeatureState `xml:"extended,omitempty"`
+	State    string        `xml:"state,attr,omitempty"`
 }
 
 type FeaturePVSpinlock struct {
