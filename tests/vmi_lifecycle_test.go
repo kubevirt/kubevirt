@@ -1051,11 +1051,21 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}, 60*time.Second, 1*time.Second).Should(Equal(k8sv1.PodReasonUnschedulable), "VMI should be unchedulable")
 			})
 
-			It("[test_id:3202]the vmi with cpu.features matching nfd labels on a node should be scheduled", func() {
+			It("[test_id:3202]the vmi with cpu.features matching nfd labels on a node should be scheduled", decorators.WgS390x, func() {
 
 				By("adding a node-feature-discovery CPU model label to a node")
 				vmi := libvmifact.NewAlpine()
-				const featureToDisable = "fpu"
+				var featureToDisable string
+				// Use a different feature to disable, as  s390x and
+				//other archs do not have common cpu features
+
+				switch libnode.GetArch() {
+				case "s390x":
+					featureToDisable = "zpci"
+				case "amd64":
+					featureToDisable = "fpu"
+
+				}
 
 				featureToRequire := supportedFeatures[0]
 
@@ -1072,7 +1082,7 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 							Policy: "require",
 						},
 						{
-							Name:   "fpu",
+							Name:   featureToDisable,
 							Policy: "disable",
 						},
 					},
