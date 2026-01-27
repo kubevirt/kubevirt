@@ -90,6 +90,8 @@ var (
 	RequiresRWOFsVMStateStorageClass = Label("RequiresRWOFsVMStateStorageClass")
 	// RequiresRWXFsVMStateStorageClass requires the VMStateStorageClass to be set to ReadWriteMany Filesystem storage class
 	RequiresRWXFsVMStateStorageClass = Label("RequiresRWXFsVMStateStorageClass")
+	// RequiresPersistentReservation requires the Persistent Reservation to be enabled on the kubevirt level
+	RequiresPersistentReservation = Label("RequiresPersistentReservation")
 
 	// RequiresBlockStorage requires a storage class with Block storage support
 	RequiresBlockStorage = Label("RequiresBlockStorage")
