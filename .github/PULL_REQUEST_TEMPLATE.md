@@ -39,7 +39,7 @@ Links to places where the discussion took place: <!-- optional: slack, other GH 
 This checklist is not enforcing, but it's a reminder of items that could be relevant to every PR.
 Approvers are expected to review this list.
 
-- [ ] Design: A [design document](https://github.com/kubevirt/community/tree/main/design-proposals) was considered and is present (link) or not required
+- [ ] Design: A [VEP (virtualization enhancement proposal)](https://github.com/kubevirt/enhancements/blob/main/README.md) was considered and is present (link) or not required
 - [ ] PR: The PR description is expressive enough and will help future contributors
 - [ ] Code: [Write code that humans can understand](https://en.wikiquote.org/wiki/Martin_Fowler#code-for-humans) and [Keep it simple](https://en.wikipedia.org/wiki/KISS_principle)
 - [ ] Refactor: You have [left the code cleaner than you found it (Boy Scout Rule)](https://learning.oreilly.com/library/view/97-things-every/9780596809515/ch08.html)
