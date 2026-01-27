@@ -475,6 +475,30 @@ var _ = Describe("Manager", func() {
 			Expect(newspec).ToNot(BeNil())
 		})
 
+		It("should set StartingUp metadata when defining a new VirtualMachineInstance", func() {
+			vmi := newVMI(testNamespace, testVmName)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(testDomainName).Return(nil, libvirt.Error{Code: libvirt.ERR_NO_DOMAIN})
+
+			setDomainExpectations(vmi)
+
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_SHUTDOWN, 1, nil)
+			mockLibvirt.DomainEXPECT().CreateWithFlags(libvirt.DOMAIN_NONE).Return(nil)
+			manager, _ := newLibvirtDomainManagerDefault()
+
+			// Verify StartingUp is not set before sync
+			startingUp, exists := metadataCache.StartingUp.Load()
+			Expect(exists).To(BeFalse())
+
+			newspec, err := manager.SyncVMI(vmi, true, &cmdv1.VirtualMachineOptions{VirtualMachineSMBios: &cmdv1.SMBios{}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(newspec).ToNot(BeNil())
+
+			// Verify StartingUp is set to true after sync
+			startingUp, exists = metadataCache.StartingUp.Load()
+			Expect(exists).To(BeTrue())
+			Expect(startingUp).To(BeTrue())
+		})
+
 		It("should define and start a new VirtualMachineInstance with StartStrategy paused", func() {
 			vmi := newVMI(testNamespace, testVmName)
 			strategy := v1.StartStrategyPaused
