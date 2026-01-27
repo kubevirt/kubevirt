@@ -56,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -481,6 +482,9 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 				By("Checking that VirtualMachineInstance has 'Failed' phase")
 				Eventually(matcher.ThisVMI(vmi)).WithTimeout(10 * time.Second).WithPolling(time.Second).Should(matcher.BeInPhase(v1.Failed))
+
+				By("Checking that a GuestPanicked event was emitted")
+				events.ExpectEvent(vmi, k8sv1.EventTypeWarning, "GuestPanicked")
 			},
 				Entry("amd64", v1.Isa, decorators.RequiresAMD64),
 				Entry("arm64", v1.Pvpanic, decorators.RequiresARM64),
