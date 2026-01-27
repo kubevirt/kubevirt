@@ -314,6 +314,25 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 				return nil
 			}
 
+			// Skip SR-IOV Physical Functions (PFs) by checking for virtual function subdirectories.
+			// PFs are identified by the presence of virtfn* directories in their sysfs path.
+			// We only want to expose Virtual Functions (VFs) to VMs, not the PFs themselves.
+			isPF := false
+			dirE, err := os.ReadDir(path)
+			if err == nil {
+				for _, dir := range dirE {
+					if strings.HasPrefix(dir.Name(), "virtfn") {
+						isPF = true
+						break
+					}
+				}
+				log.DefaultLogger().Infof("Is PF %v %s", isPF, pciID)
+				if isPF {
+					return nil
+				}
+
+			}
+
 			pcidev := &PCIDevice{
 				pciID:      pciID,
 				pciAddress: info.Name(),
