@@ -361,6 +361,11 @@ const (
 	// existing PVCs for each snapshotted volumes. That means deleting the original PVC if it still
 	// exists, and restoring the volume with the same name as the original PVC.
 	VolumeRestorePolicyInPlace VolumeRestorePolicy = "InPlace"
+
+	// VolumeRestorePolicyPrefixTargetName defines a VolumeRestorePolicy which creates
+	// new PVCs with names prefixed by the target VM name: {targetVMName}-{volumeName}.
+	// This provides predictable naming while avoiding collisions when restoring to different targets.
+	VolumeRestorePolicyPrefixTargetName VolumeRestorePolicy = "PrefixTargetName"
 )
 
 // VolumeOwnershipPolicy defines what owns volumes once they're restored
