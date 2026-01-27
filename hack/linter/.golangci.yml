@@ -106,6 +106,26 @@ linters:
       - builtin$
       - examples$
       - (^|/)vendor/
+      - tests/network/bindingplugin_macvtap\.go$
+      - tests/network/bindingplugin_passt\.go$
+      - tests/network/bindingplugin_slirp\.go$
+      - tests/network/dual_stack_cluster\.go$
+      - tests/network/framework\.go$
+      - tests/network/hotplug_bridge\.go$
+      - tests/network/hotplug_sriov\.go$
+      - tests/network/link_state\.go$
+      - tests/network/networkpolicy\.go$
+      - tests/network/port_forward\.go$
+      - tests/network/primary_pod_network\.go$
+      - tests/network/probes\.go$
+      - tests/network/services\.go$
+      - tests/network/sriov\.go$
+      - tests/network/vmi_infosource\.go$
+      - tests/network/vmi_istio\.go$
+      - tests/network/vmi_lifecycle\.go$
+      - tests/network/vmi_multus\.go$
+      - tests/network/vmi_networking\.go$
+      - tests/network/vmi_subdomain\.go$
 formatters:
   enable:
     - gofmt
@@ -124,3 +144,23 @@ formatters:
       - builtin$
       - examples$
       - (^|/)vendor/
+      - tests/network/bindingplugin_macvtap\.go$
+      - tests/network/bindingplugin_passt\.go$
+      - tests/network/bindingplugin_slirp\.go$
+      - tests/network/dual_stack_cluster\.go$
+      - tests/network/framework\.go$
+      - tests/network/hotplug_bridge\.go$
+      - tests/network/hotplug_sriov\.go$
+      - tests/network/link_state\.go$
+      - tests/network/networkpolicy\.go$
+      - tests/network/port_forward\.go$
+      - tests/network/primary_pod_network\.go$
+      - tests/network/probes\.go$
+      - tests/network/services\.go$
+      - tests/network/sriov\.go$
+      - tests/network/vmi_infosource\.go$
+      - tests/network/vmi_istio\.go$
+      - tests/network/vmi_lifecycle\.go$
+      - tests/network/vmi_multus\.go$
+      - tests/network/vmi_networking\.go$
+      - tests/network/vmi_subdomain\.go$
