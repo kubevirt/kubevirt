@@ -20,10 +20,13 @@
 package libnet
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -55,4 +58,25 @@ func PingFromVMConsole(vmi *v1.VirtualMachineInstance, ipAddr string, args ...st
 		return fmt.Errorf("failed to ping VMI %s, error: %v", vmi.Name, err)
 	}
 	return nil
+}
+
+func WaitForGuestNetworkReady(vmi *v1.VirtualMachineInstance, ipFamily k8sv1.IPFamily, timeout time.Duration) error {
+	checkRouteCmd := "ip route show default | grep -q 'default via'"
+	if ipFamily == k8sv1.IPv6Protocol {
+		checkRouteCmd = "ip -6 route show default | grep -q 'default via' && ip -6 neigh show | grep -qE 'REACHABLE|STALE|DELAY|PROBE'"
+	}
+
+	return wait.PollUntilContextTimeout(
+		context.Background(),
+		time.Second,
+		timeout,
+		true,
+		func(ctx context.Context) (done bool, err error) {
+			err = console.RunCommand(vmi, checkRouteCmd, 5*time.Second)
+			if err != nil {
+				return false, nil
+			}
+			return true, nil
+		},
+	)
 }

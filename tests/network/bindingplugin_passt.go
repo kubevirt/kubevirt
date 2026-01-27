@@ -387,6 +387,9 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 				return migrateVmiAfterMigIP
 			}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")
 
+			By("Wait for guest network to be ready after migration")
+			Expect(libnet.WaitForGuestNetworkReady(migrateVMI, ipFamily, 2*time.Minute)).To(Succeed())
+
 			By("Verify the VMIs can ping each other after migration")
 			Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
 			Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed())
