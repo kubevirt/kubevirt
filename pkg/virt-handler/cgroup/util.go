@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -155,6 +156,18 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
 		} else if deviceRule != nil {
 			log.Log.V(loggingVerbosity).Infof("device rule for volume rng: %v", deviceRule)
+			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
+		}
+	}
+	if util.IsAutoAttachVSOCK(vmi) {
+		path, err := safepath.JoinNoFollow(mountRoot, "/dev/vhost-vsock")
+		if err != nil {
+			return nil, err
+		}
+		if deviceRule, err := newAllowedDeviceRule(path); err != nil {
+			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
+		} else if deviceRule != nil {
+			log.Log.V(loggingVerbosity).Infof("device rule for volume vsock: %v", deviceRule)
 			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
 		}
 	}
