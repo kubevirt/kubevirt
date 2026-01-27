@@ -226,6 +226,8 @@ spec:
         selectors:
         - product: productValue
           vendor: vendorValue
+    persistentReservationConfiguration:
+      enabled: true
     seccompConfiguration:
       virtualMachineInstanceProfile:
         customProfile:
