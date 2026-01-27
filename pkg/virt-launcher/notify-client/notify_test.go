@@ -124,6 +124,9 @@ var _ = Describe("Notify", func() {
 					newDomain, ok := event.Object.(*api.Domain)
 					newDomain.Spec.XMLName = xml.Name{}
 					Expect(ok).To(BeTrue(), "should typecase domain")
+					// ignoring StartinUp field, since it's out of scope here
+					domain.Spec.Metadata.KubeVirt.StartingUp = nil
+					newDomain.Spec.Metadata.KubeVirt.StartingUp = nil
 					Expect(equality.Semantic.DeepEqual(domain.Spec, newDomain.Spec)).To(BeTrue())
 					Expect(event.Type).To(Equal(kubeEventType))
 				}
