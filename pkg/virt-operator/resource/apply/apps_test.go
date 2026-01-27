@@ -716,7 +716,7 @@ var _ = Describe("Apply Apps", func() {
 							Expect(env.Name).ToNot(Equal("UNAUTHORIZED"))
 						}
 					},
-					CanaryUpgradeStatusStarted, false, false, true,
+					CanaryUpgradeStatusSuccessful, true, false, true,
 				),
 				Entry("should detect and revert unauthorized resource modification",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -737,7 +737,7 @@ var _ = Describe("Apply Apps", func() {
 							Expect(cpuLimit.MilliValue()).ToNot(Equal(int64(9999)))
 						}
 					},
-					CanaryUpgradeStatusStarted, false, false, true,
+					CanaryUpgradeStatusSuccessful, true, false, true,
 				),
 				Entry("should detect and revert unauthorized image change",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -754,7 +754,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(daemonSet.Spec.Template.Spec.Containers[0].Image).ToNot(ContainSubstring("unauthorized"))
 						Expect(daemonSet.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(Registry))
 					},
-					CanaryUpgradeStatusStarted, false, false, true,
+					CanaryUpgradeStatusSuccessful, true, false, true,
 				),
 				Entry("should detect and revert unauthorized volume mount change",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -775,7 +775,7 @@ var _ = Describe("Apply Apps", func() {
 							Expect(vm.Name).ToNot(Equal("unauthorized-mount"))
 						}
 					},
-					CanaryUpgradeStatusStarted, false, false, true,
+					CanaryUpgradeStatusSuccessful, true, false, true,
 				),
 				Entry("should detect and revert unauthorized security context change",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -803,7 +803,7 @@ var _ = Describe("Apply Apps", func() {
 							Expect(sc.Capabilities.Add).ToNot(ContainElement(corev1.Capability("NET_ADMIN")))
 						}
 					},
-					CanaryUpgradeStatusStarted, false, false, true,
+					CanaryUpgradeStatusSuccessful, true, false, true,
 				),
 			)
 		})

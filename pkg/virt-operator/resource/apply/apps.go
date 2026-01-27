@@ -283,13 +283,20 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	switch {
 	case updatedAndReadyPods == 0:
 		if !isDaemonSetUpdated {
-			// start canary upgrade
+			// start canary upgrade (or revert unauthorized modification)
 			setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
-			_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
+			patchedDS, err := r.patchDaemonSet(cachedDaemonSet, newDS)
 			if err != nil {
 				return false, fmt.Errorf("unable to start canary upgrade for daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
 			}
 			log.V(2).Infof("daemonSet %v started upgrade", newDS.GetName())
+			// If we're reverting an unauthorized spec modification (not a version upgrade),
+			// the pods are already running with the correct spec and annotations. We can
+			// immediately record the generation to avoid blocking other reconciliation.
+			if !coreSpecMatches && util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) {
+				SetGeneration(&r.kv.Status.Generations, patchedDS)
+				return true, nil, CanaryUpgradeStatusSuccessful
+			}
 		} else {
 			// check for a crashed canary pod
 			canaryPods := r.getCanaryPods(cachedDaemonSet)
