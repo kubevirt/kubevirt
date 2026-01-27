@@ -27,6 +27,7 @@ import (
 const (
 	FailedDomainMemoryDump   = "Domain memory dump failed"
 	MaxConcurrentMemoryDumps = 1
+	fsFreezeTimeoutSeconds   = 60
 )
 
 type StorageManager struct {
