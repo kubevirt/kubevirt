@@ -158,10 +158,17 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
 		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
 	}
-	if kv.Spec.Configuration.DeveloperConfiguration != nil && len(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates) > 0 {
-		for _, v := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-			if v == featuregate.PersistentReservation {
-				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+	// TODO: consider passing in clusterconfig and use it's existing persistent reservation enabled state
+	if prcfg := kv.Spec.Configuration.PersistentReservationConfiguration; prcfg != nil && prcfg.Enabled != nil {
+		if *prcfg.Enabled {
+			additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+		}
+	} else {
+		if kv.Spec.Configuration.DeveloperConfiguration != nil && len(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates) > 0 {
+			for _, v := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
+				if v == featuregate.PersistentReservation {
+					additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+				}
 			}
 		}
 	}
