@@ -408,6 +408,7 @@ type Metadata struct {
 
 type KubeVirtMetadata struct {
 	UID              types.UID                 `xml:"uid"`
+	StartingUp       *bool                     `xml:"startingUp,omitempty"`
 	GracePeriod      *GracePeriodMetadata      `xml:"graceperiod,omitempty"`
 	Migration        *MigrationMetadata        `xml:"migration,omitempty"`
 	Backup           *BackupMetadata           `xml:"backup,omitempty"`
