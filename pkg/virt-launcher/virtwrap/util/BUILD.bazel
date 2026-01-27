@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "cpu_utils.go",
         "libvirt_helper.go",
+        "panic_info.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util",
     visibility = ["//visibility:public"],
@@ -30,6 +31,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "libvirt_helper_test.go",
+        "panic_info_test.go",
         "util_suite_test.go",
     ],
     embed = [":go_default_library"],
