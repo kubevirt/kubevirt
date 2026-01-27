@@ -38,6 +38,11 @@ const (
 	injectedMountPath  = "/opt/test-injected"
 )
 
+var (
+	volumeType    string
+	configMapName string
+)
+
 func main() {
 	log.InitializeLogging("test-pod-mutator")
 
@@ -46,7 +51,14 @@ func main() {
 	pflag.IntVar(&port, "port", 8443, "port to listen on")
 	pflag.StringVar(&certFile, "cert-file", "/etc/webhook/certs/tls.crt", "TLS certificate file")
 	pflag.StringVar(&keyFile, "key-file", "/etc/webhook/certs/tls.key", "TLS private key file")
+	pflag.StringVar(&volumeType, "volume-type", "emptydir", "type of volume to inject: emptydir or configmap")
+	pflag.StringVar(&configMapName, "configmap-name", "", "name of ConfigMap to inject (required when volume-type=configmap)")
 	pflag.Parse()
+
+	if volumeType == "configmap" && configMapName == "" {
+		log.Log.Error("--configmap-name is required when --volume-type=configmap")
+		os.Exit(1)
+	}
 
 	http.HandleFunc("/mutate", handleMutate)
 	http.HandleFunc("/health", handleHealth)
@@ -130,7 +142,7 @@ func mutate(req *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 
 	patches := []map[string]interface{}{}
 
-	// Add emptyDir volume if not already present
+	// Check if volume already exists
 	volumeExists := false
 	for _, vol := range pod.Spec.Volumes {
 		if vol.Name == injectedVolumeName {
@@ -140,14 +152,34 @@ func mutate(req *admissionv1.AdmissionRequest) *admissionv1.AdmissionResponse {
 	}
 
 	if !volumeExists {
-		volumePatch := map[string]interface{}{
-			"op":   "add",
-			"path": "/spec/volumes/-",
-			"value": map[string]interface{}{
-				"name":     injectedVolumeName,
+		var volumeSource map[string]interface{}
+		switch volumeType {
+		case "emptydir":
+			volumeSource = map[string]interface{}{
 				"emptyDir": map[string]interface{}{},
-			},
+			}
+		case "configmap":
+			volumeSource = map[string]interface{}{
+				"configMap": map[string]interface{}{
+					"name": configMapName,
+				},
+			}
+		default:
+			log.Log.Errorf("Unknown volume type: %s", volumeType)
+			return &admissionv1.AdmissionResponse{
+				Allowed: false,
+				Result: &metav1.Status{
+					Message: fmt.Sprintf("Unknown volume type: %s", volumeType),
+				},
+			}
 		}
+
+		volumePatch := map[string]interface{}{
+			"op":    "add",
+			"path":  "/spec/volumes/-",
+			"value": volumeSource,
+		}
+		volumePatch["value"].(map[string]interface{})["name"] = injectedVolumeName
 		patches = append(patches, volumePatch)
 	}
 

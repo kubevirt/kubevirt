@@ -44,10 +44,12 @@ import (
 	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
+	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libvmifact"
-	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -114,20 +116,25 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 		})
 
 		It("Should access webhook-injected emptyDir via ContainerPath virtiofs", func() {
+			virtClient := kubevirt.Client()
+
 			By("Creating VMI with ContainerPath pointing to injected volume")
 			vmi := libvmifact.NewAlpine(
 				libvmi.WithFilesystemContainerPath(containerPathFilesystemName, injectedVolumePath),
 			)
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 
-			By("Starting the VMI")
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 300)
+			By("Waiting for virt-launcher pod and verifying virtiofsd container exists")
+			vmiPod := waitForVirtiofsContainerInPod(vmi, containerPathFilesystemName)
+
+			By("Waiting for VMI to be running")
+			// Ignore transient webhook errors - virt-controller will retry and succeed once webhook is ready
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running},
+				libwait.WithWarningsIgnoreList([]string{"failed calling webhook"}))
 
 			By("Logging into the VMI")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
-
-			By("Verifying the injected volume exists in the pod")
-			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).ToNot(HaveOccurred())
 
 			// Write test file to the injected volume from the pod
 			_, err = exec.ExecuteCommandOnPod(
@@ -147,6 +154,118 @@ var _ = Describe("[sig-storage] ContainerPath virtiofs volumes", decorators.SigS
 				// Read the test file that was written from the pod
 				&expect.BSnd{S: fmt.Sprintf("cat /mnt/%s\n", testFileName)},
 				&expect.BExp{R: testContent},
+			}, 200)).To(Succeed())
+		})
+	})
+
+	Context("With webhook-injected ConfigMap volume and migration", func() {
+		const (
+			webhookName                 = "test-pod-mutator-cm"
+			webhookPort                 = 8443
+			webhookSecretName           = "webhook-certs-cm"
+			configMapName               = "test-migration-cm"
+			containerPathFilesystemName = "injected-cm-fs"
+			injectedVolumePath          = "/opt/test-injected"
+			testDataKey                 = "test-data"
+			testDataValue               = "Hello from migrated ConfigMap!"
+		)
+
+		var webhookPod *k8sv1.Pod
+		var webhookService *k8sv1.Service
+		var webhookConfig *admissionregistrationv1.MutatingWebhookConfiguration
+
+		BeforeEach(func() {
+			virtClient := kubevirt.Client()
+			testNamespace := testsuite.GetTestNamespace(nil)
+
+			By("Creating ConfigMap with test data")
+			configMap := &k8sv1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      configMapName,
+					Namespace: testNamespace,
+				},
+				Data: map[string]string{
+					testDataKey: testDataValue,
+				},
+			}
+			_, err := virtClient.CoreV1().ConfigMaps(testNamespace).Create(context.Background(), configMap, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			webhookArgs := []string{
+				fmt.Sprintf("--port=%d", webhookPort),
+				"--volume-type=configmap",
+				fmt.Sprintf("--configmap-name=%s", configMapName),
+			}
+			webhookPod, webhookService, webhookConfig = setupWebhook(webhookName, webhookSecretName, webhookPort, webhookArgs)
+		})
+
+		AfterEach(func() {
+			virtClient := kubevirt.Client()
+			testNamespace := testsuite.GetTestNamespace(nil)
+
+			teardownWebhook(webhookPod, webhookService, webhookConfig, webhookSecretName)
+
+			err := virtClient.CoreV1().ConfigMaps(testNamespace).Delete(context.Background(), configMapName, metav1.DeleteOptions{})
+			if !errors.IsNotFound(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
+		It("Should preserve ConfigMap data accessible via ContainerPath after migration", decorators.RequiresTwoSchedulableNodes, func() {
+			virtClient := kubevirt.Client()
+
+			By("Creating VMI with ContainerPath pointing to webhook-injected ConfigMap volume")
+			vmi := libvmifact.NewAlpine(
+				libvmi.WithFilesystemContainerPath(containerPathFilesystemName, injectedVolumePath),
+				libnet.WithMasqueradeNetworking(),
+			)
+
+			By("Creating the VMI")
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for virt-launcher pod and verifying virtiofsd container exists")
+			_ = waitForVirtiofsContainerInPod(vmi, containerPathFilesystemName)
+
+			By("Waiting for VMI to be running")
+			// Ignore transient webhook errors - virt-controller will retry and succeed once webhook is ready
+			vmi = libwait.WaitForVMIPhase(vmi, []v1.VirtualMachineInstancePhase{v1.Running},
+				libwait.WithWarningsIgnoreList([]string{"failed calling webhook"}))
+
+			By("Logging into the VMI")
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+			By("Mounting ContainerPath filesystem and verifying ConfigMap data is accessible")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				// Mount ContainerPath via virtiofs
+				&expect.BSnd{S: fmt.Sprintf("mount -t virtiofs %s /mnt\n", containerPathFilesystemName)},
+				&expect.BExp{R: ""},
+				&expect.BSnd{S: "echo $?\n"},
+				&expect.BExp{R: console.RetValue("0")},
+				// Read ConfigMap data
+				&expect.BSnd{S: fmt.Sprintf("cat /mnt/%s\n", testDataKey)},
+				&expect.BExp{R: testDataValue},
+			}, 200)).To(Succeed())
+
+			By("Starting the migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Verifying migration succeeded")
+			Expect(migration.Status.Phase).To(Equal(v1.MigrationSucceeded))
+
+			By("Verifying VMI is still running on the target node")
+			Eventually(func() bool {
+				vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.Phase == v1.Running
+			}, 30*time.Second, time.Second).Should(BeTrue())
+
+			By("Verifying ConfigMap data is still accessible via ContainerPath after migration")
+			Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+				// ConfigMap data should still be readable
+				&expect.BSnd{S: fmt.Sprintf("cat /mnt/%s\n", testDataKey)},
+				&expect.BExp{R: testDataValue},
 			}, 200)).To(Succeed())
 		})
 	})
@@ -186,10 +305,11 @@ func setupWebhook(webhookName, webhookSecretName string, webhookPort int32, webh
 				},
 			},
 			Containers: []k8sv1.Container{{
-				Name:    webhookName,
-				Image:   fmt.Sprintf("%s/test-helpers:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag),
-				Command: []string{"/usr/bin/test-pod-mutator"},
-				Args:    webhookArgs,
+				Name:            webhookName,
+				Image:           fmt.Sprintf("%s/test-helpers:%s", flags.KubeVirtRepoPrefix, flags.KubeVirtVersionTag),
+				ImagePullPolicy: k8sv1.PullAlways,
+				Command:         []string{"/usr/bin/test-pod-mutator"},
+				Args:            webhookArgs,
 				Ports: []k8sv1.ContainerPort{{
 					ContainerPort: webhookPort,
 					Name:          "https",
@@ -208,6 +328,17 @@ func setupWebhook(webhookName, webhookSecretName string, webhookPort int32, webh
 					SeccompProfile: &k8sv1.SeccompProfile{
 						Type: k8sv1.SeccompProfileTypeRuntimeDefault,
 					},
+				},
+				ReadinessProbe: &k8sv1.Probe{
+					ProbeHandler: k8sv1.ProbeHandler{
+						HTTPGet: &k8sv1.HTTPGetAction{
+							Path:   "/health",
+							Port:   intstr.FromInt(int(webhookPort)),
+							Scheme: k8sv1.URISchemeHTTPS,
+						},
+					},
+					InitialDelaySeconds: 1,
+					PeriodSeconds:       1,
 				},
 			}},
 			Volumes: []k8sv1.Volume{{
@@ -229,8 +360,13 @@ func setupWebhook(webhookName, webhookSecretName string, webhookPort int32, webh
 		if err != nil {
 			return false
 		}
-		return pod.Status.Phase == k8sv1.PodRunning
-	}, 60*time.Second, time.Second).Should(BeTrue(), "Webhook pod should be running")
+		for _, cond := range pod.Status.Conditions {
+			if cond.Type == k8sv1.PodReady && cond.Status == k8sv1.ConditionTrue {
+				return true
+			}
+		}
+		return false
+	}, 60*time.Second, time.Second).Should(BeTrue(), "Webhook pod should be ready")
 
 	By("Creating service for webhook")
 	webhookService := &k8sv1.Service{
@@ -251,6 +387,24 @@ func setupWebhook(webhookName, webhookSecretName string, webhookPort int32, webh
 	}
 	webhookService, err = virtClient.CoreV1().Services(testNamespace).Create(context.Background(), webhookService, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
+
+	By("Waiting for service endpoints to be ready")
+	Eventually(func() bool {
+		slices, err := virtClient.DiscoveryV1().EndpointSlices(testNamespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("kubernetes.io/service-name=%s", webhookName),
+		})
+		if err != nil {
+			return false
+		}
+		for _, slice := range slices.Items {
+			for _, endpoint := range slice.Endpoints {
+				if endpoint.Conditions.Ready != nil && *endpoint.Conditions.Ready {
+					return true
+				}
+			}
+		}
+		return false
+	}, 30*time.Second, time.Second).Should(BeTrue(), "Service endpoints should be ready")
 
 	By("Creating MutatingWebhookConfiguration with CA bundle")
 	failPolicy := admissionregistrationv1.Fail
@@ -323,4 +477,29 @@ func teardownWebhook(webhookPod *k8sv1.Pod, webhookService *k8sv1.Service, webho
 	if !errors.IsNotFound(err) {
 		Expect(err).ToNot(HaveOccurred())
 	}
+}
+
+// waitForVirtiofsContainerInPod waits for the virt-launcher pod to be running and verifies
+// it has the expected virtiofsd container for a ContainerPath volume. Returns the pod for further use.
+func waitForVirtiofsContainerInPod(vmi *v1.VirtualMachineInstance, volumeName string) *k8sv1.Pod {
+	var vmiPod *k8sv1.Pod
+	EventuallyWithOffset(1, func() error {
+		var err error
+		vmiPod, err = libpod.GetRunningPodByLabel(string(vmi.UID), v1.CreatedByLabel, vmi.Namespace, "")
+		return err
+	}, 120*time.Second, time.Second).Should(Succeed(), "virt-launcher pod should be running")
+
+	virtiofsContainerName := fmt.Sprintf("virtiofs-%s", volumeName)
+	var found bool
+	for _, container := range vmiPod.Spec.Containers {
+		if container.Name == virtiofsContainerName {
+			found = true
+			break
+		}
+	}
+
+	ExpectWithOffset(1, found).To(BeTrue(),
+		"virt-launcher pod should have virtiofsd container %s for ContainerPath volume %s", virtiofsContainerName, volumeName)
+
+	return vmiPod
 }
