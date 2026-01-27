@@ -888,6 +888,7 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"instancetype":                       "Instancetype configuration\n+nullable",
 		"hypervisors":                        "Hypervisors holds information regarding the hypervisor configurations supported on this cluster.\n+listType=atomic\n+kubebuilder:validation:MaxItems:=1",
 		"changedBlockTrackingLabelSelectors": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.\nEnabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.\n+nullable",
+		"persistentReservationConfiguration": "PersistentReservationConfiguration controls the deployment of additional resources required for using SCSI persistent reservation in VMs\n+nullable",
 		"confidentialCompute":                "QGS configuration for attestation on the Intel TDX Platform\n+nullable",
 		"roleAggregationStrategy":            "RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated\nto the default Kubernetes roles (admin, edit, view).\nWhen set to \"AggregateToDefault\" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.\nWhen set to \"Manual\", the labels are not added, and roles will not be aggregated to the default roles.\nSetting this field to \"Manual\" requires the OptOutRoleAggregation feature gate to be enabled.\nThis is an Alpha feature and subject to change.\n+optional\n+kubebuilder:validation:Enum=AggregateToDefault;Manual",
 	}
@@ -1246,5 +1247,11 @@ func (ObjectGraphOptions) SwaggerDoc() map[string]string {
 		"":                     "ObjectGraphOptions holds options for the object graph.",
 		"includeOptionalNodes": "IncludeOptionalNodes indicates whether to include optional nodes in the graph.\nTrue by default.",
 		"labelSelector":        "LabelSelector is used to filter nodes in the graph based on their labels.",
+	}
+}
+
+func (PersistentReservationConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"enabled": "Enabled controls the deployment of additional resources like the pr-helper container\nfor enabling the use of the SCSI persistent reservation VMs, defaults to False.\n+nullable",
 	}
 }

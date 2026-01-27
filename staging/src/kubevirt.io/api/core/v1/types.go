@@ -3118,6 +3118,10 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
 
+	// PersistentReservationConfiguration controls the deployment of additional resources required for using SCSI persistent reservation in VMs
+	// +nullable
+	PersistentReservationConfiguration *PersistentReservationConfiguration `json:"persistentReservationConfiguration,omitempty"`
+
 	// QGS configuration for attestation on the Intel TDX Platform
 	// +nullable
 	ConfidentialCompute *ConfidentialComputeConfiguration `json:"confidentialCompute,omitempty"`
@@ -3876,4 +3880,11 @@ type ObjectGraphOptions struct {
 	IncludeOptionalNodes *bool `json:"includeOptionalNodes,omitempty"`
 	// LabelSelector is used to filter nodes in the graph based on their labels.
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
+}
+
+type PersistentReservationConfiguration struct {
+	// Enabled controls the deployment of additional resources like the pr-helper container
+	// for enabling the use of the SCSI persistent reservation VMs, defaults to False.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
 }
