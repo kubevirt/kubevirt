@@ -266,11 +266,13 @@ var _ = Describe(
 
 				It("should be able to reach the outside world [IPv4]", Label("RequiresOutsideConnectivity"), func() {
 					libnet.SkipWhenClusterNotSupportIpv4()
-					ipv4Address := "8.8.8.8"
+					const externalIPv4Address = "8.8.8.8"
+					ipv4Address := externalIPv4Address
 					if flags.IPV4ConnectivityCheckAddress != "" {
 						ipv4Address = flags.IPV4ConnectivityCheckAddress
 					}
-					dns := "google.com"
+					const externalDomain = "google.com"
+					dns := externalDomain
 					if flags.ConnectivityCheckDNS != "" {
 						dns = flags.ConnectivityCheckDNS
 					}
@@ -285,7 +287,8 @@ var _ = Describe(
 					// Cluster nodes subnet (docker network gateway)
 					// Docker network subnet cidr definition:
 					// https://github.com/kubevirt/project-infra/blob/master/github/ci/shared-deployments/files/docker-daemon-mirror.conf#L5
-					ipv6Address := "2001:db8:1::1"
+					const externalIPv6Address = "2001:db8:1::1"
+					ipv6Address := externalIPv6Address
 					if flags.IPV6ConnectivityCheckAddress != "" {
 						ipv6Address = flags.IPV6ConnectivityCheckAddress
 					}
