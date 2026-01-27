@@ -3020,6 +3020,115 @@ var _ = Describe("KubeVirt Operator", func() {
 			})
 		})
 
+		Context("persistent reservation", func() {
+			var kvTestData KubeVirtTestData
+
+			BeforeEach(func() {
+				kvTestData = KubeVirtTestData{}
+				kvTestData.BeforeTest()
+				DeferCleanup(kvTestData.AfterTest)
+			})
+
+			It("should remove pr-helper container from virt-handler daemonset", func() {
+				const (
+					productName      = "kubevirt-test"
+					productVersion   = "0.0.0"
+					productComponent = "kubevirt-component"
+				)
+
+				kv := &v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:       "test-install",
+						Namespace:  NAMESPACE,
+						Finalizers: []string{util.KubeVirtFinalizer},
+					},
+					Spec: v1.KubeVirtSpec{
+						ProductName:      productName,
+						ProductVersion:   productVersion,
+						ProductComponent: productComponent,
+						Configuration: v1.KubeVirtConfiguration{
+							PersistentReservationConfiguration: &v1.PersistentReservationConfiguration{
+								Enabled: pointer.P(false),
+							},
+						},
+					},
+					Status: v1.KubeVirtStatus{
+						Phase:           v1.KubeVirtPhaseDeployed,
+						OperatorVersion: version.Get().String(),
+					},
+				}
+				customConfig := util.GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: NAMESPACE,
+					},
+					Spec: v1.KubeVirtSpec{
+						ImageRegistry:    kvTestData.defaultConfig.GetImageRegistry(),
+						ImageTag:         "",
+						ProductName:      kv.Spec.ProductName,
+						ProductVersion:   kv.Spec.ProductVersion,
+						ProductComponent: kv.Spec.ProductComponent,
+						Configuration:    kv.Spec.Configuration,
+					},
+				},
+					kvTestData.mockEnvVarManager)
+
+				kubecontroller.SetLatestApiVersionAnnotation(kv)
+				kvTestData.addKubeVirt(kv)
+				kvTestData.addInstallStrategy(customConfig)
+
+				customConfig.Namespace = NAMESPACE
+				apiDeployment := components.NewApiServerDeployment(customConfig, "", "", "")
+				controllerDeployment := components.NewControllerDeployment(customConfig, "", "", "")
+				handlerDaemonset := components.NewHandlerDaemonSet(customConfig, "", "", "")
+				// Inject pr-helper into current state to observe removal later on
+				handlerDaemonset.Spec.Template.Spec.Containers = append(handlerDaemonset.Spec.Template.Spec.Containers, k8sv1.Container{
+					Name: components.PrHelperName,
+				})
+				// omitempty ignores the field's zero value resulting in the json patch test op breaking
+				apiDeployment.ObjectMeta.Generation = 123
+				controllerDeployment.ObjectMeta.Generation = 123
+				handlerDaemonset.ObjectMeta.Generation = 123
+
+				kvTestData.addDeployment(apiDeployment, kv)
+				kvTestData.addDeployment(controllerDeployment, kv)
+				kvTestData.addDaemonset(handlerDaemonset, kv)
+				kvTestData.addPodsAndPodDisruptionBudgets(customConfig, kv)
+				kvTestData.makeDeploymentsReady(kv)
+				kvTestData.makeHandlerReady()
+
+				kvTestData.daemonSetPatchReactionFunc = func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					a := action.(testing.PatchActionImpl)
+					patch, err := jsonpatch.DecodePatch(a.Patch)
+					Expect(err).ToNot(HaveOccurred())
+
+					o, exists, err := kvTestData.controller.stores.DaemonSetCache.GetByKey(fmt.Sprintf("%s/%s", NAMESPACE, a.Name))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(exists).To(BeTrue())
+					existing := o.(*appsv1.DaemonSet)
+					Expect(existing.Spec.Template.Spec.Containers).To(ContainElement(HaveField("Name", Equal(components.PrHelperName))))
+					existingDeploymentBytes, err := json.Marshal(existing)
+					Expect(err).ToNot(HaveOccurred())
+
+					targetDeploymentBytes, err := patch.Apply(existingDeploymentBytes)
+					Expect(err).ToNot(HaveOccurred())
+
+					patched := &appsv1.DaemonSet{}
+					Expect(json.Unmarshal(targetDeploymentBytes, patched)).To(Succeed())
+					Expect(patched.Spec.Template.Spec.Containers).ToNot(ContainElement(HaveField("Name", Equal(components.PrHelperName))))
+
+					return true, patched, nil
+				}
+
+				kvTestData.shouldExpectPatchesAndUpdates(kv)
+				kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+				kvTestData.shouldExpectCreations()
+
+				kvTestData.controller.Execute()
+
+				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "daemonsets")).To(HaveLen(1))
+			})
+		})
+
 		DescribeTable("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func(withExport bool, patchCount, resourceCount, numPDBs int) {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
