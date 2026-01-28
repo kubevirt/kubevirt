@@ -3000,6 +3000,11 @@ func (in *KubeVirtConfiguration) DeepCopyInto(out *KubeVirtConfiguration) {
 		*out = new(ChangedBlockTrackingSelectors)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.RoleAggregationStrategy != nil {
+		in, out := &in.RoleAggregationStrategy, &out.RoleAggregationStrategy
+		*out = new(RoleAggregationStrategy)
+		**out = **in
+	}
 	return
 }
 
