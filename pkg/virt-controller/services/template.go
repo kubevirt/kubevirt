@@ -251,6 +251,14 @@ func (t *TemplateService) GetLauncherImage() string {
 	return t.launcherImage
 }
 
+// GetLauncherImageForVMI returns the appropriate virt-launcher image for a VMI.
+// If the VMI's node selector matches an additional virt-handler with a custom
+// virt-launcher image, that image is returned. Otherwise, the default image is returned.
+func (t *TemplateService) GetLauncherImageForVMI(vmi *v1.VirtualMachineInstance) string {
+	additionalHandlers := t.clusterConfig.GetAdditionalVirtHandlers()
+	return GetLauncherImageForVMI(vmi, additionalHandlers, t.launcherImage)
+}
+
 func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	backendStoragePVCName := ""
 	if backendstorage.IsBackendStorageNeeded(vmi) {
@@ -489,7 +497,8 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 	}
 
-	virtiofsContainers := generateVirtioFSContainers(vmi, t.launcherImage, t.clusterConfig)
+	launcherImage := t.GetLauncherImageForVMI(vmi)
+	virtiofsContainers := generateVirtioFSContainers(vmi, launcherImage, t.clusterConfig)
 	if virtiofsContainers != nil {
 		containers = append(containers, virtiofsContainers...)
 	}
@@ -549,7 +558,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 	var initContainers []k8sv1.Container
 
-	sconsolelogContainer := generateSerialConsoleLogContainer(vmi, t.launcherImage, t.clusterConfig, virtLauncherLogVerbosity)
+	sconsolelogContainer := generateSerialConsoleLogContainer(vmi, launcherImage, t.clusterConfig, virtLauncherLogVerbosity)
 	if sconsolelogContainer != nil {
 		initContainers = append(initContainers, *sconsolelogContainer)
 	}
@@ -821,7 +830,7 @@ func (t *TemplateService) newInitContainerRenderer(vmiSpec *v1.VirtualMachineIns
 		cpInitContainerOpts = append(cpInitContainerOpts, WithNonRoot(userId))
 	}
 
-	return NewContainerSpecRenderer(containerDisk, t.launcherImage, t.clusterConfig.GetImagePullPolicy(), cpInitContainerOpts...)
+	return NewContainerSpecRenderer(containerDisk, t.GetLauncherImageForVMI(vmiSpec), t.clusterConfig.GetImagePullPolicy(), cpInitContainerOpts...)
 }
 
 func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstance, volumeRenderer *VolumeRenderer, resources k8sv1.ResourceRequirements, userId int64) *ContainerSpecRenderer {
@@ -847,7 +856,7 @@ func (t *TemplateService) newContainerSpecRenderer(vmi *v1.VirtualMachineInstanc
 
 	const computeContainerName = "compute"
 	containerRenderer := NewContainerSpecRenderer(
-		computeContainerName, t.launcherImage, t.clusterConfig.GetImagePullPolicy(), computeContainerOpts...)
+		computeContainerName, t.GetLauncherImageForVMI(vmi), t.clusterConfig.GetImagePullPolicy(), computeContainerOpts...)
 	return containerRenderer
 }
 
@@ -890,7 +899,7 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 	volumeRenderer, err := NewVolumeRenderer(
 		t.clusterConfig,
 		imageVolumeFeatureGateEnabled,
-		t.launcherImage,
+		t.GetLauncherImageForVMI(vmi),
 		imageIDs,
 		namespace,
 		t.ephemeralDiskDir,
@@ -985,7 +994,7 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			Containers: []k8sv1.Container{
 				{
 					Name:      hotplugDisk,
-					Image:     t.launcherImage,
+					Image:     t.GetLauncherImageForVMI(vmi),
 					Command:   command,
 					Resources: hotplugContainerResourceRequirementsForVMI(t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
@@ -1128,7 +1137,7 @@ func (t *TemplateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
 			Containers: []k8sv1.Container{
 				{
 					Name:      hotplugDisk,
-					Image:     t.launcherImage,
+					Image:     t.GetLauncherImageForVMI(vmi),
 					Command:   command,
 					Resources: hotplugContainerResourceRequirementsForVMI(t.clusterConfig),
 					SecurityContext: &k8sv1.SecurityContext{
