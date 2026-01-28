@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "default_reporter.go",
         "deprecated_reporter.go",
+        "gojson_report.go",
         "json_report.go",
         "junit_report.go",
         "reporter.go",
@@ -16,6 +17,7 @@ go_library(
     deps = [
         "//vendor/github.com/onsi/ginkgo/v2/config:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/formatter:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2/internal/reporters:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2/types:go_default_library",
     ],
 )

@@ -20291,6 +20291,10 @@
       "type": "string",
       "default": ""
      },
+     "insecureSkipVerify": {
+      "description": "InsecureSkipVerify is a flag to skip certificate verification",
+      "type": "boolean"
+     },
      "secretRef": {
       "description": "SecretRef provides the secret reference needed to access the ovirt-engine",
       "type": "string"

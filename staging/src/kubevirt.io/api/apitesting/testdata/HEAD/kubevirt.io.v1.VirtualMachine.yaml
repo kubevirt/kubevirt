@@ -119,6 +119,7 @@ spec:
         imageio:
           certConfigMap: certConfigMapValue
           diskId: diskIdValue
+          insecureSkipVerify: true
           secretRef: secretRefValue
           url: urlValue
         pvc:

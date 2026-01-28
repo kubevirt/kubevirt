@@ -36654,6 +36654,13 @@ func schema_pkg_apis_core_v1beta1_DataImportCronSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"serviceAccountName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceAccountName is the name of the ServiceAccount for creating DataVolumes.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"template", "schedule", "managedDataSource"},
 			},
@@ -37383,6 +37390,13 @@ func schema_pkg_apis_core_v1beta1_DataVolumeSourceImageIO(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "CertConfigMap provides a reference to the CA cert",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"insecureSkipVerify": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InsecureSkipVerify is a flag to skip certificate verification",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
