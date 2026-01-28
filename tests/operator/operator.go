@@ -1831,6 +1831,183 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
+	Context("with AdditionalVirtHandlers feature gate", Serial, func() {
+		const additionalHandlerName = "test-handler"
+		var additionalDaemonSetName = "virt-handler-" + additionalHandlerName
+
+		AfterEach(func() {
+			By("Cleaning up additional virt-handlers configuration")
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			if len(kv.Spec.AdditionalVirtHandlers) > 0 {
+				patchData, err := patch.New(
+					patch.WithRemove("/spec/additionalVirtHandlers"),
+				).GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+			kvconfig.DisableFeatureGate(featuregate.AdditionalVirtHandlersGate)
+
+			By("Waiting for additional DaemonSet to be deleted")
+			Eventually(func() error {
+				_, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
+				return err
+			}, time.Minute*2, time.Second*2).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+		})
+
+		It("should create additional virt-handler DaemonSet when feature gate is enabled", func() {
+			By("Enabling the AdditionalVirtHandlers feature gate")
+			kvconfig.EnableFeatureGate(featuregate.AdditionalVirtHandlersGate)
+
+			By("Configuring an additional virt-handler")
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			additionalHandler := v1.AdditionalVirtHandlerConfig{
+				Name: additionalHandlerName,
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: map[string]string{
+						"kubernetes.io/os": "linux",
+					},
+				},
+			}
+
+			patchData, err := patch.New(
+				patch.WithAdd("/spec/additionalVirtHandlers", []v1.AdditionalVirtHandlerConfig{additionalHandler}),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for additional DaemonSet to be created")
+			Eventually(func() error {
+				_, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
+				return err
+			}, time.Minute*2, time.Second*2).Should(Succeed())
+
+			By("Verifying the additional DaemonSet has correct labels")
+			ds, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ds.Labels).To(HaveKeyWithValue(components.HandlerPoolLabel, additionalHandlerName))
+
+			By("Verifying the additional DaemonSet has the configured node selector")
+			Expect(ds.Spec.Template.Spec.NodeSelector).To(HaveKeyWithValue("kubernetes.io/os", "linux"))
+		})
+
+		It("should not create additional DaemonSet without feature gate enabled", func() {
+			By("Ensuring feature gate is disabled")
+			kvconfig.DisableFeatureGate(featuregate.AdditionalVirtHandlersGate)
+
+			By("Configuring an additional virt-handler without feature gate")
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			additionalHandler := v1.AdditionalVirtHandlerConfig{
+				Name: additionalHandlerName,
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: map[string]string{
+						"kubernetes.io/os": "linux",
+					},
+				},
+			}
+
+			patchData, err := patch.New(
+				patch.WithAdd("/spec/additionalVirtHandlers", []v1.AdditionalVirtHandlerConfig{additionalHandler}),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying additional DaemonSet is not created")
+			Consistently(func() error {
+				_, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
+				return err
+			}, time.Second*30, time.Second*5).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+		})
+
+		It("should delete additional DaemonSet when removed from configuration", func() {
+			By("Enabling the AdditionalVirtHandlers feature gate")
+			kvconfig.EnableFeatureGate(featuregate.AdditionalVirtHandlersGate)
+
+			By("Configuring an additional virt-handler")
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			additionalHandler := v1.AdditionalVirtHandlerConfig{
+				Name: additionalHandlerName,
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: map[string]string{
+						"kubernetes.io/os": "linux",
+					},
+				},
+			}
+
+			patchData, err := patch.New(
+				patch.WithAdd("/spec/additionalVirtHandlers", []v1.AdditionalVirtHandlerConfig{additionalHandler}),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for additional DaemonSet to be created")
+			Eventually(func() error {
+				_, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
+				return err
+			}, time.Minute*2, time.Second*2).Should(Succeed())
+
+			By("Removing the additional virt-handler from configuration")
+			patchData, err = patch.New(
+				patch.WithRemove("/spec/additionalVirtHandlers"),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(originalKv.Namespace).Patch(context.Background(), originalKv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for additional DaemonSet to be deleted")
+			Eventually(func() error {
+				_, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
+				return err
+			}, time.Minute*2, time.Second*2).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+		})
+
+		It("should use custom images when specified", func() {
+			By("Enabling the AdditionalVirtHandlers feature gate")
+			kvconfig.EnableFeatureGate(featuregate.AdditionalVirtHandlersGate)
+
+			By("Getting the current virt-handler image as a base")
+			primaryDs, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			primaryImage := primaryDs.Spec.Template.Spec.Containers[0].Image
+
+			By("Configuring an additional virt-handler with custom image")
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			// Use a tagged version of the same image to test custom image functionality
+			customImage := primaryImage + "-custom-test"
+			additionalHandler := v1.AdditionalVirtHandlerConfig{
+				Name:             additionalHandlerName,
+				VirtHandlerImage: customImage,
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: map[string]string{
+						// Use a non-existent label so pods stay pending
+						"kubevirt.io/test-additional-handler": "true",
+					},
+				},
+			}
+
+			patchData, err := patch.New(
+				patch.WithAdd("/spec/additionalVirtHandlers", []v1.AdditionalVirtHandlerConfig{additionalHandler}),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for additional DaemonSet to be created")
+			Eventually(func() error {
+				_, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
+				return err
+			}, time.Minute*2, time.Second*2).Should(Succeed())
+
+			By("Verifying the additional DaemonSet uses the custom image")
+			ds, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal(customImage))
+		})
+	})
+
 	Context(" Seccomp configuration", Serial, func() {
 
 		Context("Kubevirt profile", func() {
