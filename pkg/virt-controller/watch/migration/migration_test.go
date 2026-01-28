@@ -2767,6 +2767,77 @@ var _ = Describe("Migration watcher", func() {
 			})
 		})
 	})
+
+	Context("Decentralized migration condition", func() {
+		var (
+			conditionManager *virtcontroller.VirtualMachineInstanceMigrationConditionManager
+			vmi              *v1.VirtualMachineInstance
+			migration        *v1.VirtualMachineInstanceMigration
+		)
+
+		BeforeEach(func() {
+			conditionManager = virtcontroller.NewVirtualMachineInstanceMigrationConditionManager()
+			vmi = newVirtualMachine("testvmi", v1.Running)
+			migration = newMigration("testmigration", vmi.Name, v1.MigrationPending)
+		})
+		It("should set, update, and remove VirtualMachineInstanceDecentralizedMigrationBlocked condition on migration when VMI condition is added and removed", func() {
+			// Set the condition on VMI
+			vmi.Status.Conditions = append(vmi.Status.Conditions,
+				v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceDecentralizedLiveMigrationFailure,
+					Status:        k8sv1.ConditionTrue,
+					Reason:        "TestReason",
+					Message:       "Test message",
+					LastProbeTime: metav1.Now(),
+				})
+
+			updateDecentralizedMigrationCondition(vmi, migration, conditionManager)
+
+			// Verify the condition is set on the migration
+			conditionManager := virtcontroller.NewVirtualMachineInstanceMigrationConditionManager()
+			foundCondition := conditionManager.GetCondition(migration, v1.VirtualMachineInstanceDecentralizedMigrationBlocked)
+			// Verify the condition details match
+			Expect(foundCondition).ToNot(BeNil())
+			Expect(foundCondition.Reason).To(Equal("TestReason"))
+			Expect(foundCondition.Message).To(Equal("Test message"))
+			Expect(foundCondition.Status).To(Equal(k8sv1.ConditionTrue))
+
+			// Update the VMI condition with different reason and message
+			vmiConditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+			vmiConditionManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+				Type:          v1.VirtualMachineInstanceDecentralizedLiveMigrationFailure,
+				Status:        k8sv1.ConditionTrue,
+				Reason:        "UpdatedReason",
+				Message:       "Updated message",
+				LastProbeTime: metav1.Now(),
+			})
+			updateDecentralizedMigrationCondition(vmi, migration, conditionManager)
+			// Verify the condition is set on the migration
+			conditionManager = virtcontroller.NewVirtualMachineInstanceMigrationConditionManager()
+			foundCondition = conditionManager.GetCondition(migration, v1.VirtualMachineInstanceDecentralizedMigrationBlocked)
+			// Verify the condition details match
+			Expect(foundCondition).ToNot(BeNil())
+			Expect(foundCondition.Reason).To(Equal("UpdatedReason"))
+			Expect(foundCondition.Message).To(Equal("Updated message"))
+			Expect(foundCondition.Status).To(Equal(k8sv1.ConditionTrue))
+
+			// Remove the VMI condition
+			vmiConditionManager = virtcontroller.NewVirtualMachineInstanceConditionManager()
+			vmiConditionManager.RemoveCondition(vmi, v1.VirtualMachineInstanceDecentralizedLiveMigrationFailure)
+			updateDecentralizedMigrationCondition(vmi, migration, conditionManager)
+
+			// Verify the condition is removed from the migration
+			Expect(conditionManager.HasCondition(migration, v1.VirtualMachineInstanceDecentralizedMigrationBlocked)).To(BeFalse(), "Condition should be removed when VMI condition is removed")
+		})
+
+		It("should not set VirtualMachineInstanceDecentralizedMigrationBlocked condition on migration when VMI does not have the condition", func() {
+			updateDecentralizedMigrationCondition(vmi, migration, conditionManager)
+
+			// Verify the condition is not set on the migration
+			conditionManager := virtcontroller.NewVirtualMachineInstanceMigrationConditionManager()
+			Expect(conditionManager.HasCondition(migration, v1.VirtualMachineInstanceDecentralizedMigrationBlocked)).To(BeFalse(), "Condition should not be set when VMI does not have the condition")
+		})
+	})
 })
 
 func newMigration(name string, vmiName string, phase v1.VirtualMachineInstanceMigrationPhase) *v1.VirtualMachineInstanceMigration {
