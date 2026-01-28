@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -45,7 +46,7 @@ func CombineHandlers(handlers ...http.HandlerFunc) http.HandlerFunc {
 //
 // For path, you may pass in a string, in which case strict equality will be applied
 // Alternatively you can pass in a matcher (ContainSubstring("/foo") and MatchRegexp("/foo/[a-f0-9]+") for example)
-func (g GHTTPWithGomega) VerifyRequest(method string, path interface{}, rawQuery ...string) http.HandlerFunc {
+func (g GHTTPWithGomega) VerifyRequest(method string, path any, rawQuery ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		g.gomega.Expect(req.Method).Should(Equal(method), "Method mismatch")
 		switch p := path.(type) {
@@ -118,7 +119,7 @@ func (g GHTTPWithGomega) VerifyHeaderKV(key string, values ...string) http.Handl
 // Host is a special header in net/http, which is not set on the request.Header but rather on the Request itself
 //
 // Host may be a string or a matcher
-func (g GHTTPWithGomega) VerifyHost(host interface{}) http.HandlerFunc {
+func (g GHTTPWithGomega) VerifyHost(host any) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		switch p := host.(type) {
 		case types.GomegaMatcher:
@@ -161,7 +162,7 @@ func (g GHTTPWithGomega) VerifyJSON(expectedJSON string) http.HandlerFunc {
 // VerifyJSONRepresenting is similar to VerifyJSON.  Instead of taking a JSON string, however, it
 // takes an arbitrary JSON-encodable object and verifies that the requests's body is a JSON representation
 // that matches the object
-func (g GHTTPWithGomega) VerifyJSONRepresenting(object interface{}) http.HandlerFunc {
+func (g GHTTPWithGomega) VerifyJSONRepresenting(object any) http.HandlerFunc {
 	data, err := json.Marshal(object)
 	g.gomega.Expect(err).ShouldNot(HaveOccurred())
 	return CombineHandlers(
@@ -219,9 +220,7 @@ func (g GHTTPWithGomega) VerifyProtoRepresenting(expected protoiface.MessageV1) 
 }
 
 func copyHeader(src http.Header, dst http.Header) {
-	for key, value := range src {
-		dst[key] = value
-	}
+	maps.Copy(dst, src)
 }
 
 /*
@@ -231,7 +230,7 @@ Body may be a string or []byte
 
 Also, RespondWith can be given an optional http.Header.  The headers defined therein will be added to the response headers.
 */
-func (g GHTTPWithGomega) RespondWith(statusCode int, body interface{}, optionalHeader ...http.Header) http.HandlerFunc {
+func (g GHTTPWithGomega) RespondWith(statusCode int, body any, optionalHeader ...http.Header) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if len(optionalHeader) == 1 {
 			copyHeader(optionalHeader[0], w.Header())
@@ -251,13 +250,13 @@ func (g GHTTPWithGomega) RespondWith(statusCode int, body interface{}, optionalH
 /*
 RespondWithPtr returns a handler that responds to a request with the specified status code and body
 
-Unlike RespondWith, you pass RepondWithPtr a pointer to the status code and body allowing different tests
+Unlike RespondWith, you pass RespondWithPtr a pointer to the status code and body allowing different tests
 to share the same setup but specify different status codes and bodies.
 
 Also, RespondWithPtr can be given an optional http.Header.  The headers defined therein will be added to the response headers.
 Since the http.Header can be mutated after the fact you don't need to pass in a pointer.
 */
-func (g GHTTPWithGomega) RespondWithPtr(statusCode *int, body interface{}, optionalHeader ...http.Header) http.HandlerFunc {
+func (g GHTTPWithGomega) RespondWithPtr(statusCode *int, body any, optionalHeader ...http.Header) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if len(optionalHeader) == 1 {
 			copyHeader(optionalHeader[0], w.Header())
@@ -282,7 +281,7 @@ containing the JSON-encoding of the passed in object
 
 Also, RespondWithJSONEncoded can be given an optional http.Header.  The headers defined therein will be added to the response headers.
 */
-func (g GHTTPWithGomega) RespondWithJSONEncoded(statusCode int, object interface{}, optionalHeader ...http.Header) http.HandlerFunc {
+func (g GHTTPWithGomega) RespondWithJSONEncoded(statusCode int, object any, optionalHeader ...http.Header) http.HandlerFunc {
 	data, err := json.Marshal(object)
 	g.gomega.Expect(err).ShouldNot(HaveOccurred())
 
@@ -308,7 +307,7 @@ objects.
 Also, RespondWithJSONEncodedPtr can be given an optional http.Header.  The headers defined therein will be added to the response headers.
 Since the http.Header can be mutated after the fact you don't need to pass in a pointer.
 */
-func (g GHTTPWithGomega) RespondWithJSONEncodedPtr(statusCode *int, object interface{}, optionalHeader ...http.Header) http.HandlerFunc {
+func (g GHTTPWithGomega) RespondWithJSONEncodedPtr(statusCode *int, object any, optionalHeader ...http.Header) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		data, err := json.Marshal(object)
 		g.gomega.Expect(err).ShouldNot(HaveOccurred())
@@ -352,7 +351,7 @@ func (g GHTTPWithGomega) RespondWithProto(statusCode int, message protoadapt.Mes
 	}
 }
 
-func VerifyRequest(method string, path interface{}, rawQuery ...string) http.HandlerFunc {
+func VerifyRequest(method string, path any, rawQuery ...string) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).VerifyRequest(method, path, rawQuery...)
 }
 
@@ -376,7 +375,7 @@ func VerifyHeaderKV(key string, values ...string) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).VerifyHeaderKV(key, values...)
 }
 
-func VerifyHost(host interface{}) http.HandlerFunc {
+func VerifyHost(host any) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).VerifyHost(host)
 }
 
@@ -388,7 +387,7 @@ func VerifyJSON(expectedJSON string) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).VerifyJSON(expectedJSON)
 }
 
-func VerifyJSONRepresenting(object interface{}) http.HandlerFunc {
+func VerifyJSONRepresenting(object any) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).VerifyJSONRepresenting(object)
 }
 
@@ -404,19 +403,19 @@ func VerifyProtoRepresenting(expected protoiface.MessageV1) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).VerifyProtoRepresenting(expected)
 }
 
-func RespondWith(statusCode int, body interface{}, optionalHeader ...http.Header) http.HandlerFunc {
+func RespondWith(statusCode int, body any, optionalHeader ...http.Header) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).RespondWith(statusCode, body, optionalHeader...)
 }
 
-func RespondWithPtr(statusCode *int, body interface{}, optionalHeader ...http.Header) http.HandlerFunc {
+func RespondWithPtr(statusCode *int, body any, optionalHeader ...http.Header) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).RespondWithPtr(statusCode, body, optionalHeader...)
 }
 
-func RespondWithJSONEncoded(statusCode int, object interface{}, optionalHeader ...http.Header) http.HandlerFunc {
+func RespondWithJSONEncoded(statusCode int, object any, optionalHeader ...http.Header) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).RespondWithJSONEncoded(statusCode, object, optionalHeader...)
 }
 
-func RespondWithJSONEncodedPtr(statusCode *int, object interface{}, optionalHeader ...http.Header) http.HandlerFunc {
+func RespondWithJSONEncodedPtr(statusCode *int, object any, optionalHeader ...http.Header) http.HandlerFunc {
 	return NewGHTTPWithGomega(gomega.Default).RespondWithJSONEncodedPtr(statusCode, object, optionalHeader...)
 }
 
