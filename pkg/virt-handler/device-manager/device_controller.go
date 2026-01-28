@@ -200,7 +200,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []devicePlugin {
 	}
 
 	if c.virtConfig.PersistentReservationEnabled() {
-		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, newPermissionManager())
+		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, newPermissionManager(), false)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
 		} else {
