@@ -192,6 +192,9 @@ builder-build:
 builder-publish:
 	./hack/builder/publish.sh
 
+builder-build-cs10:
+	./hack/builder/build-cs10.sh
+
 olm-verify:
 	hack/dockerized "./hack/olm.sh verify"
 
