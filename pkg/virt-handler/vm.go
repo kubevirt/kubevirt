@@ -1383,6 +1383,12 @@ func (c *VirtualMachineController) sync(key string,
 			// 	Ignoring transient Shutoff/Unknown status for recently created domain
 			isStartingUp(domain))
 
+	_, socketErr := cmdclient.FindSocket(vmi)
+	if socketErr != nil {
+		log.Log.Reason(socketErr).Errorf("Virt-launcher command socket not found for VMI %s/%s", vmi.Namespace, vmi.Name)
+		domainExists = false
+	}
+
 	forceShutdownIrrecoverable = domainExists && domainPausedFailedPostCopy(domain)
 
 	gracefulShutdown := c.hasGracefulShutdownTrigger(domain)
