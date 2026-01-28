@@ -136,6 +136,27 @@ func (plugin *USBDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watch
 	return nil
 }
 
+func (plugin *USBDevicePlugin) mutateHealthUpdateFunc(deviceID string, devicePath string, healthy bool) (bool, error) {
+	// a device is healthy when all devices in the usb device group are healthy
+	pluginDevices := plugin.FindDevice(deviceID)
+	if pluginDevices == nil {
+		return false, fmt.Errorf("usb_device was unable to find a deviceID=%s corresponding to devicePath=%s", deviceID, devicePath)
+	}
+	for _, usbDev := range pluginDevices.Devices {
+		expectedUsbDevicePath := filepath.Join(plugin.deviceRoot, usbDev.DevicePath)
+		if devicePath == expectedUsbDevicePath {
+			usbDev.Healthy = healthy
+		}
+	}
+	// if any of the devices in the usb device group is unhealthy, the usb device group is unhealthy
+	for _, usbDev := range pluginDevices.Devices {
+		if !usbDev.Healthy {
+			return false, nil
+		}
+	}
+	return healthy, nil
+}
+
 // Interface to allocate requested Device, exported by ListAndWatch
 func (plugin *USBDevicePlugin) allocateDPFunc(_ context.Context, allocRequest *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	allocResponse := new(pluginapi.AllocateResponse)
@@ -157,10 +178,11 @@ func (plugin *USBDevicePlugin) allocateDPFunc(_ context.Context, allocRequest *p
 				if err != nil {
 					return nil, fmt.Errorf("error opening the device %s: %v", dev.DevicePath, err)
 				}
-				if plugin.configurePermissions(spath); err != nil {
-					return nil, fmt.Errorf("error configuring the permission the device %s during allocation: %v", dev.DevicePath, err)
+				if plugin.configurePermissions != nil {
+					if err = plugin.configurePermissions(spath); err != nil {
+						return nil, fmt.Errorf("error configuring the permission the device %s during allocation: %v", dev.DevicePath, err)
+					}
 				}
-
 				// We might have more than one USB device per resource name
 				key := util.ResourceNameToEnvVar(v1.USBResourcePrefix, plugin.resourceName)
 				value := fmt.Sprintf("%d:%d", dev.Bus, dev.DeviceNumber)
@@ -415,6 +437,7 @@ func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []
 		}
 	}
 	usb.allocateDP = usb.allocateDPFunc
+	usb.mutateHealthUpdate = usb.mutateHealthUpdateFunc
 	return usb
 }
 

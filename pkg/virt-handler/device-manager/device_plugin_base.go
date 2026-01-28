@@ -63,6 +63,7 @@ type DevicePluginBase struct {
 	setupDevicePlugin     func() error                                                                           // Optional function to perform additional setup steps that are not covered by the default implementation
 	deviceNameByID        func(deviceID string) string                                                           // Optional function to convert device id to a human-readable name for logging
 	configurePermissions  func(absoluteDevicePath *safepath.Path) error                                          // Optional function to configure permissions for the device if needed. When present, device being marked healthy is contingent on the hook exiting without error.
+	mutateHealthUpdate    func(deviceID string, absoluteDevicePath string, healthy bool) (bool, error)           // Optional function to update the device health before it's sent via custom logic.
 }
 
 type healthCheckContext struct {
@@ -412,7 +413,14 @@ func (dpi *DevicePluginBase) notifyHealthUpdate() {
 
 func (dpi *DevicePluginBase) reportHealth(devFriendlyName string, deviceID string, absoluteDevicePath string, healthy bool, lastKnownHealth map[string]string) {
 	logger := log.DefaultLogger()
-
+	if dpi.mutateHealthUpdate != nil {
+		var err error
+		healthy, err = dpi.mutateHealthUpdate(deviceID, absoluteDevicePath, healthy)
+		if err != nil {
+			logger.Reason(err).Warningf("An error occurred while attempting to mutate health update for %s", devFriendlyName)
+			healthy = false
+		}
+	}
 	newHealthStatus := pluginapi.Unhealthy
 	if healthy {
 		newHealthStatus = pluginapi.Healthy
