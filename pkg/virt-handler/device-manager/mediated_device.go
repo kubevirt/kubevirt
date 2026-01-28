@@ -30,8 +30,6 @@ import (
 	"context"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -70,7 +68,6 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 			resourceName: resourceName,
 			devicePath:   vfioDevicePath,
 			deviceRoot:   util.HostRootMount,
-			server:       grpc.NewServer([]grpc.ServerOption{}...),
 			initialized:  false,
 			lock:         &sync.Mutex{},
 			health:       make(chan deviceHealth),

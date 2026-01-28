@@ -217,7 +217,10 @@ func (dpi *PCIDevicePlugin) deviceNameByIDFunc(monDevId string) string {
 
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {
 	pciDevicesMap := make(map[string][]*PCIDevice)
-	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
 		if info.IsDir() {
 			return nil
 		}
