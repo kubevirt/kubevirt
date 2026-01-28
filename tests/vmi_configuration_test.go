@@ -1038,11 +1038,24 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						return false
 					}
 
+					hasVirtioFSDisk := false
+					for _, fs := range guestInfo.FSInfo.Filesystems {
+						for _, disk := range fs.Disk {
+							if disk.BusType == v1.VirtIO {
+								hasVirtioFSDisk = true
+								break
+							}
+						}
+						if hasVirtioFSDisk {
+							break
+						}
+					}
+
 					return guestInfo.Hostname != "" &&
 						guestInfo.Timezone != "" &&
 						guestInfo.GAVersion != "" &&
 						guestInfo.OS.Name != "" &&
-						len(guestInfo.FSInfo.Filesystems) > 0
+						hasVirtioFSDisk
 
 				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in subresource")
 			})
