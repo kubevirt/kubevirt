@@ -36,9 +36,6 @@ TARGETS=(
     "sidecar-shim_x86_64"
     "sidecar-shim_aarch64"
     "sidecar-shim_s390x"
-    "libvirt-libs_x86_64"
-    "libvirt-libs_aarch64"
-    "libvirt-libs_s390x"
 )
 
 BUILD_FILE="${KUBEVIRT_DIR}/rpm/BUILD.bazel"
