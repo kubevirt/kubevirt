@@ -7076,57 +7076,56 @@ centos_stream_alias(
 # These are used by the main BUILD.bazel cc_library
 centos_stream_alias(
     name = "libvirt-libs_x86_64/usr/lib64",
-    cs9_target = ":libvirt-libs_x86_64_cs9/usr/lib64",
     cs10_target = ":libvirt-libs_x86_64_cs10/usr/lib64",
+    cs9_target = ":libvirt-libs_x86_64_cs9/usr/lib64",
     visibility = ["//visibility:public"],
 )
 
 centos_stream_alias(
     name = "libvirt-libs_x86_64/usr/include/libvirt",
-    cs9_target = ":libvirt-libs_x86_64_cs9/usr/include/libvirt",
     cs10_target = ":libvirt-libs_x86_64_cs10/usr/include/libvirt",
+    cs9_target = ":libvirt-libs_x86_64_cs9/usr/include/libvirt",
     visibility = ["//visibility:public"],
 )
 
 centos_stream_alias(
     name = "libvirt-libs_aarch64/usr/lib64",
-    cs9_target = ":libvirt-libs_aarch64_cs9/usr/lib64",
     cs10_target = ":libvirt-libs_aarch64_cs10/usr/lib64",
+    cs9_target = ":libvirt-libs_aarch64_cs9/usr/lib64",
     visibility = ["//visibility:public"],
 )
 
 centos_stream_alias(
     name = "libvirt-libs_aarch64/usr/lib",
-    cs9_target = ":libvirt-libs_aarch64_cs9/usr/lib",
     cs10_target = ":libvirt-libs_aarch64_cs10/usr/lib",
+    cs9_target = ":libvirt-libs_aarch64_cs9/usr/lib",
     visibility = ["//visibility:public"],
 )
 
 centos_stream_alias(
     name = "libvirt-libs_aarch64/usr/include/libvirt",
-    cs9_target = ":libvirt-libs_aarch64_cs9/usr/include/libvirt",
     cs10_target = ":libvirt-libs_aarch64_cs10/usr/include/libvirt",
+    cs9_target = ":libvirt-libs_aarch64_cs9/usr/include/libvirt",
     visibility = ["//visibility:public"],
 )
 
 centos_stream_alias(
     name = "libvirt-libs_s390x/usr/lib64",
-    cs9_target = ":libvirt-libs_s390x_cs9/usr/lib64",
     cs10_target = ":libvirt-libs_s390x_cs10/usr/lib64",
+    cs9_target = ":libvirt-libs_s390x_cs9/usr/lib64",
     visibility = ["//visibility:public"],
 )
 
 centos_stream_alias(
     name = "libvirt-libs_s390x/usr/lib",
-    cs9_target = ":libvirt-libs_s390x_cs9/usr/lib",
     cs10_target = ":libvirt-libs_s390x_cs10/usr/lib",
+    cs9_target = ":libvirt-libs_s390x_cs9/usr/lib",
     visibility = ["//visibility:public"],
 )
 
 centos_stream_alias(
     name = "libvirt-libs_s390x/usr/include/libvirt",
-    cs9_target = ":libvirt-libs_s390x_cs9/usr/include/libvirt",
     cs10_target = ":libvirt-libs_s390x_cs10/usr/include/libvirt",
+    cs9_target = ":libvirt-libs_s390x_cs9/usr/include/libvirt",
     visibility = ["//visibility:public"],
 )
-

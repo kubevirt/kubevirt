@@ -37,6 +37,7 @@ def centos_stream_config_settings():
         name = "x86_64_cs10",
         match_all = [":linux_x86_64", ":is_cs10"],
     )
+
     # aarch64 + CS versions
     selects.config_setting_group(
         name = "aarch64_cs9",
@@ -46,6 +47,7 @@ def centos_stream_config_settings():
         name = "aarch64_cs10",
         match_all = [":linux_arm64", ":is_cs10"],
     )
+
     # s390x + CS versions
     selects.config_setting_group(
         name = "s390x_cs9",
