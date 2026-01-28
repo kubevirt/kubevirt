@@ -130,6 +130,28 @@ func (plugin *USBDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watch
 	return nil
 }
 
+func (plugin *USBDevicePlugin) mutateHealthUpdateFunc(deviceID string, devicePath string, healthy *bool) error {
+	// a device is healthy when all devices in the usb device group are healthy
+	pluginDevices := plugin.FindDevice(deviceID)
+	if pluginDevices == nil {
+		return fmt.Errorf("usb_device was unable to find a deviceID=%s corresponding to devicePath=%s", deviceID, devicePath)
+	}
+	for _, usbDev := range pluginDevices.Devices {
+		expectedUsbDevicePath := filepath.Join(plugin.deviceRoot, usbDev.DevicePath)
+		if devicePath == expectedUsbDevicePath {
+			usbDev.Healthy = *healthy
+		}
+	}
+	// if any of the devices in the usb device group is unhealthy, the usb device group is unhealthy
+	for _, usbDev := range pluginDevices.Devices {
+		if !usbDev.Healthy {
+			*healthy = false
+			return nil
+		}
+	}
+	return nil
+}
+
 // Interface to allocate requested Device, exported by ListAndWatch
 func (plugin *USBDevicePlugin) allocateDPFunc(_ context.Context, allocRequest *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	allocResponse := new(pluginapi.AllocateResponse)
@@ -415,6 +437,7 @@ func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []
 		}
 	}
 	usb.allocateDP = usb.allocateDPFunc
+	usb.mutateHealthUpdate = usb.mutateHealthUpdateFunc
 	return usb
 }
 
