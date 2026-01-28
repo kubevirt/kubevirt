@@ -1389,6 +1389,13 @@ func (c *VirtualMachineController) sync(key string,
 			// 	Ignoring transient Shutoff/Unknown status for recently created domain
 			isStartingUp(domain))
 
+	if vmiExists {
+		if _, err := c.launcherClients.GetVerifiedLauncherClient(vmi); err != nil {
+			log.Log.Reason(err).Errorf("Virt-launcher client not found for VMI %s/%s", vmi.Namespace, vmi.Name)
+			domainAlive = false
+		}
+	}
+
 	forceShutdownIrrecoverable = domainExists && domainPausedFailedPostCopy(domain)
 
 	gracefulShutdown := c.hasGracefulShutdownTrigger(domain)
