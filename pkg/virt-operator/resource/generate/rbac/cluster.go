@@ -322,21 +322,10 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					apiVMBackups,
+					apiVMBackupTrackers,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
-				},
-			},
-			{
-				APIGroups: []string{
-					backup.GroupName,
-				},
-				Resources: []string{
-					apiVMBackupTrackers,
-					apiVMBackupTrackers + "/status",
-				},
-				Verbs: []string{
-					"get", "list", "watch", "create", "update", "patch",
 				},
 			},
 			{
@@ -542,6 +531,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					apiVMBackups,
+					apiVMBackupTrackers,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch",
@@ -747,6 +737,7 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 				},
 				Resources: []string{
 					apiVMBackups,
+					apiVMBackupTrackers,
 				},
 				Verbs: []string{
 					"get", "list", "watch",

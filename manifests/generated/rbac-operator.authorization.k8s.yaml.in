@@ -1071,6 +1071,7 @@ rules:
   - backup.kubevirt.io
   resources:
   - virtualmachinebackups
+  - virtualmachinebackuptrackers
   verbs:
   - get
   - delete
@@ -1080,18 +1081,6 @@ rules:
   - list
   - watch
   - deletecollection
-- apiGroups:
-  - backup.kubevirt.io
-  resources:
-  - virtualmachinebackuptrackers
-  - virtualmachinebackuptrackers/status
-  verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - patch
 - apiGroups:
   - export.kubevirt.io
   resources:
@@ -1254,6 +1243,7 @@ rules:
   - backup.kubevirt.io
   resources:
   - virtualmachinebackups
+  - virtualmachinebackuptrackers
   verbs:
   - get
   - delete
@@ -1380,6 +1370,7 @@ rules:
   - backup.kubevirt.io
   resources:
   - virtualmachinebackups
+  - virtualmachinebackuptrackers
   verbs:
   - get
   - list
