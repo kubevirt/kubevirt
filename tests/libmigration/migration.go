@@ -29,7 +29,6 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
-	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 )
@@ -514,7 +513,6 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 	var err error
 	virtClient := kubevirt.Client()
 	var pod *k8sv1.Pod
-	var metricsIPs []string
 	var migrationMetrics = []string{
 		"kubevirt_vmi_migration_data_total_bytes",
 		"kubevirt_vmi_migration_data_remaining_bytes",
@@ -522,18 +520,10 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 		"kubevirt_vmi_migration_dirty_memory_rate_bytes",
 		"kubevirt_vmi_migration_memory_transfer_rate_bytes",
 	}
-	const family = k8sv1.IPv4Protocol
 
 	By("Finding the prometheus endpoint")
 	pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
 	Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
-	Expect(pod.Status.PodIPs).ToNot(BeEmpty(), "pod IPs must not be empty")
-	for _, ip := range pod.Status.PodIPs {
-		metricsIPs = append(metricsIPs, ip.IP)
-	}
-
-	By("Waiting until the Migration Completes")
-	ip := libnet.GetIP(metricsIPs, family)
 
 	_ = RunMigration(virtClient, migration)
 
@@ -552,7 +542,7 @@ func RunMigrationAndCollectMigrationMetrics(vmi *v1.VirtualMachineInstance, migr
 	}
 
 	Eventually(func() error {
-		out := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		out := libmonitoring.GetKubevirtVMMetrics(pod)
 		for _, metricName := range migrationMetrics {
 			lines := libinfra.TakeMetricsWithPrefix(out, metricName)
 			metrics, err := libinfra.ParseMetricsToMap(lines)
