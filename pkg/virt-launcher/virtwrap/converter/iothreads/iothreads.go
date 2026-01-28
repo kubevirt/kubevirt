@@ -20,6 +20,8 @@
 package iothreads
 
 import (
+	"slices"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -36,78 +38,20 @@ func HasIOThreads(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.IOThreadsPolicy != nil {
 		return true
 	}
-	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, HasDedicatedIOThread)
 }
 
-func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoThreads int) {
-	dedicatedThreads := 0
-
-	var threadPoolLimit int
-	policy := vmi.Spec.Domain.IOThreadsPolicy
-	switch {
-	case policy == nil:
-		threadPoolLimit = 1
-	case *policy == v1.IOThreadsPolicyShared:
-		threadPoolLimit = 1
-	case *policy == v1.IOThreadsPolicyAuto:
-		// When IOThreads policy is set to auto and we've allocated a dedicated
-		// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
-		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-			threadPoolLimit = 1
-		} else {
-			numCPUs := 1
-			// Requested CPU's is guaranteed to be no greater than the limit
-			if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
-				numCPUs = int(cpuRequests.Value())
-			} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
-				numCPUs = int(cpuLimit.Value())
-			}
-
-			threadPoolLimit = numCPUs * 2
-		}
-	case *policy == v1.IOThreadsPolicySupplementalPool:
-		if vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
-			ioThreadCount = int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
-		}
-		return
-	}
-
-	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
-			dedicatedThreads += 1
-		} else {
-			autoThreads += 1
-		}
-	}
-
-	if (autoThreads + dedicatedThreads) > threadPoolLimit {
-		autoThreads = threadPoolLimit - dedicatedThreads
-		// We need at least one shared thread
-		if autoThreads < 1 {
-			autoThreads = 1
-		}
-	}
-
-	ioThreadCount = autoThreads + dedicatedThreads
-	return
+func HasDedicatedIOThread(disk v1.Disk) bool {
+	return disk.DedicatedIOThread != nil && *disk.DedicatedIOThread
 }
 
-func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint) {
-	if !HasIOThreads(vmi) {
-		return
-	}
+func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus, poolSize, totalThreads uint) {
 	currentAutoThread := defaultIOThread
-	ioThreadCount, autoThreads := getIOThreadsCountType(vmi)
-	if ioThreadCount != 0 {
+	if totalThreads != 0 {
 		if domain.Spec.IOThreads == nil {
 			domain.Spec.IOThreads = &api.IOThreads{}
 		}
-		domain.Spec.IOThreads.IOThreads = uint(ioThreadCount)
+		domain.Spec.IOThreads.IOThreads = totalThreads
 	}
 	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
 		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
@@ -122,7 +66,7 @@ func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 			}
 		}
 	} else {
-		currentDedicatedThread := uint(autoThreads + 1)
+		currentDedicatedThread := uint(poolSize + 1)
 		for i, disk := range domain.Spec.Devices.Disks {
 			// Only disks with virtio bus support IOThreads
 			if disk.Target.Bus == v1.DiskBusVirtio {
@@ -133,7 +77,7 @@ func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 					domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentAutoThread)
 					// increment the threadId to be used next but wrap around at the thread limit
 					// the odd math here is because thread ID's start at 1, not 0
-					currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+					currentAutoThread = (currentAutoThread % poolSize) + 1
 				}
 			}
 		}
@@ -162,4 +106,66 @@ func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 			domain.Spec.Devices.Controllers[i].Driver.Queues = pointer.P(vcpus)
 		}
 	}
+}
+
+func CalculateThreadAllocation(vmi *v1.VirtualMachineInstance) (uint, uint) {
+	if isSupplementalPolicy(vmi) {
+		if vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
+			ioThreadCount := *vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount
+			return uint(ioThreadCount), uint(ioThreadCount)
+		}
+		return 0, 0
+	}
+
+	var sharedCount, dedicatedCount int
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if HasDedicatedIOThread(disk) {
+			dedicatedCount++
+		} else {
+			sharedCount++
+		}
+	}
+
+	poolLimit := getThreadPoolLimit(vmi)
+
+	poolSize := sharedCount
+	if (poolSize + dedicatedCount) > poolLimit {
+		poolSize = poolLimit - dedicatedCount
+	}
+	if poolSize < 1 {
+		poolSize = 1
+	}
+
+	return uint(poolSize), uint(poolSize + dedicatedCount)
+}
+
+func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
+	policy := vmi.Spec.Domain.IOThreadsPolicy
+
+	if policy == nil || *policy == v1.IOThreadsPolicyShared {
+		return 1
+	}
+
+	if *policy == v1.IOThreadsPolicyAuto {
+		// When IOThreads policy is set to auto and we've allocated a dedicated
+		// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
+		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+			return 1
+		}
+		numCPUs := 1
+		// Requested CPU's is guaranteed to be no greater than the limit
+		if req, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+			numCPUs = int(req.Value())
+		} else if lim, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+			numCPUs = int(lim.Value())
+		}
+		return numCPUs * 2
+	}
+
+	return 1
+}
+
+func isSupplementalPolicy(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.IOThreadsPolicy != nil &&
+		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool
 }

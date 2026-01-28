@@ -1060,6 +1060,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		}
 	}
 
+	hasIOThreads := iothreads.HasIOThreads(vmi)
+
 	builder := NewDomainBuilder(
 		metadata.DomainConfigurator{},
 		network.NewDomainConfigurator(
@@ -1246,12 +1248,15 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		)
 	}
 
-	iothreads.SetIOThreads(vmi, domain, vcpus)
+	if hasIOThreads {
+		poolSize, totalThreads := iothreads.CalculateThreadAllocation(vmi)
+		iothreads.SetIOThreads(vmi, domain, vcpus, poolSize, totalThreads)
+	}
 
 	if vmi.Spec.Domain.CPU != nil {
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
-			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, iothreads.HasIOThreads(vmi))
+			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, hasIOThreads)
 			if err != nil {
 				return err
 			}
