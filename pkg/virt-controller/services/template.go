@@ -83,6 +83,10 @@ const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const SevDevice = "devices.kubevirt.io/sev"
 const VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
 const PrDevice = "devices.kubevirt.io/pr-helper"
+const TdxKeysDevice = "devices.kubevirt.io/tdx-keys"
+const SevESidsDevice = "devices.kubevirt.io/sev-esids"
+const KataTdxKeysDevice = "tdx.intel.com/keys"
+const KataSevESidsDevice = "sev-snp.amd.com/esids"
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
@@ -1563,6 +1567,8 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 				return t.clusterConfig.HostDevicesWithDRAEnabled() && isHostDevVMIDRA(vmi)
 			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
+			NewVMIResourceRule(util.IsTDXVMI, WithTDXCapacity(t.clusterConfig.SecureGuestCapacityExtendedResourceEnabled())),
+			NewVMIResourceRule(util.IsSEVSNPVMI, WithSNPCapacity(t.clusterConfig.SecureGuestCapacityExtendedResourceEnabled())),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 		},
 	}
