@@ -350,6 +350,12 @@ oci_push(
     repository = "quay.io/kubevirt/fedora-realtime-container-disk",
 )
 
+oci_push(
+    name = "push-s390x-guestless-kernel",
+    image = "//containerimages:s390x-guestless-kernel",
+    repository = "quay.io/kubevirt/s390x-guestless-kernel",
+)
+
 # testing images
 oci_push(
     name = "push-disks-images-provider",

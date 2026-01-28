@@ -62,6 +62,23 @@ func WithKernelBootContainer(imageName string) Option {
 	}
 }
 
+// WithKernelBoot configures a VMI to boot from a kernel container with full boot parameters.
+func WithKernelBoot(image, kernelPath, initrdPath, kernelArgs string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.Firmware == nil {
+			vmi.Spec.Domain.Firmware = &v1.Firmware{}
+		}
+		vmi.Spec.Domain.Firmware.KernelBoot = &v1.KernelBoot{
+			KernelArgs: kernelArgs,
+			Container: &v1.KernelBootContainer{
+				Image:      image,
+				KernelPath: kernelPath,
+				InitrdPath: initrdPath,
+			},
+		}
+	}
+}
+
 func WithKernelBootContainerImagePullSecret(imagePullSecret string) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		if vmi.Spec.Domain.Firmware == nil {
