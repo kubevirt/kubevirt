@@ -93,7 +93,8 @@ func (dpi *GenericDevicePlugin) setupDevicePluginFunc() error {
 	// That need is identified by the first access to their main device node.
 	// Opening and closing the device nodes here will trigger any necessary modprobe.
 	if dpi.preOpen {
-		devnode, err := os.Open(dpi.devicePath)
+		devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
+		devnode, err := os.Open(devicePath)
 		if err == nil {
 			devnode.Close()
 		}
