@@ -41,6 +41,7 @@ func NewCommand() *cobra.Command {
 		},
 	}
 
+	cmd.AddCommand(convert.NewCommand())
 	cmd.AddCommand(create.NewCommand())
 	cmd.AddCommand(process.NewCommand())
 	cmd.SetUsageTemplate(templates.UsageTemplate())
