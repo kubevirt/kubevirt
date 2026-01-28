@@ -1418,6 +1418,13 @@ func (c *VirtualMachineController) sync(key string,
 			// 	Ignoring transient Shutoff/Unknown status for recently created domain
 			isStartingUp(domain))
 
+	if vmiExists {
+		if _, err := c.launcherClients.GetVerifiedLauncherClient(vmi); goerror.Is(err, launcherclients.IrrecoverableError) {
+			log.Log.Reason(err).Errorf("Virt-launcher client not found for VMI %s/%s", vmi.Namespace, vmi.Name)
+			domainAlive = false
+		}
+	}
+
 	forceShutdownIrrecoverable = domainExists && domainPausedFailedPostCopy(domain)
 
 	gracefulShutdown := c.hasGracefulShutdownTrigger(domain)
@@ -1652,8 +1659,9 @@ func (c *VirtualMachineController) hasGracePeriodExpired(terminationGracePeriod 
 
 func (c *VirtualMachineController) helperVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain, tryGracefully bool) error {
 
-	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
 	client, err := c.launcherClients.GetVerifiedLauncherClient(vmi)
+	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
+	// TODO: distinguish between irrecoverable and transient errors: goerror.Is(err, launcherclients.IrrecoverableError)
 	if err != nil {
 		return err
 	}
