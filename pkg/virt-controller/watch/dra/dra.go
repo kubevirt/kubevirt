@@ -500,9 +500,13 @@ func getGPUDevicesFromVMISpec(vmi *v1.VirtualMachineInstance) ([]DeviceInfo, err
 		if !drautil.IsGPUDRA(gpu) {
 			continue
 		}
+		requestName := ""
+		if gpu.RequestName != nil {
+			requestName = *gpu.RequestName
+		}
 		gpuDevices = append(gpuDevices, DeviceInfo{
 			VMISpecClaimName:   *gpu.ClaimName,
-			VMISpecRequestName: *gpu.RequestName,
+			VMISpecRequestName: requestName,
 			DeviceStatusInfo: &v1.DeviceStatusInfo{
 				Name:                      gpu.Name,
 				DeviceResourceClaimStatus: nil,
@@ -584,8 +588,17 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 	if resourceClaim.Status.Allocation == nil {
 		return nil, nil
 	}
-	if resourceClaim.Status.Allocation.Devices.Results == nil {
+	if len(resourceClaim.Status.Allocation.Devices.Results) == 0 {
 		return nil, nil
+	}
+
+	if requestName == "" {
+		numDevices := len(resourceClaim.Status.Allocation.Devices.Results)
+		if numDevices == 1 {
+			return resourceClaim.Status.Allocation.Devices.Results[0].DeepCopy(), nil
+		} else {
+			return nil, fmt.Errorf("requestName is required when ResourceClaim %s has multiple devices (%d devices allocated)", key, numDevices)
+		}
 	}
 
 	for _, status := range resourceClaim.Status.Allocation.Devices.Results {
@@ -649,9 +662,13 @@ func (c *DRAStatusController) getHostDevicesFromVMISpec(vmi *v1.VirtualMachineIn
 		if !drautil.IsHostDeviceDRA(hostDevice) {
 			continue
 		}
+		requestName := ""
+		if hostDevice.ClaimRequest.RequestName != nil {
+			requestName = *hostDevice.ClaimRequest.RequestName
+		}
 		hostDevices = append(hostDevices, DeviceInfo{
 			VMISpecClaimName:   *hostDevice.ClaimRequest.ClaimName,
-			VMISpecRequestName: *hostDevice.ClaimRequest.RequestName,
+			VMISpecRequestName: requestName,
 			DeviceStatusInfo: &v1.DeviceStatusInfo{
 				Name:                      hostDevice.Name,
 				DeviceResourceClaimStatus: nil,
