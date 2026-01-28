@@ -982,7 +982,7 @@ func configureLocalDiskToMigrate(dom *libvirtxml.Domain, vmi *v1.VirtualMachineI
 	return nil
 }
 
-func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
+func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions, monitor *migrationMonitor) error {
 
 	var err error
 	var params *libvirt.DomainMigrateParameters
@@ -999,6 +999,10 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		return fmt.Errorf("failed to retrive domain state")
 	}
 	migrateFlags := generateMigrationFlags(vmi.IsBlockMigration(), migratePaused, options)
+
+	if err = setVGPUMigrationMaxDowntime(vmi, dom, uint64(monitor.acceptableCompletionTime)); err != nil {
+		return err
+	}
 
 	// anything that modifies the domain needs to be performed with the domainModifyLock held
 	// The domain params and unHotplug need to be performed in a critical section together.
@@ -1046,6 +1050,21 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 	return nil
 }
 
+// setVGPUMigrationMaxDowntime sets downtime limit otherwise migration won't converge
+func setVGPUMigrationMaxDowntime(vmi *v1.VirtualMachineInstance, dom cli.VirDomain, maxDowntimeSec uint64) error {
+	maxDowntimeMs := maxDowntimeSec * uint64(time.Second/time.Millisecond)
+	if len(vmi.Spec.Domain.Devices.GPUs) > 0 {
+		if len(vmi.Spec.Domain.Devices.GPUs) == 1 {
+			if err := dom.MigrateSetMaxDowntime(maxDowntimeMs, 0); err != nil {
+				return fmt.Errorf("failed to set migration downtime limit: %v", err)
+			}
+		} else {
+			return fmt.Errorf("vmi has too many GPUs for migration")
+		}
+	}
+	return nil
+}
+
 // prepareDomainForMigration perform necessary operation
 // on the source domain just before migration
 func prepareDomainForMigration(virtConn cli.Connection, domain cli.VirDomain) error {
@@ -1082,7 +1101,7 @@ func (l *LibvirtDomainManager) migrate(vmi *v1.VirtualMachineInstance, options *
 	monitor := newMigrationMonitor(vmi, l, options, migrationErrorChan)
 	go monitor.startMonitor()
 
-	err := l.migrateHelper(vmi, options)
+	err := l.migrateHelper(vmi, options, monitor)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error(liveMigrationFailed)
 		migrationErrorChan <- err
