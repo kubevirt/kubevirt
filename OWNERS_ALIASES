@@ -121,6 +121,7 @@ aliases:
     - vladikr
     - enp0s3
     - xpivarc
+    - orelmisan
   sig-compute-reviewers:
     - victortoso
     - fossedihelm
@@ -128,6 +129,7 @@ aliases:
     - 0xFelix
     - Barakmor1
     - dasionov
+    - orelmisan
 
   # SIG Compute Instance types sub project
   # Responsible the overall instance type feature set within SIG Compute
