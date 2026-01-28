@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -14,13 +15,29 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
 
 func (r *Reconciler) createOrUpdateClusterRole(cr *rbacv1.ClusterRole, imageTag string, imageRegistry string, id string) error {
-	return rbacCreateOrUpdate(r, cr, imageTag, imageRegistry, id)
+	if !r.isRBACAggregationManual() {
+		// The original strategy object already has the correct aggregate labels.
+		return rbacCreateOrUpdate(r, cr, imageTag, imageRegistry, id)
+	}
+
+	// DeepCopy to avoid modifying the original strategy object, allowing
+	// dynamic toggling of aggregate labels without requiring a new strategy.
+	crCopy := cr.DeepCopy()
+	// Get aggregate labels before removing them, so we know which ones to mark for removal
+	aggregateLabels := getAggregateLabels(crCopy)
+	removeAggregateLabels(crCopy)
+	// Check if ClusterRole already exists - if so, add removal markers for MergeMap
+	if _, exists, _ := r.stores.ClusterRoleCache.Get(crCopy); exists {
+		markAggregateLabelsForRemoval(crCopy, aggregateLabels)
+	}
+	return rbacCreateOrUpdate(r, crCopy, imageTag, imageRegistry, id)
 }
 
 func (r *Reconciler) createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding, imageTag string, imageRegistry string, id string) error {
@@ -348,4 +365,42 @@ func getRbacCache(r *Reconciler, obj runtime.Object) (cache cache.Store) {
 	}
 
 	return cache
+}
+
+func (r *Reconciler) isRBACAggregationManual() bool {
+	return r.kv.Spec.Configuration.RoleAggregationStrategy != nil &&
+		*r.kv.Spec.Configuration.RoleAggregationStrategy == v1.RoleAggregationStrategyManual
+}
+
+// getAggregateLabels returns a list of aggregate-to-* label keys present in the ClusterRole.
+func getAggregateLabels(cr *rbacv1.ClusterRole) []string {
+	const aggregateLabelPrefix = "rbac.authorization.k8s.io/aggregate-to-"
+	var labels []string
+	for key := range cr.Labels {
+		if strings.HasPrefix(key, aggregateLabelPrefix) {
+			labels = append(labels, key)
+		}
+	}
+	return labels
+}
+
+// removeAggregateLabels removes all aggregate-to-* labels from a ClusterRole.
+// These labels control whether the ClusterRole is aggregated to the default
+// Kubernetes roles (admin, edit, view, etc.).
+func removeAggregateLabels(cr *rbacv1.ClusterRole) {
+	for _, key := range getAggregateLabels(cr) {
+		delete(cr.Labels, key)
+	}
+}
+
+// markAggregateLabelsForRemoval adds labels with trailing "-" suffix to signal
+// removal from an existing object. This is the convention used by resourcemerge.MergeMap.
+// The labels to mark are derived from the ClusterRole's existing aggregate labels.
+func markAggregateLabelsForRemoval(cr *rbacv1.ClusterRole, labelsToRemove []string) {
+	if cr.Labels == nil {
+		cr.Labels = make(map[string]string)
+	}
+	for _, key := range labelsToRemove {
+		cr.Labels[key+"-"] = ""
+	}
 }
