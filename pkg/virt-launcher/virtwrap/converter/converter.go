@@ -1241,26 +1241,10 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 			compute.ControllersWithControllerDriver(controllerDriver),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
+		compute.NewCPUDomainConfigurator(c.Architecture.SupportCPUHotplug(), c.Architecture.RequiresMPXCPUValidation()),
 	)
 	if err := builder.Build(vmi, domain); err != nil {
 		return err
-	}
-
-	// Set VM CPU cores
-	// CPU topology will be created everytime, because user can specify
-	// number of cores in vmi.Spec.Domain.Resources.Requests/Limits, not only
-	// in vmi.Spec.Domain.CPU
-	cpuTopology := vcpu.GetCPUTopology(vmi)
-	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-
-	domain.Spec.CPU.Topology = cpuTopology
-	domain.Spec.VCPU = &api.VCPU{
-		Placement: "static",
-		CPUs:      cpuCount,
-	}
-	// set the maximum number of sockets here to allow hot-plug CPUs
-	if vmiCPU := vmi.Spec.Domain.CPU; vmiCPU != nil && vmiCPU.MaxSockets != 0 && c.Architecture.SupportCPUHotplug() {
-		domainVCPUTopologyForHotplug(vmi, domain)
 	}
 
 	if err = setupDomainMemory(vmi, domain); err != nil {
@@ -1316,6 +1300,8 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	var numBlkQueues *uint
 	virtioBlkMQRequested := (vmi.Spec.Domain.Devices.BlockMultiQueue != nil) && (*vmi.Spec.Domain.Devices.BlockMultiQueue)
+	cpuTopology := vcpu.GetCPUTopology(vmi)
+	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
 	vcpus := uint(cpuCount)
 	if vcpus == 0 {
 		vcpus = uint(1)
@@ -1395,49 +1381,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	setIOThreads(vmi, domain, vcpus)
 
 	if vmi.Spec.Domain.CPU != nil {
-		// Set VM CPU model and vendor
-		if vmi.Spec.Domain.CPU.Model != "" {
-			if vmi.Spec.Domain.CPU.Model == v1.CPUModeHostModel || vmi.Spec.Domain.CPU.Model == v1.CPUModeHostPassthrough {
-				domain.Spec.CPU.Mode = vmi.Spec.Domain.CPU.Model
-			} else {
-				domain.Spec.CPU.Mode = "custom"
-				domain.Spec.CPU.Model = vmi.Spec.Domain.CPU.Model
-			}
-		}
-
-		// Set VM CPU features
-		existingFeatures := make(map[string]struct{})
-		if vmi.Spec.Domain.CPU.Features != nil {
-			for _, feature := range vmi.Spec.Domain.CPU.Features {
-				existingFeatures[feature.Name] = struct{}{}
-				domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
-					Name:   feature.Name,
-					Policy: feature.Policy,
-				})
-			}
-		}
-
-		/*
-						Libvirt validation fails when a CPU model is usable
-						by QEMU but lacks features listed in
-						`/usr/share/libvirt/cpu_map/[CPU Model].xml` on a node
-						To avoid the validation error mentioned above we can disable
-						deprecated features in the `/usr/share/libvirt/cpu_map/[CPU Model].xml` files.
-						Examples of validation error:
-			    		https://bugzilla.redhat.com/show_bug.cgi?id=2122283 - resolve by obsolete Opteron_G2
-						https://gitlab.com/libvirt/libvirt/-/issues/304 - resolve by disabling mpx which is deprecated
-						Issue in Libvirt: https://gitlab.com/libvirt/libvirt/-/issues/608
-						once the issue is resolved we can remove mpx disablement
-		*/
-
-		_, exists := existingFeatures["mpx"]
-		if c.Architecture.RequiresMPXCPUValidation() && !exists && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostModel && vmi.Spec.Domain.CPU.Model != v1.CPUModeHostPassthrough {
-			domain.Spec.CPU.Features = append(domain.Spec.CPU.Features, api.CPUFeature{
-				Name:   "mpx",
-				Policy: "disable",
-			})
-		}
-
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
 			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, hasIOThreads(vmi))
@@ -1445,10 +1388,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				return err
 			}
 		}
-	}
-
-	if vmi.Spec.Domain.CPU == nil || vmi.Spec.Domain.CPU.Model == "" {
-		domain.Spec.CPU.Mode = v1.CPUModeHostModel
 	}
 
 	if vmi.Spec.Domain.Devices.AutoattachSerialConsole == nil || *vmi.Spec.Domain.Devices.AutoattachSerialConsole {
@@ -1468,24 +1407,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	return nil
-}
-
-func boolToYesNo(value *bool, defaultYes bool) string {
-	return boolToString(value, defaultYes, "yes", "no")
-}
-
-func boolToString(value *bool, defaultPositive bool, positive string, negative string) string {
-	toString := func(value bool) string {
-		if value {
-			return positive
-		}
-		return negative
-	}
-
-	if value == nil {
-		return toString(defaultPositive)
-	}
-	return toString(*value)
 }
 
 func shouldDisablePCIHole64(vmi *v1.VirtualMachineInstance) bool {
@@ -1556,37 +1477,6 @@ func GracePeriodSeconds(vmi *v1.VirtualMachineInstance) int64 {
 		gracePeriodSeconds = *vmi.Spec.TerminationGracePeriodSeconds
 	}
 	return gracePeriodSeconds
-}
-
-func domainVCPUTopologyForHotplug(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	cpuTopology := vcpu.GetCPUTopology(vmi)
-	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-	// Always allow to hotplug to minimum of 1 socket
-	minEnabledCpuCount := cpuTopology.Cores * cpuTopology.Threads
-	// Total vCPU count
-	enabledCpuCount := cpuCount
-	cpuTopology.Sockets = vmi.Spec.Domain.CPU.MaxSockets
-	cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
-	VCPUs := &api.VCPUs{}
-	for id := uint32(0); id < cpuCount; id++ {
-		// Enable all requestd vCPUs
-		isEnabled := id < enabledCpuCount
-		// There should not be fewer vCPU than cores and threads within a single socket
-		isHotpluggable := id >= minEnabledCpuCount
-		vcpu := api.VCPUsVCPU{
-			ID:           id,
-			Enabled:      boolToYesNo(&isEnabled, true),
-			Hotpluggable: boolToYesNo(&isHotpluggable, false),
-		}
-		VCPUs.VCPU = append(VCPUs.VCPU, vcpu)
-	}
-
-	domain.Spec.VCPUs = VCPUs
-	domain.Spec.CPU.Topology = cpuTopology
-	domain.Spec.VCPU = &api.VCPU{
-		Placement: "static",
-		CPUs:      cpuCount,
-	}
 }
 
 func convertCmdv1SMBIOSToComputeSMBIOS(input *cmdv1.SMBios) *compute.SMBIOS {
