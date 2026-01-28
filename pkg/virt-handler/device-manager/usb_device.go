@@ -82,7 +82,7 @@ type PluginDevices struct {
 func newPluginDevices(resourceName string, index int, usbdevs []*USBDevice) *PluginDevices {
 	return &PluginDevices{
 		ID:        fmt.Sprintf("%s-%s-%d", resourceName, rand.String(4), index),
-		isHealthy: true,
+		isHealthy: false,
 		Devices:   usbdevs,
 	}
 }

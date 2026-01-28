@@ -87,7 +87,7 @@ func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]strin
 		iommuToPCIMap[pciDevice.iommuGroup] = pciDevice.pciAddress
 		dpiDev := &pluginapi.Device{
 			ID:     pciDevice.iommuGroup,
-			Health: pluginapi.Healthy,
+			Health: pluginapi.Unhealthy,
 		}
 		if pciDevice.numaNode >= 0 {
 			numaInfo := &pluginapi.NUMANode{

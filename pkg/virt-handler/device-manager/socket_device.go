@@ -116,7 +116,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 		deviceId := socketName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,
-			Health: pluginapi.Healthy,
+			Health: pluginapi.Unhealthy,
 		})
 	}
 	if err := dpi.setSocketDirectoryPermissions(); err != nil {
