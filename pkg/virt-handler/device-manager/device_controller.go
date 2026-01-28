@@ -29,9 +29,11 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
+
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
@@ -250,7 +252,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []devicePlugin {
 	}
 
 	for resourceName, pluginDevices := range discoverAllowedUSBDevices(hostDevs.USB) {
-		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, pluginDevices))
+		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, util.HostRootMount, pluginDevices, newPermissionManager()))
 	}
 
 	return permittedDevices
