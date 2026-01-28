@@ -57,3 +57,14 @@ func WithSEVAttestation() Option {
 		vmi.Spec.Domain.LaunchSecurity.SEV.Attestation = &v1.SEVAttestation{}
 	}
 }
+
+func WithTDX() Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		if vmi.Spec.Domain.LaunchSecurity == nil {
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+		}
+		if vmi.Spec.Domain.LaunchSecurity.TDX == nil {
+			vmi.Spec.Domain.LaunchSecurity.TDX = &v1.TDX{}
+		}
+	}
+}
