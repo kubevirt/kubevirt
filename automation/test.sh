@@ -346,6 +346,24 @@ export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 build_images
 
 trap '{ collect_debug_logs; }' ERR
+
+# Replace kind.yaml with custom configuration before cluster-up
+cat > ./kubevirtci/cluster-up/cluster/kind/manifests/kind.yaml <<EOF
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+containerdConfigPatches:
+- |
+  [plugins."io.containerd.snapshotter.v1.overlayfs"]
+    mount_options = ["volatile"]
+- |
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+networking:
+  serviceSubnet: "10.76.0.0/12"
+nodes:
+- role: control-plane
+EOF
+
 make cluster-up
 trap - ERR
 
