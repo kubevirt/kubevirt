@@ -3,22 +3,48 @@
 set -ex
 
 source hack/common.sh
+# Skip bootstrap and sandbox checks during rpm-deps as we're regenerating the targets
+KUBEVIRT_SKIP_BOOTSTRAP=true
+KUBEVIRT_BOOTSTRAPPING=true
+export KUBEVIRT_BOOTSTRAPPING
 source hack/bootstrap.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:11.9.0-1.el9}
-QEMU_VERSION=${QEMU_VERSION:-17:10.1.0-10.el9}
-SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-4.el9}
-EDK2_VERSION=${EDK2_VERSION:-0:20241117-8.el9}
-LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.54.0-9.el9}
-GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.52.2-5.el9}
-PASST_VERSION=${PASST_VERSION:-0:0^20250512.g8ec1341-2.el9}
-VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.0-1.el9}
-SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-2.el9}
+# CentOS Stream version selection (default to 9)
+KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION:-9}
+TARGET_SUFFIX="_cs${KUBEVIRT_CENTOS_STREAM_VERSION}"
+CS_CONFIG="cs${KUBEVIRT_CENTOS_STREAM_VERSION}"
+
+# Version-specific package versions
+if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
+    # CS10: use unversioned packages (latest available)
+    LIBVIRT_VERSION=${LIBVIRT_VERSION:-}
+    QEMU_VERSION=${QEMU_VERSION:-}
+    SEABIOS_VERSION=${SEABIOS_VERSION:-}
+    EDK2_VERSION=${EDK2_VERSION:-}
+    LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-}
+    GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-}
+    PASST_VERSION=${PASST_VERSION:-}
+    VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-}
+    SWTPM_VERSION=${SWTPM_VERSION:-}
+else
+    # CS9 defaults (current pinned versions)
+    LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:11.9.0-1.el9}
+    QEMU_VERSION=${QEMU_VERSION:-17:10.1.0-10.el9}
+    SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-4.el9}
+    EDK2_VERSION=${EDK2_VERSION:-0:20241117-8.el9}
+    LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.54.0-9.el9}
+    GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.52.2-5.el9}
+    PASST_VERSION=${PASST_VERSION:-0:0^20250512.g8ec1341-2.el9}
+    VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.0-1.el9}
+    SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-2.el9}
+fi
+
 SINGLE_ARCH=${SINGLE_ARCH:-""}
 BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
 
-bazeldnf_repos="--repofile rpm/repo.yaml"
+# Select repo file based on version
+bazeldnf_repos="--repofile rpm/repo-cs${KUBEVIRT_CENTOS_STREAM_VERSION}.yaml"
 if [ "${CUSTOM_REPO}" ]; then
     bazeldnf_repos="--repofile ${CUSTOM_REPO} ${bazeldnf_repos}"
 fi
@@ -38,9 +64,18 @@ fi
 # Listing the "extra" packages explicitly ensures that bazeldnf will
 # always reach the same solution, and thus keeps things reproducible
 
+# Version-specific package names
+if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
+    # CS10: curl-minimal was replaced by curl
+    CURL_PACKAGE="curl"
+else
+    # CS9: uses curl-minimal
+    CURL_PACKAGE="curl-minimal"
+fi
+
 centos_main="
   acl
-  curl-minimal
+  ${CURL_PACKAGE}
   vim-minimal
 "
 centos_extra="
@@ -57,12 +92,26 @@ testimage_main="
   nmap-ncat
   procps-ng
   qemu-img-${QEMU_VERSION}
-  sevctl
   tar
   targetcli
   util-linux
   which
 "
+# sevctl is x86_64-only in CS10, but available for all architectures in CS9
+testimage_x86_64="
+  sevctl
+"
+if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
+    testimage_aarch64=""
+    testimage_s390x=""
+else
+    testimage_aarch64="
+  sevctl
+"
+    testimage_s390x="
+  sevctl
+"
+fi
 
 # create a rpmtree for libvirt-devel. libvirt-devel is needed for compilation and unit-testing.
 libvirtdevel_main="
@@ -182,18 +231,19 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name testimage_x86_64 \
+        --name testimage_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
-        $testimage_main
+        $testimage_main \
+        $testimage_x86_64
 
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name libvirt-devel_x86_64 \
+        --name libvirt-devel_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -205,7 +255,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name sandboxroot_x86_64 \
+        --name sandboxroot_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -216,7 +266,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name launcherbase_x86_64 \
+        --name launcherbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies 'python' \
@@ -232,7 +282,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name handlerbase_x86_64 \
+        --name handlerbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
@@ -245,7 +295,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name passt_tree_x86_64 \
+        --name passt_tree_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         passt-${PASST_VERSION}
@@ -253,7 +303,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     bazel run \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name libguestfs-tools_x86_64 \
+        --name libguestfs-tools_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         $centos_main \
         $centos_extra \
@@ -272,7 +322,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name exportserverbase_x86_64 \
+        --name exportserverbase_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -283,7 +333,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name pr-helper_x86_64 \
+        --name pr-helper_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -294,7 +344,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name sidecar-shim_x86_64 \
+        --name sidecar-shim_x86_64${TARGET_SUFFIX} \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -310,11 +360,11 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
     # and cc_library which we need for virt-launcher and virt-handler
     bazel run \
         --config=${ARCHITECTURE} \
-        //rpm:ldd_x86_64
+        --config=${CS_CONFIG} \
+        //rpm:ldd_x86_64${TARGET_SUFFIX}
 
-    # regenerate sandboxes
-    rm ${SANDBOX_DIR} -rf
-    kubevirt::bootstrap::regenerate x86_64
+    # Note: sandbox regeneration is done separately after all targets are generated
+    # by calling hack/regenerate-sandboxes.sh
 fi
 
 if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
@@ -323,18 +373,19 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name testimage_aarch64 --arch aarch64 \
+        --name testimage_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
-        $testimage_main
+        $testimage_main \
+        $testimage_aarch64
 
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name libvirt-devel_aarch64 --arch aarch64 \
+        --name libvirt-devel_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -346,7 +397,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name sandboxroot_aarch64 --arch aarch64 \
+        --name sandboxroot_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -357,7 +408,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name passt_tree_aarch64 --arch aarch64 \
+        --name passt_tree_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         passt-${PASST_VERSION}
@@ -366,7 +417,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name launcherbase_aarch64 --arch aarch64 \
+        --name launcherbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies 'python' \
@@ -382,7 +433,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name handlerbase_aarch64 --arch aarch64 \
+        --name handlerbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
@@ -395,7 +446,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name exportserverbase_aarch64 --arch aarch64 \
+        --name exportserverbase_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -406,7 +457,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name pr-helper_aarch64 --arch aarch64 \
+        --name pr-helper_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -417,7 +468,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name sidecar-shim_aarch64 --arch aarch64 \
+        --name sidecar-shim_aarch64${TARGET_SUFFIX} --arch aarch64 \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -433,11 +484,10 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
     # and cc_library which we need for virt-launcher and virt-handler
     bazel run \
         --config=${ARCHITECTURE} \
-        //rpm:ldd_aarch64
+        --config=${CS_CONFIG} \
+        //rpm:ldd_aarch64${TARGET_SUFFIX}
 
-    # regenerate sandboxes
-    rm ${SANDBOX_DIR} -rf
-    kubevirt::bootstrap::regenerate aarch64
+    # Note: sandbox regeneration is done separately
 fi
 
 if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
@@ -446,18 +496,19 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name testimage_s390x --arch s390x \
+        --name testimage_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
         $centos_extra \
-        $testimage_main
+        $testimage_main \
+        $testimage_s390x
 
     bazel run \
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name libvirt-devel_s390x --arch s390x \
+        --name libvirt-devel_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -469,7 +520,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name sandboxroot_s390x --arch s390x \
+        --name sandboxroot_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -480,7 +531,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name launcherbase_s390x --arch s390x \
+        --name launcherbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies '^mozjs60' \
         --force-ignore-with-dependencies 'python' \
@@ -495,7 +546,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name passt_tree_s390x --arch s390x \
+        --name passt_tree_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         passt-${PASST_VERSION}
@@ -505,7 +556,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name handlerbase_s390x --arch s390x \
+        --name handlerbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         --force-ignore-with-dependencies 'python' \
         ${bazeldnf_repos} \
@@ -518,7 +569,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name exportserverbase_s390x --arch s390x \
+        --name exportserverbase_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -528,7 +579,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     bazel run \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name libguestfs-tools_s390x --arch s390x \
+        --name libguestfs-tools_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         $centos_main \
         $centos_extra \
@@ -547,7 +598,7 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --config=${ARCHITECTURE} \
         //:bazeldnf -- rpmtree \
         --public --nobest \
-        --name sidecar-shim_s390x --arch s390x \
+        --name sidecar-shim_s390x${TARGET_SUFFIX} --arch s390x \
         --basesystem ${BASESYSTEM} \
         ${bazeldnf_repos} \
         $centos_main \
@@ -563,9 +614,11 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
     # and cc_library which we need for virt-launcher and virt-handler
     bazel run \
         --config=${ARCHITECTURE} \
-        //rpm:ldd_s390x
+        --config=${CS_CONFIG} \
+        //rpm:ldd_s390x${TARGET_SUFFIX}
 
-    # regenerate sandboxes
-    rm ${SANDBOX_DIR} -rf
-    kubevirt::bootstrap::regenerate s390x
+    # Note: sandbox regeneration is done separately
 fi
+
+# Sandbox regeneration is triggered automatically on next bazel build
+# after the BUILD.bazel hash changes

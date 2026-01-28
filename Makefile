@@ -1,5 +1,7 @@
 export GO15VENDOREXPERIMENT := 1
 
+KUBEVIRT_CENTOS_STREAM_VERSION ?= 9
+
 ifeq (${CI}, true)
   # If we're running under a test lane, enable timestamps and disable progress output
   TIMESTAMP=1
@@ -138,7 +140,18 @@ deps-sync:
 	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh --sync-only && ./hack/bazel-generate.sh"
 
 rpm-deps:
-	SYNC_VENDOR=true hack/dockerized "CUSTOM_REPO=${CUSTOM_REPO} SINGLE_ARCH=${SINGLE_ARCH} BASESYSTEM=${BASESYSTEM} LIBVIRT_VERSION=${LIBVIRT_VERSION} QEMU_VERSION=${QEMU_VERSION} SEABIOS_VERSION=${SEABIOS_VERSION} EDK2_VERSION=${EDK2_VERSION} LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION} GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION} PASST_VERSION=${PASST_VERSION} VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION} SWTPM_VERSION=${SWTPM_VERSION} ./hack/rpm-deps.sh"
+	SYNC_VENDOR=true hack/dockerized "KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION} CUSTOM_REPO=${CUSTOM_REPO} SINGLE_ARCH=${SINGLE_ARCH} BASESYSTEM=${BASESYSTEM} LIBVIRT_VERSION=${LIBVIRT_VERSION} QEMU_VERSION=${QEMU_VERSION} SEABIOS_VERSION=${SEABIOS_VERSION} EDK2_VERSION=${EDK2_VERSION} LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION} GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION} PASST_VERSION=${PASST_VERSION} VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION} SWTPM_VERSION=${SWTPM_VERSION} ./hack/rpm-deps.sh"
+
+rpm-deps-cs9:
+	$(MAKE) rpm-deps KUBEVIRT_CENTOS_STREAM_VERSION=9
+
+rpm-deps-cs10:
+	$(MAKE) rpm-deps KUBEVIRT_CENTOS_STREAM_VERSION=10
+
+rpm-deps-all:
+	$(MAKE) rpm-deps-cs9
+	$(MAKE) rpm-deps-cs10
+	hack/rpm-deps-aliases.sh
 
 bump-images:
 	hack/dockerized "./hack/rpm-deps.sh && ./hack/bump-distroless.sh"
@@ -266,4 +279,8 @@ update-generated-api-testdata:
 	lint \
 	lint-metrics \
 	update-generated-api-testdata \
+	rpm-deps \
+	rpm-deps-cs9 \
+	rpm-deps-cs10 \
+	rpm-deps-all \
 	$(NULL)

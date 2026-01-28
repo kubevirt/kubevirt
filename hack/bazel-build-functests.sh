@@ -41,7 +41,7 @@ mkdir -p "${CMD_OUT_DIR}/example-guest-agent"
 # we have to explicitly call them as top-level targets, so that they get
 # downloaded.
 bazel build \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     //cmd/virtctl:virtctl \
     //cmd/dump:dump \
     //tools/manifest-templator:templator \
@@ -51,20 +51,20 @@ bazel build \
     //cmd/example-guest-agent:example-guest-agent
 
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     :build-ginkgo -- ${TESTS_OUT_DIR}/ginkgo
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     :build-functests -- ${TESTS_OUT_DIR}/tests.test
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     :build-junit-merger -- ${TESTS_OUT_DIR}/junit-merger
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     :build-dump -- ${CMD_OUT_DIR}/dump/dump
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     :build-virtctl -- ${CMD_OUT_DIR}/virtctl/virtctl
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     :build-example-guest-agent -- ${CMD_OUT_DIR}/example-guest-agent/example-guest-agent
