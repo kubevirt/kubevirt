@@ -66,6 +66,8 @@ const StandardLauncherSocketFileName = "launcher-sock"
 const StandardInitLauncherSocketFileName = "launcher-init-sock"
 const StandardLauncherUnresponsiveFileName = "launcher-unresponsive"
 
+var ErrNoSocketFound = errors.New("no sockets found for VMI")
+
 type StallDetectorOptions struct {
 	StallMargin               int64
 	StallProgressTimeout      int64
@@ -246,7 +248,7 @@ func findSocketOnHost(vmi *v1.VirtualMachineInstance, host string) (string, erro
 		return "", fmt.Errorf("Found multiple sockets for vmi %s/%s. waiting for only one to exist", vmi.Namespace, vmi.Name)
 	}
 
-	return "", fmt.Errorf("No command socket found for vmi %s", vmi.UID)
+	return "", fmt.Errorf("%w %s.", ErrNoSocketFound, vmi.UID)
 }
 
 // Finds exactly one socket on a host based on the NODE_NAME env. Returns error otherwise.
