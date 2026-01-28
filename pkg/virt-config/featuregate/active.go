@@ -165,6 +165,15 @@ const (
 	// Details of the new hypervisors should be specified via the
 	// HypervisorConfigurations field in KubeVirtConfiguration.
 	ConfigurableHypervisor = "ConfigurableHypervisor"
+
+	// Owner: @lyarwood
+	// Alpha: v1.8.0
+	//
+	// AdditionalVirtHandlers enables deploying multiple virt-handler DaemonSets
+	// with different virt-handler and virt-launcher images targeting specific nodes.
+	// This allows heterogeneous clusters to run different virtualization configurations
+	// on different node pools (e.g., GPU nodes with specialized images).
+	AdditionalVirtHandlersGate = "AdditionalVirtHandlers"
 )
 
 func init() {
@@ -202,4 +211,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: AdditionalVirtHandlersGate, State: Alpha})
 }
