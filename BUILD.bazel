@@ -139,9 +139,14 @@ cc_library(
     }),
     linkstatic = 1,
     strip_include_prefix = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "/rpm/libvirt-libs_aarch64/usr/include/",
-        "@io_bazel_rules_go//go/platform:linux_s390x": "/rpm/libvirt-libs_s390x/usr/include/",
-        "//conditions:default": "/rpm/libvirt-libs_x86_64/usr/include/",
+        # CentOS Stream 10 combinations
+        "//rpm:x86_64_cs10": "/rpm/libvirt-libs_x86_64_cs10/usr/include/",
+        "//rpm:aarch64_cs10": "/rpm/libvirt-libs_aarch64_cs10/usr/include/",
+        "//rpm:s390x_cs10": "/rpm/libvirt-libs_s390x_cs10/usr/include/",
+        # CentOS Stream 9 combinations (default)
+        "//rpm:aarch64_cs9": "/rpm/libvirt-libs_aarch64_cs9/usr/include/",
+        "//rpm:s390x_cs9": "/rpm/libvirt-libs_s390x_cs9/usr/include/",
+        "//conditions:default": "/rpm/libvirt-libs_x86_64_cs9/usr/include/",
     }),
     visibility = ["//visibility:public"],
 )
