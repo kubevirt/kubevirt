@@ -21,7 +21,6 @@ package device_manager
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,7 +28,6 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -50,7 +48,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 			socketPath:   serverSock,
 			deviceRoot:   util.HostRootMount,
 			devicePath:   devicePath,
-			health:       make(chan deviceHealth),
+			healthUpdate: make(chan struct{}, 1),
 			done:         make(chan struct{}),
 			deregistered: make(chan struct{}),
 			resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, deviceName),
@@ -69,9 +67,9 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		})
 	}
 	dpi.deviceNameByID = dpi.deviceNameByIDFunc
+	dpi.setupMonitoredDevices = dpi.setupMonitoredDevicesFunc
 	dpi.setupDevicePlugin = dpi.setupDevicePluginFunc
 	dpi.allocateDP = dpi.allocateDPFunc
-	dpi.healthCheck = dpi.healthCheckFunc
 	return dpi
 }
 
@@ -86,38 +84,6 @@ func (dpi *GenericDevicePlugin) setupDevicePluginFunc() error {
 			devnode.Close()
 		}
 	}
-	return nil
-}
-
-func (dpi *GenericDevicePlugin) ListAndWatch(e *pluginapi.Empty, s pluginapi.DevicePlugin_ListAndWatchServer) error {
-	s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-
-	done := false
-	for {
-		select {
-		case devHealth := <-dpi.health:
-			// There's only one shared generic device
-			// so update each plugin device to reflect overall device health
-			for _, dev := range dpi.devs {
-				dev.Health = devHealth.Health
-			}
-			s.Send(&pluginapi.ListAndWatchResponse{Devices: dpi.devs})
-		case <-dpi.stop:
-			done = true
-		case <-dpi.done:
-			done = true
-		}
-		if done {
-			break
-		}
-	}
-	// Send empty list to increase the chance that the kubelet acts fast on stopped device plugins
-	// There exists no explicit way to deregister devices
-	emptyList := []*pluginapi.Device{}
-	if err := s.Send(&pluginapi.ListAndWatchResponse{Devices: emptyList}); err != nil {
-		log.DefaultLogger().Reason(err).Infof("%s device plugin failed to deregister", dpi.resourceName)
-	}
-	close(dpi.deregistered)
 	return nil
 }
 
@@ -138,89 +104,16 @@ func (dpi *GenericDevicePlugin) allocateDPFunc(ctx context.Context, r *pluginapi
 	return &response, nil
 }
 
-func (dpi *GenericDevicePlugin) cleanup() error {
-	if err := os.Remove(dpi.socketPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-
-	return nil
-}
-
-func (dpi *GenericDevicePlugin) GetDevicePluginOptions(_ context.Context, _ *pluginapi.Empty) (*pluginapi.DevicePluginOptions, error) {
-	options := &pluginapi.DevicePluginOptions{
-		PreStartRequired: false,
-	}
-	return options, nil
-}
-
-func (dpi *GenericDevicePlugin) PreStartContainer(_ context.Context, _ *pluginapi.PreStartContainerRequest) (*pluginapi.PreStartContainerResponse, error) {
-	res := &pluginapi.PreStartContainerResponse{}
-	return res, nil
-}
-
-func (dpi *GenericDevicePlugin) healthCheckFunc() error {
-	logger := log.DefaultLogger()
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
-	}
-	defer watcher.Close()
-
-	// This way we don't have to mount /dev from the node
+func (dpi *GenericDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
 	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
-
-	// Start watching the files before we check for their existence to avoid races
-	dirName := filepath.Dir(devicePath)
-	err = watcher.Add(dirName)
-
-	if err != nil {
-		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
+	deviceDirPath := filepath.Dir(devicePath)
+	// Note: Directly watching the device path is not recommended and instead we watch the directory path
+	// as this is more stable (as per fsnotify documentation)
+	if err := watcher.Add(deviceDirPath); err != nil {
+		return fmt.Errorf("failed to add the device path to the watcher: %v", err)
 	}
-
-	_, err = os.Stat(devicePath)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("could not stat the device: %v", err)
-		}
-		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.devicePath)
-		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
-	}
-	logger.Infof("device '%s' is present.", dpi.devicePath)
-
-	dirName = filepath.Dir(dpi.socketPath)
-	err = watcher.Add(dirName)
-
-	if err != nil {
-		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
-	}
-	_, err = os.Stat(dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
-	}
-
-	for {
-		select {
-		case <-dpi.stop:
-			return nil
-		case err := <-watcher.Errors:
-			logger.Reason(err).Errorf("error watching devices and device plugin directory")
-		case event := <-watcher.Events:
-			logger.V(4).Infof("health Event: %v", event)
-			if event.Name == devicePath {
-				// Health in this case is if the device path actually exists
-				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.resourceName)
-					dpi.health <- deviceHealth{Health: pluginapi.Healthy}
-				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.resourceName)
-					dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
-				}
-			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
-				return nil
-			}
-		}
-	}
+	monitoredDevices[devicePath] = ""
+	return nil
 }
 
 func (dpi *GenericDevicePlugin) deviceNameByIDFunc(_ string) string {

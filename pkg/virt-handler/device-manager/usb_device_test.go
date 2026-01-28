@@ -77,7 +77,6 @@ var _ = Describe("USB Device", func() {
 		for resourceName, pluginDevices := range pdmap {
 			Expect(pluginDevices).To(HaveLen(len(result[resourceName])), "Number of k8s devices")
 			for i, dev := range pluginDevices {
-				Expect(dev.isHealthy).To(BeTrue())
 				Expect(dev.Devices).To(HaveLen(len(result[resourceName][i].Devices)), "Number of USB devices")
 				for j, usbdev := range dev.Devices {
 					expectMatch(usbdev, result[resourceName][i].Devices[j])

@@ -21,7 +21,6 @@ package device_manager
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -70,15 +69,15 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 			devicePath:   vfioDevicePath,
 			resourceName: resourceName,
 			deviceRoot:   util.HostRootMount,
-			health:       make(chan deviceHealth),
+			healthUpdate: make(chan struct{}, 1),
 			done:         make(chan struct{}),
 			deregistered: make(chan struct{}),
 		},
 		iommuToPCIMap: iommuToPCIMap,
 	}
+	dpi.setupMonitoredDevices = dpi.setupMonitoredDevicesFunc
 	dpi.allocateDP = dpi.allocateDPFunc
 	dpi.deviceNameByID = dpi.deviceNameByIDFunc
-	dpi.healthCheck = dpi.healthCheckFunc
 	return dpi
 }
 
@@ -129,90 +128,35 @@ func (dpi *PCIDevicePlugin) allocateDPFunc(_ context.Context, r *pluginapi.Alloc
 	return resp, nil
 }
 
-func (dpi *PCIDevicePlugin) healthCheckFunc() error {
-	logger := log.DefaultLogger()
-	monitoredDevices := make(map[string]string)
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
-	}
-	defer watcher.Close()
-
-	// This way we don't have to mount /dev from the node
-	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
-
-	// Start watching the files before we check for their existence to avoid races
-	dirName := filepath.Dir(devicePath)
-	err = watcher.Add(dirName)
-	if err != nil {
-		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
-	}
-
-	_, err = os.Stat(devicePath)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("could not stat the device: %v", err)
-		}
-	}
-
-	// probe all devices
-	for _, dev := range dpi.devs {
-		vfioDevice := filepath.Join(devicePath, dev.ID)
-		err = watcher.Add(vfioDevice)
-		if err != nil {
-			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
-		}
-		monitoredDevices[vfioDevice] = dev.ID
-	}
-
-	dirName = filepath.Dir(dpi.socketPath)
-	err = watcher.Add(dirName)
-
-	if err != nil {
-		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
-	}
-	_, err = os.Stat(dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
-	}
-
-	for {
-		select {
-		case <-dpi.stop:
-			return nil
-		case err := <-watcher.Errors:
-			logger.Reason(err).Errorf("error watching devices and device plugin directory")
-		case event := <-watcher.Events:
-			logger.V(4).Infof("health Event: %v", event)
-			if monDevId, exist := monitoredDevices[event.Name]; exist {
-				// Health in this case is if the device path actually exists
-				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.resourceName)
-					dpi.health <- deviceHealth{
-						DevId:  monDevId,
-						Health: pluginapi.Healthy,
-					}
-				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.resourceName)
-					dpi.health <- deviceHealth{
-						DevId:  monDevId,
-						Health: pluginapi.Unhealthy,
-					}
-				}
-			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
-				return nil
-			}
-		}
-	}
-}
-
 func (dpi *PCIDevicePlugin) deviceNameByIDFunc(monDevId string) string {
 	pciID, ok := dpi.iommuToPCIMap[monDevId]
 	if !ok {
 		pciID = "not recognized"
 	}
 	return fmt.Sprintf("PCI device (pciAddr=%s, id=%s)", pciID, monDevId)
+}
+
+func setupVFIOMonitoredDevices(deviceRoot, devicePath string, devs []*pluginapi.Device, watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+	fullDevicePath := filepath.Join(deviceRoot, devicePath)
+	// for pci and mediated devices, devices are added directly into the devicePath directory
+	if err := watcher.Add(fullDevicePath); err != nil {
+		log.DefaultLogger().Warningf("failed to add device path %s to the watcher: %v", fullDevicePath, err)
+	}
+	deviceDirPath := filepath.Dir(fullDevicePath)
+	if err := watcher.Add(deviceDirPath); err != nil {
+		// unrecoverable error
+		return fmt.Errorf("failed to add device directory %s to the watcher", deviceDirPath)
+	}
+	// mark devices to be tracked by the watcher
+	for _, dev := range devs {
+		vfioDevice := filepath.Join(fullDevicePath, dev.ID)
+		monitoredDevices[vfioDevice] = dev.ID
+	}
+	return nil
+}
+
+func (dpi *PCIDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+	return setupVFIOMonitoredDevices(dpi.deviceRoot, dpi.devicePath, dpi.devs, watcher, monitoredDevices)
 }
 
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {

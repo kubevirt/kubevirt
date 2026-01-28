@@ -21,9 +21,7 @@ package device_manager
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -85,7 +83,7 @@ func (dpi *SocketDevicePlugin) setSocketDirectoryPermissions() error {
 	return nil
 }
 
-func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices int, executor selinux.Executor, p permissionManager, useHostRootMount bool) (*SocketDevicePlugin, error) {
+func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices int, executor selinux.Executor, p permissionManager, useHostRootMount bool) *SocketDevicePlugin {
 	deviceRoot := "/"
 	if useHostRootMount {
 		deviceRoot = util.HostRootMount
@@ -93,7 +91,7 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 	dpi := &SocketDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			devs:         []*pluginapi.Device{},
-			health:       make(chan deviceHealth),
+			healthUpdate: make(chan struct{}, 1),
 			resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, socketName),
 			initialized:  false,
 			lock:         &sync.Mutex{},
@@ -106,26 +104,32 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 		p:        p,
 		executor: executor,
 	}
-	dpi.healthCheck = dpi.healthCheckFunc
 
 	dpi.deviceNameByID = dpi.deviceNameByIDFunc
 	dpi.allocateDP = dpi.allocateDPFunc
+	dpi.setupMonitoredDevices = dpi.setupMonitoredDevicesFunc
 
-	for i := 0; i < maxDevices; i++ {
+	// If permission manager and executor are not provided, we assume that device doesn't need any permissions configured.
+	if dpi.p != nil && executor != nil {
+		dpi.configurePermissions = func(_ *safepath.Path) error {
+			// Set directory permissions first
+			if err := dpi.setSocketDirectoryPermissions(); err != nil {
+				return err
+			}
+			// Then set socket permissions
+			return dpi.setSocketPermissions()
+		}
+	}
+
+	for i := range maxDevices {
 		deviceId := socketName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,
 			Health: pluginapi.Unhealthy,
 		})
 	}
-	if err := dpi.setSocketDirectoryPermissions(); err != nil {
-		return nil, err
-	}
-	if err := dpi.setSocketPermissions(); err != nil {
-		return nil, err
-	}
 
-	return dpi, nil
+	return dpi
 }
 
 func (dpi *SocketDevicePlugin) allocateDPFunc(ctx context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
@@ -147,65 +151,20 @@ func (dpi *SocketDevicePlugin) allocateDPFunc(ctx context.Context, r *pluginapi.
 	return &response, nil
 }
 
-func (dpi *SocketDevicePlugin) healthCheckFunc() error {
+func (dpi *SocketDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
 	logger := log.DefaultLogger()
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
+	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
+	socketDir := filepath.Dir(devicePath)
+	if err := watcher.Add(socketDir); err != nil {
+		logger.Warningf("failed to add the device directory %s to the watcher: %v", socketDir, err)
 	}
-	defer watcher.Close()
-
-	// Start watching the files before we check for their existence to avoid races
-	socketDir := filepath.Dir(dpi.devicePath)
-	err = watcher.Add(socketDir)
-	if err != nil {
-		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
+	parentDir := filepath.Dir(socketDir)
+	if err := watcher.Add(parentDir); err != nil {
+		// unrecoverable error
+		return fmt.Errorf("failed to add the device parent directory to the watcher: %v", err)
 	}
-
-	_, err = os.Stat(dpi.devicePath)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("could not stat the device: %v", err)
-		}
-		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.resourceName)
-		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
-	}
-	logger.Infof("device '%s' is present.", dpi.devicePath)
-
-	dirName := filepath.Dir(dpi.socketPath)
-	err = watcher.Add(dirName)
-
-	if err != nil {
-		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
-	}
-	_, err = os.Stat(dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
-	}
-
-	for {
-		select {
-		case <-dpi.stop:
-			return nil
-		case err := <-watcher.Errors:
-			logger.Reason(err).Errorf("error watching devices and device plugin directory")
-		case event := <-watcher.Events:
-			logger.V(4).Infof("health Event: %v", event)
-			if event.Name == dpi.devicePath {
-				// Health in this case is if the device path actually exists
-				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.resourceName)
-					dpi.health <- deviceHealth{Health: pluginapi.Healthy}
-				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					logger.Infof("monitored device %s disappeared", dpi.resourceName)
-					dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
-				}
-			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
-				return nil
-			}
-		}
-	}
+	monitoredDevices[devicePath] = ""
+	return nil
 }
 
 func (dpi *SocketDevicePlugin) deviceNameByIDFunc(_ string) string {

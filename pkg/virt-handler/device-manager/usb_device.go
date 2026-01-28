@@ -56,6 +56,7 @@ type USBDevice struct {
 	DeviceNumber int
 	Serial       string
 	DevicePath   string
+	Healthy      bool
 }
 
 // The uniqueness in the system comes from bus and device number but having the vendor:product
@@ -67,35 +68,28 @@ func (dev *USBDevice) GetID() string {
 // The actual plugin
 type USBDevicePlugin struct {
 	*DevicePluginBase
-	update  chan struct{}
 	devices []*PluginDevices
 	p       permissionManager
 	logger  *log.FilteredLogger
 }
 
 type PluginDevices struct {
-	ID        string
-	isHealthy bool
-	Devices   []*USBDevice
+	ID      string
+	Devices []*USBDevice
 }
 
 func newPluginDevices(resourceName string, index int, usbdevs []*USBDevice) *PluginDevices {
 	return &PluginDevices{
-		ID:        fmt.Sprintf("%s-%s-%d", resourceName, rand.String(4), index),
-		isHealthy: false,
-		Devices:   usbdevs,
+		ID:      fmt.Sprintf("%s-%s-%d", resourceName, rand.String(4), index),
+		Devices: usbdevs,
 	}
 }
 
 func (pd *PluginDevices) toKubeVirtDevicePlugin() *pluginapi.Device {
-	healthStr := pluginapi.Healthy
-	if !pd.isHealthy {
-		healthStr = pluginapi.Unhealthy
-	}
 	return &pluginapi.Device{
 		ID:       pd.ID,
-		Health:   healthStr,
 		Topology: nil,
+		Health:   pluginapi.Unhealthy,
 	}
 }
 
@@ -108,129 +102,38 @@ func (plugin *USBDevicePlugin) FindDevice(pluginDeviceID string) *PluginDevices 
 	return nil
 }
 
-func (plugin *USBDevicePlugin) FindDeviceByUSBID(usbID string) *PluginDevices {
-	for _, pd := range plugin.devices {
-		for _, usb := range pd.Devices {
-			if usb.GetID() == usbID {
-				return pd
-			}
-		}
-	}
-	return nil
-}
-
-func (plugin *USBDevicePlugin) setDeviceHealth(usbID string, isHealthy bool) {
-	pd := plugin.FindDeviceByUSBID(usbID)
-	isDifferent := pd.isHealthy != isHealthy
-	pd.isHealthy = isHealthy
-	if isDifferent {
-		plugin.update <- struct{}{}
-	}
-}
-
-func (plugin *USBDevicePlugin) devicesToKubeVirtDevicePlugin() []*pluginapi.Device {
-	devices := make([]*pluginapi.Device, 0, len(plugin.devices))
-	for _, pluginDevices := range plugin.devices {
+func devicesToKubeVirtDevicePlugin(pluginDevs []*PluginDevices) []*pluginapi.Device {
+	devices := make([]*pluginapi.Device, 0, len(pluginDevs))
+	for _, pluginDevices := range pluginDevs {
 		devices = append(devices, pluginDevices.toKubeVirtDevicePlugin())
 	}
 	return devices
 }
 
-func (plugin *USBDevicePlugin) healthCheckFunc() error {
-	monitoredDevices := make(map[string]string)
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
-	}
-	defer watcher.Close()
-
+func (plugin *USBDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
 	watchedDirs := make(map[string]struct{})
 	for _, pd := range plugin.devices {
 		for _, usb := range pd.Devices {
 			usbDevicePath := filepath.Join(plugin.deviceRoot, usb.DevicePath)
-			usbDeviceDirPath := filepath.Dir(usbDevicePath)
-			if _, exists := watchedDirs[usbDeviceDirPath]; !exists {
-				if err := watcher.Add(usbDeviceDirPath); err != nil {
+			usbDeviceParentPath := filepath.Dir(usbDevicePath)
+			if _, exists := watchedDirs[usbDeviceParentPath]; !exists {
+				if err := watcher.Add(usbDeviceParentPath); err != nil {
 					return fmt.Errorf("failed to watch device %s's directory: %s", usbDevicePath, err)
 				}
-				watchedDirs[usbDeviceDirPath] = struct{}{}
-			}
-
-			if err := watcher.Add(usbDevicePath); err != nil {
-				return fmt.Errorf("failed to add the device %s to the watcher: %s", usbDevicePath, err)
-			} else if _, err := os.Stat(usbDevicePath); err != nil {
-				return fmt.Errorf("failed to validate device %s: %s", usbDevicePath, err)
-			}
-			monitoredDevices[usbDevicePath] = usb.GetID()
-		}
-	}
-
-	dirName := filepath.Dir(plugin.socketPath)
-	if err := watcher.Add(dirName); err != nil {
-		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
-	} else if _, err = os.Stat(plugin.socketPath); err != nil {
-		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
-	}
-
-	for {
-		select {
-		case <-plugin.stop:
-			return nil
-		case err := <-watcher.Errors:
-			plugin.logger.Reason(err).Errorf("error watching devices and device plugin directory")
-		case event := <-watcher.Events:
-			plugin.logger.V(2).Infof("health Event: %v", event)
-			if id, exist := monitoredDevices[event.Name]; exist {
-				// Health in this case is if the device path actually exists
-				if event.Op == fsnotify.Create {
-					plugin.logger.Infof("monitored device %s appeared", plugin.resourceName)
-					plugin.setDeviceHealth(id, true)
-				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					plugin.logger.Infof("monitored device %s disappeared", plugin.resourceName)
-					plugin.setDeviceHealth(id, false)
+				watchedDirs[usbDeviceParentPath] = struct{}{}
+				// e.g., watch /dev/bus/usb in case a bus dir is added/removed
+				usbDeviceGrandParentPath := filepath.Dir(usbDeviceParentPath)
+				if _, exists := watchedDirs[usbDeviceGrandParentPath]; !exists {
+					if err := watcher.Add(usbDeviceGrandParentPath); err != nil {
+						return fmt.Errorf("failed to watch device %s's super directory: %s", usbDevicePath, err)
+					}
+					watchedDirs[usbDeviceGrandParentPath] = struct{}{}
 				}
-			} else if event.Name == plugin.socketPath && event.Op == fsnotify.Remove {
-				plugin.logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", plugin.resourceName)
-				return nil
 			}
-		}
-	}
-}
 
-// Interface to expose Devices: IDs, health and Topology
-func (plugin *USBDevicePlugin) ListAndWatch(_ *pluginapi.Empty, lws pluginapi.DevicePlugin_ListAndWatchServer) error {
-	sendUpdate := func(devices []*pluginapi.Device) error {
-		response := pluginapi.ListAndWatchResponse{
-			Devices: devices,
-		}
-		err := lws.Send(&response)
-		if err != nil {
-			plugin.logger.Reason(err).Warningf("Failed to send device plugin %s",
-				plugin.resourceName)
-		}
-		return err
-	}
-
-	if err := sendUpdate(plugin.devicesToKubeVirtDevicePlugin()); err != nil {
-		return err
-	}
-	done := false
-	for !done {
-		select {
-		case <-plugin.update:
-			if err := sendUpdate(plugin.devicesToKubeVirtDevicePlugin()); err != nil {
-				return err
-			}
-		case <-plugin.stop:
-			done = true
+			monitoredDevices[usbDevicePath] = pd.ID
 		}
 	}
-
-	if err := sendUpdate([]*pluginapi.Device{}); err != nil {
-		plugin.logger.Reason(err).Warningf("Failed to deregister device plugin %s",
-			plugin.resourceName)
-	}
-	close(plugin.deregistered)
 	return nil
 }
 
@@ -255,10 +158,8 @@ func (plugin *USBDevicePlugin) allocateDPFunc(_ context.Context, allocRequest *p
 				if err != nil {
 					return nil, fmt.Errorf("error opening the device %s: %v", dev.DevicePath, err)
 				}
-
-				err = safepath.ChownAtNoFollow(spath, util.NonRootUID, util.NonRootUID)
-				if err != nil {
-					return nil, fmt.Errorf("error setting the permission the socket %s: %v", dev.DevicePath, err)
+				if plugin.configurePermissions(spath); err != nil {
+					return nil, fmt.Errorf("error configuring the permission the device %s during allocation: %v", dev.DevicePath, err)
 				}
 
 				// We might have more than one USB device per resource name
@@ -294,7 +195,7 @@ func parseSysUeventFile(path string) *USBDevice {
 	}
 	defer file.Close()
 
-	u := USBDevice{}
+	u := USBDevice{Healthy: false}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -489,15 +390,17 @@ func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []
 		resourceID = s[1]
 	}
 	resourceID = fmt.Sprintf("usb-%s", resourceID)
+	devs := devicesToKubeVirtDevicePlugin(pluginDevices)
 	usb := &USBDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
+			devs:         devs,
 			socketPath:   SocketPath(resourceID),
 			deviceRoot:   deviceRoot,
 			devicePath:   pathToUSBDevices,
 			resourceName: resourceName,
 			initialized:  false,
 			lock:         &sync.Mutex{},
-			health:       make(chan deviceHealth),
+			healthUpdate: make(chan struct{}, 1),
 			done:         make(chan struct{}),
 			deregistered: make(chan struct{}),
 		},
@@ -505,10 +408,19 @@ func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []
 		p:       p,
 		logger:  log.Log.With("subcomponent", resourceID),
 	}
+	usb.setupMonitoredDevices = usb.setupMonitoredDevicesFunc
 	usb.deviceNameByID = usb.deviceNameByIDFunc
+	// If permission manager is not provided, we assume that device doesn't need any permissions configured.
+	if p != nil {
+		usb.configurePermissions = func(dp *safepath.Path) error {
+			err := usb.p.ChownAtNoFollow(dp, util.NonRootUID, util.NonRootUID)
+			if err != nil {
+				return fmt.Errorf("error setting the ownership of the device: %v", err)
+			}
+			return nil
+		}
+	}
 	usb.allocateDP = usb.allocateDPFunc
-	usb.devs = usb.devicesToKubeVirtDevicePlugin()
-	usb.healthCheck = usb.healthCheckFunc
 	return usb
 }
 
