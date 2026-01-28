@@ -39,9 +39,8 @@ import (
 
 type SocketDevicePlugin struct {
 	*DevicePluginBase
-	p            permissionManager
-	executor     selinux.Executor
-	healthChecks bool
+	p        permissionManager
+	executor selinux.Executor
 }
 
 func (dpi *SocketDevicePlugin) setSocketPermissions() error {
@@ -110,9 +109,8 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 			deviceRoot:   socketRoot,
 			devicePath:   filepath.Join(socketDir, socketFile),
 		},
-		p:            p,
-		executor:     executor,
-		healthChecks: true,
+		p:        p,
+		executor: executor,
 	}
 
 	dpi.deviceNameByID = dpi.deviceNameByIDFunc
@@ -142,16 +140,15 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 	return dpi
 }
 
-// NewOptionalSocketDevicePlugin creates a SocketDevicePlugin where health checks are disabled (so device is always healthy)
+// NewOptionalSocketDevicePlugin creates a SocketDevicePlugin where health checks are overriden to always return healthy
 func NewOptionalSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p permissionManager, useHostRootMount bool) *SocketDevicePlugin {
 	dpi := NewSocketDevicePlugin(socketName, socketDir, socket, maxDevices, executor, p, useHostRootMount)
-	dpi.healthChecks = false
 	// override initial device health to healthy
 	for _, dev := range dpi.devs {
 		dev.Health = pluginapi.Healthy
 	}
-	dpi.setupMonitoredDevices = func(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
-		return nil // don't monitor any devices, since we don't care about health
+	dpi.mutateHealthUpdate = func(_ string, _ string, _ bool) (bool, error) {
+		return true, nil
 	}
 	return dpi
 }
