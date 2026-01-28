@@ -1376,6 +1376,13 @@ func (c *VirtualMachineController) sync(key string,
 		c.logger.Info("VMI does not exist | Domain does not exist")
 	}
 
+	if vmiExists {
+		if _, err := c.launcherClients.GetVerifiedLauncherClient(vmi); err != nil {
+			log.Log.Reason(err).Errorf("Virt-launcher client not found for VMI %s/%s", vmi.Namespace, vmi.Name)
+			domainExists = false
+		}
+	}
+
 	domainAlive := domainExists &&
 		((domain.Status.Status != api.Shutoff &&
 			domain.Status.Status != api.Crashed &&
