@@ -65,7 +65,7 @@ func NewGenericDevicePlugin(deviceName string, devicePath string, maxDevices int
 		deviceId := deviceName + strconv.Itoa(i)
 		dpi.devs = append(dpi.devs, &pluginapi.Device{
 			ID:     deviceId,
-			Health: pluginapi.Healthy,
+			Health: pluginapi.Unhealthy,
 		})
 	}
 	dpi.deviceNameByID = dpi.deviceNameByIDFunc
