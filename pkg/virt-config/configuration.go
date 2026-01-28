@@ -380,6 +380,20 @@ func (c *ClusterConfig) GetConfigFromKubeVirtCR() *v1.KubeVirt {
 	}
 }
 
+// GetAdditionalVirtHandlers returns the additional virt-handler configurations
+// from the KubeVirt CR. Returns nil if no additional handlers are configured
+// or if the AdditionalVirtHandlers feature gate is not enabled.
+func (c *ClusterConfig) GetAdditionalVirtHandlers() []v1.AdditionalVirtHandlerConfig {
+	if !c.AdditionalVirtHandlersEnabled() {
+		return nil
+	}
+	kv := c.GetConfigFromKubeVirtCR()
+	if kv == nil {
+		return nil
+	}
+	return kv.Spec.AdditionalVirtHandlers
+}
+
 func (c *ClusterConfig) HasDataSourceAPI() bool {
 	c.lock.Lock()
 	defer c.lock.Unlock()
