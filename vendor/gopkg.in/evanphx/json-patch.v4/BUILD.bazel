@@ -10,5 +10,4 @@ go_library(
     importmap = "kubevirt.io/kubevirt/vendor/gopkg.in/evanphx/json-patch.v4",
     importpath = "gopkg.in/evanphx/json-patch.v4",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/pkg/errors:go_default_library"],
 )
