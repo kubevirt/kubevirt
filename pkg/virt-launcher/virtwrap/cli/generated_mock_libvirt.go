@@ -774,6 +774,20 @@ func (mr *MockVirDomainMockRecorder) MemoryStats(nrStats, flags any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MemoryStats", reflect.TypeOf((*MockVirDomain)(nil).MemoryStats), nrStats, flags)
 }
 
+// MigrateSetMaxDowntime mocks base method.
+func (m *MockVirDomain) MigrateSetMaxDowntime(downtime uint64, flags uint32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MigrateSetMaxDowntime", downtime, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// MigrateSetMaxDowntime indicates an expected call of MigrateSetMaxDowntime.
+func (mr *MockVirDomainMockRecorder) MigrateSetMaxDowntime(downtime, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MigrateSetMaxDowntime", reflect.TypeOf((*MockVirDomain)(nil).MigrateSetMaxDowntime), downtime, flags)
+}
+
 // MigrateStartPostCopy mocks base method.
 func (m *MockVirDomain) MigrateStartPostCopy(flags uint32) error {
 	m.ctrl.T.Helper()

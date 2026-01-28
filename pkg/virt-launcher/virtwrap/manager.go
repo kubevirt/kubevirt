@@ -1089,6 +1089,18 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	}
 	c.DisksInfo = l.disksInfo
 
+	gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+	if err != nil {
+		return nil, err
+	}
+	c.GPUHostDevices = gpuHostDevices
+
+	gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi)
+	if err != nil {
+		return nil, err
+	}
+	c.GPUHostDevices = append(c.GPUHostDevices, gpuDRAHostDevices...)
+
 	if !isMigrationTarget {
 		sriovDevices, err := sriov.CreateHostDevices(vmi)
 		if err != nil {
@@ -1109,20 +1121,18 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			return nil, err
 		}
 		c.GenericHostDevices = append(c.GenericHostDevices, genericDRAHostDevices...)
-
-		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
-		if err != nil {
-			return nil, err
+	} else {
+		if len(c.GPUHostDevices) > 0 {
+			if !l.libvirtHooksServerAndClientEnabled {
+				return nil, fmt.Errorf("vGPU live migration requires LibvirtHooksServerAndClient feature gate")
+			}
+			if len(c.GPUHostDevices) == 1 {
+				vmi.Annotations["kubevirt.io/target-mdev-uuid"] = c.GPUHostDevices[0].Source.Address.UUID
+			} else {
+				return nil, fmt.Errorf("too many GPUs found on vmi for migration: %d", len(c.GPUHostDevices))
+			}
 		}
-		c.GPUHostDevices = gpuHostDevices
-
-		gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi)
-		if err != nil {
-			return nil, err
-		}
-		c.GPUHostDevices = append(c.GPUHostDevices, gpuDRAHostDevices...)
 	}
-
 	return c, nil
 }
 
