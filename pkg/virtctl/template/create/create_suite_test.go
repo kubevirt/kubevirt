@@ -17,33 +17,16 @@
  *
  */
 
-package template
+package create_test
 
 import (
-	"github.com/spf13/cobra"
+	"testing"
 
-	"kubevirt.io/kubevirt/pkg/virtctl/template/convert"
-	"kubevirt.io/kubevirt/pkg/virtctl/template/create"
-	"kubevirt.io/kubevirt/pkg/virtctl/template/process"
-	"kubevirt.io/kubevirt/pkg/virtctl/templates"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-const (
-	TEMPLATE = "template"
-)
-
-func NewCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   TEMPLATE,
-		Short: "Work with VirtualMachineTemplates",
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf("%s", cmd.UsageString())
-		},
-	}
-
-	cmd.AddCommand(create.NewCommand())
-	cmd.AddCommand(process.NewCommand())
-	cmd.SetUsageTemplate(templates.UsageTemplate())
-
-	return cmd
+func TestCreate(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Create Suite")
 }
