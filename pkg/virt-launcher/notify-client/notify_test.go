@@ -118,6 +118,9 @@ var _ = Describe("Notify", func() {
 					newDomain, ok := event.Object.(*api.Domain)
 					newDomain.Spec.XMLName = xml.Name{}
 					Expect(ok).To(BeTrue(), "should typecase domain")
+					// ignoring StartinUp field, since it's out of scope here
+					domain.Spec.Metadata.KubeVirt.StartingUp = nil
+					newDomain.Spec.Metadata.KubeVirt.StartingUp = nil
 					Expect(equality.Semantic.DeepEqual(domain.Spec, newDomain.Spec)).To(BeTrue())
 					Expect(event.Type).To(Equal(kubeEventType))
 				}
@@ -252,6 +255,53 @@ var _ = Describe("Notify", func() {
 					Expect(equality.Semantic.DeepEqual(fsFreezeStatus, newFSFreezeStatus)).To(BeTrue())
 				}
 				Expect(timedOut).To(BeFalse())
+			})
+
+		It("should transition StartingUp metadata from true to false when domain becomes running",
+			func() {
+				domain := api.NewMinimalDomain("test")
+				// Set StartingUp to true initially
+				startingUp := true
+				domain.Spec.Metadata.KubeVirt.StartingUp = &startingUp
+
+				x, err := xml.Marshal(domain.Spec)
+				Expect(err).ToNot(HaveOccurred())
+
+				cache := metadataCache()
+				// Simulate the initial state where StartingUp is true
+				cache.StartingUp.Set(true)
+
+				mockLibvirt.DomainEXPECT().Free()
+				mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_RUNNING, -1, nil)
+				mockLibvirt.DomainEXPECT().GetName().Return("test", nil).AnyTimes()
+				mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+
+				// Verify StartingUp is true before the event
+				startingUpValue, exists := cache.StartingUp.Load()
+				Expect(exists).To(BeTrue())
+				Expect(startingUpValue).To(BeTrue())
+
+				// Trigger the event callback with a running domain
+				e.eventCallback(mockLibvirt.VirtConnection, util.NewDomainFromName("test", "1234"), libvirtEvent{Event: &libvirt.DomainEventLifecycle{Event: libvirt.DOMAIN_EVENT_STARTED}}, client, deleteNotificationSent, nil, nil, nil, nil, cache)
+
+				timedOut := false
+				timeout := time.After(2 * time.Second)
+				select {
+				case <-timeout:
+					timedOut = true
+				case event := <-eventChan:
+					newDomain, ok := event.Object.(*api.Domain)
+					Expect(ok).To(BeTrue())
+					// Verify StartingUp is now false in the domain metadata
+					Expect(newDomain.Spec.Metadata.KubeVirt.StartingUp).ToNot(BeNil())
+					Expect(*newDomain.Spec.Metadata.KubeVirt.StartingUp).To(BeFalse())
+				}
+				Expect(timedOut).To(BeFalse())
+
+				// Verify StartingUp is false in the metadata cache
+				startingUpValue, exists = cache.StartingUp.Load()
+				Expect(exists).To(BeTrue())
+				Expect(startingUpValue).To(BeFalse())
 			})
 	})
 

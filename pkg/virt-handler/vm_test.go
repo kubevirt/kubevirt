@@ -2987,6 +2987,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
 			domain.Status.Status = api.Paused
 			domain.Status.Reason = api.ReasonPausedPostcopyFailed
+			addActivePods(vmi, podTestUUID, host)
 			addVMI(vmi, domain)
 
 			By("Executing the controller")
