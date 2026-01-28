@@ -434,6 +434,7 @@ spec:
       hugepages:
         pageSize: pageSizeValue
       maxGuest: "0"
+    rebootPolicy: rebootPolicyValue
     resources:
       limits:
         limitsKey: "0"
