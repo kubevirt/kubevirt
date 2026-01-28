@@ -409,6 +409,9 @@
             }
           ]
         }
+      },
+      "persistentReservationConfiguration": {
+        "enabled": true
       }
     },
     "infra": {
