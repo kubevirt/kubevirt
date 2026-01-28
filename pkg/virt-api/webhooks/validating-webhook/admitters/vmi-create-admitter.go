@@ -126,6 +126,9 @@ func (admitter *VMICreateAdmitter) Admit(_ context.Context, ar *admissionv1.Admi
 	// Validate capabilities based on the target platform for the VMI
 	causes = append(causes, ValidateCapabilities(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 
+	// Validate capabilities based on the target platform for the VMI
+	causes = append(causes, ValidateCapabilities(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
+
 	causes = append(causes, ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec"), &vmi.Spec, admitter.ClusterConfig)...)
 	// We only want to validate that volumes are mapped to disks or filesystems during VMI admittance, thus this logic is seperated from the above call that is shared with the VM admitter.
 	causes = append(causes, validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("spec"), &vmi.Spec)...)
@@ -175,6 +178,42 @@ func ValidateVirtualMachineInstancePerArch(field *k8sfield.Path, spec *v1.Virtua
 			Message: fmt.Sprintf("unsupported architecture: %s", arch),
 			Field:   field.Child("architecture").String(),
 		})
+	}
+
+	return causes
+}
+
+func ValidateCapabilities(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	hypervisor := "kvm" // TODO: for now, assume KVM hypervisor
+	arch := spec.Architecture
+
+	// Retrieve the capability support information for the given hypervisor and architecture
+	supports := core_capabilities.GetCapabilitiesSupportForPlatform(hypervisor, arch)
+
+	// Validate the capabilities in the spec against the supported capabilities
+	for capKey, capSupport := range supports {
+		capabilityDef := core_capabilities.CapabilityDefinitions[capKey]
+
+		if capabilityDef.IsRequiredBy(spec) {
+			switch capSupport.Level {
+			case core_capabilities.Unsupported:
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueNotSupported,
+					Message: capSupport.Message,
+					Field:   field.String(),
+				})
+			case core_capabilities.Experimental:
+				if capSupport.GatedBy != "" && !config.IsFeatureGateEnabled(capSupport.GatedBy) {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueNotSupported,
+						Message: capSupport.Message + fmt.Sprintf(". But feature gate '%s' is not enabled", capSupport.GatedBy),
+						Field:   field.String(),
+					})
+				}
+			}
+		}
 	}
 
 	return causes

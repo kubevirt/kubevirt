@@ -35,6 +35,7 @@ import (
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
+	"kubevirt.io/kubevirt/pkg/capabilities"
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 
 	restful "github.com/emicklei/go-restful/v3"
@@ -951,6 +952,9 @@ func (app *virtAPIApp) prepareCertManager() {
 }
 
 func (app *virtAPIApp) registerValidatingWebhooks(informers *webhooks.Informers) {
+	// Initialize the Capability registry
+	capabilities.Init()
+
 	http.HandleFunc(components.VMICreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
 		validating_webhook.ServeVMICreate(w, r, app.clusterConfig, app.kubeVirtServiceAccounts,
 			func(field *field.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
