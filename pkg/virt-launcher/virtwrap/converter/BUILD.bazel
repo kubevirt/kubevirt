@@ -27,6 +27,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/compute:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/iothreads:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/metadata:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/network:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/storage:go_default_library",
