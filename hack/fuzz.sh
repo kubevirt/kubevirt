@@ -6,5 +6,5 @@ source hack/config.sh
 
 bazel test \
     --config=fuzz \
-    --features race \
+    --@io_bazel_rules_go//go/config:race \
     --test_output=errors -- //pkg/...
