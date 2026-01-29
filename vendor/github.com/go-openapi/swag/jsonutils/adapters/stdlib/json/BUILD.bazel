@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "adapter.go",
+        "doc.go",
+        "lexer.go",
+        "ordered_map.go",
+        "pool.go",
+        "register.go",
+        "writer.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/swag/jsonutils/adapters/stdlib/json",
+    importpath = "github.com/go-openapi/swag/jsonutils/adapters/stdlib/json",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/go-openapi/swag/conv:go_default_library",
+        "//vendor/github.com/go-openapi/swag/jsonutils/adapters/ifaces:go_default_library",
+        "//vendor/github.com/go-openapi/swag/typeutils:go_default_library",
+    ],
+)

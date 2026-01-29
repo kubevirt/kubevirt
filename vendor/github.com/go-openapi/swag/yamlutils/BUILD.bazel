@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "errors.go",
+        "ordered_map.go",
+        "yaml.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/swag/yamlutils",
+    importpath = "github.com/go-openapi/swag/yamlutils",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/go-openapi/swag/conv:go_default_library",
+        "//vendor/github.com/go-openapi/swag/jsonutils:go_default_library",
+        "//vendor/github.com/go-openapi/swag/jsonutils/adapters/ifaces:go_default_library",
+        "//vendor/github.com/go-openapi/swag/typeutils:go_default_library",
+        "//vendor/go.yaml.in/yaml/v3:go_default_library",
+    ],
+)
