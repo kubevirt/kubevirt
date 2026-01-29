@@ -106,6 +106,10 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		builderOptions = append(builderOptions, withACPIIndex(uint(iface.ACPIIndex)))
 	}
 
+	if iface.MacAddress != "" {
+		builderOptions = append(builderOptions, withMACAddress(iface.MacAddress))
+	}
+
 	isTap := d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap)
 	if isTap {
 		// use "ethernet" interface type, since we're using pre-configured tap devices

@@ -77,3 +77,9 @@ func withLinkStateDown() builderOption {
 		iface.LinkState = &api.LinkState{State: "down"}
 	}
 }
+
+func withMACAddress(mac string) builderOption {
+	return func(iface *api.Interface) {
+		iface.MAC = &api.MAC{MAC: mac}
+	}
+}
