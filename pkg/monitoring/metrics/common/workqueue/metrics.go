@@ -92,7 +92,7 @@ var (
 	unfinishedWork = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_workqueue_unfinished_work_seconds",
-			Help: "How many seconds of work has done that is in progress and hasn't " +
+			Help: "How many seconds of work have been in progress and haven't " +
 				"been observed by work_duration. Large values indicate stuck " +
 				"threads. One can deduce the number of stuck threads by observing " +
 				"the rate at which this increases.",
