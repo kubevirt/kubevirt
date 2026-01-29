@@ -92,6 +92,8 @@ static struct fake_vgpu_dev {
 	struct cdev cdev;
 	struct device dev;
 	struct mdev_parent parent;
+	bool parent_registered;		/* Track if mdev parent is registered */
+	struct mutex hotplug_lock;	/* Protect hotplug operations */
 } fake_vgpu_dev;
 
 /* vGPU type definitions matching NVIDIA GRID naming */
@@ -828,6 +830,75 @@ static void fake_vgpu_device_release(struct device *dev)
 	dev_dbg(dev, "fake_vgpu: device released\n");
 }
 
+/*
+ * Hotplug emulation sysfs interface
+ *
+ * This allows simulating device disappear/reappear for testing virt-handler's
+ * hot-plug detection. Write "hide" to unregister the mdev parent (device
+ * disappears from /sys/class/mdev_bus/), write "show" to re-register it.
+ *
+ * Usage:
+ *   echo hide > /sys/class/nvidia/nvidia/hotplug_control
+ *   echo show > /sys/class/nvidia/nvidia/hotplug_control
+ *   cat /sys/class/nvidia/nvidia/hotplug_control  # shows current state
+ */
+static ssize_t hotplug_control_show(struct device *dev,
+				    struct device_attribute *attr, char *buf)
+{
+	const char *state;
+
+	mutex_lock(&fake_vgpu_dev.hotplug_lock);
+	state = fake_vgpu_dev.parent_registered ? "visible" : "hidden";
+	mutex_unlock(&fake_vgpu_dev.hotplug_lock);
+
+	return sprintf(buf, "%s\n", state);
+}
+
+static ssize_t hotplug_control_store(struct device *dev,
+				     struct device_attribute *attr,
+				     const char *buf, size_t count)
+{
+	int ret = count;
+
+	mutex_lock(&fake_vgpu_dev.hotplug_lock);
+
+	if (strncmp(buf, "hide", 4) == 0) {
+		if (fake_vgpu_dev.parent_registered) {
+			pr_info("fake_nvidia_vgpu: hiding device (unregistering mdev parent)\n");
+			mdev_unregister_parent(&fake_vgpu_dev.parent);
+			fake_vgpu_dev.parent_registered = false;
+		} else {
+			pr_info("fake_nvidia_vgpu: device already hidden\n");
+		}
+	} else if (strncmp(buf, "show", 4) == 0) {
+		if (!fake_vgpu_dev.parent_registered) {
+			int err;
+			pr_info("fake_nvidia_vgpu: showing device (registering mdev parent)\n");
+			err = mdev_register_parent(&fake_vgpu_dev.parent,
+						   &fake_vgpu_dev.dev,
+						   &fake_vgpu_driver,
+						   fake_vgpu_mdev_types,
+						   ARRAY_SIZE(fake_vgpu_mdev_types));
+			if (err) {
+				pr_err("fake_nvidia_vgpu: failed to register mdev parent: %d\n", err);
+				ret = err;
+			} else {
+				fake_vgpu_dev.parent_registered = true;
+			}
+		} else {
+			pr_info("fake_nvidia_vgpu: device already visible\n");
+		}
+	} else {
+		pr_err("fake_nvidia_vgpu: unknown command, use 'hide' or 'show'\n");
+		ret = -EINVAL;
+	}
+
+	mutex_unlock(&fake_vgpu_dev.hotplug_lock);
+	return ret;
+}
+
+static DEVICE_ATTR_RW(hotplug_control);
+
 static int __init fake_vgpu_init(void)
 {
 	int ret, i;
@@ -839,6 +910,7 @@ static int __init fake_vgpu_init(void)
 		atomic_set(&avail_instances[i], fake_vgpu_types[i].max_instances);
 
 	memset(&fake_vgpu_dev, 0, sizeof(fake_vgpu_dev));
+	mutex_init(&fake_vgpu_dev.hotplug_lock);
 
 	ret = alloc_chrdev_region(&fake_vgpu_dev.devt, 0, MINORMASK + 1,
 				  FAKE_VGPU_NAME);
@@ -873,17 +945,30 @@ static int __init fake_vgpu_init(void)
 	if (ret)
 		goto err_class;
 
+	/* Create hotplug control sysfs attribute */
+	ret = device_create_file(&fake_vgpu_dev.dev, &dev_attr_hotplug_control);
+	if (ret) {
+		pr_err("fake_nvidia_vgpu: failed to create hotplug_control sysfs\n");
+		goto err_device;
+	}
+
 	ret = mdev_register_parent(&fake_vgpu_dev.parent, &fake_vgpu_dev.dev,
 				   &fake_vgpu_driver, fake_vgpu_mdev_types,
 				   ARRAY_SIZE(fake_vgpu_mdev_types));
 	if (ret)
-		goto err_device;
+		goto err_sysfs;
+
+	fake_vgpu_dev.parent_registered = true;
 
 	pr_info("fake_nvidia_vgpu: ready, providing %d GRID T4-1B and %d GRID T4-2B instances\n",
 		MAX_T4_1B_INSTANCES, MAX_T4_2B_INSTANCES);
+	pr_info("fake_nvidia_vgpu: hotplug control at /sys/class/%s/%s/hotplug_control\n",
+		FAKE_VGPU_CLASS_NAME, FAKE_VGPU_NAME);
 
 	return 0;
 
+err_sysfs:
+	device_remove_file(&fake_vgpu_dev.dev, &dev_attr_hotplug_control);
 err_device:
 	device_del(&fake_vgpu_dev.dev);
 	put_device(&fake_vgpu_dev.dev);
@@ -895,19 +980,28 @@ err_cdev:
 	cdev_del(&fake_vgpu_dev.cdev);
 err_chrdev:
 	unregister_chrdev_region(fake_vgpu_dev.devt, MINORMASK + 1);
+	mutex_destroy(&fake_vgpu_dev.hotplug_lock);
 	return ret;
 }
 
 static void __exit fake_vgpu_exit(void)
 {
-	fake_vgpu_dev.dev.bus = NULL;
-	mdev_unregister_parent(&fake_vgpu_dev.parent);
+	mutex_lock(&fake_vgpu_dev.hotplug_lock);
+	if (fake_vgpu_dev.parent_registered) {
+		fake_vgpu_dev.dev.bus = NULL;
+		mdev_unregister_parent(&fake_vgpu_dev.parent);
+		fake_vgpu_dev.parent_registered = false;
+	}
+	mutex_unlock(&fake_vgpu_dev.hotplug_lock);
+
+	device_remove_file(&fake_vgpu_dev.dev, &dev_attr_hotplug_control);
 	device_unregister(&fake_vgpu_dev.dev);
 	mdev_unregister_driver(&fake_vgpu_driver);
 	cdev_del(&fake_vgpu_dev.cdev);
 	unregister_chrdev_region(fake_vgpu_dev.devt, MINORMASK + 1);
 	class_destroy(fake_vgpu_dev.vgpu_class);
 	fake_vgpu_dev.vgpu_class = NULL;
+	mutex_destroy(&fake_vgpu_dev.hotplug_lock);
 
 	pr_info("fake_nvidia_vgpu: unloaded\n");
 }

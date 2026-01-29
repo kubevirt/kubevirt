@@ -204,16 +204,91 @@ cleanup() {
     fi
 }
 
+# Hotplug emulation functions
+# These allow simulating device disappear/reappear for testing virt-handler hot-plug detection
+
+HOTPLUG_CONTROL="/sys/class/nvidia/nvidia/hotplug_control"
+
+hotplug_hide() {
+    log_info "Hiding fake vGPU device (simulating device removal)..."
+    
+    if [[ ! -f "$HOTPLUG_CONTROL" ]]; then
+        log_error "Hotplug control not found at $HOTPLUG_CONTROL"
+        log_error "Make sure the fake-nvidia-vgpu module is loaded"
+        exit 1
+    fi
+    
+    # First remove all mdev instances
+    for dev in /sys/bus/mdev/devices/*; do
+        if [[ -d "$dev" ]]; then
+            log_info "Removing mdev instance: $(basename $dev)"
+            echo 1 > "$dev/remove" 2>/dev/null || true
+        fi
+    done
+    
+    echo "hide" > "$HOTPLUG_CONTROL"
+    
+    # Verify
+    local state
+    state=$(cat "$HOTPLUG_CONTROL")
+    if [[ "$state" == "hidden" ]]; then
+        log_info "Device is now hidden"
+    else
+        log_error "Failed to hide device, state: $state"
+        exit 1
+    fi
+}
+
+hotplug_show() {
+    log_info "Showing fake vGPU device (simulating device insertion)..."
+    
+    if [[ ! -f "$HOTPLUG_CONTROL" ]]; then
+        log_error "Hotplug control not found at $HOTPLUG_CONTROL"
+        log_error "Make sure the fake-nvidia-vgpu module is loaded"
+        exit 1
+    fi
+    
+    echo "show" > "$HOTPLUG_CONTROL"
+    
+    # Verify
+    local state
+    state=$(cat "$HOTPLUG_CONTROL")
+    if [[ "$state" == "visible" ]]; then
+        log_info "Device is now visible"
+    else
+        log_error "Failed to show device, state: $state"
+        exit 1
+    fi
+}
+
+hotplug_status() {
+    if [[ ! -f "$HOTPLUG_CONTROL" ]]; then
+        echo "Hotplug control not available (module not loaded?)"
+        return 1
+    fi
+    
+    local state
+    state=$(cat "$HOTPLUG_CONTROL")
+    echo "Hotplug state: $state"
+    echo "Control file: $HOTPLUG_CONTROL"
+}
+
 usage() {
-    echo "Usage: $0 [setup|cleanup|status]"
+    echo "Usage: $0 [setup|cleanup|status|hide|show]"
     echo ""
     echo "Commands:"
     echo "  setup    Load module and create mdev instances (default)"
     echo "  cleanup  Remove mdev instances and unload module"
     echo "  status   Show current status"
+    echo "  hide     Hide device (simulate hot-unplug for testing)"
+    echo "  show     Show device (simulate hot-plug for testing)"
     echo ""
     echo "Environment variables:"
     echo "  FAKE_VGPU_INSTANCES  Number of mdev instances to create (default: 4)"
+    echo ""
+    echo "Hotplug emulation:"
+    echo "  The hide/show commands allow testing virt-handler's hot-plug detection."
+    echo "  Use 'hide' to simulate device removal, 'show' to simulate device insertion."
 }
 
 # Main
@@ -232,6 +307,15 @@ case "${1:-setup}" in
         ;;
     status)
         show_status
+        hotplug_status
+        ;;
+    hide)
+        check_root
+        hotplug_hide
+        ;;
+    show)
+        check_root
+        hotplug_show
         ;;
     -h|--help)
         usage

@@ -19,20 +19,24 @@ docker run --rm \
 ### 2. Setup Fake vGPU (requires sudo)
 
 ```bash
-# Run the setup script - this loads the module and creates mdev instances
 cd kubevirtci/cluster-up/cluster/kind-1.33-vgpu
 sudo ./setup-fake-vgpu-host.sh setup
 
-# Verify
+# Verify mdev instances
 ls /sys/bus/mdev/devices/
 # Should show 4 UUIDs
+
+# Verify hotplug control interface
+cat /sys/class/nvidia/nvidia/hotplug_control
+# Should show: visible
 ```
 
 ### 3. Bring Up the Cluster
 
 ```bash
 cd /path/to/kubevirt
-make cluster-up KUBEVIRT_PROVIDER=kind-1.33-vgpu
+export KUBEVIRT_PROVIDER=kind-1.33-vgpu
+make cluster-up
 ```
 
 The provider will validate that the fake vGPU is properly set up before creating the cluster.
@@ -53,13 +57,13 @@ KUBEVIRT_E2E_FOCUS="MediatedDevices" make functest
 KUBEVIRT_E2E_FOCUS="VGPU" make functest
 ```
 
-### 6. Cleanup (when done)
+### 6. Cleanup
 
 ```bash
 # Tear down cluster
 make cluster-down
 
-# Cleanup fake vGPU
+# Cleanup fake vGPU (removes mdev instances and unloads module)
 cd kubevirtci/cluster-up/cluster/kind-1.33-vgpu
 sudo ./setup-fake-vgpu-host.sh cleanup
 ```
@@ -84,17 +88,43 @@ When an mdev instance is passed to a VM, the guest sees:
 - Build tools: `make`, `gcc`
 - Root privileges for loading the module
 
-## Cleanup
+## Reloading the Module
+
+If you modify the kernel module source code, rebuild and reload (cluster can stay up - module runs on host):
 
 ```bash
-# Remove all mdev instances
-for dev in /sys/bus/mdev/devices/*; do
-  echo 1 | sudo tee $dev/remove 2>/dev/null
-done
+# 1. Rebuild (see step 1 above)
+cd kubevirtci/cluster-up/cluster/kind-1.33-vgpu/fake-nvidia-vgpu
+make clean
+# Run the docker build command from step 1
 
-# Unload module
-sudo rmmod fake_nvidia_vgpu
+# 2. Reload
+cd ..
+sudo ./setup-fake-vgpu-host.sh cleanup
+sudo ./setup-fake-vgpu-host.sh setup
+
+# 3. Verify
+cat /sys/class/nvidia/nvidia/hotplug_control
+# Should show: visible
 ```
+
+## Hotplug Emulation
+
+The module provides a sysfs interface to simulate device hot-plug/hot-unplug for testing virt-handler's device detection:
+
+```bash
+# Check current state
+cat /sys/class/nvidia/nvidia/hotplug_control
+# Shows: visible or hidden
+
+# Hide device (simulate hot-unplug)
+sudo ./setup-fake-vgpu-host.sh hide
+
+# Show device (simulate hot-plug)
+sudo ./setup-fake-vgpu-host.sh show
+```
+
+This is used by the MediatedDevices tests to verify virt-handler correctly creates mdev instances when devices appear.
 
 ## Troubleshooting
 
