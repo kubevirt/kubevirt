@@ -21,6 +21,7 @@ package gpu
 
 import (
 	"fmt"
+	"sort"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -108,16 +109,18 @@ func validateCreationOfDevicePluginsDevices(gpus []v1.GPU, pciHostDevices, mdevH
 	return nil
 }
 
-// extractUniqueResources returns a deduplicated list of resource names from the GPU specs
+// extractUniqueResources returns a deduplicated, sorted list of resource names from the GPU specs.
+// The result is sorted to ensure deterministic ordering for alias generation and device ordering.
 func extractUniqueResources(gpus []v1.GPU) []string {
 	resourceSet := make(map[string]struct{})
 	for _, gpu := range gpus {
 		resourceSet[gpu.DeviceName] = struct{}{}
 	}
 
-	var resources []string
+	resources := make([]string, 0, len(resourceSet))
 	for resource := range resourceSet {
 		resources = append(resources, resource)
 	}
+	sort.Strings(resources)
 	return resources
 }

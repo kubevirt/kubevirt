@@ -215,7 +215,7 @@ func (p *stubAddressPool) Pop(resource string) (string, error) {
 	return address, nil
 }
 
-func (p *stubAddressPool) PopAll(resource string) ([]string, error) {
+func (p *stubAddressPool) PopAll(resource string) []string {
 	var addresses []string
 	for {
 		addr, err := p.Pop(resource)
@@ -224,7 +224,7 @@ func (p *stubAddressPool) PopAll(resource string) ([]string, error) {
 		}
 		addresses = append(addresses, addr)
 	}
-	return addresses, nil
+	return addresses
 }
 
 var _ = Describe("GPU IOMMU Companion Devices", func() {
@@ -255,13 +255,17 @@ var _ = Describe("GPU IOMMU Companion Devices", func() {
 		// Should have 2 devices: 1 primary GPU + 1 IOMMU companion
 		Expect(hostDevices).To(HaveLen(2))
 
-		// First device should be the primary GPU
+		// First device should be the primary GPU with the first PCI address
 		Expect(hostDevices[0].Alias.GetName()).To(Equal(gpu.AliasPrefix + gpuName0))
+		expectedPrimaryAddr := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		Expect(*hostDevices[0].Source.Address).To(Equal(expectedPrimaryAddr))
 
-		// Second device should be the IOMMU companion
+		// Second device should be the IOMMU companion with the second PCI address
 		Expect(hostDevices[1].Alias.GetName()).To(ContainSubstring("iommu-companion"))
 		Expect(hostDevices[1].Type).To(Equal(api.HostDevicePCI))
 		Expect(hostDevices[1].Managed).To(Equal("no"))
+		expectedCompanionAddr := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"}
+		Expect(*hostDevices[1].Source.Address).To(Equal(expectedCompanionAddr))
 	})
 
 	It("creates multiple IOMMU companion devices when pool has many addresses", func() {
@@ -279,12 +283,20 @@ var _ = Describe("GPU IOMMU Companion Devices", func() {
 		// Should have 4 devices: 1 primary GPU + 3 IOMMU companions
 		Expect(hostDevices).To(HaveLen(4))
 
-		// First device should be the primary GPU
+		// First device should be the primary GPU with the first PCI address
 		Expect(hostDevices[0].Alias.GetName()).To(Equal(gpu.AliasPrefix + gpuName0))
+		expectedPrimaryAddr := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		Expect(*hostDevices[0].Source.Address).To(Equal(expectedPrimaryAddr))
 
-		// Remaining devices should be IOMMU companions
+		// Remaining devices should be IOMMU companions with addresses in sequence
+		expectedCompanionAddrs := []api.Address{
+			{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"},
+			{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x2"},
+			{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x3"},
+		}
 		for i := 1; i < len(hostDevices); i++ {
 			Expect(hostDevices[i].Alias.GetName()).To(ContainSubstring("iommu-companion"))
+			Expect(*hostDevices[i].Source.Address).To(Equal(expectedCompanionAddrs[i-1]))
 		}
 	})
 
@@ -321,13 +333,23 @@ var _ = Describe("GPU IOMMU Companion Devices", func() {
 		// Should have 4 devices: 2 primary GPUs + 2 IOMMU companions
 		Expect(hostDevices).To(HaveLen(4))
 
-		// First two devices should be the primary GPUs
+		// First two devices should be the primary GPUs with their assigned addresses
 		Expect(hostDevices[0].Alias.GetName()).To(Equal(gpu.AliasPrefix + gpuName0))
-		Expect(hostDevices[1].Alias.GetName()).To(Equal(gpu.AliasPrefix + gpuName1))
+		expectedPrimaryAddr0 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		Expect(*hostDevices[0].Source.Address).To(Equal(expectedPrimaryAddr0))
 
-		// Last two should be IOMMU companions
+		Expect(hostDevices[1].Alias.GetName()).To(Equal(gpu.AliasPrefix + gpuName1))
+		expectedPrimaryAddr1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"}
+		Expect(*hostDevices[1].Source.Address).To(Equal(expectedPrimaryAddr1))
+
+		// Last two should be IOMMU companions with the remaining addresses
 		Expect(hostDevices[2].Alias.GetName()).To(ContainSubstring("iommu-companion"))
+		expectedCompanionAddr0 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x2"}
+		Expect(*hostDevices[2].Source.Address).To(Equal(expectedCompanionAddr0))
+
 		Expect(hostDevices[3].Alias.GetName()).To(ContainSubstring("iommu-companion"))
+		expectedCompanionAddr1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x3"}
+		Expect(*hostDevices[3].Source.Address).To(Equal(expectedCompanionAddr1))
 	})
 
 	It("does not include MDEV addresses in IOMMU companion devices", func() {

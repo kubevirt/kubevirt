@@ -48,7 +48,8 @@ type AddressPooler interface {
 	Pop(key string) (value string, err error)
 	// PopAll drains all remaining addresses for a resource.
 	// Used to get IOMMU companion devices that share the same resource.
-	PopAll(key string) (values []string, err error)
+	// Returns an empty slice if no addresses remain (exhaustion is expected and non-fatal).
+	PopAll(key string) []string
 }
 
 func CreatePCIHostDevices(hostDevicesData []HostDeviceMetaData, pciAddrPool AddressPooler) ([]api.HostDevice, error) {
@@ -132,10 +133,7 @@ func CreatePCIHostDevicesFromRemainingAddresses(aliasPrefix string, resources []
 	var hostDevices []api.HostDevice
 
 	for _, resource := range resources {
-		addresses, err := pciAddrPool.PopAll(resource)
-		if err != nil {
-			continue
-		}
+		addresses := pciAddrPool.PopAll(resource)
 
 		for i, address := range addresses {
 			if address == "" {
