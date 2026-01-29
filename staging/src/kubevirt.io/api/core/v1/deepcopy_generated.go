@@ -1011,6 +1011,11 @@ func (in *DeveloperConfiguration) DeepCopyInto(out *DeveloperConfiguration) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.DisabledFeatureGates != nil {
+		in, out := &in.DisabledFeatureGates, &out.DisabledFeatureGates
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.NodeSelectors != nil {
 		in, out := &in.NodeSelectors, &out.NodeSelectors
 		*out = make(map[string]string, len(*in))
