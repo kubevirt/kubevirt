@@ -20,14 +20,20 @@
 package compute
 
 import (
+	"slices"
+
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
 type ControllersDomainConfigurator struct {
 	isUSBNeeded      bool
 	scsiModel        string
+	hasIOThreads     bool
 	controllerDriver *api.ControllerDriver
 }
 
@@ -47,7 +53,8 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newUSBController(c.isUSBNeeded))
 
 	if requiresSCSIController(vmi) {
-		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, c.controllerDriver))
+		scsiControllerDriver := assignSCSIControllerIOThread(vmi, c.hasIOThreads, c.controllerDriver.DeepCopy())
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, scsiControllerDriver))
 	}
 
 	return nil
@@ -62,6 +69,12 @@ func ControllersWithUSBNeeded(isUSBNeeded bool) controllersOption {
 func ControllersWithSCSIModel(scsiModel string) controllersOption {
 	return func(c *ControllersDomainConfigurator) {
 		c.scsiModel = scsiModel
+	}
+}
+
+func ControllersWithSCSIIOThreads(hasIOThreads bool) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.hasIOThreads = hasIOThreads
 	}
 }
 
@@ -119,4 +132,31 @@ func getBusFromDisk(disk v1.Disk) v1.DiskBus {
 		return disk.CDRom.Bus
 	}
 	return ""
+}
+
+func shouldConfigSCSIThread(vmi *v1.VirtualMachineInstance) bool {
+	return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, func(disk v1.Disk) bool {
+		return getBusFromDisk(disk) == v1.DiskBusSCSI && iothreads.HasDedicatedIOThread(disk)
+	})
+}
+
+func assignSCSIControllerIOThread(vmi *v1.VirtualMachineInstance, hasIOThreads bool, scsiControllerDriver *api.ControllerDriver) *api.ControllerDriver {
+	if !hasIOThreads || !shouldConfigSCSIThread(vmi) {
+		return scsiControllerDriver
+	}
+
+	if scsiControllerDriver == nil {
+		scsiControllerDriver = &api.ControllerDriver{}
+	}
+
+	vcpus := uint(vcpu.CalculateRequestedVCPUs(vcpu.GetCPUTopology(vmi)))
+	if vcpus == 0 {
+		vcpus = 1
+	}
+
+	// The first shared thread ID is 1
+	scsiControllerDriver.IOThread = pointer.P(uint(1))
+	scsiControllerDriver.Queues = pointer.P(vcpus)
+
+	return scsiControllerDriver
 }

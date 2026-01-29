@@ -22,6 +22,7 @@ package compute_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/utils/ptr"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -32,12 +33,14 @@ import (
 var _ = Describe("Controllers Domain Configurator", func() {
 
 	const usbNeeded = true
+	const ioThreads = true
 
-	DescribeTable("should configure USB and SCSI controllers", func(vmi *v1.VirtualMachineInstance, isUSBNeeded bool, expectedControllers []api.Controller) {
+	DescribeTable("should configure USB and SCSI controllers", func(vmi *v1.VirtualMachineInstance, isUSBNeeded bool, hasIOThreads bool, expectedControllers []api.Controller) {
 		var domain api.Domain
 
 		Expect(compute.NewControllersDomainConfigurator(
 			compute.ControllersWithUSBNeeded(isUSBNeeded),
+			compute.ControllersWithSCSIIOThreads(hasIOThreads),
 			compute.ControllersWithSCSIModel("test-model"),
 			compute.ControllersWithControllerDriver(nil),
 		).Configure(vmi, &domain)).To(Succeed())
@@ -54,18 +57,21 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when USB is NOT needed and disk hotplug is disabled",
 			libvmi.New(withHotplugDisabled()),
 			!usbNeeded,
+			!ioThreads,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 			}),
 		Entry("when USB is needed and disk hotplug is disabled",
 			libvmi.New(withHotplugDisabled()),
 			usbNeeded,
+			!ioThreads,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "qemu-xhci"},
 			}),
 		Entry("when USB is NOT needed and disk hotplug is enabled",
 			libvmi.New(),
 			!usbNeeded,
+			!ioThreads,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
@@ -73,6 +79,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when USB is needed and disk hotplug is enabled",
 			libvmi.New(),
 			usbNeeded,
+			!ioThreads,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "qemu-xhci"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
@@ -80,6 +87,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when VMI has SCSI disk and disk hotplug is disabled",
 			libvmi.New(withHotplugDisabled(), libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI)),
 			!usbNeeded,
+			!ioThreads,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
@@ -87,6 +95,7 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when VMI has SCSI disk and disk hotplug is enabled",
 			libvmi.New(libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI)),
 			!usbNeeded,
+			!ioThreads,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "none"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
@@ -94,10 +103,33 @@ var _ = Describe("Controllers Domain Configurator", func() {
 		Entry("when VMI has SCSI disk and USB is needed",
 			libvmi.New(libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI)),
 			usbNeeded,
+			!ioThreads,
 			[]api.Controller{
 				{Type: "usb", Index: "0", Model: "qemu-xhci"},
 				{Type: "scsi", Index: "0", Model: "test-model"},
 			}),
+		Entry("when VMI has IOThreads and SCSI disk with a dedicated IO thread",
+			libvmi.New(
+				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI, libvmi.WithDedicatedIOThreads(true)),
+			),
+			!usbNeeded,
+			ioThreads,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "scsi", Index: "0", Model: "test-model", Driver: &api.ControllerDriver{IOThread: ptr.To[uint](1), Queues: ptr.To[uint](1)}},
+			},
+		),
+		Entry("when VMI has IOThreads and SCSI disk but no disk with dedicated IO thread",
+			libvmi.New(
+				libvmi.WithDisk("scsi-disk", v1.DiskBusSCSI),
+			),
+			!usbNeeded,
+			ioThreads,
+			[]api.Controller{
+				{Type: "usb", Index: "0", Model: "none"},
+				{Type: "scsi", Index: "0", Model: "test-model"},
+			},
+		),
 	)
 })
 
