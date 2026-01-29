@@ -454,6 +454,20 @@ func (mr *MockVirDomainMockRecorder) AbortJob() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AbortJob", reflect.TypeOf((*MockVirDomain)(nil).AbortJob))
 }
 
+// AgentSetResponseTimeout mocks base method.
+func (m *MockVirDomain) AgentSetResponseTimeout(timeout int, flags uint32) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AgentSetResponseTimeout", timeout, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AgentSetResponseTimeout indicates an expected call of AgentSetResponseTimeout.
+func (mr *MockVirDomainMockRecorder) AgentSetResponseTimeout(timeout, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentSetResponseTimeout", reflect.TypeOf((*MockVirDomain)(nil).AgentSetResponseTimeout), timeout, flags)
+}
+
 // AttachDeviceFlags mocks base method.
 func (m *MockVirDomain) AttachDeviceFlags(xml string, flags libvirt.DomainDeviceModifyFlags) error {
 	m.ctrl.T.Helper()

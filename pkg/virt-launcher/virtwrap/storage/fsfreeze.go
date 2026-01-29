@@ -31,6 +31,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
 
 func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
@@ -70,7 +71,9 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 	}
 	defer domain.Free()
 
-	if err := domain.FSFreeze(nil, 0); err != nil {
+	if err := cli.ExecuteWithAgentTimeout(domain, fsFreezeTimeoutSeconds, "freeze", func() error {
+		return domain.FSFreeze(nil, 0)
+	}); err != nil {
 		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
 		return err
 	}
