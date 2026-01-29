@@ -198,6 +198,11 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		return err
 	}
 	if inProgress {
+		// Check blocking annotation in early return path to prevent bypass on retry
+		// when metadata already exists. This ensures the annotation is always enforced.
+		if shouldBlockMigrationTargetPreparation(vmi) {
+			return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
+		}
 		return nil
 	}
 
