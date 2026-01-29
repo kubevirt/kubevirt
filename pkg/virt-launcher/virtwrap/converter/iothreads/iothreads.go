@@ -45,7 +45,7 @@ func hasDedicatedIOThread(disk v1.Disk) bool {
 	return disk.DedicatedIOThread != nil && *disk.DedicatedIOThread
 }
 
-func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoThreads int) {
+func GetIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoThreads int) {
 	dedicatedThreads := 0
 
 	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
@@ -101,12 +101,8 @@ func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
 	}
 }
 
-func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint) {
-	if !HasIOThreads(vmi) {
-		return
-	}
+func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint, ioThreadCount, autoThreads int) {
 	currentAutoThread := defaultIOThread
-	ioThreadCount, autoThreads := getIOThreadsCountType(vmi)
 	if ioThreadCount != 0 {
 		if domain.Spec.IOThreads == nil {
 			domain.Spec.IOThreads = &api.IOThreads{}
