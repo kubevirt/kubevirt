@@ -135,6 +135,7 @@ type CPUInstancetype struct {
 	// Required number of vCPUs to expose to the guest.
 	//
 	// The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.
+	// +kubebuilder:validation:Minimum=1
 	Guest uint32 `json:"guest"`
 
 	// Model specifies the CPU model inside the VMI.
@@ -164,6 +165,7 @@ type CPUInstancetype struct {
 	Realtime *v1.Realtime `json:"realtime,omitempty"`
 
 	// MaxSockets specifies the maximum amount of sockets that can be hotplugged
+	// +kubebuilder:validation:Minimum=1
 	// +optional
 	MaxSockets *uint32 `json:"maxSockets,omitempty"`
 }
@@ -273,7 +275,7 @@ type VirtualMachinePreferenceSpec struct {
 	//+optional
 	Machine *MachinePreferences `json:"machine,omitempty"`
 
-	// Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec
+	// Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstance DomainSpec
 	//
 	//+optional
 	Volumes *VolumePreferences `json:"volumes,omitempty"`
@@ -288,7 +290,7 @@ type VirtualMachinePreferenceSpec struct {
 	//+optional
 	PreferredTerminationGracePeriodSeconds *int64 `json:"preferredTerminationGracePeriodSeconds,omitempty"`
 
-	// Requirements defines the minium amount of instance type defined resources required by a set of preferences
+	// Requirements defines the minimum amount of instance type defined resources required by a set of preferences
 	//
 	//+optional
 	Requirements *PreferenceRequirements `json:"requirements,omitempty"`
@@ -303,7 +305,7 @@ type VirtualMachinePreferenceSpec struct {
 	//+optional
 	PreferSpreadSocketToCoreRatio uint32 `json:"preferSpreadSocketToCoreRatio,omitempty"`
 
-	// PreferredArchitecture defines a prefeerred architecture for the VirtualMachine
+	// PreferredArchitecture defines a preferred architecture for the VirtualMachine
 	//
 	//+optional
 	PreferredArchitecture *string `json:"preferredArchitecture,omitempty"`
@@ -311,7 +313,7 @@ type VirtualMachinePreferenceSpec struct {
 
 type VolumePreferences struct {
 
-	// PreffereedStorageClassName optionally defines the preferred storageClass
+	// PreferredStorageClassName optionally defines the preferred storageClass
 	//
 	//+optional
 	PreferredStorageClassName string `json:"preferredStorageClassName,omitempty"`
@@ -362,6 +364,7 @@ type CPUPreferences struct {
 	// PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.
 	//
 	//+optional
+	// +kubebuilder:validation:Enum=preferCores;preferSockets;preferThreads;preferSpread;preferAny;cores;sockets;threads;spread;any
 	PreferredCPUTopology *PreferredCPUTopology `json:"preferredCPUTopology,omitempty"`
 
 	//
@@ -392,6 +395,7 @@ type SpreadOptions struct {
 	// Default: SocketsCores
 	//
 	//+optional
+	// +kubebuilder:validation:Enum=SocketsCoresThreads;SocketsCores;CoresThreads
 	Across *SpreadAcross `json:"across,omitempty"`
 
 	// Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:
@@ -403,6 +407,7 @@ type SpreadOptions struct {
 	// Default: 2
 	//
 	//+optional
+	// +kubebuilder:validation:Minimum=1
 	Ratio *uint32 `json:"ratio,omitempty"`
 }
 
@@ -577,7 +582,7 @@ type FirmwarePreferences struct {
 	// +optional
 	PreferredUseBios *bool `json:"preferredUseBios,omitempty"`
 
-	// PreferredUseBiosSerial optionally transmitts BIOS output over the serial.
+	// PreferredUseBiosSerial optionally transmits BIOS output over the serial.
 	//
 	// Requires PreferredUseBios to be enabled.
 	//
@@ -621,7 +626,7 @@ type ClockPreferences struct {
 	// +optional
 	PreferredClockOffset *v1.ClockOffset `json:"preferredClockOffset,omitempty"`
 
-	// Timer specifies whih timers are attached to the vmi.
+	// Timer specifies which timers are attached to the vmi.
 	//
 	// +optional
 	PreferredTimer *v1.Timer `json:"preferredTimer,omitempty"`

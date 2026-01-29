@@ -25,8 +25,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 )
 
 type clusterPreferenceFinder struct {
@@ -41,13 +44,27 @@ func NewClusterPreferenceFinder(store cache.Store, virtClient kubecli.KubevirtCl
 	}
 }
 
-func (f *clusterPreferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineClusterPreference, error) {
+func (f *clusterPreferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1.VirtualMachineClusterPreference, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
+
+	// Helper function to convert v1beta1 to v1
+	convertFromV1beta1 := func(v1beta1Obj *v1beta1.VirtualMachineClusterPreference) (*v1.VirtualMachineClusterPreference, error) {
+		v1Obj := &v1.VirtualMachineClusterPreference{}
+		if err := compatibility.Convert_v1beta1_VirtualMachineClusterPreference_To_v1_VirtualMachineClusterPreference(v1beta1Obj, v1Obj, nil); err != nil {
+			return nil, err
+		}
+		return v1Obj, nil
+	}
+
 	if f.store == nil {
-		return f.virtClient.VirtualMachineClusterPreference().Get(
+		v1beta1Obj, err := f.virtClient.VirtualMachineClusterPreference().Get(
 			context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return convertFromV1beta1(v1beta1Obj)
 	}
 
 	obj, exists, err := f.store.GetByKey(vm.Spec.Preference.Name)
@@ -55,12 +72,16 @@ func (f *clusterPreferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1
 		return nil, err
 	}
 	if !exists {
-		return f.virtClient.VirtualMachineClusterPreference().Get(
+		v1beta1Obj, err := f.virtClient.VirtualMachineClusterPreference().Get(
 			context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{})
+		if err != nil {
+			return nil, err
+		}
+		return convertFromV1beta1(v1beta1Obj)
 	}
 	preference, ok := obj.(*v1beta1.VirtualMachineClusterPreference)
 	if !ok {
 		return nil, fmt.Errorf("unknown object type found in VirtualMachineClusterPreference informer")
 	}
-	return preference, nil
+	return convertFromV1beta1(preference)
 }

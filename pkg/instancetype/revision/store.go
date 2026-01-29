@@ -34,11 +34,13 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	api "kubevirt.io/api/instancetype"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
+	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferenceFind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -186,7 +188,7 @@ func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) 
 }
 
 func (h *revisionHandler) checkForInstancetypeConflicts(
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 	vmiMetadata *metav1.ObjectMeta,
 ) error {
@@ -245,7 +247,44 @@ func GenerateName(vmName, resourceName, resourceVersion string, resourceUID type
 }
 
 func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) (*appsv1.ControllerRevision, error) {
-	obj, err := util.GenerateKubeVirtGroupVersionKind(object)
+	// Convert v1beta1 objects to v1 before creating the ControllerRevision
+	var convertedObj runtime.Object
+	var err error
+	switch typedObj := object.(type) {
+	case *v1beta1.VirtualMachineInstancetype:
+		v1Obj := &instancetypev1.VirtualMachineInstancetype{}
+		if err = compatibility.Convert_v1beta1_VirtualMachineInstancetype_To_v1_VirtualMachineInstancetype(typedObj, v1Obj, nil); err != nil {
+			return nil, fmt.Errorf("failed to convert v1beta1.VirtualMachineInstancetype to v1: %w", err)
+		}
+		v1Obj.SetGroupVersionKind(instancetypev1.SchemeGroupVersion.WithKind("VirtualMachineInstancetype"))
+		convertedObj = v1Obj
+	case *v1beta1.VirtualMachineClusterInstancetype:
+		v1Obj := &instancetypev1.VirtualMachineClusterInstancetype{}
+		if err = compatibility.Convert_v1beta1_VirtualMachineClusterInstancetype_To_v1_VirtualMachineClusterInstancetype(typedObj, v1Obj, nil); err != nil {
+			return nil, fmt.Errorf("failed to convert v1beta1.VirtualMachineClusterInstancetype to v1: %w", err)
+		}
+		v1Obj.SetGroupVersionKind(instancetypev1.SchemeGroupVersion.WithKind("VirtualMachineClusterInstancetype"))
+		convertedObj = v1Obj
+	case *v1beta1.VirtualMachinePreference:
+		v1Obj := &instancetypev1.VirtualMachinePreference{}
+		if err = compatibility.Convert_v1beta1_VirtualMachinePreference_To_v1_VirtualMachinePreference(typedObj, v1Obj, nil); err != nil {
+			return nil, fmt.Errorf("failed to convert v1beta1.VirtualMachinePreference to v1: %w", err)
+		}
+		v1Obj.SetGroupVersionKind(instancetypev1.SchemeGroupVersion.WithKind("VirtualMachinePreference"))
+		convertedObj = v1Obj
+	case *v1beta1.VirtualMachineClusterPreference:
+		v1Obj := &instancetypev1.VirtualMachineClusterPreference{}
+		if err = compatibility.Convert_v1beta1_VirtualMachineClusterPreference_To_v1_VirtualMachineClusterPreference(typedObj, v1Obj, nil); err != nil {
+			return nil, fmt.Errorf("failed to convert v1beta1.VirtualMachineClusterPreference to v1: %w", err)
+		}
+		v1Obj.SetGroupVersionKind(instancetypev1.SchemeGroupVersion.WithKind("VirtualMachineClusterPreference"))
+		convertedObj = v1Obj
+	default:
+		// Not a v1beta1 object, use as is
+		convertedObj = object
+	}
+
+	obj, err := util.GenerateKubeVirtGroupVersionKind(convertedObj)
 	if err != nil {
 		return nil, err
 	}

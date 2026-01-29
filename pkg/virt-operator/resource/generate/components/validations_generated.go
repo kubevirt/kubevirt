@@ -9441,6 +9441,7 @@ var CRDsValidation map[string]string = map[string]string{
 
                 The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.
               format: int32
+              minimum: 1
               type: integer
             isolateEmulatorThread:
               description: |-
@@ -9451,6 +9452,7 @@ var CRDsValidation map[string]string = map[string]string{
               description: MaxSockets specifies the maximum amount of sockets that
                 can be hotplugged
               format: int32
+              minimum: 1
               type: integer
             model:
               description: |-
@@ -9731,7 +9733,7 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
               type: object
             preferredTimer:
-              description: Timer specifies whih timers are attached to the vmi.
+              description: Timer specifies which timers are attached to the vmi.
               properties:
                 hpet:
                   description: HPET (High Precision Event Timer) - multiple timers
@@ -9833,6 +9835,17 @@ var CRDsValidation map[string]string = map[string]string{
             preferredCPUTopology:
               description: PreferredCPUTopology optionally defines the preferred guest
                 visible CPU topology, defaults to PreferSockets.
+              enum:
+              - preferCores
+              - preferSockets
+              - preferThreads
+              - preferSpread
+              - preferAny
+              - cores
+              - sockets
+              - threads
+              - spread
+              - any
               type: string
             spreadOptions:
               properties:
@@ -9840,6 +9853,10 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     Across optionally defines how to spread vCPUs across the guest visible topology.
                     Default: SocketsCores
+                  enum:
+                  - SocketsCoresThreads
+                  - SocketsCores
+                  - CoresThreads
                   type: string
                 ratio:
                   description: |-
@@ -9851,6 +9868,7 @@ var CRDsValidation map[string]string = map[string]string{
 
                     Default: 2
                   format: int32
+                  minimum: 1
                   type: integer
               type: object
           type: object
@@ -10291,7 +10309,7 @@ var CRDsValidation map[string]string = map[string]string{
               type: boolean
             preferredUseBiosSerial:
               description: |-
-                PreferredUseBiosSerial optionally transmitts BIOS output over the serial.
+                PreferredUseBiosSerial optionally transmits BIOS output over the serial.
 
                 Requires PreferredUseBios to be enabled.
               type: boolean
@@ -10325,7 +10343,7 @@ var CRDsValidation map[string]string = map[string]string{
           format: int32
           type: integer
         preferredArchitecture:
-          description: PreferredArchitecture defines a prefeerred architecture for
+          description: PreferredArchitecture defines a preferred architecture for
             the VirtualMachine
           type: string
         preferredSubdomain:
@@ -10337,7 +10355,7 @@ var CRDsValidation map[string]string = map[string]string{
           format: int64
           type: integer
         requirements:
-          description: Requirements defines the minium amount of instance type defined
+          description: Requirements defines the minimum amount of instance type defined
             resources required by a set of preferences
           properties:
             architecture:
@@ -10369,10 +10387,10 @@ var CRDsValidation map[string]string = map[string]string{
           type: object
         volumes:
           description: Volumes optionally defines preferences associated with the
-            Volumes attribute of a VirtualMachineInstace DomainSpec
+            Volumes attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredStorageClassName:
-              description: PreffereedStorageClassName optionally defines the preferred
+              description: PreferredStorageClassName optionally defines the preferred
                 storageClass
               type: string
           type: object
@@ -20598,6 +20616,7 @@ var CRDsValidation map[string]string = map[string]string{
 
                 The resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.
               format: int32
+              minimum: 1
               type: integer
             isolateEmulatorThread:
               description: |-
@@ -20608,6 +20627,7 @@ var CRDsValidation map[string]string = map[string]string{
               description: MaxSockets specifies the maximum amount of sockets that
                 can be hotplugged
               format: int32
+              minimum: 1
               type: integer
             model:
               description: |-
@@ -25659,7 +25679,7 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
               type: object
             preferredTimer:
-              description: Timer specifies whih timers are attached to the vmi.
+              description: Timer specifies which timers are attached to the vmi.
               properties:
                 hpet:
                   description: HPET (High Precision Event Timer) - multiple timers
@@ -25761,6 +25781,17 @@ var CRDsValidation map[string]string = map[string]string{
             preferredCPUTopology:
               description: PreferredCPUTopology optionally defines the preferred guest
                 visible CPU topology, defaults to PreferSockets.
+              enum:
+              - preferCores
+              - preferSockets
+              - preferThreads
+              - preferSpread
+              - preferAny
+              - cores
+              - sockets
+              - threads
+              - spread
+              - any
               type: string
             spreadOptions:
               properties:
@@ -25768,6 +25799,10 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     Across optionally defines how to spread vCPUs across the guest visible topology.
                     Default: SocketsCores
+                  enum:
+                  - SocketsCoresThreads
+                  - SocketsCores
+                  - CoresThreads
                   type: string
                 ratio:
                   description: |-
@@ -25779,6 +25814,7 @@ var CRDsValidation map[string]string = map[string]string{
 
                     Default: 2
                   format: int32
+                  minimum: 1
                   type: integer
               type: object
           type: object
@@ -26219,7 +26255,7 @@ var CRDsValidation map[string]string = map[string]string{
               type: boolean
             preferredUseBiosSerial:
               description: |-
-                PreferredUseBiosSerial optionally transmitts BIOS output over the serial.
+                PreferredUseBiosSerial optionally transmits BIOS output over the serial.
 
                 Requires PreferredUseBios to be enabled.
               type: boolean
@@ -26253,7 +26289,7 @@ var CRDsValidation map[string]string = map[string]string{
           format: int32
           type: integer
         preferredArchitecture:
-          description: PreferredArchitecture defines a prefeerred architecture for
+          description: PreferredArchitecture defines a preferred architecture for
             the VirtualMachine
           type: string
         preferredSubdomain:
@@ -26265,7 +26301,7 @@ var CRDsValidation map[string]string = map[string]string{
           format: int64
           type: integer
         requirements:
-          description: Requirements defines the minium amount of instance type defined
+          description: Requirements defines the minimum amount of instance type defined
             resources required by a set of preferences
           properties:
             architecture:
@@ -26297,10 +26333,10 @@ var CRDsValidation map[string]string = map[string]string{
           type: object
         volumes:
           description: Volumes optionally defines preferences associated with the
-            Volumes attribute of a VirtualMachineInstace DomainSpec
+            Volumes attribute of a VirtualMachineInstance DomainSpec
           properties:
             preferredStorageClassName:
-              description: PreffereedStorageClassName optionally defines the preferred
+              description: PreferredStorageClassName optionally defines the preferred
                 storageClass
               type: string
           type: object

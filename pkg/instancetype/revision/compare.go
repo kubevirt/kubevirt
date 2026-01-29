@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
@@ -54,6 +55,14 @@ func Compare(revisionA, revisionB *appsv1.ControllerRevision) (bool, error) {
 
 func getSpec(obj runtime.Object) (interface{}, error) {
 	switch o := obj.(type) {
+	case *instancetypev1.VirtualMachineInstancetype:
+		return &o.Spec, nil
+	case *instancetypev1.VirtualMachineClusterInstancetype:
+		return &o.Spec, nil
+	case *instancetypev1.VirtualMachinePreference:
+		return &o.Spec, nil
+	case *instancetypev1.VirtualMachineClusterPreference:
+		return &o.Spec, nil
 	case *v1beta1.VirtualMachineInstancetype:
 		return &o.Spec, nil
 	case *v1beta1.VirtualMachineClusterInstancetype:

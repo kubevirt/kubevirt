@@ -36,7 +36,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 
 	resourcev1 "k8s.io/api/resource/v1"
@@ -72,16 +72,16 @@ func main() {
 		},
 	})
 
-	var virtualMachineInstancetypes = map[string]*instancetypev1beta1.VirtualMachineInstancetype{
+	var virtualMachineInstancetypes = map[string]*instancetypev1.VirtualMachineInstancetype{
 		utils.VirtualMachineInstancetypeComputeSmall: utils.GetVirtualMachineInstancetypeComputeSmall(),
 		utils.VirtualMachineInstancetypeComputeLarge: utils.GetVirtualMachineInstancetypeComputeLarge(),
 	}
 
-	var virtualMachineClusterInstancetypes = map[string]*instancetypev1beta1.VirtualMachineClusterInstancetype{
+	var virtualMachineClusterInstancetypes = map[string]*instancetypev1.VirtualMachineClusterInstancetype{
 		utils.VirtualMachineClusterInstancetypeComputeSmall: utils.GetVirtualMachineClusterInstancetypeComputeSmall(),
 	}
 
-	var vmps = map[string]*instancetypev1beta1.VirtualMachinePreference{
+	var vmps = map[string]*instancetypev1.VirtualMachinePreference{
 		utils.VirtualMachinePreferenceVirtio:  utils.GetVirtualMachinePreferenceVirtio(),
 		utils.VirtualMachinePreferenceWindows: utils.GetVirtualMachinePreferenceWindows(),
 	}

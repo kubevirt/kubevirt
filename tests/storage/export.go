@@ -50,7 +50,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -1980,16 +1980,16 @@ var _ = Describe(SIG("Export", func() {
 		if !exists {
 			Fail("Fail test when Filesystem storage is not present")
 		}
-		clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+		clusterInstancetype := &instancetypev1.VirtualMachineClusterInstancetype{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "VirtualMachineClusterInstancetype",
-				APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "export-test-cluster-instancetype",
 			},
-			Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-				CPU: instancetypev1beta1.CPUInstancetype{
+			Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1.CPUInstancetype{
 					Guest: uint32(4),
 				},
 			},
