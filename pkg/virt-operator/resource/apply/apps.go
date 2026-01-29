@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -10,6 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -109,7 +111,8 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	}
 
 	ops, err := patch.New(getPatchWithObjectMetaAndSpec([]patch.PatchOption{
-		patch.WithTest("/metadata/generation", cachedDeployment.ObjectMeta.Generation)},
+		patch.WithTest("/metadata/generation", cachedDeployment.ObjectMeta.Generation),
+	},
 		&deployment.ObjectMeta, deployment.Spec)...).GeneratePayload()
 	if err != nil {
 		return nil, err
@@ -135,7 +138,8 @@ func setMaxUnavailable(daemonSet *appsv1.DaemonSet, maxUnavailable intstr.IntOrS
 func generateDaemonSetPatch(oldDs, newDs *appsv1.DaemonSet) ([]byte, error) {
 	return patch.New(
 		getPatchWithObjectMetaAndSpec([]patch.PatchOption{
-			patch.WithTest("/metadata/generation", oldDs.ObjectMeta.Generation)},
+			patch.WithTest("/metadata/generation", oldDs.ObjectMeta.Generation),
+		},
 			&newDs.ObjectMeta, newDs.Spec)...).GeneratePayload()
 }
 
@@ -189,6 +193,153 @@ func daemonHasDefaultRolloutStrategy(daemonSet *appsv1.DaemonSet) bool {
 	return getMaxUnavailable(daemonSet) == daemonSetDefaultMaxUnavailable.IntValue()
 }
 
+func findContainerByName(containers []corev1.Container, name string) *corev1.Container {
+	for i := range containers {
+		if containers[i].Name == name {
+			return &containers[i]
+		}
+	}
+	return nil
+}
+
+// sortedVolumeMounts returns a copy of the volume mounts slice sorted by name.
+// This ensures ordering differences don't cause false positive mismatches.
+func sortedVolumeMounts(mounts []corev1.VolumeMount) []corev1.VolumeMount {
+	if len(mounts) == 0 {
+		return nil
+	}
+	sorted := slices.Clone(mounts)
+	slices.SortFunc(sorted, func(a, b corev1.VolumeMount) int {
+		if a.Name < b.Name {
+			return -1
+		}
+		if a.Name > b.Name {
+			return 1
+		}
+		return 0
+	})
+	return sorted
+}
+
+// sortedEnvVars returns a copy of the env vars slice sorted by name.
+// This ensures ordering differences don't cause false positive mismatches.
+func sortedEnvVars(envs []corev1.EnvVar) []corev1.EnvVar {
+	if len(envs) == 0 {
+		return nil
+	}
+	sorted := slices.Clone(envs)
+	slices.SortFunc(sorted, func(a, b corev1.EnvVar) int {
+		if a.Name < b.Name {
+			return -1
+		}
+		if a.Name > b.Name {
+			return 1
+		}
+		return 0
+	})
+	return sorted
+}
+
+// containerSpecMismatch compares security-relevant fields of two containers.
+// Returns an empty string if containers match, or the name of the first mismatched field.
+// Excludes Args which may be modified by TLS migration logic.
+// Pod-level Volumes are not checked here; only container-level VolumeMounts are compared.
+func containerSpecMismatch(cached, desired *corev1.Container) string {
+	if cached.Image != desired.Image {
+		return "Image"
+	}
+	if !equality.Semantic.DeepEqual(cached.Command, desired.Command) {
+		return "Command"
+	}
+	if !equality.Semantic.DeepEqual(cached.Resources, desired.Resources) {
+		return "Resources"
+	}
+	// Sort volume mounts by name before comparison to avoid false positives from ordering differences
+	if !equality.Semantic.DeepEqual(sortedVolumeMounts(cached.VolumeMounts), sortedVolumeMounts(desired.VolumeMounts)) {
+		return "VolumeMounts"
+	}
+	if !equality.Semantic.DeepEqual(cached.SecurityContext, desired.SecurityContext) {
+		return "SecurityContext"
+	}
+	// Sort env vars by name before comparison to avoid false positives from ordering differences
+	if !equality.Semantic.DeepEqual(sortedEnvVars(cached.Env), sortedEnvVars(desired.Env)) {
+		return "Env"
+	}
+	return ""
+}
+
+// containerNames returns a sorted list of container names
+func containerNames(containers []corev1.Container) []string {
+	names := make([]string, len(containers))
+	for i, c := range containers {
+		names[i] = c.Name
+	}
+	slices.Sort(names)
+	return names
+}
+
+// containersSpecMismatch compares containers by name and checks security-relevant fields.
+// Returns an empty string if all containers match, or a description of the mismatch.
+func containersSpecMismatch(cached, desired []corev1.Container) string {
+	cachedNames := containerNames(cached)
+	desiredNames := containerNames(desired)
+
+	// Find extra containers in cached (present in cached but not in desired)
+	var extraInCached []string
+	for _, name := range cachedNames {
+		if findContainerByName(desired, name) == nil {
+			extraInCached = append(extraInCached, name)
+		}
+	}
+
+	// Find missing containers (present in desired but not in cached)
+	var missingInCached []string
+	for _, name := range desiredNames {
+		if findContainerByName(cached, name) == nil {
+			missingInCached = append(missingInCached, name)
+		}
+	}
+
+	// Report container set differences
+	if len(extraInCached) > 0 || len(missingInCached) > 0 {
+		var parts []string
+		if len(extraInCached) > 0 {
+			parts = append(parts, fmt.Sprintf("extra: %v", extraInCached))
+		}
+		if len(missingInCached) > 0 {
+			parts = append(parts, fmt.Sprintf("missing: %v", missingInCached))
+		}
+		return fmt.Sprintf("container set mismatch (%s)", strings.Join(parts, ", "))
+	}
+
+	// All containers present, check for field-level differences
+	for _, desiredContainer := range desired {
+		cachedContainer := findContainerByName(cached, desiredContainer.Name)
+		if mismatch := containerSpecMismatch(cachedContainer, &desiredContainer); mismatch != "" {
+			return fmt.Sprintf("container %q field %s", desiredContainer.Name, mismatch)
+		}
+	}
+	return ""
+}
+
+// daemonSetCoreSpecMismatch compares the core pod spec fields of two DaemonSets
+// to detect unauthorized modifications. Returns an empty string if specs match,
+// or a description of the mismatch.
+// Excludes Args which are intentionally modified during TLS migration.
+// Pod-level Volumes are not checked as they may also be modified during TLS migration.
+func daemonSetCoreSpecMismatch(cached, desired *appsv1.DaemonSet) (bool, string) {
+	cachedSpec := &cached.Spec.Template.Spec
+	desiredSpec := &desired.Spec.Template.Spec
+
+	if mismatch := containersSpecMismatch(cachedSpec.Containers, desiredSpec.Containers); mismatch != "" {
+		return true, mismatch
+	}
+	if mismatch := containersSpecMismatch(cachedSpec.InitContainers, desiredSpec.InitContainers); mismatch != "" {
+		return true, fmt.Sprintf("initContainer: %s", mismatch)
+	}
+	return false, ""
+}
+
 func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonSet, forceUpdate bool) (bool, error, CanaryUpgradeStatus) {
 	var updatedAndReadyPods int32
 	var status CanaryUpgradeStatus
@@ -203,16 +354,41 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	}
 	log := log.Log.With("resource", fmt.Sprintf("ds/%s", cachedDaemonSet.Name))
 
-	isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && !forceUpdate
+	isVersionUpToDate := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet)
+
+	// Compare the actual DaemonSet spec to detect unexpected modifications.
+	// Only log a warning when the version is up-to-date but the spec differs,
+	// indicating someone has manually modified the DaemonSet. During normal
+	// version upgrades, spec differences are expected and should not be logged.
+	specMismatch, specMismatchField := daemonSetCoreSpecMismatch(cachedDaemonSet, newDS)
+	if specMismatch && isVersionUpToDate {
+		log.Warningf("detected spec modification in daemonset %s (%s), will revert to expected configuration", cachedDaemonSet.Name, specMismatchField)
+	}
+
+	isDaemonSetUpdated := isVersionUpToDate && !specMismatch && !forceUpdate
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
+
+	// Use the DaemonSet's UpdatedNumberScheduled status to determine how many pods
+	// have actually been rolled out with the new template. This is more accurate than
+	// howManyUpdatedAndReadyPods which only checks version annotations and would
+	// incorrectly count all pods as "updated" for CustomizeComponents changes that
+	// don't change the version.
+	//
+	// We take the minimum of UpdatedNumberScheduled and the pods we count as ready
+	// to get an approximation of "updated AND ready" pods.
 	if isDaemonSetUpdated {
+		// All conditions met, count pods that have correct version AND are ready
 		updatedAndReadyPods = r.howManyUpdatedAndReadyPods(cachedDaemonSet)
+		// But cap this by how many pods the DaemonSet controller reports as updated.
+		// This handles CustomizeComponents changes where version doesn't change but
+		// pods still need to be rolled out with the new template.
+		updatedAndReadyPods = min(updatedAndReadyPods, cachedDaemonSet.Status.UpdatedNumberScheduled)
 	}
 
 	switch {
 	case updatedAndReadyPods == 0:
 		if !isDaemonSetUpdated {
-			// start canary upgrade
+			// start canary upgrade (or revert unauthorized modification)
 			setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
 			_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
 			if err != nil {
