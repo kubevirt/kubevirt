@@ -41,6 +41,27 @@ make cluster-up
 
 The provider will validate that the fake vGPU is properly set up before creating the cluster.
 
+#### Optional: Enable vGPU Display Support
+
+By default, vGPU display is disabled in tests because fake vGPU lacks OpenGL libraries.
+To enable full display support:
+
+```bash
+# 1. Ensure mesa is installed on your host
+sudo dnf install -y mesa-dri-drivers mesa-libEGL mesa-libGL libglvnd-egl libglvnd-gles
+
+# 2. Bring up cluster with display support
+export VGPU_DISPLAY=true
+export KUBEVIRT_PROVIDER=kind-1.33-vgpu
+make cluster-up
+
+# 3. Deploy the mesa-injector webhook
+cd kubevirtci/cluster-up/cluster/kind-1.33-vgpu
+./mesa-injector/deploy.sh deploy
+```
+
+See `mesa-injector/README.md` for details.
+
 ### 4. Deploy KubeVirt
 
 ```bash
@@ -50,12 +71,19 @@ make cluster-sync
 ### 5. Run the Tests
 
 ```bash
-# Run MediatedDevices tests
+# Run MediatedDevices tests (display disabled by default for fake vGPU)
 KUBEVIRT_E2E_FOCUS="MediatedDevices" make functest
 
 # Or run VGPU-specific tests (matching CI)
 KUBEVIRT_E2E_FOCUS="VGPU" make functest
+
+# With display enabled (requires mesa-injector webhook deployed - see step 3 above)
+VGPU_DISPLAY=true KUBEVIRT_E2E_FOCUS="MediatedDevices" make functest
 ```
+
+**Note:** `VGPU_DISPLAY=true` must be set in two places:
+1. During `make cluster-up` - mounts mesa libraries into Kind nodes
+2. During `make functest` - tells tests to keep display enabled
 
 ### 6. Cleanup
 

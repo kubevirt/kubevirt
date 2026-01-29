@@ -6,7 +6,7 @@ This document tracks known issues and limitations with the fake vGPU provider.
 
 ## Issue #1: vGPU Display Support Requires OpenGL
 
-### Status: **Workaround Applied**
+### Status: **Workaround Applied** (Full solution available via mesa-injector webhook)
 
 ### Problem
 
@@ -88,44 +88,44 @@ Mount mesa/OpenGL libraries into the virt-launcher container, similar to how the
 
 ---
 
-##### Option 2a: Mutating Admission Webhook
+##### Option 2a: Mutating Admission Webhook (IMPLEMENTED)
 
-Deploy a simple mutating webhook that injects mesa library mounts into virt-launcher pods.
+A mutating admission webhook (`mesa-injector`) is now available that injects mesa library mounts into virt-launcher pods.
+
+**Location:** `mesa-injector/` directory
 
 **How it works:**
 1. Webhook watches for pods with label `kubevirt.io=virt-launcher`
 2. Injects hostPath volume mounts for mesa libraries
 3. virt-launcher gets OpenGL support transparently
 
-**Implementation sketch:**
-```yaml
-# Webhook injects this into virt-launcher pod spec
-volumeMounts:
-- name: mesa-egl
-  mountPath: /usr/lib64/libEGL.so.1
-  readOnly: true
-- name: mesa-dri
-  mountPath: /usr/lib64/dri
-  readOnly: true
-volumes:
-- name: mesa-egl
-  hostPath:
-    path: /usr/lib64/libEGL.so.1
-    type: File
-- name: mesa-dri
-  hostPath:
-    path: /usr/lib64/dri
-    type: Directory
+**Usage:**
+```bash
+# 1. Bring up cluster with mesa support
+VGPU_DISPLAY=true make cluster-up KUBEVIRT_PROVIDER=kind-1.33-vgpu
+
+# 2. Deploy the webhook
+./mesa-injector/deploy.sh deploy
+
+# 3. Now VMs can use vGPU display without disabling it
 ```
 
+**What gets injected:**
+- `/usr/lib64/libGL.so.1`
+- `/usr/lib64/libEGL.so.1`
+- `/usr/lib64/libGLESv2.so.2`
+- `/usr/lib64/libGLX.so.0`
+- `/usr/lib64/dri/`
+- `/usr/share/glvnd/egl_vendor.d/`
+
 **Pros:**
-- Simple to implement (a few hundred lines of Go)
 - Transparent to KubeVirt - no KubeVirt code changes needed
 - Easy to enable/disable for testing
+- Automatic TLS certificate generation
 
 **Cons:**
 - Need to deploy and manage a webhook
-- TLS certificate management for webhook
+- Adds complexity to the test setup
 
 ---
 

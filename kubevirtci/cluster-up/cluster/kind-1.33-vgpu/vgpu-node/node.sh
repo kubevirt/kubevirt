@@ -87,3 +87,115 @@ function node::list_mdev_devices() {
   fi
 }
 
+function node::install_mesa() {
+  # Install mesa/OpenGL libraries in Kind nodes for vGPU display support
+  local -r nodes_array=($1)
+  local node_exec
+
+  echo "Installing mesa/OpenGL libraries in Kind nodes..."
+
+  for node in "${nodes_array[@]}"; do
+    node_exec="${CRI_BIN} exec $node"
+
+    echo "  Installing on node: $node"
+    # Kind nodes are based on Debian/Ubuntu, use apt
+    # Need mesa libraries AND all their dependencies:
+    # - libegl-mesa0: provides libEGL_mesa.so.0 (actual mesa EGL implementation)
+    # - libglx-mesa0: provides libGLX_mesa.so.0 (actual mesa GLX implementation)
+    # - libgbm1: provides libgbm.so.1 (GBM buffer management for DMABUF)
+    # - libgl1-mesa-dri: DRI drivers
+    # - libglapi-mesa0: libglapi.so.0 (mesa GL API)
+    # - libdrm2: libdrm.so.2 (Direct Rendering Manager)
+    # - libxcb*, libx11-xcb1: X11/XCB libraries for display
+    # - libwayland-*: Wayland libraries
+    # - libxshmfence1: X shared memory fence
+    $node_exec bash -c 'apt-get update -qq && apt-get install -qq -y \
+      libgl1-mesa-dri \
+      libegl-mesa0 \
+      libglx-mesa0 \
+      libgbm1 \
+      libgl1 \
+      libegl1 \
+      libgles2 \
+      libglvnd0 \
+      libglx0 \
+      libglapi-mesa \
+      libdrm2 \
+      libx11-xcb1 \
+      libxcb1 \
+      libxcb-dri2-0 \
+      libxcb-dri3-0 \
+      libxcb-present0 \
+      libxcb-sync1 \
+      libxcb-xfixes0 \
+      libxcb-randr0 \
+      libxcb-glx0 \
+      libxshmfence1 \
+      libwayland-client0 \
+      libwayland-server0 \
+      libxau6 \
+      libxdmcp6 \
+      libbsd0 \
+      libmd0 \
+      >/dev/null 2>&1' || {
+        echo "    Warning: Failed to install mesa packages on $node (may already exist or not supported)"
+      }
+
+    # Create symlinks from RHEL-style paths (/usr/lib64/) to Debian paths (/usr/lib/x86_64-linux-gnu/)
+    # This is needed because the mesa-injector webhook mounts from /usr/lib64/ paths,
+    # but Kind nodes use Debian which installs libraries to /usr/lib/x86_64-linux-gnu/
+    echo "  Creating symlinks for RHEL-style paths on node: $node"
+    $node_exec bash -c '
+      mkdir -p /usr/lib64
+      DEBLIB=/usr/lib/x86_64-linux-gnu
+      
+      # Mesa implementations
+      ln -sf $DEBLIB/libEGL_mesa.so.0 /usr/lib64/libEGL_mesa.so.0
+      ln -sf $DEBLIB/libGLX_mesa.so.0 /usr/lib64/libGLX_mesa.so.0 2>/dev/null || true
+      ln -sf $DEBLIB/libgbm.so.1 /usr/lib64/libgbm.so.1
+      ln -sf $DEBLIB/libglapi.so.0 /usr/lib64/libglapi.so.0
+      
+      # DRM
+      ln -sf $DEBLIB/libdrm.so.2 /usr/lib64/libdrm.so.2
+      
+      # X11/XCB libraries
+      ln -sf $DEBLIB/libX11-xcb.so.1 /usr/lib64/libX11-xcb.so.1
+      ln -sf $DEBLIB/libxcb.so.1 /usr/lib64/libxcb.so.1
+      ln -sf $DEBLIB/libxcb-dri2.so.0 /usr/lib64/libxcb-dri2.so.0
+      ln -sf $DEBLIB/libxcb-dri3.so.0 /usr/lib64/libxcb-dri3.so.0
+      ln -sf $DEBLIB/libxcb-present.so.0 /usr/lib64/libxcb-present.so.0
+      ln -sf $DEBLIB/libxcb-sync.so.1 /usr/lib64/libxcb-sync.so.1
+      ln -sf $DEBLIB/libxcb-xfixes.so.0 /usr/lib64/libxcb-xfixes.so.0
+      ln -sf $DEBLIB/libxcb-randr.so.0 /usr/lib64/libxcb-randr.so.0
+      ln -sf $DEBLIB/libxcb-glx.so.0 /usr/lib64/libxcb-glx.so.0
+      ln -sf $DEBLIB/libxshmfence.so.1 /usr/lib64/libxshmfence.so.1
+      
+      # Wayland
+      ln -sf $DEBLIB/libwayland-client.so.0 /usr/lib64/libwayland-client.so.0
+      ln -sf $DEBLIB/libwayland-server.so.0 /usr/lib64/libwayland-server.so.0
+      
+      # X11 auth
+      ln -sf $DEBLIB/libXau.so.6 /usr/lib64/libXau.so.6
+      ln -sf $DEBLIB/libXdmcp.so.6 /usr/lib64/libXdmcp.so.6
+      ln -sf $DEBLIB/libbsd.so.0 /usr/lib64/libbsd.so.0
+      ln -sf $DEBLIB/libmd.so.0 /usr/lib64/libmd.so.0
+    ' || {
+        echo "    Warning: Failed to create symlinks on $node"
+      }
+  done
+
+  echo "Mesa installation complete"
+}
+
+function node::check_mesa() {
+  # Check if mesa libraries are available
+  if [ -f "/usr/lib64/libEGL.so.1" ] || [ -f "/usr/lib/x86_64-linux-gnu/libEGL.so.1" ]; then
+    echo "Mesa libraries found on host"
+    return 0
+  else
+    echo "Warning: Mesa libraries not found on host"
+    echo "vGPU display may not work without OpenGL libraries"
+    return 1
+  fi
+}
+

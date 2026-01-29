@@ -3,6 +3,7 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -220,6 +221,21 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		return strings.Contains(string(logs), "fake")
 	}
 
+	// shouldDisableDisplay returns true if display should be disabled for fake vGPU.
+	// When VGPU_DISPLAY=true is set (mesa-injector webhook deployed), display can remain enabled.
+	shouldDisableDisplay := func() bool {
+		vgpuDisplay := os.Getenv("VGPU_DISPLAY")
+		if vgpuDisplay == "true" {
+			// mesa-injector webhook is deployed, OpenGL libraries will be injected
+			return false
+		}
+		// } else if vgpuDisplay != "" && vgpuDisplay != "false" {
+		// 	panic(fmt.Sprintf("Invalid VGPU_DISPLAY value: %q (expected 'true', 'false', or unset)", vgpuDisplay))
+		// }
+		// No webhook, must disable display for fake vGPU
+		return isFakeVGPU()
+	}
+
 	Context("with mediated devices configuration", func() {
 		var vmi *v1.VirtualMachineInstance
 		var deviceName = "nvidia.com/GRID_T4-1B"
@@ -273,9 +289,9 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		})
 
 		It("Should successfully passthrough a mediated device", func() {
-			// Check if running with fake vGPU (no OpenGL support in virt-launcher)
-			// Fake vGPU doesn't support display=on because QEMU requires OpenGL for DMABUF mode
-			usingFakeVGPU := isFakeVGPU()
+			// Check if display should be disabled for fake vGPU
+			// When VGPU_DISPLAY=true (mesa-injector deployed), display can remain enabled
+			disableDisplay := shouldDisableDisplay()
 
 			By("Creating a Fedora VMI")
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
@@ -286,9 +302,9 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 					DeviceName: deviceName,
 				},
 			}
-			// Disable display for fake vGPU - QEMU requires OpenGL for vfio display which
-			// is not available in virt-launcher container without real NVIDIA drivers
-			if usingFakeVGPU {
+			// Disable display for fake vGPU unless mesa-injector webhook is deployed
+			// (VGPU_DISPLAY=true) which provides OpenGL libraries to virt-launcher
+			if disableDisplay {
 				vGPUs[0].VirtualGPUOptions = &v1.VGPUOptions{
 					Display: &v1.VGPUDisplayOptions{
 						Enabled: pointer.Bool(false),
@@ -311,15 +327,14 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Display assertions only apply when using real vGPU with NVIDIA drivers
-			// Fake vGPU doesn't have OpenGL support needed for vfio-display-dmabuf
-			if !usingFakeVGPU {
-				// make sure that one mdev has display and ramfb on
+			// Display assertions depend on whether display was disabled
+			if !disableDisplay {
+				// Display enabled (real vGPU or mesa-injector deployed)
 				By("Making sure that a boot display is enabled")
 				Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
 				Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
 			} else {
-				By("Skipping display check for fake vGPU (no OpenGL support)")
+				By("Verifying display is disabled for fake vGPU (no OpenGL support)")
 				Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?off.?`), "Display should be off for fake vGPU")
 			}
 		})
@@ -346,8 +361,8 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			singleNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
 			libnode.AddLabelToNode(singleNode.Name, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
 
-			// Check if running with fake vGPU (no OpenGL support)
-			usingFakeVGPU := isFakeVGPU()
+			// Check if display should be disabled for fake vGPU
+			disableDisplay := shouldDisableDisplay()
 
 			By("Creating a Fedora VMI")
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
@@ -358,8 +373,8 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 					DeviceName: updatedDeviceName,
 				},
 			}
-			// Disable display for fake vGPU - no OpenGL support
-			if usingFakeVGPU {
+			// Disable display for fake vGPU unless mesa-injector is deployed
+			if disableDisplay {
 				vGPUs[0].VirtualGPUOptions = &v1.VGPUOptions{
 					Display: &v1.VGPUDisplayOptions{
 						Enabled: pointer.Bool(false),

@@ -120,6 +120,24 @@ function _add_mdev_mounts() {
   - containerPath: /sys/devices/virtual/nvidia
     hostPath: /sys/devices/virtual/nvidia
 EOF
+
+    # Add mesa library mounts for vGPU display support (used by mesa-injector webhook)
+    if [ "${VGPU_DISPLAY:-false}" == "true" ]; then
+        cat <<EOF >> ${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml
+  - containerPath: /usr/lib64/libGL.so.1
+    hostPath: /usr/lib64/libGL.so.1
+  - containerPath: /usr/lib64/libEGL.so.1
+    hostPath: /usr/lib64/libEGL.so.1
+  - containerPath: /usr/lib64/libGLESv2.so.2
+    hostPath: /usr/lib64/libGLESv2.so.2
+  - containerPath: /usr/lib64/libGLX.so.0
+    hostPath: /usr/lib64/libGLX.so.0
+  - containerPath: /usr/lib64/dri
+    hostPath: /usr/lib64/dri
+  - containerPath: /usr/share/glvnd/egl_vendor.d
+    hostPath: /usr/share/glvnd/egl_vendor.d
+EOF
+    fi
 }
 
 function up() {

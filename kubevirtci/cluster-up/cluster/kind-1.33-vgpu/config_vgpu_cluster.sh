@@ -51,4 +51,17 @@ echo ""
 node::list_mdev_devices
 echo ""
 
+# Optional: Install mesa for vGPU display support
+# Set VGPU_DISPLAY=true to enable display support (requires mesa-injector webhook)
+if [ "${VGPU_DISPLAY:-false}" == "true" ]; then
+    echo ""
+    echo "=== Installing Mesa for vGPU Display Support ==="
+    node::install_mesa "${nodes[*]}"
+    
+    echo ""
+    echo "To enable display support, deploy the mesa-injector webhook:"
+    echo "  ${SCRIPT_PATH}/mesa-injector/deploy.sh deploy"
+    echo ""
+fi
+
 _kubectl get nodes
