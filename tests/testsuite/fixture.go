@@ -43,9 +43,14 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	virt_config "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/tests/flags"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -112,7 +117,7 @@ func SynchronizedBeforeTestSetup() []byte {
 		createFakeKWOKNodes()
 	}
 
-	EnsureKVMPresent()
+	EnsureHypervisorPresent()
 	AdjustKubeVirtResource()
 	EnsureKubevirtReady()
 
@@ -212,8 +217,15 @@ func shouldAllowEmulation(virtClient kubecli.KubevirtClient) bool {
 	return allowEmulation
 }
 
-func EnsureKVMPresent() {
+func EnsureHypervisorPresent() {
 	virtClient := kubevirt.Client()
+
+	kv := libkubevirt.GetCurrentKv(virtClient)
+	fmt.Println("Ensuring hypervisor devices are present on cluster nodes")
+	fmt.Println("KubeVirt configuration:", kv.Spec.Configuration)
+	hypervisorName := virt_config.GetHypervisorFromKvConfig(&kv.Spec.Configuration, checks.HasFeature(featuregate.ConfigurableHypervisor)).Name
+	deviceName := hypervisor.NewLauncherResourceRenderer(hypervisorName).GetHypervisorDevice()
+	deviceK8sResource := k8sv1.ResourceName(fmt.Sprintf("%s/%s", device_manager.DeviceNamespace, deviceName))
 
 	if !shouldAllowEmulation(virtClient) {
 		listOptions := metav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
@@ -227,14 +239,14 @@ func EnsureKVMPresent() {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+				hypervisorAllocatable, ok1 := virtHandlerNode.Status.Allocatable[deviceK8sResource]
 				vhostNetAllocatable, ok2 := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
 				ready = ready && ok1 && ok2
-				ready = ready && (kvmAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
+				ready = ready && (hypervisorAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
 			}
 			return ready
 		}, 120*time.Second, 1*time.Second).Should(BeTrue(),
-			"Both KVM devices and vhost-net devices are required for testing, but are not present on cluster nodes")
+			fmt.Sprintf("Both %s devices and vhost-net devices are required for testing, but are not present on cluster nodes", deviceName))
 	}
 }
 
@@ -282,6 +294,12 @@ func createFakeKWOKNodes() {
 }
 
 func newFakeKWOKNode(nodeName string) *k8sv1.Node {
+	virtClient := kubevirt.Client()
+	kv := libkubevirt.GetCurrentKv(virtClient)
+	hypervisorName := virt_config.GetHypervisorFromKvConfig(&kv.Spec.Configuration, checks.HasFeature(featuregate.ConfigurableHypervisor)).Name
+	launcherRenderer := hypervisor.NewLauncherResourceRenderer(hypervisorName)
+	hypervisorDeviceK8sResource := k8sv1.ResourceName(fmt.Sprintf("%s/%s", device_manager.DeviceNamespace, launcherRenderer.GetHypervisorDevice()))
+
 	return &k8sv1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
@@ -326,7 +344,7 @@ func newFakeKWOKNode(nodeName string) *k8sv1.Node {
 				k8sv1.ResourceMemory:            resource.MustParse("256Gi"),
 				k8sv1.ResourceEphemeralStorage:  resource.MustParse("100Gi"),
 				k8sv1.ResourcePods:              resource.MustParse("110"),
-				"devices.kubevirt.io/kvm":       resource.MustParse("1k"),
+				hypervisorDeviceK8sResource:     resource.MustParse("1k"),
 				"devices.kubevirt.io/tun":       resource.MustParse("1k"),
 				"devices.kubevirt.io/vhost-net": resource.MustParse("1k"),
 			},
@@ -335,7 +353,7 @@ func newFakeKWOKNode(nodeName string) *k8sv1.Node {
 				k8sv1.ResourceMemory:            resource.MustParse("256Gi"),
 				k8sv1.ResourceEphemeralStorage:  resource.MustParse("100Gi"),
 				k8sv1.ResourcePods:              resource.MustParse("110"),
-				"devices.kubevirt.io/kvm":       resource.MustParse("1k"),
+				hypervisorDeviceK8sResource:     resource.MustParse("1k"),
 				"devices.kubevirt.io/tun":       resource.MustParse("1k"),
 				"devices.kubevirt.io/vhost-net": resource.MustParse("1k"),
 			},

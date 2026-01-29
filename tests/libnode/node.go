@@ -42,7 +42,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/util/nodes"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/exec"
@@ -269,20 +269,25 @@ func Taint(nodeName, key string, effect k8sv1.TaintEffect) {
 	Expect(err).ToNot(HaveOccurred())
 }
 
-func GetNodesWithKVM() []*k8sv1.Node {
+func GetNodesWithHypervisor(hypervisorDevice string) []*k8sv1.Node {
 	virtClient := kubevirt.Client()
 	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 	virtHandlerPods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(context.Background(), listOptions)
 	Expect(err).ToNot(HaveOccurred())
 
 	nodeList := make([]*k8sv1.Node, 0)
+
+	// Construct the K8s resource name for the hypervisor device
+	// Example: "devices.kubevirt.io/kvm"
+	hypervisorDevK8sResource := k8sv1.ResourceName(fmt.Sprintf("%s/%s", device_manager.DeviceNamespace, hypervisorDevice))
+
 	// cluster is not ready until all nodeList are ready.
 	for i := range virtHandlerPods.Items {
 		pod := virtHandlerPods.Items[i]
 		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+		_, ok := virtHandlerNode.Status.Allocatable[hypervisorDevK8sResource]
 		if ok {
 			nodeList = append(nodeList, virtHandlerNode)
 		}

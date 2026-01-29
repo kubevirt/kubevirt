@@ -50,13 +50,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	containerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
@@ -917,8 +917,9 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 		return fmt.Errorf("cannot parse Memory requests from VMI label: %v", err)
 	}
 
+	launcherRenderer := hypervisor.NewLauncherResourceRenderer(v1.KvmHypervisorName)
 	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
-	requiredMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
+	requiredMemory := launcherRenderer.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
 	requiredMemory.Add(
 		c.netBindingPluginMemoryCalculator.Calculate(vmi, c.clusterConfig.GetNetworkBindings()),
 	)
