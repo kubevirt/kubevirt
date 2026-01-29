@@ -1246,12 +1246,16 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		)
 	}
 
-	iothreads.SetIOThreads(vmi, domain, vcpus)
+	hasIOThreads := iothreads.HasIOThreads(vmi)
+	if hasIOThreads {
+		ioThreadCount, autoThreads := iothreads.GetIOThreadsCountType(vmi)
+		iothreads.SetIOThreads(vmi, domain, vcpus, ioThreadCount, autoThreads)
+	}
 
 	if vmi.Spec.Domain.CPU != nil {
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
-			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, iothreads.HasIOThreads(vmi))
+			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, hasIOThreads)
 			if err != nil {
 				return err
 			}
