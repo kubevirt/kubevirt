@@ -40,10 +40,6 @@ const (
 	MiB = 1024 * 1024
 
 	allowClaimAdoptionAnnotation = "cdi.kubevirt.io/allowClaimAdoption"
-
-	// LabelApplyStorageProfile is a label used by the CDI mutating webhook
-	// to modify the PVC according to the storage profile.
-	LabelApplyStorageProfile = "cdi.kubevirt.io/applyStorageProfile"
 )
 
 type PvcNotFoundError struct {
