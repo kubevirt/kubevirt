@@ -20,6 +20,8 @@
 package iothreads
 
 import (
+	"slices"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -36,12 +38,11 @@ func HasIOThreads(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.IOThreadsPolicy != nil {
 		return true
 	}
-	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, hasDedicatedIOThread)
+}
+
+func hasDedicatedIOThread(disk v1.Disk) bool {
+	return disk.DedicatedIOThread != nil && *disk.DedicatedIOThread
 }
 
 func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoThreads int) {
@@ -144,7 +145,7 @@ func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 	for i, disk := range domain.Spec.Devices.Disks {
 		// Only disks with virtio bus support IOThreads
 		if disk.Target.Bus == v1.DiskBusSCSI {
-			if vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread != nil && *vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread {
+			if hasDedicatedIOThread(vmi.Spec.Domain.Devices.Disks[i]) {
 				setIOThreadSCSIController = true
 				break
 			}
