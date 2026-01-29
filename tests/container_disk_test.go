@@ -255,7 +255,8 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			targetPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(targetPod.Spec.InitContainers).To(BeEmpty(), "with ImageVolume should not include container-disk-binary init container")
+			Expect(targetPod.Spec.InitContainers).ToNot(ContainElement(HaveField("Name", "container-disk-binary")),
+				"with ImageVolume should not include container-disk-binary init container")
 
 			By("Expecting to be able to login")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
