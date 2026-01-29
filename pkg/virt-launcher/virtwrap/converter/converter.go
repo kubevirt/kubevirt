@@ -1112,6 +1112,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		compute.NewControllersDomainConfigurator(
 			compute.ControllersWithUSBNeeded(c.Architecture.IsUSBNeeded(vmi)),
 			compute.ControllersWithSCSIModel(scsiControllerModel),
+			compute.ControllersWithSCSIIOThreads(uint(autoThreads)),
 			compute.ControllersWithControllerDriver(controllerDriver),
 		),
 		compute.NewQemuCmdDomainConfigurator(c.Architecture.ShouldVerboseLogsBeEnabled()),
