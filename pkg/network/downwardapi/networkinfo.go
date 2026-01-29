@@ -20,8 +20,8 @@
 package downwardapi
 
 import (
+	"cmp"
 	"encoding/json"
-	"maps"
 	"slices"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -36,11 +36,8 @@ const (
 	NetworkInfoVolumePath = "network-info"
 )
 
-func CreateNetworkInfoAnnotationValue(
-	networkDeviceInfoMap map[string]*networkv1.DeviceInfo,
-	networkDeviceMacAddressMap map[string]string,
-) string {
-	networkInfo := generateNetworkInfo(networkDeviceInfoMap, networkDeviceMacAddressMap)
+func CreateNetworkInfoAnnotationValue(networkStatusesByNetworkName map[string]networkv1.NetworkStatus) string {
+	networkInfo := generateNetworkInfo(networkStatusesByNetworkName)
 	networkInfoBytes, err := json.Marshal(networkInfo)
 	if err != nil {
 		log.Log.Warningf("failed to marshal network-info: %v", err)
@@ -50,29 +47,24 @@ func CreateNetworkInfoAnnotationValue(
 	return string(networkInfoBytes)
 }
 
-func generateNetworkInfo(
-	networkDeviceInfoMap map[string]*networkv1.DeviceInfo,
-	networkDeviceMacAddressMap map[string]string,
-) NetworkInfo {
-	var downwardAPIInterfaces []Interface
-	interfaceMap := make(map[string]Interface)
+func generateNetworkInfo(networkStatusesByNetworkName map[string]networkv1.NetworkStatus) NetworkInfo {
+	downwardAPIInterfaces := make([]Interface, 0, len(networkStatusesByNetworkName))
 
-	for networkName, deviceInfo := range networkDeviceInfoMap {
-		interfaceMap[networkName] = Interface{Network: networkName, DeviceInfo: deviceInfo}
+	for networkName, networkStatus := range networkStatusesByNetworkName {
+		downwardAPIInterfaces = append(
+			downwardAPIInterfaces,
+			Interface{
+				Network:    networkName,
+				DeviceInfo: networkStatus.DeviceInfo,
+				Mac:        networkStatus.Mac,
+			},
+		)
 	}
 
-	for networkName, macAddr := range networkDeviceMacAddressMap {
-		interfaceWithMac := interfaceMap[networkName]
-		interfaceWithMac.Network = networkName
-		interfaceWithMac.Mac = macAddr
-		interfaceMap[networkName] = interfaceWithMac
-	}
+	// Sort by network name to get deterministic order
+	slices.SortFunc(downwardAPIInterfaces, func(iface1, iface2 Interface) int {
+		return cmp.Compare(iface1.Network, iface2.Network)
+	})
 
-	// Sort keys to get deterministic order
-	sortedNetNames := slices.Sorted(maps.Keys(interfaceMap))
-	for _, networkName := range sortedNetNames {
-		downwardAPIInterfaces = append(downwardAPIInterfaces, interfaceMap[networkName])
-	}
-	networkInfo := NetworkInfo{Interfaces: downwardAPIInterfaces}
-	return networkInfo
+	return NetworkInfo{Interfaces: downwardAPIInterfaces}
 }
