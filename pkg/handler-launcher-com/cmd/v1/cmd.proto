@@ -98,6 +98,7 @@ message DiskInfo {
 }
 
 message ClusterConfig{
+  // Deprecated
   bool ExpandDisksEnabled = 1;
   bool FreePageReportingDisabled = 2;
   bool BochsDisplayForEFIGuests = 3;

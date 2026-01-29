@@ -200,7 +200,6 @@ func Convert_v1_Disk_To_api_Disk(c *ConverterContext, diskDevice *v1.Disk, disk 
 		if ok && volumeStatus.PersistentVolumeClaimInfo != nil {
 			disk.FilesystemOverhead = volumeStatus.PersistentVolumeClaimInfo.FilesystemOverhead
 			disk.Capacity = storagetypes.GetDiskCapacity(volumeStatus.PersistentVolumeClaimInfo)
-			disk.ExpandDisksEnabled = c.ExpandDisksEnabled
 		}
 	}
 	if numQueues != nil && disk.Target.Bus == v1.DiskBusVirtio {
