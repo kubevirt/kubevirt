@@ -105,6 +105,16 @@ spec:
 - Paths are read-only from the VM's perspective
 - The path must not conflict with KubeVirt-internal mount points
 
+### Symlink Validation
+
+ContainerPath volumes are validated at VM startup to prevent symlink-based escapes. Before the VM starts, virt-launcher verifies that the container path, after resolving any symlinks, remains within the mount point that contains it.
+
+For example, if a volume is mounted at `/var/run/myvol` and the containerPath is `/var/run/myvol/sub/dir`:
+- If `sub` is a symlink pointing outside `/var/run/myvol`, the VM will fail to start
+- Symlinks that stay within the mount boundary are allowed
+
+This validation prevents malicious subpaths from escaping the intended volume boundary while still allowing all volume types (ConfigMap, Secret, PVC, HostPath, etc.) to be used with ContainerPath.
+
 ### Live Migration
 
 ContainerPath volumes do not block live migration, but whether the data remains accessible after migration depends on how the path is populated:
@@ -125,6 +135,7 @@ When using ContainerPath volumes with live migration, verify that the mechanism 
 - Only expose paths containing data intended for VM consumption
 - Use RBAC and admission policies to control which service accounts and roles can be used with VMs
 - ContainerPath volumes inherit the security context of the virt-launcher pod
+- Symlink validation prevents path escapes at VM startup (see [Symlink Validation](#symlink-validation))
 
 ## Additional Use Cases
 

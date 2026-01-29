@@ -20,7 +20,10 @@
 package virtiofs
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -134,4 +137,91 @@ func FindVolumeMountForPath(container *k8sv1.Container, path string) (*k8sv1.Vol
 	}
 
 	return nil, ""
+}
+
+// ValidateContainerPath validates that a container path doesn't escape its mount point
+// via symlinks. It resolves the path and verifies the resolved path stays within the
+// mount point that contains the original path.
+//
+// This validation is performed at runtime in virt-launcher before starting the VM,
+// as it requires access to the actual filesystem to resolve symlinks and check mounts.
+func ValidateContainerPath(containerPath string) error {
+	// First check the path exists
+	info, err := os.Lstat(containerPath)
+	if err != nil {
+		return fmt.Errorf("containerPath %q does not exist: %w", containerPath, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("containerPath %q is not a directory", containerPath)
+	}
+
+	// Find the mount point for this path
+	mountPoint, err := findMountPoint(containerPath)
+	if err != nil {
+		return fmt.Errorf("failed to find mount point for %q: %w", containerPath, err)
+	}
+
+	// Resolve symlinks in the path
+	resolvedPath, err := filepath.EvalSymlinks(containerPath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve symlinks in %q: %w", containerPath, err)
+	}
+
+	// Verify the resolved path starts with the mount point
+	// Use filepath.Clean to normalize paths before comparison
+	cleanMountPoint := filepath.Clean(mountPoint)
+	cleanResolvedPath := filepath.Clean(resolvedPath)
+
+	if cleanResolvedPath != cleanMountPoint && !strings.HasPrefix(cleanResolvedPath, cleanMountPoint+"/") {
+		return fmt.Errorf("containerPath %q resolves to %q which escapes mount point %q",
+			containerPath, resolvedPath, mountPoint)
+	}
+
+	return nil
+}
+
+// findMountPoint finds the mount point for a given path by reading /proc/self/mountinfo
+// and finding the longest matching mount path.
+func findMountPoint(path string) (string, error) {
+	// Normalize the path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+
+	file, err := os.Open("/proc/self/mountinfo")
+	if err != nil {
+		return "", fmt.Errorf("failed to open /proc/self/mountinfo: %w", err)
+	}
+	defer file.Close()
+
+	var bestMatch string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		fields := strings.Fields(line)
+		if len(fields) < 5 {
+			continue
+		}
+		// mountinfo format: ID PARENT_ID MAJOR:MINOR ROOT MOUNT_POINT ...
+		mountPath := fields[4]
+
+		// Check if this mount path is a prefix of our path
+		if absPath == mountPath || strings.HasPrefix(absPath, mountPath+"/") {
+			// Keep the longest (most specific) match
+			if len(mountPath) > len(bestMatch) {
+				bestMatch = mountPath
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", fmt.Errorf("error reading /proc/self/mountinfo: %w", err)
+	}
+
+	if bestMatch == "" {
+		return "", fmt.Errorf("no mount point found for path %q", path)
+	}
+
+	return bestMatch, nil
 }

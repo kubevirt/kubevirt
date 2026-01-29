@@ -143,6 +143,7 @@ var _ = Describe("VirtLauncherPodMutator", func() {
 			Expect(response.Allowed).To(BeTrue())
 			Expect(response.Patch).To(BeNil())
 		})
+
 	})
 })
 
