@@ -666,6 +666,7 @@ func (KubeVirtSpec) SwaggerDoc() map[string]string {
 		"configuration":           "holds kubevirt configurations.\nsame as the virt-configMap",
 		"infra":                   "selectors and tolerations that should apply to KubeVirt infrastructure components\n+optional",
 		"workloads":               "selectors and tolerations that should apply to KubeVirt workloads\n+optional",
+		"additionalVirtHandlers":  "additionalVirtHandlers defines additional virt-handler DaemonSets with custom images\ntargeting specific nodes. Each entry creates a separate DaemonSet with a unique name\n(virt-handler-<name>) that runs on nodes matching the specified nodePlacement.\nThe primary virt-handler will automatically have anti-affinity configured to avoid\nscheduling on nodes targeted by these additional handlers.\n+optional\n+listType=map\n+listMapKey=name",
 	}
 }
 

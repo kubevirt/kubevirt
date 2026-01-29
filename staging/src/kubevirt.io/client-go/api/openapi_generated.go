@@ -352,6 +352,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.AccessCredential":                                                        schema_kubevirtio_api_core_v1_AccessCredential(ref),
 		"kubevirt.io/api/core/v1.AccessCredentialSecretSource":                                            schema_kubevirtio_api_core_v1_AccessCredentialSecretSource(ref),
 		"kubevirt.io/api/core/v1.AddVolumeOptions":                                                        schema_kubevirtio_api_core_v1_AddVolumeOptions(ref),
+		"kubevirt.io/api/core/v1.AdditionalVirtHandlerConfig":                                             schema_kubevirtio_api_core_v1_AdditionalVirtHandlerConfig(ref),
 		"kubevirt.io/api/core/v1.ArchConfiguration":                                                       schema_kubevirtio_api_core_v1_ArchConfiguration(ref),
 		"kubevirt.io/api/core/v1.ArchSpecificConfiguration":                                               schema_kubevirtio_api_core_v1_ArchSpecificConfiguration(ref),
 		"kubevirt.io/api/core/v1.AuthorizedKeysFile":                                                      schema_kubevirtio_api_core_v1_AuthorizedKeysFile(ref),
@@ -18601,6 +18602,58 @@ func schema_kubevirtio_api_core_v1_AddVolumeOptions(ref common.ReferenceCallback
 	}
 }
 
+func schema_kubevirtio_api_core_v1_AdditionalVirtHandlerConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AdditionalVirtHandlerConfig defines configuration for an additional virt-handler DaemonSet that targets specific nodes with custom images.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is a unique identifier appended to \"virt-handler\" to form the DaemonSet name. For example, \"gpu\" results in a DaemonSet named \"virt-handler-gpu\".",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtHandlerImage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "virtHandlerImage overrides the virt-handler container image for this DaemonSet. If not specified, the default virt-handler image is used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"virtLauncherImage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "virtLauncherImage overrides the virt-launcher image used by this virt-handler for the init container and passed to virt-launcher pods on nodes served by this handler. If not specified, the default virt-launcher image is used.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "nodeSelector specifies labels that must match a node's labels for this DaemonSet's pods to be scheduled on that node. This is also used to match VMIs to determine which virt-launcher image to use.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "nodeSelector"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_ArchConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -23133,6 +23186,28 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 							Ref:         ref("kubevirt.io/api/core/v1.ComponentConfig"),
 						},
 					},
+					"additionalVirtHandlers": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "additionalVirtHandlers defines additional virt-handler DaemonSets with custom images targeting specific nodes. Each entry creates a separate DaemonSet with a unique name (virt-handler-<name>) that runs on nodes matching the specified nodePlacement. The primary virt-handler will automatically have anti-affinity configured to avoid scheduling on nodes targeted by these additional handlers.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/core/v1.AdditionalVirtHandlerConfig"),
+									},
+								},
+							},
+						},
+					},
 					"customizeComponents": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -23143,7 +23218,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtSpec(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.LocalObjectReference", "kubevirt.io/api/core/v1.ComponentConfig", "kubevirt.io/api/core/v1.CustomizeComponents", "kubevirt.io/api/core/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/api/core/v1.KubeVirtConfiguration", "kubevirt.io/api/core/v1.KubeVirtWorkloadUpdateStrategy"},
+			"k8s.io/api/core/v1.LocalObjectReference", "kubevirt.io/api/core/v1.AdditionalVirtHandlerConfig", "kubevirt.io/api/core/v1.ComponentConfig", "kubevirt.io/api/core/v1.CustomizeComponents", "kubevirt.io/api/core/v1.KubeVirtCertificateRotateStrategy", "kubevirt.io/api/core/v1.KubeVirtConfiguration", "kubevirt.io/api/core/v1.KubeVirtWorkloadUpdateStrategy"},
 	}
 }
 

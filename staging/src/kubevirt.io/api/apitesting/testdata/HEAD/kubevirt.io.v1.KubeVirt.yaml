@@ -33,6 +33,12 @@ metadata:
   selfLink: selfLinkValue
   uid: uidValue
 spec:
+  additionalVirtHandlers:
+  - name: nameValue
+    nodeSelector:
+      nodeSelectorKey: nodeSelectorValue
+    virtHandlerImage: virtHandlerImageValue
+    virtLauncherImage: virtLauncherImageValue
   certificateRotateStrategy:
     selfSigned:
       ca:

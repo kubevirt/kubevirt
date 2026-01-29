@@ -2546,6 +2546,16 @@ type KubeVirtSpec struct {
 	// +optional
 	Workloads *ComponentConfig `json:"workloads,omitempty"`
 
+	// additionalVirtHandlers defines additional virt-handler DaemonSets with custom images
+	// targeting specific nodes. Each entry creates a separate DaemonSet with a unique name
+	// (virt-handler-<name>) that runs on nodes matching the specified nodePlacement.
+	// The primary virt-handler will automatically have anti-affinity configured to avoid
+	// scheduling on nodes targeted by these additional handlers.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	AdditionalVirtHandlers []AdditionalVirtHandlerConfig `json:"additionalVirtHandlers,omitempty"`
+
 	CustomizeComponents CustomizeComponents `json:"customizeComponents,omitempty"`
 }
 

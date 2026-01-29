@@ -49,6 +49,53 @@ spec:
             type: object
           spec:
             properties:
+              additionalVirtHandlers:
+                description: |-
+                  additionalVirtHandlers defines additional virt-handler DaemonSets with custom images
+                  targeting specific nodes. Each entry creates a separate DaemonSet with a unique name
+                  (virt-handler-<name>) that runs on nodes matching the specified nodePlacement.
+                  The primary virt-handler will automatically have anti-affinity configured to avoid
+                  scheduling on nodes targeted by these additional handlers.
+                items:
+                  description: |-
+                    AdditionalVirtHandlerConfig defines configuration for an additional virt-handler DaemonSet
+                    that targets specific nodes with custom images.
+                  properties:
+                    name:
+                      description: |-
+                        name is a unique identifier appended to "virt-handler" to form the DaemonSet name.
+                        For example, "gpu" results in a DaemonSet named "virt-handler-gpu".
+                      maxLength: 48
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    nodeSelector:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        nodeSelector specifies labels that must match a node's labels for this DaemonSet's pods
+                        to be scheduled on that node. This is also used to match VMIs to determine which
+                        virt-launcher image to use.
+                      minProperties: 1
+                      type: object
+                    virtHandlerImage:
+                      description: |-
+                        virtHandlerImage overrides the virt-handler container image for this DaemonSet.
+                        If not specified, the default virt-handler image is used.
+                      type: string
+                    virtLauncherImage:
+                      description: |-
+                        virtLauncherImage overrides the virt-launcher image used by this virt-handler
+                        for the init container and passed to virt-launcher pods on nodes served by this handler.
+                        If not specified, the default virt-launcher image is used.
+                      type: string
+                  required:
+                  - name
+                  - nodeSelector
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               certificateRotateStrategy:
                 properties:
                   selfSigned:
@@ -3462,6 +3509,53 @@ spec:
             type: object
           spec:
             properties:
+              additionalVirtHandlers:
+                description: |-
+                  additionalVirtHandlers defines additional virt-handler DaemonSets with custom images
+                  targeting specific nodes. Each entry creates a separate DaemonSet with a unique name
+                  (virt-handler-<name>) that runs on nodes matching the specified nodePlacement.
+                  The primary virt-handler will automatically have anti-affinity configured to avoid
+                  scheduling on nodes targeted by these additional handlers.
+                items:
+                  description: |-
+                    AdditionalVirtHandlerConfig defines configuration for an additional virt-handler DaemonSet
+                    that targets specific nodes with custom images.
+                  properties:
+                    name:
+                      description: |-
+                        name is a unique identifier appended to "virt-handler" to form the DaemonSet name.
+                        For example, "gpu" results in a DaemonSet named "virt-handler-gpu".
+                      maxLength: 48
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    nodeSelector:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        nodeSelector specifies labels that must match a node's labels for this DaemonSet's pods
+                        to be scheduled on that node. This is also used to match VMIs to determine which
+                        virt-launcher image to use.
+                      minProperties: 1
+                      type: object
+                    virtHandlerImage:
+                      description: |-
+                        virtHandlerImage overrides the virt-handler container image for this DaemonSet.
+                        If not specified, the default virt-handler image is used.
+                      type: string
+                    virtLauncherImage:
+                      description: |-
+                        virtLauncherImage overrides the virt-launcher image used by this virt-handler
+                        for the init container and passed to virt-launcher pods on nodes served by this handler.
+                        If not specified, the default virt-launcher image is used.
+                      type: string
+                  required:
+                  - name
+                  - nodeSelector
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               certificateRotateStrategy:
                 properties:
                   selfSigned:

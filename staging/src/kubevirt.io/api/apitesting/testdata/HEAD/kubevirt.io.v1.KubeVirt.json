@@ -907,6 +907,16 @@
       },
       "replicas": 248
     },
+    "additionalVirtHandlers": [
+      {
+        "name": "nameValue",
+        "virtHandlerImage": "virtHandlerImageValue",
+        "virtLauncherImage": "virtLauncherImageValue",
+        "nodeSelector": {
+          "nodeSelectorKey": "nodeSelectorValue"
+        }
+      }
+    ],
     "customizeComponents": {
       "patches": [
         {

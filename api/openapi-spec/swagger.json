@@ -13704,6 +13704,37 @@
      }
     }
    },
+   "v1.AdditionalVirtHandlerConfig": {
+    "description": "AdditionalVirtHandlerConfig defines configuration for an additional virt-handler DaemonSet that targets specific nodes with custom images.",
+    "type": "object",
+    "required": [
+     "name",
+     "nodeSelector"
+    ],
+    "properties": {
+     "name": {
+      "description": "name is a unique identifier appended to \"virt-handler\" to form the DaemonSet name. For example, \"gpu\" results in a DaemonSet named \"virt-handler-gpu\".",
+      "type": "string",
+      "default": ""
+     },
+     "nodeSelector": {
+      "description": "nodeSelector specifies labels that must match a node's labels for this DaemonSet's pods to be scheduled on that node. This is also used to match VMIs to determine which virt-launcher image to use.",
+      "type": "object",
+      "additionalProperties": {
+       "type": "string",
+       "default": ""
+      }
+     },
+     "virtHandlerImage": {
+      "description": "virtHandlerImage overrides the virt-handler container image for this DaemonSet. If not specified, the default virt-handler image is used.",
+      "type": "string"
+     },
+     "virtLauncherImage": {
+      "description": "virtLauncherImage overrides the virt-launcher image used by this virt-handler for the init container and passed to virt-launcher pods on nodes served by this handler. If not specified, the default virt-launcher image is used.",
+      "type": "string"
+     }
+    }
+   },
    "v1.ArchConfiguration": {
     "type": "object",
     "properties": {
@@ -16003,6 +16034,18 @@
    "v1.KubeVirtSpec": {
     "type": "object",
     "properties": {
+     "additionalVirtHandlers": {
+      "description": "additionalVirtHandlers defines additional virt-handler DaemonSets with custom images targeting specific nodes. Each entry creates a separate DaemonSet with a unique name (virt-handler-\u003cname\u003e) that runs on nodes matching the specified nodePlacement. The primary virt-handler will automatically have anti-affinity configured to avoid scheduling on nodes targeted by these additional handlers.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.AdditionalVirtHandlerConfig"
+      },
+      "x-kubernetes-list-map-keys": [
+       "name"
+      ],
+      "x-kubernetes-list-type": "map"
+     },
      "certificateRotateStrategy": {
       "default": {},
       "$ref": "#/definitions/v1.KubeVirtCertificateRotateStrategy"
