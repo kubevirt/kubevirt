@@ -102,6 +102,42 @@ func MissingContainerPathContainers(vmi *v1.VirtualMachineInstance, pod *k8sv1.P
 	return missing
 }
 
+// IsSafeVolumeType checks if a pod volume is a safe type for ContainerPath volumes.
+// Safe types are those where KubeVirt controls the content and symlinks cannot escape
+// to arbitrary host paths. This includes ConfigMap, Secret, EmptyDir, DownwardAPI, and Projected.
+// Unsafe types like HostPath and PersistentVolumeClaim are rejected because they could
+// contain symlinks pointing to arbitrary host paths, which would be followed by virtiofsd.
+func IsSafeVolumeType(volume *k8sv1.Volume) bool {
+	if volume == nil {
+		return false
+	}
+
+	// Safe volume types - content is controlled by Kubernetes/KubeVirt
+	if volume.ConfigMap != nil ||
+		volume.Secret != nil ||
+		volume.EmptyDir != nil ||
+		volume.DownwardAPI != nil ||
+		volume.Projected != nil {
+		return true
+	}
+
+	// All other volume types are considered unsafe:
+	// - HostPath: could contain symlinks to arbitrary host paths
+	// - PersistentVolumeClaim: user-controlled, could contain symlinks
+	// - NFS, CSI, etc.: external storage, could contain symlinks
+	return false
+}
+
+// FindPodVolumeByName returns the volume with the given name from the pod spec.
+func FindPodVolumeByName(pod *k8sv1.Pod, name string) *k8sv1.Volume {
+	for i := range pod.Spec.Volumes {
+		if pod.Spec.Volumes[i].Name == name {
+			return &pod.Spec.Volumes[i]
+		}
+	}
+	return nil
+}
+
 // FindVolumeMountForPath finds the volumeMount in the container that matches the given path.
 // It returns the volumeMount and the subPath within that mount, or nil if not found.
 func FindVolumeMountForPath(container *k8sv1.Container, path string) (*k8sv1.VolumeMount, string) {

@@ -105,6 +105,24 @@ spec:
 - Paths are read-only from the VM's perspective
 - The path must not conflict with KubeVirt-internal mount points
 
+### Supported Volume Types
+
+ContainerPath volumes only work with paths backed by the following volume types:
+
+- **ConfigMap** - Configuration data
+- **Secret** - Sensitive data like credentials
+- **EmptyDir** - Temporary storage (often populated by sidecars)
+- **DownwardAPI** - Pod and container metadata
+- **Projected** - Combined projections of secrets, configmaps, downward API, and service account tokens
+
+The following volume types are **not supported** for security reasons:
+
+- **HostPath** - Could contain symlinks to arbitrary host paths
+- **PersistentVolumeClaim** - User-controlled storage could contain symlinks
+- **NFS, CSI, and other external storage** - Content is not controlled by Kubernetes
+
+This restriction prevents symlink-based attacks where a malicious path could escape the intended directory boundary.
+
 ### Live Migration
 
 ContainerPath volumes do not block live migration, but whether the data remains accessible after migration depends on how the path is populated:
@@ -125,6 +143,7 @@ When using ContainerPath volumes with live migration, verify that the mechanism 
 - Only expose paths containing data intended for VM consumption
 - Use RBAC and admission policies to control which service accounts and roles can be used with VMs
 - ContainerPath volumes inherit the security context of the virt-launcher pod
+- Only safe volume types are supported to prevent symlink escape attacks (see [Supported Volume Types](#supported-volume-types))
 
 ## Additional Use Cases
 

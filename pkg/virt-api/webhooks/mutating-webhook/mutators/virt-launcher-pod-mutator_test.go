@@ -143,6 +143,24 @@ var _ = Describe("VirtLauncherPodMutator", func() {
 			Expect(response.Allowed).To(BeTrue())
 			Expect(response.Patch).To(BeNil())
 		})
+
+		It("should not inject virtiofs container for unsafe volume types", func() {
+			vmi := newVMIWithContainerPath()
+			pod := newVirtLauncherPodWithUnsafeVolume(vmi)
+
+			virtClient.EXPECT().VirtualMachineInstance(pod.Namespace).Return(vmiInterface)
+			vmiInterface.EXPECT().Get(gomock.Any(), vmi.Name, gomock.Any()).Return(vmi, nil)
+
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			mutator := mutators.NewVirtLauncherPodMutator(clusterConfig, virtClient)
+
+			ar := createPodAdmissionReview(pod)
+			response := mutator.Mutate(ar)
+
+			// Should be allowed but no mutation since HostPath is unsafe
+			Expect(response.Allowed).To(BeTrue())
+			Expect(response.Patch).To(BeNil())
+		})
 	})
 })
 
@@ -266,6 +284,45 @@ func newVirtLauncherPodWithVolumeMounts(vmi *v1.VirtualMachineInstance) *k8sv1.P
 		},
 		{
 			Name:      "aws-iam-token",
+			MountPath: "/var/run/secrets/token",
+			ReadOnly:  true,
+		},
+	}
+
+	return pod
+}
+
+func newVirtLauncherPodWithUnsafeVolume(vmi *v1.VirtualMachineInstance) *k8sv1.Pod {
+	pod := newVirtLauncherPod(vmi)
+
+	// Add the virtiofs socket volume
+	pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+		Name: virtiofs.VirtioFSContainers,
+		VolumeSource: k8sv1.VolumeSource{
+			EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+		},
+	})
+
+	// Add a HostPath volume (unsafe type - should be rejected)
+	hostPathType := k8sv1.HostPathDirectory
+	pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+		Name: "unsafe-volume",
+		VolumeSource: k8sv1.VolumeSource{
+			HostPath: &k8sv1.HostPathVolumeSource{
+				Path: "/var/run/secrets/token",
+				Type: &hostPathType,
+			},
+		},
+	})
+
+	// Add volume mount to compute container
+	pod.Spec.Containers[0].VolumeMounts = []k8sv1.VolumeMount{
+		{
+			Name:      virtiofs.VirtioFSContainers,
+			MountPath: virtiofs.VirtioFSContainersMountBaseDir,
+		},
+		{
+			Name:      "unsafe-volume",
 			MountPath: "/var/run/secrets/token",
 			ReadOnly:  true,
 		},

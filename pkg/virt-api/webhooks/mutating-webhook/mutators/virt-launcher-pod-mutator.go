@@ -101,7 +101,7 @@ func (m *VirtLauncherPodMutator) Mutate(ar *admissionv1.AdmissionReview) *admiss
 	containerPathVolumes := virtiofs.GetContainerPathVolumesWithFilesystems(vmi)
 
 	// Generate virtiofs containers for missing containerPath volumes
-	containersToAdd := m.generateContainerPathVirtiofsContainers(vmi, containerPathVolumes, computeContainer, missingContainers)
+	containersToAdd := m.generateContainerPathVirtiofsContainers(vmi, pod, containerPathVolumes, computeContainer, missingContainers)
 	if len(containersToAdd) == 0 {
 		return allowedResponse()
 	}
@@ -127,6 +127,7 @@ func (m *VirtLauncherPodMutator) Mutate(ar *admissionv1.AdmissionReview) *admiss
 
 func (m *VirtLauncherPodMutator) generateContainerPathVirtiofsContainers(
 	vmi *v1.VirtualMachineInstance,
+	pod *k8sv1.Pod,
 	volumes []v1.Volume,
 	computeContainer *k8sv1.Container,
 	missingContainers []string,
@@ -151,6 +152,14 @@ func (m *VirtLauncherPodMutator) generateContainerPathVirtiofsContainers(
 		volumeMount, subPath := virtiofs.FindVolumeMountForPath(computeContainer, volume.ContainerPath.Path)
 		if volumeMount == nil {
 			log.Log.Warningf("No volumeMount found for containerPath %s in volume %s", volume.ContainerPath.Path, volume.Name)
+			continue
+		}
+
+		// Check if the backing volume is a safe type
+		podVolume := virtiofs.FindPodVolumeByName(pod, volumeMount.Name)
+		if !virtiofs.IsSafeVolumeType(podVolume) {
+			log.Log.Warningf("Skipping ContainerPath volume %s: backing volume %s is not a safe type (only ConfigMap, Secret, EmptyDir, DownwardAPI, Projected are allowed)",
+				volume.Name, volumeMount.Name)
 			continue
 		}
 
