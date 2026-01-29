@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "handlermatcher.go",
         "nodeselectorrenderer.go",
         "rendercontainer.go",
         "renderresources.go",
@@ -62,6 +63,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "container_disk_test.go",
+        "handlermatcher_test.go",
         "nodeselectorrenderer_test.go",
         "rendercontainer_test.go",
         "renderresources_test.go",
