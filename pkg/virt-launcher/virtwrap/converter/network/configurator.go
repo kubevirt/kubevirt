@@ -146,6 +146,10 @@ func applyGenericInterfaceConfig(domainIface *api.Interface, iface *v1.Interface
 		domainIface.Address = addr
 	}
 
+	if iface.MacAddress != "" {
+		domainIface.MAC = &api.MAC{MAC: iface.MacAddress}
+	}
+
 	if iface.ACPIIndex > 0 {
 		domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
 	}

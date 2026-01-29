@@ -182,6 +182,40 @@ var _ = Describe("Network Domain Configurator", func() {
 		),
 	)
 
+	DescribeTable("should configure MAC address",
+		func(vmi *v1.VirtualMachineInstance) {
+			configurator := network.NewDomainConfigurator(
+				network.WithDomainAttachmentByInterfaceName(map[string]string{network1Name: string(v1.Tap)}),
+				network.WithVirtioModel(virtioModel),
+			)
+
+			var domain api.Domain
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := newDomainWithIfaces(
+				[]api.Interface{
+					newDomainInterface(vmi.Spec.Networks[0].Name, virtioModel, withTypeEthernet(),
+						withMACAddress(vmi.Spec.Domain.Devices.Interfaces[0].MacAddress)),
+				},
+			)
+			Expect(domain).To(Equal(expectedDomain))
+		},
+		Entry(
+			"when a custom MAC address is specified",
+			libvmi.New(
+				libvmi.WithInterface(v1.Interface{Name: network1Name, MacAddress: "de:ad:be:ef"}),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, nad1Name)),
+			),
+		),
+		Entry(
+			"when a custom MAC address is not specified",
+			libvmi.New(
+				libvmi.WithInterface(v1.Interface{Name: network1Name}),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, nad1Name)),
+			),
+		),
+	)
+
 	DescribeTable("multi-queue", func(model string, expectedInterface api.Interface) {
 		ifaceWithModel := libvmi.InterfaceDeviceWithBridgeBinding(network1Name)
 		ifaceWithModel.Model = model
@@ -265,5 +299,13 @@ func withVHostDriver(queues uint) option {
 func withLinkState(state string) option {
 	return func(iface *api.Interface) {
 		iface.LinkState = &api.LinkState{State: state}
+	}
+}
+
+func withMACAddress(mac string) option {
+	return func(iface *api.Interface) {
+		if mac != "" {
+			iface.MAC = &api.MAC{MAC: mac}
+		}
 	}
 }
