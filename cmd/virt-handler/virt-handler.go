@@ -513,8 +513,12 @@ func (app *virtHandlerApp) Run() {
 		app.vsockClientCertManager,
 	)
 
+	monitoringHandler := rest.NewMonitoringHandler(
+		vmiSourceInformer.GetStore(),
+	)
+
 	errCh := make(chan error)
-	go app.runServer(errCh, consoleHandler, lifecycleHandler)
+	go app.runServer(errCh, consoleHandler, lifecycleHandler, monitoringHandler)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
@@ -617,7 +621,7 @@ func (app *virtHandlerApp) runPrometheusServer(errCh chan error) {
 	errCh <- server.ListenAndServeTLS("", "")
 }
 
-func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.ConsoleHandler, lifecycleHandler *rest.LifecycleHandler) {
+func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.ConsoleHandler, lifecycleHandler *rest.LifecycleHandler, monitoringHandler *rest.MonitoringHandler) {
 	ws := new(restful.WebService)
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console").To(consoleHandler.SerialHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler).
@@ -638,6 +642,7 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/fetchcertchain").To(lifecycleHandler.SEVFetchCertChainHandler).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.SEVPlatformInfo{}))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/querylaunchmeasurement").To(lifecycleHandler.SEVQueryLaunchMeasurementHandler).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON).Returns(http.StatusOK, "OK", v1.SEVMeasurementInfo{}))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/sev/injectlaunchsecret").To(lifecycleHandler.SEVInjectLaunchSecretHandler))
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/monitoring/query").To(monitoringHandler.QueryHandler).Produces(restful.MIME_JSON))
 	restful.DefaultContainer.Add(ws)
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", app.ServiceListen.BindAddress, app.consoleServerPort),

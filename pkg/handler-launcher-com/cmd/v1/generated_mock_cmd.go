@@ -121,6 +121,26 @@ func (mr *MockCmdClientMockRecorder) Exec(ctx, in any, opts ...any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockCmdClient)(nil).Exec), varargs...)
 }
 
+// ExecuteMonitoringQuery mocks base method.
+func (m *MockCmdClient) ExecuteMonitoringQuery(ctx context.Context, in *MonitoringQueryRequest, opts ...grpc.CallOption) (*MonitoringQueryResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "ExecuteMonitoringQuery", varargs...)
+	ret0, _ := ret[0].(*MonitoringQueryResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExecuteMonitoringQuery indicates an expected call of ExecuteMonitoringQuery.
+func (mr *MockCmdClientMockRecorder) ExecuteMonitoringQuery(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteMonitoringQuery", reflect.TypeOf((*MockCmdClient)(nil).ExecuteMonitoringQuery), varargs...)
+}
+
 // FinalizeVirtualMachineMigration mocks base method.
 func (m *MockCmdClient) FinalizeVirtualMachineMigration(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
 	m.ctrl.T.Helper()
@@ -803,6 +823,21 @@ func (m *MockCmdServer) Exec(arg0 context.Context, arg1 *ExecRequest) (*ExecResp
 func (mr *MockCmdServerMockRecorder) Exec(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockCmdServer)(nil).Exec), arg0, arg1)
+}
+
+// ExecuteMonitoringQuery mocks base method.
+func (m *MockCmdServer) ExecuteMonitoringQuery(arg0 context.Context, arg1 *MonitoringQueryRequest) (*MonitoringQueryResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecuteMonitoringQuery", arg0, arg1)
+	ret0, _ := ret[0].(*MonitoringQueryResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExecuteMonitoringQuery indicates an expected call of ExecuteMonitoringQuery.
+func (mr *MockCmdServerMockRecorder) ExecuteMonitoringQuery(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteMonitoringQuery", reflect.TypeOf((*MockCmdServer)(nil).ExecuteMonitoringQuery), arg0, arg1)
 }
 
 // FinalizeVirtualMachineMigration mocks base method.

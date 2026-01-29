@@ -39,6 +39,7 @@ const (
 	sevFetchCertChainTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/fetchcertchain"
 	sevQueryLaunchMeasurementTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/querylaunchmeasurement"
 	sevInjectLaunchSecretTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/injectlaunchsecret"
+	monitoringQueryTemplateURI           = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/monitoring/query"
 )
 
 func NewVirtHandlerClient(virtCli KubevirtClient, httpCli *http.Client) VirtHandlerClient {
@@ -74,11 +75,13 @@ type VirtHandlerConn interface {
 	SEVInjectLaunchSecretURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
 	Put(url string, body io.ReadCloser) error
+	Post(url string, body io.ReadCloser, contentType string) (string, error)
 	Get(url, contentType string) (string, error)
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	BackupURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	MonitoringQueryURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
 
 type virtHandler struct {
@@ -289,6 +292,25 @@ func (v *virtHandlerConn) Put(url string, body io.ReadCloser) error {
 	return nil
 }
 
+func (v *virtHandlerConn) Post(url string, body io.ReadCloser, contentType string) (string, error) {
+	req, err := http.NewRequest(http.MethodPost, url, body)
+	if err != nil {
+		return "", err
+	}
+
+	if contentType != "" {
+		req.Header.Add("Content-Type", contentType)
+		req.Header.Add("Accept", contentType)
+	}
+
+	response, err := v.doRequest(req)
+	if err != nil {
+		return "", err
+	}
+
+	return response, nil
+}
+
 func (v *virtHandlerConn) Get(url, contentType string) (string, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -335,4 +357,8 @@ func (v *virtHandlerConn) SEVQueryLaunchMeasurementURI(vmi *virtv1.VirtualMachin
 
 func (v *virtHandlerConn) SEVInjectLaunchSecretURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
 	return v.formatURI(sevInjectLaunchSecretTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) MonitoringQueryURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(monitoringQueryTemplateURI, vmi)
 }
