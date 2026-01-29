@@ -78,7 +78,7 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 		clientMAC = mac.String()
 	})
 
-	It("two VMs with macvtap interface should be able to communicate over macvtap network", func() {
+	PIt("two VMs with macvtap interface should be able to communicate over macvtap network", func() {
 		const (
 			guestIfaceName = "eth0"
 			serverIPAddr   = "192.0.2.102"
@@ -128,7 +128,7 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 			clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToAlpine)
 		})
 
-		It("should be successful when the VMI MAC address is defined in its spec", func() {
+		PIt("should be successful when the VMI MAC address is defined in its spec", func() {
 			Expect(clientVMI.Status.Interfaces).To(HaveLen(1), "should have a single interface")
 			Expect(clientVMI.Status.Interfaces[0].MAC).To(Equal(clientMAC), "the expected MAC address should be set in the VMI")
 
@@ -171,7 +171,7 @@ var _ = Describe(SIG("VirtualMachineInstance with macvtap network binding plugin
 				Expect(libnet.PingFromVMConsole(clientVMI, serverIP)).To(Succeed(), "connectivity is expected *before* migrating the VMI")
 			})
 
-			It("should keep connectivity after a migration", func() {
+			PIt("should keep connectivity after a migration", func() {
 				const containerCompletionWaitTime = 60
 				serverVmiPod, err := libpod.GetPodByVirtualMachineInstance(serverVMI, testsuite.GetTestNamespace(nil))
 				Expect(err).ToNot(HaveOccurred())

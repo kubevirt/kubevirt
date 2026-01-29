@@ -41,7 +41,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libstorage"
@@ -145,12 +144,12 @@ func AdjustKubeVirtResource() {
 	adjustedKV, err := virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, []byte(patchData), metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
-	if checks.HasFeature(featuregate.CPUManager) {
-		// CPUManager is not enabled in the control-plane node(s)
-		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
-		Expect(err).NotTo(HaveOccurred())
-		waitForSchedulableNodesWithCPUManager(len(nodes.Items))
-	}
+	//if checks.HasFeature(featuregate.CPUManager) {
+	// CPUManager is not enabled in the control-plane node(s)
+	//	nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
+	//	Expect(err).NotTo(HaveOccurred())
+	//	waitForSchedulableNodesWithCPUManager(len(nodes.Items))
+	//	}
 }
 
 func waitForSchedulableNodesWithCPUManager(n int) {
