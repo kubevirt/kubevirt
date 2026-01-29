@@ -64,6 +64,7 @@ const (
 	vmNoVolumesToBackupMsg               = "vm %s has no volumes to backup"
 	vmNoChangedBlockTrackingMsg          = "vm %s has no ChangedBlockTracking, cannot start backup"
 	backupTrackerNotFoundMsg             = "BackupTracker %s does not exist"
+	trackerCheckpointRedefinitionPending = "Waiting for checkpoint redefinition on tracker %s"
 	invalidBackupModeMsg                 = "invalid backup mode: %s"
 	backupSourceNameEmptyMsg             = "Source name is empty"
 	backupDeletingMsg                    = "Backup is being deleted"
@@ -83,6 +84,7 @@ type VMBackupController struct {
 	pvcStore              cache.Store
 	recorder              record.EventRecorder
 	backupQueue           workqueue.TypedRateLimitingInterface[string]
+	trackerQueue          workqueue.TypedRateLimitingInterface[string]
 	hasSynced             func() bool
 }
 
@@ -98,6 +100,10 @@ func NewVMBackupController(client kubecli.KubevirtClient,
 		backupQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmbackup"},
+		),
+		trackerQueue: workqueue.NewTypedRateLimitingQueueWithConfig(
+			workqueue.DefaultTypedControllerRateLimiter[string](),
+			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmbackup-tracker"},
 		),
 		backupInformer:        backupInformer,
 		backupTrackerInformer: backupTrackerInformer,
@@ -221,6 +227,14 @@ func (ctrl *VMBackupController) handleBackupTracker(obj interface{}) {
 	}
 
 	key := cacheKeyFunc(tracker.Namespace, tracker.Name)
+
+	// Enqueue tracker for checkpoint redefinition if needed
+	if trackerNeedsCheckpointRedefinition(tracker) {
+		log.Log.V(3).Infof("enqueued tracker %q for checkpoint redefinition", key)
+		ctrl.trackerQueue.Add(key)
+	}
+
+	// Enqueue related backups
 	backupKeys, err := ctrl.backupInformer.GetIndexer().IndexKeys("backupTracker", key)
 	if err != nil {
 		return
@@ -233,6 +247,7 @@ func (ctrl *VMBackupController) handleBackupTracker(obj interface{}) {
 func (ctrl *VMBackupController) Run(threadiness int, stopCh <-chan struct{}) error {
 	defer utilruntime.HandleCrash()
 	defer ctrl.backupQueue.ShutDown()
+	defer ctrl.trackerQueue.ShutDown()
 
 	log.Log.Info("Starting backup controller.")
 	defer log.Log.Info("Shutting down backup controller.")
@@ -246,6 +261,7 @@ func (ctrl *VMBackupController) Run(threadiness int, stopCh <-chan struct{}) err
 
 	for range threadiness {
 		go wait.Until(ctrl.runWorker, time.Second, stopCh)
+		go wait.Until(ctrl.runTrackerWorker, time.Second, stopCh)
 	}
 
 	<-stopCh
@@ -277,11 +293,12 @@ func (ctrl *VMBackupController) Execute() bool {
 }
 
 type SyncInfo struct {
-	err            error
-	reason         string
-	event          string
-	checkpointName string
-	backupType     backupv1.BackupType
+	err             error
+	reason          string
+	event           string
+	checkpointName  *string
+	backupType      backupv1.BackupType
+	includedVolumes []backupv1.BackupVolumeInfo
 }
 
 func syncInfoError(err error) *SyncInfo {
@@ -356,6 +373,15 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) *Syn
 	vmi, syncInfo := ctrl.verifyBackupSource(backup, sourceName)
 	if syncInfo != nil {
 		return syncInfo
+	}
+
+	// If the tracker needs checkpoint redefinition, wait for it to complete.
+	if trackerNeedsCheckpointRedefinition(backupTracker) {
+		logger.Infof(trackerCheckpointRedefinitionPending, backupTracker.Name)
+		return &SyncInfo{
+			event:  backupInitializingEvent,
+			reason: fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTracker.Name),
+		}
 	}
 
 	if !isBackupInitializing(backup.Status) || vmi == nil {
@@ -458,9 +484,12 @@ func (ctrl *VMBackupController) updateStatus(backup *backupv1.VirtualMachineBack
 			}
 			updateBackupCondition(backupOut, newProgressingCondition(corev1.ConditionFalse, syncInfo.reason))
 			updateBackupCondition(backupOut, newDoneCondition(corev1.ConditionTrue, syncInfo.reason))
-			if syncInfo.checkpointName != "" {
-				backupOut.Status.CheckpointName = pointer.P(syncInfo.checkpointName)
+			if syncInfo.checkpointName != nil {
+				backupOut.Status.CheckpointName = syncInfo.checkpointName
 			}
+		}
+		if len(syncInfo.includedVolumes) > 0 {
+			backupOut.Status.IncludedVolumes = syncInfo.includedVolumes
 		}
 	}
 
@@ -693,6 +722,11 @@ func (ctrl *VMBackupController) checkBackupCompletion(backup *backupv1.VirtualMa
 
 	backupStatus := vmi.Status.ChangedBlockTracking.BackupStatus
 	if !backupStatus.Completed {
+		if len(backupStatus.Volumes) > 0 && len(backup.Status.IncludedVolumes) == 0 {
+			return &SyncInfo{
+				includedVolumes: backupStatus.Volumes,
+			}
+		}
 		return nil
 	}
 
@@ -732,8 +766,9 @@ func (ctrl *VMBackupController) checkBackupCompletion(backup *backupv1.VirtualMa
 
 	// We allow tracking checkpoints only if BackupTracker is specified
 	if backupTracker != nil {
-		syncInfo.checkpointName = *backupStatus.CheckpointName
+		syncInfo.checkpointName = backupStatus.CheckpointName
 	}
+	syncInfo.includedVolumes = backupStatus.Volumes
 
 	return syncInfo
 }
@@ -745,7 +780,8 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 
 	newCheckpoint := backupv1.BackupCheckpoint{
 		Name:         *backupStatus.CheckpointName,
-		CreationTime: pointer.P(metav1.Now()),
+		CreationTime: backupStatus.StartTimestamp,
+		Volumes:      backupStatus.Volumes,
 	}
 
 	newStatus := &backupv1.VirtualMachineBackupTrackerStatus{
@@ -778,8 +814,8 @@ func (ctrl *VMBackupController) updateBackupTracker(namespace string, tracker *b
 
 	log.Log.Infof("Successfully updated BackupTracker %s/%s with checkpoint %s",
 		namespace, tracker.Name, newCheckpoint.Name)
-	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s",
-		newCheckpoint.Name, newCheckpoint.CreationTime)
+	log.Log.V(3).Infof("Checkpoint details: name=%s, creationTime=%s, volumes=%d",
+		newCheckpoint.Name, newCheckpoint.CreationTime, len(newCheckpoint.Volumes))
 
 	return nil
 }
