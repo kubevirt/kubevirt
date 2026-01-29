@@ -1,4 +1,3 @@
-//nolint:lll
 /*
  * This file is part of the KubeVirt project
  *

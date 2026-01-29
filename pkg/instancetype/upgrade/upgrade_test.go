@@ -58,6 +58,8 @@ func deepCopyList(objects []interface{}) []interface{} {
 	return objects
 }
 
+const v1beta1Version = "v1beta1"
+
 var _ = Describe("ControllerRevision upgrades", func() {
 	type upgrader interface {
 		Upgrade(vm *virtv1.VirtualMachine) error
@@ -201,7 +203,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 					},
 				)
 				cr.Name = "v1beta1-clusterinstancetype-cr-name"
-				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = "v1beta1"
+				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = v1beta1Version
 				return cr
 			},
 			func() *appsv1.ControllerRevision {
@@ -219,7 +221,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 					},
 				)
 				cr.Name = "v1beta1-clusterpreference-cr-name"
-				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = "v1beta1"
+				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = v1beta1Version
 				return cr
 			},
 		),
@@ -242,7 +244,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 					},
 				)
 				cr.Name = "v1beta1-instancetype-cr-name"
-				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = "v1beta1"
+				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = v1beta1Version
 				return cr
 			},
 			func() *appsv1.ControllerRevision {
@@ -260,7 +262,7 @@ var _ = Describe("ControllerRevision upgrades", func() {
 					},
 				)
 				cr.Name = "v1beta1-preference-cr-name"
-				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = "v1beta1"
+				cr.Labels[instancetypeapi.ControllerRevisionObjectVersionLabel] = v1beta1Version
 				return cr
 			},
 		),

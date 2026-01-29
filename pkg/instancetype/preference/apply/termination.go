@@ -25,7 +25,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-func applyTerminationGracePeriodSeconds(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyTerminationGracePeriodSeconds(
+	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+) {
 	if preferenceSpec.PreferredTerminationGracePeriodSeconds != nil && vmiSpec.TerminationGracePeriodSeconds == nil {
 		vmiSpec.TerminationGracePeriodSeconds = pointer.P(*preferenceSpec.PreferredTerminationGracePeriodSeconds)
 	}

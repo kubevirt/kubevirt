@@ -73,7 +73,11 @@ func applyCPU(
 	return nil
 }
 
-func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyGuestCPUTopology(
+	vCPUs uint32,
+	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+) {
 	// Apply the default topology here to avoid duplication below
 	vmiSpec.Domain.CPU.Cores = 1
 	vmiSpec.Domain.CPU.Sockets = 1
