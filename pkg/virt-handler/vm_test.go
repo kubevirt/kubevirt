@@ -463,10 +463,14 @@ var _ = Describe("VirtualMachineInstance", func() {
 			oldUID := types.UID("old-domain-uid")
 
 			// Create a new VMI with a new UID
-			vmi := api2.NewMinimalVMI("testvmi")
-			vmi.UID = newUID
+			vmi := libvmi.New(
+			libvmi.WithName("testvmi"),
+			libvmi.WithNamespace(metav1.NamespaceDefault),
+			libvmi.WithUID(newUID),
+			)
 			vmi.ObjectMeta.ResourceVersion = "1"
 			vmi.Status.Phase = v1.Running
+
 
 			// Create a domain with the old UID (simulating a stale domain from a previous VMI)
 			domain := api.NewMinimalDomainWithUUID("testvmi", oldUID)
