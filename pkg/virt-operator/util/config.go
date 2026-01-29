@@ -160,6 +160,10 @@ type AdditionalHandlerConfig struct {
 	VirtHandlerImage string `json:"virtHandlerImage,omitempty"`
 	// VirtLauncherImage is the virt-launcher image used by this virt-handler
 	VirtLauncherImage string `json:"virtLauncherImage,omitempty"`
+	// NodeSelector specifies labels that must match a node's labels for this DaemonSet's pods
+	// to be scheduled on that node. This is also used to match VMIs to determine which
+	// virt-launcher image to use.
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 var DefaultEnvVarManager EnvVarManager = EnvVarManagerImpl{}
@@ -202,8 +206,11 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 				Name:              handler.Name,
 				VirtHandlerImage:  handler.VirtHandlerImage,
 				VirtLauncherImage: handler.VirtLauncherImage,
+				NodeSelector:      handler.NodeSelector,
 			})
 		}
+		// Regenerate the install strategy ID since AdditionalHandlers affects the deployment
+		config.generateInstallStrategyID()
 	}
 
 	return config
@@ -642,7 +649,8 @@ func getStringFromFields(c KubeVirtDeploymentConfig) string {
 		fieldName := v.Type().Field(i).Name
 		result += fieldName
 		field := v.Field(i)
-		if field.Type().Kind() == reflect.Map {
+		switch field.Type().Kind() {
+		case reflect.Map:
 			keys := field.MapKeys()
 			nameKeys := make(map[string]reflect.Value, len(keys))
 			names := make([]string, 0, len(keys))
@@ -661,7 +669,43 @@ func getStringFromFields(c KubeVirtDeploymentConfig) string {
 				result += name
 				result += val
 			}
-		} else {
+		case reflect.Slice:
+			for j := 0; j < field.Len(); j++ {
+				elem := field.Index(j)
+				// Handle struct elements in the slice
+				if elem.Kind() == reflect.Struct {
+					for k := 0; k < elem.NumField(); k++ {
+						result += elem.Type().Field(k).Name
+						structField := elem.Field(k)
+						// Handle map fields within struct elements
+						if structField.Kind() == reflect.Map {
+							mapKeys := structField.MapKeys()
+							mapNames := make([]string, 0, len(mapKeys))
+							mapNameKeys := make(map[string]reflect.Value, len(mapKeys))
+							for _, key := range mapKeys {
+								name := key.String()
+								if name == "" {
+									continue
+								}
+								mapNameKeys[name] = key
+								mapNames = append(mapNames, name)
+							}
+							sort.Strings(mapNames)
+							for _, name := range mapNames {
+								key := mapNameKeys[name]
+								val := structField.MapIndex(key).String()
+								result += name
+								result += val
+							}
+						} else {
+							result += structField.String()
+						}
+					}
+				} else {
+					result += elem.String()
+				}
+			}
+		default:
 			value := v.Field(i).String()
 			result += value
 		}

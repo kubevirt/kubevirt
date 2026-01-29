@@ -1378,6 +1378,11 @@ const (
 	// in which freePageReporting is always disabled.
 	FreePageReportingDisabledAnnotation string = "kubevirt.io/free-page-reporting-disabled"
 
+	// HandlerPoolAnnotation indicates which additional virt-handler pool matched
+	// the VMI when the virt-launcher pod was created. This is set when the VMI's
+	// node selector matches an additional virt-handler configuration.
+	HandlerPoolAnnotation string = "kubevirt.io/handler-pool"
+
 	// VirtualMachinePodCPULimitsLabel indicates VMI pod CPU resource limits
 	VirtualMachinePodCPULimitsLabel string = "kubevirt.io/vmi-pod-cpu-resource-limits"
 	// VirtualMachinePodMemoryRequestsLabel indicates VMI pod Memory resource requests

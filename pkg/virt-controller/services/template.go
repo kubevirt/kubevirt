@@ -1468,6 +1468,12 @@ func (t *TemplateService) generatePodAnnotations(vmi *v1.VirtualMachineInstance)
 		maps.Copy(annotationsSet, annotations)
 	}
 
+	// Add handler pool annotation if VMI matches an additional virt-handler
+	additionalHandlers := t.clusterConfig.GetAdditionalVirtHandlers()
+	if handler := MatchVMIToAdditionalHandler(vmi, additionalHandlers); handler != nil {
+		annotationsSet[v1.HandlerPoolAnnotation] = handler.Name
+	}
+
 	return annotationsSet, nil
 }
 

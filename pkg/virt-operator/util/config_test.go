@@ -125,6 +125,64 @@ var _ = Describe("Operator Config", func() {
 			Expect(idFilled).ToNot(Equal(idEmpty))
 		})
 
+		It("should result in different ID when AdditionalHandlers changes", func() {
+			cfgNoHandlers := &KubeVirtDeploymentConfig{}
+			cfgNoHandlers.AdditionalProperties = make(map[string]string)
+			cfgNoHandlers.generateInstallStrategyID()
+			idNoHandlers := cfgNoHandlers.ID
+
+			cfgOneHandler := &KubeVirtDeploymentConfig{}
+			cfgOneHandler.AdditionalProperties = make(map[string]string)
+			cfgOneHandler.AdditionalHandlers = []AdditionalHandlerConfig{
+				{Name: "gpu-handler", VirtHandlerImage: "custom-image:v1"},
+			}
+			cfgOneHandler.generateInstallStrategyID()
+			idOneHandler := cfgOneHandler.ID
+
+			cfgTwoHandlers := &KubeVirtDeploymentConfig{}
+			cfgTwoHandlers.AdditionalProperties = make(map[string]string)
+			cfgTwoHandlers.AdditionalHandlers = []AdditionalHandlerConfig{
+				{Name: "gpu-handler", VirtHandlerImage: "custom-image:v1"},
+				{Name: "fpga-handler", VirtHandlerImage: "fpga-image:v2"},
+			}
+			cfgTwoHandlers.generateInstallStrategyID()
+			idTwoHandlers := cfgTwoHandlers.ID
+
+			Expect(idNoHandlers).ToNot(BeEmpty())
+			Expect(idOneHandler).ToNot(BeEmpty())
+			Expect(idTwoHandlers).ToNot(BeEmpty())
+			Expect(idNoHandlers).ToNot(Equal(idOneHandler), "adding a handler should change the ID")
+			Expect(idOneHandler).ToNot(Equal(idTwoHandlers), "adding another handler should change the ID")
+		})
+
+		It("should result in different ID when AdditionalHandlers NodeSelector changes", func() {
+			cfgWithSelector := &KubeVirtDeploymentConfig{}
+			cfgWithSelector.AdditionalProperties = make(map[string]string)
+			cfgWithSelector.AdditionalHandlers = []AdditionalHandlerConfig{
+				{
+					Name:         "gpu-handler",
+					NodeSelector: map[string]string{"gpu": "true"},
+				},
+			}
+			cfgWithSelector.generateInstallStrategyID()
+			idWithSelector := cfgWithSelector.ID
+
+			cfgDifferentSelector := &KubeVirtDeploymentConfig{}
+			cfgDifferentSelector.AdditionalProperties = make(map[string]string)
+			cfgDifferentSelector.AdditionalHandlers = []AdditionalHandlerConfig{
+				{
+					Name:         "gpu-handler",
+					NodeSelector: map[string]string{"gpu": "nvidia"},
+				},
+			}
+			cfgDifferentSelector.generateInstallStrategyID()
+			idDifferentSelector := cfgDifferentSelector.ID
+
+			Expect(idWithSelector).ToNot(BeEmpty())
+			Expect(idDifferentSelector).ToNot(BeEmpty())
+			Expect(idWithSelector).ToNot(Equal(idDifferentSelector), "changing NodeSelector should change the ID")
+		})
+
 	})
 
 	Context("Product Names and Versions", func() {

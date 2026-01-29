@@ -1831,8 +1831,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	FContext("with AdditionalVirtHandlers feature gate", Serial, func() {
+	Context("with AdditionalVirtHandlers feature gate", Serial, func() {
 		const additionalHandlerName = "test-handler"
+		const testPoolLabelKey = "kubevirt.io/test-pool"
 		var additionalDaemonSetName = "virt-handler-" + additionalHandlerName
 
 		BeforeEach(func() {
@@ -1840,13 +1841,31 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			kvconfig.EnableFeatureGate(featuregate.AdditionalVirtHandlersGate)
 		})
 
-		FIt("should create additional virt-handler DaemonSet when feature gate is enabled", func() {
+		It("should create additional virt-handler DaemonSet when feature gate is enabled", func() {
+			By("Getting the current virt-handler and virt-launcher images")
+			primaryDs, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			virtHandlerImage := primaryDs.Spec.Template.Spec.Containers[0].Image
+			virtLauncherImage := strings.Replace(virtHandlerImage, "virt-handler", "virt-launcher", 1)
+
+			By("Labeling a node for the additional handler")
+			nodes := libnode.GetAllSchedulableNodes(virtClient)
+			Expect(nodes.Items).ToNot(BeEmpty(), "need at least one schedulable node")
+			testNode := nodes.Items[0].Name
+			libnode.AddLabelToNode(testNode, testPoolLabelKey, "true")
+			defer func() {
+				By("Removing the test label from the node")
+				libnode.RemoveLabelFromNode(testNode, testPoolLabelKey)
+			}()
+
 			By("Configuring an additional virt-handler")
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			additionalHandler := v1.AdditionalVirtHandlerConfig{
-				Name: additionalHandlerName,
+				Name:              additionalHandlerName,
+				VirtHandlerImage:  virtHandlerImage,
+				VirtLauncherImage: virtLauncherImage,
 				NodeSelector: map[string]string{
-					"kubevirt.io/test-pool": "true",
+					testPoolLabelKey: "true",
 				},
 			}
 
@@ -1869,16 +1888,46 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(ds.Labels).To(HaveKeyWithValue(components.HandlerPoolLabel, additionalHandlerName))
 
 			By("Verifying the additional DaemonSet has the configured node selector")
-			Expect(ds.Spec.Template.Spec.NodeSelector).To(HaveKeyWithValue("kubevirt.io/test-pool", "true"))
+			Expect(ds.Spec.Template.Spec.NodeSelector).To(HaveKeyWithValue(testPoolLabelKey, "true"))
+
+			By("Waiting for the additional virt-handler pod to be running on the labeled node")
+			Eventually(func() bool {
+				pods, err := virtClient.CoreV1().Pods(originalKv.Namespace).List(context.Background(), metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("%s=%s,%s=%s", v1.AppLabel, "virt-handler", components.HandlerPoolLabel, additionalHandlerName),
+					FieldSelector: fmt.Sprintf("spec.nodeName=%s", testNode),
+				})
+				if err != nil || len(pods.Items) == 0 {
+					return false
+				}
+				return pods.Items[0].Status.Phase == k8sv1.PodRunning
+			}, time.Minute*2, time.Second*2).Should(BeTrue(), "additional virt-handler pod should be running on the labeled node")
 		})
 
 		It("should delete additional DaemonSet when removed from configuration", func() {
+			By("Getting the current virt-handler and virt-launcher images")
+			primaryDs, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			virtHandlerImage := primaryDs.Spec.Template.Spec.Containers[0].Image
+			virtLauncherImage := strings.Replace(virtHandlerImage, "virt-handler", "virt-launcher", 1)
+
+			By("Labeling a node for the additional handler")
+			nodes := libnode.GetAllSchedulableNodes(virtClient)
+			Expect(nodes.Items).ToNot(BeEmpty(), "need at least one schedulable node")
+			testNode := nodes.Items[0].Name
+			libnode.AddLabelToNode(testNode, testPoolLabelKey, "true")
+			defer func() {
+				By("Removing the test label from the node")
+				libnode.RemoveLabelFromNode(testNode, testPoolLabelKey)
+			}()
+
 			By("Configuring an additional virt-handler")
 			kv := libkubevirt.GetCurrentKv(virtClient)
 			additionalHandler := v1.AdditionalVirtHandlerConfig{
-				Name: additionalHandlerName,
+				Name:              additionalHandlerName,
+				VirtHandlerImage:  virtHandlerImage,
+				VirtLauncherImage: virtLauncherImage,
 				NodeSelector: map[string]string{
-					"kubevirt.io/test-pool": "true",
+					testPoolLabelKey: "true",
 				},
 			}
 
@@ -1894,6 +1943,18 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				_, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
 				return err
 			}, time.Minute*2, time.Second*2).Should(Succeed())
+
+			By("Waiting for the additional virt-handler pod to be running on the labeled node")
+			Eventually(func() bool {
+				pods, err := virtClient.CoreV1().Pods(originalKv.Namespace).List(context.Background(), metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("%s=%s,%s=%s", v1.AppLabel, "virt-handler", components.HandlerPoolLabel, additionalHandlerName),
+					FieldSelector: fmt.Sprintf("spec.nodeName=%s", testNode),
+				})
+				if err != nil || len(pods.Items) == 0 {
+					return false
+				}
+				return pods.Items[0].Status.Phase == k8sv1.PodRunning
+			}, time.Minute*2, time.Second*2).Should(BeTrue(), "additional virt-handler pod should be running on the labeled node")
 
 			By("Removing the additional virt-handler from configuration")
 			patchData, err = patch.New(
@@ -1948,70 +2009,31 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(ds.Spec.Template.Spec.Containers[0].Image).To(Equal(customImage))
 		})
 
-		It("should use custom virt-launcher image for VMIs matching additional handler selectors", func() {
-			By("Getting the default virt-launcher image from existing virt-handler")
+		It("should match VMI to additional handler and set handler pool annotation", func() {
+			By("Getting the current virt-handler and virt-launcher images")
 			primaryDs, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			defaultLauncherImage := primaryDs.Spec.Template.Spec.Containers[0].Image
-			defaultLauncherImage = strings.Replace(defaultLauncherImage, "virt-handler", "virt-launcher", 1)
+			virtHandlerImage := primaryDs.Spec.Template.Spec.Containers[0].Image
+			virtLauncherImage := strings.Replace(virtHandlerImage, "virt-handler", "virt-launcher", 1)
 
-			By("Configuring an additional virt-handler with a custom virt-launcher image targeting existing nodes")
+			By("Labeling a node for the additional handler")
+			nodes := libnode.GetAllSchedulableNodes(virtClient)
+			Expect(nodes.Items).ToNot(BeEmpty(), "need at least one schedulable node")
+			testNode := nodes.Items[0].Name
+			libnode.AddLabelToNode(testNode, testPoolLabelKey, "true")
+			defer func() {
+				By("Removing the test label from the node")
+				libnode.RemoveLabelFromNode(testNode, testPoolLabelKey)
+			}()
+
+			By("Configuring an additional virt-handler targeting specific nodes")
 			kv := libkubevirt.GetCurrentKv(virtClient)
-			// Use the same image but with a different reference to test the matching logic
-			// In a real scenario, this would be a different image for GPU/FPGA nodes
-			customLauncherImage := defaultLauncherImage // Use same image since we can't use arbitrary images
 			additionalHandler := v1.AdditionalVirtHandlerConfig{
 				Name:              additionalHandlerName,
-				VirtLauncherImage: customLauncherImage,
+				VirtHandlerImage:  virtHandlerImage,
+				VirtLauncherImage: virtLauncherImage,
 				NodeSelector: map[string]string{
-					"kubevirt.io/test-pool": "true",
-				},
-			}
-
-			patchData, err := patch.New(
-				patch.WithAdd("/spec/additionalVirtHandlers", []v1.AdditionalVirtHandlerConfig{additionalHandler}),
-			).GeneratePayload()
-			Expect(err).ToNot(HaveOccurred())
-			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Creating a VMI with matching node selector")
-			vmi := libvmifact.NewCirros(
-				libvmi.WithNodeSelector("kubevirt.io/test-pool", "true"),
-			)
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
-
-			By("Verifying the virt-launcher pod uses the custom image from matching handler")
-			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Find the compute container
-			var computeContainer *k8sv1.Container
-			for i := range pod.Spec.Containers {
-				if pod.Spec.Containers[i].Name == "compute" {
-					computeContainer = &pod.Spec.Containers[i]
-					break
-				}
-			}
-			Expect(computeContainer).ToNot(BeNil(), "compute container should exist")
-			Expect(computeContainer.Image).To(Equal(customLauncherImage), "VMI with matching selector should use custom launcher image")
-
-			By("Cleaning up the VMI")
-			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
-		})
-
-		It("should configure anti-affinity on primary virt-handler to avoid additional handler nodes", func() {
-			By("Configuring an additional virt-handler with a unique node selector")
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			testPoolLabel := "kubevirt.io/test-anti-affinity-pool"
-			additionalHandler := v1.AdditionalVirtHandlerConfig{
-				Name: additionalHandlerName,
-				NodeSelector: map[string]string{
-					testPoolLabel: "true",
+					testPoolLabelKey: "true",
 				},
 			}
 
@@ -2027,6 +2049,93 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				_, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
 				return err
 			}, time.Minute*2, time.Second*2).Should(Succeed())
+
+			By("Waiting for the additional virt-handler pod to be running on the labeled node")
+			Eventually(func() bool {
+				pods, err := virtClient.CoreV1().Pods(originalKv.Namespace).List(context.Background(), metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("%s=%s,%s=%s", v1.AppLabel, "virt-handler", components.HandlerPoolLabel, additionalHandlerName),
+					FieldSelector: fmt.Sprintf("spec.nodeName=%s", testNode),
+				})
+				if err != nil || len(pods.Items) == 0 {
+					return false
+				}
+				return pods.Items[0].Status.Phase == k8sv1.PodRunning
+			}, time.Minute*2, time.Second*2).Should(BeTrue(), "additional virt-handler pod should be running on the labeled node")
+
+			By("Creating a VMI with matching node selector")
+			vmi := libvmifact.NewCirros(
+				libvmi.WithNodeSelector(testPoolLabelKey, "true"),
+			)
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
+
+			By("Verifying the virt-launcher pod has the handler pool annotation")
+			pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pod.Annotations).To(HaveKeyWithValue(v1.HandlerPoolAnnotation, additionalHandlerName),
+				"VMI with matching selector should have handler-pool annotation set to the additional handler name")
+
+			By("Cleaning up the VMI")
+			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+		})
+
+		It("should configure anti-affinity on primary virt-handler to avoid additional handler nodes", func() {
+			By("Getting the current virt-handler and virt-launcher images")
+			primaryDs, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), "virt-handler", metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			virtHandlerImage := primaryDs.Spec.Template.Spec.Containers[0].Image
+			virtLauncherImage := strings.Replace(virtHandlerImage, "virt-handler", "virt-launcher", 1)
+
+			antiAffinityLabelKey := "kubevirt.io/test-anti-affinity-pool"
+
+			By("Labeling a node for the additional handler")
+			nodes := libnode.GetAllSchedulableNodes(virtClient)
+			Expect(nodes.Items).ToNot(BeEmpty(), "need at least one schedulable node")
+			testNode := nodes.Items[0].Name
+			libnode.AddLabelToNode(testNode, antiAffinityLabelKey, "true")
+			defer func() {
+				By("Removing the test label from the node")
+				libnode.RemoveLabelFromNode(testNode, antiAffinityLabelKey)
+			}()
+
+			By("Configuring an additional virt-handler with a unique node selector")
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			additionalHandler := v1.AdditionalVirtHandlerConfig{
+				Name:              additionalHandlerName,
+				VirtHandlerImage:  virtHandlerImage,
+				VirtLauncherImage: virtLauncherImage,
+				NodeSelector: map[string]string{
+					antiAffinityLabelKey: "true",
+				},
+			}
+
+			patchData, err := patch.New(
+				patch.WithAdd("/spec/additionalVirtHandlers", []v1.AdditionalVirtHandlerConfig{additionalHandler}),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for additional DaemonSet to be created")
+			Eventually(func() error {
+				_, err := virtClient.AppsV1().DaemonSets(originalKv.Namespace).Get(context.Background(), additionalDaemonSetName, metav1.GetOptions{})
+				return err
+			}, time.Minute*2, time.Second*2).Should(Succeed())
+
+			By("Waiting for the additional virt-handler pod to be running on the labeled node")
+			Eventually(func() bool {
+				pods, err := virtClient.CoreV1().Pods(originalKv.Namespace).List(context.Background(), metav1.ListOptions{
+					LabelSelector: fmt.Sprintf("%s=%s,%s=%s", v1.AppLabel, "virt-handler", components.HandlerPoolLabel, additionalHandlerName),
+					FieldSelector: fmt.Sprintf("spec.nodeName=%s", testNode),
+				})
+				if err != nil || len(pods.Items) == 0 {
+					return false
+				}
+				return pods.Items[0].Status.Phase == k8sv1.PodRunning
+			}, time.Minute*2, time.Second*2).Should(BeTrue(), "additional virt-handler pod should be running on the labeled node")
 
 			By("Verifying primary virt-handler has anti-affinity for additional handler nodes")
 			Eventually(func() bool {
@@ -2046,7 +2155,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				// Check that anti-affinity is configured to exclude nodes with the additional handler's label
 				for _, term := range affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
 					for _, expr := range term.MatchExpressions {
-						if expr.Key == testPoolLabel && expr.Operator == k8sv1.NodeSelectorOpNotIn {
+						if expr.Key == antiAffinityLabelKey && expr.Operator == k8sv1.NodeSelectorOpNotIn {
 							return slices.Contains(expr.Values, "true")
 						}
 					}
