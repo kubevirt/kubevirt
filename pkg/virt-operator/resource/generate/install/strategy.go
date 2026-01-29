@@ -600,8 +600,19 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.deployments = append(strategy.deployments, synchronizationControllerDeployment)
 
 	handler := components.NewHandlerDaemonSet(config, productName, productVersion, productComponent)
-
 	strategy.daemonSets = append(strategy.daemonSets, handler)
+
+	// Create additional virt-handler DaemonSets with custom images
+	for _, additionalHandler := range config.GetAdditionalHandlers() {
+		handlerConfig := &components.HandlerDaemonSetConfig{
+			NameSuffix:        additionalHandler.Name,
+			VirtHandlerImage:  additionalHandler.VirtHandlerImage,
+			VirtLauncherImage: additionalHandler.VirtLauncherImage,
+		}
+		additionalDs := components.NewHandlerDaemonSetWithConfig(config, handlerConfig, productName, productVersion, productComponent)
+		strategy.daemonSets = append(strategy.daemonSets, additionalDs)
+	}
+
 	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
 	strategy.apiServices = components.NewVirtAPIAPIServices(config.GetNamespace())
 	strategy.certificateSecrets = components.NewCertSecrets(config.GetNamespace(), operatorNamespace)

@@ -10,6 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -19,6 +20,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/placement"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -358,10 +360,29 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 
 	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry, id, true)
 	injectOperatorMetadata(kv, &daemonSet.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
-	placement.InjectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec, placement.AnyNode)
 
-	if daemonSet.GetName() == "virt-handler" {
+	// Handle placement injection based on whether this is the primary virt-handler or an additional one
+	if daemonSet.GetName() == components.VirtHandlerName {
+		// Primary virt-handler: use workloads placement from KubeVirt CR
+		placement.InjectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec, placement.AnyNode)
+		// Inject anti-affinity to avoid nodes targeted by additional handlers
+		injectAdditionalHandlerAntiAffinity(kv, &daemonSet.Spec.Template.Spec)
 		setMaxDevices(r.kv, daemonSet)
+	} else if strings.HasPrefix(daemonSet.GetName(), components.VirtHandlerName+"-") {
+		// Additional virt-handler: find matching config and use its nodeSelector
+		suffix := strings.TrimPrefix(daemonSet.GetName(), components.VirtHandlerName+"-")
+		if handlerConfig := findAdditionalHandler(kv, suffix); handlerConfig != nil {
+			componentConfig := &v1.ComponentConfig{
+				NodePlacement: &v1.NodePlacement{
+					NodeSelector: handlerConfig.NodeSelector,
+				},
+			}
+			placement.InjectPlacementMetadata(componentConfig, &daemonSet.Spec.Template.Spec, placement.AnyNode)
+		}
+		setMaxDevices(r.kv, daemonSet)
+	} else {
+		// Non-virt-handler DaemonSets (if any)
+		placement.InjectPlacementMetadata(kv.Spec.Workloads, &daemonSet.Spec.Template.Spec, placement.AnyNode)
 	}
 
 	var cachedDaemonSet *appsv1.DaemonSet
@@ -390,6 +411,15 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 	expectedGeneration := GetExpectedGeneration(daemonSet, kv.Status.Generations)
 
 	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, daemonSet.ObjectMeta)
+
+	// Check if node affinity has changed (e.g., due to additional handler anti-affinity)
+	if !*modified && daemonSet.GetName() == components.VirtHandlerName {
+		if !equality.Semantic.DeepEqual(cachedDaemonSet.Spec.Template.Spec.Affinity, daemonSet.Spec.Template.Spec.Affinity) {
+			*modified = true
+			log.Log.V(2).Infof("daemonset %v affinity configuration changed, forcing update", daemonSet.GetName())
+		}
+	}
+
 	// there was no change to metadata, the generation was right
 	if !*modified && existingCopy.GetGeneration() == expectedGeneration {
 		log.Log.V(4).Infof("daemonset %v is up-to-date", daemonSet.GetName())
@@ -416,6 +446,97 @@ func setMaxDevices(kv *v1.KubeVirt, vh *appsv1.DaemonSet) {
 	vh.Spec.Template.Spec.Containers[0].Command = append(vh.Spec.Template.Spec.Containers[0].Command,
 		"--max-devices",
 		fmt.Sprintf("%d", *kv.Spec.Configuration.VirtualMachineInstancesPerNode))
+}
+
+// findAdditionalHandler finds the AdditionalVirtHandlerConfig with the given name suffix
+func findAdditionalHandler(kv *v1.KubeVirt, suffix string) *v1.AdditionalVirtHandlerConfig {
+	for i := range kv.Spec.AdditionalVirtHandlers {
+		if kv.Spec.AdditionalVirtHandlers[i].Name == suffix {
+			return &kv.Spec.AdditionalVirtHandlers[i]
+		}
+	}
+	return nil
+}
+
+// isAdditionalVirtHandlersEnabled checks if the AdditionalVirtHandlers feature gate is enabled
+func isAdditionalVirtHandlersEnabled(kv *v1.KubeVirt) bool {
+	if kv.Spec.Configuration.DeveloperConfiguration == nil {
+		return false
+	}
+	for _, fg := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
+		if fg == featuregate.AdditionalVirtHandlersGate {
+			return true
+		}
+	}
+	return false
+}
+
+// injectAdditionalHandlerAntiAffinity adds node anti-affinity to the primary virt-handler
+// to prevent it from scheduling on nodes that are targeted by additional handlers.
+// This ensures each node only runs one virt-handler pod.
+// Only applies if the AdditionalVirtHandlers feature gate is enabled.
+func injectAdditionalHandlerAntiAffinity(kv *v1.KubeVirt, podSpec *corev1.PodSpec) {
+	if len(kv.Spec.AdditionalVirtHandlers) == 0 {
+		return
+	}
+
+	// Check if the AdditionalVirtHandlers feature gate is enabled
+	if !isAdditionalVirtHandlersEnabled(kv) {
+		return
+	}
+
+	// Collect all node selector requirements from additional handlers
+	var antiAffinityTerms []corev1.NodeSelectorRequirement
+	for _, handler := range kv.Spec.AdditionalVirtHandlers {
+		if len(handler.NodeSelector) == 0 {
+			continue
+		}
+		// Add anti-affinity for each node selector key-value pair
+		for key, value := range handler.NodeSelector {
+			antiAffinityTerms = append(antiAffinityTerms, corev1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: corev1.NodeSelectorOpNotIn,
+				Values:   []string{value},
+			})
+		}
+	}
+
+	if len(antiAffinityTerms) == 0 {
+		return
+	}
+
+	// Ensure affinity structure exists
+	if podSpec.Affinity == nil {
+		podSpec.Affinity = &corev1.Affinity{}
+	}
+	if podSpec.Affinity.NodeAffinity == nil {
+		podSpec.Affinity.NodeAffinity = &corev1.NodeAffinity{}
+	}
+	if podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
+	}
+
+	// Add a new term with all the anti-affinity requirements
+	// This means the primary handler will NOT run on nodes matching ANY of the additional handlers' node selectors
+	antiAffinityTerm := corev1.NodeSelectorTerm{
+		MatchExpressions: antiAffinityTerms,
+	}
+
+	nodeSelector := podSpec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if len(nodeSelector.NodeSelectorTerms) == 0 {
+		// No existing terms, add ours
+		nodeSelector.NodeSelectorTerms = []corev1.NodeSelectorTerm{antiAffinityTerm}
+	} else {
+		// Existing terms exist - we need to add our requirements to each term
+		// NodeSelectorTerms are ORed, but within each term, MatchExpressions are ANDed
+		// So we add our anti-affinity requirements to each existing term
+		for i := range nodeSelector.NodeSelectorTerms {
+			nodeSelector.NodeSelectorTerms[i].MatchExpressions = append(
+				nodeSelector.NodeSelectorTerms[i].MatchExpressions,
+				antiAffinityTerms...,
+			)
+		}
+	}
 }
 
 func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Deployment) error {
