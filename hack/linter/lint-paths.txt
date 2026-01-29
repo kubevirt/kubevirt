@@ -55,6 +55,7 @@ pkg/virt-handler/cgroup/constants
 pkg/virt-handler/node-labeller/util
 pkg/virt-handler/vsock
 pkg/virt-launcher/metadata
+pkg/virt-launcher/premigration-hook-server/network
 pkg/virt-launcher/virtwrap/access-credentials
 pkg/virt-launcher/virtwrap/agent-poller
 pkg/virt-launcher/virtwrap/converter/metadata

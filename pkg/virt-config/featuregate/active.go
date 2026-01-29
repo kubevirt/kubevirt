@@ -165,6 +165,12 @@ const (
 	// Details of the new hypervisors should be specified via the
 	// HypervisorConfigurations field in KubeVirtConfiguration.
 	ConfigurableHypervisor = "ConfigurableHypervisor"
+
+	// PodSecondaryInterfaceNamingUpgrade enables the upgrade mechanism for VMs
+	// stuck with the obsolete ordinal naming scheme for their pod secondary networks
+	// Owner: SIG network
+	// Beta: v1.8
+	PodSecondaryInterfaceNamingUpgrade = "PodSecondaryInterfaceNamingUpgrade"
 )
 
 func init() {
@@ -202,4 +208,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 }
