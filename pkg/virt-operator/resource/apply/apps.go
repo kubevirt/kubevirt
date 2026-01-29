@@ -10,6 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -189,6 +190,70 @@ func daemonHasDefaultRolloutStrategy(daemonSet *appsv1.DaemonSet) bool {
 	return getMaxUnavailable(daemonSet) == daemonSetDefaultMaxUnavailable.IntValue()
 }
 
+func findContainerByName(containers []corev1.Container, name string) *corev1.Container {
+	for i := range containers {
+		if containers[i].Name == name {
+			return &containers[i]
+		}
+	}
+	return nil
+}
+
+// containerSpecMatches compares security-relevant fields of two containers.
+// Excludes Args and Volumes which are managed by TLS migration logic.
+func containerSpecMatches(cached, desired *corev1.Container) bool {
+	if cached.Image != desired.Image {
+		return false
+	}
+	if !equality.Semantic.DeepEqual(cached.Env, desired.Env) {
+		return false
+	}
+	if !equality.Semantic.DeepEqual(cached.Resources, desired.Resources) {
+		return false
+	}
+	if !equality.Semantic.DeepEqual(cached.VolumeMounts, desired.VolumeMounts) {
+		return false
+	}
+	if !equality.Semantic.DeepEqual(cached.SecurityContext, desired.SecurityContext) {
+		return false
+	}
+	return true
+}
+
+// containersSpecMatch compares containers by name and checks security-relevant fields.
+// Returns true if all containers match, false if any mismatch is detected.
+func containersSpecMatch(cached, desired []corev1.Container) bool {
+	if len(cached) != len(desired) {
+		return false
+	}
+	for _, desiredContainer := range desired {
+		cachedContainer := findContainerByName(cached, desiredContainer.Name)
+		if cachedContainer == nil {
+			return false
+		}
+		if !containerSpecMatches(cachedContainer, &desiredContainer) {
+			return false
+		}
+	}
+	return true
+}
+
+// daemonSetCoreSpecMatches compares the core pod spec fields of two DaemonSets
+// to detect unauthorized modifications. Returns true if specs match.
+// Excludes Args and Volumes which are intentionally modified during TLS migration.
+func daemonSetCoreSpecMatches(cached, desired *appsv1.DaemonSet) bool {
+	cachedSpec := &cached.Spec.Template.Spec
+	desiredSpec := &desired.Spec.Template.Spec
+
+	if !containersSpecMatch(cachedSpec.Containers, desiredSpec.Containers) {
+		return false
+	}
+	if !containersSpecMatch(cachedSpec.InitContainers, desiredSpec.InitContainers) {
+		return false
+	}
+	return true
+}
+
 func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonSet, forceUpdate bool) (bool, error, CanaryUpgradeStatus) {
 	var updatedAndReadyPods int32
 	var status CanaryUpgradeStatus
@@ -203,7 +268,13 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	}
 	log := log.Log.With("resource", fmt.Sprintf("ds/%s", cachedDaemonSet.Name))
 
-	isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && !forceUpdate
+	// Compare the actual DaemonSet spec to detect unauthorized modifications.
+	coreSpecMatches := daemonSetCoreSpecMatches(cachedDaemonSet, newDS)
+	if !coreSpecMatches {
+		log.Warningf("detected unauthorized spec modification in daemonset %s, will revert", cachedDaemonSet.Name)
+	}
+
+	isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && coreSpecMatches && !forceUpdate
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
 	if isDaemonSetUpdated {
 		updatedAndReadyPods = r.howManyUpdatedAndReadyPods(cachedDaemonSet)
@@ -212,13 +283,20 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	switch {
 	case updatedAndReadyPods == 0:
 		if !isDaemonSetUpdated {
-			// start canary upgrade
+			// start canary upgrade (or revert unauthorized modification)
 			setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
-			_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
+			patchedDS, err := r.patchDaemonSet(cachedDaemonSet, newDS)
 			if err != nil {
 				return false, fmt.Errorf("unable to start canary upgrade for daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
 			}
 			log.V(2).Infof("daemonSet %v started upgrade", newDS.GetName())
+			// If we're reverting an unauthorized spec modification (not a version upgrade),
+			// the pods are already running with the correct spec and annotations. We can
+			// immediately record the generation to avoid blocking other reconciliation.
+			if !coreSpecMatches && util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) {
+				SetGeneration(&r.kv.Status.Generations, patchedDS)
+				return true, nil, CanaryUpgradeStatusSuccessful
+			}
 		} else {
 			// check for a crashed canary pod
 			canaryPods := r.getCanaryPods(cachedDaemonSet)
