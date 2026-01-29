@@ -3085,6 +3085,10 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	CommonInstancetypesDeployment *CommonInstancetypesDeployment `json:"commonInstancetypesDeployment,omitempty"`
 
+	// VirtTemplateDeployment controls the deployment of virt-template components
+	// +nullable
+	VirtTemplateDeployment *VirtTemplateDeployment `json:"virtTemplateDeployment,omitempty"`
+
 	// Instancetype configuration
 	// +nullable
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
@@ -3148,6 +3152,12 @@ const (
 
 type CommonInstancetypesDeployment struct {
 	// Enabled controls the deployment of common-instancetypes resources, defaults to True.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type VirtTemplateDeployment struct {
+	// Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.
 	// +nullable
 	Enabled *bool `json:"enabled,omitempty"`
 }

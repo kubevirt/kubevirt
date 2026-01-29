@@ -36,6 +36,9 @@ const (
 	VirtExportProxyCertSecretName                     = "kubevirt-exportproxy-certs"
 	VirtSynchronizationControllerCertSecretName       = "kubevirt-synchronization-controller-certs"
 	VirtSynchronizationControllerServerCertSecretName = "kubevirt-synchronization-controller-server-certs"
+	VirtTemplateApiCertSecretName                     = "kubevirt-virt-template-api-certs"
+	VirtTemplateWebhookCertSecretName                 = "kubevirt-virt-template-webhook-certs"
+	VirtTemplateControllerMetricsCertSecretName       = "kubevirt-virt-template-controller-metrics-certs"
 	CABundleKey                                       = "ca-bundle"
 	LocalPodDNStemplateString                         = "%s.%s.pod.cluster.local"
 	CaClusterLocal                                    = "cluster.local"
@@ -197,6 +200,57 @@ var populationStrategy = map[string]CertificateCreationCallback{
 			caKeyPair,
 			"kubevirt.io:system:node:virt-synchronization-controller",
 			VirtSynchronizationControllerServiceName,
+			secret.Namespace,
+			CaClusterLocal,
+			nil,
+			nil,
+			duration,
+		)
+		return keyPair.Cert, keyPair.Key
+	},
+	VirtTemplateApiCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
+		caKeyPair := &triple.KeyPair{
+			Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
+			Cert: caCert.Leaf,
+		}
+		keyPair, _ := triple.NewServerKeyPair(
+			caKeyPair,
+			fmt.Sprintf(LocalPodDNStemplateString, VirtTemplateApiServiceName, secret.Namespace),
+			VirtTemplateApiServiceName,
+			secret.Namespace,
+			CaClusterLocal,
+			nil,
+			nil,
+			duration,
+		)
+		return keyPair.Cert, keyPair.Key
+	},
+	VirtTemplateWebhookCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
+		caKeyPair := &triple.KeyPair{
+			Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
+			Cert: caCert.Leaf,
+		}
+		keyPair, _ := triple.NewServerKeyPair(
+			caKeyPair,
+			fmt.Sprintf(LocalPodDNStemplateString, VirtTemplateWebhookServiceName, secret.Namespace),
+			VirtTemplateWebhookServiceName,
+			secret.Namespace,
+			CaClusterLocal,
+			nil,
+			nil,
+			duration,
+		)
+		return keyPair.Cert, keyPair.Key
+	},
+	VirtTemplateControllerMetricsCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
+		caKeyPair := &triple.KeyPair{
+			Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
+			Cert: caCert.Leaf,
+		}
+		keyPair, _ := triple.NewServerKeyPair(
+			caKeyPair,
+			fmt.Sprintf(LocalPodDNStemplateString, VirtTemplateControllerMetricsServiceName, secret.Namespace),
+			VirtTemplateControllerMetricsServiceName,
 			secret.Namespace,
 			CaClusterLocal,
 			nil,
@@ -448,6 +502,53 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 		},
 	}
 	return secrets
+}
+
+func NewVirtTemplateCertSecrets(installNamespace string) []*k8sv1.Secret {
+	return []*k8sv1.Secret{
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      VirtTemplateApiCertSecretName,
+				Namespace: installNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      VirtTemplateWebhookCertSecretName,
+				Namespace: installNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      VirtTemplateControllerMetricsCertSecretName,
+				Namespace: installNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
+	}
 }
 
 // nextRotationDeadline returns a value for the threshold at which the

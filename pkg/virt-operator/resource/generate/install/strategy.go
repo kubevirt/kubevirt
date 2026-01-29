@@ -83,6 +83,7 @@ type StrategyInterface interface {
 	ControllerDeployments() []*appsv1.Deployment
 	ExportProxyDeployments() []*appsv1.Deployment
 	SynchronizationControllerDeployments() []*appsv1.Deployment
+	VirtTemplateDeployments() []*appsv1.Deployment
 	DaemonSets() []*appsv1.DaemonSet
 	ValidatingWebhookConfigurations() []*admissionregistrationv1.ValidatingWebhookConfiguration
 	MutatingWebhookConfigurations() []*admissionregistrationv1.MutatingWebhookConfiguration
@@ -203,6 +204,19 @@ func (ins *Strategy) SynchronizationControllerDeployments() []*appsv1.Deployment
 
 	for _, deployment := range ins.deployments {
 		if !strings.Contains(deployment.Name, "virt-synchronization-controller") {
+			continue
+		}
+		deployments = append(deployments, deployment)
+	}
+	return deployments
+}
+
+func (ins *Strategy) VirtTemplateDeployments() []*appsv1.Deployment {
+	var deployments []*appsv1.Deployment
+
+	for _, deployment := range ins.deployments {
+		if !strings.Contains(deployment.Name, "virt-template-controller") &&
+			!strings.Contains(deployment.Name, "virt-template-apiserver") {
 			continue
 		}
 		deployments = append(deployments, deployment)
@@ -624,6 +638,26 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		return nil, fmt.Errorf("error generating preferences for environment %v", err)
 	}
 	strategy.preferences = preferences
+
+	if config.VirtTemplateDeploymentEnabled() {
+		resources, err := components.NewVirtTemplateResources(config)
+		if err != nil {
+			return nil, fmt.Errorf("error generating virt-template resources for environment %v", err)
+		}
+		strategy.crds = append(strategy.crds, resources.CRDs...)
+		strategy.serviceAccounts = append(strategy.serviceAccounts, resources.ServiceAccounts...)
+		strategy.roles = append(strategy.roles, resources.Roles...)
+		strategy.clusterRoles = append(strategy.clusterRoles, resources.ClusterRoles...)
+		strategy.roleBindings = append(strategy.roleBindings, resources.RoleBindings...)
+		strategy.clusterRoleBindings = append(strategy.clusterRoleBindings, resources.ClusterRoleBindings...)
+		strategy.services = append(strategy.services, resources.Services...)
+		strategy.deployments = append(strategy.deployments, resources.Deployments...)
+		strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, resources.ValidatingAdmissionPolicies...)
+		strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, resources.ValidatingAdmissionPolicyBindings...)
+		strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, resources.ValidatingWebhookConfigurations...)
+		strategy.apiServices = append(strategy.apiServices, resources.APIServices...)
+		strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewVirtTemplateCertSecrets(config.GetNamespace())...)
+	}
 
 	return strategy, nil
 }
