@@ -1,0 +1,34 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "fake_core_client.go",
+        "fake_kubevirt.go",
+        "fake_kubevirt_expansion.go",
+        "fake_virtualmachine.go",
+        "fake_virtualmachine_expansion.go",
+        "fake_virtualmachineinstance.go",
+        "fake_virtualmachineinstance_expansion.go",
+        "fake_virtualmachineinstancemigration.go",
+        "fake_virtualmachineinstancemigration_expansion.go",
+        "fake_virtualmachineinstancepreset.go",
+        "fake_virtualmachineinstancereplicaset.go",
+        "fake_virtualmachineinstancereplicaset_expansion.go",
+    ],
+    importpath = "kubevirt.io/client-go/kubevirt/typed/core/v1/fake",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/kubevirt/typed/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/client-go/testing:go_default_library",
+        "//vendor/k8s.io/api/autoscaling/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/watch:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/client-go/testing:go_default_library",
+    ],
+)
