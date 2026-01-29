@@ -291,7 +291,7 @@ type KernelBootContainer struct {
 type KernelBoot struct {
 	// Arguments to be passed to the kernel at boot time
 	KernelArgs string `json:"kernelArgs,omitempty"`
-	// Container defines the container that containes kernel artifacts
+	// Container defines the container that contains kernel artifacts
 	Container *KernelBootContainer `json:"container,omitempty"`
 }
 
@@ -561,6 +561,7 @@ type SoundDevice struct {
 	// If SoundDevice is not set: No sound card is emulated.
 	// If SoundDevice is set but Model is not: ich9
 	// +optional
+	// +kubebuilder:validation:Pattern=`^(|ich9|ac97)$`
 	Model string `json:"model,omitempty"`
 }
 
@@ -692,6 +693,7 @@ type Disk struct {
 	// Each disk or interface that has a boot order must have a unique value.
 	// Disks without a boot order are not tried if a disk with a boot order exists.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	BootOrder *uint `json:"bootOrder,omitempty"`
 	// Serial provides the ability to specify a serial number for the disk device.
 	// +optional
@@ -710,7 +712,7 @@ type Disk struct {
 	// +optional
 	Cache DriverCache `json:"cache,omitempty"`
 	// IO specifies which QEMU disk IO mode should be used.
-	// Supported values are: native, default, threads.
+	// Supported values are: native, threads.
 	// +optional
 	IO DriverIO `json:"io,omitempty"`
 	// If specified, disk address and its tag will be provided to the guest via config drive metadata
@@ -1384,6 +1386,7 @@ type Interface struct {
 	// Each interface or disk that has a boot order must have a unique value.
 	// Interfaces without a boot order are not tried.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	BootOrder *uint `json:"bootOrder,omitempty"`
 	// If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10
 	// +optional
@@ -1527,6 +1530,8 @@ type Port struct {
 	Protocol string `json:"protocol,omitempty"`
 	// Number of port to expose for the virtual machine.
 	// This must be a valid port number, 0 < x < 65536.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	Port int32 `json:"port"`
 }
 
@@ -1719,5 +1724,6 @@ type CPUTopology struct {
 type DiskIOThreads struct {
 	// SupplementalPoolThreadCount specifies how many iothreads are allocated for the supplementalPool policy.
 	// +optional
+	// +kubebuilder:validation:Minimum=1
 	SupplementalPoolThreadCount *uint32 `json:"supplementalPoolThreadCount,omitempty"`
 }

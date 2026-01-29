@@ -123,6 +123,8 @@ type VirtualMachineInstanceSpec struct {
 	// +optional
 	StartStrategy *StartStrategy `json:"startStrategy,omitempty"`
 	// Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
 	// +kubebuilder:validation:MaxItems:=256
@@ -170,6 +172,7 @@ type VirtualMachineInstanceSpec struct {
 	// +kubebuilder:validation:MaxItems:=256
 	AccessCredentials []AccessCredential `json:"accessCredentials,omitempty"`
 	// Specifies the architecture of the vm guest you are attempting to run. Defaults to the compiled architecture of the KubeVirt components
+	// +kubebuilder:validation:Pattern=`^(|amd64|arm64|s390x)$`
 	Architecture string `json:"architecture,omitempty"`
 	// ResourceClaims define which ResourceClaims must be allocated
 	// and reserved before the VMI, hence virt-launcher pod is allowed to start. The resources
@@ -2696,6 +2699,7 @@ type RestartOptions struct {
 	// Defaults to a per object value if not specified. zero means restart immediately.
 	// Allowed Values: nil and 0
 	// +optional
+	// +kubebuilder:validation:Minimum=0
 	GracePeriodSeconds *int64 `json:"gracePeriodSeconds,omitempty" protobuf:"varint,1,opt,name=gracePeriodSeconds"`
 
 	// When present, indicates that modifications should not be
@@ -2764,6 +2768,7 @@ type StopOptions struct {
 
 	// this updates the VMIs terminationGracePeriodSeconds during shutdown
 	// +optional
+	// +kubebuilder:validation:Minimum=0
 	GracePeriod *int64 `json:"gracePeriod,omitempty" protobuf:"varint,1,opt,name=gracePeriod"`
 	// When present, indicates that modifications should not be
 	// persisted. An invalid or unrecognized dryRun directive will
