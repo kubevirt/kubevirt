@@ -48,34 +48,10 @@ func hasDedicatedIOThread(disk v1.Disk) bool {
 func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoThreads int) {
 	dedicatedThreads := 0
 
-	var threadPoolLimit int
-	policy := vmi.Spec.Domain.IOThreadsPolicy
-	switch {
-	case policy == nil:
-		threadPoolLimit = 1
-	case *policy == v1.IOThreadsPolicyShared:
-		threadPoolLimit = 1
-	case *policy == v1.IOThreadsPolicyAuto:
-		// When IOThreads policy is set to auto and we've allocated a dedicated
-		// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
-		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-			threadPoolLimit = 1
-		} else {
-			numCPUs := 1
-			// Requested CPU's is guaranteed to be no greater than the limit
-			if cpuRequests, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
-				numCPUs = int(cpuRequests.Value())
-			} else if cpuLimit, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
-				numCPUs = int(cpuLimit.Value())
-			}
-
-			threadPoolLimit = numCPUs * 2
-		}
-	case *policy == v1.IOThreadsPolicySupplementalPool:
-		if vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
-			ioThreadCount = int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount)
-		}
-		return
+	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
+		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool &&
+		vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount != nil {
+		return int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount), 0
 	}
 
 	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
@@ -85,6 +61,8 @@ func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 			autoThreads += 1
 		}
 	}
+
+	threadPoolLimit := getThreadPoolLimit(vmi)
 
 	if (autoThreads + dedicatedThreads) > threadPoolLimit {
 		autoThreads = threadPoolLimit - dedicatedThreads
@@ -96,6 +74,31 @@ func getIOThreadsCountType(vmi *v1.VirtualMachineInstance) (ioThreadCount, autoT
 
 	ioThreadCount = autoThreads + dedicatedThreads
 	return
+}
+
+func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
+	policy := vmi.Spec.Domain.IOThreadsPolicy
+
+	switch {
+	case policy == nil, *policy == v1.IOThreadsPolicyShared:
+		return 1
+	case *policy == v1.IOThreadsPolicyAuto:
+		// When IOThreads policy is set to auto and we've allocated a dedicated
+		// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
+		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+			return 1
+		}
+		numCPUs := 1
+		// Requested CPU's is guaranteed to be no greater than the limit
+		if req, ok := vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceCPU]; ok {
+			numCPUs = int(req.Value())
+		} else if lim, ok := vmi.Spec.Domain.Resources.Limits[k8sv1.ResourceCPU]; ok {
+			numCPUs = int(lim.Value())
+		}
+		return numCPUs * 2
+	default:
+		return 0
+	}
 }
 
 func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint) {
