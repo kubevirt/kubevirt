@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -96,7 +97,7 @@ var _ = Describe("[sig-compute]HostDevices", Serial, decorators.SigCompute, func
 			// Make sure to delete the VMI before ending the test otherwise a device could still be taken
 			err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180*time.Second)).To(Succeed())
 		},
 			Entry("Should successfully passthrough an emulated PCI device", []string{"8086:2668"}),
 			Entry("Should successfully passthrough 2 emulated PCI devices", []string{"8086:2668", "8086:2415"}),
