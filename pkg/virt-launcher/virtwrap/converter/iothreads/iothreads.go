@@ -38,10 +38,10 @@ func HasIOThreads(vmi *v1.VirtualMachineInstance) bool {
 	if vmi.Spec.Domain.IOThreadsPolicy != nil {
 		return true
 	}
-	return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, hasDedicatedIOThread)
+	return slices.ContainsFunc(vmi.Spec.Domain.Devices.Disks, HasDedicatedIOThread)
 }
 
-func hasDedicatedIOThread(disk v1.Disk) bool {
+func HasDedicatedIOThread(disk v1.Disk) bool {
 	return disk.DedicatedIOThread != nil && *disk.DedicatedIOThread
 }
 
@@ -130,30 +130,6 @@ func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint
 					currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
 				}
 			}
-		}
-	}
-
-	// Virtio-scsi doesn't support IO threads yet, only the SCSI controller supports.
-	setIOThreadSCSIController := false
-	for i, disk := range domain.Spec.Devices.Disks {
-		// Only disks with virtio bus support IOThreads
-		if disk.Target.Bus == v1.DiskBusSCSI {
-			if hasDedicatedIOThread(vmi.Spec.Domain.Devices.Disks[i]) {
-				setIOThreadSCSIController = true
-				break
-			}
-		}
-	}
-	if !setIOThreadSCSIController {
-		return
-	}
-	for i, controller := range domain.Spec.Devices.Controllers {
-		if controller.Type == "scsi" {
-			if controller.Driver == nil {
-				domain.Spec.Devices.Controllers[i].Driver = &api.ControllerDriver{}
-			}
-			domain.Spec.Devices.Controllers[i].Driver.IOThread = pointer.P(currentAutoThread)
-			domain.Spec.Devices.Controllers[i].Driver.Queues = pointer.P(vcpus)
 		}
 	}
 }
