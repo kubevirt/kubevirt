@@ -24,14 +24,9 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	k8sv1 "k8s.io/api/core/v1"
-)
-
-const (
-	defaultIOThread = uint(1)
 )
 
 func HasIOThreads(vmi *v1.VirtualMachineInstance) bool {
@@ -101,35 +96,13 @@ func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
 	}
 }
 
-func SetIOThreads(vmi *v1.VirtualMachineInstance, domain *api.Domain, vcpus uint, autoThreads int) {
-	currentAutoThread := defaultIOThread
-	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
-		*vmi.Spec.Domain.IOThreadsPolicy == v1.IOThreadsPolicySupplementalPool {
-		iothreads := &api.DiskIOThreads{}
-		for id := 1; id <= int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount); id++ {
-			iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
-		}
-		for i, disk := range domain.Spec.Devices.Disks {
-			// Only disks with virtio bus support IOThreads
-			if disk.Target.Bus == v1.DiskBusVirtio {
-				domain.Spec.Devices.Disks[i].Driver.IOThreads = iothreads
-			}
-		}
-	} else {
-		currentDedicatedThread := uint(autoThreads + 1)
-		for i, disk := range domain.Spec.Devices.Disks {
-			// Only disks with virtio bus support IOThreads
-			if disk.Target.Bus == v1.DiskBusVirtio {
-				if vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread != nil && *vmi.Spec.Domain.Devices.Disks[i].DedicatedIOThread {
-					domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentDedicatedThread)
-					currentDedicatedThread += 1
-				} else {
-					domain.Spec.Devices.Disks[i].Driver.IOThread = pointer.P(currentAutoThread)
-					// increment the threadId to be used next but wrap around at the thread limit
-					// the odd math here is because thread ID's start at 1, not 0
-					currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
-				}
-			}
-		}
+func SupplementalPoolThreadCount(vmi *v1.VirtualMachineInstance) *api.DiskIOThreads {
+	if vmi.Spec.Domain.IOThreadsPolicy == nil || *vmi.Spec.Domain.IOThreadsPolicy != v1.IOThreadsPolicySupplementalPool {
+		return nil
 	}
+	iothreads := &api.DiskIOThreads{}
+	for id := 1; id <= int(*vmi.Spec.Domain.IOThreads.SupplementalPoolThreadCount); id++ {
+		iothreads.IOThread = append(iothreads.IOThread, api.DiskIOThread{Id: uint32(id)})
+	}
+	return iothreads
 }
