@@ -1,0 +1,297 @@
+---
+# Source: dra-driver-sriov-chart/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sriov-dra-dra-driver-sriov-chart-service-account
+  namespace: dra-driver-sriov
+  labels:
+    app.kubernetes.io/name: dra-driver-sriov-chart
+    app.kubernetes.io/instance: sriov-dra
+---
+# Source: dra-driver-sriov-chart/templates/sriovnetwork.k8snetworkplumbingwg.io_sriovresourcefilters.yaml
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: sriovresourcefilters.sriovnetwork.k8snetworkplumbingwg.io
+spec:
+  group: sriovnetwork.k8snetworkplumbingwg.io
+  names:
+    kind: SriovResourceFilter
+    listKind: SriovResourceFilterList
+    plural: sriovresourcefilters
+    singular: sriovresourcefilter
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: SriovResourceFilter is a filter for SR-IOV resources
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: SriovResourceFilterSpec is the spec for a SriovResourceFilter
+            properties:
+              configs:
+                items:
+                  properties:
+                    resourceFilters:
+                      items:
+                        description: ResourceFilter is a filter for a resource
+                        properties:
+                          devices:
+                            items:
+                              type: string
+                            type: array
+                          drivers:
+                            items:
+                              type: string
+                            type: array
+                          numaNodes:
+                            items:
+                              type: string
+                            type: array
+                          pciAddresses:
+                            items:
+                              type: string
+                            type: array
+                          pfNames:
+                            items:
+                              type: string
+                            type: array
+                          rootDevices:
+                            items:
+                              type: string
+                            type: array
+                          vendors:
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                      type: array
+                    resourceName:
+                      type: string
+                  type: object
+                type: array
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                type: object
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+---
+# Source: dra-driver-sriov-chart/templates/clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sriov-dra-dra-driver-sriov-chart-role
+  namespace: dra-driver-sriov
+rules:
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceclaims"]
+  verbs: ["get"]
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceclaims/status"]
+  verbs: ["get","list","update","patch"]
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["get", "list", "watch"]  # Cluster-scoped resource, needs cluster permissions
+- apiGroups: ["resource.k8s.io"]
+  resources: ["resourceslices"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+- apiGroups: ["k8s.cni.cncf.io"]
+  resources: ["network-attachment-definitions"]
+  verbs: ["get"]
+- apiGroups: ["sriovnetwork.k8snetworkplumbingwg.io"]
+  resources: ["sriovresourcefilters"]
+  verbs: ["get", "list", "watch"]  # SriovResourceFilter resources
+---
+# Source: dra-driver-sriov-chart/templates/clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sriov-dra-dra-driver-sriov-chart-role-binding
+  namespace: dra-driver-sriov
+subjects:
+- kind: ServiceAccount
+  name: sriov-dra-dra-driver-sriov-chart-service-account
+  namespace: dra-driver-sriov
+roleRef:
+  kind: ClusterRole
+  name: sriov-dra-dra-driver-sriov-chart-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: dra-driver-sriov-chart/templates/dra-driver.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: sriov-dra-dra-driver-sriov-chart-kubeletplugin
+  namespace: dra-driver-sriov
+  labels:
+    app.kubernetes.io/name: dra-driver-sriov-chart
+    app.kubernetes.io/instance: sriov-dra
+    app.kubernetes.io/component: kubeletplugin
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dra-driver-sriov-chart
+      app.kubernetes.io/instance: sriov-dra
+      app.kubernetes.io/component: kubeletplugin
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dra-driver-sriov-chart
+        app.kubernetes.io/instance: sriov-dra
+        app.kubernetes.io/component: kubeletplugin
+    spec:
+      terminationGracePeriodSeconds: 30
+      hostNetwork: true
+      hostPID: true
+      priorityClassName: system-node-critical
+      serviceAccountName: sriov-dra-dra-driver-sriov-chart-service-account
+      securityContext:
+        {}
+      initContainers:
+      - args:
+        - --no-sleep
+        image: ghcr.io/k8snetworkplumbingwg/sriov-cni:v2.10.0
+        imagePullPolicy: IfNotPresent
+        name: sriov-cni
+        resources:
+          requests:
+            cpu: 10m
+            memory: 10Mi
+        securityContext:
+          privileged: true
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /host/opt/cni/bin
+          name: cni-bin
+        - mountPath: /host/etc/os-release
+          name: os-release
+          readOnly: true
+      containers:
+      - name: plugin
+        securityContext:
+          privileged: true
+        image: ghcr.io/k8snetworkplumbingwg/dra-driver-sriov:4889196
+        imagePullPolicy: Always
+        command:
+          # - dlv
+          # - --listen=:2345
+          # - --headless=true
+          # - --api-version=2
+          # - --accept-multiclient
+          # - exec
+          - /usr/bin/dra-driver-sriov
+        resources:
+          {}
+        
+        env:
+        - name: CDI_ROOT
+          value: /var/run/cdi
+        - name: KUBELET_REGISTRAR_DIRECTORY_PATH
+          value: "/var/lib/kubelet/plugins_registry"
+        - name: KUBELET_PLUGINS_DIRECTORY_PATH
+          value: "/var/lib/kubelet/plugins"
+        - name: NRI_PLUGIN_NAME
+          value: "dra-driver-sriov"
+        - name: NRI_PLUGIN_IDX
+          value: "42"
+        - name: DEFAULT_INTERFACE_PREFIX
+          value: "vfnet"
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: HEALTHCHECK_PORT
+          value: "-1"
+        # Logging configuration
+        - name: V
+          value: "3"
+        - name: LOG_FORMAT
+          value: "text"
+        - name: ALSOLOGTOSTDERR
+          value: "true"
+        volumeMounts:
+        - name: plugins-registry
+          mountPath: "/var/lib/kubelet/plugins_registry"
+        - name: plugins
+          mountPath: "/var/lib/kubelet/plugins"
+        - name: cdi
+          mountPath: /var/run/cdi
+        - name: cri-socket
+          mountPath: /var/run/nri/nri.sock
+        - name: netns
+          mountPath: /var/run/netns
+          mountPropagation: HostToContainer
+        - name: cni-results
+          mountPath: /var/lib/cni/
+        - name: cni-bin
+          mountPath: /opt/cni/bin
+      volumes:
+      - name: cni-results
+        hostPath:
+          path: /var/lib/cni/
+      - name: netns
+        hostPath:
+          path: /var/run/netns
+      - name: cri-socket
+        hostPath:
+          path: /var/run/nri/nri.sock
+          type: Socket
+      - name: plugins-registry
+        hostPath:
+          path: "/var/lib/kubelet/plugins_registry"
+      - name: plugins
+        hostPath:
+          path: "/var/lib/kubelet/plugins"
+      - name: cdi
+        hostPath:
+          path: /var/run/cdi
+      - hostPath:
+          path: /opt/cni/bin
+        name: cni-bin
+      - hostPath:
+          path: /etc/os-release
+          type: File
+        name: os-release
+---
+# Source: dra-driver-sriov-chart/templates/deviceclass.yaml
+apiVersion: resource.k8s.io/v1
+kind: DeviceClass
+metadata:
+  name: sriovnetwork.k8snetworkplumbingwg.io
+spec:
+  selectors:
+  - cel: 
+      expression: "device.driver == 'sriovnetwork.k8snetworkplumbingwg.io'"
