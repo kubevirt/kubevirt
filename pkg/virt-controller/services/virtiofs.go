@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	k8sv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -27,7 +26,12 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, co
 	containers := []k8sv1.Container{}
 	for _, volume := range vmi.Spec.Volumes {
 		if _, isPassthroughFSVolume := passthroughFSVolumes[volume.Name]; isPassthroughFSVolume {
-			resources := resourcesForVirtioFSContainer(vmi.IsCPUDedicated(), vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed(), config)
+			// Skip ContainerPath volumes - they are handled by the pod mutating webhook
+			// because external mutators inject the actual volumes after pod creation
+			if volume.ContainerPath != nil {
+				continue
+			}
+			resources := virtiofs.ResourcesForVirtioFSContainer(vmi.IsCPUDedicated(), vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed(), config)
 			container := generateContainerFromVolume(&volume, image, resources)
 			containers = append(containers, container)
 
@@ -35,39 +39,6 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, co
 	}
 
 	return containers
-}
-
-func resourcesForVirtioFSContainer(dedicatedCPUs bool, guaranteedQOS bool, config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
-	resources := k8sv1.ResourceRequirements{Requests: k8sv1.ResourceList{}, Limits: k8sv1.ResourceList{}}
-
-	resources.Requests[k8sv1.ResourceCPU] = resource.MustParse("10m")
-	if reqCpu := config.GetSupportContainerRequest(v1.VirtioFS, k8sv1.ResourceCPU); reqCpu != nil {
-		resources.Requests[k8sv1.ResourceCPU] = *reqCpu
-	}
-	resources.Limits[k8sv1.ResourceMemory] = resource.MustParse("80M")
-	if limMem := config.GetSupportContainerLimit(v1.VirtioFS, k8sv1.ResourceMemory); limMem != nil {
-		resources.Limits[k8sv1.ResourceMemory] = *limMem
-	}
-
-	resources.Limits[k8sv1.ResourceCPU] = resource.MustParse("100m")
-	if limCpu := config.GetSupportContainerLimit(v1.VirtioFS, k8sv1.ResourceCPU); limCpu != nil {
-		resources.Limits[k8sv1.ResourceCPU] = *limCpu
-	}
-	if dedicatedCPUs || guaranteedQOS {
-		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
-	}
-
-	if guaranteedQOS {
-		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
-	} else {
-		resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1M")
-		if reqMem := config.GetSupportContainerRequest(v1.VirtioFS, k8sv1.ResourceMemory); reqMem != nil {
-			resources.Requests[k8sv1.ResourceMemory] = *reqMem
-		}
-	}
-
-	return resources
-
 }
 
 func isAutoMount(volume *v1.Volume) bool {

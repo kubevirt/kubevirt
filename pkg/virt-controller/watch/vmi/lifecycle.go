@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
 func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) (common.SyncError, *k8sv1.Pod) {
@@ -136,6 +137,14 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 			return common.NewSyncError(fmt.Errorf("PVC pending"), controller.BackendStorageNotReadyReason), pod
 		}
 
+		// Block pod creation if VMI uses ContainerPath volumes but feature gate is disabled
+		containerPathVolumes := virtiofs.GetContainerPathVolumesWithFilesystems(vmi)
+		if len(containerPathVolumes) > 0 && !c.clusterConfig.ContainerPathVolumesEnabled() {
+			err := fmt.Errorf("VMI has ContainerPath volumes but the ContainerPathVolumes feature gate is disabled")
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, virtv1.ContainerPathVolumesDisabledReason, "Cannot create pod: %v", err)
+			return common.NewSyncError(err, virtv1.ContainerPathVolumesDisabledReason), pod
+		}
+
 		var templatePod *k8sv1.Pod
 		if isWaitForFirstConsumer {
 			log.Log.V(3).Object(vmi).Infof("Scheduling temporary pod for WaitForFirstConsumer DV")
@@ -177,6 +186,18 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		err := c.cleanupWaitForFirstConsumerTemporaryPods(vmi, pod)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("failed to clean up temporary pods: %v", err), controller.FailedHotplugSyncReason), pod
+		}
+	}
+
+	// Check if pod is missing expected virtiofs containers for ContainerPath volumes.
+	// This can happen if the feature gate was disabled after the VMI was created,
+	// causing the pod mutating webhook to not inject the required containers.
+	if !isTempPod(pod) {
+		missingContainers := virtiofs.MissingContainerPathContainers(vmi, pod)
+		if len(missingContainers) > 0 {
+			err := fmt.Errorf("pod is missing virtiofs containers for ContainerPath volumes: %v", missingContainers)
+			c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, virtv1.MissingVirtiofsContainersReason, "Pod sync error: %v", err)
+			return common.NewSyncError(err, virtv1.MissingVirtiofsContainersReason), pod
 		}
 	}
 
