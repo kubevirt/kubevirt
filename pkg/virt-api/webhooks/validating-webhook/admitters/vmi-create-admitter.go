@@ -234,7 +234,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validatePersistentReservation(field, spec, config)...)
 	causes = append(causes, validateDownwardMetrics(field, spec, config)...)
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
-	causes = append(causes, validateVideoConfig(field, spec, config)...)
+	causes = append(causes, validateVideoConfig(field, spec)...)
 	causes = append(causes, validatePanicDevices(field, spec, config)...)
 
 	return causes
@@ -1987,19 +1987,10 @@ func validateCPUHotplug(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpe
 	return causes
 }
 
-func validateVideoConfig(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+func validateVideoConfig(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	if spec.Domain.Devices.Video == nil {
-		return causes
-	}
-
-	if !config.VideoConfigEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Video configuration is specified but the %s feature gate is not enabled", featuregate.VideoConfig),
-			Field:   field.Child("video").String(),
-		})
 		return causes
 	}
 
