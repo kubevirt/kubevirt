@@ -70,7 +70,7 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[stri
 	switch {
 	case primaryIface == nil:
 		return fmt.Errorf("no primary interface found for network %s", podNetwork.Name)
-	case primaryIface.Masquerade != nil:
+	case primaryIface.Masquerade != nil || primaryIface.PasstBinding != nil:
 		return nil
 	case primaryIface.Bridge != nil:
 		if _, isLiveMigrationAllowed := vmi.Annotations[v1.AllowPodBridgeNetworkLiveMigrationAnnotation]; isLiveMigrationAllowed {
@@ -176,6 +176,15 @@ func HasBindingPluginDeviceInfo(iface v1.Interface, bindingPlugins map[string]v1
 func hasVirtioIface(vmi *v1.VirtualMachineInstance) bool {
 	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
 		if iface.Model == "" || iface.Model == v1.VirtIO {
+			return true
+		}
+	}
+	return false
+}
+
+func HasPasstBinding(vmi *v1.VirtualMachineInstance) bool {
+	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
+		if iface.PasstBinding != nil {
 			return true
 		}
 	}
