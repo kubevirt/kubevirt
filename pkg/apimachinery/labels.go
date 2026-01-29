@@ -26,9 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
-// CalculateVirtualMachineInstanceID calculates a stable and unique identifier for a VMI based on its name attribute.
-// For VMI names longer than 63 characters, the name is a truncated and hashed to ensure uniqueness.
-func CalculateVirtualMachineInstanceID(vmiName string) string {
+// CalculateValidUniqueID calculates a stable and unique identifier for a resource based on its name attribute.
+// For names longer than 63 characters, the name is a truncated and hashed to ensure uniqueness.
+func CalculateValidUniqueID(vmiName string) string {
 	if len(vmiName) <= validation.DNS1035LabelMaxLength {
 		return vmiName
 	}

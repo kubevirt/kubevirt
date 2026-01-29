@@ -433,5 +433,5 @@ func getSelectorKeyAndValue(resType, resName string) (string, string) {
 		return labelKey, labelValue
 	}
 
-	return v1.VirtualMachineInstanceIDLabel, apimachinery.CalculateVirtualMachineInstanceID(resName)
+	return v1.VirtualMachineInstanceIDLabel, apimachinery.CalculateValidUniqueID(resName)
 }
