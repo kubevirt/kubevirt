@@ -20,15 +20,18 @@
 package compute
 
 import (
+	"strings"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 type ControllersDomainConfigurator struct {
-	isUSBNeeded      bool
-	scsiModel        string
-	controllerDriver *api.ControllerDriver
+	isUSBNeeded               bool
+	scsiModel                 string
+	controllerDriver          *api.ControllerDriver
+	supportPCIHole64Disabling bool
 }
 
 type controllersOption func(*ControllersDomainConfigurator)
@@ -48,6 +51,10 @@ func (c ControllersDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance,
 
 	if requiresSCSIController(vmi) {
 		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newSCSIController(c.scsiModel, c.controllerDriver))
+	}
+
+	if c.supportPCIHole64Disabling && shouldDisablePCIHole64(vmi) {
+		domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, newPCIController())
 	}
 
 	return nil
@@ -71,6 +78,12 @@ func ControllersWithControllerDriver(controllerDriver *api.ControllerDriver) con
 	}
 }
 
+func ControllersWithSupportPCIHole64Disabling(supportPCIHole64Disabling bool) controllersOption {
+	return func(c *ControllersDomainConfigurator) {
+		c.supportPCIHole64Disabling = supportPCIHole64Disabling
+	}
+}
+
 func newUSBController(usbNeeded bool) api.Controller {
 	usbControllerModel := "none"
 
@@ -83,6 +96,25 @@ func newUSBController(usbNeeded bool) api.Controller {
 		Index: "0",
 		Model: usbControllerModel,
 	}
+}
+
+func newPCIController() api.Controller {
+	return api.Controller{
+		Type:  "pci",
+		Index: "0",
+		Model: "pcie-root",
+		PCIHole64: &api.PCIHole64{
+			Value: 0,
+			Unit:  "KiB",
+		},
+	}
+}
+
+func shouldDisablePCIHole64(vmi *v1.VirtualMachineInstance) bool {
+	if val, ok := vmi.Annotations[v1.DisablePCIHole64]; ok {
+		return strings.EqualFold(val, "true")
+	}
+	return false
 }
 
 func newSCSIController(controllerModel string, controllerDriver *api.ControllerDriver) api.Controller {
