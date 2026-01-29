@@ -1040,6 +1040,25 @@ func setupDomainMemory(vmi *v1.VirtualMachineInstance, domain *api.Domain) error
 	return nil
 }
 
+func assignDiskIOThread(disk *v1.Disk, apiDisk *api.Disk, supplementalIOThreads *api.DiskIOThreads, autoThreads int, currentDedicatedThread, currentAutoThread uint) (uint, uint) {
+	if apiDisk.Target.Bus == v1.DiskBusVirtio {
+		if supplementalIOThreads != nil {
+			apiDisk.Driver.IOThreads = supplementalIOThreads
+		} else {
+			if iothreads.HasDedicatedIOThread(*disk) {
+				apiDisk.Driver.IOThread = pointer.P(currentDedicatedThread)
+				currentDedicatedThread += 1
+			} else {
+				apiDisk.Driver.IOThread = pointer.P(currentAutoThread)
+				// increment the threadId to be used next but wrap around at the thread limit
+				// the odd math here is because thread ID's start at 1, not 0
+				currentAutoThread = (currentAutoThread % uint(autoThreads)) + 1
+			}
+		}
+	}
+	return currentDedicatedThread, currentAutoThread
+}
+
 func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInstance, domain *api.Domain, c *ConverterContext) (err error) {
 
 	precond.MustNotBeNil(vmi)
@@ -1193,6 +1212,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
+	currentAutoThread := uint(1)
+	currentDedicatedThread := uint(autoThreads + 1)
+	supplementalIOThreads := iothreads.SupplementalPoolThreadCount(vmi)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
 		emptyCDRom := false
@@ -1238,6 +1260,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		if err := setErrorPolicy(&disk, &newDisk); err != nil {
 			return err
 		}
+		if hasIOThreads {
+			currentDedicatedThread, currentAutoThread = assignDiskIOThread(&disk, &newDisk, supplementalIOThreads, autoThreads, currentDedicatedThread, currentAutoThread)
+		}
 	}
 
 	if c.Architecture.SupportPCIHole64Disabling() && shouldDisablePCIHole64(vmi) {
@@ -1252,10 +1277,6 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 				},
 			},
 		)
-	}
-
-	if hasIOThreads {
-		iothreads.SetIOThreads(vmi, domain, vcpus, autoThreads)
 	}
 
 	if vmi.Spec.Domain.CPU != nil {
