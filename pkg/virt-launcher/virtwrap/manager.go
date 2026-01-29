@@ -152,7 +152,7 @@ type DomainManager interface {
 	InterfacesStatus() []api.InterfaceStatus
 	GetGuestOSInfo() *api.GuestOSInfo
 	Exec(string, string, []string, int32) (string, error)
-	GuestPing(string) error
+	IsAgentConnected() error
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
 	BackupVirtualMachine(*v1.VirtualMachineInstance, *backupv1.BackupOptions) error
 	GetQemuVersion() (string, error)
@@ -607,10 +607,11 @@ func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, t
 	return agent.GuestExec(l.virConn, domainName, command, args, timeoutSeconds)
 }
 
-func (l *LibvirtDomainManager) GuestPing(domainName string) error {
-	pingCmd := `{"execute":"guest-ping"}`
-	_, err := l.virConn.QemuAgentCommand(pingCmd, domainName)
-	return err
+func (l *LibvirtDomainManager) IsAgentConnected() error {
+	if !l.agentData.IsAgentConnected() {
+		return errors.New("agent not connected")
+	}
+	return nil
 }
 
 func getVMIEphemeralDisksTotalSize(ephemeralDiskDir string) *resource.Quantity {
