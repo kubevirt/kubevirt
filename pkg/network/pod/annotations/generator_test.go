@@ -45,6 +45,142 @@ import (
 var _ = Describe("Annotations Generator", func() {
 	const testNamespace = "default"
 
+	Context("DRA Networks", func() {
+		It("should generate DRA network MAC addresses annotation", func() {
+			const (
+				draNetwork1Name = "dra-net1"
+				draNetwork2Name = "dra-net2"
+				mac1            = "de:ad:00:00:be:ef"
+				mac2            = "ca:fe:ba:be:00:01"
+			)
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(draNetwork1Name)),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(draNetwork2Name)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vmi.Spec.Networks = append(vmi.Spec.Networks,
+				v1.Network{
+					Name: draNetwork1Name,
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "my-claim-1",
+							RequestName: "request1",
+						},
+					},
+				},
+				v1.Network{
+					Name: draNetwork2Name,
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "my-claim-2",
+							RequestName: "request2",
+						},
+					},
+				},
+			)
+			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac1
+			vmi.Spec.Domain.Devices.Interfaces[2].MacAddress = mac2
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			generatedAnnotations, err := generator.Generate(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(generatedAnnotations).To(HaveKey(annotations.DRANetworkMACsAnnotation))
+			var macMap map[string]string
+			err = json.Unmarshal([]byte(generatedAnnotations[annotations.DRANetworkMACsAnnotation]), &macMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(macMap).To(Equal(map[string]string{
+				"my-claim-1/request1": mac1,
+				"my-claim-2/request2": mac2,
+			}))
+		})
+
+		It("should not generate DRA network MAC annotation when no DRA networks exist", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			generatedAnnotations, err := generator.Generate(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(generatedAnnotations).NotTo(HaveKey(annotations.DRANetworkMACsAnnotation))
+		})
+
+		It("should not generate DRA network MAC annotation when DRA networks have no MAC addresses", func() {
+			const draNetworkName = "dra-net"
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(draNetworkName)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vmi.Spec.Networks = append(vmi.Spec.Networks,
+				v1.Network{
+					Name: draNetworkName,
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "my-claim",
+							RequestName: "request1",
+						},
+					},
+				},
+			)
+			// No MAC address set on interface
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			generatedAnnotations, err := generator.Generate(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(generatedAnnotations).NotTo(HaveKey(annotations.DRANetworkMACsAnnotation))
+		})
+
+		It("should use requestName as key when specified", func() {
+			const (
+				draNetworkName = "dra-net"
+				mac            = "de:ad:00:00:be:ef"
+				requestName    = "vf"
+			)
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithSRIOVBinding(draNetworkName)),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			)
+			vmi.Spec.Networks = append(vmi.Spec.Networks,
+				v1.Network{
+					Name: draNetworkName,
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "my-claim",
+							RequestName: requestName,
+						},
+					},
+				},
+			)
+			vmi.Spec.Domain.Devices.Interfaces[1].MacAddress = mac
+
+			generator := annotations.NewGenerator(stubClusterConfig{})
+			generatedAnnotations, err := generator.Generate(vmi)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(generatedAnnotations).To(HaveKey(annotations.DRANetworkMACsAnnotation))
+			var macMap map[string]string
+			err = json.Unmarshal([]byte(generatedAnnotations[annotations.DRANetworkMACsAnnotation]), &macMap)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(macMap).To(Equal(map[string]string{
+				"my-claim/" + requestName: mac,
+			}))
+		})
+	})
+
 	Context("Multus", func() {
 		const (
 			defaultNetworkName = "default"
