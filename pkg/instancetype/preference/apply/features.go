@@ -59,7 +59,10 @@ func applyFeaturePreferences(preferenceSpec *instancetypev1.VirtualMachinePrefer
 	}
 }
 
-func applyHyperVFeaturePreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyHyperVFeaturePreferences(
+	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+) {
 	if vmiSpec.Domain.Features.Hyperv == nil {
 		vmiSpec.Domain.Features.Hyperv = &virtv1.FeatureHyperv{}
 	}

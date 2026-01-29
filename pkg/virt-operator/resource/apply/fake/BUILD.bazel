@@ -6,7 +6,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/fake",
     visibility = ["//visibility:public"],
     deps = [
-        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/api/instancetype/v1:go_default_library",
         "//vendor/github.com/openshift/api/route/v1:go_default_library",
         "//vendor/github.com/openshift/api/security/v1:go_default_library",
         "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",

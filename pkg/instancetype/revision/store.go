@@ -260,7 +260,9 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 		convertedObj = v1Obj
 	case *v1beta1.VirtualMachineClusterInstancetype:
 		v1Obj := &instancetypev1.VirtualMachineClusterInstancetype{}
-		if err = compatibility.Convert_v1beta1_VirtualMachineClusterInstancetype_To_v1_VirtualMachineClusterInstancetype(typedObj, v1Obj, nil); err != nil {
+		err = compatibility.Convert_v1beta1_VirtualMachineClusterInstancetype_To_v1_VirtualMachineClusterInstancetype(
+			typedObj, v1Obj, nil)
+		if err != nil {
 			return nil, fmt.Errorf("failed to convert v1beta1.VirtualMachineClusterInstancetype to v1: %w", err)
 		}
 		v1Obj.SetGroupVersionKind(instancetypev1.SchemeGroupVersion.WithKind("VirtualMachineClusterInstancetype"))
@@ -274,7 +276,9 @@ func CreateControllerRevision(vm *virtv1.VirtualMachine, object runtime.Object) 
 		convertedObj = v1Obj
 	case *v1beta1.VirtualMachineClusterPreference:
 		v1Obj := &instancetypev1.VirtualMachineClusterPreference{}
-		if err = compatibility.Convert_v1beta1_VirtualMachineClusterPreference_To_v1_VirtualMachineClusterPreference(typedObj, v1Obj, nil); err != nil {
+		err = compatibility.Convert_v1beta1_VirtualMachineClusterPreference_To_v1_VirtualMachineClusterPreference(
+			typedObj, v1Obj, nil)
+		if err != nil {
 			return nil, fmt.Errorf("failed to convert v1beta1.VirtualMachineClusterPreference to v1: %w", err)
 		}
 		v1Obj.SetGroupVersionKind(instancetypev1.SchemeGroupVersion.WithKind("VirtualMachineClusterPreference"))

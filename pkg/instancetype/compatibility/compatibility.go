@@ -115,22 +115,6 @@ func decodeControllerRevisionObject(revision *appsv1.ControllerRevision) error {
 	return nil
 }
 
-func convertV1InstancetypeSpecToV1beta1(in *v1.VirtualMachineInstancetypeSpec) (*v1beta1.VirtualMachineInstancetypeSpec, error) {
-	out := &v1beta1.VirtualMachineInstancetypeSpec{}
-	if err := Convert_v1_VirtualMachineInstancetypeSpec_To_v1beta1_VirtualMachineInstancetypeSpec(in, out, nil); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func convertV1PreferenceSpecToV1beta1(in *v1.VirtualMachinePreferenceSpec) (*v1beta1.VirtualMachinePreferenceSpec, error) {
-	out := &v1beta1.VirtualMachinePreferenceSpec{}
-	if err := Convert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePreferenceSpec(in, out, nil); err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func convertV1beta1InstancetypeSpecToV1(in *v1beta1.VirtualMachineInstancetypeSpec) (*v1.VirtualMachineInstancetypeSpec, error) {
 	out := &v1.VirtualMachineInstancetypeSpec{}
 	if err := Convert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec(in, out, nil); err != nil {
@@ -201,82 +185,114 @@ func convertV1beta1ClusterPreferenceToV1(in *v1beta1.VirtualMachineClusterPrefer
 
 // autoConvert_v1beta1_VirtualMachineInstancetype_To_v1_VirtualMachineInstancetype performs the conversion from v1beta1 to v1.
 // Since the types are structurally identical, we use JSON marshaling/unmarshaling.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func autoConvert_v1beta1_VirtualMachineInstancetype_To_v1_VirtualMachineInstancetype(in *v1beta1.VirtualMachineInstancetype, out *v1.VirtualMachineInstancetype, s conversion.Scope) error {
 	return convertViaJSON(in, out)
 }
 
 // Convert_v1beta1_VirtualMachineInstancetype_To_v1_VirtualMachineInstancetype is the public conversion function.
 // This matches what conversion-gen would generate.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func Convert_v1beta1_VirtualMachineInstancetype_To_v1_VirtualMachineInstancetype(in *v1beta1.VirtualMachineInstancetype, out *v1.VirtualMachineInstancetype, s conversion.Scope) error {
 	return autoConvert_v1beta1_VirtualMachineInstancetype_To_v1_VirtualMachineInstancetype(in, out, s)
 }
 
 // autoConvert_v1beta1_VirtualMachineClusterInstancetype_To_v1_VirtualMachineClusterInstancetype performs the conversion from v1beta1 to v1.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func autoConvert_v1beta1_VirtualMachineClusterInstancetype_To_v1_VirtualMachineClusterInstancetype(in *v1beta1.VirtualMachineClusterInstancetype, out *v1.VirtualMachineClusterInstancetype, s conversion.Scope) error {
 	return convertViaJSON(in, out)
 }
 
 // Convert_v1beta1_VirtualMachineClusterInstancetype_To_v1_VirtualMachineClusterInstancetype is the public conversion function.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func Convert_v1beta1_VirtualMachineClusterInstancetype_To_v1_VirtualMachineClusterInstancetype(in *v1beta1.VirtualMachineClusterInstancetype, out *v1.VirtualMachineClusterInstancetype, s conversion.Scope) error {
 	return autoConvert_v1beta1_VirtualMachineClusterInstancetype_To_v1_VirtualMachineClusterInstancetype(in, out, s)
 }
 
 // autoConvert_v1beta1_VirtualMachinePreference_To_v1_VirtualMachinePreference performs the conversion from v1beta1 to v1.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func autoConvert_v1beta1_VirtualMachinePreference_To_v1_VirtualMachinePreference(in *v1beta1.VirtualMachinePreference, out *v1.VirtualMachinePreference, s conversion.Scope) error {
 	return convertViaJSON(in, out)
 }
 
 // Convert_v1beta1_VirtualMachinePreference_To_v1_VirtualMachinePreference is the public conversion function.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func Convert_v1beta1_VirtualMachinePreference_To_v1_VirtualMachinePreference(in *v1beta1.VirtualMachinePreference, out *v1.VirtualMachinePreference, s conversion.Scope) error {
 	return autoConvert_v1beta1_VirtualMachinePreference_To_v1_VirtualMachinePreference(in, out, s)
 }
 
 // autoConvert_v1beta1_VirtualMachineClusterPreference_To_v1_VirtualMachineClusterPreference performs the conversion from v1beta1 to v1.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func autoConvert_v1beta1_VirtualMachineClusterPreference_To_v1_VirtualMachineClusterPreference(in *v1beta1.VirtualMachineClusterPreference, out *v1.VirtualMachineClusterPreference, s conversion.Scope) error {
 	return convertViaJSON(in, out)
 }
 
 // Convert_v1beta1_VirtualMachineClusterPreference_To_v1_VirtualMachineClusterPreference is the public conversion function.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func Convert_v1beta1_VirtualMachineClusterPreference_To_v1_VirtualMachineClusterPreference(in *v1beta1.VirtualMachineClusterPreference, out *v1.VirtualMachineClusterPreference, s conversion.Scope) error {
 	return autoConvert_v1beta1_VirtualMachineClusterPreference_To_v1_VirtualMachineClusterPreference(in, out, s)
 }
 
 // autoConvert_v1_VirtualMachineInstancetypeSpec_To_v1beta1_VirtualMachineInstancetypeSpec performs the conversion from v1 to v1beta1.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func autoConvert_v1_VirtualMachineInstancetypeSpec_To_v1beta1_VirtualMachineInstancetypeSpec(in *v1.VirtualMachineInstancetypeSpec, out *v1beta1.VirtualMachineInstancetypeSpec, s conversion.Scope) error {
 	return convertViaJSON(in, out)
 }
 
 // Convert_v1_VirtualMachineInstancetypeSpec_To_v1beta1_VirtualMachineInstancetypeSpec is the public conversion function.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func Convert_v1_VirtualMachineInstancetypeSpec_To_v1beta1_VirtualMachineInstancetypeSpec(in *v1.VirtualMachineInstancetypeSpec, out *v1beta1.VirtualMachineInstancetypeSpec, s conversion.Scope) error {
 	return autoConvert_v1_VirtualMachineInstancetypeSpec_To_v1beta1_VirtualMachineInstancetypeSpec(in, out, s)
 }
 
 // autoConvert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePreferenceSpec performs the conversion from v1 to v1beta1.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func autoConvert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePreferenceSpec(in *v1.VirtualMachinePreferenceSpec, out *v1beta1.VirtualMachinePreferenceSpec, s conversion.Scope) error {
 	return convertViaJSON(in, out)
 }
 
 // Convert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePreferenceSpec is the public conversion function.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func Convert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePreferenceSpec(in *v1.VirtualMachinePreferenceSpec, out *v1beta1.VirtualMachinePreferenceSpec, s conversion.Scope) error {
 	return autoConvert_v1_VirtualMachinePreferenceSpec_To_v1beta1_VirtualMachinePreferenceSpec(in, out, s)
 }
 
 // autoConvert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec performs the conversion from v1beta1 to v1.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func autoConvert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec(in *v1beta1.VirtualMachineInstancetypeSpec, out *v1.VirtualMachineInstancetypeSpec, s conversion.Scope) error {
 	return convertViaJSON(in, out)
 }
 
 // Convert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec is the public conversion function.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func Convert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec(in *v1beta1.VirtualMachineInstancetypeSpec, out *v1.VirtualMachineInstancetypeSpec, s conversion.Scope) error {
 	return autoConvert_v1beta1_VirtualMachineInstancetypeSpec_To_v1_VirtualMachineInstancetypeSpec(in, out, s)
 }
 
 // autoConvert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec performs the conversion from v1beta1 to v1.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func autoConvert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec(in *v1beta1.VirtualMachinePreferenceSpec, out *v1.VirtualMachinePreferenceSpec, s conversion.Scope) error {
 	return convertViaJSON(in, out)
 }
 
 // Convert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec is the public conversion function.
+//
+//nolint:staticcheck // ST1003: follows conversion-gen naming
 func Convert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec(in *v1beta1.VirtualMachinePreferenceSpec, out *v1.VirtualMachinePreferenceSpec, s conversion.Scope) error {
 	return autoConvert_v1beta1_VirtualMachinePreferenceSpec_To_v1_VirtualMachinePreferenceSpec(in, out, s)
 }
