@@ -29,7 +29,23 @@ const (
 	SidecarShimName                = "sidecar-shim"
 	etcMultipath                   = "etc-multipath"
 	SupportsMigrationCNsValidation = "kubevirt.io/supports-migration-cn-types"
+
+	// HandlerPoolLabel is used to distinguish between different virt-handler pools
+	HandlerPoolLabel = "kubevirt.io/handler-pool"
 )
+
+// HandlerDaemonSetConfig contains configuration for creating a virt-handler DaemonSet
+type HandlerDaemonSetConfig struct {
+	// NameSuffix is appended to "virt-handler" to form the DaemonSet name.
+	// Empty string means the primary virt-handler.
+	NameSuffix string
+	// VirtHandlerImage overrides the virt-handler container image.
+	// Empty string means use the default from the deployment config.
+	VirtHandlerImage string
+	// VirtLauncherImage overrides the virt-launcher image for the init container.
+	// Empty string means use the default from the deployment config.
+	VirtLauncherImage string
+}
 
 func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.Container {
 	bidi := corev1.MountPropagationBidirectional
@@ -66,18 +82,49 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 	}
 }
 
+// NewHandlerDaemonSet creates the primary virt-handler DaemonSet.
+// This is a convenience wrapper around NewHandlerDaemonSetWithConfig for backward compatibility.
 func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productName, productVersion, productComponent string) *appsv1.DaemonSet {
+	return NewHandlerDaemonSetWithConfig(config, nil, productName, productVersion, productComponent)
+}
 
+// NewHandlerDaemonSetWithConfig creates a virt-handler DaemonSet with the specified configuration.
+// If handlerConfig is nil, the primary virt-handler is created with default images.
+// If handlerConfig is provided, an additional virt-handler DaemonSet is created with the specified
+// name suffix and custom images.
+func NewHandlerDaemonSetWithConfig(config *operatorutil.KubeVirtDeploymentConfig, handlerConfig *HandlerDaemonSetConfig, productName, productVersion, productComponent string) *appsv1.DaemonSet {
+
+	// Determine DaemonSet name and handler pool value
+	dsName := VirtHandlerName
+	handlerPoolValue := ""
+	if handlerConfig != nil && handlerConfig.NameSuffix != "" {
+		dsName = fmt.Sprintf("%s-%s", VirtHandlerName, handlerConfig.NameSuffix)
+		handlerPoolValue = handlerConfig.NameSuffix
+	}
+
+	// Determine virt-handler image
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
-	image := config.VirtHandlerImage
+	image := ""
+	if handlerConfig != nil && handlerConfig.VirtHandlerImage != "" {
+		image = handlerConfig.VirtHandlerImage
+	} else {
+		image = config.VirtHandlerImage
+	}
 	if image == "" {
 		image = fmt.Sprintf("%s/%s%s", config.GetImageRegistry(), imageName, AddVersionSeparatorPrefix(config.GetHandlerVersion()))
 	}
+
 	env := operatorutil.NewEnvVarMap(config.GetExtraEnv())
 	podTemplateSpec := newPodTemplateSpec(deploymentName, productName, productVersion, productComponent, image, config.GetImagePullPolicy(), config.GetImagePullSecrets(), nil, env)
 
-	launcherImage := config.VirtLauncherImage
+	// Determine virt-launcher image
+	launcherImage := ""
+	if handlerConfig != nil && handlerConfig.VirtLauncherImage != "" {
+		launcherImage = handlerConfig.VirtLauncherImage
+	} else {
+		launcherImage = config.VirtLauncherImage
+	}
 	if launcherImage == "" {
 		launcherImage = fmt.Sprintf("%s/%s%s%s", config.GetImageRegistry(), config.GetImagePrefix(), "virt-launcher", AddVersionSeparatorPrefix(config.GetLauncherVersion()))
 	}
@@ -96,6 +143,27 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 	}
 	podTemplateSpec.Annotations["openshift.io/required-scc"] = "kubevirt-handler"
 
+	// Build labels for the DaemonSet
+	dsLabels := map[string]string{
+		virtv1.AppLabel:                VirtHandlerName,
+		SupportsMigrationCNsValidation: "true",
+	}
+	if handlerPoolValue != "" {
+		dsLabels[HandlerPoolLabel] = handlerPoolValue
+	}
+
+	// Build selector labels - must match template labels
+	// For primary handler: selector is "kubevirt.io": "virt-handler"
+	// For additional handlers: selector also includes HandlerPoolLabel to distinguish
+	selectorLabels := map[string]string{
+		virtv1.AppLabel: VirtHandlerName,
+	}
+	if handlerPoolValue != "" {
+		selectorLabels[HandlerPoolLabel] = handlerPoolValue
+		// Add handler pool label to pod template to match selector
+		podTemplateSpec.Labels[HandlerPoolLabel] = handlerPoolValue
+	}
+
 	daemonset := &appsv1.DaemonSet{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps/v1",
@@ -103,20 +171,15 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: config.GetNamespace(),
-			Name:      VirtHandlerName,
-			Labels: map[string]string{
-				virtv1.AppLabel:                VirtHandlerName,
-				SupportsMigrationCNsValidation: "true",
-			},
+			Name:      dsName,
+			Labels:    dsLabels,
 		},
 		Spec: appsv1.DaemonSetSpec{
 			UpdateStrategy: appsv1.DaemonSetUpdateStrategy{
 				Type: appsv1.RollingUpdateDaemonSetStrategyType,
 			},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"kubevirt.io": VirtHandlerName,
-				},
+				MatchLabels: selectorLabels,
 			},
 			Template: *podTemplateSpec,
 		},

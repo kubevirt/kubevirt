@@ -85,6 +85,9 @@ const (
 	AdditionalPropertiesPersistentReservationEnabled = "PersistentReservationEnabled"
 
 	// lookup key in AdditionalProperties
+	AdditionalPropertiesAdditionalVirtHandlersEnabled = "AdditionalVirtHandlersEnabled"
+
+	// lookup key in AdditionalProperties
 	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
 	DefaultSynchronizationPort              int32 = 9185
 
@@ -144,6 +147,19 @@ type KubeVirtDeploymentConfig struct {
 
 	// environment variables from virt-operator to pass along
 	PassthroughEnvVars map[string]string `json:"passthroughEnvVars,omitempty" optional:"true"`
+
+	// AdditionalHandlers contains configurations for additional virt-handler DaemonSets
+	AdditionalHandlers []AdditionalHandlerConfig `json:"additionalHandlers,omitempty" optional:"true"`
+}
+
+// AdditionalHandlerConfig contains image configuration for an additional virt-handler DaemonSet
+type AdditionalHandlerConfig struct {
+	// Name is the suffix appended to "virt-handler" to form the DaemonSet name
+	Name string `json:"name"`
+	// VirtHandlerImage is the virt-handler container image for this DaemonSet
+	VirtHandlerImage string `json:"virtHandlerImage,omitempty"`
+	// VirtLauncherImage is the virt-launcher image used by this virt-handler
+	VirtLauncherImage string `json:"virtLauncherImage,omitempty"`
 }
 
 var DefaultEnvVarManager EnvVarManager = EnvVarManagerImpl{}
@@ -158,20 +174,39 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
 		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
 	}
+	additionalVirtHandlersEnabled := false
 	if kv.Spec.Configuration.DeveloperConfiguration != nil && len(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates) > 0 {
 		for _, v := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
 			if v == featuregate.PersistentReservation {
 				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
 			}
+			if v == featuregate.AdditionalVirtHandlersGate {
+				additionalProperties[AdditionalPropertiesAdditionalVirtHandlersEnabled] = ""
+				additionalVirtHandlersEnabled = true
+			}
 		}
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
-	return getConfig(kv.Spec.ImageRegistry,
+	config := getConfig(kv.Spec.ImageRegistry,
 		kv.Spec.ImageTag,
 		kv.Namespace,
 		additionalProperties,
 		envVarManager)
+
+	// Populate additional virt-handler configurations from the KubeVirt CR
+	// Only if the AdditionalVirtHandlers feature gate is enabled
+	if additionalVirtHandlersEnabled {
+		for _, handler := range kv.Spec.AdditionalVirtHandlers {
+			config.AdditionalHandlers = append(config.AdditionalHandlers, AdditionalHandlerConfig{
+				Name:              handler.Name,
+				VirtHandlerImage:  handler.VirtHandlerImage,
+				VirtLauncherImage: handler.VirtLauncherImage,
+			})
+		}
+	}
+
+	return config
 }
 
 func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
@@ -496,6 +531,11 @@ func (c *KubeVirtDeploymentConfig) PersistentReservationEnabled() bool {
 	return enabled
 }
 
+func (c *KubeVirtDeploymentConfig) AdditionalVirtHandlersEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesAdditionalVirtHandlersEnabled]
+	return enabled
+}
+
 func (c *KubeVirtDeploymentConfig) GetMigrationNetwork() *string {
 	value, enabled := c.AdditionalProperties[AdditionalPropertiesMigrationNetwork]
 	if enabled {
@@ -567,6 +607,11 @@ func (c *KubeVirtDeploymentConfig) GetProductVersion() string {
 		return c.GetKubeVirtVersion()
 	}
 	return productVersion
+}
+
+// GetAdditionalHandlers returns the additional virt-handler configurations
+func (c *KubeVirtDeploymentConfig) GetAdditionalHandlers() []AdditionalHandlerConfig {
+	return c.AdditionalHandlers
 }
 
 func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {

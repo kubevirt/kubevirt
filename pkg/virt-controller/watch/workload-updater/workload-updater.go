@@ -31,6 +31,7 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	volumemig "kubevirt.io/kubevirt/pkg/virt-controller/watch/volume-migration"
 )
 
@@ -310,7 +311,15 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 	// either the VMI is either running or done migrating.
 	if vmi.Status.LauncherContainerImageVersion == "" {
 		return false
-	} else if vmi.Status.LauncherContainerImageVersion != c.launcherImage {
+	}
+
+	// Determine the expected launcher image for this VMI based on its node selector.
+	// VMIs targeting nodes served by additional virt-handlers may use a different
+	// virt-launcher image than the default.
+	additionalHandlers := c.clusterConfig.GetAdditionalVirtHandlers()
+	expectedImage := services.GetLauncherImageForVMI(vmi, additionalHandlers, c.launcherImage)
+
+	if vmi.Status.LauncherContainerImageVersion != expectedImage {
 		return true
 	}
 

@@ -46,3 +46,31 @@ type ComponentConfig struct {
 	//+optional
 	Replicas *uint8 `json:"replicas,omitempty"`
 }
+
+// AdditionalVirtHandlerConfig defines configuration for an additional virt-handler DaemonSet
+// that targets specific nodes with custom images.
+type AdditionalVirtHandlerConfig struct {
+	// name is a unique identifier appended to "virt-handler" to form the DaemonSet name.
+	// For example, "gpu" results in a DaemonSet named "virt-handler-gpu".
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=48
+	Name string `json:"name"`
+
+	// virtHandlerImage overrides the virt-handler container image for this DaemonSet.
+	// If not specified, the default virt-handler image is used.
+	// +optional
+	VirtHandlerImage string `json:"virtHandlerImage,omitempty"`
+
+	// virtLauncherImage overrides the virt-launcher image used by this virt-handler
+	// for the init container and passed to virt-launcher pods on nodes served by this handler.
+	// If not specified, the default virt-launcher image is used.
+	// +optional
+	VirtLauncherImage string `json:"virtLauncherImage,omitempty"`
+
+	// nodePlacement specifies the node selection criteria for this DaemonSet.
+	// This must be specified to target specific nodes and avoid overlap with the primary virt-handler.
+	// At minimum, nodeSelector or affinity with RequiredDuringSchedulingIgnoredDuringExecution should be set.
+	// +kubebuilder:validation:Required
+	NodePlacement *NodePlacement `json:"nodePlacement"`
+}

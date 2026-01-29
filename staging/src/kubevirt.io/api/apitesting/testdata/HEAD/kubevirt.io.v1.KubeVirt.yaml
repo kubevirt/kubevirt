@@ -33,6 +33,148 @@ metadata:
   selfLink: selfLinkValue
   uid: uidValue
 spec:
+  additionalVirtHandlers:
+  - name: nameValue
+    nodePlacement:
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchFields:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchFields:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+        podAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
+              namespaceSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              namespaces:
+              - namespacesValue
+              topologyKey: topologyKeyValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
+            namespaceSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            namespaces:
+            - namespacesValue
+            topologyKey: topologyKeyValue
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              matchLabelKeys:
+              - matchLabelKeysValue
+              mismatchLabelKeys:
+              - mismatchLabelKeysValue
+              namespaceSelector:
+                matchExpressions:
+                - key: keyValue
+                  operator: operatorValue
+                  values:
+                  - valuesValue
+                matchLabels:
+                  matchLabelsKey: matchLabelsValue
+              namespaces:
+              - namespacesValue
+              topologyKey: topologyKeyValue
+            weight: 1
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            matchLabelKeys:
+            - matchLabelKeysValue
+            mismatchLabelKeys:
+            - mismatchLabelKeysValue
+            namespaceSelector:
+              matchExpressions:
+              - key: keyValue
+                operator: operatorValue
+                values:
+                - valuesValue
+              matchLabels:
+                matchLabelsKey: matchLabelsValue
+            namespaces:
+            - namespacesValue
+            topologyKey: topologyKeyValue
+      nodeSelector:
+        nodeSelectorKey: nodeSelectorValue
+      tolerations:
+      - effect: effectValue
+        key: keyValue
+        operator: operatorValue
+        tolerationSeconds: 5
+        value: valueValue
+    virtHandlerImage: virtHandlerImageValue
+    virtLauncherImage: virtLauncherImageValue
   certificateRotateStrategy:
     selfSigned:
       ca:
