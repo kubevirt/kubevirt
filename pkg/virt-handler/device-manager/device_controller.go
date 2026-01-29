@@ -30,6 +30,8 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
 
+	"kubevirt.io/kubevirt/pkg/util"
+
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -39,8 +41,14 @@ import (
 
 var defaultBackoffTime = []time.Duration{1 * time.Second, 2 * time.Second, 5 * time.Second, 10 * time.Second}
 
+type devicePlugin interface {
+	Start(stop <-chan struct{}) error
+	GetResourceName() string
+	GetInitialized() bool
+}
+
 type controlledDevice struct {
-	devicePlugin Device
+	devicePlugin devicePlugin
 	started      bool
 	stopChan     chan struct{}
 	backoff      []time.Duration
@@ -55,7 +63,7 @@ func (c *controlledDevice) Start() {
 
 	logger := log.DefaultLogger()
 	dev := c.devicePlugin
-	deviceName := dev.GetDeviceName()
+	deviceName := dev.GetResourceName()
 	logger.Infof("Starting a device plugin for device: %s", deviceName)
 	retries := 0
 
@@ -100,17 +108,17 @@ func (c *controlledDevice) Stop() {
 }
 
 func (c *controlledDevice) GetName() string {
-	return c.devicePlugin.GetDeviceName()
+	return c.devicePlugin.GetResourceName()
 }
 
-func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
+func PermanentHostDevicePlugins(maxDevices int, permissions string) []devicePlugin {
 	var permanentDevicePluginPaths = map[string]string{
 		"kvm":       "/dev/kvm",
 		"tun":       "/dev/net/tun",
 		"vhost-net": "/dev/vhost-net",
 	}
 
-	ret := make([]Device, 0, len(permanentDevicePluginPaths))
+	ret := make([]devicePlugin, 0, len(permanentDevicePluginPaths))
 	for name, path := range permanentDevicePluginPaths {
 		ret = append(ret, NewGenericDevicePlugin(name, path, maxDevices, permissions, name != "kvm"))
 	}
@@ -123,7 +131,7 @@ type DeviceControllerInterface interface {
 }
 
 type DeviceController struct {
-	permanentPlugins    map[string]Device
+	permanentPlugins    map[string]devicePlugin
 	startedPlugins      map[string]controlledDevice
 	startedPluginsMutex sync.Mutex
 	host                string
@@ -140,13 +148,13 @@ func NewDeviceController(
 	host string,
 	maxDevices int,
 	permissions string,
-	permanentPlugins []Device,
+	permanentPlugins []devicePlugin,
 	clusterConfig *virtconfig.ClusterConfig,
 	nodeStore cache.Store,
 ) *DeviceController {
-	permanentPluginsMap := make(map[string]Device, len(permanentPlugins))
+	permanentPluginsMap := make(map[string]devicePlugin, len(permanentPlugins))
 	for i := range permanentPlugins {
-		permanentPluginsMap[permanentPlugins[i].GetDeviceName()] = permanentPlugins[i]
+		permanentPluginsMap[permanentPlugins[i].GetResourceName()] = permanentPlugins[i]
 	}
 
 	controller := &DeviceController{
@@ -172,8 +180,8 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 }
 
 // updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
-func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
-	var permittedDevices []Device
+func (c *DeviceController) updatePermittedHostDevicePlugins() []devicePlugin {
+	var permittedDevices []devicePlugin
 
 	var featureGatedDevices = []struct {
 		Name      string
@@ -193,12 +201,8 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	}
 
 	if c.virtConfig.PersistentReservationEnabled() {
-		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, NewPermissionManager())
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
-		} else {
-			permittedDevices = append(permittedDevices, d)
-		}
+		d := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, newPermissionManager(), false)
+		permittedDevices = append(permittedDevices, d)
 	}
 
 	hostDevs := c.virtConfig.GetPermittedHostDevices()
@@ -245,7 +249,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	}
 
 	for resourceName, pluginDevices := range discoverAllowedUSBDevices(hostDevs.USB) {
-		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, pluginDevices))
+		permittedDevices = append(permittedDevices, NewUSBDevicePlugin(resourceName, util.HostRootMount, pluginDevices, newPermissionManager()))
 	}
 
 	return permittedDevices
@@ -259,8 +263,8 @@ func removeSelectorSpaces(selectorName string) string {
 	return typeNameStr
 }
 
-func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]Device, map[string]struct{}) {
-	devicePluginsToRun := make(map[string]Device)
+func (c *DeviceController) splitPermittedDevices(devices []devicePlugin) (map[string]devicePlugin, map[string]struct{}) {
+	devicePluginsToRun := make(map[string]devicePlugin)
 	devicePluginsToStop := make(map[string]struct{})
 
 	// generate a map of currently started device plugins
@@ -272,10 +276,10 @@ func (c *DeviceController) splitPermittedDevices(devices []Device) (map[string]D
 	}
 
 	for _, device := range devices {
-		if _, isRunning := c.startedPlugins[device.GetDeviceName()]; !isRunning {
-			devicePluginsToRun[device.GetDeviceName()] = device
+		if _, isRunning := c.startedPlugins[device.GetResourceName()]; !isRunning {
+			devicePluginsToRun[device.GetResourceName()] = device
 		} else {
-			delete(devicePluginsToStop, device.GetDeviceName())
+			delete(devicePluginsToStop, device.GetResourceName())
 		}
 	}
 
@@ -382,7 +386,7 @@ func (c *DeviceController) refreshPermittedDevices() {
 	c.mdevRefreshWG.Done()
 }
 
-func (c *DeviceController) startDevice(resourceName string, dev Device) {
+func (c *DeviceController) startDevice(resourceName string, dev devicePlugin) {
 	c.stopDevice(resourceName)
 	controlledDev := controlledDevice{
 		devicePlugin: dev,
