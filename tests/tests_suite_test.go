@@ -177,6 +177,16 @@ var _ = ReportBeforeSuite(func(report Report) {
 	k8sReporter.ConfigurePerSpecReporting(report)
 })
 
+// CRITICAL ORDER: These two JustAfterEach blocks must remain in this order!
+// 1. First JustAfterEach checks VM logs and may call ginkgo.Fail() to mark spec as failed.
+// 2. Second one collects logs based on failure status, hence it must run after the first block
+var _ = JustAfterEach(func() {
+	if flags.DeployFakeKWOKNodesFlag {
+		return
+	}
+	reporter.CheckVMLogsAfterTest(CurrentSpecReport())
+})
+
 var _ = JustAfterEach(func() {
 	if flags.DeployFakeKWOKNodesFlag {
 		return
