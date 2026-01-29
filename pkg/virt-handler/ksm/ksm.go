@@ -53,6 +53,9 @@ const (
 	nPagesInitDefault      = 100
 	sleepMsBaselineDefault = 100 // 10ms in oVirt seemed really low
 	freePercentDefault     = 0.2
+	ksmLoopIntervalMinutes = 3 * time.Minute
+	requiredMemInfoFields  = 2
+	ksmFilePermissions     = 0o600
 )
 
 var (
@@ -87,7 +90,12 @@ type Handler struct {
 	loopChan       chan struct{}
 }
 
-func NewHandler(nodeName string, client k8scorev1.CoreV1Interface, nodeStore cache.Store, clusterConfig *virtconfig.ClusterConfig) *Handler {
+func NewHandler(
+	nodeName string,
+	client k8scorev1.CoreV1Interface,
+	nodeStore cache.Store,
+	clusterConfig *virtconfig.ClusterConfig,
+) *Handler {
 	return &Handler{
 		isLoopRunning:  false,
 		clusterConfig:  clusterConfig,
@@ -114,13 +122,13 @@ func (k *Handler) Start() {
 
 func (k *Handler) loop() {
 	k.spin()
-	ticker := time.NewTicker(3 * time.Minute)
+	ticker := time.NewTicker(ksmLoopIntervalMinutes)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-k.extChangesChan:
 			k.spin()
-			ticker.Reset(3 * time.Minute)
+			ticker.Reset(ksmLoopIntervalMinutes)
 		case <-ticker.C:
 			k.spin()
 		case <-k.loopChan:
@@ -241,7 +249,7 @@ func (k *Handler) disableKSM() {
 	}
 
 	if value, found := node.GetAnnotations()[v1.KSMHandlerManagedAnnotation]; found && value == "true" {
-		if err := os.WriteFile(ksmRunPath, []byte("0\n"), 0644); err != nil {
+		if err := os.WriteFile(ksmRunPath, []byte("0\n"), ksmFilePermissions); err != nil {
 			log.DefaultLogger().Errorf("Unable to write ksm: %s", err.Error())
 		}
 	}
@@ -266,18 +274,22 @@ func (k *Handler) getNode() (*k8sv1.Node, error) {
 	return node, nil
 }
 
-// Inspired from https://github.com/artyom/meminfo
-func getTotalAndAvailableMem() (uint64, uint64, error) {
-	var total, available uint64
+type memStatus struct {
+	total     uint64
+	available uint64
+}
 
+// Inspired from https://github.com/artyom/meminfo
+func getTotalAndAvailableMem() (memStatus, error) {
+	var total, available uint64
 	f, err := os.Open(memInfoPath)
 	if err != nil {
-		return 0, 0, err
+		return memStatus{}, err
 	}
 	defer f.Close()
 	s := bufio.NewScanner(f)
 	found := 0
-	for s.Scan() && found < 2 {
+	for s.Scan() && found < requiredMemInfoFields {
 		switch {
 		case bytes.HasPrefix(s.Bytes(), []byte(`MemTotal:`)):
 			_, err = fmt.Sscanf(s.Text(), "MemTotal:%d", &total)
@@ -289,14 +301,14 @@ func getTotalAndAvailableMem() (uint64, uint64, error) {
 			continue
 		}
 		if err != nil {
-			return 0, 0, err
+			return memStatus{}, err
 		}
 	}
-	if found != 2 {
-		return 0, 0, fmt.Errorf("failed to find total and available memory")
+	if found != requiredMemInfoFields {
+		return memStatus{}, fmt.Errorf("failed to find total and available memory")
 	}
 
-	return total, available, nil
+	return memStatus{total: total, available: available}, nil
 }
 
 func getKsmPages() (int, error) {
@@ -320,10 +332,11 @@ func calculateNewRunSleepAndPages(node *k8sv1.Node, running bool) (ksmState, err
 	nPagesMin := getIntParam(node, v1.KSMPagesMinOverride, nPagesMinDefault, 0, math.MaxInt)
 	nPagesMax := getIntParam(node, v1.KSMPagesMaxOverride, nPagesMaxDefault, nPagesMin, math.MaxInt)
 	nPagesInit := getIntParam(node, v1.KSMPagesInitOverride, nPagesInitDefault, nPagesMin, nPagesMax)
+	//nolint:gosec // sleepMsBaseline is constrained to be >= 1, so conversion to uint64 is safe
 	sleepMsBaseline := uint64(getIntParam(node, v1.KSMSleepMsBaselineOverride, sleepMsBaselineDefault, 1, math.MaxInt))
 	freePercent := getFloatParam(node, v1.KSMFreePercentOverride, freePercentDefault, 0, 1)
 	ksm := ksmState{running: running}
-	total, available, err := getTotalAndAvailableMem()
+	memStat, err := getTotalAndAvailableMem()
 	if err != nil {
 		return ksm, err
 	}
@@ -335,12 +348,12 @@ func calculateNewRunSleepAndPages(node *k8sv1.Node, running bool) (ksmState, err
 	// Set sleep_millisecs to sleepMsBaseline on a 16GB system that's out of memory.
 	// This basically scales sleep down the more memory there is to look at, capped at a minimum of 10ms.
 	// This is copied from oVirt but might have to be adjuested in the future.
-	ksm.sleep = sleepMsBaseline * (16 * 1024 * 1024) / (total - available)
+	ksm.sleep = sleepMsBaseline * (16 * 1024 * 1024) / (memStat.total - memStat.available)
 	if ksm.sleep < sleepMsBaseline/10 {
 		ksm.sleep = sleepMsBaseline / 10
 	}
 
-	if float32(available) > float32(total)*freePercent {
+	if float32(memStat.available) > float32(memStat.total)*freePercent {
 		// No memory pressure. Reduce or stop KSM activity
 		if running {
 			ksm.pages += pagesDecay
@@ -373,16 +386,16 @@ func writeKsmValuesToFiles(ksm ksmState) error {
 	if ksm.running {
 		run = "1"
 
-		err := os.WriteFile(ksmSleepPath, []byte(strconv.FormatUint(ksm.sleep, 10)), 0644)
+		err := os.WriteFile(ksmSleepPath, []byte(strconv.FormatUint(ksm.sleep, 10)), ksmFilePermissions)
 		if err != nil {
 			return err
 		}
-		err = os.WriteFile(ksmPagesPath, []byte(strconv.Itoa(ksm.pages)), 0644)
+		err = os.WriteFile(ksmPagesPath, []byte(strconv.Itoa(ksm.pages)), ksmFilePermissions)
 		if err != nil {
 			return err
 		}
 	}
-	err := os.WriteFile(ksmRunPath, []byte(run), 0644)
+	err := os.WriteFile(ksmRunPath, []byte(run), ksmFilePermissions)
 	if err != nil {
 		return err
 	}
@@ -390,7 +403,7 @@ func writeKsmValuesToFiles(ksm ksmState) error {
 	return nil
 }
 
-func loadKSM() (bool, bool) {
+func loadKSM() (available, enabled bool) {
 	ksmValue, err := os.ReadFile(ksmRunPath)
 	if err != nil {
 		log.DefaultLogger().Warningf("An error occurred while reading the ksm module file; Maybe it is not available: %s", err)
