@@ -66,31 +66,48 @@ var _ = Describe("Webhook", func() {
 		})
 
 		It("should allow the deletion if no workload exists", func() {
-			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"},
+			})
 			Expect(response.Allowed).To(BeTrue())
 		})
 
 		It("should deny the deletion if a VMI exists", func() {
-			_, err := fakeClient.KubevirtV1().VirtualMachineInstances(k8sv1.NamespaceDefault).Create(context.TODO(), &v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "vmi"}}, metav1.CreateOptions{})
+			_, err := fakeClient.KubevirtV1().VirtualMachineInstances(k8sv1.NamespaceDefault).Create(
+				context.TODO(),
+				&v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{Name: "vmi"}},
+				metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"},
+			})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
 		It("should deny the deletion if a VM exists", func() {
-			_, err := fakeClient.KubevirtV1().VirtualMachines(k8sv1.NamespaceDefault).Create(context.TODO(), &v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm"}}, metav1.CreateOptions{})
+			_, err := fakeClient.KubevirtV1().VirtualMachines(k8sv1.NamespaceDefault).Create(
+				context.TODO(),
+				&v1.VirtualMachine{ObjectMeta: metav1.ObjectMeta{Name: "vm"}},
+				metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"},
+			})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
 		It("should deny the deletion if a VMIRS exists", func() {
-			_, err := fakeClient.KubevirtV1().VirtualMachineInstanceReplicaSets(k8sv1.NamespaceDefault).Create(context.TODO(), &v1.VirtualMachineInstanceReplicaSet{ObjectMeta: metav1.ObjectMeta{Name: "rs"}}, metav1.CreateOptions{})
+			_, err := fakeClient.KubevirtV1().VirtualMachineInstanceReplicaSets(k8sv1.NamespaceDefault).Create(
+				context.TODO(),
+				&v1.VirtualMachineInstanceReplicaSet{ObjectMeta: metav1.ObjectMeta{Name: "rs"}},
+				metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"},
+			})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
@@ -99,7 +116,9 @@ var _ = Describe("Webhook", func() {
 				return true, &v1.VirtualMachineInstanceList{}, fmt.Errorf("whatever")
 			})
 
-			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"},
+			})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
@@ -108,7 +127,9 @@ var _ = Describe("Webhook", func() {
 				return true, &v1.VirtualMachineList{}, fmt.Errorf("whatever")
 			})
 
-			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"},
+			})
 			Expect(response.Allowed).To(BeFalse())
 		})
 
@@ -117,31 +138,41 @@ var _ = Describe("Webhook", func() {
 				return true, &v1.VirtualMachineInstanceReplicaSetList{}, fmt.Errorf("whatever")
 			})
 
-			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+			response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+				Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"},
+			})
 			Expect(response.Allowed).To(BeFalse())
 		})
 	})
 
 	It("should allow the deletion if the strategy is empty", func() {
-		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"},
+		})
 		Expect(response.Allowed).To(BeTrue())
 	})
 
 	It("should allow the deletion if the strategy is set to RemoveWorkloads", func() {
 		setKV(fakeClient, v1.KubeVirtUninstallStrategyRemoveWorkloads, v1.KubeVirtPhaseDeployed)
-		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"},
+		})
 		Expect(response.Allowed).To(BeTrue())
 	})
 
 	It("should allow the deletion of namespaces, where it gets an admission request without a resource name", func() {
 		setKV(fakeClient, v1.KubeVirtUninstallStrategyRemoveWorkloads, v1.KubeVirtPhaseDeployed)
-		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: ""}})
+		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: ""},
+		})
 		Expect(response.Allowed).To(BeTrue())
 	})
 
 	DescribeTable("should not check for workloads if kubevirt phase is", func(phase v1.KubeVirtPhase) {
 		setKV(fakeClient, v1.KubeVirtUninstallStrategyBlockUninstallIfWorkloadsExist, phase)
-		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"}})
+		response := admitter.Admit(context.Background(), &admissionv1.AdmissionReview{
+			Request: &admissionv1.AdmissionRequest{Namespace: "test", Name: "kubevirt"},
+		})
 		Expect(response.Allowed).To(BeTrue())
 	},
 		Entry("unset", v1.KubeVirtPhase("")),
@@ -157,6 +188,7 @@ func setKV(fakeClient *kubevirtfake.Clientset, strategy v1.KubeVirtUninstallStra
 		patch.WithReplace("/status/phase", phase),
 	).GeneratePayload()
 	Expect(err).NotTo(HaveOccurred())
-	_, err = fakeClient.KubevirtV1().KubeVirts("test").Patch(context.TODO(), "kubevirt", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	_, err = fakeClient.KubevirtV1().KubeVirts("test").Patch(
+		context.TODO(), "kubevirt", types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	Expect(err).ToNot(HaveOccurred())
 }
