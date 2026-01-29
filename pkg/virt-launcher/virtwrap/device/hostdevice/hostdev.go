@@ -46,6 +46,9 @@ type createHostDevice func(HostDeviceMetaData, string) (*api.HostDevice, error)
 
 type AddressPooler interface {
 	Pop(key string) (value string, err error)
+	// PopAll drains all remaining addresses for a resource.
+	// Used to get IOMMU companion devices that share the same resource.
+	PopAll(key string) (values []string, err error)
 }
 
 func CreatePCIHostDevices(hostDevicesData []HostDeviceMetaData, pciAddrPool AddressPooler) ([]api.HostDevice, error) {
@@ -120,6 +123,50 @@ func createHostDevices(hostDevicesData []HostDeviceMetaData, addrPool AddressPoo
 	}
 
 	return hostDevices, nil
+}
+
+// CreatePCIHostDevicesFromRemainingAddresses creates PCI host devices for all remaining
+// addresses in the pool for the given resources. This handles IOMMU companion devices
+// that are part of the same IOMMU group as the requested devices.
+func CreatePCIHostDevicesFromRemainingAddresses(aliasPrefix string, resources []string, pciAddrPool AddressPooler) ([]api.HostDevice, error) {
+	var hostDevices []api.HostDevice
+
+	for _, resource := range resources {
+		addresses, err := pciAddrPool.PopAll(resource)
+		if err != nil {
+			continue
+		}
+
+		for i, address := range addresses {
+			if address == "" {
+				continue
+			}
+			hostAddr, err := device.NewPciAddressField(address)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create IOMMU companion PCI device: %v", err)
+			}
+			// Use a unique alias for IOMMU companion devices
+			alias := fmt.Sprintf("%siommu-companion-%s-%d", aliasPrefix, sanitizeResourceName(resource), i)
+			domainHostDevice := &api.HostDevice{
+				Alias:   api.NewUserDefinedAlias(alias),
+				Source:  api.HostDeviceSource{Address: hostAddr},
+				Type:    api.HostDevicePCI,
+				Managed: "no",
+			}
+			hostDevices = append(hostDevices, *domainHostDevice)
+			log.Log.Infof("created IOMMU companion host-device: %s", address)
+		}
+	}
+
+	return hostDevices, nil
+}
+
+// sanitizeResourceName converts a resource name to a valid alias component
+func sanitizeResourceName(resource string) string {
+	// Replace invalid characters with hyphens
+	result := strings.ReplaceAll(resource, "/", "-")
+	result = strings.ReplaceAll(result, ".", "-")
+	return result
 }
 
 func createPCIHostDevice(hostDeviceData HostDeviceMetaData, hostPCIAddress string) (*api.HostDevice, error) {

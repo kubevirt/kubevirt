@@ -100,3 +100,81 @@ func expectPoolPopFailure(pool *hostdevice.AddressPool, resource string) {
 	ExpectWithOffset(1, err).To(HaveOccurred())
 	ExpectWithOffset(1, address).To(BeEmpty())
 }
+
+var _ = Describe("Address Pool PopAll", func() {
+	It("returns empty slice when no resource in env", func() {
+		pool := hostdevice.NewAddressPool(resourcePrefix, []string{resource0})
+		addresses, err := pool.PopAll(resource0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(addresses).To(BeEmpty())
+	})
+
+	It("returns empty slice when no addresses for resource", func() {
+		env := []envData{newResourceEnv(resourcePrefix, resource0)}
+		withEnvironmentContext(env, func() {
+			pool := hostdevice.NewAddressPool(resourcePrefix, []string{resource0})
+			addresses, err := pool.PopAll(resource0)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(addresses).To(BeEmpty())
+		})
+	})
+
+	It("returns all addresses from a resource", func() {
+		env := []envData{newResourceEnv(resourcePrefix, resource0, pciAddresses0, pciAddresses1)}
+		withEnvironmentContext(env, func() {
+			pool := hostdevice.NewAddressPool(resourcePrefix, []string{resource0})
+			addresses, err := pool.PopAll(resource0)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(addresses).To(Equal([]string{pciAddresses0, pciAddresses1}))
+		})
+	})
+
+	It("returns remaining addresses after some have been popped", func() {
+		env := []envData{newResourceEnv(resourcePrefix, resource0, pciAddresses0, pciAddresses1)}
+		withEnvironmentContext(env, func() {
+			pool := hostdevice.NewAddressPool(resourcePrefix, []string{resource0})
+			// Pop one address first
+			Expect(pool.Pop(resource0)).To(Equal(pciAddresses0))
+			// PopAll should return only the remaining address
+			addresses, err := pool.PopAll(resource0)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(addresses).To(Equal([]string{pciAddresses1}))
+		})
+	})
+
+	It("drains the pool so subsequent PopAll returns empty", func() {
+		env := []envData{newResourceEnv(resourcePrefix, resource0, pciAddresses0, pciAddresses1)}
+		withEnvironmentContext(env, func() {
+			pool := hostdevice.NewAddressPool(resourcePrefix, []string{resource0})
+			// First PopAll drains all addresses
+			addresses, err := pool.PopAll(resource0)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(addresses).To(Equal([]string{pciAddresses0, pciAddresses1}))
+			// Second PopAll should return empty
+			addresses, err = pool.PopAll(resource0)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(addresses).To(BeEmpty())
+		})
+	})
+})
+
+var _ = Describe("BestEffort Address Pool PopAll", func() {
+	It("returns empty slice when no resource in env", func() {
+		innerPool := hostdevice.NewAddressPool(resourcePrefix, []string{resource0})
+		pool := hostdevice.NewBestEffortAddressPool(innerPool)
+		addresses, err := pool.PopAll(resource0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(addresses).To(BeEmpty())
+	})
+
+	It("returns all addresses from a resource", func() {
+		env := []envData{newResourceEnv(resourcePrefix, resource0, pciAddresses0, pciAddresses1)}
+		withEnvironmentContext(env, func() {
+			innerPool := hostdevice.NewAddressPool(resourcePrefix, []string{resource0})
+			pool := hostdevice.NewBestEffortAddressPool(innerPool)
+			addresses, err := pool.PopAll(resource0)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(addresses).To(Equal([]string{pciAddresses0, pciAddresses1}))
+		})
+	})
+})

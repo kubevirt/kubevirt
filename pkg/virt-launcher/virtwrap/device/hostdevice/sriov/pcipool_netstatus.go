@@ -73,3 +73,13 @@ func (p *PCIAddressWithNetworkStatusPool) Pop(networkName string) (string, error
 	delete(p.networkPCIMap, networkName)
 	return pciAddress, nil
 }
+
+// PopAll drains all remaining addresses for a network. For SR-IOV, each network
+// has at most one PCI address, so this returns at most one address.
+func (p *PCIAddressWithNetworkStatusPool) PopAll(networkName string) ([]string, error) {
+	addr, err := p.Pop(networkName)
+	if err != nil {
+		return nil, nil
+	}
+	return []string{addr}, nil
+}

@@ -122,3 +122,15 @@ func (p *stubAddressPool) Pop(resource string) (string, error) {
 
 	return address, nil
 }
+
+func (p *stubAddressPool) PopAll(resource string) ([]string, error) {
+	var addresses []string
+	for {
+		addr, err := p.Pop(resource)
+		if err != nil {
+			break
+		}
+		addresses = append(addresses, addr)
+	}
+	return addresses, nil
+}

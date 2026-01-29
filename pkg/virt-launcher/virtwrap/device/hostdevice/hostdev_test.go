@@ -308,3 +308,107 @@ func (p *stubAddressPool) Pop(resource string) (string, error) {
 
 	return address, nil
 }
+
+func (p *stubAddressPool) PopAll(resource string) ([]string, error) {
+	var addresses []string
+	for {
+		addr, err := p.Pop(resource)
+		if err != nil {
+			break
+		}
+		addresses = append(addresses, addr)
+	}
+	return addresses, nil
+}
+
+var _ = Describe("CreatePCIHostDevicesFromRemainingAddresses", func() {
+	const (
+		testAliasPrefix  = "test-"
+		testResource0    = "vendor.com/gpu0"
+		testResource1    = "vendor.com/gpu1"
+		testPCIAddress0  = "0000:81:01.0"
+		testPCIAddress1  = "0000:81:01.1"
+		testPCIAddress2  = "0000:82:00.0"
+	)
+
+	var pool *stubAddressPool
+
+	BeforeEach(func() {
+		pool = newAddressPoolStub()
+	})
+
+	It("creates no devices when pool is empty", func() {
+		devices, err := hostdevice.CreatePCIHostDevicesFromRemainingAddresses(testAliasPrefix, []string{testResource0}, pool)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(devices).To(BeEmpty())
+	})
+
+	It("creates no devices when resources list is empty", func() {
+		pool.AddResource(testResource0, testPCIAddress0)
+		devices, err := hostdevice.CreatePCIHostDevicesFromRemainingAddresses(testAliasPrefix, []string{}, pool)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(devices).To(BeEmpty())
+	})
+
+	It("creates devices for all remaining addresses in pool", func() {
+		pool.AddResource(testResource0, testPCIAddress0, testPCIAddress1)
+		devices, err := hostdevice.CreatePCIHostDevicesFromRemainingAddresses(testAliasPrefix, []string{testResource0}, pool)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(devices).To(HaveLen(2))
+
+		// Verify device properties
+		Expect(devices[0].Type).To(Equal(api.HostDevicePCI))
+		Expect(devices[0].Managed).To(Equal("no"))
+		Expect(devices[0].Alias.GetName()).To(ContainSubstring("iommu-companion"))
+
+		Expect(devices[1].Type).To(Equal(api.HostDevicePCI))
+		Expect(devices[1].Managed).To(Equal("no"))
+	})
+
+	It("creates devices from multiple resources", func() {
+		pool.AddResource(testResource0, testPCIAddress0)
+		pool.AddResource(testResource1, testPCIAddress2)
+		devices, err := hostdevice.CreatePCIHostDevicesFromRemainingAddresses(testAliasPrefix, []string{testResource0, testResource1}, pool)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(devices).To(HaveLen(2))
+	})
+
+	It("creates unique aliases for each device", func() {
+		pool.AddResource(testResource0, testPCIAddress0, testPCIAddress1)
+		devices, err := hostdevice.CreatePCIHostDevicesFromRemainingAddresses(testAliasPrefix, []string{testResource0}, pool)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(devices).To(HaveLen(2))
+
+		// Aliases should be different
+		Expect(devices[0].Alias.GetName()).NotTo(Equal(devices[1].Alias.GetName()))
+	})
+
+	It("sanitizes resource names in aliases", func() {
+		pool.AddResource(testResource0, testPCIAddress0)
+		devices, err := hostdevice.CreatePCIHostDevicesFromRemainingAddresses(testAliasPrefix, []string{testResource0}, pool)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(devices).To(HaveLen(1))
+
+		// Resource name "vendor.com/gpu0" should be sanitized to "vendor-com-gpu0"
+		alias := devices[0].Alias.GetName()
+		Expect(alias).NotTo(ContainSubstring("."))
+		Expect(alias).NotTo(ContainSubstring("/"))
+	})
+
+	It("returns error for invalid PCI address", func() {
+		pool.AddResource(testResource0, "invalid-pci-address")
+		_, err := hostdevice.CreatePCIHostDevicesFromRemainingAddresses(testAliasPrefix, []string{testResource0}, pool)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("drains the pool after creating devices", func() {
+		pool.AddResource(testResource0, testPCIAddress0, testPCIAddress1)
+		devices, err := hostdevice.CreatePCIHostDevicesFromRemainingAddresses(testAliasPrefix, []string{testResource0}, pool)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(devices).To(HaveLen(2))
+
+		// Pool should be drained
+		_, err = pool.Pop(testResource0)
+		Expect(err).To(HaveOccurred())
+	})
+})
