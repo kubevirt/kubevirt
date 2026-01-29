@@ -10,7 +10,9 @@ import (
 
 	k8score "k8s.io/api/core/v1"
 
+	monitoring "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring"
 	KVv1 "kubevirt.io/api/core/v1"
+	cdiCore "kubevirt.io/containerized-data-importer-api/pkg/apis/core"
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -88,6 +90,7 @@ func RemoveDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 	crdInformer.GetStore().Add(&extv1.CustomResourceDefinition{
 		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: cdiCore.GroupName,
 			Names: extv1.CustomResourceDefinitionNames{
 				Kind: "DataVolume",
 			},
@@ -117,6 +120,7 @@ func AddServiceMonitorAPI(crdInformer cache.SharedIndexInformer) {
 			Name: "service-monitors.monitoring.coreos.com",
 		},
 		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: monitoring.GroupName,
 			Names: extv1.CustomResourceDefinitionNames{
 				Kind: "ServiceMonitor",
 			},
@@ -134,6 +138,7 @@ func AddPrometheusRuleAPI(crdInformer cache.SharedIndexInformer) {
 			Name: "prometheusrules.monitoring.coreos.com",
 		},
 		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: monitoring.GroupName,
 			Names: extv1.CustomResourceDefinitionNames{
 				Kind: "PrometheusRule",
 			},
