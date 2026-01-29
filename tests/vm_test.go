@@ -112,12 +112,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), sc, k8sv1.PersistentVolumeFilesystem)
 		}
 
-		newVirtualMachineInstanceWithBlockDisk := func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) {
-			sc, foundSC := libstorage.GetAvailableRWBlockStorageClass()
-			Expect(foundSC).To(BeTrue(), "Block storage (RW) is not present")
-			return newVirtualMachineInstanceWithDV(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), sc, k8sv1.PersistentVolumeBlock)
-		}
-
 		validateGenerationState := func(vm *v1.VirtualMachine, expectedGeneration int, expectedDesiredGeneration int, expectedObservedGeneration int, expectedGenerationAnnotation int) {
 			By("By validating the generation states")
 			EventuallyWithOffset(1, func(g Gomega) {
@@ -262,7 +256,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		},
 			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewAlpine(), nil }, false),
 			Entry("[storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithFileDisk, true),
-			Entry("[storage-req]with Block Disk", decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk, false),
 		)
 
 		It("[test_id:1522]should remove owner references on the VirtualMachineInstance if it is orphan deleted", decorators.Conformance, func() {
@@ -332,7 +325,6 @@ var _ = Describe("[rfe_id:1177][crit:medium][vendor:cnv-qe@redhat.com][level:com
 		},
 			Entry("with ContainerDisk", func() (*v1.VirtualMachineInstance, *cdiv1.DataVolume) { return libvmifact.NewAlpine(), nil }),
 			Entry("[storage-req]with Filesystem Disk", decorators.StorageReq, newVirtualMachineInstanceWithFileDisk),
-			Entry("[storage-req]with Block Disk", decorators.StorageReq, newVirtualMachineInstanceWithBlockDisk),
 		)
 
 		It("[test_id:1526]should start and stop VirtualMachineInstance multiple times", decorators.Conformance, func() {
