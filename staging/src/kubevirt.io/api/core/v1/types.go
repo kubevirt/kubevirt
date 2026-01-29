@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -2192,6 +2193,11 @@ type VirtualMachineInstanceBackupStatus struct {
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 	// Completed indicates the backup completed
 	Completed bool `json:"completed,omitempty"`
+	// Failed indiciates that the backup failed
+	Failed bool `json:"failed,omitempty"`
+	// AbortStatus is the state of a backup abort requests which can vary
+	// since an abort request is asynchronous.
+	AbortStatus BackupAbortStatus `json:"abortStatus,omitempty"`
 	// BackupMsg resturns any relevant information like failure reason
 	// unfreeze failed etc...
 	// +optional
@@ -2199,7 +2205,22 @@ type VirtualMachineInstanceBackupStatus struct {
 	// CheckpointName is the name of the checkpoint created for the backup
 	// +optional
 	CheckpointName *string `json:"checkpointName,omitempty"`
+	// Volumes lists the volumes included in the backup
+	// +optional
+	// +listType=atomic
+	Volumes []backupv1.BackupVolumeInfo `json:"volumes,omitempty"`
 }
+
+type BackupAbortStatus string
+
+const (
+	// BackupAbortSucceeded means that the VM backup has been aborted
+	BackupAbortSucceeded BackupAbortStatus = "Succeeded"
+	// BackupAbortFailed means that the VM backup has failed to be abort
+	BackupAbortFailed BackupAbortStatus = "Failed"
+	// BackupAbortInProgress mean that the VM backup is aborting
+	BackupAbortInProgress BackupAbortStatus = "Aborting"
+)
 
 // ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM
 // +k8s:openapi-gen=true

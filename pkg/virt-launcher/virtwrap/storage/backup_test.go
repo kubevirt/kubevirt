@@ -35,7 +35,9 @@ import (
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
+	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	backups "kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
@@ -221,7 +223,9 @@ var _ = Describe("Backup", func() {
 				<devices>
 					<disk type='file' device='disk'>
 						<driver name='qemu' type='qcow2'/>
-						<source file='/path/to/disk.qcow2'/>
+						<source file='/path/to/disk.qcow2'>
+							<dataStore type='file'/>
+						</source>
 						<target dev='vda' bus='virtio'/>
 						<alias name='ua-disk0'/>
 					</disk>
@@ -248,6 +252,9 @@ var _ = Describe("Backup", func() {
 				Expect(backupMetadata.StartTimestamp).To(Equal(backupOptions.BackupStartTime))
 				Expect(backupMetadata.CheckpointName).ToNot(BeEmpty())
 				Expect(backupMetadata.CheckpointName).To(ContainSubstring("test-backup"))
+				Expect(backupMetadata.Volumes).ToNot(BeEmpty())
+				Expect(backupMetadata.Volumes).To(ContainSubstring("disk0"))
+				Expect(backupMetadata.Volumes).To(ContainSubstring("vda"))
 			})
 		})
 
@@ -342,7 +349,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, domainCheckpoint := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir)
 
 			Expect(domainBackup).ToNot(BeNil())
 			Expect(domainBackup.Mode).To(Equal(string(backupv1.PushMode)))
@@ -358,6 +365,9 @@ var _ = Describe("Backup", func() {
 			Expect(domainCheckpoint.CheckpointDisks).ToNot(BeNil())
 			Expect(domainCheckpoint.CheckpointDisks.Disks).To(HaveLen(1))
 			Expect(domainCheckpoint.CheckpointDisks.Disks[0].Checkpoint).To(Equal("bitmap"))
+			Expect(volumesInfo).To(HaveLen(1))
+			Expect(volumesInfo[0].VolumeName).To(Equal("disk0"))
+			Expect(volumesInfo[0].DiskTarget).To(Equal("vda"))
 		})
 
 		It("should skip disks without DataStore", func() {
@@ -373,11 +383,12 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, domainCheckpoint := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, domainCheckpoint, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir)
 
 			Expect(domainBackup.BackupDisks.Disks).To(HaveLen(1))
 			Expect(domainBackup.BackupDisks.Disks[0].Backup).To(Equal("no"))
 			Expect(domainCheckpoint.CheckpointDisks.Disks[0].Checkpoint).To(Equal("no"))
+			Expect(volumesInfo).To(BeEmpty())
 		})
 		It("should handle incremental backups", func() {
 			incremental := "previous-checkpoint"
@@ -391,7 +402,7 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, _ := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, _, _ := generateDomainBackup(disks, backupOptions, tempDir)
 
 			Expect(domainBackup.Incremental).ToNot(BeNil())
 			Expect(*domainBackup.Incremental).To(Equal("previous-checkpoint"))
@@ -408,9 +419,39 @@ var _ = Describe("Backup", func() {
 				},
 			}
 
-			domainBackup, _ := generateDomainBackup(disks, backupOptions, tempDir)
+			domainBackup, _, _ := generateDomainBackup(disks, backupOptions, tempDir)
 
 			Expect(domainBackup.Incremental).To(BeNil())
+		})
+
+		It("should return volumes info for multiple disks with DataStore", func() {
+			disks := []api.Disk{
+				{
+					Target: api.DiskTarget{Device: "vda"},
+					Source: api.DiskSource{DataStore: &api.DataStore{}},
+					Alias:  api.NewUserDefinedAlias("rootdisk"),
+				},
+				{
+					Target: api.DiskTarget{Device: "vdb"},
+					Source: api.DiskSource{DataStore: &api.DataStore{}},
+					Alias:  api.NewUserDefinedAlias("datadisk"),
+				},
+				{
+					Target: api.DiskTarget{Device: "sda"},
+					Source: api.DiskSource{
+						// No DataStore - should be skipped
+					},
+					Alias: api.NewUserDefinedAlias("cdrom"),
+				},
+			}
+
+			_, _, volumesInfo := generateDomainBackup(disks, backupOptions, tempDir)
+
+			Expect(volumesInfo).To(HaveLen(2))
+			Expect(volumesInfo[0].VolumeName).To(Equal("rootdisk"))
+			Expect(volumesInfo[0].DiskTarget).To(Equal("vda"))
+			Expect(volumesInfo[1].VolumeName).To(Equal("datadisk"))
+			Expect(volumesInfo[1].DiskTarget).To(Equal("vdb"))
 		})
 	})
 
@@ -432,6 +473,7 @@ var _ = Describe("Backup", func() {
 			backupMetadata := api.BackupMetadata{
 				Name:           "test-backup",
 				StartTimestamp: backupOptions.BackupStartTime,
+				Mode:           string(backupv1.PushMode),
 				SkipQuiesce:    false,
 			}
 			metadataCache.Backup.Store(backupMetadata)
@@ -443,7 +485,7 @@ var _ = Describe("Backup", func() {
 					Type: libvirt.DOMAIN_JOB_COMPLETED,
 				}, nil)
 
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
+				manager.HandleBackupJobCompletedEvent(mockDomain, event)
 
 				backupMetadata, exists := metadataCache.Backup.Load()
 				Expect(exists).To(BeTrue())
@@ -456,9 +498,10 @@ var _ = Describe("Backup", func() {
 			It("should log warning and return", func() {
 				// Create fresh cache with no metadata
 				freshCache := metadata.NewCache()
+				manager = NewStorageManager(mockConn, freshCache)
 
 				// HandleBackupJobCompletedEvent should not call GetJobStats if metadata doesn't exist
-				HandleBackupJobCompletedEvent(mockDomain, event, freshCache)
+				manager.HandleBackupJobCompletedEvent(mockDomain, event)
 
 				// Should not panic and backup metadata should remain empty
 				backupMetadata, exists := freshCache.Backup.Load()
@@ -471,22 +514,7 @@ var _ = Describe("Backup", func() {
 			It("should still complete the backup", func() {
 				mockDomain.EXPECT().GetJobStats(gomock.Any()).Return(nil, fmt.Errorf("stats error"))
 
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
-
-				backupMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(backupMetadata.Completed).To(BeTrue())
-			})
-		})
-
-		Context("when job type is not completed", func() {
-			It("should log warning but still update metadata", func() {
-				event.Info.Type = libvirt.DOMAIN_JOB_FAILED
-				mockDomain.EXPECT().GetJobStats(gomock.Any()).Return(&libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_FAILED,
-				}, nil)
-
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
+				manager.HandleBackupJobCompletedEvent(mockDomain, event)
 
 				backupMetadata, exists := metadataCache.Backup.Load()
 				Expect(exists).To(BeTrue())
@@ -496,11 +524,76 @@ var _ = Describe("Backup", func() {
 
 		Context("when domain is nil", func() {
 			It("should still complete the backup", func() {
-				HandleBackupJobCompletedEvent(nil, event, metadataCache)
+				mockDomain.EXPECT().GetJobStats(gomock.Any()).Return(nil, fmt.Errorf("stats error"))
+				manager.HandleBackupJobCompletedEvent(mockDomain, event)
 
 				backupMetadata, exists := metadataCache.Backup.Load()
 				Expect(exists).To(BeTrue())
 				Expect(backupMetadata.Completed).To(BeTrue())
+			})
+		})
+
+		Context("backup failure handling", func() {
+			It("should update the metadata correctly for push mode backup", func() {
+				metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
+					backupMetadata.Mode = string(backupv1.PushMode)
+				})
+
+				event.Info.Type = libvirt.DOMAIN_JOB_CANCELLED
+				mockDomain.EXPECT().GetJobStats(gomock.Any()).Return(&libvirt.DomainJobInfo{
+					Type: libvirt.DOMAIN_JOB_CANCELLED,
+				}, nil)
+
+				manager.HandleBackupJobCompletedEvent(mockDomain, event)
+
+				backupMetadata, exists := metadataCache.Backup.Load()
+				Expect(exists).To(BeTrue())
+				Expect(backupMetadata.Completed).To(BeTrue())
+				Expect(backupMetadata.Failed).To(BeTrue())
+				Expect(backupMetadata.AbortStatus).To(BeEquivalentTo(v1.BackupAbortSucceeded))
+			})
+			It("should mark the backup as failed", func() {
+				event.Info.Type = libvirt.DOMAIN_JOB_NONE
+				mockDomain.EXPECT().GetJobStats(gomock.Any()).Return(&libvirt.DomainJobInfo{
+					Type: libvirt.DOMAIN_JOB_NONE,
+				}, nil)
+
+				manager.HandleBackupJobCompletedEvent(mockDomain, event)
+
+				backupMetadata, exists := metadataCache.Backup.Load()
+				Expect(exists).To(BeTrue())
+				Expect(backupMetadata.Completed).To(BeTrue())
+				Expect(backupMetadata.Failed).To(BeTrue())
+			})
+			It("should update the metadata correctly", func() {
+				event.Info.Type = libvirt.DOMAIN_JOB_FAILED
+				mockDomain.EXPECT().GetJobStats(gomock.Any()).Return(&libvirt.DomainJobInfo{
+					Type:            libvirt.DOMAIN_JOB_FAILED,
+					ErrorMessageSet: true,
+					ErrorMessage:    "Backup failed",
+				}, nil)
+
+				manager.HandleBackupJobCompletedEvent(mockDomain, event)
+
+				backupMetadata, exists := metadataCache.Backup.Load()
+				Expect(exists).To(BeTrue())
+				Expect(backupMetadata.Completed).To(BeTrue())
+				Expect(backupMetadata.Failed).To(BeTrue())
+				Expect(backupMetadata.BackupMsg).To(Equal("Backup failed"))
+			})
+			It("should log warning but still update metadata and set it to failed when job type is unrecognized", func() {
+				event.Info.Type = libvirt.DOMAIN_JOB_BOUNDED
+				mockDomain.EXPECT().GetJobStats(gomock.Any()).Return(&libvirt.DomainJobInfo{
+					Type: libvirt.DOMAIN_JOB_BOUNDED,
+				}, nil)
+
+				manager.HandleBackupJobCompletedEvent(mockDomain, event)
+
+				backupMetadata, exists := metadataCache.Backup.Load()
+				Expect(exists).To(BeTrue())
+				Expect(backupMetadata.Completed).To(BeTrue())
+				Expect(backupMetadata.Failed).To(BeTrue())
+				Expect(backupMetadata.BackupMsg).To(Equal(fmt.Sprintf("Unexpected job completion type: %d", event.Info.Type)))
 			})
 		})
 	})
@@ -592,4 +685,183 @@ var _ = Describe("Backup", func() {
 			})
 		})
 	})
+
+	Describe("findDisksWithCheckpointBitmap", func() {
+		const checkpointName = "checkpoint-1"
+
+		It("should find disks with checkpoint bitmap and ignore disks without DataStore", func() {
+			domainXML := `<domain>
+				<devices>
+					<disk type="file" device="disk">
+						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vda"/>
+					</disk>
+					<disk type="file" device="cdrom">
+						<source file="/var/run/kubevirt-private/cdrom/cd.iso"/>
+						<target dev="sda"/>
+					</disk>
+				</devices>
+			</domain>`
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+			getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare(checkpointName)
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Disks).To(HaveLen(1))
+			Expect(result.Disks[0].Name).To(Equal("vda"))
+			Expect(result.Disks[0].Checkpoint).To(Equal("bitmap"))
+			Expect(disksWithoutBitmap).To(BeEmpty())
+		})
+
+		It("should return disk in disksWithoutBitmap when bitmap is not found", func() {
+			domainXML := `<domain>
+				<devices>
+					<disk type="file" device="disk">
+						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vda"/>
+					</disk>
+				</devices>
+			</domain>`
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+			getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare("other-checkpoint")
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Disks).To(BeEmpty())
+			Expect(disksWithoutBitmap).To(HaveLen(1))
+			Expect(disksWithoutBitmap[0]).To(Equal("vda"))
+		})
+
+		It("should find multiple disks with checkpoint bitmap", func() {
+			domainXML := `<domain>
+				<devices>
+					<disk type="file" device="disk">
+						<source file="/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2">
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk1-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vda"/>
+					</disk>
+					<disk type="file" device="disk">
+						<source file="/var/run/kubevirt-private/vmi-disks/disk2/disk.qcow2">
+							<dataStore>
+								<source file="/var/lib/kubevirt/disks/disk2-backing.qcow2"/>
+							</dataStore>
+						</source>
+						<target dev="vdb"/>
+					</disk>
+				</devices>
+			</domain>`
+
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+			getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare(checkpointName)
+
+			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result.Disks).To(HaveLen(2))
+			Expect(result.Disks[0].Name).To(Equal("vda"))
+			Expect(result.Disks[1].Name).To(Equal("vdb"))
+			Expect(disksWithoutBitmap).To(BeEmpty())
+		})
+	})
+
+	Context("abort backup", func() {
+		It("should successfully abort an ongoing backup and update the status", func() {
+			abortSignal := make(chan struct{})
+
+			backupMetadata := api.BackupMetadata{
+				Name:           "test-backup",
+				Mode:           string(backupv1.PushMode),
+				StartTimestamp: pointer.P(metav1.Now()),
+			}
+			metadataCache.Backup.Store(backupMetadata)
+
+			mockConn.EXPECT().LookupDomainByName(gomock.Any()).MaxTimes(1).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetJobInfo().Return(&libvirt.DomainJobInfo{
+				Type: libvirt.DOMAIN_JOB_UNBOUNDED,
+			}, nil)
+
+			mockDomain.EXPECT().AbortJob().Return(nil).Do(func() {
+				close(abortSignal)
+			})
+			mockDomain.EXPECT().Free().MaxTimes(1).Return(nil)
+
+			Expect(manager.AbortVirtualMachineBackup(vmi)).To(Succeed())
+
+			Eventually(abortSignal, 2*time.Second).Should(BeClosed())
+
+			meta, _ := metadataCache.Backup.Load()
+			Expect(meta.AbortStatus).To(Equal(string(v1.BackupAbortInProgress)))
+
+			event := &libvirt.DomainEventJobCompleted{}
+			mockDomain.EXPECT().GetJobStats(gomock.Any()).Return(&libvirt.DomainJobInfo{
+				Type: libvirt.DOMAIN_JOB_CANCELLED,
+			}, nil)
+
+			manager.HandleBackupJobCompletedEvent(mockDomain, event)
+
+			Eventually(func() string {
+				newMetadata, _ := metadataCache.Backup.Load()
+				return newMetadata.AbortStatus
+			}, 2*time.Second).Should(Equal(string(v1.BackupAbortSucceeded)))
+
+			newMetadata, exists := metadataCache.Backup.Load()
+			Expect(exists).To(BeTrue())
+			Expect(newMetadata.Failed).To(BeTrue())
+		})
+
+		It("should not abort a completed backup and return no-backup error", func() {
+			backupMetadata := api.BackupMetadata{
+				Name:           "test-backup",
+				Mode:           string(backupv1.PushMode),
+				StartTimestamp: pointer.P(metav1.Now()),
+				EndTimestamp:   pointer.P(metav1.Now()),
+			}
+			metadataCache.Backup.Store(backupMetadata)
+
+			err := manager.AbortVirtualMachineBackup(vmi)
+			Expect(err).To(MatchError(backups.AbortBackupFailedNoBackupErr))
+
+			completedBackupMetadata, exists := metadataCache.Backup.Load()
+			Expect(exists).To(BeTrue())
+			Expect(completedBackupMetadata.EndTimestamp).NotTo(BeNil())
+		})
+
+		It("should fail to abort a backup if there's no ongoing backup job", func() {
+			emptyBackup := api.BackupMetadata{}
+			metadataCache.Backup.Store(emptyBackup)
+			Expect(manager.AbortVirtualMachineBackup(vmi)).To(MatchError(ContainSubstring("vmi is not being backed up")))
+		})
+	})
 })
+
+func mockGetDiskInfoWithForceShare(bitmapName string) func(path string) (*osdisk.DiskInfo, error) {
+	return func(path string) (*osdisk.DiskInfo, error) {
+		var bitmaps []osdisk.BitmapInfo
+		if bitmapName != "" {
+			bitmaps = []osdisk.BitmapInfo{{Name: bitmapName, Granularity: 65536}}
+		}
+		return &osdisk.DiskInfo{
+			Format:      "qcow2",
+			VirtualSize: 10737418240,
+			FormatSpecific: &osdisk.FormatSpecific{
+				Type: "qcow2",
+				Data: &osdisk.FormatSpecificData{Bitmaps: bitmaps},
+			},
+		}, nil
+	}
+}
