@@ -821,6 +821,7 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.clusterConfig,
 		netcontrollers.NewVMController(
 			vca.clientSet.GeneratedKubeVirtClient(),
+			vca.clusterConfig,
 		),
 		vm.NewFirmwareController(vca.clientSet.GeneratedKubeVirtClient()),
 		instancetypecontroller.New(
