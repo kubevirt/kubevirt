@@ -20,13 +20,16 @@ package synchronization
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"sync"
 	"time"
 
+	k8sv1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +40,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+
 	"kubevirt.io/kubevirt/pkg/controller"
 
 	context "golang.org/x/net/context"
@@ -59,6 +63,8 @@ const (
 	targetUnableToLocateVMIMigrationIDErrorMsg    = "target: unable to locate VMI for migrationID %s"
 	sourceUnableToLocateVMIMigrationIDErrorMsgVMI = "source: unable to locate VMI for migrationID %s, vmi: %s"
 	targetUnableToLocateVMIMigrationIDErrorMsgVMI = "target: unable to locate VMI for migrationID %s, vmi: %s"
+
+	waitingForSyncErrorMessage = "waiting for incoming synchronization, unable to proceed"
 
 	successMessage = "success"
 
@@ -351,9 +357,8 @@ func (s *SynchronizationController) execute(key string) error {
 				}
 				return nil
 			}
-			if err := s.handleSourceState(vmi.DeepCopy(), migration); err != nil {
-				return err
-			}
+			err := s.handleSourceState(vmi.DeepCopy(), migration)
+			return s.updateDecentralizedFailureOnSource(vmi, migration, err)
 		}
 		if migration.IsDecentralizedTarget() {
 			if migration.DeletionTimestamp != nil {
@@ -364,14 +369,84 @@ func (s *SynchronizationController) execute(key string) error {
 				}
 				return nil
 			}
-			return s.handleTargetState(vmi.DeepCopy(), migration)
+			err := s.handleTargetState(vmi.DeepCopy(), migration)
+			return s.updateDecentralizedFailureOnTarget(vmi, migration, err)
 		}
 		return nil
 	} else {
 		// No migration found don't do anything
+		// We should only clear the condition if we are not waiting for synchronization.
+		if err := s.clearDecentralizedLiveMigrationFailure(vmi); err != nil {
+			return err
+		}
 		log.Log.Object(vmi).V(4).Info("no active decentralized migration found for VMI")
 		return nil
 	}
+}
+
+func (s *SynchronizationController) updateDecentralizedFailureOnSource(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration, opErr error) error {
+	if opErr != nil {
+		if err := s.setDecentralizedLiveMigrationFailure(vmi, getErrorMessageForDecentralizedLiveMigrationFailure(opErr)); err != nil {
+			return err
+		}
+		return opErr
+	}
+	return s.clearDecentralizedLiveMigrationFailure(vmi)
+}
+
+func (s *SynchronizationController) updateDecentralizedFailureOnTarget(vmi *virtv1.VirtualMachineInstance, migration *virtv1.VirtualMachineInstanceMigration, opErr error) error {
+	// failure from handleTargetState
+	if opErr != nil {
+		return s.setDecentralizedLiveMigrationFailure(vmi, getErrorMessageForDecentralizedLiveMigrationFailure(opErr))
+	}
+
+	// success: special case waiting for sync
+	if migration.Status.Phase == virtv1.MigrationWaitingForSync {
+		return s.setDecentralizedLiveMigrationFailure(vmi, waitingForSyncErrorMessage)
+	}
+
+	// success and not waiting for sync: clear condition
+	return s.clearDecentralizedLiveMigrationFailure(vmi)
+}
+
+func getErrorMessageForDecentralizedLiveMigrationFailure(err error) string {
+	log.Log.V(1).Infof("error message: %v", err)
+	// Once we upgrade to golang 1.26, we no longer need to check for x509.HostnameError, since https://github.com/golang/go/issues/76445 will be fixed.
+	if errors.As(err, &x509.HostnameError{}) {
+		return "x509 hostname error"
+	}
+	message := ""
+	if err != nil {
+		message = err.Error()
+	}
+	return message
+}
+
+func (s *SynchronizationController) setDecentralizedLiveMigrationFailure(vmi *virtv1.VirtualMachineInstance, errorMessage string) error {
+	orgVmi := vmi.DeepCopy()
+	condition := &virtv1.VirtualMachineInstanceCondition{
+		Type:               virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure,
+		Status:             k8sv1.ConditionTrue,
+		Reason:             virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable,
+		Message:            errorMessage,
+		LastTransitionTime: metav1.Now(),
+	}
+	controller.NewVirtualMachineInstanceConditionManager().UpdateCondition(vmi, condition)
+	if err2 := s.patchVMIConditions(context.Background(), orgVmi, vmi); err2 != nil {
+		log.Log.Reason(err2).Infof("unable to patch VMI conditions after decentralized live migration failure")
+		return err2
+	}
+	return nil
+}
+
+func (s *SynchronizationController) clearDecentralizedLiveMigrationFailure(vmi *virtv1.VirtualMachineInstance) error {
+	orgVmi := vmi.DeepCopy()
+	controller.NewVirtualMachineInstanceConditionManager().RemoveCondition(vmi, virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure)
+	if err := s.patchVMIConditions(context.Background(), orgVmi, vmi); err != nil {
+		log.Log.Reason(err).Infof("unable to patch VMI conditions after clearing decentralized live migration failure")
+		return err
+	}
+	return nil
 }
 
 func (s *SynchronizationController) handleMigrationFinalizer(migration *virtv1.VirtualMachineInstanceMigration) error {
@@ -937,6 +1012,27 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	return &syncv1.VMIStatusResponse{
 		Message: successMessage,
 	}, nil
+}
+
+func (s *SynchronizationController) patchVMIConditions(ctx context.Context, origVMI, newVMI *virtv1.VirtualMachineInstance) error {
+	patchSet := patch.New()
+	if !apiequality.Semantic.DeepEqual(origVMI.Status.Conditions, newVMI.Status.Conditions) {
+		patchSet.AddOption(
+			patch.WithTest("/status/conditions", origVMI.Status.Conditions),
+			patch.WithReplace("/status/conditions", newVMI.Status.Conditions),
+		)
+	}
+	if !patchSet.IsEmpty() {
+		patchBytes, err := patchSet.GeneratePayload()
+		if err != nil {
+			return err
+		}
+		log.Log.Object(origVMI).V(5).Infof("patch VMI conditions with %s", string(patchBytes))
+		if _, err := s.client.VirtualMachineInstance(origVMI.Namespace).Patch(ctx, origVMI.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVMI *virtv1.VirtualMachineInstance) error {
