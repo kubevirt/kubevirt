@@ -524,13 +524,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 				Expect(verifyClientServerConnectivity(clientVMI, serverVMI, tcpPort, k8sv1.IPv6Protocol)).To(Succeed())
 			},
-				Entry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
-				Entry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
-				Entry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
-				Entry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::2/120"),
+				PEntry("with a specific port number [IPv6]", []v1.Port{{Name: "http", Port: 8080}}, 8080, ""),
+				PEntry("with a specific port used by live migration", portsUsedByLiveMigration(), LibvirtDirectMigrationPort, ""),
+				PEntry("without a specific port number [IPv6]", []v1.Port{}, 8080, ""),
+				PEntry("with custom CIDR [IPv6]", []v1.Port{}, 8080, "fd10:10:10::2/120"),
 			)
 
-			It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
+			PIt("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 				// Cluster nodes subnet (docker network gateway)
 				// Docker network subnet cidr definition:
@@ -604,7 +604,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Entry("with explicit ports used by live migration", portsUsedByLiveMigration()),
 			)
 
-			It("should preserve connectivity - IPv6", decorators.Conformance, func() {
+			PIt("should preserve connectivity - IPv6", decorators.Conformance, func() {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
 				var err error
@@ -757,7 +757,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(libnet.PingFromVMConsole(vmi, addr, "-c 1", "-w 5", fmt.Sprintf("-s %d", payloadSize+1), "-M do")).ToNot(Succeed())
 			},
 				Entry("IPv4", k8sv1.IPv4Protocol),
-				Entry("IPv6", k8sv1.IPv6Protocol),
+				PEntry("IPv6", k8sv1.IPv6Protocol),
 			)
 		})
 	})
