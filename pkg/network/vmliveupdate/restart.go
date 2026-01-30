@@ -27,18 +27,26 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
+type clusterConfigurer interface {
+	LiveUpdateNADRefEnabled() bool
+}
 type netChangePredicate func(map[string]v1.Network, map[string]v1.Network) bool
 
 // IsRestartRequired - Checks if the changes in network related fields require a reset of the VM
 // in order for them to be applied
-func IsRestartRequired(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func IsRestartRequired(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, clusterConfigurer clusterConfigurer) bool {
 	desiredIfaces := vm.Spec.Template.Spec.Domain.Devices.Interfaces
 	currentIfaces := vmi.Spec.Domain.Devices.Interfaces
 
 	desiredNets := vm.Spec.Template.Spec.Networks
 	currentNets := vmi.Spec.Networks
 
-	netChangePredicates := []netChangePredicate{haveCurrentNetsBeenRemoved, haveCurrentNetsChanged}
+	netChangePredicates := []netChangePredicate{haveCurrentNetsBeenRemoved}
+	if clusterConfigurer.LiveUpdateNADRefEnabled() {
+		netChangePredicates = append(netChangePredicates, haveNetsChangedIgnoringNADName)
+	} else {
+		netChangePredicates = append(netChangePredicates, haveCurrentNetsChanged)
+	}
 
 	return shouldIfacesChangeRequireRestart(desiredIfaces, currentIfaces) ||
 		shouldNetsChangeRequireRestart(desiredNets, currentNets, netChangePredicates...)
@@ -125,6 +133,27 @@ func haveCurrentNetsChanged(desiredNetsByName, currentNetsByName map[string]v1.N
 			return true
 		}
 	}
-
 	return false
+}
+
+func haveNetsChangedIgnoringNADName(desiredNetsByName, currentNetsByName map[string]v1.Network) bool {
+	for currentNetName, currentNet := range currentNetsByName {
+		desiredNet := desiredNetsByName[currentNetName]
+
+		if !areNetsEqualIgnoringMultusNetName(desiredNet, currentNet) {
+			return true
+		}
+	}
+	return false
+}
+
+func areNetsEqualIgnoringMultusNetName(net1, net2 v1.Network) bool {
+	normalize := func(n v1.Network) v1.Network {
+		nCopy := n.DeepCopy()
+		if nCopy.Multus != nil {
+			nCopy.Multus.NetworkName = ""
+		}
+		return *nCopy
+	}
+	return reflect.DeepEqual(normalize(net1), normalize(net2))
 }
