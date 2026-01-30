@@ -218,7 +218,7 @@ var _ = Describe("Operator Config", func() {
 		DescribeTable("should ", func(input testInput) {
 			envManager := EnvVarManagerMock{}
 			for k, v := range input.envVars {
-				envManager.Setenv(k, v)
+				Expect(envManager.Setenv(k, v)).To(Succeed())
 			}
 			config := GetTargetConfigFromKVWithEnvVarManager(
 				input.kv,
