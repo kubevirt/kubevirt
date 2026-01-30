@@ -37,7 +37,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.2xlarge
 spec:
   cpu:
@@ -91,7 +91,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.2xlarge1gi
 spec:
   cpu:
@@ -145,7 +145,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.4xlarge
 spec:
   cpu:
@@ -199,7 +199,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.4xlarge1gi
 spec:
   cpu:
@@ -253,7 +253,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.8xlarge
 spec:
   cpu:
@@ -307,7 +307,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.8xlarge1gi
 spec:
   cpu:
@@ -361,7 +361,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.large
 spec:
   cpu:
@@ -415,7 +415,7 @@ metadata:
     instancetype.kubevirt.io/size: large1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.large1gi
 spec:
   cpu:
@@ -469,7 +469,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.medium
 spec:
   cpu:
@@ -523,7 +523,7 @@ metadata:
     instancetype.kubevirt.io/size: medium1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.medium1gi
 spec:
   cpu:
@@ -577,7 +577,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.xlarge
 spec:
   cpu:
@@ -631,7 +631,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: cx1.xlarge1gi
 spec:
   cpu:
@@ -652,6 +652,356 @@ kind: VirtualMachineClusterInstancetype
 metadata:
   annotations:
     instancetype.kubevirt.io/description: |-
+      The D Series is designed for consistent and predictable performance,
+      providing resources for general purpose applications.
+
+      *D* is the abbreviation for "Dedicated", reflecting the use of
+      dedicated CPU placement for workloads.
+
+      VMs of this instance type are assigned exclusive physical CPU cores,
+      avoiding CPU sharing and time-slice contention with other VMs.
+    instancetype.kubevirt.io/displayName: Dedicated vCPU
+  labels:
+    instancetype.kubevirt.io/class: dedicated.vcpu
+    instancetype.kubevirt.io/cpu: "8"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 32Gi
+    instancetype.kubevirt.io/size: 2xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+  name: d1.2xlarge
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 8
+    isolateEmulatorThread: true
+  ioThreadsPolicy: auto
+  memory:
+    guest: 32Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The D Series is designed for consistent and predictable performance,
+      providing resources for general purpose applications.
+
+      *D* is the abbreviation for "Dedicated", reflecting the use of
+      dedicated CPU placement for workloads.
+
+      VMs of this instance type are assigned exclusive physical CPU cores,
+      avoiding CPU sharing and time-slice contention with other VMs.
+    instancetype.kubevirt.io/displayName: Dedicated vCPU
+  labels:
+    instancetype.kubevirt.io/class: dedicated.vcpu
+    instancetype.kubevirt.io/cpu: "2"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 4Gi
+    instancetype.kubevirt.io/size: 2xmedium
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+  name: d1.2xmedium
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 2
+    isolateEmulatorThread: true
+  ioThreadsPolicy: auto
+  memory:
+    guest: 4Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The D Series is designed for consistent and predictable performance,
+      providing resources for general purpose applications.
+
+      *D* is the abbreviation for "Dedicated", reflecting the use of
+      dedicated CPU placement for workloads.
+
+      VMs of this instance type are assigned exclusive physical CPU cores,
+      avoiding CPU sharing and time-slice contention with other VMs.
+    instancetype.kubevirt.io/displayName: Dedicated vCPU
+  labels:
+    instancetype.kubevirt.io/class: dedicated.vcpu
+    instancetype.kubevirt.io/cpu: "16"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 64Gi
+    instancetype.kubevirt.io/size: 4xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+  name: d1.4xlarge
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 16
+    isolateEmulatorThread: true
+  ioThreadsPolicy: auto
+  memory:
+    guest: 64Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The D Series is designed for consistent and predictable performance,
+      providing resources for general purpose applications.
+
+      *D* is the abbreviation for "Dedicated", reflecting the use of
+      dedicated CPU placement for workloads.
+
+      VMs of this instance type are assigned exclusive physical CPU cores,
+      avoiding CPU sharing and time-slice contention with other VMs.
+    instancetype.kubevirt.io/displayName: Dedicated vCPU
+  labels:
+    instancetype.kubevirt.io/class: dedicated.vcpu
+    instancetype.kubevirt.io/cpu: "32"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 128Gi
+    instancetype.kubevirt.io/size: 8xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+  name: d1.8xlarge
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 32
+    isolateEmulatorThread: true
+  ioThreadsPolicy: auto
+  memory:
+    guest: 128Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The D Series is designed for consistent and predictable performance,
+      providing resources for general purpose applications.
+
+      *D* is the abbreviation for "Dedicated", reflecting the use of
+      dedicated CPU placement for workloads.
+
+      VMs of this instance type are assigned exclusive physical CPU cores,
+      avoiding CPU sharing and time-slice contention with other VMs.
+    instancetype.kubevirt.io/displayName: Dedicated vCPU
+  labels:
+    instancetype.kubevirt.io/class: dedicated.vcpu
+    instancetype.kubevirt.io/cpu: "2"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 8Gi
+    instancetype.kubevirt.io/size: large
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+  name: d1.large
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 2
+    isolateEmulatorThread: true
+  ioThreadsPolicy: auto
+  memory:
+    guest: 8Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The D Series is designed for consistent and predictable performance,
+      providing resources for general purpose applications.
+
+      *D* is the abbreviation for "Dedicated", reflecting the use of
+      dedicated CPU placement for workloads.
+
+      VMs of this instance type are assigned exclusive physical CPU cores,
+      avoiding CPU sharing and time-slice contention with other VMs.
+    instancetype.kubevirt.io/displayName: Dedicated vCPU
+  labels:
+    instancetype.kubevirt.io/class: dedicated.vcpu
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 4Gi
+    instancetype.kubevirt.io/size: medium
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+  name: d1.medium
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 1
+    isolateEmulatorThread: true
+  ioThreadsPolicy: auto
+  memory:
+    guest: 4Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The D Series is designed for consistent and predictable performance,
+      providing resources for general purpose applications.
+
+      *D* is the abbreviation for "Dedicated", reflecting the use of
+      dedicated CPU placement for workloads.
+
+      VMs of this instance type are assigned exclusive physical CPU cores,
+      avoiding CPU sharing and time-slice contention with other VMs.
+    instancetype.kubevirt.io/displayName: Dedicated vCPU
+  labels:
+    instancetype.kubevirt.io/class: dedicated.vcpu
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 1Gi
+    instancetype.kubevirt.io/size: micro
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+  name: d1.micro
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 1
+    isolateEmulatorThread: true
+  ioThreadsPolicy: auto
+  memory:
+    guest: 1Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The D Series is designed for consistent and predictable performance,
+      providing resources for general purpose applications.
+
+      *D* is the abbreviation for "Dedicated", reflecting the use of
+      dedicated CPU placement for workloads.
+
+      VMs of this instance type are assigned exclusive physical CPU cores,
+      avoiding CPU sharing and time-slice contention with other VMs.
+    instancetype.kubevirt.io/displayName: Dedicated vCPU
+  labels:
+    instancetype.kubevirt.io/class: dedicated.vcpu
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 512Mi
+    instancetype.kubevirt.io/size: nano
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+  name: d1.nano
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 1
+    isolateEmulatorThread: true
+  ioThreadsPolicy: auto
+  memory:
+    guest: 512Mi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The D Series is designed for consistent and predictable performance,
+      providing resources for general purpose applications.
+
+      *D* is the abbreviation for "Dedicated", reflecting the use of
+      dedicated CPU placement for workloads.
+
+      VMs of this instance type are assigned exclusive physical CPU cores,
+      avoiding CPU sharing and time-slice contention with other VMs.
+    instancetype.kubevirt.io/displayName: Dedicated vCPU
+  labels:
+    instancetype.kubevirt.io/class: dedicated.vcpu
+    instancetype.kubevirt.io/cpu: "1"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 2Gi
+    instancetype.kubevirt.io/size: small
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+  name: d1.small
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 1
+    isolateEmulatorThread: true
+  ioThreadsPolicy: auto
+  memory:
+    guest: 2Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
+      The D Series is designed for consistent and predictable performance,
+      providing resources for general purpose applications.
+
+      *D* is the abbreviation for "Dedicated", reflecting the use of
+      dedicated CPU placement for workloads.
+
+      VMs of this instance type are assigned exclusive physical CPU cores,
+      avoiding CPU sharing and time-slice contention with other VMs.
+    instancetype.kubevirt.io/displayName: Dedicated vCPU
+  labels:
+    instancetype.kubevirt.io/class: dedicated.vcpu
+    instancetype.kubevirt.io/cpu: "4"
+    instancetype.kubevirt.io/dedicatedCPUPlacement: "true"
+    instancetype.kubevirt.io/icon-pf: pficon-server-group
+    instancetype.kubevirt.io/isolateEmulatorThread: "true"
+    instancetype.kubevirt.io/memory: 16Gi
+    instancetype.kubevirt.io/size: xlarge
+    instancetype.kubevirt.io/vendor: kubevirt.io
+    instancetype.kubevirt.io/version: "1"
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
+  name: d1.xlarge
+spec:
+  cpu:
+    dedicatedCPUPlacement: true
+    guest: 4
+    isolateEmulatorThread: true
+  ioThreadsPolicy: auto
+  memory:
+    guest: 16Gi
+---
+apiVersion: instancetype.kubevirt.io/v1beta1
+kind: VirtualMachineClusterInstancetype
+metadata:
+  annotations:
+    instancetype.kubevirt.io/description: |-
       The M Series provides resources for memory intensive
       applications.
 
@@ -666,7 +1016,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: m1.2xlarge
 spec:
   cpu:
@@ -695,7 +1045,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: m1.2xlarge1gi
 spec:
   cpu:
@@ -724,7 +1074,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: m1.4xlarge
 spec:
   cpu:
@@ -753,7 +1103,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: m1.4xlarge1gi
 spec:
   cpu:
@@ -782,7 +1132,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: m1.8xlarge
 spec:
   cpu:
@@ -811,7 +1161,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: m1.8xlarge1gi
 spec:
   cpu:
@@ -840,7 +1190,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: m1.large
 spec:
   cpu:
@@ -869,7 +1219,7 @@ metadata:
     instancetype.kubevirt.io/size: large1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: m1.large1gi
 spec:
   cpu:
@@ -898,7 +1248,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: m1.xlarge
 spec:
   cpu:
@@ -927,7 +1277,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge1gi
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: m1.xlarge1gi
 spec:
   cpu:
@@ -962,7 +1312,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: n1.2xlarge
 spec:
   annotations:
@@ -1003,7 +1353,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: n1.4xlarge
 spec:
   annotations:
@@ -1044,7 +1394,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: n1.8xlarge
 spec:
   annotations:
@@ -1085,7 +1435,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: n1.large
 spec:
   annotations:
@@ -1126,7 +1476,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: n1.medium
 spec:
   annotations:
@@ -1167,7 +1517,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: n1.xlarge
 spec:
   annotations:
@@ -1201,7 +1551,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: o1.2xlarge
 spec:
   cpu:
@@ -1228,7 +1578,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: o1.4xlarge
 spec:
   cpu:
@@ -1255,7 +1605,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: o1.8xlarge
 spec:
   cpu:
@@ -1282,7 +1632,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: o1.large
 spec:
   cpu:
@@ -1309,7 +1659,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: o1.medium
 spec:
   cpu:
@@ -1336,7 +1686,7 @@ metadata:
     instancetype.kubevirt.io/size: micro
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: o1.micro
 spec:
   cpu:
@@ -1363,7 +1713,7 @@ metadata:
     instancetype.kubevirt.io/size: nano
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: o1.nano
 spec:
   cpu:
@@ -1390,7 +1740,7 @@ metadata:
     instancetype.kubevirt.io/size: small
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: o1.small
 spec:
   cpu:
@@ -1417,7 +1767,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: o1.xlarge
 spec:
   cpu:
@@ -1451,7 +1801,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: rt1.2xlarge
 spec:
   annotations:
@@ -1495,7 +1845,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: rt1.4xlarge
 spec:
   annotations:
@@ -1539,7 +1889,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: rt1.8xlarge
 spec:
   annotations:
@@ -1583,7 +1933,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: rt1.large
 spec:
   annotations:
@@ -1627,7 +1977,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: rt1.medium
 spec:
   annotations:
@@ -1671,7 +2021,7 @@ metadata:
     instancetype.kubevirt.io/size: micro
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: rt1.micro
 spec:
   annotations:
@@ -1715,7 +2065,7 @@ metadata:
     instancetype.kubevirt.io/size: small
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: rt1.small
 spec:
   annotations:
@@ -1759,7 +2109,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: rt1.xlarge
 spec:
   annotations:
@@ -1800,7 +2150,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: u1.2xlarge
 spec:
   cpu:
@@ -1830,7 +2180,7 @@ metadata:
     instancetype.kubevirt.io/size: 2xmedium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: u1.2xmedium
 spec:
   cpu:
@@ -1860,7 +2210,7 @@ metadata:
     instancetype.kubevirt.io/size: 4xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: u1.4xlarge
 spec:
   cpu:
@@ -1890,7 +2240,7 @@ metadata:
     instancetype.kubevirt.io/size: 8xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: u1.8xlarge
 spec:
   cpu:
@@ -1920,7 +2270,7 @@ metadata:
     instancetype.kubevirt.io/size: large
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: u1.large
 spec:
   cpu:
@@ -1950,7 +2300,7 @@ metadata:
     instancetype.kubevirt.io/size: medium
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: u1.medium
 spec:
   cpu:
@@ -1980,7 +2330,7 @@ metadata:
     instancetype.kubevirt.io/size: micro
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: u1.micro
 spec:
   cpu:
@@ -2010,7 +2360,7 @@ metadata:
     instancetype.kubevirt.io/size: nano
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: u1.nano
 spec:
   cpu:
@@ -2040,7 +2390,7 @@ metadata:
     instancetype.kubevirt.io/size: small
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: u1.small
 spec:
   cpu:
@@ -2070,7 +2420,7 @@ metadata:
     instancetype.kubevirt.io/size: xlarge
     instancetype.kubevirt.io/vendor: kubevirt.io
     instancetype.kubevirt.io/version: "1"
-    instancetype.kubevirt.io/common-instancetypes-version: v1.5.1
+    instancetype.kubevirt.io/common-instancetypes-version: v1.6.0
   name: u1.xlarge
 spec:
   cpu:
