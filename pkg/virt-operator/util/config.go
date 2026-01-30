@@ -43,11 +43,12 @@ import (
 )
 
 const (
-	// Name of env var containing the operator's image name
-	// Deprecated. Use VirtOperatorImageEnvName instead
-	OldOperatorImageEnvName                   = "OPERATOR_IMAGE"
-	VirtOperatorImageEnvName                  = "VIRT_OPERATOR_IMAGE"
-	VirtApiImageEnvName                       = "VIRT_API_IMAGE"
+	// Name of env var containing the operator's image name.
+	//
+	// Deprecated: Use VirtOperatorImageEnvName instead.
+	OldOperatorImageEnvName = "OPERATOR_IMAGE"
+	VirtOperatorImageEnvName = "VIRT_OPERATOR_IMAGE"
+	VirtApiImageEnvName = "VIRT_API_IMAGE" //nolint:staticcheck,revive
 	VirtControllerImageEnvName                = "VIRT_CONTROLLER_IMAGE"
 	VirtHandlerImageEnvName                   = "VIRT_HANDLER_IMAGE"
 	VirtLauncherImageEnvName                  = "VIRT_LAUNCHER_IMAGE"
@@ -62,9 +63,9 @@ const (
 	RunbookURLTemplate                        = "RUNBOOK_URL_TEMPLATE"
 
 	KubeVirtVersionEnvName = "KUBEVIRT_VERSION"
-	// Deprecated, use TargetDeploymentConfig instead
+	// Deprecated: Use TargetDeploymentConfig instead.
 	TargetInstallNamespace = "TARGET_INSTALL_NAMESPACE"
-	// Deprecated, use TargetDeploymentConfig instead
+	// Deprecated: Use TargetDeploymentConfig instead.
 	TargetImagePullPolicy = "TARGET_IMAGE_PULL_POLICY"
 	// JSON containing all relevant deployment properties, replaces TargetInstallNamespace and TargetImagePullPolicy
 	TargetDeploymentConfig = "TARGET_DEPLOYMENT_CONFIG"
@@ -129,8 +130,8 @@ var DefaultMonitorNamespaces = []string{
 }
 
 type ComponentImages struct {
-	VirtOperatorImage                  string `json:"virtOperatorImage,omitempty" optional:"true"`
-	VirtApiImage                       string `json:"virtApiImage,omitempty" optional:"true"`
+	VirtOperatorImage string `json:"virtOperatorImage,omitempty" optional:"true"`
+	VirtApiImage      string `json:"virtApiImage,omitempty" optional:"true"` //nolint:staticcheck,revive
 	VirtControllerImage                string `json:"virtControllerImage,omitempty" optional:"true"`
 	VirtHandlerImage                   string `json:"virtHandlerImage,omitempty" optional:"true"`
 	VirtLauncherImage                  string `json:"virtLauncherImage,omitempty" optional:"true"`
@@ -425,6 +426,7 @@ func (c *KubeVirtDeploymentConfig) GetOperatorVersion() string {
 	return c.KubeVirtVersion
 }
 
+//nolint:staticcheck,revive
 func (c *KubeVirtDeploymentConfig) GetApiVersion() string {
 	if digest := DigestFromImageName(c.VirtApiImage); digest != "" {
 		return digest
@@ -509,19 +511,17 @@ func (c *KubeVirtDeploymentConfig) SetTargetDeploymentConfig(kv *v1.KubeVirt) er
 	kv.Status.TargetKubeVirtVersion = c.GetKubeVirtVersion()
 	kv.Status.TargetKubeVirtRegistry = c.GetImageRegistry()
 	kv.Status.TargetDeploymentID = c.GetDeploymentID()
-	json, err := c.GetJson()
-	kv.Status.TargetDeploymentConfig = json
+	configJSON, err := c.GetJSON()
+	kv.Status.TargetDeploymentConfig = configJSON
 	return err
 }
 
 func SetDefaultArchitecture(kv *v1.KubeVirt) {
 	if kv.Spec.Configuration.ArchitectureConfiguration != nil && kv.Spec.Configuration.ArchitectureConfiguration.DefaultArchitecture != "" {
 		kv.Status.DefaultArchitecture = kv.Spec.Configuration.ArchitectureConfiguration.DefaultArchitecture
-	} else {
+	} else if kv.Status.DefaultArchitecture == "" {
 		// only set default architecture in status in the event that it has not been already set previously
-		if kv.Status.DefaultArchitecture == "" {
-			kv.Status.DefaultArchitecture = runtime.GOARCH
-		}
+		kv.Status.DefaultArchitecture = runtime.GOARCH
 	}
 }
 
@@ -529,8 +529,8 @@ func (c *KubeVirtDeploymentConfig) SetObservedDeploymentConfig(kv *v1.KubeVirt) 
 	kv.Status.ObservedKubeVirtVersion = c.GetKubeVirtVersion()
 	kv.Status.ObservedKubeVirtRegistry = c.GetImageRegistry()
 	kv.Status.ObservedDeploymentID = c.GetDeploymentID()
-	json, err := c.GetJson()
-	kv.Status.ObservedDeploymentConfig = json
+	configJSON, err := c.GetJSON()
+	kv.Status.ObservedDeploymentConfig = configJSON
 	return err
 }
 
@@ -689,7 +689,7 @@ func fieldsToString(v reflect.Value) string {
 		fieldName := v.Type().Field(i).Name
 		result += fieldName
 		field := v.Field(i)
-		switch field.Type().Kind() {
+		switch field.Type().Kind() { //nolint:exhaustive
 		case reflect.Map:
 			keys := field.MapKeys()
 			nameKeys := make(map[string]reflect.Value, len(keys))
@@ -724,12 +724,20 @@ func (c *KubeVirtDeploymentConfig) GetDeploymentID() string {
 	return c.ID
 }
 
-func (c *KubeVirtDeploymentConfig) GetJson() (string, error) {
-	json, err := json.Marshal(c)
+// GetJSON returns the JSON representation of the deployment config.
+func (c *KubeVirtDeploymentConfig) GetJSON() (string, error) {
+	data, err := json.Marshal(c)
 	if err != nil {
 		return "", err
 	}
-	return string(json), nil
+	return string(data), nil
+}
+
+// GetJson returns the JSON representation of the deployment config.
+//
+// Deprecated: Use GetJSON instead.
+func (c *KubeVirtDeploymentConfig) GetJson() (string, error) { //nolint:staticcheck,revive
+	return c.GetJSON()
 }
 
 func NewEnvVarMap(envMap map[string]string) []k8sv1.EnvVar {
@@ -746,8 +754,8 @@ func IsValidLabel(label string) bool {
 	// First and last character must be alphanumeric
 	// middle chars can be alphanumeric, or dot hyphen or dash
 	// entire string must not exceed 63 chars
-	r := regexp.MustCompile(`^([a-z0-9A-Z]([a-z0-9A-Z\-\_\.]{0,61}[a-z0-9A-Z])?)?$`)
-	return r.Match([]byte(label))
+	r := regexp.MustCompile(`^([a-z0-9A-Z]([a-z0-9A-Z\-_.]{0,61}[a-z0-9A-Z])?)?$`)
+	return r.MatchString(label)
 }
 
 func DigestFromImageName(name string) string {
