@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"math"
 	"runtime"
 	"sort"
 	"strconv"
@@ -524,8 +525,10 @@ func (c *KubeVirtDeploymentConfig) GetSynchronizationPort() int32 {
 		port, err := strconv.Atoi(value)
 		if err != nil {
 			log.Log.Errorf("Unable to convert %s to integer", value)
+		} else if port < 0 || port > math.MaxInt32 {
+			log.Log.Errorf("Port value %d is out of valid range", port)
 		} else {
-			return int32(port)
+			return int32(port) //#nosec G109 -- bounds checked above
 		}
 	}
 	return DefaultSynchronizationPort
