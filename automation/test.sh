@@ -252,7 +252,7 @@ elif [[ $TARGET =~ windows.* ]]; then
   safe_download "$WINDOWS_LOCK_PATH" "$win_image_url" "$win_image" || exit 1
 fi
 
-kubectl() { KUBEVIRTCI_VERBOSE=false kubevirtci/cluster-up/kubectl.sh "$@"; }
+# kubectl() { KUBEVIRTCI_VERBOSE=false kubevirtci/cluster-up/kubectl.sh "$@"; }
 cli() { kubevirtci/cluster-up/cli.sh "$@"; }
 
 determine_cri_bin() {
@@ -346,8 +346,42 @@ export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}
 build_images
 
 trap '{ collect_debug_logs; }' ERR
-make cluster-up
+# make cluster-up
+
+git clone https://github.com/oshoval/kubevirtkcli.git
+cd kubevirtkcli
+
+sudo dnf -y install libvirt libvirt-daemon-driver-qemu qemu-kvm tar acl
+sudo usermod -aG qemu,libvirt $(id -un)
+sudo newgrp libvirt
+
+# Start libvirt daemons directly (systemd not available in container)
+sudo /usr/sbin/virtlogd > /var/log/virtlogd.log 2>&1 &
+sudo /usr/sbin/libvirtd > /var/log/libvirtd.log 2>&1 &
+
+# Wait for libvirt to be ready
+sleep 5
+
+curl https://raw.githubusercontent.com/karmab/kcli/main/install.sh | sudo bash
+
+sudo kcli create pool -p /var/lib/libvirt/images default
+sudo setfacl -m u:$(id -un):rwx /var/lib/libvirt/images
+
+ssh-keygen -t rsa -b 4096 -N "" -f ~/.ssh/id_rsa
+./deploy-cluster.sh
+cd ..
 trap - ERR
+
+export KUBECONFIG=/root/.kcli/clusters/dra/auth/kubeconfig
+REGISTRY_IP=$(kubectl get pod -n container-registry -o custom-columns=IP:.status.podIP --no-headers)
+export KUBEVIRT_PROVIDER=external
+export DOCKER_PREFIX=$REGISTRY_IP:5000
+
+# Update passt-binding daemonset with registry IP
+sed -i "s|image: [^:]*:5000/.*/network-passt-binding-cni:devel|image: ${REGISTRY_IP}:5000/network-passt-binding-cni:devel|" cmd/cniplugins/passt-binding/passt-binding-ds.yaml
+
+kubectl create -f knp.yaml
+./istio.sh
 
 # Wait for nodes to become ready
 set +e

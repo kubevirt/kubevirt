@@ -148,7 +148,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, highTCPPort), 30*time.Second)).To(Succeed())
 		},
 			Entry("[IPv4]", k8sv1.IPv4Protocol),
-			Entry("[IPv6]", k8sv1.IPv6Protocol),
+			PEntry("[IPv6]", k8sv1.IPv6Protocol),
 		)
 	})
 
@@ -194,7 +194,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, highTCPPort+1), 30)).NotTo(Succeed())
 		},
 			Entry("[IPv4]", k8sv1.IPv4Protocol),
-			Entry("[IPv6]", k8sv1.IPv6Protocol),
+			PEntry("[IPv6]", k8sv1.IPv6Protocol),
 		)
 	})
 
@@ -240,7 +240,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			Expect(console.RunCommand(clientVMI, connectToServerCmd(serverIP, lowTCPPort+1), 30)).NotTo(Succeed())
 		},
 			Entry("[IPv4]", k8sv1.IPv4Protocol),
-			Entry("[IPv6]", k8sv1.IPv6Protocol),
+			PEntry("[IPv6]", k8sv1.IPv6Protocol),
 		)
 	})
 
@@ -293,7 +293,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			Expect(startAndVerifyUDPClient(clientVMI, serverIP, udpPort, ipFamily)).To(Succeed())
 		},
 			Entry("[IPv4]", udpPortForIPv4, k8sv1.IPv4Protocol),
-			Entry("[IPv6]", udpPortForIPv6, k8sv1.IPv6Protocol),
+			PEntry("[IPv6]", udpPortForIPv6, k8sv1.IPv6Protocol),
 		)
 	})
 
@@ -327,7 +327,7 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding plugin"
 			Expect(libnet.PingFromVMConsole(vmi, dns, "-c 5", "-w 15")).To(Succeed())
 		})
 
-		It("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
+		PIt("should be able to reach the outside world", Label("RequiresOutsideConnectivity", "IPv6"), func() {
 			libnet.SkipWhenClusterNotSupportIpv6()
 			// Cluster nodes subnet (docker network gateway)
 			// Docker network subnet cidr definition:

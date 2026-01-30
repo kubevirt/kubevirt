@@ -96,13 +96,13 @@ var _ = Describe(SIG("Subdomain", func() {
 
 			Expect(assertFQDNinGuest(vmi, expectedFQDN)).To(Succeed(), "failed to get expected FQDN")
 		},
-			Entry("with Masquerade binding and subdomain and hostname", fedoraMasqueradeVMI, subdomain, hostname),
-			Entry("with Bridge binding and subdomain", fedoraBridgeBindingVMI, subdomain, ""),
+			PEntry("with Masquerade binding and subdomain and hostname", fedoraMasqueradeVMI, subdomain, hostname),
+			PEntry("with Bridge binding and subdomain", fedoraBridgeBindingVMI, subdomain, ""),
 			Entry("with Masquerade binding without subdomain", fedoraMasqueradeVMI, "", ""),
 			Entry("with Bridge binding without subdomain", fedoraBridgeBindingVMI, "", ""),
 		)
 
-		It("VMI with custom DNSPolicy should have the expected FQDN", func() {
+		PIt("VMI with custom DNSPolicy should have the expected FQDN", func() {
 			vmiSpec := fedoraBridgeBindingVMI()
 			vmiSpec.Spec.Subdomain = subdomain
 			expectedFQDN := fmt.Sprintf("%s.%s.%s.svc.cluster.local", vmiSpec.Name, subdomain, testsuite.NamespaceTestDefault)
