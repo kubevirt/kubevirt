@@ -232,3 +232,7 @@ func (config *ClusterConfig) ContainerPathVolumesEnabled() bool {
 func (config *ClusterConfig) OptOutRoleAggregationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.OptOutRoleAggregation)
 }
+
+func (config *ClusterConfig) LiveUpdateNADRefEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.LiveUpdateNADRef)
+}
