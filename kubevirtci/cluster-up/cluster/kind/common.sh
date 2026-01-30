@@ -2,18 +2,9 @@
 
 set -e
 
-function detect_cri() {
-    if podman ps >/dev/null 2>&1; then
-        echo podman
-    elif docker ps >/dev/null 2>&1; then
-        echo docker
-    else
-        echo "Error: no container runtime detected. Please install Podman or Docker." >&2
-        exit 1
-    fi
-}
-
+source "${KUBEVIRTCI_PATH}/../hack/detect_cri.sh"
 export CRI_BIN=${CRI_BIN:-$(detect_cri)}
+
 export KIND_EXPERIMENTAL_PROVIDER=${CRI_BIN}
 CONFIG_WORKER_CPU_MANAGER=${CONFIG_WORKER_CPU_MANAGER:-false}
 # only setup ipFamily when the environmental variable is not empty
@@ -115,7 +106,7 @@ function _ssh_into_node() {
         ${CRI_BIN} exec "$@"
     else
         ${CRI_BIN} exec -it "$1" bash
-    fi    
+    fi
 }
 
 function _run_registry() {
