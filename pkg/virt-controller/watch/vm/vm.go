@@ -3009,7 +3009,7 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		lastSeenVM.Spec.Template.Spec.Tolerations = currentVM.Spec.Template.Spec.Tolerations
 	}
 
-	if !netvmliveupdate.IsRestartRequired(currentVM, vmi) {
+	if !netvmliveupdate.IsRestartRequired(currentVM, vmi, c.clusterConfig.LiveUpdateNADRefEnabled()) {
 		lastSeenVM.Spec.Template.Spec.Domain.Devices.Interfaces = currentVM.Spec.Template.Spec.Domain.Devices.Interfaces
 		lastSeenVM.Spec.Template.Spec.Networks = currentVM.Spec.Template.Spec.Networks
 	}

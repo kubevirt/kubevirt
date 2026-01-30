@@ -40,11 +40,13 @@ var _ = Describe("IsRestartRequired", func() {
 		secondaryNADName2 = "bar-nad"
 	)
 
-	DescribeTable("should not require restart when there is no change", func(vmi *v1.VirtualMachineInstance) {
-		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
+	DescribeTable("should not require restart when there is no change",
+		func(vmi *v1.VirtualMachineInstance) {
+			vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeFalse())
-	},
+			Expect(vmliveupdate.IsRestartRequired(vm, vmi, false)).To(BeFalse())
+			Expect(vmliveupdate.IsRestartRequired(vm, vmi, true)).To(BeFalse())
+		},
 		Entry("Without interfaces and networks",
 			libvmi.New(libvmi.WithAutoAttachPodInterface(false)),
 		),
@@ -75,23 +77,26 @@ var _ = Describe("IsRestartRequired", func() {
 			*libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1),
 		)
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeFalse())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, false)).To(BeFalse())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, true)).To(BeFalse())
 	})
 
-	DescribeTable("should not require restart when interface state changes", func(current, desired v1.InterfaceState) {
-		iface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)
-		iface.State = current
+	DescribeTable("should not require restart when interface state changes",
+		func(current, desired v1.InterfaceState) {
+			iface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)
+			iface.State = current
 
-		vmi := libvmi.New(
-			libvmi.WithInterface(iface),
-			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1)),
-		)
+			vmi := libvmi.New(
+				libvmi.WithInterface(iface),
+				libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1)),
+			)
 
-		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
-		vm.Spec.Template.Spec.Domain.Devices.Interfaces[0].State = desired
+			vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
+			vm.Spec.Template.Spec.Domain.Devices.Interfaces[0].State = desired
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeFalse())
-	},
+			Expect(vmliveupdate.IsRestartRequired(vm, vmi, false)).To(BeFalse())
+			Expect(vmliveupdate.IsRestartRequired(vm, vmi, true)).To(BeFalse())
+		},
 		Entry("From empty to empty", v1.InterfaceState(""), v1.InterfaceState("")),
 		Entry("From empty to absent", v1.InterfaceState(""), v1.InterfaceStateAbsent),
 		Entry("From empty to up", v1.InterfaceState(""), v1.InterfaceStateLinkUp),
@@ -131,7 +136,8 @@ var _ = Describe("IsRestartRequired", func() {
 
 		vm.Spec.Template.Spec.Networks = append(vm.Spec.Template.Spec.Networks, netsToHotplug...)
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeFalse())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, false)).To(BeFalse())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, true)).To(BeFalse())
 	})
 
 	It("should not require restart when interfaces or networks order is changed", func() {
@@ -149,7 +155,8 @@ var _ = Describe("IsRestartRequired", func() {
 		slices.Reverse(vm.Spec.Template.Spec.Domain.Devices.Interfaces)
 		slices.Reverse(vm.Spec.Template.Spec.Networks)
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeFalse())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, false)).To(BeFalse())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, true)).To(BeFalse())
 	})
 
 	It("should require restart when interface binding changes", func() {
@@ -163,7 +170,8 @@ var _ = Describe("IsRestartRequired", func() {
 		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
 		vm.Spec.Template.Spec.Domain.Devices.Interfaces[0] = libvmi.InterfaceDeviceWithMasqueradeBinding()
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, false)).To(BeTrue())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, true)).To(BeTrue())
 	})
 
 	DescribeTable("should require restart when network source changes", func(current, desired v1.Network) {
@@ -175,13 +183,14 @@ var _ = Describe("IsRestartRequired", func() {
 		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
 		vm.Spec.Template.Spec.Networks[0] = desired
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, false)).To(BeTrue())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, true)).To(BeTrue())
 	},
 		Entry("From Pod to Multus", *v1.DefaultPodNetwork(), *libvmi.MultusNetwork("default", secondaryNADName1)),
 		Entry("From Multus to Pod", *libvmi.MultusNetwork("default", secondaryNADName1), *v1.DefaultPodNetwork()),
 	)
 
-	It("should require restart when NAD name changes", func() {
+	It("should require restart when NAD name changes only if FG LiveUpdateNADRef is disabled", func() {
 		vmi := libvmi.New(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1)),
@@ -190,7 +199,8 @@ var _ = Describe("IsRestartRequired", func() {
 		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
 		vm.Spec.Template.Spec.Networks[0] = *libvmi.MultusNetwork(secondaryNetName1, secondaryNADName2)
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, false)).To(BeTrue())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, true)).To(BeFalse())
 	})
 
 	It("Should require restart when interfaces and networks are removed", func() {
@@ -205,7 +215,8 @@ var _ = Describe("IsRestartRequired", func() {
 		vm.Spec.Template.Spec.Domain.Devices.Interfaces = vm.Spec.Template.Spec.Domain.Devices.Interfaces[:1]
 		vm.Spec.Template.Spec.Networks = vm.Spec.Template.Spec.Networks[:1]
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, false)).To(BeTrue())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, true)).To(BeTrue())
 	})
 
 	It("should require restart when pod network is added to networkless VM", func() {
@@ -218,6 +229,7 @@ var _ = Describe("IsRestartRequired", func() {
 			),
 		)
 
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeTrue())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, false)).To(BeTrue())
+		Expect(vmliveupdate.IsRestartRequired(vm, vmi, true)).To(BeTrue())
 	})
 })
