@@ -165,6 +165,12 @@ const (
 	// Details of the new hypervisors should be specified via the
 	// HypervisorConfigurations field in KubeVirtConfiguration.
 	ConfigurableHypervisor = "ConfigurableHypervisor"
+
+	// LiveUpdateNADRef enables update the NAD reference (networkName) of a network
+	// on a running VM through Live Migration
+	// Owner: SIG network
+	// Beta: v1.8
+	LiveUpdateNADRef = "LiveUpdateNADRef"
 )
 
 func init() {
@@ -202,4 +208,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
 }
