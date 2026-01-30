@@ -190,6 +190,11 @@ const (
 	// Template enables the deployment of virt-template components by virt-operator.
 	// Alpha: v1.8.0
 	Template = "Template"
+
+	// LiveUpdateNADRef enables dynamic modification of NAD references for secondary networks on running VMs.
+	// Owner: SIG network
+	// Beta: v1.8
+	LiveUpdateNADRef = "LiveUpdateNADRef"
 )
 
 func init() {
@@ -231,4 +236,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DisableNADResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
 }
