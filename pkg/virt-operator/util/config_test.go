@@ -160,7 +160,9 @@ var _ = Describe("Operator Config", func() {
 			Entry("VirtLauncherImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtLauncherImage = img }),
 			Entry("VirtExportProxyImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtExportProxyImage = img }),
 			Entry("VirtExportServerImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtExportServerImage = img }),
-			Entry("VirtSynchronizationControllerImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtSynchronizationControllerImage = img }),
+			Entry("VirtSynchronizationControllerImage", func(c *KubeVirtDeploymentConfig, img string) {
+				c.VirtSynchronizationControllerImage = img
+			}),
 			Entry("GsImage", func(c *KubeVirtDeploymentConfig, img string) { c.GsImage = img }),
 			Entry("PrHelperImage", func(c *KubeVirtDeploymentConfig, img string) { c.PrHelperImage = img }),
 			Entry("SidecarShimImage", func(c *KubeVirtDeploymentConfig, img string) { c.SidecarShimImage = img }),

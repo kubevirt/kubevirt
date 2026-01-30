@@ -83,7 +83,8 @@ func UpdateConditionsAvailable(kv *virtv1.KubeVirt) {
 }
 
 func UpdateConditionsFailedExists(kv *virtv1.KubeVirt) {
-	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment")
+	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse,
+		ConditionReasonDeploymentFailedExisting, "There is an active KubeVirt deployment")
 	// don' t set any other conditions here, so HCO just ignores this KubeVirt CR
 }
 
@@ -105,10 +106,17 @@ func UpdateConditionsDeleting(kv *virtv1.KubeVirt) {
 }
 
 func UpdateConditionsDeletionFailed(kv *virtv1.KubeVirt, err error) {
-	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
+	msg := fmt.Sprintf("An error occurred during deletion: %v", err)
+	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse,
+		ConditionReasonDeletionFailedError, msg)
 }
 
-func updateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason, message string) {
+func updateCondition(
+	kv *virtv1.KubeVirt,
+	conditionType virtv1.KubeVirtConditionType,
+	status k8sv1.ConditionStatus,
+	reason, message string,
+) {
 	condition, isNew := getCondition(kv, conditionType)
 	condition.Status = status
 	condition.Reason = reason

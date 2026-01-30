@@ -192,7 +192,12 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		additionalProperties[AdditionalPropertiesExternalNetResourceInjection] = ""
 	}
 
-	hypervisor := virtconfig.GetHypervisorFromKvConfig(&kv.Spec.Configuration, isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.ConfigurableHypervisor))
+	configurableHypervisor := isFeatureGateEnabledInKvConfig(
+		&kv.Spec.Configuration, featuregate.ConfigurableHypervisor,
+	)
+	hypervisor := virtconfig.GetHypervisorFromKvConfig(
+		&kv.Spec.Configuration, configurableHypervisor,
+	)
 	additionalProperties[AdditionalPropertiesHypervisorName] = hypervisor.Name
 
 	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.OptOutRoleAggregation) {
@@ -280,7 +285,11 @@ func getTag(parsedImage [][]string, kubeVirtVersion string) string {
 	}
 }
 
-func getConfig(providedRegistry, providedTag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
+func getConfig(
+	providedRegistry, providedTag, namespace string,
+	additionalProperties map[string]string,
+	envVarManager EnvVarManager,
+) *KubeVirtDeploymentConfig {
 	// get registry and tag/shasum from operator image
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
@@ -328,7 +337,14 @@ func getConfig(providedRegistry, providedTag, namespace string, additionalProper
 	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 	SidecarShimImage := envVarManager.Getenv(SidecarShimImageEnvName)
 
-	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv)
+	return newDeploymentConfigWithTag(
+		registry, imagePrefix, tag, namespace,
+		operatorImage, apiImage, controllerImage, handlerImage, launcherImage,
+		exportProxyImage, exportServerImage, synchronizationControllerImage,
+		virtTemplateApiserverImage, virtTemplateControllerImage,
+		GsImage, PrHelperImage, SidecarShimImage,
+		additionalProperties, passthroughEnv,
+	)
 }
 
 func VerifyEnv() error {
@@ -362,7 +378,14 @@ func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]
 	return passthroughEnv
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, virtTemplateApiserverImage, virtTemplateControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithTag(
+	registry, imagePrefix, tag, namespace string,
+	operatorImage, apiImage, controllerImage, handlerImage, launcherImage string,
+	exportProxyImage, exportServerImage, synchronizationControllerImage string,
+	virtTemplateApiserverImage, virtTemplateControllerImage string,
+	gsImage, prHelperImage, sidecarShimImage string,
+	kvSpec, passthroughEnv map[string]string,
+) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:        registry,
 		ImagePrefix:     imagePrefix,
