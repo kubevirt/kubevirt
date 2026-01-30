@@ -25,9 +25,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
-	"math"
 	"runtime"
 	"sort"
 	"strconv"
@@ -45,9 +45,9 @@ const (
 	// Name of env var containing the operator's image name.
 	//
 	// Deprecated: Use VirtOperatorImageEnvName instead.
-	OldOperatorImageEnvName = "OPERATOR_IMAGE"
-	VirtOperatorImageEnvName = "VIRT_OPERATOR_IMAGE"
-	VirtApiImageEnvName = "VIRT_API_IMAGE" //nolint:staticcheck,revive
+	OldOperatorImageEnvName                   = "OPERATOR_IMAGE"
+	VirtOperatorImageEnvName                  = "VIRT_OPERATOR_IMAGE"
+	VirtApiImageEnvName                       = "VIRT_API_IMAGE" //nolint:staticcheck,revive
 	VirtControllerImageEnvName                = "VIRT_CONTROLLER_IMAGE"
 	VirtHandlerImageEnvName                   = "VIRT_HANDLER_IMAGE"
 	VirtLauncherImageEnvName                  = "VIRT_LAUNCHER_IMAGE"
@@ -105,6 +105,9 @@ const (
 	// #nosec 101, the variable is not holding any credential
 	// Prefix for env vars that will be passed along
 	PassthroughEnvPrefix = "KV_IO_EXTRA_ENV_"
+
+	// defaultVersionTag is the fallback version tag when no version is provided
+	defaultVersionTag = "latest"
 )
 
 // DefaultMonitorNamespaces holds a set of well known prometheus-operator namespaces.
@@ -115,8 +118,8 @@ var DefaultMonitorNamespaces = []string{
 }
 
 type ComponentImages struct {
-	VirtOperatorImage string `json:"virtOperatorImage,omitempty" optional:"true"`
-	VirtApiImage      string `json:"virtApiImage,omitempty" optional:"true"` //nolint:staticcheck,revive
+	VirtOperatorImage                  string `json:"virtOperatorImage,omitempty" optional:"true"`
+	VirtApiImage                       string `json:"virtApiImage,omitempty" optional:"true"` //nolint:staticcheck,revive
 	VirtControllerImage                string `json:"virtControllerImage,omitempty" optional:"true"`
 	VirtHandlerImage                   string `json:"virtHandlerImage,omitempty" optional:"true"`
 	VirtLauncherImage                  string `json:"virtLauncherImage,omitempty" optional:"true"`
@@ -229,7 +232,7 @@ func getTag(parsedImage [][]string, kubeVirtVersion string) string {
 	}
 	version := parsedImage[0][3]
 	if version == "" {
-		return "latest"
+		return defaultVersionTag
 	} else if strings.HasPrefix(version, ":") {
 		return strings.TrimPrefix(version, ":")
 	} else {
@@ -250,7 +253,7 @@ func getConfig(
 	parsedImage := imageRegEx.FindAllStringSubmatch(imageString, 1)
 	kubeVirtVersion := envVarManager.Getenv(KubeVirtVersionEnvName)
 	if kubeVirtVersion == "" {
-		kubeVirtVersion = "latest"
+		kubeVirtVersion = defaultVersionTag
 	}
 
 	imagePrefix, useStoredImagePrefix := additionalProperties[ImagePrefixKey]
