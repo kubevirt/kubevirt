@@ -185,6 +185,12 @@ const (
 	// which allows terminating the VMI on guest reboot instead of silently rebooting,
 	// enabling the VM controller to recreate the VMI with updated configuration.
 	RebootPolicy = "RebootPolicy"
+
+	// LiveUpdateNADRef enables update the NAD reference (networkName) of a network
+	// on a running VM through Live Migration
+	// Owner: SIG network
+	// Beta: v1.8
+	LiveUpdateNADRef = "LiveUpdateNADRef"
 )
 
 func init() {
@@ -225,4 +231,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: DisableNADResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
 }
