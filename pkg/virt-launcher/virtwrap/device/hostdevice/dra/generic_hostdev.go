@@ -27,6 +27,7 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 )
 
 const (
@@ -34,16 +35,16 @@ const (
 	DRAHostDeviceAliasPrefix          = "dra-hostdevice-"
 )
 
-func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if !hasHostDevicesWithDRA(vmi) {
 		return hostDevices, nil
 	}
-	draPCIHostDevices, err := getDRAPCIHostDevices(vmi)
+	draPCIHostDevices, err := getDRAPCIHostDevices(vmi, vfioSpec)
 	if err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
 	}
-	draMDEVHostDevices, err := getDRAMDEVHostDevices(vmi)
+	draMDEVHostDevices, err := getDRAMDEVHostDevices(vmi, vfioSpec)
 	if err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
 	}
@@ -58,7 +59,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 	return hostDevices, nil
 }
 
-func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
 	hostDevices := []api.HostDevice{}
 	if vmi.Status.DeviceStatus == nil {
 		return hostDevices, fmt.Errorf("vmi has dra host-devices devices but no device status found")
@@ -72,19 +73,23 @@ func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 				if err != nil {
 					return nil, fmt.Errorf("failed to create PCI device for %s: %v", hdStatus.Name, err)
 				}
-				hostDevices = append(hostDevices, api.HostDevice{
+				hostDevice := api.HostDevice{
 					Alias:   api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hdStatus.Name),
 					Source:  api.HostDeviceSource{Address: hostAddr},
 					Type:    api.HostDevicePCI,
 					Managed: "no",
-				})
+				}
+				if vfioSpec.IsPCIAssignableViaIOMMUFD(*hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress) {
+					hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				}
+				hostDevices = append(hostDevices, hostDevice)
 			}
 		}
 	}
 	return hostDevices, nil
 }
 
-func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
 	hostDevices := []api.HostDevice{}
 	if vmi.Status.DeviceStatus == nil {
 		return hostDevices, fmt.Errorf("vmi has dra host-devices devices but no device status found")
@@ -97,13 +102,17 @@ func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, er
 				continue
 			}
 			if hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil {
-				hostDevices = append(hostDevices, api.HostDevice{
+				hostDevice := api.HostDevice{
 					Alias:  api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hdStatus.Name),
 					Source: api.HostDeviceSource{Address: &api.Address{UUID: *hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID}},
 					Type:   api.HostDeviceMDev,
 					Mode:   "subsystem",
 					Model:  "vfio-pci",
-				})
+				}
+				if vfioSpec.IsMDevAssignableViaIOMMUFD(*hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID) {
+					hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				}
+				hostDevices = append(hostDevices, hostDevice)
 			}
 		}
 	}

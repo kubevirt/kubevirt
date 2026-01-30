@@ -38,9 +38,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 )
 
-func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+func CreateHostDevices(vmi *v1.VirtualMachineInstance, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
 	SRIOVInterfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		if iface.SRIOV == nil {
 			return false
@@ -61,7 +62,7 @@ func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error)
 		return nil, fmt.Errorf("found no SR-IOV networks to PCI-Address mapping")
 	}
 
-	return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, pciAddressPoolWithNetworkStatus)
+	return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, pciAddressPoolWithNetworkStatus, vfioSpec)
 }
 
 // newPCIAddressPoolWithNetworkStatusFromFile polls the given file path until populated, then uses it to create the
@@ -105,25 +106,25 @@ func isFileEmptyAfterTimeout(err error, data []byte) bool {
 	return errors.Is(err, context.DeadlineExceeded) && len(data) == 0
 }
 
-func CreateHostDevicesFromIfacesAndPool(ifaces []v1.Interface, pool hostdevice.AddressPooler) ([]api.HostDevice, error) {
-	hostDevicesMetaData := createHostDevicesMetadata(ifaces)
+func CreateHostDevicesFromIfacesAndPool(ifaces []v1.Interface, pool hostdevice.AddressPooler, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
+	hostDevicesMetaData := createHostDevicesMetadata(ifaces, vfioSpec)
 	return hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pool)
 }
 
-func createHostDevicesMetadata(ifaces []v1.Interface) []hostdevice.HostDeviceMetaData {
+func createHostDevicesMetadata(ifaces []v1.Interface, vfioSpec *vfio.VFIOSpec) []hostdevice.HostDeviceMetaData {
 	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
 	for _, iface := range ifaces {
 		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
 			AliasPrefix:  deviceinfo.SRIOVAliasPrefix,
 			Name:         iface.Name,
 			ResourceName: iface.Name,
-			DecorateHook: newDecorateHook(iface),
+			DecorateHook: newDecorateHook(iface, vfioSpec),
 		})
 	}
 	return hostDevicesMetaData
 }
 
-func newDecorateHook(iface v1.Interface) func(hostDevice *api.HostDevice) error {
+func newDecorateHook(iface v1.Interface, vfioSpec *vfio.VFIOSpec) func(hostDevice *api.HostDevice) error {
 	return func(hostDevice *api.HostDevice) error {
 		if guestPCIAddress := iface.PciAddress; guestPCIAddress != "" {
 			addr, err := device.NewPciAddressField(guestPCIAddress)
@@ -136,6 +137,20 @@ func newDecorateHook(iface v1.Interface) func(hostDevice *api.HostDevice) error 
 		if iface.BootOrder != nil {
 			hostDevice.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
 		}
+
+		if hostDevice.Type == api.HostDevicePCI {
+			hostPCIAddress, err := hostdevice.ComposePCIAddressFromFields(hostDevice.Source.Address)
+			if err != nil {
+				return err
+			}
+			if vfioSpec.IsPCIAssignableViaIOMMUFD(hostPCIAddress) {
+				if hostDevice.Driver == nil {
+					hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				} else {
+					hostDevice.Driver.IOMMUFD = "yes"
+				}
+			}
+		}
 		return nil
 	}
 }
@@ -145,8 +160,8 @@ func SafelyDetachHostDevices(domainSpec *api.DomainSpec, eventDetach hostdevice.
 	return hostdevice.SafelyDetachHostDevices(sriovDevices, eventDetach, dom, timeout)
 }
 
-func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) ([]api.HostDevice, error) {
-	sriovDevices, err := CreateHostDevices(vmi)
+func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
+	sriovDevices, err := CreateHostDevices(vmi, vfioSpec)
 	if err != nil {
 		return nil, err
 	}

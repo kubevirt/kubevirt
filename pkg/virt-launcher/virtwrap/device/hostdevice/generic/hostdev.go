@@ -27,6 +27,7 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 )
 
 const (
@@ -35,17 +36,17 @@ const (
 	DefaultDisplayOff                 = false
 )
 
-func CreateHostDevices(vmiHostDevices []v1.HostDevice) ([]api.HostDevice, error) {
+func CreateHostDevices(vmiHostDevices []v1.HostDevice, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
 	return CreateHostDevicesFromPools(vmiHostDevices,
-		NewPCIAddressPool(vmiHostDevices), NewMDEVAddressPool(vmiHostDevices), NewUSBAddressPool(vmiHostDevices))
+		NewPCIAddressPool(vmiHostDevices), NewMDEVAddressPool(vmiHostDevices), NewUSBAddressPool(vmiHostDevices), vfioSpec)
 }
 
-func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, mdevAddressPool, usbAddressPool hostdevice.AddressPooler) ([]api.HostDevice, error) {
+func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, mdevAddressPool, usbAddressPool hostdevice.AddressPooler, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
 	pciPool := hostdevice.NewBestEffortAddressPool(pciAddressPool)
 	mdevPool := hostdevice.NewBestEffortAddressPool(mdevAddressPool)
 	usbPool := hostdevice.NewBestEffortAddressPool(usbAddressPool)
 
-	hostDevicesMetaData := createHostDevicesMetadata(vmiHostDevices)
+	hostDevicesMetaData := createHostDevicesMetadata(vmiHostDevices, vfioSpec)
 	pciHostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pciPool)
 	if err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
@@ -71,16 +72,44 @@ func CreateHostDevicesFromPools(vmiHostDevices []v1.HostDevice, pciAddressPool, 
 	return hostDevices, nil
 }
 
-func createHostDevicesMetadata(vmiHostDevices []v1.HostDevice) []hostdevice.HostDeviceMetaData {
+func createHostDevicesMetadata(vmiHostDevices []v1.HostDevice, vfioSpec *vfio.VFIOSpec) []hostdevice.HostDeviceMetaData {
 	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
 	for _, dev := range vmiHostDevices {
 		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
 			AliasPrefix:  AliasPrefix,
 			Name:         dev.Name,
 			ResourceName: dev.DeviceName,
+			DecorateHook: newDecorateHook(vfioSpec),
 		})
 	}
 	return hostDevicesMetaData
+}
+
+func newDecorateHook(vfioSpec *vfio.VFIOSpec) func(hd *api.HostDevice) error {
+	return func(hd *api.HostDevice) error {
+		if hd.Type == api.HostDevicePCI {
+			pciAddress, err := hostdevice.ComposePCIAddressFromFields(hd.Source.Address)
+			if err != nil {
+				return err
+			}
+			if vfioSpec.IsPCIAssignableViaIOMMUFD(pciAddress) {
+				if hd.Driver == nil {
+					hd.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				} else {
+					hd.Driver.IOMMUFD = "yes"
+				}
+			}
+		} else if hd.Type == api.HostDeviceMDev {
+			if vfioSpec.IsMDevAssignableViaIOMMUFD(hd.Source.Address.UUID) {
+				if hd.Driver == nil {
+					hd.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				} else {
+					hd.Driver.IOMMUFD = "yes"
+				}
+			}
+		}
+		return nil
+	}
 }
 
 // validateCreationOfDevicePluginsDevices validates that all specified generic host-devices have a matching host-device.

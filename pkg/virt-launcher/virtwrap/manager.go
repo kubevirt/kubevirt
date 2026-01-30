@@ -101,6 +101,7 @@ import (
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 	virtcache "kubevirt.io/kubevirt/tools/cache"
 )
 
@@ -202,6 +203,8 @@ type LibvirtDomainManager struct {
 
 	// Premigration hook server for VMI updates during migration
 	hookServer *premigrationhookserver.PreMigrationHookServer
+
+	vfioSpec *vfio.VFIOSpec
 }
 
 type pausedVMIs struct {
@@ -591,7 +594,7 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
-	sriovHostDevices, err := sriov.GetHostDevicesToAttach(vmi, domainSpec)
+	sriovHostDevices, err := sriov.GetHostDevicesToAttach(vmi, domainSpec, l.vfioSpec)
 	if err != nil {
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
@@ -1089,8 +1092,10 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	}
 	c.DisksInfo = l.disksInfo
 
+	vfioSpec := vfio.NewVFIOSpec(options)
+	l.vfioSpec = vfioSpec
 	if !isMigrationTarget {
-		sriovDevices, err := sriov.CreateHostDevices(vmi)
+		sriovDevices, err := sriov.CreateHostDevices(vmi, vfioSpec)
 		if err != nil {
 			return nil, err
 		}
@@ -1098,25 +1103,25 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		c.HotplugVolumes = hotplugVolumes
 		c.SRIOVDevices = sriovDevices
 
-		genericHostDevices, err := generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices)
+		genericHostDevices, err := generic.CreateHostDevices(vmi.Spec.Domain.Devices.HostDevices, vfioSpec)
 		if err != nil {
 			return nil, err
 		}
 		c.GenericHostDevices = genericHostDevices
 
-		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi)
+		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi, vfioSpec)
 		if err != nil {
 			return nil, err
 		}
 		c.GenericHostDevices = append(c.GenericHostDevices, genericDRAHostDevices...)
 
-		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs, vfioSpec)
 		if err != nil {
 			return nil, err
 		}
 		c.GPUHostDevices = gpuHostDevices
 
-		gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi)
+		gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi, vfioSpec)
 		if err != nil {
 			return nil, err
 		}

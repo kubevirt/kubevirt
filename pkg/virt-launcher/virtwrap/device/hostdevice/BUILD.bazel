@@ -6,6 +6,7 @@ go_library(
         "addresspool.go",
         "hostdev.go",
         "hotplug.go",
+        "utils.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice",
     visibility = ["//visibility:public"],

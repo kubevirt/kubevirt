@@ -28,6 +28,7 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 )
 
 const (
@@ -36,17 +37,17 @@ const (
 	DefaultDisplayOn             = true
 )
 
-func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if !hasGPUsWithDRA(vmi) {
 		log.Log.V(3).Infof("No DRA GPU devices found for vmi %s/%s", vmi.GetNamespace(), vmi.GetName())
 		return hostDevices, nil
 	}
-	draPCIHostDevices, err := getDRAPCIHostDevicesForGPUs(vmi)
+	draPCIHostDevices, err := getDRAPCIHostDevicesForGPUs(vmi, vfioSpec)
 	if err != nil {
 		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
 	}
-	draMDEVHostDevices, err := getDRAMDEVHostDevicesForGPUs(vmi, DefaultDisplayOn)
+	draMDEVHostDevices, err := getDRAMDEVHostDevicesForGPUs(vmi, DefaultDisplayOn, vfioSpec)
 	if err != nil {
 		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
 	}
@@ -60,7 +61,7 @@ func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, 
 	return hostDevices, nil
 }
 
-func getDRAPCIHostDevicesForGPUs(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+func getDRAPCIHostDevicesForGPUs(vmi *v1.VirtualMachineInstance, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if vmi.Status.DeviceStatus == nil {
 		return hostDevices, fmt.Errorf("vmi has dra gpu devices but no device status found")
@@ -75,19 +76,23 @@ func getDRAPCIHostDevicesForGPUs(vmi *v1.VirtualMachineInstance) ([]api.HostDevi
 				if err != nil {
 					return nil, fmt.Errorf("failed to create PCI device for %s: %v", gpu.Name, err)
 				}
-				hostDevices = append(hostDevices, api.HostDevice{
+				hostDevice := api.HostDevice{
 					Alias:   api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
 					Source:  api.HostDeviceSource{Address: hostAddr},
 					Type:    api.HostDevicePCI,
 					Managed: "no",
-				})
+				}
+				if vfioSpec.IsPCIAssignableViaIOMMUFD(*gpu.DeviceResourceClaimStatus.Attributes.PCIAddress) {
+					hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				}
+				hostDevices = append(hostDevices, hostDevice)
 			}
 		}
 	}
 	return hostDevices, nil
 }
 
-func getDRAMDEVHostDevicesForGPUs(vmi *v1.VirtualMachineInstance, defaultDisplayOn bool) ([]api.HostDevice, error) {
+func getDRAMDEVHostDevicesForGPUs(vmi *v1.VirtualMachineInstance, defaultDisplayOn bool, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if vmi.Status.DeviceStatus == nil {
 		return hostDevices, fmt.Errorf("vmi has dra devices but no device status found")
@@ -124,6 +129,9 @@ func getDRAMDEVHostDevicesForGPUs(vmi *v1.VirtualMachineInstance, defaultDisplay
 							}
 						}
 					}
+				}
+				if vfioSpec.IsMDevAssignableViaIOMMUFD(*gpu.DeviceResourceClaimStatus.Attributes.MDevUUID) {
+					hostDevice.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
 				}
 				hostDevices = append(hostDevices, hostDevice)
 			}

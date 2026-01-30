@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["vfio.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/handler-launcher-com/cmd/v1:go_default_library",
+        "//pkg/util/hardware:go_default_library",
+        "//staging/src/kubevirt.io/client-go/log:go_default_library",
+    ],
+)

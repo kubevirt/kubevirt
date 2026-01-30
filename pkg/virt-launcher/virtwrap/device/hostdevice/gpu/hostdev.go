@@ -27,6 +27,7 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/vfio"
 )
 
 const (
@@ -35,15 +36,15 @@ const (
 	DefaultDisplayOn             = true
 )
 
-func CreateHostDevices(vmiGPUs []v1.GPU) ([]api.HostDevice, error) {
-	return CreateHostDevicesFromPools(vmiGPUs, NewPCIAddressPool(vmiGPUs), NewMDEVAddressPool(vmiGPUs))
+func CreateHostDevices(vmiGPUs []v1.GPU, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
+	return CreateHostDevicesFromPools(vmiGPUs, NewPCIAddressPool(vmiGPUs), NewMDEVAddressPool(vmiGPUs), vfioSpec)
 }
 
-func CreateHostDevicesFromPools(vmiGPUs []v1.GPU, pciAddressPool, mdevAddressPool hostdevice.AddressPooler) ([]api.HostDevice, error) {
+func CreateHostDevicesFromPools(vmiGPUs []v1.GPU, pciAddressPool, mdevAddressPool hostdevice.AddressPooler, vfioSpec *vfio.VFIOSpec) ([]api.HostDevice, error) {
 	pciPool := hostdevice.NewBestEffortAddressPool(pciAddressPool)
 	mdevPool := hostdevice.NewBestEffortAddressPool(mdevAddressPool)
 
-	hostDevicesMetaData := createHostDevicesMetadata(vmiGPUs)
+	hostDevicesMetaData := createHostDevicesMetadata(vmiGPUs, vfioSpec)
 	pciHostDevices, err := hostdevice.CreatePCIHostDevices(hostDevicesMetaData, pciPool)
 	if err != nil {
 		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
@@ -62,7 +63,7 @@ func CreateHostDevicesFromPools(vmiGPUs []v1.GPU, pciAddressPool, mdevAddressPoo
 	return hostDevices, nil
 }
 
-func createHostDevicesMetadata(vmiGPUs []v1.GPU) []hostdevice.HostDeviceMetaData {
+func createHostDevicesMetadata(vmiGPUs []v1.GPU, vfioSpec *vfio.VFIOSpec) []hostdevice.HostDeviceMetaData {
 	var hostDevicesMetaData []hostdevice.HostDeviceMetaData
 	for _, dev := range vmiGPUs {
 		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
@@ -70,9 +71,37 @@ func createHostDevicesMetadata(vmiGPUs []v1.GPU) []hostdevice.HostDeviceMetaData
 			Name:              dev.Name,
 			ResourceName:      dev.DeviceName,
 			VirtualGPUOptions: dev.VirtualGPUOptions,
+			DecorateHook:      newDecorateHook(vfioSpec),
 		})
 	}
 	return hostDevicesMetaData
+}
+
+func newDecorateHook(vfioSpec *vfio.VFIOSpec) func(hd *api.HostDevice) error {
+	return func(hd *api.HostDevice) error {
+		if hd.Type == api.HostDevicePCI {
+			pciAddress, err := hostdevice.ComposePCIAddressFromFields(hd.Source.Address)
+			if err != nil {
+				return err
+			}
+			if vfioSpec.IsPCIAssignableViaIOMMUFD(pciAddress) {
+				if hd.Driver == nil {
+					hd.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				} else {
+					hd.Driver.IOMMUFD = "yes"
+				}
+			}
+		} else if hd.Type == api.HostDeviceMDev {
+			if vfioSpec.IsMDevAssignableViaIOMMUFD(hd.Source.Address.UUID) {
+				if hd.Driver == nil {
+					hd.Driver = &api.HostDeviceDriver{IOMMUFD: "yes"}
+				} else {
+					hd.Driver.IOMMUFD = "yes"
+				}
+			}
+		}
+		return nil
+	}
 }
 
 // validateCreationOfDevicePluginsDevices validates that all specified GPU/s have a matching host-device.
