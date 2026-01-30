@@ -19,7 +19,11 @@
 
 package vmispec
 
-import v1 "kubevirt.io/api/core/v1"
+import (
+	"reflect"
+
+	v1 "kubevirt.io/api/core/v1"
+)
 
 func LookupNetworkByName(networks []v1.Network, name string) *v1.Network {
 	for i := range networks {
@@ -84,4 +88,15 @@ func FilterNetworksByInterfaces(networks []v1.Network, interfaces []v1.Interface
 		}
 	}
 	return nets
+}
+
+func AreNetsEqualIgnoringMultusNetName(net1, net2 v1.Network) bool {
+	normalize := func(n v1.Network) v1.Network {
+		nCopy := n.DeepCopy()
+		if nCopy.Multus != nil {
+			nCopy.Multus.NetworkName = ""
+		}
+		return *nCopy
+	}
+	return reflect.DeepEqual(normalize(net1), normalize(net2))
 }
