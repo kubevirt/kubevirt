@@ -29,7 +29,7 @@ import (
 
 // IsRestartRequired - Checks if the changes in network related fields require a reset of the VM
 // in order for them to be applied
-func IsRestartRequired(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
+func IsRestartRequired(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, isLiveUpdateNADRefEnabled bool) bool {
 	desiredIfaces := vm.Spec.Template.Spec.Domain.Devices.Interfaces
 	currentIfaces := vmi.Spec.Domain.Devices.Interfaces
 
@@ -37,7 +37,7 @@ func IsRestartRequired(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bo
 	currentNets := vmi.Spec.Networks
 
 	return shouldIfacesChangeRequireRestart(desiredIfaces, currentIfaces) ||
-		shouldNetsChangeRequireRestart(desiredNets, currentNets)
+		shouldNetsChangeRequireRestart(desiredNets, currentNets, isLiveUpdateNADRefEnabled)
 }
 
 func shouldIfacesChangeRequireRestart(desiredIfaces, currentIfaces []v1.Interface) bool {
@@ -48,7 +48,7 @@ func shouldIfacesChangeRequireRestart(desiredIfaces, currentIfaces []v1.Interfac
 		haveCurrentIfacesChanged(desiredIfacesByName, currentIfacesByName)
 }
 
-func shouldNetsChangeRequireRestart(desiredNets, currentNets []v1.Network) bool {
+func shouldNetsChangeRequireRestart(desiredNets, currentNets []v1.Network, isLiveUpdateNADRefEnabled bool) bool {
 	isPodNetworkInDesiredNets := vmispec.LookupPodNetwork(desiredNets) != nil
 	isPodNetworkInCurrentNets := vmispec.LookupPodNetwork(currentNets) != nil
 
@@ -60,7 +60,7 @@ func shouldNetsChangeRequireRestart(desiredNets, currentNets []v1.Network) bool 
 	currentNetsByName := vmispec.IndexNetworkSpecByName(currentNets)
 
 	return haveCurrentNetsBeenRemoved(desiredNetsByName, currentNetsByName) ||
-		haveCurrentNetsChanged(desiredNetsByName, currentNetsByName)
+		haveCurrentNetsChanged(desiredNetsByName, currentNetsByName, isLiveUpdateNADRefEnabled)
 }
 
 // haveCurrentIfacesBeenRemoved checks if interfaces existing in the VMI spec were removed
@@ -109,14 +109,30 @@ func haveCurrentNetsBeenRemoved(desiredNetsByName, currentNetsByName map[string]
 	return false
 }
 
-func haveCurrentNetsChanged(desiredNetsByName, currentNetsByName map[string]v1.Network) bool {
+func haveCurrentNetsChanged(desiredNetsByName, currentNetsByName map[string]v1.Network, isLiveUpdateNADRefEnabled bool) bool {
 	for currentNetName, currentNet := range currentNetsByName {
 		desiredNet := desiredNetsByName[currentNetName]
 
-		if !reflect.DeepEqual(desiredNet, currentNet) {
+		if isLiveUpdateNADRefEnabled && !areNormalizedNetsEqual(desiredNet, currentNet) {
+			return true
+		} else if !isLiveUpdateNADRefEnabled && !reflect.DeepEqual(desiredNet, currentNet) {
 			return true
 		}
 	}
 
 	return false
+}
+
+func areNormalizedNetsEqual(net1, net2 v1.Network) bool {
+	normalizedNet1 := net1.DeepCopy()
+	if normalizedNet1.Multus != nil {
+		normalizedNet1.Multus.NetworkName = ""
+	}
+
+	normalizedNet2 := net2.DeepCopy()
+	if normalizedNet2.Multus != nil {
+		normalizedNet2.Multus.NetworkName = ""
+	}
+
+	return reflect.DeepEqual(normalizedNet1, normalizedNet2)
 }
