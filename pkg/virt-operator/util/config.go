@@ -217,7 +217,6 @@ func getImagePrefix(parsedImage [][]string) string {
 func getImageRegistry(parsedImage [][]string) string {
 	if len(parsedImage) == 1 {
 		return parsedImage[0][1]
-
 	}
 	return ""
 }
@@ -225,7 +224,6 @@ func getImageRegistry(parsedImage [][]string) string {
 func getTag(parsedImage [][]string, kubeVirtVersion string) string {
 	if len(parsedImage) != 1 {
 		return kubeVirtVersion
-
 	}
 	version := parsedImage[0][3]
 	if version == "" {
@@ -240,7 +238,6 @@ func getTag(parsedImage [][]string, kubeVirtVersion string) string {
 }
 
 func getConfig(providedRegistry, providedTag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
-
 	// get registry and tag/shasum from operator image
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
@@ -514,7 +511,6 @@ func (c *KubeVirtDeploymentConfig) GetSynchronizationPort() int32 {
 		} else {
 			return int32(port)
 		}
-
 	}
 	return DefaultSynchronizationPort
 }
@@ -654,10 +650,10 @@ func IsValidLabel(label string) bool {
 	return r.Match([]byte(label))
 }
 
-func DigestFromImageName(name string) (digest string) {
+func DigestFromImageName(name string) string {
 	if name != "" && strings.LastIndex(name, "@sha256:") != -1 {
-		digest = strings.Split(name, "@sha256:")[1]
+		return strings.Split(name, "@sha256:")[1]
 	}
 
-	return
+	return ""
 }

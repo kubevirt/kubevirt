@@ -108,7 +108,7 @@ func UpdateConditionsDeletionFailed(kv *virtv1.KubeVirt, err error) {
 	updateCondition(kv, virtv1.KubeVirtConditionSynchronized, k8sv1.ConditionFalse, ConditionReasonDeletionFailedError, fmt.Sprintf("An error occurred during deletion: %v", err))
 }
 
-func updateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason string, message string) {
+func updateCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtConditionType, status k8sv1.ConditionStatus, reason, message string) {
 	condition, isNew := getCondition(kv, conditionType)
 	condition.Status = status
 	condition.Reason = reason
@@ -152,7 +152,7 @@ func removeCondition(kv *virtv1.KubeVirt, conditionType virtv1.KubeVirtCondition
 	}
 }
 
-func SetConditionTimestamps(kvOrig *virtv1.KubeVirt, kvUpdated *virtv1.KubeVirt) {
+func SetConditionTimestamps(kvOrig, kvUpdated *virtv1.KubeVirt) {
 	now := metav1.Time{
 		Time: time.Now(),
 	}
