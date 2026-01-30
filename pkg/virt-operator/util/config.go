@@ -237,7 +237,11 @@ func getTag(parsedImage [][]string, kubeVirtVersion string) string {
 	}
 }
 
-func getConfig(providedRegistry, providedTag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
+func getConfig(
+	providedRegistry, providedTag, namespace string,
+	additionalProperties map[string]string,
+	envVarManager EnvVarManager,
+) *KubeVirtDeploymentConfig {
 	// get registry and tag/shasum from operator image
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
@@ -283,7 +287,13 @@ func getConfig(providedRegistry, providedTag, namespace string, additionalProper
 	PrHelperImage := envVarManager.Getenv(PrHelperImageEnvName)
 	SidecarShimImage := envVarManager.Getenv(SidecarShimImageEnvName)
 
-	return newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, GsImage, PrHelperImage, SidecarShimImage, additionalProperties, passthroughEnv)
+	return newDeploymentConfigWithTag(
+		registry, imagePrefix, tag, namespace,
+		operatorImage, apiImage, controllerImage, handlerImage, launcherImage,
+		exportProxyImage, exportServerImage, synchronizationControllerImage,
+		GsImage, PrHelperImage, SidecarShimImage,
+		additionalProperties, passthroughEnv,
+	)
 }
 
 func VerifyEnv() error {
@@ -317,7 +327,13 @@ func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]
 	return passthroughEnv
 }
 
-func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
+func newDeploymentConfigWithTag(
+	registry, imagePrefix, tag, namespace string,
+	operatorImage, apiImage, controllerImage, handlerImage, launcherImage string,
+	exportProxyImage, exportServerImage, synchronizationControllerImage string,
+	gsImage, prHelperImage, sidecarShimImage string,
+	kvSpec, passthroughEnv map[string]string,
+) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
 		Registry:        registry,
 		ImagePrefix:     imagePrefix,
