@@ -22,6 +22,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -54,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -122,6 +124,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
 		)
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
@@ -184,9 +187,11 @@ var _ = Describe(SIG("Backup", func() {
 
 	It("Full and Incremental Backup with 2 disks", func() {
 		const (
-			testDataSizeMB    = 50
-			testDataSizeBytes = testDataSizeMB * 1024 * 1024
-			blankDiskSize     = "256Mi"
+			testDataSizeMB      = 50
+			testDataSizeBytes   = testDataSizeMB * 1024 * 1024
+			blankDiskSize       = "256Mi"
+			blankDiskSerial     = "blank"
+			blankDiskDevicePath = "/dev/disk/by-id/"
 		)
 
 		bootDv := libdv.NewDataVolume(
@@ -208,10 +213,12 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(bootDv,
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			withCloudInitNoCloudDummy(),
 		)
 
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
 		libstorage.AddDataVolume(vm, "disk1", blankDv)
+		vm.Spec.Template.Spec.Domain.Devices.Disks[2].Serial = "blank"
 
 		By(fmt.Sprintf("Creating VM %s with 2 disks", vm.Name))
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -261,7 +268,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Writing data directly to second disk")
 		// Write random data directly to the raw block device (no formatting needed)
-		err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/dev/vdb bs=1M count=%d && sync", testDataSizeMB), 2*time.Minute)
+		err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=%s bs=1M count=%d && sync", filepath.Join(blankDiskDevicePath, fmt.Sprintf("virtio-%s", blankDiskSerial)), testDataSizeMB), 2*time.Minute)
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Creating second incremental backup with same tracker reference")
@@ -495,4 +502,23 @@ func verifyBackupTargetPVCOutput(virtClient kubecli.KubevirtClient, targetPVC *c
 	Eventually(func() error {
 		return virtClient.CoreV1().Pods(executorPod.Namespace).Delete(context.Background(), executorPod.Name, metav1.DeleteOptions{})
 	}, 180*time.Second, time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+}
+
+func withCloudInitNoCloudDummy() libvmi.VMOption {
+	return func(vm *v1.VirtualMachine) {
+		source := &v1.CloudInitNoCloudSource{}
+		libvmifact.WithDummyCloudForFastBoot()(source)
+
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+			Name:         libvmi.CloudInitDiskName,
+			VolumeSource: v1.VolumeSource{CloudInitNoCloud: source},
+		})
+
+		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+			Name: libvmi.CloudInitDiskName,
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
+			},
+		})
+	}
 }
