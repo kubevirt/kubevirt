@@ -29,6 +29,7 @@ go_library(
         "//pkg/virt-launcher/notify-client:go_default_library",
         "//pkg/virt-launcher/premigration-hook-server:go_default_library",
         "//pkg/virt-launcher/premigration-hook-server/cpuhook:go_default_library",
+        "//pkg/virt-launcher/premigration-hook-server/network:go_default_library",
         "//pkg/virt-launcher/standalone:go_default_library",
         "//pkg/virt-launcher/virtwrap:go_default_library",
         "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",

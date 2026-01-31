@@ -38,6 +38,7 @@ import (
 
 type clusterConfigurer interface {
 	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+	PodSecondaryInterfaceNamingUpgradeEnabled() bool
 }
 
 type Generator struct {
@@ -56,10 +57,17 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 		return iface.State != v1.InterfaceStateAbsent
 	})
 	nonAbsentNets := vmispec.FilterNetworksByInterfaces(vmi.Spec.Networks, nonAbsentIfaces)
-	multusAnnotation, err := multus.GenerateCNIAnnotation(
+
+	namingScheme := namescheme.CreateHashedNetworkNameScheme(nonAbsentNets)
+	if value := vmi.Labels["use-ordinal"]; value == "true" {
+		namingScheme = namescheme.CreateOrdinalNetworkNameScheme(nonAbsentNets)
+	}
+
+	multusAnnotation, err := multus.GenerateCNIAnnotationFromNameScheme(
 		vmi.Namespace,
 		nonAbsentIfaces,
 		nonAbsentNets,
+		namingScheme,
 		g.clusterConfigurer.GetNetworkBindings(),
 	)
 	if err != nil {
@@ -92,7 +100,8 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 // GenerateFromSource generates ordinal pod interfaces naming scheme for a migration target in case the migration source pod uses it
 func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8scorev1.Pod) (map[string]string, error) {
-	if !namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(sourcePod)) {
+	if g.clusterConfigurer.PodSecondaryInterfaceNamingUpgradeEnabled() ||
+		!namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(sourcePod)) {
 		return nil, nil
 	}
 

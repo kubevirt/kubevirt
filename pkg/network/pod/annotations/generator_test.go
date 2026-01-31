@@ -161,6 +161,12 @@ var _ = Describe("Annotations Generator", func() {
 	Context("Network naming scheme conversion during migration", func() {
 		var vmi *v1.VirtualMachineInstance
 
+		const ordinalMultusNetworkStatus = `[
+							{"interface":"eth0", "name":"default"},
+							{"interface":"net1", "name":"test1", "namespace":"default"},
+							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
+						]`
+
 		BeforeEach(func() {
 			const (
 				networkName1                     = "blue"
@@ -183,11 +189,7 @@ var _ = Describe("Annotations Generator", func() {
 
 		It("should convert the naming scheme when source pod has ordinal naming", func() {
 			sourcePodAnnotations := map[string]string{}
-			sourcePodAnnotations[networkv1.NetworkStatusAnnot] = `[
-							{"interface":"eth0", "name":"default"},
-							{"interface":"net1", "name":"test1", "namespace":"default"},
-							{"interface":"net2", "name":"test1", "namespace":"other-namespace"}
-						]`
+			sourcePodAnnotations[networkv1.NetworkStatusAnnot] = ordinalMultusNetworkStatus
 
 			sourcePod := newStubVirtLauncherPod(vmi, sourcePodAnnotations)
 
@@ -217,6 +219,18 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(annotations).To(BeEmpty())
+		})
+
+		It("should not convert the naming scheme when the upgrade mechanism is enabled", func() {
+			sourcePodAnnotations := map[string]string{}
+			sourcePodAnnotations[networkv1.NetworkStatusAnnot] = ordinalMultusNetworkStatus
+
+			sourcePod := newStubVirtLauncherPod(vmi, sourcePodAnnotations)
+
+			generator := annotations.NewGenerator(stubClusterConfig{podSecondaryIfaceNamingUpgradeEnabled: true})
+			convertedAnnotations, err := generator.GenerateFromSource(vmi, sourcePod)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(convertedAnnotations).To(BeNil())
 		})
 	})
 
@@ -775,9 +789,14 @@ func newStubVirtLauncherPod(vmi *v1.VirtualMachineInstance, podAnnotations map[s
 }
 
 type stubClusterConfig struct {
-	registeredPlugins map[string]v1.InterfaceBindingPlugin
+	registeredPlugins                     map[string]v1.InterfaceBindingPlugin
+	podSecondaryIfaceNamingUpgradeEnabled bool
 }
 
 func (s stubClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
 	return s.registeredPlugins
+}
+
+func (s stubClusterConfig) PodSecondaryInterfaceNamingUpgradeEnabled() bool {
+	return s.podSecondaryIfaceNamingUpgradeEnabled
 }
