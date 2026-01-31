@@ -45,7 +45,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-var podsBaseDir = util.KubeletPodsDir
+var podsBaseDir = "/var/lib/kubelet/pods"
 
 var mountBaseDir = filepath.Join(util.VirtShareDir, "/container-disks")
 
