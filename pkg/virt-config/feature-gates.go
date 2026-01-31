@@ -137,10 +137,6 @@ func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.KubevirtSeccompProfile)
 }
 
-func (config *ClusterConfig) PersistentReservationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PersistentReservation)
-}
-
 func (config *ClusterConfig) MultiArchitectureEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.MultiArchitecture)
 }
