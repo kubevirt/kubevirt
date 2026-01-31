@@ -90,7 +90,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		mockHotplugVolumeMounter *hotplugvolume.MockVolumeMounter
 
 		networkBindingPluginMemoryCalculator *stubNetBindingPluginMemoryCalculator
-		migrationTargetPasstRepairHandler    *stubTargetPasstRepairHandler
+		passtMigrationTargetCoordinator      *passtMigrationCoordinatorStub
 	)
 
 	const (
@@ -201,8 +201,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
 			Initialized: true,
 		}
-		migrationTargetPasstRepairHandler = &stubTargetPasstRepairHandler{isHandleMigrationTargetCalled: false}
 
+		passtMigrationTargetCoordinator = &passtMigrationCoordinatorStub{isMigrationTargetRunCalled: false}
 		controller, _ = NewMigrationTargetController(
 			recorder,
 			virtClient,
@@ -221,7 +221,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			&netConfStub{},
 			&netStatStub{},
 			networkBindingPluginMemoryCalculator,
-			migrationTargetPasstRepairHandler,
+			passtMigrationTargetCoordinator,
 		)
 
 		controller.hotplugVolumeMounter = mockHotplugVolumeMounter
@@ -300,7 +300,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		sanityExecute()
 		testutils.ExpectEvent(recorder, VMIMigrationTargetPrepared)
 		testutils.ExpectEvent(recorder, "Migration Target is listening")
-		Expect(migrationTargetPasstRepairHandler.isHandleMigrationTargetCalled).Should(BeTrue())
+		Expect(passtMigrationTargetCoordinator.isMigrationTargetRunCalled).Should(BeTrue())
 	})
 
 	It("should abort target prep if VMI is deleted", func() {
@@ -691,11 +691,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 	})
 })
 
-type stubTargetPasstRepairHandler struct {
-	isHandleMigrationTargetCalled bool
-}
-
-func (s *stubTargetPasstRepairHandler) HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
-	s.isHandleMigrationTargetCalled = true
+func (s *passtMigrationCoordinatorStub) MigrationTargetRun(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error {
+	s.isMigrationTargetRunCalled = true
 	return nil
 }
