@@ -40,10 +40,12 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
@@ -1288,6 +1290,63 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in target ready phase", v1.MigrationTargetReady),
 			Entry("in running phase", v1.MigrationRunning),
 		)
+		It("should garbage collect oldest finalized migrations when exceeding buffer", func() {
+			// Setup: Create a VMI and 8 finalized migrations (buffer=5, expect 3 oldest deleted)
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addVirtualMachineInstance(vmi)
+
+			baseTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
+			for i := range 8 {
+				migName := fmt.Sprintf("finalized-mig-%d", i)
+				mig := newMigration(migName, vmi.Name, v1.MigrationSucceeded)
+				mig.CreationTimestamp = metav1.Time{Time: baseTime.Add(time.Duration(i) * time.Minute)}
+				Expect(controller.migrationIndexer.Add(mig)).To(Succeed())
+				_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).Create(context.Background(), mig, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			// Call the function
+			Expect(controller.garbageCollectFinalizedMigrations(vmi)).To(Succeed())
+
+			// Verify remaining migrations (newest 5)
+			migrationList, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrationList.Items).To(WithTransform(func(migrations []v1.VirtualMachineInstanceMigration) []string {
+				var migrationNames []string
+				for _, migration := range migrations {
+					migrationNames = append(migrationNames, migration.Name)
+				}
+				return migrationNames // No sort needed
+			}, ConsistOf("finalized-mig-3", "finalized-mig-4", "finalized-mig-5", "finalized-mig-6", "finalized-mig-7")))
+		})
+
+		It("should handle errors during garbage collection deletions", func() {
+			// Setup: Similar to above, but only 6 finalized (expect 1 deletion, but fail it)
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addVirtualMachineInstance(vmi)
+
+			baseTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
+			for i := range 6 {
+				migName := fmt.Sprintf("finalized-mig-%d", i)
+				mig := newMigration(migName, vmi.Name, v1.MigrationSucceeded)
+				mig.CreationTimestamp = metav1.Time{Time: baseTime.Add(time.Duration(i) * time.Minute)}
+				Expect(controller.migrationIndexer.Add(mig)).To(Succeed())
+				_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).Create(context.Background(), mig, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			// Mock deletion to fail
+			virtClientset.PrependReactor("delete", "virtualmachineinstancemigrations", func(action testing.Action) (handled bool, ret k8sruntime.Object, err error) {
+				return true, nil, fmt.Errorf("simulated deletion error")
+			})
+
+			// Call the function: Expect error propagation
+			err := controller.garbageCollectFinalizedMigrations(vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("simulated deletion error"))
+		})
 	})
 
 	Context("Migration should immediately fail if", func() {
