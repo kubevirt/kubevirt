@@ -1,8 +1,19 @@
 # See the OWNERS docs at https://go.k8s.io/owners
-reviewers:
-  - sig-compute-reviewers
-approvers:
-  - sig-compute-approvers
-labels:
-  - area/virt-handler
-  - sig/compute
+
+filters:
+  ".*":
+    reviewers:
+      - sig-compute-reviewers
+    approvers:
+      - sig-compute-approvers
+    labels:
+      - area/virt-handler
+      - sig/compute
+  "cbt.*":
+    reviewers:
+      - sig-storage-reviewers
+    approvers:
+      - sig-storage-approvers
+    labels:
+      - area/virt-handler
+      - sig/storage

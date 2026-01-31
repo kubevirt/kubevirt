@@ -181,3 +181,10 @@ func (c *fakeVirtualMachineInstances) Backup(ctx context.Context, name string, b
 
 	return err
 }
+
+func (c *fakeVirtualMachineInstances) RedefineCheckpoint(ctx context.Context, name string, checkpoint *backupv1.BackupCheckpoint) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "redefine-checkpoint", name, checkpoint), nil)
+
+	return err
+}

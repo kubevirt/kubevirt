@@ -689,6 +689,7 @@ spec:
           - virtualmachineinstances/addvolume
           - virtualmachineinstances/removevolume
           - virtualmachineinstances/backup
+          - virtualmachineinstances/redefine-checkpoint
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/reset
@@ -868,6 +869,15 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackuptrackers
+          - virtualmachinebackuptrackers/status
+          verbs:
+          - list
+          - watch
+          - patch
         - apiGroups:
           - export.kubevirt.io
           resources:
