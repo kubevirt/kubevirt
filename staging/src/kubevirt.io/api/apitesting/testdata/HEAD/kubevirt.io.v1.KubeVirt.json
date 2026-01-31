@@ -89,6 +89,9 @@
         "featureGates": [
           "featureGatesValue"
         ],
+        "disabledFeatureGates": [
+          "disabledFeatureGatesValue"
+        ],
         "pvcTolerateLessSpaceUpToPercent": -31,
         "minimumReservePVCBytes": 18446744073709551594,
         "memoryOvercommit": -16,

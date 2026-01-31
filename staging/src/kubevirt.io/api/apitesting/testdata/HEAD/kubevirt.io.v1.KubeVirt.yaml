@@ -113,6 +113,8 @@ spec:
     developerConfiguration:
       clusterProfiler: true
       cpuAllocationRatio: -18
+      disabledFeatureGates:
+      - disabledFeatureGatesValue
       diskVerification:
         memoryLimit: "0"
       featureGates:
