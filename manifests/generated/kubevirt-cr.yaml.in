@@ -11,7 +11,9 @@ spec:
       featureGates:{{if .FeatureGates}}
       {{- range .FeatureGates}}
       - {{.}}
-      {{- end}}{{else}} []{{end}}
+      {{- end}}{{else}} []{{end}}{{if .Hypervisor}}
+    hypervisors:
+    - name: {{.Hypervisor}}{{end}}
     imagePullPolicy: {{.ImagePullPolicy}}
   customizeComponents: {}
   imagePullPolicy: {{.ImagePullPolicy}}{{if .InfraReplicas}}

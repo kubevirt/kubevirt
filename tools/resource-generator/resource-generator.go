@@ -42,9 +42,10 @@ import (
 const (
 	featureGatesPlaceholder  = "FeatureGatesPlaceholder"
 	infraReplicasPlaceholder = 255
+	hypervisorPlaceholder    = "HypervisorPlaceholder"
 )
 
-func newKubeVirtCR(namespace string, pullPolicy v1.PullPolicy, featureGates string, infraReplicas uint8) *virtv1.KubeVirt {
+func newKubeVirtCR(namespace string, pullPolicy v1.PullPolicy, featureGates string, infraReplicas uint8, hypervisor string) *virtv1.KubeVirt {
 	cr := &virtv1.KubeVirt{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv1.GroupVersion.String(),
@@ -72,10 +73,16 @@ func newKubeVirtCR(namespace string, pullPolicy v1.PullPolicy, featureGates stri
 		Replicas: &infraReplicas,
 	}
 
+	cr.Spec.Configuration.Hypervisors = []virtv1.HypervisorConfiguration{
+		{
+			Name: hypervisor,
+		},
+	}
+
 	return cr
 }
 
-func generateKubeVirtCR(namespace *string, imagePullPolicy v1.PullPolicy, featureGatesFlag *string, infraReplicasFlag *string) {
+func generateKubeVirtCR(namespace *string, imagePullPolicy v1.PullPolicy, featureGatesFlag *string, infraReplicasFlag *string, hypervisorFlag *string) {
 	var featureGates string
 	if strings.HasPrefix(*featureGatesFlag, "{{") {
 		featureGates = featureGatesPlaceholder
@@ -92,8 +99,14 @@ func generateKubeVirtCR(namespace *string, imagePullPolicy v1.PullPolicy, featur
 		}
 		infraReplicas = uint8(val)
 	}
+	var hypervisor string
+	if strings.HasPrefix(*hypervisorFlag, "{{") {
+		hypervisor = hypervisorPlaceholder
+	} else {
+		hypervisor = *hypervisorFlag
+	}
 	var buf bytes.Buffer
-	err := util.MarshallObject(newKubeVirtCR(*namespace, imagePullPolicy, featureGates, infraReplicas), &buf)
+	err := util.MarshallObject(newKubeVirtCR(*namespace, imagePullPolicy, featureGates, infraReplicas, hypervisor), &buf)
 	if err != nil {
 		panic(err)
 	}
@@ -131,6 +144,15 @@ $1{{- end}}{{else}} []{{end}}`)
 ${1}infra:
 ${2}replicas: {{`+infraReplicasVar+`}}{{end}}`)
 	}
+	// Same idea as infra.replicas.
+	if strings.HasPrefix(*hypervisorFlag, "{{") {
+		hypervisorVar := strings.TrimPrefix(*hypervisorFlag, "{{")
+		hypervisorVar = strings.TrimSuffix(hypervisorVar, "}}")
+		re := regexp.MustCompile(`(?m)\n([ \t]+)hypervisors:\n([ \t]+)-([ \t]+)name: ` + fmt.Sprintf("%s", hypervisorPlaceholder))
+		cr = re.ReplaceAllString(cr, `{{if `+hypervisorVar+`}}
+${1}hypervisors:
+${1}- name: {{`+hypervisorVar+`}}{{end}}`)
+	}
 
 	fmt.Print(cr)
 }
@@ -141,6 +163,7 @@ func main() {
 	pullPolicy := flag.String("pullPolicy", "IfNotPresent", "ImagePullPolicy to use.")
 	featureGates := flag.String("featureGates", "", "Feature gates to enable.")
 	infraReplicas := flag.String("infraReplicas", "2", "Number of replicas for virt-controller and virt-api")
+	hypervisor := flag.String("hypervisor", virtv1.KvmHypervisorName, "Hypervisor to set in the KubeVirt CR.")
 
 	flag.Parse()
 
@@ -157,7 +180,7 @@ func main() {
 			panic(err)
 		}
 	case "kv-cr":
-		generateKubeVirtCR(namespace, imagePullPolicy, featureGates, infraReplicas)
+		generateKubeVirtCR(namespace, imagePullPolicy, featureGates, infraReplicas, hypervisor)
 	case "operator-rbac":
 		all := rbac.GetAllOperator(*namespace)
 		for _, r := range all {
