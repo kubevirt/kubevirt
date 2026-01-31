@@ -21,6 +21,7 @@ package network
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -62,7 +63,7 @@ func newVirtIOInterfaceManager(
 	}
 }
 
-func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain) error {
+func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain, updatedDomain *api.Domain) error {
 	for _, network := range networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, indexedDomainInterfaces(currentDomain)) {
 		log.Log.Infof("will hot plug %s", network.Name)
 
@@ -94,7 +95,6 @@ func (vim *virtIOInterfaceManager) hotplugVirtioInterface(vmi *v1.VirtualMachine
 }
 
 func (vim *virtIOInterfaceManager) updateDomainLinkState(currentDomain, desiredDomain *api.Domain) error {
-
 	currentDomainIfacesByAlias := indexedDomainInterfaces(currentDomain)
 	for _, desiredIface := range desiredDomain.Spec.Devices.Interfaces {
 		curIface, ok := currentDomainIfacesByAlias[desiredIface.Alias.GetName()]
@@ -108,7 +108,6 @@ func (vim *virtIOInterfaceManager) updateDomainLinkState(currentDomain, desiredD
 				return err
 			}
 		}
-
 	}
 	return nil
 }
@@ -128,7 +127,13 @@ func (vim *virtIOInterfaceManager) updateIfaceInDomain(domIfaceToUpdate *api.Int
 }
 
 func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain) error {
-	for _, domainIface := range interfacesToHotUnplug(vmi.Spec.Domain.Devices.Interfaces, vmi.Spec.Networks, currentDomain.Spec.Devices.Interfaces) {
+	ifacesToHotUnplug := interfacesToHotUnplug(
+		vmi.Spec.Domain.Devices.Interfaces,
+		vmi.Spec.Networks,
+		currentDomain.Spec.Devices.Interfaces,
+	)
+
+	for _, domainIface := range ifacesToHotUnplug {
 		log.Log.Infof("preparing to hot-unplug %s", domainIface.Alias.GetName())
 
 		ifaceXML, err := xml.Marshal(domainIface)
@@ -144,7 +149,11 @@ func (vim *virtIOInterfaceManager) hotUnplugVirtioInterface(vmi *v1.VirtualMachi
 	return nil
 }
 
-func interfacesToHotUnplug(vmiSpecInterfaces []v1.Interface, vmiSpecNets []v1.Network, domainSpecInterfaces []api.Interface) []api.Interface {
+func interfacesToHotUnplug(
+	vmiSpecInterfaces []v1.Interface,
+	vmiSpecNets []v1.Network,
+	domainSpecInterfaces []api.Interface,
+) []api.Interface {
 	ifaces2remove := netvmispec.FilterInterfacesSpec(vmiSpecInterfaces, func(iface v1.Interface) bool {
 		return iface.State == v1.InterfaceStateAbsent
 	})
@@ -175,7 +184,10 @@ func lookupDomainInterfaceByName(domainIfaces []api.Interface, networkName strin
 	return nil
 }
 
-func networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi *v1.VirtualMachineInstance, indexedDomainIfaces map[string]api.Interface) []v1.Network {
+func networksToHotplugWhoseInterfacesAreNotInTheDomain(
+	vmi *v1.VirtualMachineInstance,
+	indexedDomainIfaces map[string]api.Interface,
+) []v1.Network {
 	var networksToHotplug []v1.Network
 	interfacesToHoplug := netvmispec.IndexInterfaceStatusByName(
 		vmi.Status.Interfaces,
@@ -211,19 +223,28 @@ func indexedDomainInterfaces(domain *api.Domain) map[string]api.Interface {
 // As its last step, it reads the generated configuration and removes the network interfaces
 // so none will be created with the domain creation.
 // The dependent devices are left in the configuration, to allow future hotplug.
-func WithNetworkIfacesResources(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, count int, f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error)) (cli.VirDomain, error) {
+func WithNetworkIfacesResources(
+	vmi *v1.VirtualMachineInstance,
+	domainSpec *api.DomainSpec,
+	count int,
+	f func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error),
+) (retDomainClient cli.VirDomain, err error) {
 	if count > 0 {
 		domainSpecWithIfacesResource := AppendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
-		dom, err := f(vmi, domainSpecWithIfacesResource)
-		if err != nil {
-			return nil, err
+		dom, domErr := f(vmi, domainSpecWithIfacesResource)
+		if domErr != nil {
+			return nil, domErr
 		}
 
-		defer dom.Free()
+		defer func() {
+			if freeErr := dom.Free(); freeErr != nil {
+				err = errors.Join(err, freeErr)
+			}
+		}()
 
-		domainSpecWithoutIfacePlaceholders, err := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
-		if err != nil {
-			return nil, err
+		domainSpecWithoutIfacePlaceholders, domErr := util.GetDomainSpecWithFlags(dom, libvirt.DOMAIN_XML_INACTIVE)
+		if domErr != nil {
+			return nil, domErr
 		}
 		domainSpecWithoutIfacePlaceholders.Devices.Interfaces = domainSpec.Devices.Interfaces
 		// Only the devices are taken into account because some parameters are not assured to be returned when
