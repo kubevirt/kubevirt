@@ -143,6 +143,7 @@ var _ = Describe("HotplugVolume", func() {
 			parent isolation.IsolationResult,
 			_ isolation.IsolationResult,
 			findmntInfo FindmntInfo,
+			_ types.UID,
 		) (*safepath.Path, error) {
 			path, err := parent.MountRoot()
 			Expect(err).ToNot(HaveOccurred())
@@ -691,6 +692,43 @@ var _ = Describe("HotplugVolume", func() {
 
 			err = m.unmountFileSystemHotplugVolumes(targetFilePath)
 			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should pass the correct sourceUID to parentPathForMount", func() {
+			expectedSourceUID := types.UID("test-source-pod-uid-12345")
+			path, err := newDir(tempDir, string(expectedSourceUID), "volumes")
+			Expect(err).ToNot(HaveOccurred())
+			_, err = newFile(unsafepath.UnsafeAbsolute(path.Raw()), "disk.img")
+			Expect(err).ToNot(HaveOccurred())
+			findMntByVolume = func(volumeName string, pid int) ([]byte, error) {
+				return []byte(fmt.Sprintf(findmntByVolumeRes, "testvolume", unsafepath.UnsafeAbsolute(path.Raw()))), nil
+			}
+			targetFilePath, err := newFile(unsafepath.UnsafeAbsolute(targetPodPath.Raw()), "testvolume.img")
+			Expect(err).ToNot(HaveOccurred())
+			mountCommand = func(sourcePath, targetPath *safepath.Path) ([]byte, error) {
+				return []byte("Success"), nil
+			}
+
+			// Override the mock to assert that the correct podUID is passed
+			uidWasVerified := false
+			parentPathForMount = func(
+				parent isolation.IsolationResult,
+				_ isolation.IsolationResult,
+				findmntInfo FindmntInfo,
+				podUID types.UID,
+			) (*safepath.Path, error) {
+				Expect(podUID).To(Equal(expectedSourceUID), "parentPathForMount should receive the correct sourceUID")
+				uidWasVerified = true
+				path, err := parent.MountRoot()
+				Expect(err).ToNot(HaveOccurred())
+				return path.AppendAndResolveWithRelativeRoot(findmntInfo.GetSourcePath())
+			}
+
+			ownershipManager.EXPECT().SetFileOwnership(targetFilePath)
+
+			err = m.mountFileSystemHotplugVolume(vmi, "testvolume", expectedSourceUID, record, false)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uidWasVerified).To(BeTrue(), "parentPathForMount mock should have been called and verified the UID")
 		})
 
 		It("unmountFileSystemHotplugVolumes should return error if isMounted returns error", func() {
