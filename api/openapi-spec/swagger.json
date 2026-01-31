@@ -14671,7 +14671,7 @@
       "type": "string"
      },
      "io": {
-      "description": "IO specifies which QEMU disk IO mode should be used. Supported values are: native, default, threads.",
+      "description": "IO specifies which QEMU disk IO mode should be used. Supported values are: native, threads.",
       "type": "string"
      },
      "lun": {
@@ -15632,7 +15632,7 @@
     "type": "object",
     "properties": {
      "container": {
-      "description": "Container defines the container that containes kernel artifacts",
+      "description": "Container defines the container that contains kernel artifacts",
       "$ref": "#/definitions/v1.KernelBootContainer"
      },
      "kernelArgs": {

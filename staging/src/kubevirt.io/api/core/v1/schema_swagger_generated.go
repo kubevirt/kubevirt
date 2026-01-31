@@ -143,7 +143,7 @@ func (KernelBoot) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":           "Represents the firmware blob used to assist in the kernel boot process.\nUsed for setting the kernel, initrd and command line arguments",
 		"kernelArgs": "Arguments to be passed to the kernel at boot time",
-		"container":  "Container defines the container that containes kernel artifacts",
+		"container":  "Container defines the container that contains kernel artifacts",
 	}
 }
 
@@ -285,7 +285,7 @@ func (SoundDevice) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":      "Represents the user's configuration to emulate sound cards in the VMI.",
 		"name":  "User's defined name for this sound device",
-		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional",
+		"model": "We only support ich9 or ac97.\nIf SoundDevice is not set: No sound card is emulated.\nIf SoundDevice is set but Model is not: ich9\n+optional\n+kubebuilder:validation:Pattern=`^(|ich9|ac97)$`",
 	}
 }
 
@@ -367,11 +367,11 @@ func (HostDevice) SwaggerDoc() map[string]string {
 func (Disk) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"name":                 "Name is the device name",
-		"bootOrder":            "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional",
+		"bootOrder":            "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach disk or interface that has a boot order must have a unique value.\nDisks without a boot order are not tried if a disk with a boot order exists.\n+optional\n+kubebuilder:validation:Minimum=1",
 		"serial":               "Serial provides the ability to specify a serial number for the disk device.\n+optional",
 		"dedicatedIOThread":    "dedicatedIOThread indicates this disk should have an exclusive IO Thread.\nEnabling this implies useIOThreads = true.\nDefaults to false.\n+optional",
 		"cache":                "Cache specifies which kvm disk cache mode should be used.\nSupported values are:\nnone: Guest I/O not cached on the host, but may be kept in a disk cache.\nwritethrough: Guest I/O cached on the host but written through to the physical medium. Slowest but with most guarantees.\nwriteback: Guest I/O cached on the host.\nDefaults to none if the storage supports O_DIRECT, otherwise writethrough.\n+optional",
-		"io":                   "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, default, threads.\n+optional",
+		"io":                   "IO specifies which QEMU disk IO mode should be used.\nSupported values are: native, threads.\n+optional",
 		"tag":                  "If specified, disk address and its tag will be provided to the guest via config drive metadata\n+optional",
 		"blockSize":            "If specified, the virtual disk will be presented with the given block sizes.\n+optional",
 		"shareable":            "If specified the disk is made sharable and multiple write from different VMs are permitted\n+optional",
@@ -729,7 +729,7 @@ func (Interface) SwaggerDoc() map[string]string {
 		"binding":     "Binding specifies the binding plugin that will be used to connect the interface to the guest.\nIt provides an alternative to InterfaceBindingMethod.\nversion: 1alphav1",
 		"ports":       "List of ports to be forwarded to the virtual machine.",
 		"macAddress":  "Interface MAC address. For example: de:ad:00:00:be:af or DE-AD-00-00-BE-AF.",
-		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional",
+		"bootOrder":   "BootOrder is an integer value > 0, used to determine ordering of boot devices.\nLower values take precedence.\nEach interface or disk that has a boot order must have a unique value.\nInterfaces without a boot order are not tried.\n+optional\n+kubebuilder:validation:Minimum=1",
 		"pciAddress":  "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10\n+optional",
 		"dhcpOptions": "If specified the network interface will pass additional DHCP options to the VMI\n+optional",
 		"tag":         "If specified, the virtual network interface address and its tag will be provided to the guest via config drive\n+optional",
@@ -813,7 +813,7 @@ func (Port) SwaggerDoc() map[string]string {
 		"":         "Port represents a port to expose from the virtual machine.\nDefault protocol TCP.\nThe port field is mandatory",
 		"name":     "If specified, this must be an IANA_SVC_NAME and unique within the pod. Each\nnamed port in a pod must have a unique name. Name for the port that can be\nreferred to by services.\n+optional",
 		"protocol": "Protocol for port. Must be UDP or TCP.\nDefaults to \"TCP\".\n+optional",
-		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.",
+		"port":     "Number of port to expose for the virtual machine.\nThis must be a valid port number, 0 < x < 65536.\n+kubebuilder:validation:Minimum=1\n+kubebuilder:validation:Maximum=65535",
 	}
 }
 
@@ -948,6 +948,6 @@ func (CPUTopology) SwaggerDoc() map[string]string {
 
 func (DiskIOThreads) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"supplementalPoolThreadCount": "SupplementalPoolThreadCount specifies how many iothreads are allocated for the supplementalPool policy.\n+optional",
+		"supplementalPoolThreadCount": "SupplementalPoolThreadCount specifies how many iothreads are allocated for the supplementalPool policy.\n+optional\n+kubebuilder:validation:Minimum=1",
 	}
 }
