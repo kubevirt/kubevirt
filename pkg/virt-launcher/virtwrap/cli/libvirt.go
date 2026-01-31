@@ -668,6 +668,7 @@ type VirDomain interface {
 	SetLaunchSecurityState(params *libvirt.DomainLaunchSecurityStateParameters, flags uint32) error
 	FSFreeze(mounts []string, flags uint32) error
 	FSThaw(mounts []string, flags uint32) error
+	AgentSetResponseTimeout(timeout int, flags uint32) error
 	Screenshot(stream *libvirt.Stream, screen, flags uint32) (string, error)
 	BackupBegin(backupXML string, checkpointXML string, flags libvirt.DomainBackupBeginFlags) error
 }
@@ -745,4 +746,20 @@ func IsPaused(domState libvirt.DomainState) bool {
 
 	}
 	return false
+}
+
+// ExecuteWithAgentTimeout sets a custom timeout for agent operations, executes the provided
+// function, and resets the timeout to default afterward.
+func ExecuteWithAgentTimeout(domain VirDomain, timeoutSeconds int, operationName string, operation func() error) error {
+	if err := domain.AgentSetResponseTimeout(timeoutSeconds, 0); err != nil {
+		return fmt.Errorf("failed to set %s timeout (%ds): %w", operationName, timeoutSeconds, err)
+	}
+
+	defer func() {
+		if err := domain.AgentSetResponseTimeout(int(libvirt.DOMAIN_AGENT_RESPONSE_TIMEOUT_DEFAULT), 0); err != nil {
+			log.Log.Warningf("Failed to reset agent timeout after %s: %v", operationName, err)
+		}
+	}()
+
+	return operation()
 }
