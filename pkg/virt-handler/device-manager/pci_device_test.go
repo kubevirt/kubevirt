@@ -21,7 +21,9 @@ package device_manager
 
 import (
 	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -187,5 +189,90 @@ pciHostDevices:
 		Expect(enabledDevicePlugins).To(BeEmpty(), "no enabled device plugins should be found")
 		Expect(disabledDevicePlugins).To(HaveLen(1), "the fake device plugin did not get disabled")
 		Ω(disabledDevicePlugins).Should(HaveKey(fakeName))
+	})
+})
+
+var _ = Describe("Physical Function Detection", func() {
+	var tmpDir string
+
+	BeforeEach(func() {
+		var err error
+		tmpDir, err = os.MkdirTemp("", "pci-pf-test-*")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(tmpDir)
+	})
+
+	Context("When checking SR-IOV Physical Functions", func() {
+		It("Should identify a PF by virtfn subdirectories", func() {
+			// Create mock PF directory with virtfn subdirectories
+			pfDir := filepath.Join(tmpDir, "pf-device")
+			err := os.Mkdir(pfDir, 0755)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create virtfn directories (VF0, VF1, etc.)
+			for i := 0; i < 3; i++ {
+				virtfnDir := filepath.Join(pfDir, fmt.Sprintf("virtfn%d", i))
+				err = os.Mkdir(virtfnDir, 0755)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			// Test: Should return true for PF
+			Expect(isPhysicalFunction(pfDir)).To(BeTrue())
+		})
+
+		It("Should not identify a VF as a PF", func() {
+			// Create mock VF directory without virtfn subdirectories
+			vfDir := filepath.Join(tmpDir, "vf-device")
+			err := os.Mkdir(vfDir, 0755)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Add some other typical sysfs entries (but no virtfn*)
+			otherFiles := []string{"config", "device", "vendor", "subsystem"}
+			for _, file := range otherFiles {
+				f, err := os.Create(filepath.Join(vfDir, file))
+				Expect(err).ToNot(HaveOccurred())
+				f.Close()
+			}
+
+			// Test: Should return false for VF
+			Expect(isPhysicalFunction(vfDir)).To(BeFalse())
+		})
+
+		It("Should handle non-existent directories gracefully", func() {
+			nonExistentPath := filepath.Join(tmpDir, "does-not-exist")
+
+			// Test: Should return false (fail safe)
+			Expect(isPhysicalFunction(nonExistentPath)).To(BeFalse())
+		})
+
+		It("Should handle unreadable directories gracefully", func() {
+			unreadableDir := filepath.Join(tmpDir, "unreadable")
+			err := os.Mkdir(unreadableDir, 0000) // No permissions
+			Expect(err).ToNot(HaveOccurred())
+
+			// Test: Should return false (fail safe)
+			Expect(isPhysicalFunction(unreadableDir)).To(BeFalse())
+		})
+
+		It("Should only match virtfn prefix exactly", func() {
+			// Create directory with similar but incorrect names
+			testDir := filepath.Join(tmpDir, "edge-case-device")
+			err := os.Mkdir(testDir, 0755)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create files that don't match virtfn* pattern (no virtfn prefix)
+			nonMatchingFiles := []string{"virtual", "virtio", "not-virtfn", "driver", "device"}
+			for _, file := range nonMatchingFiles {
+				f, err := os.Create(filepath.Join(testDir, file))
+				Expect(err).ToNot(HaveOccurred())
+				f.Close()
+			}
+
+			// Test: Should return false (no virtfn* match)
+			Expect(isPhysicalFunction(testDir)).To(BeFalse())
+		})
 	})
 })

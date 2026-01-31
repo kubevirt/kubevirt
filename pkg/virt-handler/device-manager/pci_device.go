@@ -270,6 +270,26 @@ func hasVGPUProfile(devicePath string) bool {
 	return vgpuType != "" && vgpuType != "0"
 }
 
+// isPhysicalFunction checks if a PCI device is an SR-IOV Physical Function by
+// looking for virtfn* subdirectories in its sysfs path. Only Physical Functions
+// have these subdirectories representing their associated Virtual Functions.
+// Returns false if the directory cannot be read (graceful fallback for discovery).
+func isPhysicalFunction(devicePath string) bool {
+	entries, err := os.ReadDir(devicePath)
+	if err != nil {
+		// If we can't read the directory, assume it's not a PF to allow discovery to continue
+		return false
+	}
+
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), "virtfn") {
+			return true
+		}
+	}
+
+	return false
+}
+
 func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) map[string][]*PCIDevice {
 	pciDevicesMap := make(map[string][]*PCIDevice)
 	err := filepath.Walk(pciBasePath, func(path string, info os.FileInfo, err error) error {
@@ -312,25 +332,6 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 			if isPhysicalFunction(path) {
 				log.DefaultLogger().Infof("Skipping SR-IOV Physical Function %s (%s)", info.Name(), pciID)
 				return nil
-			}
-
-			// Skip SR-IOV Physical Functions (PFs) by checking for virtual function subdirectories.
-			// PFs are identified by the presence of virtfn* directories in their sysfs path.
-			// We only want to expose Virtual Functions (VFs) to VMs, not the PFs themselves.
-			isPF := false
-			dirE, err := os.ReadDir(path)
-			if err == nil {
-				for _, dir := range dirE {
-					if strings.HasPrefix(dir.Name(), "virtfn") {
-						isPF = true
-						break
-					}
-				}
-				log.DefaultLogger().Infof("Is PF %v %s", isPF, pciID)
-				if isPF {
-					return nil
-				}
-
 			}
 
 			pcidev := &PCIDevice{
