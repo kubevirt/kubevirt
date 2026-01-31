@@ -360,14 +360,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
-			It("should migrate vmi and use Live Migration method with read-only disks", func() {
+			It("should migrate vmi and use Live Migration method with read-only disks", decorators.RequiresRWXBlock, func() {
 				By("Defining a VMI with PVC disk and read-only CDRoms")
 				if !libstorage.HasCDI() {
 					Fail("Fail DataVolume tests when CDI is not present")
 				}
 				sc, exists := libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Fail("Block storage (RWX) is not present")
+					Fail("Failed test when RWX Block storage is not present")
 				}
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
@@ -887,10 +887,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
 			})
-			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", decorators.StorageReq, func() {
+			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", decorators.StorageReq, decorators.RequiresRWXBlock, func() {
 				sc, exists := libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Failed test when RWX Block storage is not present")
 				}
 
 				By("Starting the VirtualMachineInstance")
@@ -947,14 +947,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration1)
 			})
 		})
-		Context("[storage-req]with an Alpine shared block volume PVC", decorators.StorageReq, func() {
+		Context("[storage-req]with an Alpine shared block volume PVC", decorators.StorageReq, decorators.RequiresRWXBlock, func() {
 			var sc string
 			var exists bool
 
 			BeforeEach(func() {
 				sc, exists = libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Failed test when RWX Block storage is not present")
 				}
 			})
 
