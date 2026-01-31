@@ -1246,6 +1246,519 @@ var _ = Describe("VMI status synchronization controller", func() {
 		})
 
 	})
+
+	// Unit tests for getMergedTargetMigratedVolumes function.
+	// These tests verify the merging logic for StorageMigratedVolumeInfo slices, specifically:
+	// - Merging destination PVC volume mode and access modes from remote volumes when local volumes lack them
+	// - Handling empty volume lists (both VMI and remote)
+	// - Handling nil PVC info (SourcePVCInfo and DestinationPVCInfo)
+	// - Preserving local source PVC info when merging destination from remote
+	// - Handling multiple volumes with different volume mode and access mode combinations
+	// - Edge cases like empty volume names
+	// The merging logic focuses on VolumeMode and AccessModes of PVCs - if the local volume doesn't have
+	// volume mode or access mode, it should take the value from the remote volume.
+	Context("getMergedTargetMigratedVolumes", func() {
+		It("should merge destination PVC volume mode and access modes from remote when local destination lacks them", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1", nil, nil),
+				verifyDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+			})
+		})
+
+		It("should include VMI volumes that don't have matches in remote", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+				createVmiVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2", nil, nil),
+					withDestinationPVC("dest-pvc-2", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1-new", nil, nil),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 2,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifyDestinationPVC("dest-pvc-1-new", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifyDestinationPVC("dest-pvc-2", nil, nil),
+				},
+			)
+		})
+
+		DescribeTable("should handle empty volume lists",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectedLen int, description string) {
+				result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+				Expect(result).To(HaveLen(expectedLen), description)
+				if expectedLen > 0 {
+					verifyVolume(result[0],
+						verifyVolumeName("volume1"),
+						verifySourcePVC("source-pvc-1", nil, nil),
+						verifyDestinationPVC("dest-pvc-1", nil, nil),
+					)
+				}
+			},
+			Entry("empty VMI volumes list", createVmiVolumes(), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), 0, "should return empty when VMI volumes is empty"),
+			Entry("empty remote volumes list", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(), 1, "should return VMI volumes when remote is empty"),
+		)
+
+		DescribeTable("should handle nil PVC info",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectNilSource, expectNilDest bool, destClaimName string) {
+				result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+				opts := []volumeVerificationOption{verifyVolumeName("volume1")}
+				if expectNilSource {
+					opts = append(opts, verifySourceIsNil())
+				} else {
+					opts = append(opts, verifySourcePVC("source-pvc-1", nil, nil))
+				}
+				if expectNilDest {
+					opts = append(opts, verifyDestinationIsNil())
+				} else {
+					opts = append(opts, verifyDestinationPVC(destClaimName, nil, nil))
+				}
+				verifyVolumes(result, 1, opts)
+			},
+			Entry("nil SourcePVCInfo in VMI volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1-new", nil, nil),
+				),
+			), true, false, "dest-pvc-1-new"),
+			Entry("nil DestinationPVCInfo in remote volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withNilDestinationPVC(),
+				),
+			), false, true, ""),
+		)
+
+		It("should preserve local source PVC info when merging destination from remote", func() {
+			volumeModeFS := k8sv1.PersistentVolumeFilesystem
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifySourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+				verifyDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+			})
+		})
+
+		It("should merge multiple volumes with different volume mode and access mode combinations", func() {
+			volumeModeFS := k8sv1.PersistentVolumeFilesystem
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+				createVmiVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2", nil, nil),
+					withDestinationPVC("dest-pvc-2", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+				createRemoteVolume(
+					withVolumeName("volume2"),
+					withDestinationPVC("dest-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadOnlyMany}),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 2,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifyDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifyDestinationPVC("dest-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadOnlyMany}),
+				},
+			)
+		})
+
+		It("should handle volumes with empty volume names", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName(""),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName(""),
+					withDestinationPVC("dest-pvc-1-new", nil, nil),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName(""),
+			})
+		})
+	})
+
+	// Unit tests for getMergedSourceMigratedVolumes function.
+	// These tests verify the merging logic for StorageMigratedVolumeInfo slices, specifically:
+	// - Using VMI SourcePVCInfo when present, even if remote has volume mode and access modes
+	// - Using remote SourcePVCInfo with volume mode and access modes when VMI SourcePVCInfo is nil
+	// - Including remote volumes that don't have matches in VMI
+	// - Handling empty volume lists (both VMI and remote)
+	// - Handling nil PVC info (SourcePVCInfo and DestinationPVCInfo)
+	// - Preserving VMI SourcePVCInfo volume mode and access modes when VMI has them set
+	// - Handling multiple volumes with various combinations
+	// - Edge cases like empty volume names
+	// The merging logic focuses on VolumeMode and AccessModes of PVCs - if the local volume doesn't have
+	// volume mode or access mode, it should take the value from the remote volume.
+	Context("getMergedSourceMigratedVolumes", func() {
+		It("should use VMI SourcePVCInfo when present, even if remote has volume mode and access modes", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-vmi", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1-vmi", nil, nil),
+				verifySourceVolumeModeIsNil(),
+				verifySourceAccessModesIsNil(),
+				verifyDestinationPVC("dest-pvc-1", nil, nil),
+			})
+		})
+
+		It("should use remote SourcePVCInfo with volume mode and access modes when VMI SourcePVCInfo is nil", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				verifyDestinationPVC("dest-pvc-1", nil, nil),
+			})
+		})
+
+		It("should include remote volumes with volume mode and access modes that don't have matches in VMI", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+				createRemoteVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 2,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifySourcePVC("source-pvc-1", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifySourcePVC("source-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				},
+			)
+		})
+
+		DescribeTable("should handle empty volume lists",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectedLen int, description string) {
+				result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+				Expect(result).To(HaveLen(expectedLen), description)
+				if expectedLen > 0 {
+					verifyVolume(result[0],
+						verifyVolumeName("volume1"),
+						verifySourcePVC("source-pvc-1", nil, nil),
+					)
+				}
+			},
+			Entry("empty VMI volumes list", createVmiVolumes(), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+				),
+			), 1, "should return remote volumes when VMI volumes is empty"),
+			Entry("empty remote volumes list", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(), 0, "should return empty when remote volumes is empty"),
+		)
+
+		DescribeTable("should handle nil PVC info",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectNilSource, expectNilDest bool, sourceClaimName string) {
+				result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+				opts := []volumeVerificationOption{verifyVolumeName("volume1")}
+				if expectNilSource {
+					opts = append(opts, verifySourceIsNil())
+				} else {
+					opts = append(opts, verifySourcePVC(sourceClaimName, nil, nil))
+				}
+				if expectNilDest {
+					opts = append(opts, verifyDestinationIsNil())
+				} else {
+					opts = append(opts, verifyDestinationPVC("dest-pvc-1", nil, nil))
+				}
+				verifyVolumes(result, 1, opts)
+			},
+			Entry("nil SourcePVCInfo in both VMI and remote volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+				),
+			), true, false, ""),
+			Entry("nil DestinationPVCInfo in VMI volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withNilDestinationPVC(),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+			), false, true, "source-pvc-1"),
+		)
+
+		It("should preserve VMI SourcePVCInfo volume mode and access modes when VMI has them set", func() {
+			volumeModeFS := k8sv1.PersistentVolumeFilesystem
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+			})
+		})
+
+		It("should ensure returned volumes have valid structure", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+					withDestinationPVC("dest-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadOnlyMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifySourcePVC("source-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+				verifyDestinationPVC("dest-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+			})
+		})
+
+		It("should handle multiple volumes with various combinations", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+				createVmiVolume(
+					withVolumeName("volume2"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-2", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+				createRemoteVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2-remote", nil, nil),
+				),
+				createRemoteVolume(
+					withVolumeName("volume3"),
+					withSourcePVC("source-pvc-3", nil, nil),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 3,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifySourcePVC("source-pvc-1", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifySourcePVC("source-pvc-2-remote", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume3"),
+					verifySourcePVC("source-pvc-3", nil, nil),
+				},
+			)
+		})
+
+		It("should handle volumes with empty volume names", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName(""),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName(""),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName(""),
+			})
+		})
+	})
 })
 
 func createSourceMigration(migrationID, vmiName, connectionURL, namespace string) *virtv1.VirtualMachineInstanceMigration {
@@ -1278,5 +1791,203 @@ func createTargetMigration(migrationID, vmiName, namespace string) *virtv1.Virtu
 			},
 			VMIName: vmiName,
 		},
+	}
+}
+
+// Helper functions for creating test volumes
+
+type volumeOption func(*virtv1.StorageMigratedVolumeInfo)
+
+func withVolumeName(name string) volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.VolumeName = name
+	}
+}
+
+func withSourcePVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.SourcePVCInfo = &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:   claimName,
+			VolumeMode:  volumeMode,
+			AccessModes: accessModes,
+		}
+	}
+}
+
+func withNilSourcePVC() volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.SourcePVCInfo = nil
+	}
+}
+
+func withDestinationPVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.DestinationPVCInfo = &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:   claimName,
+			VolumeMode:  volumeMode,
+			AccessModes: accessModes,
+		}
+	}
+}
+
+func withNilDestinationPVC() volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.DestinationPVCInfo = nil
+	}
+}
+
+func createVmiVolume(opts ...volumeOption) virtv1.StorageMigratedVolumeInfo {
+	volume := virtv1.StorageMigratedVolumeInfo{}
+	for _, opt := range opts {
+		opt(&volume)
+	}
+	return volume
+}
+
+func createVmiVolumes(volumes ...virtv1.StorageMigratedVolumeInfo) []virtv1.StorageMigratedVolumeInfo {
+	return volumes
+}
+
+func createRemoteVolume(opts ...volumeOption) virtv1.StorageMigratedVolumeInfo {
+	return createVmiVolume(opts...)
+}
+
+func createRemoteVolumes(volumes ...virtv1.StorageMigratedVolumeInfo) []virtv1.StorageMigratedVolumeInfo {
+	return volumes
+}
+
+// Verification helper functions
+
+type volumeVerificationOption func(*volumeVerification)
+
+type volumeVerification struct {
+	volumeName                 string
+	sourceClaimName            string
+	sourceVolumeMode           *k8sv1.PersistentVolumeMode
+	sourceAccessModes          []k8sv1.PersistentVolumeAccessMode
+	sourceShouldBeNil          bool
+	sourceVolumeModeShouldNil  bool
+	sourceAccessModesShouldNil bool
+	destClaimName              string
+	destVolumeMode             *k8sv1.PersistentVolumeMode
+	destAccessModes            []k8sv1.PersistentVolumeAccessMode
+	destShouldBeNil            bool
+	destVolumeModeShouldNil    bool
+	destAccessModesShouldNil   bool
+}
+
+func verifyVolumeName(name string) volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.volumeName = name
+	}
+}
+
+func verifySourcePVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceClaimName = claimName
+		v.sourceVolumeMode = volumeMode
+		v.sourceAccessModes = accessModes
+		v.sourceShouldBeNil = false
+	}
+}
+
+func verifySourceVolumeModeIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceVolumeModeShouldNil = true
+	}
+}
+
+func verifySourceAccessModesIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceAccessModesShouldNil = true
+	}
+}
+
+func verifySourceIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceShouldBeNil = true
+	}
+}
+
+func verifyDestinationPVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destClaimName = claimName
+		v.destVolumeMode = volumeMode
+		v.destAccessModes = accessModes
+		v.destShouldBeNil = false
+	}
+}
+
+func verifyDestinationVolumeModeIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destVolumeModeShouldNil = true
+	}
+}
+
+func verifyDestinationAccessModesIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destAccessModesShouldNil = true
+	}
+}
+
+func verifyDestinationIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destShouldBeNil = true
+	}
+}
+
+func verifyVolume(volume virtv1.StorageMigratedVolumeInfo, opts ...volumeVerificationOption) {
+	verification := &volumeVerification{}
+	for _, opt := range opts {
+		opt(verification)
+	}
+
+	if verification.volumeName != "" {
+		Expect(volume.VolumeName).To(Equal(verification.volumeName))
+	}
+
+	if verification.sourceShouldBeNil {
+		Expect(volume.SourcePVCInfo).To(BeNil())
+	} else if verification.sourceClaimName != "" {
+		Expect(volume.SourcePVCInfo).ToNot(BeNil())
+		Expect(volume.SourcePVCInfo.ClaimName).To(Equal(verification.sourceClaimName))
+		if verification.sourceVolumeModeShouldNil {
+			Expect(volume.SourcePVCInfo.VolumeMode).To(BeNil())
+		} else if verification.sourceVolumeMode != nil {
+			Expect(volume.SourcePVCInfo.VolumeMode).ToNot(BeNil())
+			Expect(*volume.SourcePVCInfo.VolumeMode).To(Equal(*verification.sourceVolumeMode))
+		}
+		if verification.sourceAccessModesShouldNil {
+			Expect(volume.SourcePVCInfo.AccessModes).To(BeNil())
+		} else if verification.sourceAccessModes != nil {
+			Expect(volume.SourcePVCInfo.AccessModes).To(Equal(verification.sourceAccessModes))
+		}
+	}
+
+	if verification.destShouldBeNil {
+		Expect(volume.DestinationPVCInfo).To(BeNil())
+	} else if verification.destClaimName != "" {
+		Expect(volume.DestinationPVCInfo).ToNot(BeNil())
+		Expect(volume.DestinationPVCInfo.ClaimName).To(Equal(verification.destClaimName))
+		if verification.destVolumeModeShouldNil {
+			Expect(volume.DestinationPVCInfo.VolumeMode).To(BeNil())
+		} else if verification.destVolumeMode != nil {
+			Expect(volume.DestinationPVCInfo.VolumeMode).ToNot(BeNil())
+			Expect(*volume.DestinationPVCInfo.VolumeMode).To(Equal(*verification.destVolumeMode))
+		}
+		if verification.destAccessModesShouldNil {
+			Expect(volume.DestinationPVCInfo.AccessModes).To(BeNil())
+		} else if verification.destAccessModes != nil {
+			Expect(volume.DestinationPVCInfo.AccessModes).To(Equal(verification.destAccessModes))
+		}
+	}
+}
+
+func verifyVolumes(result []virtv1.StorageMigratedVolumeInfo, expectedLen int, verifications ...[]volumeVerificationOption) {
+	Expect(result).To(HaveLen(expectedLen))
+	for i, verifyOpts := range verifications {
+		if i < len(result) {
+			verifyVolume(result[i], verifyOpts...)
+		}
 	}
 }

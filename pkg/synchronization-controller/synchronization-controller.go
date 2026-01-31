@@ -919,7 +919,6 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 		}, err
 	}
 	vmi := obj.(*virtv1.VirtualMachineInstance)
-
 	remoteStatus := &virtv1.VirtualMachineInstanceStatus{}
 	if err := json.Unmarshal(request.VmiStatus.VmiStatusJson, remoteStatus); err != nil {
 		return &syncv1.VMIStatusResponse{
@@ -939,7 +938,12 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 	log.Log.Object(newVMI).V(5).Infof("remote migration source state: %#v", remoteStatus.MigrationState.SourceState)
 	newVMI.Status.MigrationState.SourceState = remoteStatus.MigrationState.SourceState.DeepCopy()
 	copyLegacySourceFields(newVMI, remoteStatus.MigrationState)
-	newVMI.Status.MigratedVolumes = remoteStatus.MigratedVolumes
+	if len(remoteStatus.MigratedVolumes) > 0 {
+		log.Log.Object(newVMI).V(5).Infof("SyncSourceMigrationStatus: Copying migrated volumes to target state, %#v", newVMI.Status.MigratedVolumes)
+		newVMI.Status.MigratedVolumes = getMergedSourceMigratedVolumes(newVMI.Status.MigratedVolumes, remoteStatus.MigratedVolumes)
+	} else {
+		log.Log.Object(newVMI).V(5).Info("SyncSourceMigrationStatus: No source migrated volumes found")
+	}
 	newVMI.Status.MigrationMethod = remoteStatus.MigrationMethod
 	if !apiequality.Semantic.DeepEqual(vmi.Status, newVMI.Status) {
 		if err := s.patchVMI(ctx, vmi, newVMI); err != nil {
@@ -953,6 +957,62 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 	return &syncv1.VMIStatusResponse{
 		Message: successMessage,
 	}, nil
+}
+
+func getMergedTargetMigratedVolumes(vmiMigratedVolumes []virtv1.StorageMigratedVolumeInfo, remoteMigratedVolumes []virtv1.StorageMigratedVolumeInfo) []virtv1.StorageMigratedVolumeInfo {
+	remoteVolumeMap := make(map[string]virtv1.StorageMigratedVolumeInfo)
+	for _, volume := range remoteMigratedVolumes {
+		remoteVolumeMap[volume.VolumeName] = volume
+	}
+	mergedVolumes := make([]virtv1.StorageMigratedVolumeInfo, 0)
+	for _, volume := range vmiMigratedVolumes {
+		if remoteVolume, ok := remoteVolumeMap[volume.VolumeName]; ok {
+			mergedVolume := virtv1.StorageMigratedVolumeInfo{
+				VolumeName: volume.VolumeName,
+			}
+			if remoteVolume.DestinationPVCInfo != nil {
+				mergedVolume.DestinationPVCInfo = remoteVolume.DestinationPVCInfo.DeepCopy()
+			}
+			if volume.SourcePVCInfo != nil {
+				mergedVolume.SourcePVCInfo = volume.SourcePVCInfo.DeepCopy()
+			}
+			mergedVolumes = append(mergedVolumes, mergedVolume)
+		} else {
+			mergedVolumes = append(mergedVolumes, volume)
+		}
+	}
+	return mergedVolumes
+}
+
+func getMergedSourceMigratedVolumes(vmiMigratedVolumes []virtv1.StorageMigratedVolumeInfo, remoteMigratedVolumes []virtv1.StorageMigratedVolumeInfo) []virtv1.StorageMigratedVolumeInfo {
+	remoteVolumeMap := make(map[string]virtv1.StorageMigratedVolumeInfo)
+	for _, volume := range remoteMigratedVolumes {
+		remoteVolumeMap[volume.VolumeName] = volume
+	}
+	mergedVolumes := make([]virtv1.StorageMigratedVolumeInfo, 0)
+	for _, vmiVolume := range vmiMigratedVolumes {
+		if remoteVolume, ok := remoteVolumeMap[vmiVolume.VolumeName]; ok {
+			log.Log.V(5).Infof("Merging volume %s", vmiVolume.VolumeName)
+			// Found a match merge the current target volume with the incoming source volume
+			mergedVolume := virtv1.StorageMigratedVolumeInfo{
+				VolumeName: vmiVolume.VolumeName,
+			}
+			if vmiVolume.SourcePVCInfo != nil {
+				mergedVolume.SourcePVCInfo = vmiVolume.SourcePVCInfo.DeepCopy()
+			} else {
+				mergedVolume.SourcePVCInfo = remoteVolume.SourcePVCInfo.DeepCopy()
+			}
+			if vmiVolume.DestinationPVCInfo != nil {
+				mergedVolume.DestinationPVCInfo = vmiVolume.DestinationPVCInfo.DeepCopy()
+			}
+			mergedVolumes = append(mergedVolumes, mergedVolume)
+			delete(remoteVolumeMap, vmiVolume.VolumeName)
+		}
+	}
+	for _, volume := range remoteVolumeMap {
+		mergedVolumes = append(mergedVolumes, volume)
+	}
+	return mergedVolumes
 }
 
 func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Context, request *syncv1.VMIStatusRequest) (*syncv1.VMIStatusResponse, error) {
@@ -999,6 +1059,7 @@ func (s *SynchronizationController) SyncTargetMigrationStatus(ctx context.Contex
 	log.Log.Object(newVMI).V(5).Infof("vmi migration target state: %#v", newVMI.Status.MigrationState.TargetState)
 	log.Log.Object(newVMI).V(5).Infof("remote migration target state: %#v", remoteStatus.MigrationState.TargetState)
 	newVMI.Status.MigrationState.TargetState = remoteStatus.MigrationState.TargetState.DeepCopy()
+	newVMI.Status.MigratedVolumes = getMergedTargetMigratedVolumes(newVMI.Status.MigratedVolumes, remoteStatus.MigratedVolumes)
 	copyLegacyTargetFields(newVMI, remoteStatus.MigrationState)
 	if !apiequality.Semantic.DeepEqual(vmi.Status.MigrationState, newVMI.Status.MigrationState) {
 		if err := s.patchVMI(ctx, vmi, newVMI); err != nil {
