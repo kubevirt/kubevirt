@@ -45,7 +45,8 @@ func (n NetPod) storeBridgeBindingDHCPInterfaceData(currentStatus *nmstate.Statu
 		}
 		dhcpConfig.IP = *addr
 
-		mac, err := resolveMacAddress(podIfaceStatus.MacAddress, vmiSpecIface.MacAddress)
+		vmiStatusMAC := n.getVMIStatusMAC(vmiSpecIface.Name)
+		mac, err := resolveMacAddress(podIfaceStatus.MacAddress, vmiStatusMAC, vmiSpecIface.MacAddress)
 		if err != nil {
 			return err
 		}
@@ -145,16 +146,30 @@ func filterIPv4RoutesByInterface(currentStatus *nmstate.Status, podIfaceName str
 	return linkRoutes, nil
 }
 
-func resolveMacAddress(macAddressFromCurrent string, macAddressFromVMISpec string) (net.HardwareAddr, error) {
-	macAddress := macAddressFromCurrent
+// resolveMacAddress determines the MAC address to use for network configuration.
+// Priority order (highest to lowest):
+//  1. VMI Spec MAC (user-specified)
+//  2. VMI Status MAC (preserved runtime MAC, important after live migration)
+//  3. Pod interface MAC (current pod's interface)
+func resolveMacAddress(macAddressFromPod, macAddressFromVMIStatus, macAddressFromVMISpec string) (net.HardwareAddr, error) {
 	if macAddressFromVMISpec != "" {
-		macAddress = macAddressFromVMISpec
+		return net.ParseMAC(macAddressFromVMISpec)
 	}
-	mac, merr := net.ParseMAC(macAddress)
-	if merr != nil {
-		return nil, merr
+	if macAddressFromVMIStatus != "" {
+		return net.ParseMAC(macAddressFromVMIStatus)
 	}
-	return mac, nil
+	return net.ParseMAC(macAddressFromPod)
+}
+
+// getVMIStatusMAC returns the MAC address from VMI status for the given interface name.
+// Returns empty string if not found.
+func (n NetPod) getVMIStatusMAC(ifaceName string) string {
+	for _, ifaceStatus := range n.vmiIfaceStatuses {
+		if ifaceStatus.Name == ifaceName {
+			return ifaceStatus.MAC
+		}
+	}
+	return ""
 }
 
 func isIPv6Family(ip net.IP) bool {
