@@ -72,9 +72,18 @@ func getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAtta
 // 1. There is a currentPod that is running. (not nil and phase.Status == Running)
 // 2. There are no readyVolumes (numReadyVolumes == 0)
 // 3. The newest oldPod is not running and not marked for deletion.
+// 4. All hotplug volumes in the VMI spec have reached VolumeReady phase.
 // If any of those are true, it will not delete the newest oldPod, since that one is the latest
 // pod that is closest to the desired state.
 func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, numReadyVolumes int) common.SyncError {
+	// Before deleting any old pods, verify all hotplug volumes have reached VolumeReady.
+	// This prevents premature deletion of old pods when a new volume is being added,
+	// ensuring existing block devices remain available during the handoff.
+	if len(oldPods) > 0 && numReadyVolumes > 0 && !allHotplugVolumesReady(vmi) {
+		log.Log.Object(vmi).V(3).Infof("Not cleaning up old attachment pods yet: waiting for all hotplug volumes to reach VolumeReady phase")
+		return nil
+	}
+
 	foundRunning := false
 
 	var statusMap = make(map[string]v1.VolumeStatus)
@@ -130,6 +139,37 @@ func volumeReadyForPodDelete(phase v1.VolumePhase) bool {
 		return false
 	}
 	return true
+}
+
+// allHotplugVolumesReady checks if all hotplug volumes in the VMI spec
+// have reached the VolumeReady phase. This is used to ensure the new
+// attachment pod's volumes are fully ready before deleting the old pod.
+func allHotplugVolumesReady(vmi *v1.VirtualMachineInstance) bool {
+	// Build a map of hotplug volume names from the spec
+	hotplugVolumeNames := make(map[string]bool)
+	for _, volume := range vmi.Spec.Volumes {
+		if storagetypes.IsHotplugVolume(&volume) {
+			hotplugVolumeNames[volume.Name] = true
+		}
+	}
+
+	// If there are no hotplug volumes, return true (nothing to check)
+	if len(hotplugVolumeNames) == 0 {
+		return true
+	}
+
+	// Check that each hotplug volume has a VolumeReady status
+	readyCount := 0
+	for _, vs := range vmi.Status.VolumeStatus {
+		if vs.HotplugVolume != nil && hotplugVolumeNames[vs.Name] {
+			if vs.Phase == v1.VolumeReady {
+				readyCount++
+			}
+		}
+	}
+
+	// All hotplug volumes must be ready
+	return readyCount == len(hotplugVolumeNames)
 }
 
 func (c *Controller) isUtilityVolumeWithBlockPVC(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (bool, error) {
