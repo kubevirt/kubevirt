@@ -94,4 +94,184 @@ var _ = Describe("Balloon Domain Configurator", func() {
 			Expect(domain).To(Equal(expectedDomain))
 		})
 	})
+
+	Context("with memballoon stats period", func() {
+		It("should configure memballoon with stats period 5 for amd64", func() {
+			vmi := libvmi.New()
+			var domain api.Domain
+
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithVirtioModel("virtio-non-transitional"),
+				compute.BalloonWithFreePageReporting(true),
+				compute.BalloonWithMemBalloonStatsPeriod(5),
+			)
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Ballooning: &api.MemBalloon{
+							Model:             "virtio-non-transitional",
+							FreePageReporting: "on",
+							Stats:             &api.Stats{Period: 5},
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
+		It("should configure memballoon with stats period 5 for arm64", func() {
+			vmi := libvmi.New()
+			var domain api.Domain
+
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithVirtioModel("virtio-non-transitional"),
+				compute.BalloonWithFreePageReporting(true),
+				compute.BalloonWithMemBalloonStatsPeriod(5),
+			)
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Ballooning: &api.MemBalloon{
+							Model:             "virtio-non-transitional",
+							FreePageReporting: "on",
+							Stats:             &api.Stats{Period: 5},
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
+		It("should configure memballoon with stats period 5 for s390x", func() {
+			vmi := libvmi.New()
+			var domain api.Domain
+
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithVirtioModel("virtio"),
+				compute.BalloonWithFreePageReporting(true),
+				compute.BalloonWithMemBalloonStatsPeriod(5),
+			)
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Ballooning: &api.MemBalloon{
+							Model:             "virtio",
+							FreePageReporting: "on",
+							Stats:             &api.Stats{Period: 5},
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
+		It("should configure memballoon with stats period 0 for amd64", func() {
+			vmi := libvmi.New()
+			var domain api.Domain
+
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithVirtioModel("virtio-non-transitional"),
+				compute.BalloonWithFreePageReporting(true),
+				compute.BalloonWithMemBalloonStatsPeriod(0),
+			)
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Ballooning: &api.MemBalloon{
+							Model:             "virtio-non-transitional",
+							FreePageReporting: "on",
+							Stats:             nil,
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
+		It("should configure memballoon with stats period 0 for arm64", func() {
+			vmi := libvmi.New()
+			var domain api.Domain
+
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithVirtioModel("virtio-non-transitional"),
+				compute.BalloonWithFreePageReporting(true),
+				compute.BalloonWithMemBalloonStatsPeriod(0),
+			)
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Ballooning: &api.MemBalloon{
+							Model:             "virtio-non-transitional",
+							FreePageReporting: "on",
+							Stats:             nil,
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+
+		It("should configure memballoon with stats period 0 for s390x", func() {
+			vmi := libvmi.New()
+			var domain api.Domain
+
+			configurator := compute.NewBalloonDomainConfigurator(
+				compute.BalloonWithVirtioModel("virtio"),
+				compute.BalloonWithFreePageReporting(true),
+				compute.BalloonWithMemBalloonStatsPeriod(0),
+			)
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Ballooning: &api.MemBalloon{
+							Model:             "virtio",
+							FreePageReporting: "on",
+							Stats:             nil,
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+	})
+
+	Context("with AutoattachMemBalloon false", func() {
+		It("should configure memballoon with model none", func() {
+			vmi := libvmi.New(libvmi.WithAutoattachMemBalloon(false))
+			var domain api.Domain
+
+			configurator := compute.NewBalloonDomainConfigurator()
+
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Ballooning: &api.MemBalloon{
+							Model: "none",
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		})
+	})
 })
