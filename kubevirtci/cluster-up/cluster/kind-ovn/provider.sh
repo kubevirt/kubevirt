@@ -24,6 +24,9 @@ KIND_PATH=${KIND_PATH:-"${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/_kind"}
 CLUSTER_PATH=${CLUSTER_PATH:-"${KUBEVIRTCI_CONFIG_PATH}/${KUBEVIRT_PROVIDER}/_ovnk"}
 CLUSTER_NAME=${KUBEVIRT_PROVIDER}
 
+source "${KUBEVIRTCI_PATH}/../hack/detect_cri.sh"
+export CRI_BIN=${CRI_BIN:-$(detect_cri)}
+
 function calculate_mtu() {
     overlay_overhead=58
     current_mtu=$(cat /sys/class/net/$(ip route | grep "default via" | head -1 | awk '{print $5}')/mtu)
@@ -72,9 +75,10 @@ function up() {
     cluster::install
     fetch_kind
 
+    args=""
+    if [[ "$CRI_BIN" == "podman" ]]; then args+="-ep podman"; fi
+
     pushd $CLUSTER_PATH/contrib
-      args=""
-      podman ps &> /dev/null && args+="-ep podman"
       ./kind.sh \
         --cluster-name $CLUSTER_NAME \
         -mtu $MTU \

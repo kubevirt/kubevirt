@@ -20,7 +20,10 @@
 
 set -ex
 
-CRI_BIN=${CRI_BIN:-docker}
+SCRIPT_PATH=$(dirname "$(realpath "$0")")
+KUBEVIRTCI_PATH="$(realpath "${SCRIPT_PATH}/../../..")/"
+source "${KUBEVIRTCI_PATH}/hack/detect_cri.sh"
+export CRI_BIN=${CRI_BIN:-$(detect_cri)}
 
 KIND_BIN="${KIND_BIN:-./kind}"
 PROXY_HOSTNAME="${PROXY_HOSTNAME:-docker-registry-proxy}"
