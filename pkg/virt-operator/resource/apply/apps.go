@@ -511,7 +511,7 @@ func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, er
 
 func replicasAlreadyPatched(patches []v1.CustomizeComponentsPatch, deploymentName string) bool {
 	for _, patch := range patches {
-		if patch.ResourceName != deploymentName {
+		if patch.ResourceName != deploymentName || patch.Type != v1.JSONPatchType {
 			continue
 		}
 		decodedPatch, err := jsonpatch.DecodePatch([]byte(patch.Patch))
