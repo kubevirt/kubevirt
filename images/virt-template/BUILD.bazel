@@ -1,0 +1,21 @@
+load("@rules_oci//oci:defs.bzl", "oci_image")
+
+oci_image(
+    name = "virt-template-apiserver-image",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@virt_template_apiserver_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@virt_template_apiserver_s390x",
+        "//conditions:default": "@virt_template_apiserver",
+    }),
+    visibility = ["//visibility:public"],
+)
+
+oci_image(
+    name = "virt-template-controller-image",
+    base = select({
+        "@io_bazel_rules_go//go/platform:linux_arm64": "@virt_template_controller_aarch64",
+        "@io_bazel_rules_go//go/platform:linux_s390x": "@virt_template_controller_s390x",
+        "//conditions:default": "@virt_template_controller",
+    }),
+    visibility = ["//visibility:public"],
+)
