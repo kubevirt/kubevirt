@@ -28,7 +28,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -38,8 +38,8 @@ import (
 var _ = Describe("Preference.Devices", func() {
 	var (
 		vmi                  *virtv1.VirtualMachineInstance
-		instancetypeSpec     *v1beta1.VirtualMachineInstancetypeSpec
-		preferenceSpec       *v1beta1.VirtualMachinePreferenceSpec
+		instancetypeSpec     *instancetypev1.VirtualMachineInstancetypeSpec
+		preferenceSpec       *instancetypev1.VirtualMachinePreferenceSpec
 		userDefinedBlockSize *virtv1.BlockSize
 
 		field      = k8sfield.NewPath("spec", "template", "spec")
@@ -115,8 +115,8 @@ var _ = Describe("Preference.Devices", func() {
 		vmi.Spec.Domain.Devices.Sound = &virtv1.SoundDevice{}
 		vmi.Spec.Domain.Devices.PanicDevices = []virtv1.PanicDevice{{}}
 
-		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-			Devices: &v1beta1.DevicePreferences{
+		preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
+			Devices: &instancetypev1.DevicePreferences{
 				PreferredDiskDedicatedIoThread:      pointer.P(true),
 				PreferredDisableHotplug:             pointer.P(true),
 				PreferredUseVirtioTransitional:      pointer.P(true),
@@ -223,7 +223,7 @@ var _ = Describe("Preference.Devices", func() {
 	})
 
 	Context("PreferredDiskDedicatedIoThread", func() {
-		DescribeTable("should be ignored when", func(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) {
+		DescribeTable("should be ignored when", func(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) {
 			Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 			for _, disk := range vmi.Spec.Domain.Devices.Disks {
 				if disk.DiskDevice.Disk != nil {
@@ -231,18 +231,18 @@ var _ = Describe("Preference.Devices", func() {
 				}
 			}
 		},
-			Entry("unset", &v1beta1.VirtualMachinePreferenceSpec{
-				Devices: &v1beta1.DevicePreferences{},
+			Entry("unset", &instancetypev1.VirtualMachinePreferenceSpec{
+				Devices: &instancetypev1.DevicePreferences{},
 			}),
-			Entry("false", &v1beta1.VirtualMachinePreferenceSpec{
-				Devices: &v1beta1.DevicePreferences{
+			Entry("false", &instancetypev1.VirtualMachinePreferenceSpec{
+				Devices: &instancetypev1.DevicePreferences{
 					PreferredDiskDedicatedIoThread: pointer.P(false),
 				},
 			}),
 		)
 		It("should only apply to virtio disk devices", func() {
-			preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-				Devices: &v1beta1.DevicePreferences{
+			preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
+				Devices: &instancetypev1.DevicePreferences{
 					PreferredDiskDedicatedIoThread: pointer.P(true),
 				},
 			}

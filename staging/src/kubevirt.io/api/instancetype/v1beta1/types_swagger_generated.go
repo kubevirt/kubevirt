@@ -47,13 +47,13 @@ func (VirtualMachineInstancetypeSpec) SwaggerDoc() map[string]string {
 func (CPUInstancetype) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "CPUInstancetype contains the CPU related configuration of a given VirtualMachineInstancetypeSpec.\n\nGuest is a required attribute and defines the number of vCPUs to be exposed to the guest by the instancetype.",
-		"guest":                 "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.",
+		"guest":                 "Required number of vCPUs to expose to the guest.\n\nThe resulting CPU topology being derived from the optional PreferredCPUTopology attribute of CPUPreferences that itself defaults to PreferSockets.\n+kubebuilder:validation:Minimum=1",
 		"model":                 "Model specifies the CPU model inside the VMI.\nList of available models https://github.com/libvirt/libvirt/tree/master/src/cpu_map.\nIt is possible to specify special cases like \"host-passthrough\" to get the same CPU as the node\nand \"host-model\" to get CPU closest to the node one.\nDefaults to host-model.\n+optional",
 		"dedicatedCPUPlacement": "DedicatedCPUPlacement requests the scheduler to place the VirtualMachineInstance on a node\nwith enough dedicated pCPUs and pin the vCPUs to it.\n+optional",
 		"numa":                  "NUMA allows specifying settings for the guest NUMA topology\n+optional",
 		"isolateEmulatorThread": "IsolateEmulatorThread requests one more dedicated pCPU to be allocated for the VMI to place\nthe emulator thread on it.\n+optional",
 		"realtime":              "Realtime instructs the virt-launcher to tune the VMI for lower latency, optional for real time workloads\n+optional",
-		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can be hotplugged\n+optional",
+		"maxSockets":            "MaxSockets specifies the maximum amount of sockets that can be hotplugged\n+kubebuilder:validation:Minimum=1\n+optional",
 	}
 }
 
@@ -104,26 +104,26 @@ func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 		"features":                               "Features optionally defines preferences associated with the Features attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
 		"firmware":                               "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
 		"machine":                                "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
-		"volumes":                                "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstace DomainSpec\n\n+optional",
+		"volumes":                                "Volumes optionally defines preferences associated with the Volumes attribute of a VirtualMachineInstance DomainSpec\n\n+optional",
 		"preferredSubdomain":                     "Subdomain of the VirtualMachineInstance\n\n+optional",
 		"preferredTerminationGracePeriodSeconds": "Grace period observed after signalling a VirtualMachineInstance to stop after which the VirtualMachineInstance is force terminated.\n\n+optional",
-		"requirements":                           "Requirements defines the minium amount of instance type defined resources required by a set of preferences\n\n+optional",
+		"requirements":                           "Requirements defines the minimum amount of instance type defined resources required by a set of preferences\n\n+optional",
 		"annotations":                            "Optionally defines preferred Annotations to be applied to the VirtualMachineInstance\n\n+optional",
 		"preferSpreadSocketToCoreRatio":          "PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs between cores and sockets, it defaults to 2.\n\n+optional",
-		"preferredArchitecture":                  "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine\n\n+optional",
+		"preferredArchitecture":                  "PreferredArchitecture defines a preferred architecture for the VirtualMachine\n\n+optional",
 	}
 }
 
 func (VolumePreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"preferredStorageClassName": "PreffereedStorageClassName optionally defines the preferred storageClass\n\n+optional",
+		"preferredStorageClassName": "PreferredStorageClassName optionally defines the preferred storageClass\n\n+optional",
 	}
 }
 
 func (CPUPreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "CPUPreferences contains various optional CPU preferences.",
-		"preferredCPUTopology": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.\n\n+optional",
+		"preferredCPUTopology": "PreferredCPUTopology optionally defines the preferred guest visible CPU topology, defaults to PreferSockets.\n\n+optional\n+kubebuilder:validation:Enum=preferCores;preferSockets;preferThreads;preferSpread;preferAny;cores;sockets;threads;spread;any",
 		"spreadOptions":        "+optional",
 		"preferredCPUFeatures": "PreferredCPUFeatures optionally defines a slice of preferred CPU features.\n\n+optional",
 	}
@@ -131,8 +131,8 @@ func (CPUPreferences) SwaggerDoc() map[string]string {
 
 func (SpreadOptions) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"across": "Across optionally defines how to spread vCPUs across the guest visible topology.\nDefault: SocketsCores\n\n+optional",
-		"ratio":  "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.\nSocketsCores        - 1:N   - Controls the ratio of socket to cores.\nSocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2\n\n+optional",
+		"across": "Across optionally defines how to spread vCPUs across the guest visible topology.\nDefault: SocketsCores\n\n+optional\n+kubebuilder:validation:Enum=SocketsCoresThreads;SocketsCores;CoresThreads",
+		"ratio":  "Ratio optionally defines the ratio to spread vCPUs across the guest visible topology:\n\nCoresThreads        - 1:2   - Controls the ratio of cores to threads. Only a ratio of 2 is currently accepted.\nSocketsCores        - 1:N   - Controls the ratio of socket to cores.\nSocketsCoresThreads - 1:N:2 - Controls the ratio of socket to cores. Each core providing 2 threads.\n\nDefault: 2\n\n+optional\n+kubebuilder:validation:Minimum=1",
 	}
 }
 
@@ -183,7 +183,7 @@ func (FirmwarePreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                       "FirmwarePreferences contains various optional defaults for Firmware.",
 		"preferredUseBios":       "PreferredUseBios optionally enables BIOS\n\n+optional",
-		"preferredUseBiosSerial": "PreferredUseBiosSerial optionally transmitts BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.\n\n+optional",
+		"preferredUseBiosSerial": "PreferredUseBiosSerial optionally transmits BIOS output over the serial.\n\nRequires PreferredUseBios to be enabled.\n\n+optional",
 		"preferredUseEfi":        "PreferredUseEfi optionally enables EFI\n\n+optional\nDeprecated: Will be removed with v1beta2 or v1",
 		"preferredUseSecureBoot": "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.\n\n+optional\nDeprecated: Will be removed with v1beta2 or v1",
 		"preferredEfi":           "PreferredEfi optionally enables EFI\n\n+optional",
@@ -201,7 +201,7 @@ func (ClockPreferences) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                     "ClockPreferences contains various optional defaults for Clock.",
 		"preferredClockOffset": "ClockOffset allows specifying the UTC offset or the timezone of the guest clock.\n\n+optional",
-		"preferredTimer":       "Timer specifies whih timers are attached to the vmi.\n\n+optional",
+		"preferredTimer":       "Timer specifies which timers are attached to the vmi.\n\n+optional",
 	}
 }
 

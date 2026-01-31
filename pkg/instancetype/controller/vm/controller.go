@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/annotations"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
@@ -54,11 +54,11 @@ type applyVMHandler interface {
 }
 
 type instancetypeFindHandler interface {
-	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
+	Find(*virtv1.VirtualMachine) (*instancetypev1.VirtualMachineInstancetypeSpec, error)
 }
 
 type preferenceFindHandler interface {
-	FindPreference(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+	FindPreference(*virtv1.VirtualMachine) (*instancetypev1.VirtualMachinePreferenceSpec, error)
 }
 
 type expandHandler interface {

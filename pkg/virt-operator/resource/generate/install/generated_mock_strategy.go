@@ -25,7 +25,7 @@ import (
 	v17 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	v18 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	v19 "kubevirt.io/api/instancetype/v1"
 )
 
 // MockAPIServiceInterface is a mock of APIServiceInterface interface.
@@ -295,10 +295,10 @@ func (mr *MockStrategyInterfaceMockRecorder) ExportProxyDeployments() *gomock.Ca
 }
 
 // Instancetypes mocks base method.
-func (m *MockStrategyInterface) Instancetypes() []*v1beta1.VirtualMachineClusterInstancetype {
+func (m *MockStrategyInterface) Instancetypes() []*v19.VirtualMachineClusterInstancetype {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Instancetypes")
-	ret0, _ := ret[0].([]*v1beta1.VirtualMachineClusterInstancetype)
+	ret0, _ := ret[0].([]*v19.VirtualMachineClusterInstancetype)
 	return ret0
 }
 
@@ -323,10 +323,10 @@ func (mr *MockStrategyInterfaceMockRecorder) MutatingWebhookConfigurations() *go
 }
 
 // Preferences mocks base method.
-func (m *MockStrategyInterface) Preferences() []*v1beta1.VirtualMachineClusterPreference {
+func (m *MockStrategyInterface) Preferences() []*v19.VirtualMachineClusterPreference {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Preferences")
-	ret0, _ := ret[0].([]*v1beta1.VirtualMachineClusterPreference)
+	ret0, _ := ret[0].([]*v19.VirtualMachineClusterPreference)
 	return ret0
 }
 

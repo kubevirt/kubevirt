@@ -25,7 +25,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -35,8 +35,8 @@ import (
 var _ = Describe("Preference.Architecture", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
-		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
-		preferenceSpec   *v1beta1.VirtualMachinePreferenceSpec
+		instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec
+		preferenceSpec   *instancetypev1.VirtualMachinePreferenceSpec
 
 		field      = k8sfield.NewPath("spec", "template", "spec")
 		vmiApplier = apply.NewVMIApplier()
@@ -47,7 +47,7 @@ var _ = Describe("Preference.Architecture", func() {
 	})
 
 	It("should apply preferred architecture to VMI when architecture is not set", func() {
-		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
+		preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
 			PreferredArchitecture: pointer.P("arm64"),
 		}
 
@@ -57,7 +57,7 @@ var _ = Describe("Preference.Architecture", func() {
 
 	It("should not override existing architecture in VMI", func() {
 		vmi.Spec.Architecture = "amd64"
-		preferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
+		preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
 			PreferredArchitecture: pointer.P("arm64"),
 		}
 
@@ -65,13 +65,13 @@ var _ = Describe("Preference.Architecture", func() {
 		Expect(vmi.Spec.Architecture).To(Equal("amd64"))
 	})
 
-	DescribeTable("should not apply when", func(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) {
+	DescribeTable("should not apply when", func(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) {
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 		Expect(vmi.Spec.Architecture).To(BeEmpty())
 	},
 		Entry("PreferenceSpec is nil", nil),
-		Entry("PreferredArchitecture is nil", &v1beta1.VirtualMachinePreferenceSpec{}),
-		Entry("PreferredArchitecture is an empty string", &v1beta1.VirtualMachinePreferenceSpec{
+		Entry("PreferredArchitecture is nil", &instancetypev1.VirtualMachinePreferenceSpec{}),
+		Entry("PreferredArchitecture is an empty string", &instancetypev1.VirtualMachinePreferenceSpec{
 			PreferredArchitecture: pointer.P(""),
 		}),
 	)

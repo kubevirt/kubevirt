@@ -36,7 +36,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
@@ -54,7 +54,7 @@ var _ = Describe("Preference SpecFinder", func() {
 	)
 
 	type preferenceSpecFinder interface {
-		FindPreference(vm *v1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+		FindPreference(vm *v1.VirtualMachine) (*instancetypev1.VirtualMachinePreferenceSpec, error)
 	}
 
 	var (
@@ -82,15 +82,15 @@ var _ = Describe("Preference SpecFinder", func() {
 			fakeClientset.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineClusterPreference().Return(
-			fakeClientset.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			fakeClientset.InstancetypeV1().VirtualMachineClusterPreferences()).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachinePreference(metav1.NamespaceDefault).Return(
-			fakeClientset.InstancetypeV1beta1().VirtualMachinePreferences(metav1.NamespaceDefault)).AnyTimes()
+			fakeClientset.InstancetypeV1().VirtualMachinePreferences(metav1.NamespaceDefault)).AnyTimes()
 
-		preferenceInformer, _ := testutils.NewFakeInformerFor(&v1beta1.VirtualMachinePreference{})
+		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachinePreference{})
 		preferenceInformerStore = preferenceInformer.GetStore()
 
-		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&v1beta1.VirtualMachineClusterPreference{})
+		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterPreference{})
 		clusterPreferenceInformerStore = clusterPreferenceInformer.GetStore()
 
 		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
@@ -118,16 +118,16 @@ var _ = Describe("Preference SpecFinder", func() {
 	})
 
 	Context("Using global ClusterPreference", func() {
-		var clusterPreference *v1beta1.VirtualMachineClusterPreference
+		var clusterPreference *instancetypev1.VirtualMachineClusterPreference
 
 		BeforeEach(func() {
-			preferredCPUTopology := v1beta1.Cores
-			clusterPreference = &v1beta1.VirtualMachineClusterPreference{
+			preferredCPUTopology := instancetypev1.Cores
+			clusterPreference = &instancetypev1.VirtualMachineClusterPreference{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cluster-preference",
 				},
-				Spec: v1beta1.VirtualMachinePreferenceSpec{
-					CPU: &v1beta1.CPUPreferences{
+				Spec: instancetypev1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1.CPUPreferences{
 						PreferredCPUTopology: &preferredCPUTopology,
 					},
 				},
@@ -172,7 +172,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(fakeClientset.Actions()).ToNot(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.SingularPreferenceResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.SingularPreferenceResourceName),
 						vm.Namespace,
 						vm.Spec.Preference.Name,
 					),
@@ -225,7 +225,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(fakeClientset.Actions()).To(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralPreferenceResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralPreferenceResourceName),
 						"",
 						vm.Spec.Preference.Name,
 					),
@@ -241,7 +241,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(fakeClientset.Actions()).To(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralPreferenceResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralPreferenceResourceName),
 						"",
 						vm.Spec.Preference.Name,
 					),
@@ -259,7 +259,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			// Make a slightly altered copy of the object already present in the client and store it in a CR
 			stored := clusterPreference.DeepCopy()
 			stored.ObjectMeta.Name = storedName
-			stored.Spec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Threads)
+			stored.Spec.CPU.PreferredCPUTopology = pointer.P(instancetypev1.Threads)
 
 			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
 			Expect(err).ToNot(HaveOccurred())
@@ -287,17 +287,17 @@ var _ = Describe("Preference SpecFinder", func() {
 	})
 
 	Context("Using namespaced Preference", func() {
-		var preference *v1beta1.VirtualMachinePreference
+		var preference *instancetypev1.VirtualMachinePreference
 
 		BeforeEach(func() {
-			preferredCPUTopology := v1beta1.Cores
-			preference = &v1beta1.VirtualMachinePreference{
+			preferredCPUTopology := instancetypev1.Cores
+			preference = &instancetypev1.VirtualMachinePreference{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-preference",
 					Namespace: metav1.NamespaceDefault,
 				},
-				Spec: v1beta1.VirtualMachinePreferenceSpec{
-					CPU: &v1beta1.CPUPreferences{
+				Spec: instancetypev1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1.CPUPreferences{
 						PreferredCPUTopology: &preferredCPUTopology,
 					},
 				},
@@ -343,7 +343,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(fakeClientset.Actions()).ToNot(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.SingularPreferenceResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.SingularPreferenceResourceName),
 						vm.Namespace,
 						vm.Spec.Preference.Name,
 					),
@@ -390,7 +390,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(fakeClientset.Actions()).To(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.PluralPreferenceResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.PluralPreferenceResourceName),
 						vm.Namespace,
 						vm.Spec.Preference.Name,
 					),
@@ -406,7 +406,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			Expect(fakeClientset.Actions()).To(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.PluralPreferenceResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.PluralPreferenceResourceName),
 						vm.Namespace,
 						vm.Spec.Preference.Name,
 					),
@@ -427,7 +427,7 @@ var _ = Describe("Preference SpecFinder", func() {
 			// Make a slightly altered copy of the object already present in the client and store it in a CR
 			stored := preference.DeepCopy()
 			stored.ObjectMeta.Name = storedName
-			stored.Spec.CPU.PreferredCPUTopology = pointer.P(v1beta1.Threads)
+			stored.Spec.CPU.PreferredCPUTopology = pointer.P(instancetypev1.Threads)
 
 			controllerRevision, err := revision.CreateControllerRevision(vm, stored)
 			Expect(err).ToNot(HaveOccurred())

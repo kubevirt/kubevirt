@@ -24,7 +24,7 @@ const (
 	GroupName = "instancetype.kubevirt.io"
 
 	// Used to determine the version to upgrade ControllerRevision stashed objects to
-	LatestVersion = "v1beta1"
+	LatestVersion = "v1"
 
 	SingularResourceName = "virtualmachineinstancetype"
 	PluralResourceName   = SingularResourceName + "s"
