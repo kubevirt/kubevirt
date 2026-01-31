@@ -153,7 +153,7 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 		}
 		ports = podNetworkPorts(&vmi.Spec)
 		serviceSelector = map[string]string{
-			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vmi.Name),
+			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateValidUniqueID(vmi.Name),
 		}
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		vm, err := c.client.VirtualMachine(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
@@ -164,7 +164,7 @@ func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]
 			ports = podNetworkPorts(&vm.Spec.Template.Spec)
 		}
 		serviceSelector = map[string]string{
-			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vm.Name),
+			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateValidUniqueID(vm.Name),
 		}
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
 		vmirs, err := c.client.ReplicaSet(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
