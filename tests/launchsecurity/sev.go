@@ -41,7 +41,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	matcher "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libwait"
@@ -52,7 +52,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		diskSecret = "qwerty123"
 	)
 
-	newSEVFedora := func(withES bool, withSNP bool, opts ...libvmi.Option) *v1.VirtualMachineInstance {
+	newSEVFedora := func(withES, withSNP bool, opts ...libvmi.Option) *v1.VirtualMachineInstance {
 		const secureBoot = false
 		sevOptions := []libvmi.Option{
 			libvmi.WithUefi(secureBoot),
@@ -74,7 +74,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		tik, err := base64.StdEncoding.DecodeString(tikBase64)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		h := hmac.New(sha256.New, tik)
-		err = binary.Write(h, binary.LittleEndian, uint8(0x04))
+		const sevLaunchMeasurementPrefix = 0x04
+		err = binary.Write(h, binary.LittleEndian, uint8(sevLaunchMeasurementPrefix))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		err = binary.Write(h, binary.LittleEndian, uint8(sevMeasurementInfo.APIMajor))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -109,15 +110,15 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		// passed between the firmware and the CPU driver are little-endian
 		// formatted. Applies to UUIDs as well.
 		writeUUID := func(w io.Writer, uuid uuid.UUID) {
-			var err error
-			err = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint32(uuid[0:4]))
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
-			err = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint16(uuid[4:6]))
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
-			err = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint16(uuid[6:8]))
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
-			_, err = w.Write(uuid[8:])
-			ExpectWithOffset(2, err).ToNot(HaveOccurred())
+			var writeErr error
+			writeErr = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint32(uuid[0:4]))
+			ExpectWithOffset(2, writeErr).ToNot(HaveOccurred())
+			writeErr = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint16(uuid[4:6]))
+			ExpectWithOffset(2, writeErr).ToNot(HaveOccurred())
+			writeErr = binary.Write(w, binary.LittleEndian, binary.BigEndian.Uint16(uuid[6:8]))
+			ExpectWithOffset(2, writeErr).ToNot(HaveOccurred())
+			_, writeErr = w.Write(uuid[8:])
+			ExpectWithOffset(2, writeErr).ToNot(HaveOccurred())
 		}
 
 		const (
@@ -142,25 +143,27 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		err = binary.Write(secret, binary.LittleEndian, uint32(uuidLen+sizeLen+len(diskSecret)+1))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		// 40:40+len(diskSecret)+1
-		secret.Write([]byte(diskSecret))
+		secret.WriteString(diskSecret)
 		// write zeroes
 		secret.Write(make([]byte, l-secret.Len()))
 		ExpectWithOffset(1, secret.Len()).To(Equal(l))
 
 		// The data protection scheme utilizes AES-128 CTR mode:
 		//   C = AES-128-CTR(M; K, IV)
-		iv := make([]byte, 16)
+		const aesBlockSize = 16
+		iv := make([]byte, aesBlockSize)
 		_, err = rand.Read(iv)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		aes, err := aes.NewCipher(tek)
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		ctr := cipher.NewCTR(aes, iv)
 		encryptedSecret := make([]byte, secret.Len())
-		cipher.Stream.XORKeyStream(ctr, encryptedSecret, secret.Bytes())
+		ctr.XORKeyStream(encryptedSecret, secret.Bytes())
 
 		// AMD SEV specification, section 6.6 LAUNCH_SECRET:
 		//   Header: FLAGS + IV + HMAC
-		header := bytes.NewBuffer(make([]byte, 0, 52))
+		const sevSecretHeaderSize = 52
+		header := bytes.NewBuffer(make([]byte, 0, sevSecretHeaderSize))
 		// 0:4 FLAGS.COMPRESSED
 		err = binary.Write(header, binary.LittleEndian, uint32(0))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
@@ -169,7 +172,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		// HMAC(0x01 || FLAGS || IV || GUEST_LENGTH ||
 		//      TRANS_LENGTH || DATA || MEASURE; GCTX.TIK)
 		h := hmac.New(sha256.New, tik)
-		err = binary.Write(h, binary.LittleEndian, uint8(0x01))
+		const sevLaunchSecretPrefix = 0x01
+		err = binary.Write(h, binary.LittleEndian, uint8(sevLaunchSecretPrefix))
 		ExpectWithOffset(1, err).ToNot(HaveOccurred())
 		h.Write(header.Bytes()[0:20]) // FLAGS || IV
 		err = binary.Write(h, binary.LittleEndian, uint32(l))
@@ -195,8 +199,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			if line == "" {
 				continue
 			}
+			const expectedFieldCount = 2
 			data := strings.Split(line, ":")
-			ExpectWithOffset(1, data).To(HaveLen(2))
+			ExpectWithOffset(1, data).To(HaveLen(expectedFieldCount))
 			entries[strings.TrimSpace(data[0])] = strings.TrimSpace(data[1])
 		}
 		for _, key := range expectedKeys {
@@ -212,25 +217,26 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 		return uint(val)
 	}
 
-	prepareSession := func(virtClient kubecli.KubevirtClient, nodeName string, pdh string) (*v1.SEVSessionOptions, string, string) {
+	prepareSession := func(virtClient kubecli.KubevirtClient, nodeName, pdh string) (*v1.SEVSessionOptions, string, string) {
 		helperPod := libpod.RenderPrivilegedPod("sev-helper", []string{"sleep"}, []string{"infinity"})
 		helperPod.Spec.NodeName = nodeName
 
 		var err error
-		helperPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(helperPod)).Create(context.Background(), helperPod, k8smetav1.CreateOptions{})
+		helperPod, err = virtClient.CoreV1().Pods(testsuite.GetTestNamespace(helperPod)).Create(
+			context.Background(), helperPod, k8smetav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		defer func() {
-			err := virtClient.CoreV1().Pods(helperPod.Namespace).Delete(context.Background(), helperPod.Name, k8smetav1.DeleteOptions{})
-			ExpectWithOffset(1, err).ToNot(HaveOccurred())
+			deleteErr := virtClient.CoreV1().Pods(helperPod.Namespace).Delete(context.Background(), helperPod.Name, k8smetav1.DeleteOptions{})
+			ExpectWithOffset(1, deleteErr).ToNot(HaveOccurred())
 		}()
-		EventuallyWithOffset(1, ThisPod(helperPod), 30).Should(BeInPhase(k8sv1.PodRunning))
+		EventuallyWithOffset(1, matcher.ThisPod(helperPod), 30).Should(matcher.BeInPhase(k8sv1.PodRunning))
 
 		execOnHelperPod := func(command string) (string, error) {
-			stdout, err := exec.ExecuteCommandOnPod(
+			execStdout, execErr := exec.ExecuteCommandOnPod(
 				helperPod,
 				helperPod.Spec.Containers[0].Name,
 				[]string{"/bin/bash", "-c", command})
-			return strings.TrimSpace(stdout), err
+			return strings.TrimSpace(execStdout), execErr
 		}
 
 		_, err = execOnHelperPod(fmt.Sprintf("echo %s | base64 --decode > pdh.bin", pdh))
@@ -283,9 +289,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			}
 
 			Eventually(func() bool {
-				node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				val, ok := node.Status.Allocatable[sevResourceName]
+				allocatableNode, nodeErr := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, k8smetav1.GetOptions{})
+				Expect(nodeErr).ToNot(HaveOccurred())
+				val, ok := allocatableNode.Status.Allocatable[sevResourceName]
 				return ok && !val.IsZero()
 			}, 180*time.Second, 1*time.Second).Should(BeTrue(), fmt.Sprintf("Allocatable SEV should not be zero on %s", nodeName))
 		})
@@ -312,9 +318,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 	})
 
 	Context("lifecycle", func() {
-
 		DescribeTable("should start a SEV or SEV-ES VM",
-			func(withES bool, withSNP bool, sevstr string) {
+			func(withES, withSNP bool, sevstr string) {
 				vmi := newSEVFedora(withES, withSNP)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
 
@@ -322,6 +327,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Verifying that SEV is enabled in the guest")
+				const consoleTimeout = 60
 				err := console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
@@ -329,7 +335,7 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 					&expect.BExp{R: "Memory Encryption Features active: AMD " + sevstr},
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: ""},
-				}, 60)
+				}, consoleTimeout)
 				Expect(err).ToNot(HaveOccurred())
 			},
 			// SEV-ES disabled, SEV enabled
@@ -350,9 +356,10 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(err).ToNot(HaveOccurred())
 
 			vmi := newSEVFedora(false, false, libvmi.WithSEVAttestation())
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, k8smetav1.CreateOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(
+				context.Background(), vmi, k8smetav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVMI(vmi), 60).Should(BeInPhase(v1.Scheduled))
+			Eventually(matcher.ThisVMI(vmi), 60).Should(matcher.BeInPhase(v1.Scheduled))
 
 			By("Querying virsh nodesevinfo")
 			nodeSevInfo := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "nodesevinfo"})
@@ -367,12 +374,12 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			Expect(sevPlatformInfo).To(Equal(expectedSEVPlatformInfo))
 
 			By("Setting up session parameters")
-			vmi, err = ThisVMI(vmi)()
+			vmi, err = matcher.ThisVMI(vmi)()
 			Expect(err).ToNot(HaveOccurred())
 			sevSessionOptions, tikBase64, tekBase64 := prepareSession(virtClient, vmi.Status.NodeName, sevPlatformInfo.PDH)
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).SEVSetupSession(context.Background(), vmi.Name, sevSessionOptions)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVMI(vmi), 60).Should(And(BeRunning(), HaveConditionTrue(v1.VirtualMachineInstancePaused)))
+			Eventually(matcher.ThisVMI(vmi), 60).Should(And(matcher.BeRunning(), matcher.HaveConditionTrue(v1.VirtualMachineInstancePaused)))
 
 			By("Querying virsh domlaunchsecinfo 1")
 			domLaunchSecInfo := libpod.RunCommandOnVmiPod(vmi, []string{"virsh", "domlaunchsecinfo", "1"})
@@ -395,8 +402,9 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			By(fmt.Sprintf("Computing sha256sum %s", domainSpec.OS.BootLoader.Path))
 			sha256sum := libpod.RunCommandOnVmiPod(vmi, []string{"sha256sum", domainSpec.OS.BootLoader.Path})
 			Expect(sha256sum).ToNot(BeEmpty())
+			const sha256HexLength = 64
 			expectedSEVMeasurementInfo.LoaderSHA = strings.TrimSpace(strings.Split(sha256sum, " ")[0])
-			Expect(expectedSEVMeasurementInfo.LoaderSHA).To(HaveLen(64))
+			Expect(expectedSEVMeasurementInfo.LoaderSHA).To(HaveLen(sha256HexLength))
 
 			By("Querying launch measurement")
 			sevMeasurementInfo, err := virtClient.VirtualMachineInstance(vmi.Namespace).SEVQueryLaunchMeasurement(context.Background(), vmi.Name)
@@ -412,7 +420,8 @@ var _ = Describe("[sig-compute]AMD Secure Encrypted Virtualization (SEV)", decor
 			By("Unpausing the VirtualMachineInstance")
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Unpause(context.Background(), vmi.Name, &v1.UnpauseOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(ThisVMI(vmi), 30*time.Second, time.Second).Should(HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
+			Eventually(matcher.ThisVMI(vmi), 30*time.Second, time.Second).Should(
+				matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 			By("Waiting for the VirtualMachineInstance to become ready")
 			libwait.WaitUntilVMIReady(vmi, console.LoginToFedora)
