@@ -15,6 +15,7 @@ go_library(
         "hypervisor_features.go",
         "input_device.go",
         "launch_security.go",
+        "memory.go",
         "os.go",
         "panic_devices.go",
         "qemu_cmd.go",
@@ -60,6 +61,7 @@ go_test(
         "hypervisor_test.go",
         "input_device_test.go",
         "launch_security_test.go",
+        "memory_test.go",
         "os_test.go",
         "panic_devices_test.go",
         "rng_test.go",
@@ -84,6 +86,7 @@ go_test(
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )
