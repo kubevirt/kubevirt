@@ -35,6 +35,7 @@ const (
 	DefaultDisplayOn             = true
 )
 
+// TODO: Pass in also medata so metada can be constructed also in tests, include if display is possible
 func CreateHostDevices(vmiGPUs []v1.GPU) ([]api.HostDevice, error) {
 	return CreateHostDevicesFromPools(vmiGPUs, NewPCIAddressPool(vmiGPUs), NewMDEVAddressPool(vmiGPUs))
 }
