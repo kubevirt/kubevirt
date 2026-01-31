@@ -29,7 +29,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
-	"github.com/openshift/library-go/pkg/build/naming"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -52,6 +51,7 @@ import (
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	typesutil "kubevirt.io/kubevirt/pkg/storage/types"
 	storageutils "kubevirt.io/kubevirt/pkg/storage/utils"
+	"kubevirt.io/kubevirt/pkg/util/naming"
 	firmware "kubevirt.io/kubevirt/pkg/virt-controller/watch/vm"
 )
 
