@@ -1,4 +1,6 @@
-load("@bazeldnf//bazeldnf:defs.bzl", "bazeldnf", "rpm", "rpmtree", "tar2files")
+load("@bazeldnf//bazeldnf:defs.bzl", "bazeldnf", "rpmtree", "tar2files")
+
+package(default_visibility = ["//bazel/compat:__subpackages__"])
 
 bazeldnf(
     name = "sandbox_x86_64",
