@@ -112,7 +112,6 @@ func AdjustKubeVirtResource() {
 		featuregate.HostDiskGate,
 		featuregate.VirtIOFSStorageVolumeGate,
 		featuregate.DownwardMetricsFeatureGate,
-		featuregate.ExpandDisksGate,
 		featuregate.WorkloadEncryptionSEV,
 		featuregate.VMExportGate,
 		featuregate.KubevirtSeccompProfile,
