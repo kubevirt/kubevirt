@@ -141,7 +141,7 @@ var (
 	vmResourceLimits = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vm_resource_limits",
-			Help: "Resources limits by Virtual Machine. Reports memory and CPU limits.",
+			Help: "Resource limits for a Virtual Machine. Reports memory and CPU limits.",
 		},
 		[]string{"name", "namespace", "resource", "unit"},
 	)
