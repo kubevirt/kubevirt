@@ -4495,6 +4495,232 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			),
 		)
 	})
+
+	Context("cleanupAttachmentPods with volume readiness check", func() {
+		// These tests verify the fix for the race condition where old attachment pods
+		// are deleted before the new pod's volumes reach VolumeReady phase.
+		// See: https://github.com/kubevirt/kubevirt/issues/9708
+
+		// Helper to create an attachment pod with specific volumes
+		createAttachmentPodWithVolumes := func(virtlauncherPod *k8sv1.Pod, name, uid string, phase k8sv1.PodPhase, volumeNames ...string) *k8sv1.Pod {
+			pod := newPodForVirtlauncher(virtlauncherPod, name, uid, phase)
+			// Add PVC volumes to the pod
+			for _, volName := range volumeNames {
+				pod.Spec.Volumes = append(pod.Spec.Volumes, k8sv1.Volume{
+					Name: volName,
+					VolumeSource: k8sv1.VolumeSource{
+						PersistentVolumeClaim: &k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: volName + "-pvc",
+						},
+					},
+				})
+			}
+			return pod
+		}
+
+		// Helper to create a hotplug volume for VMI spec
+		createHotplugVolume := func(name string) virtv1.Volume {
+			return virtv1.Volume{
+				Name: name,
+				VolumeSource: virtv1.VolumeSource{
+					PersistentVolumeClaim: &virtv1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: name + "-pvc",
+						},
+						Hotpluggable: true,
+					},
+				},
+			}
+		}
+
+		// Helper to create a volume status with specific phase
+		createVolumeStatus := func(name string, phase virtv1.VolumePhase) virtv1.VolumeStatus {
+			return virtv1.VolumeStatus{
+				Name:          name,
+				HotplugVolume: &virtv1.HotplugVolumeStatus{},
+				Phase:         phase,
+			}
+		}
+
+		It("should NOT delete old pod when new pod volumes are not ready (bug reproduction)", func() {
+			// This test reproduces the original bug: when adding a second volume,
+			// the old pod (with vol1) was deleted before the new pod's vol2 reached VolumeReady.
+			// With the fix, the old pod should be kept alive until all volumes are ready.
+
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			// VMI has 2 hotplug volumes
+			vmi.Spec.Volumes = []virtv1.Volume{
+				createHotplugVolume("vol1"),
+				createHotplugVolume("vol2"),
+			}
+			// vol1 is ready, vol2 is still pending (not ready yet)
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+				createVolumeStatus("vol1", virtv1.VolumeReady),
+				createVolumeStatus("vol2", virtv1.VolumePending),
+			}
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			// Old attachment pod has only vol1
+			oldPod := createAttachmentPodWithVolumes(virtlauncherPod, "old-pod", "old-uid", k8sv1.PodRunning, "vol1")
+			// New attachment pod has vol1 + vol2 (but vol2 is not ready yet)
+			newPod := createAttachmentPodWithVolumes(virtlauncherPod, "new-pod", "new-uid", k8sv1.PodRunning, "vol1", "vol2")
+
+			addVirtualMachine(vmi)
+			addPod(virtlauncherPod)
+			addPod(oldPod)
+			addPod(newPod)
+
+			// Call cleanupAttachmentPods - oldPod should NOT be deleted
+			// because vol2 is not VolumeReady yet
+			oldPods := []*k8sv1.Pod{oldPod}
+			err := controller.cleanupAttachmentPods(newPod, oldPods, vmi, 2)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify old pod still exists (was NOT deleted)
+			expectPodExists(oldPod.Namespace, oldPod.Name)
+		})
+
+		It("should delete old pod when all new pod volumes are ready", func() {
+			// When all volumes reach VolumeReady, cleanup should proceed normally
+
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			// VMI has 2 hotplug volumes
+			vmi.Spec.Volumes = []virtv1.Volume{
+				createHotplugVolume("vol1"),
+				createHotplugVolume("vol2"),
+			}
+			// Both volumes are ready
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+				createVolumeStatus("vol1", virtv1.VolumeReady),
+				createVolumeStatus("vol2", virtv1.VolumeReady),
+			}
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			// Old attachment pod has only vol1
+			oldPod := createAttachmentPodWithVolumes(virtlauncherPod, "old-pod", "old-uid", k8sv1.PodRunning, "vol1")
+			// New attachment pod has vol1 + vol2, both ready
+			newPod := createAttachmentPodWithVolumes(virtlauncherPod, "new-pod", "new-uid", k8sv1.PodRunning, "vol1", "vol2")
+
+			addVirtualMachine(vmi)
+			addPod(virtlauncherPod)
+			addPod(oldPod)
+			addPod(newPod)
+
+			// Call cleanupAttachmentPods - oldPod SHOULD be deleted
+			// because all volumes are VolumeReady
+			oldPods := []*k8sv1.Pod{oldPod}
+			err := controller.cleanupAttachmentPods(newPod, oldPods, vmi, 2)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Expect deletion event
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulDeletePodReason)
+
+			// Verify old pod was deleted
+			expectPodDoesNotExist(oldPod.Namespace, oldPod.Name)
+		})
+
+		It("should work correctly with single volume hotplug (no regression)", func() {
+			// Single volume hotplug should still work - this is a regression test
+
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			// VMI has 1 hotplug volume
+			vmi.Spec.Volumes = []virtv1.Volume{
+				createHotplugVolume("vol1"),
+			}
+			// Single volume is ready
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+				createVolumeStatus("vol1", virtv1.VolumeReady),
+			}
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			// Current pod has vol1
+			currentPod := createAttachmentPodWithVolumes(virtlauncherPod, "current-pod", "current-uid", k8sv1.PodRunning, "vol1")
+
+			addVirtualMachine(vmi)
+			addPod(virtlauncherPod)
+			addPod(currentPod)
+
+			// No old pods to clean up
+			oldPods := []*k8sv1.Pod{}
+			err := controller.cleanupAttachmentPods(currentPod, oldPods, vmi, 1)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Current pod should still exist
+			expectPodExists(currentPod.Namespace, currentPod.Name)
+		})
+
+		It("should allow cleanup when numReadyVolumes is 0 (volume removal)", func() {
+			// When removing volumes (numReadyVolumes == 0), cleanup should proceed
+			// as this is the removal path, not the add path
+
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			// VMI has no hotplug volumes remaining (all removed)
+			vmi.Spec.Volumes = []virtv1.Volume{}
+			// No volume statuses
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{}
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			// Old pod still has vol1 (from before removal)
+			oldPod := createAttachmentPodWithVolumes(virtlauncherPod, "old-pod", "old-uid", k8sv1.PodRunning, "vol1")
+
+			addVirtualMachine(vmi)
+			addPod(virtlauncherPod)
+			addPod(oldPod)
+
+			// numReadyVolumes = 0 means volume removal path
+			oldPods := []*k8sv1.Pod{oldPod}
+			err := controller.cleanupAttachmentPods(nil, oldPods, vmi, 0)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Expect deletion event
+			testutils.ExpectEvent(recorder, kvcontroller.SuccessfulDeletePodReason)
+
+			// Old pod should be deleted (removal path proceeds)
+			expectPodDoesNotExist(oldPod.Namespace, oldPod.Name)
+		})
+
+		It("should NOT delete old pod when adding third volume and third is not ready", func() {
+			// Test with 3 volumes to ensure fix scales beyond 2 volumes
+
+			vmi := newPendingVirtualMachine("testvmi")
+			vmi.Status.Phase = virtv1.Running
+			// VMI has 3 hotplug volumes
+			vmi.Spec.Volumes = []virtv1.Volume{
+				createHotplugVolume("vol1"),
+				createHotplugVolume("vol2"),
+				createHotplugVolume("vol3"),
+			}
+			// vol1 and vol2 are ready, vol3 is pending
+			vmi.Status.VolumeStatus = []virtv1.VolumeStatus{
+				createVolumeStatus("vol1", virtv1.VolumeReady),
+				createVolumeStatus("vol2", virtv1.VolumeReady),
+				createVolumeStatus("vol3", virtv1.VolumePending),
+			}
+
+			virtlauncherPod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+			// Old pod has vol1 + vol2
+			oldPod := createAttachmentPodWithVolumes(virtlauncherPod, "old-pod", "old-uid", k8sv1.PodRunning, "vol1", "vol2")
+			// New pod has vol1 + vol2 + vol3
+			newPod := createAttachmentPodWithVolumes(virtlauncherPod, "new-pod", "new-uid", k8sv1.PodRunning, "vol1", "vol2", "vol3")
+
+			addVirtualMachine(vmi)
+			addPod(virtlauncherPod)
+			addPod(oldPod)
+			addPod(newPod)
+
+			// Should NOT delete old pod because vol3 is not ready
+			oldPods := []*k8sv1.Pod{oldPod}
+			err := controller.cleanupAttachmentPods(newPod, oldPods, vmi, 3)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Old pod should still exist
+			expectPodExists(oldPod.Namespace, oldPod.Name)
+		})
+	})
 })
 
 func newDv(namespace string, name string, phase cdiv1.DataVolumePhase) *cdiv1.DataVolume {
