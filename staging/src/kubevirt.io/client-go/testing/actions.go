@@ -171,3 +171,77 @@ func NewGetSubresourceAction[T any](resource schema.GroupVersionResource, namesp
 
 	return action
 }
+
+// POST
+
+type PostAction[T any] interface {
+	testing.Action
+	GetName() string
+	GetOptions() T
+}
+
+type PostActionImpl[T any] struct {
+	testing.ActionImpl
+	Name    string
+	Options T
+}
+
+func (a PostActionImpl[T]) GetName() string {
+	return a.Name
+}
+
+func (a PostActionImpl[T]) GetOptions() T {
+	return a.Options
+}
+
+func (a PostActionImpl[T]) DeepCopy() testing.Action {
+	return PostActionImpl[T]{
+		ActionImpl: a.ActionImpl.DeepCopy().(testing.ActionImpl),
+		Name:       a.Name,
+		Options:    a.Options,
+	}
+}
+
+func NewRootPostAction[T any](resource schema.GroupVersionResource, name string, options T) PostActionImpl[T] {
+	action := PostActionImpl[T]{}
+	action.Verb = "post"
+	action.Resource = resource
+	action.Name = name
+	action.Options = options
+
+	return action
+}
+
+func NewPostAction[T any](resource schema.GroupVersionResource, namespace, name string, options T) PostActionImpl[T] {
+	action := PostActionImpl[T]{}
+	action.Verb = "post"
+	action.Resource = resource
+	action.Namespace = namespace
+	action.Name = name
+	action.Options = options
+
+	return action
+}
+
+func NewRootPostSubresourceAction[T any](resource schema.GroupVersionResource, subresource, name string, options T) PostActionImpl[T] {
+	action := PostActionImpl[T]{}
+	action.Verb = "post"
+	action.Resource = resource
+	action.Subresource = subresource
+	action.Name = name
+	action.Options = options
+
+	return action
+}
+
+func NewPostSubresourceAction[T any](resource schema.GroupVersionResource, namespace, subresource, name string, options T) PostActionImpl[T] {
+	action := PostActionImpl[T]{}
+	action.Verb = "post"
+	action.Resource = resource
+	action.Subresource = subresource
+	action.Namespace = namespace
+	action.Name = name
+	action.Options = options
+
+	return action
+}

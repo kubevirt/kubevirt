@@ -104,6 +104,21 @@ func (mr *MockDomainManagerMockRecorder) Exec(arg0, arg1, arg2, arg3 any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockDomainManager)(nil).Exec), arg0, arg1, arg2, arg3)
 }
 
+// ExecuteMonitoringQuery mocks base method.
+func (m *MockDomainManager) ExecuteMonitoringQuery(domainName, command string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecuteMonitoringQuery", domainName, command)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExecuteMonitoringQuery indicates an expected call of ExecuteMonitoringQuery.
+func (mr *MockDomainManagerMockRecorder) ExecuteMonitoringQuery(domainName, command any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteMonitoringQuery", reflect.TypeOf((*MockDomainManager)(nil).ExecuteMonitoringQuery), domainName, command)
+}
+
 // FinalizeVirtualMachineMigration mocks base method.
 func (m *MockDomainManager) FinalizeVirtualMachineMigration(arg0 *v1.VirtualMachineInstance, arg1 *v10.VirtualMachineOptions) error {
 	m.ctrl.T.Helper()

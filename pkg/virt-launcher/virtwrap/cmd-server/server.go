@@ -618,6 +618,24 @@ func (l *Launcher) GuestPing(ctx context.Context, request *cmdv1.GuestPingReques
 	return resp, nil
 }
 
+func (l *Launcher) ExecuteMonitoringQuery(_ context.Context, request *cmdv1.MonitoringQueryRequest) (*cmdv1.MonitoringQueryResponse, error) {
+	resp := &cmdv1.MonitoringQueryResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}
+
+	rawOutput, err := l.domainManager.ExecuteMonitoringQuery(request.DomainName, request.Command)
+	if err != nil {
+		resp.Response.Success = false
+		resp.Response.Message = getErrorMessage(err)
+		return resp, nil
+	}
+
+	resp.RawOutput = rawOutput
+	return resp, nil
+}
+
 func RunServer(socketPath string,
 	domainManager virtwrap.DomainManager,
 	stopChan chan struct{},

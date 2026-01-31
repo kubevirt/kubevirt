@@ -63,6 +63,7 @@ type VirtualMachineInstanceExpansion interface {
 	SEVSetupSession(ctx context.Context, name string, sevSessionOptions *v1.SEVSessionOptions) error
 	SEVInjectLaunchSecret(ctx context.Context, name string, sevSecretOptions *v1.SEVSecretOptions) error
 	EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error
+	MonitoringQuery(ctx context.Context, name string, command string, arguments map[string]interface{}) (map[string]interface{}, error)
 }
 
 func (c *virtualMachineInstances) SerialConsole(name string, options *SerialConsoleOptions) (StreamInterface, error) {
@@ -434,4 +435,40 @@ func (c *virtualMachineInstances) EvacuateCancel(ctx context.Context, name strin
 		Body(body).
 		Do(ctx).
 		Error()
+}
+
+func (c *virtualMachineInstances) MonitoringQuery(ctx context.Context, name string, command string, arguments map[string]interface{}) (map[string]interface{}, error) {
+	req := c.GetClient().Get().
+		AbsPath(fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachineinstances").
+		Name(name).
+		SubResource("monitoring", "query").
+		Param("command", command)
+
+	if arguments != nil {
+		argsJSON, err := json.Marshal(arguments)
+		if err != nil {
+			return nil, fmt.Errorf("cannot Marshal arguments to json: %s", err)
+		}
+		req = req.Param("arguments", string(argsJSON))
+	}
+
+	result := req.Do(ctx)
+
+	if result.Error() != nil {
+		return nil, result.Error()
+	}
+
+	respBytes, err := result.Raw()
+	if err != nil {
+		return nil, err
+	}
+
+	var response map[string]interface{}
+	if err := json.Unmarshal(respBytes, &response); err != nil {
+		return nil, fmt.Errorf("cannot unmarshal response: %s", err)
+	}
+
+	return response, nil
 }
