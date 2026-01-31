@@ -1015,7 +1015,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 		})
 
-		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", func() {
+		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", decorators.RequiresRWXFilesystemStorage, func() {
 			var vmi *v1.VirtualMachineInstance
 			var dv *cdiv1.DataVolume
 			var storageClass string
@@ -1040,7 +1040,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				var foundSC bool
 				storageClass, foundSC = libstorage.GetRWXFileSystemStorageClass()
 				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Failed test when RWX Filesystem storage is not present")
 				}
 			})
 
@@ -1081,7 +1081,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			// Create DV and alter permission of disk.img
 			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 			if !foundSC {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Failed test when RWX Filesystem storage is not present")
 			}
 
 			dv := libdv.NewDataVolume(
@@ -1167,7 +1167,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
-				Entry("[test_id:8610] with DataVolume", func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8610] with DataVolume", decorators.RequiresRWXFilesystemStorage, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return libvmi.New(
@@ -1182,7 +1182,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged, false)
 				}, console.LoginToFedora),
 
-				Entry("[test_id:8612] with PVC", func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8612] with PVC", decorators.RequiresRWXFilesystemStorage, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the Underlying PVC
 					return libvmi.New(
@@ -1253,7 +1253,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
-				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
+				Entry("with DataVolume", decorators.RequiresRWXFilesystemStorage, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return libvmi.New(
@@ -1268,7 +1268,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged, false)
 				}, console.LoginToFedora),
 
-				Entry("with PVC", func() *v1.VirtualMachineInstance {
+				Entry("with PVC", decorators.RequiresRWXFilesystemStorage, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the underlying PVC
 					return libvmi.New(
@@ -2812,11 +2812,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}, 200)).To(Succeed())
 		})
 
-		It("should migrate with a shared DV", func() {
+		It("should migrate with a shared DV", decorators.RequiresRWXFilesystemStorage, func() {
 			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 
 			if !foundSC {
-				Skip("Skip test when Filesystem RWX storage is not present")
+				Fail("Failed test when RWX Filesystem storage is not present")
 			}
 
 			dataVolume := libdv.NewDataVolume(
