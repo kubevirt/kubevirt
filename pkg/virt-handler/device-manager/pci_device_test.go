@@ -276,3 +276,81 @@ var _ = Describe("Physical Function Detection", func() {
 		})
 	})
 })
+
+var _ = Describe("vGPU Profile Detection", func() {
+	var tmpDir string
+
+	BeforeEach(func() {
+		var err error
+		tmpDir, err = os.MkdirTemp("", "pci-vgpu-test-*")
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(tmpDir)
+	})
+
+	Context("When checking for vGPU profiles", func() {
+		It("Should identify a device with vGPU profile assigned", func() {
+			// Create mock device directory with nvidia/current_vgpu_type
+			deviceDir := filepath.Join(tmpDir, "vgpu-device")
+			err := os.MkdirAll(filepath.Join(deviceDir, "nvidia"), 0755)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create current_vgpu_type file with non-zero value (profile assigned)
+			vgpuTypeFile := filepath.Join(deviceDir, "nvidia/current_vgpu_type")
+			err = os.WriteFile(vgpuTypeFile, []byte("256\n"), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Test: Should return true for device with vGPU profile
+			Expect(hasVGPUProfile(deviceDir)).To(BeTrue())
+		})
+
+		It("Should not identify a device without vGPU profile", func() {
+			// Create mock device directory without nvidia/current_vgpu_type
+			deviceDir := filepath.Join(tmpDir, "no-vgpu-device")
+			err := os.Mkdir(deviceDir, 0755)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Test: Should return false for device without vGPU profile
+			Expect(hasVGPUProfile(deviceDir)).To(BeFalse())
+		})
+
+		It("Should handle device with zero vGPU type (no profile assigned)", func() {
+			// Create mock device directory with nvidia/current_vgpu_type = 0
+			deviceDir := filepath.Join(tmpDir, "zero-vgpu-device")
+			err := os.MkdirAll(filepath.Join(deviceDir, "nvidia"), 0755)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create current_vgpu_type file with zero value (no profile assigned)
+			vgpuTypeFile := filepath.Join(deviceDir, "nvidia/current_vgpu_type")
+			err = os.WriteFile(vgpuTypeFile, []byte("0\n"), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Test: Should return false for device with vGPU type = 0
+			Expect(hasVGPUProfile(deviceDir)).To(BeFalse())
+		})
+
+		It("Should handle non-existent device gracefully", func() {
+			nonExistentPath := filepath.Join(tmpDir, "does-not-exist")
+
+			// Test: Should return false (fail safe)
+			Expect(hasVGPUProfile(nonExistentPath)).To(BeFalse())
+		})
+
+		It("Should handle empty vGPU type file", func() {
+			// Create mock device directory with empty current_vgpu_type file
+			deviceDir := filepath.Join(tmpDir, "empty-vgpu-device")
+			err := os.MkdirAll(filepath.Join(deviceDir, "nvidia"), 0755)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create empty current_vgpu_type file
+			vgpuTypeFile := filepath.Join(deviceDir, "nvidia/current_vgpu_type")
+			err = os.WriteFile(vgpuTypeFile, []byte(""), 0644)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Test: Should return false for empty file
+			Expect(hasVGPUProfile(deviceDir)).To(BeFalse())
+		})
+	})
+})
