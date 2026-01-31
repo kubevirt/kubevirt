@@ -72,7 +72,7 @@ case ${ARCHITECTURE} in
 esac
 
 bazel build \
-    --config=${ARCHITECTURE} \
+    --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     --define container_prefix= \
     --define image_prefix= \
     --define container_tag= \
