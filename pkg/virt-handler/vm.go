@@ -1198,8 +1198,8 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition(err.Error(), v1.VirtualMachineInstanceReasonCPUModeNotMigratable), isBlockMigration
 	}
 
-	if vmiContainsPCIHostDevice(vmi) {
-		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
+	if vmiContainsNonMigratablePCIHostDevices(vmi) {
+		return newNonMigratableCondition("VMI uses non migratable PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
 	}
 
 	if util.IsSEVVMI(vmi) {
@@ -1234,8 +1234,8 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 	}, isBlockMigration
 }
 
-func vmiContainsPCIHostDevice(vmi *v1.VirtualMachineInstance) bool {
-	return len(vmi.Spec.Domain.Devices.HostDevices) > 0 || len(vmi.Spec.Domain.Devices.GPUs) > 0
+func vmiContainsNonMigratablePCIHostDevices(vmi *v1.VirtualMachineInstance) bool {
+	return len(vmi.Spec.Domain.Devices.HostDevices) > 0 || len(vmi.Spec.Domain.Devices.GPUs) > 1 || (len(vmi.Spec.Domain.Devices.GPUs) == 1 && !strings.HasPrefix(vmi.Spec.Domain.Devices.GPUs[0].DeviceName, "nvidia.com"))
 }
 
 type multipleNonMigratableCondition struct {
@@ -1291,8 +1291,8 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonCPUModeNotMigratable, err.Error())
 	}
 
-	if vmiContainsPCIHostDevice(vmi) {
-		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, "VMI uses a PCI host devices")
+	if vmiContainsNonMigratablePCIHostDevices(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, "VMI uses non migratable PCI host devices")
 	}
 
 	if util.IsSEVVMI(vmi) {
