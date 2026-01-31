@@ -101,6 +101,7 @@ import (
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
+	"kubevirt.io/kubevirt/pkg/virtiofs"
 	virtcache "kubevirt.io/kubevirt/tools/cache"
 )
 
@@ -732,6 +733,16 @@ func (l *LibvirtDomainManager) preStartHook(vmi *v1.VirtualMachineInstance, doma
 	logger := log.Log.Object(vmi)
 
 	logger.Info("Executing PreStartHook on VMI pod environment")
+
+	// Validate ContainerPath volumes don't escape their mount points via symlinks
+	for _, volume := range vmi.Spec.Volumes {
+		if volume.ContainerPath != nil {
+			if err := virtiofs.ValidateContainerPath(volume.ContainerPath.Path); err != nil {
+				return domain, fmt.Errorf("ContainerPath volume %q validation failed: %w", volume.Name, err)
+			}
+			logger.Infof("ContainerPath volume %q validated: %s", volume.Name, volume.ContainerPath.Path)
+		}
+	}
 
 	// generate cloud-init data
 	cloudInitData, err := cloudinit.ReadCloudInitVolumeDataSource(vmi, config.SecretSourceDir)

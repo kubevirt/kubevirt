@@ -165,6 +165,14 @@ const (
 	// Details of the new hypervisors should be specified via the
 	// HypervisorConfigurations field in KubeVirtConfiguration.
 	ConfigurableHypervisor = "ConfigurableHypervisor"
+
+	// Owner: sig-storage / @mhenriks
+	// Alpha: v1.8.0
+	//
+	// ContainerPathVolumes enables exposing virt-launcher volumeMount paths to the VM
+	// via virtiofs. This allows VMs to access credentials and tokens injected into pods
+	// by external systems such as AWS IRSA, GKE Workload Identity, or TEE attestation.
+	ContainerPathVolumesGate = "ContainerPathVolumes"
 )
 
 func init() {
@@ -202,4 +210,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 }

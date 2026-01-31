@@ -2242,6 +2242,59 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(ContainSubstring("fake must have max one memory dump volume set"))
 		})
 
+		It("should accept containerPath volume with matching filesystem", func() {
+			vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+				Name:     "testcontainerpath",
+				Virtiofs: &v1.FilesystemVirtiofs{},
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testcontainerpath",
+				VolumeSource: v1.VolumeSource{
+					ContainerPath: &v1.ContainerPathVolumeSource{
+						Path: "/var/run/secrets/test",
+					},
+				},
+			})
+
+			causes := validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject containerPath volume mapped to a disk", func() {
+			vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "testcontainerpath",
+			})
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testcontainerpath",
+				VolumeSource: v1.VolumeSource{
+					ContainerPath: &v1.ContainerPathVolumeSource{
+						Path: "/var/run/secrets/test",
+					},
+				},
+			})
+
+			causes := validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(HaveLen(2))
+			Expect(causes[0].Message).To(ContainSubstring("must be mapped to a filesystem, not a disk"))
+			Expect(causes[1].Message).To(ContainSubstring("must have a matching filesystem"))
+		})
+
+		It("should reject containerPath volume without matching filesystem", func() {
+			vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+				Name: "testcontainerpath",
+				VolumeSource: v1.VolumeSource{
+					ContainerPath: &v1.ContainerPathVolumeSource{
+						Path: "/var/run/secrets/test",
+					},
+				},
+			})
+
+			causes := validateVirtualMachineInstanceSpecVolumeDisks(k8sfield.NewPath("fake"), &vmi.Spec)
+			Expect(causes).To(HaveLen(2))
+			Expect(causes[0].Message).To(ContainSubstring("testcontainerpath"))
+			Expect(causes[1].Message).To(ContainSubstring("must have a matching filesystem"))
+		})
+
 	})
 
 	Context("with bootloader", func() {
