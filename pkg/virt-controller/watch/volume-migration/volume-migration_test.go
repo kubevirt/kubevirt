@@ -29,6 +29,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -543,6 +544,380 @@ var _ = Describe("Volume Migration", func() {
 					withContainerDisk("vol1", nil))),
 			),
 		)
+	})
+
+	Context("GenerateReceiverMigratedVolumes", func() {
+		var (
+			pvcStore cache.Store
+		)
+		const ns = k8sv1.NamespaceDefault
+
+		BeforeEach(func() {
+			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			pvcStore = pvcInformer.GetStore()
+		})
+
+		createPVCAndAddToStore := func(name string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode, requests, capacity k8sv1.ResourceList) *k8sv1.PersistentVolumeClaim {
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: ns,
+				},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					VolumeMode:  volumeMode,
+					AccessModes: accessModes,
+					Resources: k8sv1.VolumeResourceRequirements{
+						Requests: requests,
+					},
+				},
+				Status: k8sv1.PersistentVolumeClaimStatus{
+					Capacity: capacity,
+				},
+			}
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+			return pvc
+		}
+
+		It("should generate migrated volumes with source and destination info when VMI has migrated volumes status", func() {
+			// Create PVCs
+			sourcePVC := createPVCAndAddToStore("source-pvc",
+				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
+			)
+			_ = createPVCAndAddToStore("dest-pvc",
+				virtpointer.P(k8sv1.PersistentVolumeBlock),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("20Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("20Gi")},
+			)
+
+			// Create VMI with migrated volumes status (indicating migration from source to dest)
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "source-pvc"),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{
+						VolumeName: "disk0",
+						SourcePVCInfo: &v1.PersistentVolumeClaimInfo{
+							ClaimName:   "source-pvc",
+							VolumeMode:  sourcePVC.Spec.VolumeMode,
+							AccessModes: sourcePVC.Spec.AccessModes,
+							Requests:    sourcePVC.Spec.Resources.Requests,
+							Capacity:    sourcePVC.Status.Capacity,
+						},
+						DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{
+							ClaimName: "dest-pvc",
+						},
+					}),
+				)),
+			)
+
+			// Create VM with destination PVC (different from VMI, indicating migration)
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "dest-pvc"),
+			))
+
+			result, err := volumemigration.GenerateReceiverMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].VolumeName).To(Equal("disk0"))
+			Expect(result[0].DestinationPVCInfo).ToNot(BeNil())
+			Expect(result[0].DestinationPVCInfo.ClaimName).To(Equal("dest-pvc"))
+			Expect(result[0].DestinationPVCInfo.VolumeMode).To(HaveValue(Equal(k8sv1.PersistentVolumeBlock)))
+			Expect(result[0].DestinationPVCInfo.AccessModes).To(Equal([]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}))
+			Expect(result[0].SourcePVCInfo).ToNot(BeNil())
+			Expect(result[0].SourcePVCInfo.ClaimName).To(Equal("source-pvc"))
+			Expect(result[0].SourcePVCInfo.VolumeMode).To(HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)))
+		})
+
+		It("should generate migrated volumes without source info when VMI has no migrated volumes status", func() {
+			_ = createPVCAndAddToStore("dest-pvc",
+				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
+			)
+
+			// VMI without migrated volumes status
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "source-pvc"),
+			)
+
+			// VM with destination PVC
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "dest-pvc"),
+			))
+
+			result, err := volumemigration.GenerateReceiverMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].VolumeName).To(Equal("disk0"))
+			Expect(result[0].DestinationPVCInfo).ToNot(BeNil())
+			Expect(result[0].DestinationPVCInfo.ClaimName).To(Equal("dest-pvc"))
+			Expect(result[0].SourcePVCInfo).To(BeNil())
+		})
+
+		It("should generate migrated volumes without source info when migrated volume has no SourcePVCInfo", func() {
+			_ = createPVCAndAddToStore("dest-pvc",
+				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
+			)
+
+			// VMI with migrated volumes status but no SourcePVCInfo
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "source-pvc"),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{
+						VolumeName:         "disk0",
+						SourcePVCInfo:      nil, // No source info
+						DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{ClaimName: "dest-pvc"},
+					}),
+				)),
+			)
+
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "dest-pvc"),
+			))
+
+			result, err := volumemigration.GenerateReceiverMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].VolumeName).To(Equal("disk0"))
+			Expect(result[0].DestinationPVCInfo).ToNot(BeNil())
+			Expect(result[0].SourcePVCInfo).To(BeNil())
+		})
+
+		findVolumeByName := func(volumes []v1.StorageMigratedVolumeInfo, name string) *v1.StorageMigratedVolumeInfo {
+			for i := range volumes {
+				if volumes[i].VolumeName == name {
+					return &volumes[i]
+				}
+			}
+			return nil
+		}
+
+		It("should handle multiple volumes with mixed migration scenarios", func() {
+			// Create PVCs
+			sourcePVC1 := createPVCAndAddToStore("source-pvc-1",
+				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
+			)
+			_ = createPVCAndAddToStore("dest-pvc-1",
+				virtpointer.P(k8sv1.PersistentVolumeBlock),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("20Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("20Gi")},
+			)
+			_ = createPVCAndAddToStore("dest-pvc-2",
+				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("15Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("15Gi")},
+			)
+			_ = createPVCAndAddToStore("dest-pvc-3",
+				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("5Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("5Gi")},
+			)
+
+			// VMI with one migrated volume and one without
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "source-pvc-1"),
+				libvmi.WithPersistentVolumeClaim("disk1", "source-pvc-2"),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{
+						VolumeName: "disk0",
+						SourcePVCInfo: &v1.PersistentVolumeClaimInfo{
+							ClaimName:   "source-pvc-1",
+							VolumeMode:  sourcePVC1.Spec.VolumeMode,
+							AccessModes: sourcePVC1.Spec.AccessModes,
+							Requests:    sourcePVC1.Spec.Resources.Requests,
+							Capacity:    sourcePVC1.Status.Capacity,
+						},
+					}),
+				)),
+			)
+
+			// VM with all three volumes (disk0 migrated, disk1 migrated, disk2 new)
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "dest-pvc-1"),
+				libvmi.WithPersistentVolumeClaim("disk1", "dest-pvc-2"),
+				libvmi.WithPersistentVolumeClaim("disk2", "dest-pvc-3"),
+			))
+
+			result, err := volumemigration.GenerateReceiverMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(HaveLen(3))
+
+			// disk0 should have source info
+			disk0 := findVolumeByName(result, "disk0")
+			Expect(disk0).ToNot(BeNil())
+			Expect(disk0.DestinationPVCInfo.ClaimName).To(Equal("dest-pvc-1"))
+			Expect(disk0.SourcePVCInfo).ToNot(BeNil())
+			Expect(disk0.SourcePVCInfo.ClaimName).To(Equal("source-pvc-1"))
+
+			// disk1 should not have source info (not in migrated volumes)
+			disk1 := findVolumeByName(result, "disk1")
+			Expect(disk1).ToNot(BeNil())
+			Expect(disk1.DestinationPVCInfo.ClaimName).To(Equal("dest-pvc-2"))
+			Expect(disk1.SourcePVCInfo).To(BeNil())
+
+			// disk2 should not have source info (new volume)
+			disk2 := findVolumeByName(result, "disk2")
+			Expect(disk2).ToNot(BeNil())
+			Expect(disk2.DestinationPVCInfo.ClaimName).To(Equal("dest-pvc-3"))
+			Expect(disk2.SourcePVCInfo).To(BeNil())
+		})
+
+		It("should skip volumes without claims", func() {
+			// VMI and VM with container disk (no claim)
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				withContainerDisk("disk0", nil),
+			)
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				withContainerDisk("disk0", nil),
+			))
+
+			result, err := volumemigration.GenerateReceiverMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should skip volumes when PVC is not found in cache", func() {
+			// Don't add PVC to store
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "missing-pvc"),
+			)
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "missing-pvc"),
+			))
+
+			result, err := volumemigration.GenerateReceiverMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should handle empty volumes list", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns)))
+
+			result, err := volumemigration.GenerateReceiverMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(BeEmpty())
+		})
+
+		It("should handle volumes with same PVC names (no migration)", func() {
+			_ = createPVCAndAddToStore("same-pvc",
+				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
+				k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("10Gi")},
+			)
+
+			// VMI and VM with same PVC (no migration)
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "same-pvc"),
+			)
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "same-pvc"),
+			))
+
+			result, err := volumemigration.GenerateReceiverMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].VolumeName).To(Equal("disk0"))
+			Expect(result[0].DestinationPVCInfo.ClaimName).To(Equal("same-pvc"))
+			// No source info since there's no migration
+			Expect(result[0].SourcePVCInfo).To(BeNil())
+		})
+
+		It("should correctly populate all PVC info fields", func() {
+			sourcePVC := createPVCAndAddToStore("source-pvc",
+				virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce, k8sv1.ReadOnlyMany},
+				k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse("10Gi"),
+					k8sv1.ResourceCPU:     resource.MustParse("1"),
+				},
+				k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse("12Gi"),
+					k8sv1.ResourceCPU:     resource.MustParse("2"),
+				},
+			)
+			destPVC := createPVCAndAddToStore("dest-pvc",
+				virtpointer.P(k8sv1.PersistentVolumeBlock),
+				[]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany},
+				k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse("20Gi"),
+					k8sv1.ResourceMemory:  resource.MustParse("1Gi"),
+				},
+				k8sv1.ResourceList{
+					k8sv1.ResourceStorage: resource.MustParse("25Gi"),
+					k8sv1.ResourceMemory:  resource.MustParse("2Gi"),
+				},
+			)
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "source-pvc"),
+				libvmistatus.WithStatus(libvmistatus.New(
+					libvmistatus.WithMigratedVolume(v1.StorageMigratedVolumeInfo{
+						VolumeName: "disk0",
+						SourcePVCInfo: &v1.PersistentVolumeClaimInfo{
+							ClaimName:   "source-pvc",
+							VolumeMode:  sourcePVC.Spec.VolumeMode,
+							AccessModes: sourcePVC.Spec.AccessModes,
+							Requests:    sourcePVC.Spec.Resources.Requests,
+							Capacity:    sourcePVC.Status.Capacity,
+						},
+					}),
+				)),
+			)
+
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithPersistentVolumeClaim("disk0", "dest-pvc"),
+			))
+
+			result, err := volumemigration.GenerateReceiverMigratedVolumes(pvcStore, vmi, vm)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(HaveLen(1))
+
+			// Verify destination info
+			Expect(result[0].DestinationPVCInfo.ClaimName).To(Equal("dest-pvc"))
+			Expect(result[0].DestinationPVCInfo.VolumeMode).To(HaveValue(Equal(k8sv1.PersistentVolumeBlock)))
+			Expect(result[0].DestinationPVCInfo.AccessModes).To(Equal([]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}))
+			Expect(result[0].DestinationPVCInfo.Requests).To(Equal(destPVC.Spec.Resources.Requests))
+			Expect(result[0].DestinationPVCInfo.Capacity).To(Equal(destPVC.Status.Capacity))
+
+			// Verify source info
+			Expect(result[0].SourcePVCInfo).ToNot(BeNil())
+			Expect(result[0].SourcePVCInfo.ClaimName).To(Equal("source-pvc"))
+			Expect(result[0].SourcePVCInfo.VolumeMode).To(HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)))
+			Expect(result[0].SourcePVCInfo.AccessModes).To(Equal([]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce, k8sv1.ReadOnlyMany}))
+			Expect(result[0].SourcePVCInfo.Requests).To(Equal(sourcePVC.Spec.Resources.Requests))
+			Expect(result[0].SourcePVCInfo.Capacity).To(Equal(sourcePVC.Status.Capacity))
+		})
 	})
 })
 
