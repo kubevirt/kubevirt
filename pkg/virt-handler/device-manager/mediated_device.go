@@ -49,11 +49,13 @@ type MDEV struct {
 	parentPciAddress string
 	iommuGroup       string
 	numaNode         int
+	vfioCDevName     string
 }
 
 type MediatedDevicePlugin struct {
 	*DevicePluginBase
-	iommuToMDEVMap map[string]string
+	iommuToMDEVMap     map[string]string
+	iommuToVFIOCDevMap map[string]string
 }
 
 func (dpi *MediatedDevicePlugin) Start(stop <-chan struct{}) (err error) {
@@ -107,8 +109,9 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 	mdevTypeName := s[1]
 	serverSock := SocketPath(mdevTypeName)
 	iommuToMDEVMap := make(map[string]string)
+	iommuToVFIOCDevMap := make(map[string]string)
 
-	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
+	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap, iommuToVFIOCDevMap)
 
 	dpi := &MediatedDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
@@ -130,9 +133,12 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 	return dpi
 }
 
-func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string) (devs []*pluginapi.Device) {
+func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string, iommuToVFIOCDevMap map[string]string) (devs []*pluginapi.Device) {
 	for _, mdev := range mdevs {
 		iommuToMDEVMap[mdev.iommuGroup] = mdev.UUID
+		if mdev.vfioCDevName != "" {
+			iommuToVFIOCDevMap[mdev.iommuGroup] = mdev.vfioCDevName
+		}
 		dpiDev := &pluginapi.Device{
 			ID:     mdev.iommuGroup,
 			Health: pluginapi.Healthy,
@@ -180,6 +186,12 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 				formattedVFIO := formatVFIODeviceSpecs(devID)
 				log.DefaultLogger().Infof("Allocate: formatted vfio: %v", formattedVFIO)
 				deviceSpecs = append(deviceSpecs, formattedVFIO...)
+				vfioCDevName, cDevExist := dpi.iommuToVFIOCDevMap[devID]
+				if cDevExist {
+					formattedVFIOCDev := formatVFIOCDevSpec(vfioCDevName)
+					log.DefaultLogger().Infof("Allocate: formatted vfio cdev: %v", formattedVFIOCDev)
+					deviceSpecs = append(deviceSpecs, formattedVFIOCDev...)
+				}
 			}
 		}
 		envVar := make(map[string]string)
@@ -229,6 +241,12 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 				continue
 			}
 			mdev.iommuGroup = iommuGroup
+			vfioCDevName, err := handler.GetDeviceVFIOCDevName(mdevBasePath, info.Name())
+			if err == nil {
+				mdev.vfioCDevName = vfioCDevName
+			} else {
+				log.DefaultLogger().Reason(err).Errorf("failed to get vfio cdev name of mdev: %s", info.Name())
+			}
 			mdevsMap[mdevTypeName] = append(mdevsMap[mdevTypeName], mdev)
 		}
 	}

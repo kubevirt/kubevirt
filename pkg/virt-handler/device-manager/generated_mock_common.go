@@ -112,6 +112,21 @@ func (mr *MockDeviceHandlerMockRecorder) GetDevicePCIID(basepath, pciAddress any
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDevicePCIID", reflect.TypeOf((*MockDeviceHandler)(nil).GetDevicePCIID), basepath, pciAddress)
 }
 
+// GetDeviceVFIOCDevName mocks base method.
+func (m *MockDeviceHandler) GetDeviceVFIOCDevName(basepath, deviceID string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetDeviceVFIOCDevName", basepath, deviceID)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetDeviceVFIOCDevName indicates an expected call of GetDeviceVFIOCDevName.
+func (mr *MockDeviceHandlerMockRecorder) GetDeviceVFIOCDevName(basepath, deviceID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDeviceVFIOCDevName", reflect.TypeOf((*MockDeviceHandler)(nil).GetDeviceVFIOCDevName), basepath, deviceID)
+}
+
 // GetMdevParentPCIAddr mocks base method.
 func (m *MockDeviceHandler) GetMdevParentPCIAddr(mdevUUID string) (string, error) {
 	m.ctrl.T.Helper()

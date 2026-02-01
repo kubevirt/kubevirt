@@ -40,15 +40,18 @@ import (
 )
 
 const (
-	fakeName       = "example.org/deadbeef"
-	fakeID         = "dead:beef"
-	fakeDriver     = "vfio-pci"
-	fakeAddress    = "0000:00:00.0"
-	fakeIommuGroup = "0"
-	fakeNumaNode   = 0
+	fakeName         = "example.org/deadbeef"
+	fakeID           = "dead:beef"
+	fakeDriver       = "vfio-pci"
+	fakeAddress      = "0000:00:00.0"
+	fakeIommuGroup   = "0"
+	fakeNumaNode     = 0
+	fakeVFIOCDevName = "vfio0"
+
+	emptyString = ""
 )
 
-var _ = Describe("PCI Device", func() {
+var _ = DescribeTableSubtree("PCI Device", func(withVFIOCDev bool) {
 	var fakePermittedHostDevices v1.PermittedHostDevices
 	var fakeNodeStore cache.Store
 
@@ -69,12 +72,16 @@ var _ = Describe("PCI Device", func() {
 		mockPCI.EXPECT().GetDeviceDriver(pciBasePath, fakeAddress).Return(fakeDriver, nil).Times(1)
 		mockPCI.EXPECT().GetDeviceNumaNode(pciBasePath, fakeAddress).Return(fakeNumaNode).Times(1)
 		mockPCI.EXPECT().GetDevicePCIID(pciBasePath, fakeAddress).Return(fakeID, nil).Times(1)
+		if withVFIOCDev {
+			mockPCI.EXPECT().GetDeviceVFIOCDevName(pciBasePath, fakeAddress).Return(fakeVFIOCDevName, nil).Times(1)
+		}
 		// Allow the regular functions to be called for all the other devices, they're harmless.
 		// Just force the driver to NOT vfio-pci to ensure they all get ignored.
 		mockPCI.EXPECT().GetDeviceIOMMUGroup(pciBasePath, gomock.Any()).AnyTimes()
 		mockPCI.EXPECT().GetDeviceDriver(pciBasePath, gomock.Any()).Return("definitely-not-vfio-pci", nil).AnyTimes()
 		mockPCI.EXPECT().GetDeviceNumaNode(pciBasePath, gomock.Any()).AnyTimes()
 		mockPCI.EXPECT().GetDevicePCIID(pciBasePath, gomock.Any()).AnyTimes()
+		mockPCI.EXPECT().GetDeviceVFIOCDevName(pciBasePath, gomock.Any()).Return(emptyString, nil).AnyTimes()
 
 		By("creating a list of fake device using the yaml decoder")
 		fakePermittedHostDevicesConfig := `
@@ -107,10 +114,16 @@ pciHostDevices:
 		Expect(devices[fakeName][0].pciAddress).To(Equal(fakeAddress))
 		Expect(devices[fakeName][0].iommuGroup).To(Equal(fakeIommuGroup))
 		Expect(devices[fakeName][0].numaNode).To(Equal(fakeNumaNode))
+		if withVFIOCDev {
+			Expect(devices[fakeName][0].vfioCDevName).To(Equal(fakeVFIOCDevName))
+		} else {
+			Expect(devices[fakeName][0].vfioCDevName).To(Equal(emptyString))
+		}
 	})
 
 	It("Should validate DPI devices", func() {
 		iommuToPCIMap := make(map[string]string)
+		iommuToVFIOCDevMap := make(map[string]string)
 		supportedPCIDeviceMap := make(map[string]string)
 		for _, pciDev := range fakePermittedHostDevices.PciHostDevices {
 			// do not add a device plugin for this resource if it's being provided via an external device plugin
@@ -121,7 +134,12 @@ pciHostDevices:
 		// discoverPermittedHostPCIDevices() will walk real PCI devices wherever the tests are running
 		// It's assumed here that it will find a PCI device at 0000:00:00.0
 		pciDevices := discoverPermittedHostPCIDevices(supportedPCIDeviceMap)
-		devs := constructDPIdevices(pciDevices[fakeName], iommuToPCIMap)
+		devs := constructDPIdevices(pciDevices[fakeName], iommuToPCIMap, iommuToVFIOCDevMap)
+		if withVFIOCDev {
+			Expect(iommuToVFIOCDevMap).To(HaveKeyWithValue(fakeIommuGroup, fakeVFIOCDevName))
+		} else {
+			Expect(iommuToVFIOCDevMap).ToNot(HaveKey(fakeIommuGroup))
+		}
 		Expect(devs[0].ID).To(Equal(fakeIommuGroup))
 		Expect(devs[0].Topology.Nodes[0].ID).To(Equal(int64(fakeNumaNode)))
 	})
@@ -188,4 +206,7 @@ pciHostDevices:
 		Expect(disabledDevicePlugins).To(HaveLen(1), "the fake device plugin did not get disabled")
 		Ω(disabledDevicePlugins).Should(HaveKey(fakeName))
 	})
-})
+},
+	Entry("w/o VFIO cdev", false),
+	Entry("w/ VFIO cdev", true),
+)

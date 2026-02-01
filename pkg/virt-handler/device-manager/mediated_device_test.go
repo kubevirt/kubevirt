@@ -122,7 +122,7 @@ var _ = Describe("Mediated Device", func() {
 		Entry("Nvidia name file exist", true),
 		Entry("Intel name file doesn't exist", false),
 	)
-	Context("discover devices", func() {
+	DescribeTableSubtree("discover devices", func(withVFIOCDev bool) {
 		BeforeEach(func() {
 			By("mocking PCI and MDEV functions to simulate an mdev an its parent PCI device")
 			ctrl = gomock.NewController(GinkgoT())
@@ -132,6 +132,11 @@ var _ = Describe("Mediated Device", func() {
 			mockPCI.EXPECT().GetMdevParentPCIAddr(fakeMdevUUID).Return(fakeAddress, nil).Times(1)
 			mockPCI.EXPECT().GetDeviceIOMMUGroup(mdevBasePath, fakeMdevUUID).Return(fakeIommuGroup, nil).Times(1)
 			mockPCI.EXPECT().GetDeviceNumaNode(pciBasePath, fakeAddress).Return(fakeNumaNode).Times(1)
+			if withVFIOCDev {
+				mockPCI.EXPECT().GetDeviceVFIOCDevName(mdevBasePath, fakeMdevUUID).Return(fakeVFIOCDevName, nil).Times(1)
+			} else {
+				mockPCI.EXPECT().GetDeviceVFIOCDevName(mdevBasePath, fakeMdevUUID).Return(emptyString, nil).Times(1)
+			}
 
 			By("creating a list of fake device using the yaml decoder")
 			fakePermittedHostDevicesConfig = `
@@ -165,10 +170,16 @@ var _ = Describe("Mediated Device", func() {
 			Expect(devices[selector][0].parentPciAddress).To(Equal(fakeAddress))
 			Expect(devices[selector][0].iommuGroup).To(Equal(fakeIommuGroup))
 			Expect(devices[selector][0].numaNode).To(Equal(fakeNumaNode))
+			if withVFIOCDev {
+				Expect(devices[selector][0].vfioCDevName).To(Equal(fakeVFIOCDevName))
+			} else {
+				Expect(devices[selector][0].vfioCDevName).To(Equal(emptyString))
+			}
 		})
 
 		It("Should validate DPI devices", func() {
 			iommuToMDEVMap := make(map[string]string)
+			iommuToVFIOCDevMap := make(map[string]string)
 			supportedMdevsMap := make(map[string]string)
 			for _, supportedMdev := range fakePermittedHostDevices.MediatedDevices {
 				// do not add a device plugin for this resource if it's being provided via an external device plugin
@@ -180,7 +191,12 @@ var _ = Describe("Mediated Device", func() {
 			// discoverPermittedHostMediatedDevices() will walk real mdev devices wherever the tests are running
 			mDevices := discoverPermittedHostMediatedDevices(supportedMdevsMap)
 			selector := removeSelectorSpaces(fakeMdevNameSelector)
-			devs := constructDPIdevicesFromMdev(mDevices[selector], iommuToMDEVMap)
+			devs := constructDPIdevicesFromMdev(mDevices[selector], iommuToMDEVMap, iommuToVFIOCDevMap)
+			if withVFIOCDev {
+				Expect(iommuToVFIOCDevMap).To(HaveKeyWithValue(fakeIommuGroup, fakeVFIOCDevName))
+			} else {
+				Expect(iommuToVFIOCDevMap).ToNot(HaveKey(fakeIommuGroup))
+			}
 			Expect(devs[0].ID).To(Equal(fakeIommuGroup))
 			Expect(devs[0].Topology.Nodes[0].ID).To(Equal(int64(fakeNumaNode)))
 		})
@@ -250,5 +266,8 @@ var _ = Describe("Mediated Device", func() {
 			Expect(disabledDevicePlugins).To(HaveLen(1), "the fake device plugin did not get disabled")
 			Ω(disabledDevicePlugins).Should(HaveKey(fakeMdevResourceName))
 		})
-	})
+	},
+		Entry("w/o VFIO cdev", false),
+		Entry("w/ VFIO cdev", true),
+	)
 })

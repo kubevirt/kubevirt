@@ -38,6 +38,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
+	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 	virt_chroot "kubevirt.io/kubevirt/pkg/virt-handler/virt-chroot"
 )
@@ -47,6 +48,7 @@ type DeviceHandler interface {
 	GetDeviceDriver(basepath string, pciAddress string) (string, error)
 	GetDeviceNumaNode(basepath string, pciAddress string) (numaNode int)
 	GetDevicePCIID(basepath string, pciAddress string) (string, error)
+	GetDeviceVFIOCDevName(basepath string, deviceID string) (string, error)
 	GetMdevParentPCIAddr(mdevUUID string) (string, error)
 	CreateMDEVType(mdevType string, parentID string) error
 	RemoveMDEVType(mdevUUID string) error
@@ -118,6 +120,11 @@ func (h *DeviceUtilsHandler) GetDevicePCIID(basepath string, pciAddress string) 
 		}
 	}
 	return "", fmt.Errorf("no pci_id is found")
+}
+
+func (h *DeviceUtilsHandler) GetDeviceVFIOCDevName(basepath string, deviceID string) (string, error) {
+	path := filepath.Join(basepath, deviceID)
+	return hw_utils.GetDeviceVFIOCDevName(path)
 }
 
 // /sys/class/mdev_bus/0000:00:03.0/53764d0e-85a0-42b4-af5c-2046b460b1dc
@@ -250,6 +257,23 @@ func formatVFIODeviceSpecs(devID string) []*v1beta1.DeviceSpec {
 	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
 		HostPath:      vfioDevice,
 		ContainerPath: vfioDevice,
+		Permissions:   "mrw",
+	})
+	return devSpecs
+}
+
+func formatVFIOCDevSpec(devName string) []*v1beta1.DeviceSpec {
+	devSpecs := make([]*v1beta1.DeviceSpec, 0)
+	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
+		HostPath:      hw_utils.IOMMUFDPath,
+		ContainerPath: hw_utils.IOMMUFDPath,
+		Permissions:   "mrw",
+	})
+
+	vfioCDev := filepath.Join(hw_utils.VFIOCDevBasePath, devName)
+	devSpecs = append(devSpecs, &v1beta1.DeviceSpec{
+		HostPath:      vfioCDev,
+		ContainerPath: vfioCDev,
 		Permissions:   "mrw",
 	})
 	return devSpecs
