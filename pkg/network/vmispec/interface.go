@@ -20,6 +20,7 @@
 package vmispec
 
 import (
+	"errors"
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -83,10 +84,7 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[stri
 	default:
 	}
 
-	return fmt.Errorf(
-		"cannot migrate VMI which does not use masquerade, bridge with %s VM annotation or a migratable plugin to connect to the pod network",
-		v1.AllowPodBridgeNetworkLiveMigrationAnnotation,
-	)
+	return errors.New("cannot migrate VMI which does not use masquerade or a migratable plugin to connect to the pod network")
 }
 
 func LookupInterfaceStatusByMac(
