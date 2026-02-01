@@ -43,6 +43,7 @@ import (
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -50,6 +51,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 )
 
 const (
@@ -177,6 +179,12 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	c, err := l.generateConverterContext(vmi, allowEmulation, options, true)
 	if err != nil {
 		return fmt.Errorf("Failed to generate libvirt domain from VMI spec: %v", err)
+	}
+
+	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+		if err := storage.ApplyChangedBlockTrackingForMigration(vmi, c); err != nil {
+			return fmt.Errorf("failed to create CBT overlays for migration: %v", err)
+		}
 	}
 
 	domain := &api.Domain{}

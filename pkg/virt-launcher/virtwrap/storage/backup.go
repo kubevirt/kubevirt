@@ -224,7 +224,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 			Name: disk.Target.Device,
 		}
 		volumeName := converter.GetVolumeNameByDisk(disk)
-		if disk.Source.DataStore != nil {
+		if DiskHasDataStore(&disk) {
 			backupDisk.Backup = "yes"
 			backupDisk.Type = "file"
 			if backupOptions.PushPath != nil {
@@ -475,7 +475,7 @@ func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*a
 	var disksWithoutBitmap []string
 
 	for _, disk := range disks {
-		if disk.Target.Device == "" || disk.Source.DataStore == nil {
+		if disk.Target.Device == "" || !DiskHasDataStore(&disk) {
 			continue
 		}
 		if disk.Source.File == "" {
