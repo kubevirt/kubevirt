@@ -40,22 +40,28 @@ import (
 )
 
 const (
-	vfioDevicePath = "/dev/vfio/"
-	vfioMount      = "/dev/vfio/vfio"
-	pciBasePath    = "/sys/bus/pci/devices"
+	vfioDevicePath   = "/dev/vfio/"
+	vfioMount        = "/dev/vfio/vfio"
+	vfioCDevBasePath = "/dev/vfio/devices"
+	pciBasePath      = "/sys/bus/pci/devices"
+
+	vfioGroupUnhealthBit = uint8(1)
+	vfioCDevUnhealthBit  = uint8(1 << 1)
 )
 
 type PCIDevice struct {
-	pciID      string
-	driver     string
-	pciAddress string
-	iommuGroup string
-	numaNode   int
+	pciID        string
+	driver       string
+	pciAddress   string
+	iommuGroup   string
+	numaNode     int
+	vfioCDevName string
 }
 
 type PCIDevicePlugin struct {
 	*DevicePluginBase
-	iommuToPCIMap map[string]string
+	iommuToPCIMap      map[string]string
+	iommuToVFIOCDevMap map[string]string
 }
 
 func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
@@ -107,8 +113,9 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
 	serverSock := SocketPath(strings.Replace(resourceName, "/", "-", -1))
 	iommuToPCIMap := make(map[string]string)
+	iommuToVFIOCDevMap := make(map[string]string)
 
-	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
+	devs := constructDPIdevices(pciDevices, iommuToPCIMap, iommuToVFIOCDevMap)
 
 	dpi := &PCIDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
@@ -123,14 +130,18 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 			done:         make(chan struct{}),
 			deregistered: make(chan struct{}),
 		},
-		iommuToPCIMap: iommuToPCIMap,
+		iommuToPCIMap:      iommuToPCIMap,
+		iommuToVFIOCDevMap: iommuToVFIOCDevMap,
 	}
 	return dpi
 }
 
-func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]string) (devs []*pluginapi.Device) {
+func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]string, iommuToVFIOCDevMap map[string]string) (devs []*pluginapi.Device) {
 	for _, pciDevice := range pciDevices {
 		iommuToPCIMap[pciDevice.iommuGroup] = pciDevice.pciAddress
+		if pciDevice.vfioCDevName != "" {
+			iommuToVFIOCDevMap[pciDevice.iommuGroup] = pciDevice.vfioCDevName
+		}
 		dpiDev := &pluginapi.Device{
 			ID:     pciDevice.iommuGroup,
 			Health: pluginapi.Healthy,
@@ -154,6 +165,11 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 	resp := new(pluginapi.AllocateResponse)
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
 
+	iommufdExist, err := handler.IOMMUFDExists(dpi.deviceRoot)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to detect the presence of iommufd")
+	}
+
 	for _, request := range r.ContainerRequests {
 		deviceSpecs := make([]*pluginapi.DeviceSpec, 0)
 		for _, devID := range request.DevicesIDs {
@@ -164,6 +180,10 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 			}
 			allocatedDevices = append(allocatedDevices, devPCIAddress)
 			deviceSpecs = append(deviceSpecs, formatVFIODeviceSpecs(devID)...)
+			vfioCDevName, cDevExist := dpi.iommuToVFIOCDevMap[devID]
+			if cDevExist && iommufdExist {
+				deviceSpecs = append(deviceSpecs, formatVFIOCDevSpec(vfioCDevName)...)
+			}
 		}
 		containerResponse.Devices = deviceSpecs
 		envVar := make(map[string]string)
@@ -178,6 +198,8 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 func (dpi *PCIDevicePlugin) healthCheck() error {
 	logger := log.DefaultLogger()
 	monitoredDevices := make(map[string]string)
+	// bitmap for tracking the unhealthy status of devices by ID
+	unhealthyTracker := make(map[string]uint8)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
@@ -201,6 +223,15 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 		}
 	}
 
+	// Also watch the VFIO cdev files if exist
+	deviceVFIOCDevDir := filepath.Join(dpi.deviceRoot, vfioCDevBasePath)
+	if len(dpi.iommuToVFIOCDevMap) > 0 {
+		err = watcher.Add(deviceVFIOCDevDir)
+		if err != nil {
+			return fmt.Errorf("failed to add the VFIO devices root path to the watcher: %v", err)
+		}
+	}
+
 	// probe all devices
 	for _, dev := range dpi.devs {
 		vfioDevice := filepath.Join(devicePath, dev.ID)
@@ -209,6 +240,14 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
 		}
 		monitoredDevices[vfioDevice] = dev.ID
+
+		if vfioCDevName, exist := dpi.iommuToVFIOCDevMap[dev.ID]; exist {
+			vfioCDevPath := filepath.Join(deviceVFIOCDevDir, vfioCDevName)
+			if err := watcher.Add(vfioCDevPath); err != nil {
+				return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioCDevPath, err)
+			}
+			monitoredDevices[vfioCDevPath] = vfioDevice
+		}
 	}
 
 	dirName = filepath.Dir(dpi.socketPath)
@@ -231,15 +270,37 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 		case event := <-watcher.Events:
 			logger.V(4).Infof("health Event: %v", event)
 			if monDevId, exist := monitoredDevices[event.Name]; exist {
+				devID, isCDev := monitoredDevices[monDevId]
+				if isCDev {
+					monDevId = devID
+				}
+
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.resourceName)
-					dpi.health <- deviceHealth{
-						DevId:  monDevId,
-						Health: pluginapi.Healthy,
+					unhealthy, _ := unhealthyTracker[monDevId]
+					if isCDev {
+						unhealthy &^= vfioCDevUnhealthBit
+					} else {
+						unhealthy &^= vfioGroupUnhealthBit
+					}
+					unhealthyTracker[monDevId] = unhealthy
+					// report device as healthy only if all the associated vfio devices exist
+					if unhealthy == 0 {
+						logger.Infof("monitored device %s appeared", dpi.resourceName)
+						dpi.health <- deviceHealth{
+							DevId:  monDevId,
+							Health: pluginapi.Healthy,
+						}
 					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
 					logger.Infof("monitored device %s disappeared", dpi.resourceName)
+					unhealthy, _ := unhealthyTracker[monDevId]
+					if isCDev {
+						unhealthy |= vfioCDevUnhealthBit
+					} else {
+						unhealthy |= vfioGroupUnhealthBit
+					}
+					unhealthyTracker[monDevId] = unhealthy
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
 						Health: pluginapi.Unhealthy,
@@ -280,6 +341,12 @@ func discoverPermittedHostPCIDevices(supportedPCIDeviceMap map[string]string) ma
 				return nil
 			}
 			pcidev.iommuGroup = iommuGroup
+			vfioCDevName, err := handler.GetDeviceVFIOCDevName(pciBasePath, info.Name())
+			if err == nil {
+				pcidev.vfioCDevName = vfioCDevName
+			} else {
+				log.DefaultLogger().Reason(err).Errorf("failed to get vfio cdev name of device: %s", info.Name())
+			}
 			pcidev.driver = driver
 			pcidev.numaNode = handler.GetDeviceNumaNode(pciBasePath, info.Name())
 			pciDevicesMap[resourceName] = append(pciDevicesMap[resourceName], pcidev)

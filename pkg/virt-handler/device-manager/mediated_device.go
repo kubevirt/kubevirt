@@ -49,11 +49,13 @@ type MDEV struct {
 	parentPciAddress string
 	iommuGroup       string
 	numaNode         int
+	vfioCDevName     string
 }
 
 type MediatedDevicePlugin struct {
 	*DevicePluginBase
-	iommuToMDEVMap map[string]string
+	iommuToMDEVMap     map[string]string
+	iommuToVFIOCDevMap map[string]string
 }
 
 func (dpi *MediatedDevicePlugin) Start(stop <-chan struct{}) (err error) {
@@ -107,8 +109,9 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 	mdevTypeName := s[1]
 	serverSock := SocketPath(mdevTypeName)
 	iommuToMDEVMap := make(map[string]string)
+	iommuToVFIOCDevMap := make(map[string]string)
 
-	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
+	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap, iommuToVFIOCDevMap)
 
 	dpi := &MediatedDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
@@ -130,9 +133,12 @@ func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevice
 	return dpi
 }
 
-func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string) (devs []*pluginapi.Device) {
+func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string, iommuToVFIOCDevMap map[string]string) (devs []*pluginapi.Device) {
 	for _, mdev := range mdevs {
 		iommuToMDEVMap[mdev.iommuGroup] = mdev.UUID
+		if mdev.vfioCDevName != "" {
+			iommuToVFIOCDevMap[mdev.iommuGroup] = mdev.vfioCDevName
+		}
 		dpiDev := &pluginapi.Device{
 			ID:     mdev.iommuGroup,
 			Health: pluginapi.Healthy,
@@ -159,6 +165,11 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 	resp := new(pluginapi.AllocateResponse)
 	containerResponse := new(pluginapi.ContainerAllocateResponse)
 
+	iommufdExist, err := handler.IOMMUFDExists(dpi.deviceRoot)
+	if err != nil {
+		log.DefaultLogger().Reason(err).Errorf("failed to detect the presence of iommufd")
+	}
+
 	for _, request := range r.ContainerRequests {
 		log.DefaultLogger().Infof("Allocate: request: %v", request)
 		deviceSpecs := make([]*pluginapi.DeviceSpec, 0)
@@ -180,6 +191,12 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 				formattedVFIO := formatVFIODeviceSpecs(devID)
 				log.DefaultLogger().Infof("Allocate: formatted vfio: %v", formattedVFIO)
 				deviceSpecs = append(deviceSpecs, formattedVFIO...)
+				vfioCDevName, cDevExist := dpi.iommuToVFIOCDevMap[devID]
+				if cDevExist && iommufdExist {
+					formattedVFIOCDev := formatVFIOCDevSpec(vfioCDevName)
+					log.DefaultLogger().Infof("Allocate: formatted vfio cdev: %v", formattedVFIOCDev)
+					deviceSpecs = append(deviceSpecs, formattedVFIOCDev...)
+				}
 			}
 		}
 		envVar := make(map[string]string)
@@ -229,6 +246,12 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 				continue
 			}
 			mdev.iommuGroup = iommuGroup
+			vfioCDevName, err := handler.GetDeviceVFIOCDevName(mdevBasePath, info.Name())
+			if err == nil {
+				mdev.vfioCDevName = vfioCDevName
+			} else {
+				log.DefaultLogger().Reason(err).Errorf("failed to get vfio cdev name of mdev: %s", info.Name())
+			}
 			mdevsMap[mdevTypeName] = append(mdevsMap[mdevTypeName], mdev)
 		}
 	}
@@ -241,6 +264,8 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 func (dpi *MediatedDevicePlugin) healthCheck() error {
 	logger := log.DefaultLogger()
 	monitoredDevices := make(map[string]string)
+	// bitmap for tracking the unhealthy status of devices by ID
+	unhealthyTracker := make(map[string]uint8)
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
@@ -264,6 +289,15 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 		}
 	}
 
+	// Also watch the VFIO cdev files if exist
+	deviceVFIOCDevDir := filepath.Join(dpi.deviceRoot, vfioCDevBasePath)
+	if len(dpi.iommuToVFIOCDevMap) > 0 {
+		err = watcher.Add(deviceVFIOCDevDir)
+		if err != nil {
+			return fmt.Errorf("failed to add the VFIO devices root path to the watcher: %v", err)
+		}
+	}
+
 	// probe all devices
 	for _, dev := range dpi.devs {
 		vfioDevice := filepath.Join(devicePath, dev.ID)
@@ -272,6 +306,14 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
 		}
 		monitoredDevices[vfioDevice] = dev.ID
+
+		if vfioCDevName, exist := dpi.iommuToVFIOCDevMap[dev.ID]; exist {
+			vfioCDevPath := filepath.Join(deviceVFIOCDevDir, vfioCDevName)
+			if err := watcher.Add(vfioCDevPath); err != nil {
+				return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioCDevPath, err)
+			}
+			monitoredDevices[vfioCDevPath] = vfioDevice
+		}
 	}
 
 	dirName = filepath.Dir(dpi.socketPath)
@@ -294,17 +336,35 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 		case event := <-watcher.Events:
 			logger.V(4).Infof("health Event: %v", event)
 			if monDevId, exist := monitoredDevices[event.Name]; exist {
+				devID, isCDev := monitoredDevices[monDevId]
+				if isCDev {
+					monDevId = devID
+				}
+
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.resourceName)
-					dpi.health <- deviceHealth{
-						DevId:  monDevId,
-						Health: pluginapi.Healthy,
+					unhealthy, _ := unhealthyTracker[monDevId]
+					if isCDev {
+						unhealthy &^= vfioCDevUnhealthBit
+					} else {
+						unhealthy &^= vfioGroupUnhealthBit
+					}
+					unhealthyTracker[monDevId] = unhealthy
+					// report device as healthy only if all the associated vfio devices exist
+					if unhealthy == 0 {
+						logger.Infof("monitored device %s appeared", dpi.resourceName)
+						dpi.health <- deviceHealth{
+							DevId:  monDevId,
+							Health: pluginapi.Healthy,
+						}
 					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
 					mdev, ok := dpi.iommuToMDEVMap[monDevId]
 					if !ok {
 						mdev = " not recognized"
+					}
+					if isCDev {
+						mdev += " (VFIO cdev)"
 					}
 
 					if event.Op == fsnotify.Rename {
@@ -313,6 +373,13 @@ func (dpi *MediatedDevicePlugin) healthCheck() error {
 						logger.Infof("Mediated device %s with id %s for resource %s disappeared", mdev, monDevId, dpi.resourceName)
 					}
 
+					unhealthy, _ := unhealthyTracker[monDevId]
+					if isCDev {
+						unhealthy |= vfioCDevUnhealthBit
+					} else {
+						unhealthy |= vfioGroupUnhealthBit
+					}
+					unhealthyTracker[monDevId] = unhealthy
 					dpi.health <- deviceHealth{
 						DevId:  monDevId,
 						Health: pluginapi.Unhealthy,
