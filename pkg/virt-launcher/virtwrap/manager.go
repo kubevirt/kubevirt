@@ -1428,7 +1428,7 @@ func getSourceFile(disk api.Disk) string {
 }
 
 func getBackendSource(disk api.Disk) string {
-	if disk.Source.DataStore != nil && disk.Source.DataStore.Source != nil {
+	if storage.DiskHasDataStore(&disk) && disk.Source.DataStore.Source != nil {
 		source := *disk.Source.DataStore.Source
 		if source.File != "" {
 			return source.File
