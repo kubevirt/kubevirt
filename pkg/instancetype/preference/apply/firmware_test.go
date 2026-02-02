@@ -16,7 +16,6 @@
  * Copyright The KubeVirt Authors.
  */
 
-//nolint:dupl
 package apply_test
 
 import (
@@ -50,10 +49,8 @@ var _ = Describe("Preference.Firmware", func() {
 	It("should apply BIOS preferences full to VMI", func() {
 		preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
 			Firmware: &instancetypev1.FirmwarePreferences{
-				PreferredUseBios:                 pointer.P(true),
-				PreferredUseBiosSerial:           pointer.P(true),
-				DeprecatedPreferredUseEfi:        pointer.P(false),
-				DeprecatedPreferredUseSecureBoot: pointer.P(false),
+				PreferredUseBios:       pointer.P(true),
+				PreferredUseBiosSerial: pointer.P(true),
 			},
 		}
 
@@ -65,23 +62,23 @@ var _ = Describe("Preference.Firmware", func() {
 	It("should apply SecureBoot preferences full to VMI", func() {
 		preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
 			Firmware: &instancetypev1.FirmwarePreferences{
-				PreferredUseBios:                 pointer.P(false),
-				PreferredUseBiosSerial:           pointer.P(false),
-				DeprecatedPreferredUseEfi:        pointer.P(true),
-				DeprecatedPreferredUseSecureBoot: pointer.P(true),
+				PreferredEfi: &virtv1.EFI{
+					SecureBoot: pointer.P(true),
+				},
 			},
 		}
 
 		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
 
-		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(HaveValue(Equal(*preferenceSpec.Firmware.DeprecatedPreferredUseSecureBoot)))
+		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(HaveValue(BeTrue()))
 	})
 
-	It("should not overwrite user defined Bootloader.BIOS with DeprecatedPreferredUseEfi - bug #10313", func() {
+	It("should not overwrite user defined Bootloader.BIOS with PreferredEfi - bug #10313", func() {
 		preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
 			Firmware: &instancetypev1.FirmwarePreferences{
-				DeprecatedPreferredUseEfi:        pointer.P(true),
-				DeprecatedPreferredUseSecureBoot: pointer.P(true),
+				PreferredEfi: &virtv1.EFI{
+					SecureBoot: pointer.P(true),
+				},
 			},
 		}
 		vmi.Spec.Domain.Firmware = &virtv1.Firmware{
@@ -133,24 +130,6 @@ var _ = Describe("Preference.Firmware", func() {
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(HaveValue(BeFalse()))
 	})
 
-	It("should not overwrite user defined value with DeprecatedPreferredUseSecureBoot - bug #10313", func() {
-		preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
-			Firmware: &instancetypev1.FirmwarePreferences{
-				DeprecatedPreferredUseEfi:        pointer.P(true),
-				DeprecatedPreferredUseSecureBoot: pointer.P(true),
-			},
-		}
-		vmi.Spec.Domain.Firmware = &virtv1.Firmware{
-			Bootloader: &virtv1.Bootloader{
-				EFI: &virtv1.EFI{
-					SecureBoot: pointer.P(false),
-				},
-			},
-		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
-		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(HaveValue(BeFalse()))
-	})
-
 	It("should apply PreferredEfi", func() {
 		preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
 			Firmware: &instancetypev1.FirmwarePreferences{
@@ -164,22 +143,6 @@ var _ = Describe("Preference.Firmware", func() {
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(HaveValue(BeNil()))
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(HaveValue(BeTrue()))
 		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(HaveValue(BeTrue()))
-	})
-
-	It("should ignore DeprecatedPreferredUseEfi and DeprecatedPreferredUseSecureBoot when using PreferredEfi", func() {
-		preferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
-			Firmware: &instancetypev1.FirmwarePreferences{
-				PreferredEfi: &virtv1.EFI{
-					Persistent: pointer.P(true),
-				},
-				DeprecatedPreferredUseEfi:        pointer.P(false),
-				DeprecatedPreferredUseSecureBoot: pointer.P(false),
-			},
-		}
-		Expect(vmiApplier.ApplyToVMI(field, instancetypeSpec, preferenceSpec, &vmi.Spec, &vmi.ObjectMeta)).To(Succeed())
-		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI).ToNot(HaveValue(BeNil()))
-		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent).To(HaveValue(BeTrue()))
-		Expect(vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot).To(BeNil())
 	})
 
 	It("should not overwrite EFI when using PreferredEfi - bug #12985", func() {

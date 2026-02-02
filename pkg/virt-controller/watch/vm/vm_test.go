@@ -4693,7 +4693,7 @@ var _ = Describe("VirtualMachine", func() {
 					},
 					Spec: instancetypev1.VirtualMachinePreferenceSpec{
 						Firmware: &instancetypev1.FirmwarePreferences{
-							DeprecatedPreferredUseEfi: pointer.P(true),
+							PreferredEfi: &v1.EFI{},
 						},
 						Devices: &instancetypev1.DevicePreferences{
 							PreferredDiskBus:        v1.DiskBusVirtio,
@@ -4822,7 +4822,7 @@ var _ = Describe("VirtualMachine", func() {
 						},
 						Spec: instancetypev1.VirtualMachinePreferenceSpec{
 							Firmware: &instancetypev1.FirmwarePreferences{
-								DeprecatedPreferredUseEfi: pointer.P(true),
+								PreferredEfi: &v1.EFI{},
 							},
 							Devices: &instancetypev1.DevicePreferences{
 								PreferredDiskBus:        v1.DiskBusVirtio,

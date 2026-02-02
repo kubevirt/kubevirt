@@ -472,8 +472,6 @@ func Convert_instancetype_FeaturePreferences_To_v1_FeaturePreferences(in *instan
 func autoConvert_v1_FirmwarePreferences_To_instancetype_FirmwarePreferences(in *FirmwarePreferences, out *instancetype.FirmwarePreferences, s conversion.Scope) error {
 	out.PreferredUseBios = (*bool)(unsafe.Pointer(in.PreferredUseBios))
 	out.PreferredUseBiosSerial = (*bool)(unsafe.Pointer(in.PreferredUseBiosSerial))
-	out.DeprecatedPreferredUseEfi = (*bool)(unsafe.Pointer(in.DeprecatedPreferredUseEfi))
-	out.DeprecatedPreferredUseSecureBoot = (*bool)(unsafe.Pointer(in.DeprecatedPreferredUseSecureBoot))
 	out.PreferredEfi = (*corev1.EFI)(unsafe.Pointer(in.PreferredEfi))
 	return nil
 }
@@ -486,8 +484,6 @@ func Convert_v1_FirmwarePreferences_To_instancetype_FirmwarePreferences(in *Firm
 func autoConvert_instancetype_FirmwarePreferences_To_v1_FirmwarePreferences(in *instancetype.FirmwarePreferences, out *FirmwarePreferences, s conversion.Scope) error {
 	out.PreferredUseBios = (*bool)(unsafe.Pointer(in.PreferredUseBios))
 	out.PreferredUseBiosSerial = (*bool)(unsafe.Pointer(in.PreferredUseBiosSerial))
-	out.DeprecatedPreferredUseEfi = (*bool)(unsafe.Pointer(in.DeprecatedPreferredUseEfi))
-	out.DeprecatedPreferredUseSecureBoot = (*bool)(unsafe.Pointer(in.DeprecatedPreferredUseSecureBoot))
 	out.PreferredEfi = (*corev1.EFI)(unsafe.Pointer(in.PreferredEfi))
 	return nil
 }

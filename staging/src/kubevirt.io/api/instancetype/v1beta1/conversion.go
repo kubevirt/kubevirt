@@ -22,6 +22,7 @@ package v1beta1
 import (
 	"k8s.io/apimachinery/pkg/conversion"
 
+	v1 "kubevirt.io/api/core/v1"
 	instancetype "kubevirt.io/api/instancetype"
 )
 
@@ -45,6 +46,26 @@ func Convert_v1beta1_CPUPreferences_To_instancetype_CPUPreferences(in *CPUPrefer
 	if out.PreferredCPUTopology != nil {
 		if newValue, ok := DeprecatedTopologyToNew[PreferredCPUTopology(*out.PreferredCPUTopology)]; ok {
 			out.PreferredCPUTopology = &newValue
+		}
+	}
+
+	return nil
+}
+
+// Convert_v1beta1_FirmwarePreferences_To_instancetype_FirmwarePreferences handles conversion of FirmwarePreferences,
+// converting deprecated DeprecatedPreferredUseEfi and DeprecatedPreferredUseSecureBoot to PreferredEfi.
+func Convert_v1beta1_FirmwarePreferences_To_instancetype_FirmwarePreferences(in *FirmwarePreferences, out *instancetype.FirmwarePreferences, s conversion.Scope) error {
+	if err := autoConvert_v1beta1_FirmwarePreferences_To_instancetype_FirmwarePreferences(in, out, s); err != nil {
+		return err
+	}
+
+	// Convert deprecated fields to PreferredEfi if PreferredEfi is not already set
+	if out.PreferredEfi == nil {
+		if in.DeprecatedPreferredUseEfi != nil && *in.DeprecatedPreferredUseEfi {
+			out.PreferredEfi = &v1.EFI{}
+			if in.DeprecatedPreferredUseSecureBoot != nil {
+				out.PreferredEfi.SecureBoot = in.DeprecatedPreferredUseSecureBoot
+			}
 		}
 	}
 

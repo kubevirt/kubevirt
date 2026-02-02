@@ -422,18 +422,6 @@ type FirmwarePreferences struct {
 	// Requires PreferredUseBios to be enabled.
 	PreferredUseBiosSerial *bool
 
-	// PreferredUseEfi optionally enables EFI
-	//
-	// Deprecated: Will be removed with v1beta2 or v1
-	DeprecatedPreferredUseEfi *bool
-
-	// PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.
-	//
-	// Requires PreferredUseEfi and PreferredSmm to be enabled.
-	//
-	// Deprecated: Will be removed with v1beta2 or v1
-	DeprecatedPreferredUseSecureBoot *bool
-
 	// PreferredEfi optionally enables EFI
 	PreferredEfi *v1.EFI
 }
