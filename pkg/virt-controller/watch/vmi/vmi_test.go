@@ -4831,6 +4831,6 @@ type stubMigrationEvaluator struct {
 	result k8sv1.ConditionStatus
 }
 
-func (e stubMigrationEvaluator) Evaluate(_ *virtv1.VirtualMachineInstance) k8sv1.ConditionStatus {
+func (e stubMigrationEvaluator) Evaluate(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) k8sv1.ConditionStatus {
 	return e.result
 }

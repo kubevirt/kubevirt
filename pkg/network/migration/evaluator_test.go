@@ -20,6 +20,7 @@
 package migration_test
 
 import (
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -44,11 +45,12 @@ var _ = Describe("Evaluator", func() {
 
 	multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
 
-	DescribeTable("Should not require migration", func(vmi *v1.VirtualMachineInstance) {
-		Expect(migration.NewEvaluator().Evaluate(vmi)).To(Equal(k8scorev1.ConditionUnknown))
+	DescribeTable("Should not require migration", func(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) {
+		Expect(migration.NewEvaluator(stubClusterConfigurer{}).Evaluate(vmi, pod)).To(Equal(k8scorev1.ConditionUnknown))
 	},
 		Entry("when no networks are specified",
 			libvmi.New(libvmi.WithAutoAttachPodInterface(false)),
+			&k8scorev1.Pod{},
 		),
 		Entry("when status equals to spec",
 			libvmi.New(
@@ -69,6 +71,7 @@ var _ = Describe("Evaluator", func() {
 					),
 				),
 			),
+			&k8scorev1.Pod{},
 		),
 		Entry("when a secondary iface using bridge binding was not yet hot-unplugged from the domain",
 			libvmi.New(
@@ -95,11 +98,12 @@ var _ = Describe("Evaluator", func() {
 					),
 				),
 			),
+			&k8scorev1.Pod{},
 		),
 	)
 
-	DescribeTable("Should require a pending migration", func(vmi *v1.VirtualMachineInstance) {
-		Expect(migration.NewEvaluator().Evaluate(vmi)).To(Equal(k8scorev1.ConditionFalse))
+	DescribeTable("Should require a pending migration", func(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) {
+		Expect(migration.NewEvaluator(stubClusterConfigurer{}).Evaluate(vmi, pod)).To(Equal(k8scorev1.ConditionFalse))
 	},
 		Entry("when a secondary iface using bridge binding is hotplugged",
 			libvmi.New(
@@ -116,6 +120,7 @@ var _ = Describe("Evaluator", func() {
 					),
 				),
 			),
+			&k8scorev1.Pod{},
 		),
 		Entry("when a secondary iface using bridge binding was hot-unplugged from the domain",
 			libvmi.New(
@@ -142,6 +147,7 @@ var _ = Describe("Evaluator", func() {
 					),
 				),
 			),
+			&k8scorev1.Pod{},
 		),
 	)
 
@@ -161,7 +167,8 @@ var _ = Describe("Evaluator", func() {
 			),
 		)
 
-		Expect(migration.NewEvaluator().Evaluate(vmi)).To(Equal(k8scorev1.ConditionTrue))
+		Expect(migration.NewEvaluator(stubClusterConfigurer{}).Evaluate(vmi, &k8scorev1.Pod{})).
+			To(Equal(k8scorev1.ConditionTrue))
 	})
 
 	Context("Time based scenarios", func() {
@@ -193,7 +200,8 @@ var _ = Describe("Evaluator", func() {
 				return metav1.Time{Time: stubNow}
 			}
 
-			Expect(migration.NewEvaluatorWithTimeProvider(stubTimeProvider).Evaluate(vmi)).To(Equal(expectedResult))
+			Expect(migration.NewEvaluatorWithTimeProvider(stubTimeProvider, stubClusterConfigurer{}).
+				Evaluate(vmi, &k8scorev1.Pod{})).To(Equal(expectedResult))
 		},
 			Entry("Should require a pending migration when timeout hasn't expired",
 				lastTransitionTime.Add(migration.DynamicNetworkControllerGracePeriod-1*time.Second),
@@ -205,4 +213,104 @@ var _ = Describe("Evaluator", func() {
 			),
 		)
 	})
+
+	Context("NAD name change scenarios", func() {
+		const (
+			testNamespace         = "default"
+			newSecondaryNadName   = "new-nad"
+			secondaryPodIfaceName = "pod7e0055a6880"
+		)
+
+		DescribeTable("should trigger",
+			func(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod, isLiveUpdateEnabled bool, expectedMigration k8scorev1.ConditionStatus) {
+				evaluator := migration.NewEvaluator(stubClusterConfigurer{isLiveUpdateNADRefEnabled: isLiveUpdateEnabled})
+				Expect(evaluator.Evaluate(vmi, pod)).To(Equal(expectedMigration))
+			},
+			Entry("immediate migration when NAD name in spec differs from that in pod annotation and FG is enabled",
+				libvmi.New(
+					libvmi.WithNamespace(testNamespace),
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, newSecondaryNadName)),
+					libvmistatus.WithStatus(libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:             secondaryNetworkName,
+							PodInterfaceName: secondaryPodIfaceName,
+							InfoSource:       multusAndDomainInfoSource,
+						}),
+					)),
+				),
+				&k8scorev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"k8s.v1.cni.cncf.io/network-status": podMultusStatusAnnotBuilder(
+								secondaryPodIfaceName, nadName, testNamespace,
+							),
+						},
+					},
+				},
+				true,
+				k8scorev1.ConditionTrue,
+			),
+			Entry("no migration when NAD name in spec differs from that in pod annotation and FG is disabled",
+				libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, newSecondaryNadName)),
+					libvmistatus.WithStatus(libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:             secondaryNetworkName,
+							PodInterfaceName: secondaryPodIfaceName,
+							InfoSource:       multusAndDomainInfoSource,
+						}),
+					)),
+				),
+				&k8scorev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"k8s.v1.cni.cncf.io/network-status": podMultusStatusAnnotBuilder(
+								secondaryPodIfaceName, nadName, testNamespace,
+							),
+						},
+					},
+				},
+				false,
+				k8scorev1.ConditionUnknown,
+			),
+			Entry("no migration when NAD name in spec matches that in pod annotation and FG is enabled",
+				libvmi.New(
+					libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetworkName)),
+					libvmi.WithNetwork(libvmi.MultusNetwork(secondaryNetworkName, nadName)),
+					libvmistatus.WithStatus(libvmistatus.New(
+						libvmistatus.WithInterfaceStatus(v1.VirtualMachineInstanceNetworkInterface{
+							Name:             secondaryNetworkName,
+							PodInterfaceName: secondaryPodIfaceName,
+							InfoSource:       multusAndDomainInfoSource,
+						}),
+					)),
+				),
+				&k8scorev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"k8s.v1.cni.cncf.io/network-status": podMultusStatusAnnotBuilder(
+								secondaryPodIfaceName, nadName, testNamespace,
+							),
+						},
+					},
+				},
+				true,
+				k8scorev1.ConditionUnknown,
+			),
+		)
+	})
 })
+
+type stubClusterConfigurer struct {
+	isLiveUpdateNADRefEnabled bool
+}
+
+func (s stubClusterConfigurer) LiveUpdateNADRefEnabled() bool {
+	return s.isLiveUpdateNADRefEnabled
+}
+
+func podMultusStatusAnnotBuilder(ifaceName, nadName, namespace string) string {
+	return fmt.Sprintf(`[{"interface":%q,"name":%q,"namespace":%q}]`, ifaceName, nadName, namespace)
+}

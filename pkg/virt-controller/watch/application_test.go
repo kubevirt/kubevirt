@@ -383,7 +383,7 @@ var _ = Describe("Application", func() {
 
 type stubMigrationEvaluator struct{}
 
-func (e stubMigrationEvaluator) Evaluate(_ *v1.VirtualMachineInstance) k8sv1.ConditionStatus {
+func (e stubMigrationEvaluator) Evaluate(_ *v1.VirtualMachineInstance, _ *k8sv1.Pod) k8sv1.ConditionStatus {
 	return k8sv1.ConditionUnknown
 }
 
