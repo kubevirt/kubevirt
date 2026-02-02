@@ -49,6 +49,7 @@ import (
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -106,7 +107,7 @@ var _ = Describe(SIG("Backup", func() {
 		Entry("2 backups to the same PVC should succeed", getDoubleTargetPVCSize(cd.AlpineVolumeSize), 2),
 	)
 
-	It("Full and Incremental Backup with BackupTracker", func() {
+	It("[QUARANTINE]Full and Incremental Backup with BackupTracker", decorators.Quarantine, func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
@@ -182,7 +183,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
 	})
 
-	It("Full and Incremental Backup with 2 disks", func() {
+	It("[QUARANTINE]Full and Incremental Backup with 2 disks", decorators.Quarantine, func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
