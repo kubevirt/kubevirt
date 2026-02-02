@@ -20,7 +20,7 @@ FROM ${DISTROLESS_BASE_IMAGE}
 ARG BUILD_ARCH=amd64
 ARG KUBEVIRT_VERSION
 
-COPY --from=builder /workspace/_out/cmd/synchronization-controller/synchronization-controller /usr/bin/synchronization-controller
+COPY --from=builder /workspace/_out/cmd/synchronization-controller/synchronization-controller /usr/bin/virt-synchronization-controller
 
 COPY --from=builder /workspace/.version /.version
 
@@ -28,4 +28,4 @@ COPY --from=builder --chmod=0644 /tmp/passwd /etc/passwd
 
 USER 1001
 
-ENTRYPOINT ["/usr/bin/synchronization-controller"]
+ENTRYPOINT ["/usr/bin/virt-synchronization-controller"]
