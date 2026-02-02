@@ -51,7 +51,6 @@ export KUBEVIRT_DEPLOY_CDI=true
 if [[ ! $TARGET =~ .*kind.* ]]; then
   export FEATURE_GATES="NodeRestriction"
   export KUBEVIRT_PSA="true"
-  export KUBEVIRT_FLANNEL=true
 fi
 
 case "$TARGET" in
