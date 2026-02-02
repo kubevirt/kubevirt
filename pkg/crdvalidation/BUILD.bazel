@@ -1,0 +1,42 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "cel.go",
+        "convert.go",
+        "crdvalidation.go",
+        "errors.go",
+        "schema_loader.go",
+        "testutils.go",
+    ],
+    importpath = "kubevirt.io/kubevirt/pkg/crdvalidation",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virt-operator/resource/generate/components:go_default_library",
+        "//vendor/github.com/go-openapi/spec:go_default_library",
+        "//vendor/github.com/go-openapi/strfmt:go_default_library",
+        "//vendor/github.com/go-openapi/validate:go_default_library",
+        "//vendor/github.com/google/cel-go/cel:go_default_library",
+        "//vendor/github.com/google/cel-go/common/types:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/github.com/onsi/gomega/types:go_default_library",
+        "//vendor/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1:go_default_library",
+        "//vendor/sigs.k8s.io/yaml:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "crdvalidation_suite_test.go",
+        "crdvalidation_test.go",
+    ],
+    race = "on",
+    deps = [
+        ":go_default_library",
+        "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+    ],
+)

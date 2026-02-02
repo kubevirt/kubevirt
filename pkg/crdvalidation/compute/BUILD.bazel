@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "clone_test.go",
+        "kubevirt_test.go",
+        "pool_test.go",
+        "suite_test.go",
+    ],
+    race = "on",
+    deps = [
+        "//pkg/crdvalidation:go_default_library",
+        "//staging/src/kubevirt.io/api/clone/v1beta1:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//staging/src/kubevirt.io/api/pool/v1beta1:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/utils/ptr:go_default_library",
+    ],
+)
