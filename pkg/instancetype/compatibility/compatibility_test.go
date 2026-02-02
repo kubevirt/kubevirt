@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	instancetypev1 "kubevirt.io/api/instancetype/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -152,7 +153,8 @@ var _ = Describe("compatibility", func() {
 		var expectedPreferenceSpec *instancetypev1.VirtualMachinePreferenceSpec
 
 		BeforeEach(func() {
-			preferredCPUTopology := instancetypev1.DeprecatedPreferCores
+			// After conversion from v1beta1, deprecated values should be converted to new values
+			preferredCPUTopology := instancetypev1.Cores
 			expectedPreferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1.CPUPreferences{
 					PreferredCPUTopology: &preferredCPUTopology,
@@ -160,10 +162,11 @@ var _ = Describe("compatibility", func() {
 			}
 		})
 
-		generatev1beta1PreferenceSpec := func() instancetypev1.VirtualMachinePreferenceSpec {
-			preferredTopology := instancetypev1.DeprecatedPreferCores
-			return instancetypev1.VirtualMachinePreferenceSpec{
-				CPU: &instancetypev1.CPUPreferences{
+		generatev1beta1PreferenceSpec := func() instancetypev1beta1.VirtualMachinePreferenceSpec {
+			// Use deprecated value in v1beta1 input to test conversion
+			preferredTopology := instancetypev1beta1.DeprecatedPreferCores
+			return instancetypev1beta1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1beta1.CPUPreferences{
 					PreferredCPUTopology: &preferredTopology,
 				},
 			}
@@ -184,13 +187,13 @@ var _ = Describe("compatibility", func() {
 			Expect(*spec).To(Equal(*expectedPreferenceSpec))
 		},
 			Entry("v1beta1 VirtualMachinePreference", func() []byte {
-				preference := instancetypev1.VirtualMachinePreference{
+				preference := instancetypev1beta1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterPreference",
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachinePreference",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "VirtualMachineClusterPreference",
+						Name: "VirtualMachinePreference",
 					},
 					Spec: generatev1beta1PreferenceSpec(),
 				}
@@ -200,9 +203,9 @@ var _ = Describe("compatibility", func() {
 				return preferenceBytes
 			}),
 			Entry("v1beta1 VirtualMachineClusterPreference", func() []byte {
-				preference := instancetypev1.VirtualMachineClusterPreference{
+				preference := instancetypev1beta1.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1.SchemeGroupVersion.String(),
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachineClusterPreference",
 					},
 					ObjectMeta: metav1.ObjectMeta{

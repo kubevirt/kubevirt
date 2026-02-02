@@ -57,27 +57,27 @@ func checkCPU(
 
 	baseConflict := conflict.New("spec", "template", "spec", "domain", "cpu")
 	switch preferenceApply.GetPreferredTopology(preferenceSpec) {
-	case instancetypev1.DeprecatedPreferThreads, instancetypev1.Threads:
+	case instancetypev1.Threads:
 		if vmiSpec.Domain.CPU.Threads < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{baseConflict.NewChild("threads")},
 				fmt.Errorf(
 					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Threads, preferenceSpec.Requirements.CPU.Guest, "threads")
 		}
-	case instancetypev1.DeprecatedPreferCores, instancetypev1.Cores:
+	case instancetypev1.Cores:
 		if vmiSpec.Domain.CPU.Cores < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{baseConflict.NewChild("cores")},
 				fmt.Errorf(
 					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Cores, preferenceSpec.Requirements.CPU.Guest, "cores")
 		}
-	case instancetypev1.DeprecatedPreferSockets, instancetypev1.Sockets:
+	case instancetypev1.Sockets:
 		if vmiSpec.Domain.CPU.Sockets < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{baseConflict.NewChild("sockets")},
 				fmt.Errorf(
 					InsufficientVMCPUResourcesErrorFmt, vmiSpec.Domain.CPU.Sockets, preferenceSpec.Requirements.CPU.Guest, "sockets")
 		}
-	case instancetypev1.DeprecatedPreferSpread, instancetypev1.Spread:
+	case instancetypev1.Spread:
 		return checkSpread(preferenceSpec, vmiSpec)
-	case instancetypev1.DeprecatedPreferAny, instancetypev1.Any:
+	case instancetypev1.Any:
 		cpuResources := vmiSpec.Domain.CPU.Cores * vmiSpec.Domain.CPU.Sockets * vmiSpec.Domain.CPU.Threads
 		if cpuResources < preferenceSpec.Requirements.CPU.Guest {
 			return conflict.Conflicts{

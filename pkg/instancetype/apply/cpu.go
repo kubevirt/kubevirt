@@ -88,13 +88,13 @@ func applyGuestCPUTopology(
 	}
 
 	switch preferenceApply.GetPreferredTopology(preferenceSpec) {
-	case instancetypev1.DeprecatedPreferCores, instancetypev1.Cores:
+	case instancetypev1.Cores:
 		vmiSpec.Domain.CPU.Cores = vCPUs
-	case instancetypev1.DeprecatedPreferSockets, instancetypev1.DeprecatedPreferAny, instancetypev1.Sockets, instancetypev1.Any:
+	case instancetypev1.Sockets, instancetypev1.Any:
 		vmiSpec.Domain.CPU.Sockets = vCPUs
-	case instancetypev1.DeprecatedPreferThreads, instancetypev1.Threads:
+	case instancetypev1.Threads:
 		vmiSpec.Domain.CPU.Threads = vCPUs
-	case instancetypev1.DeprecatedPreferSpread, instancetypev1.Spread:
+	case instancetypev1.Spread:
 		ratio, across := preferenceApply.GetSpreadOptions(preferenceSpec)
 		switch across {
 		case instancetypev1.SpreadAcrossSocketsCores:

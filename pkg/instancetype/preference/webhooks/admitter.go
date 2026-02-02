@@ -30,6 +30,7 @@ import (
 
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1 "kubevirt.io/api/instancetype/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
@@ -82,8 +83,9 @@ func hasSpreadTopology(spec *instancetypev1.VirtualMachinePreferenceSpec) bool {
 	if spec == nil || spec.CPU == nil || spec.CPU.PreferredCPUTopology == nil {
 		return false
 	}
-	topology := *spec.CPU.PreferredCPUTopology
-	return topology == instancetypev1.Spread || topology == instancetypev1.DeprecatedPreferSpread
+	// Use GetPreferredTopology to normalize deprecated values
+	topology := apply.GetPreferredTopology(spec)
+	return topology == instancetypev1.Spread
 }
 
 func validateSpreadOptions(field *k8sfield.Path, spec *instancetypev1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
@@ -117,23 +119,25 @@ func validateSpreadOptions(field *k8sfield.Path, spec *instancetypev1.VirtualMac
 
 const deprecatedPreferredCPUTopologyErrFmt = "PreferredCPUTopology %s is deprecated for removal in a future release, please use %s instead"
 
-var deprecatedTopologies = map[instancetypev1.PreferredCPUTopology]instancetypev1.PreferredCPUTopology{
-	instancetypev1.DeprecatedPreferSockets: instancetypev1.Sockets,
-	instancetypev1.DeprecatedPreferCores:   instancetypev1.Cores,
-	instancetypev1.DeprecatedPreferThreads: instancetypev1.Threads,
-	instancetypev1.DeprecatedPreferSpread:  instancetypev1.Spread,
-	instancetypev1.DeprecatedPreferAny:     instancetypev1.Any,
+// deprecatedTopologyStrings maps deprecated string values to their replacement string values.
+// These are used to detect deprecated values in incoming requests and warn users.
+var deprecatedTopologyStrings = map[string]string{
+	string(instancetypev1beta1.DeprecatedPreferSockets): string(instancetypev1.Sockets),
+	string(instancetypev1beta1.DeprecatedPreferCores):   string(instancetypev1.Cores),
+	string(instancetypev1beta1.DeprecatedPreferThreads): string(instancetypev1.Threads),
+	string(instancetypev1beta1.DeprecatedPreferSpread):  string(instancetypev1.Spread),
+	string(instancetypev1beta1.DeprecatedPreferAny):     string(instancetypev1.Any),
 }
 
 func checkForDeprecatedPreferredCPUTopology(spec *instancetypev1.VirtualMachinePreferenceSpec) []string {
 	if spec.CPU == nil || spec.CPU.PreferredCPUTopology == nil {
 		return nil
 	}
-	topology := *spec.CPU.PreferredCPUTopology
-	if _, ok := deprecatedTopologies[topology]; !ok {
-		return nil
+	topology := string(*spec.CPU.PreferredCPUTopology)
+	if newValue, ok := deprecatedTopologyStrings[topology]; ok {
+		return []string{fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, topology, newValue)}
 	}
-	return []string{fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, topology, deprecatedTopologies[topology])}
+	return nil
 }
 
 func admitPreference(request *admissionv1.AdmissionRequest, resource string) *admissionv1.AdmissionResponse {

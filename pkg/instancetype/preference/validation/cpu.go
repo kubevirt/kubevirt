@@ -23,6 +23,7 @@ import (
 	"slices"
 
 	instancetypev1 "kubevirt.io/api/instancetype/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
@@ -30,16 +31,17 @@ import (
 
 func IsPreferredTopologySupported(topology instancetypev1.PreferredCPUTopology) bool {
 	supportedTopologies := []instancetypev1.PreferredCPUTopology{
-		instancetypev1.DeprecatedPreferSockets,
-		instancetypev1.DeprecatedPreferCores,
-		instancetypev1.DeprecatedPreferThreads,
-		instancetypev1.DeprecatedPreferSpread,
-		instancetypev1.DeprecatedPreferAny,
 		instancetypev1.Sockets,
 		instancetypev1.Cores,
 		instancetypev1.Threads,
 		instancetypev1.Spread,
 		instancetypev1.Any,
+		// Deprecated values are still supported for backward compatibility
+		instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferSockets),
+		instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferCores),
+		instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferThreads),
+		instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferSpread),
+		instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferAny),
 	}
 	return slices.Contains(supportedTopologies, topology)
 }
@@ -58,7 +60,7 @@ func CheckSpreadCPUTopology(
 	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 ) *conflict.Conflict {
 	topology := apply.GetPreferredTopology(preferenceSpec)
-	if instancetypeSpec == nil || (topology != instancetypev1.Spread && topology != instancetypev1.DeprecatedPreferSpread) {
+	if instancetypeSpec == nil || topology != instancetypev1.Spread {
 		return nil
 	}
 
