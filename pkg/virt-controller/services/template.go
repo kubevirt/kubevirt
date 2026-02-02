@@ -53,7 +53,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
-	"kubevirt.io/kubevirt/pkg/network/multus"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -364,10 +363,11 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		})
 	}
 
-	networkToResourceMap, err := multus.NetworkToResource(t.virtClient, vmi)
-	if err != nil {
-		return nil, err
-	}
+	//networkToResourceMap, err := multus.NetworkToResource(t.virtClient, vmi)
+	//if err != nil {
+	//	return nil, err
+	//}
+	networkToResourceMap:=map[string]string{}
 	resourceRenderer, err := t.newResourceRenderer(vmi, networkToResourceMap)
 	if err != nil {
 		return nil, err
