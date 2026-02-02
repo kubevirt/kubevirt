@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["empty.pb.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/protobuf/types/known/emptypb",
+    importpath = "google.golang.org/protobuf/types/known/emptypb",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/google.golang.org/protobuf/reflect/protoreflect:go_default_library",
+        "//vendor/google.golang.org/protobuf/runtime/protoimpl:go_default_library",
+    ],
+)
