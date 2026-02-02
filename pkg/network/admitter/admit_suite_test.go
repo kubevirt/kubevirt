@@ -31,19 +31,8 @@ func TestAdmitter(t *testing.T) {
 
 type stubClusterConfigChecker struct {
 	bridgeBindingOnPodNetEnabled bool
-	macvtapFeatureGateEnabled    bool
-	passtFeatureGateEnabled      bool
-	bindingPluginFGEnabled       bool
 }
 
 func (s stubClusterConfigChecker) IsBridgeInterfaceOnPodNetworkEnabled() bool {
 	return s.bridgeBindingOnPodNetEnabled
-}
-
-func (s stubClusterConfigChecker) MacvtapEnabled() bool {
-	return s.macvtapFeatureGateEnabled
-}
-
-func (s stubClusterConfigChecker) PasstEnabled() bool {
-	return s.passtFeatureGateEnabled
 }

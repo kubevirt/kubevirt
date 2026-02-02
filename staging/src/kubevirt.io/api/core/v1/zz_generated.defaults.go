@@ -78,6 +78,7 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 			SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.ACPI)
 			if in.Spec.Template.Spec.Domain.Features.APIC != nil {
 				SetDefaults_FeatureAPIC(in.Spec.Template.Spec.Domain.Features.APIC)
+				SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.APIC.FeatureState)
 			}
 			if in.Spec.Template.Spec.Domain.Features.Hyperv != nil {
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.Relaxed != nil {
@@ -88,6 +89,7 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks != nil {
 					SetDefaults_FeatureSpinlocks(in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks)
+					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks.FeatureState)
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.VPIndex != nil {
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.VPIndex)
@@ -100,6 +102,7 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer != nil {
 					SetDefaults_SyNICTimer(in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer)
+					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer.FeatureState)
 					if in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer.Direct != nil {
 						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer.Direct)
 					}
@@ -109,6 +112,7 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID != nil {
 					SetDefaults_FeatureVendorID(in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID)
+					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID.FeatureState)
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.Frequencies != nil {
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Frequencies)
@@ -117,7 +121,13 @@ func SetObjectDefaults_VirtualMachine(in *VirtualMachine) {
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Reenlightenment)
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush)
+					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush.FeatureState)
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush.Direct != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush.Direct)
+					}
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush.Extended != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush.Extended)
+					}
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.IPI != nil {
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.IPI)
@@ -211,6 +221,7 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 		SetDefaults_FeatureState(&in.Spec.Domain.Features.ACPI)
 		if in.Spec.Domain.Features.APIC != nil {
 			SetDefaults_FeatureAPIC(in.Spec.Domain.Features.APIC)
+			SetDefaults_FeatureState(&in.Spec.Domain.Features.APIC.FeatureState)
 		}
 		if in.Spec.Domain.Features.Hyperv != nil {
 			if in.Spec.Domain.Features.Hyperv.Relaxed != nil {
@@ -221,6 +232,7 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 			}
 			if in.Spec.Domain.Features.Hyperv.Spinlocks != nil {
 				SetDefaults_FeatureSpinlocks(in.Spec.Domain.Features.Hyperv.Spinlocks)
+				SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.Spinlocks.FeatureState)
 			}
 			if in.Spec.Domain.Features.Hyperv.VPIndex != nil {
 				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.VPIndex)
@@ -233,6 +245,7 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 			}
 			if in.Spec.Domain.Features.Hyperv.SyNICTimer != nil {
 				SetDefaults_SyNICTimer(in.Spec.Domain.Features.Hyperv.SyNICTimer)
+				SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.SyNICTimer.FeatureState)
 				if in.Spec.Domain.Features.Hyperv.SyNICTimer.Direct != nil {
 					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.SyNICTimer.Direct)
 				}
@@ -242,6 +255,7 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 			}
 			if in.Spec.Domain.Features.Hyperv.VendorID != nil {
 				SetDefaults_FeatureVendorID(in.Spec.Domain.Features.Hyperv.VendorID)
+				SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.VendorID.FeatureState)
 			}
 			if in.Spec.Domain.Features.Hyperv.Frequencies != nil {
 				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Frequencies)
@@ -250,7 +264,13 @@ func SetObjectDefaults_VirtualMachineInstance(in *VirtualMachineInstance) {
 				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Reenlightenment)
 			}
 			if in.Spec.Domain.Features.Hyperv.TLBFlush != nil {
-				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.TLBFlush)
+				SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.TLBFlush.FeatureState)
+				if in.Spec.Domain.Features.Hyperv.TLBFlush.Direct != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.TLBFlush.Direct)
+				}
+				if in.Spec.Domain.Features.Hyperv.TLBFlush.Extended != nil {
+					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.TLBFlush.Extended)
+				}
 			}
 			if in.Spec.Domain.Features.Hyperv.IPI != nil {
 				SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.IPI)
@@ -334,6 +354,7 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 			SetDefaults_FeatureState(&in.Spec.Domain.Features.ACPI)
 			if in.Spec.Domain.Features.APIC != nil {
 				SetDefaults_FeatureAPIC(in.Spec.Domain.Features.APIC)
+				SetDefaults_FeatureState(&in.Spec.Domain.Features.APIC.FeatureState)
 			}
 			if in.Spec.Domain.Features.Hyperv != nil {
 				if in.Spec.Domain.Features.Hyperv.Relaxed != nil {
@@ -344,6 +365,7 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 				}
 				if in.Spec.Domain.Features.Hyperv.Spinlocks != nil {
 					SetDefaults_FeatureSpinlocks(in.Spec.Domain.Features.Hyperv.Spinlocks)
+					SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.Spinlocks.FeatureState)
 				}
 				if in.Spec.Domain.Features.Hyperv.VPIndex != nil {
 					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.VPIndex)
@@ -356,6 +378,7 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 				}
 				if in.Spec.Domain.Features.Hyperv.SyNICTimer != nil {
 					SetDefaults_SyNICTimer(in.Spec.Domain.Features.Hyperv.SyNICTimer)
+					SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.SyNICTimer.FeatureState)
 					if in.Spec.Domain.Features.Hyperv.SyNICTimer.Direct != nil {
 						SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.SyNICTimer.Direct)
 					}
@@ -365,6 +388,7 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 				}
 				if in.Spec.Domain.Features.Hyperv.VendorID != nil {
 					SetDefaults_FeatureVendorID(in.Spec.Domain.Features.Hyperv.VendorID)
+					SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.VendorID.FeatureState)
 				}
 				if in.Spec.Domain.Features.Hyperv.Frequencies != nil {
 					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Frequencies)
@@ -373,7 +397,13 @@ func SetObjectDefaults_VirtualMachineInstancePreset(in *VirtualMachineInstancePr
 					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.Reenlightenment)
 				}
 				if in.Spec.Domain.Features.Hyperv.TLBFlush != nil {
-					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.TLBFlush)
+					SetDefaults_FeatureState(&in.Spec.Domain.Features.Hyperv.TLBFlush.FeatureState)
+					if in.Spec.Domain.Features.Hyperv.TLBFlush.Direct != nil {
+						SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.TLBFlush.Direct)
+					}
+					if in.Spec.Domain.Features.Hyperv.TLBFlush.Extended != nil {
+						SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.TLBFlush.Extended)
+					}
 				}
 				if in.Spec.Domain.Features.Hyperv.IPI != nil {
 					SetDefaults_FeatureState(in.Spec.Domain.Features.Hyperv.IPI)
@@ -449,6 +479,7 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 			SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.ACPI)
 			if in.Spec.Template.Spec.Domain.Features.APIC != nil {
 				SetDefaults_FeatureAPIC(in.Spec.Template.Spec.Domain.Features.APIC)
+				SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.APIC.FeatureState)
 			}
 			if in.Spec.Template.Spec.Domain.Features.Hyperv != nil {
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.Relaxed != nil {
@@ -459,6 +490,7 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks != nil {
 					SetDefaults_FeatureSpinlocks(in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks)
+					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.Spinlocks.FeatureState)
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.VPIndex != nil {
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.VPIndex)
@@ -471,6 +503,7 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer != nil {
 					SetDefaults_SyNICTimer(in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer)
+					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer.FeatureState)
 					if in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer.Direct != nil {
 						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer.Direct)
 					}
@@ -480,6 +513,7 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID != nil {
 					SetDefaults_FeatureVendorID(in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID)
+					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.VendorID.FeatureState)
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.Frequencies != nil {
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Frequencies)
@@ -488,7 +522,13 @@ func SetObjectDefaults_VirtualMachineInstanceReplicaSet(in *VirtualMachineInstan
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.Reenlightenment)
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush != nil {
-					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush)
+					SetDefaults_FeatureState(&in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush.FeatureState)
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush.Direct != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush.Direct)
+					}
+					if in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush.Extended != nil {
+						SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.TLBFlush.Extended)
+					}
 				}
 				if in.Spec.Template.Spec.Domain.Features.Hyperv.IPI != nil {
 					SetDefaults_FeatureState(in.Spec.Template.Spec.Domain.Features.Hyperv.IPI)

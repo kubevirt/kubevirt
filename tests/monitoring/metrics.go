@@ -49,12 +49,13 @@ import (
 var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 	var virtClient kubecli.KubevirtClient
 	var metrics *libmonitoring.QueryRequestResult
+	var vm *v1.VirtualMachine
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
-	Context("Prometheus metrics", func() {
+	Context("Prometheus metrics", Ordered, func() {
 		var excludedMetrics = map[string]bool{
 			// virt-api
 			// can later be added in pre-existing feature tests
@@ -84,11 +85,15 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_migration_dirty_memory_rate_bytes":                     true,
 			"kubevirt_vmi_migration_memory_transfer_rate_bytes":                  true,
 			"kubevirt_vmi_migration_data_total_bytes":                            true,
+			"kubevirt_vmi_migration_data_bytes_total":                            true,
 			"kubevirt_vmi_migration_start_time_seconds":                          true,
 			"kubevirt_vmi_migration_end_time_seconds":                            true,
 
 			// This metric is using a dedicated collector and is being tested separately
 			"kubevirt_vmi_dirty_rate_bytes_per_second": true,
+
+			// This metric is being tested in storage hotplug
+			"kubevirt_vmi_contains_ephemeral_hotplug_volume": true,
 
 			// CPU load metrics need an updated libvirt version running on the nodes
 			// that exposes the CPU load information
@@ -97,8 +102,8 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			"kubevirt_vmi_guest_load_15m": true,
 		}
 
-		BeforeEach(func() {
-			basicVMLifecycle(virtClient)
+		BeforeAll(func() {
+			vm = basicVMLifecycle(virtClient)
 			metrics = fetchPrometheusKubevirtMetrics(virtClient)
 			Expect(metrics.Data.Result).ToNot(BeEmpty(), "No metrics found")
 		})
@@ -114,6 +119,56 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 
 				Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, nil)))
 			}
+		})
+
+		It("should contain VNIC metrics", func() {
+			labels := map[string]string{
+				"namespace":    vm.Namespace,
+				"name":         vm.Name,
+				"binding_type": "core",
+				"network":      "pod networking",
+				"binding_name": "masquerade",
+			}
+
+			By("Verifying VM vnic info metric")
+			metric := operatormetrics.NewCounter(operatormetrics.MetricOpts{
+				Name: "kubevirt_vm_vnic_info",
+			})
+			Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, labels)))
+
+			By("Verifying VMI vnic info metric")
+			metric = operatormetrics.NewCounter(operatormetrics.MetricOpts{
+				Name: "kubevirt_vmi_vnic_info",
+			})
+			Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, labels)))
+		})
+
+		It("should contain disk metrics", func() {
+			By("Verifying kubevirt_vm_disk_allocated_size_bytes metric")
+			metric := operatormetrics.NewGauge(operatormetrics.MetricOpts{
+				Name: "kubevirt_vm_disk_allocated_size_bytes",
+			})
+			labels := map[string]string{
+				"namespace":             vm.Namespace,
+				"name":                  vm.Name,
+				"persistentvolumeclaim": "test-vm-pvc",
+				"volume_mode":           "Filesystem",
+				"device":                "testdisk",
+			}
+			Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, labels)))
+		})
+
+		It("should contain label metrics", func() {
+			By("Verifying kubevirt_vm_labels metric")
+			metric := operatormetrics.NewGauge(operatormetrics.MetricOpts{
+				Name: "kubevirt_vm_labels",
+			})
+			labels := map[string]string{
+				"namespace":                 vm.Namespace,
+				"name":                      vm.Name,
+				"label_vm_kubevirt_io_test": "test-vm-labels",
+			}
+			Expect(metrics.Data.Result).To(ContainElement(gomegaContainsMetricMatcher(metric, labels)))
 		})
 	})
 
@@ -175,54 +230,22 @@ func fetchPrometheusMetrics(virtClient kubecli.KubevirtClient, query string) *li
 	return metrics
 }
 
-func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
+func basicVMLifecycle(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	By("Creating and running a VM")
 	vm := createAndRunVM(virtClient)
 
 	By("Waiting for the VM to be reported")
 	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", 1)
 
+	By("Waiting for the VMI to be reported")
+	labels := map[string]string{
+		"namespace": vm.Namespace,
+		"name":      vm.Name,
+	}
+	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_info", 1, labels, 1)
+
 	By("Waiting for the VM domainstats metrics to be reported")
 	libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmi_filesystem_capacity_bytes", map[string]string{"namespace": vm.Namespace, "name": vm.Name}, 0, ">", 0)
-
-	By("Verifying kubevirt_vm_disk_allocated_size_bytes metric")
-	libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vm_disk_allocated_size_bytes",
-		map[string]string{
-			"namespace":             vm.Namespace,
-			"name":                  vm.Name,
-			"persistentvolumeclaim": "test-vm-pvc",
-			"volume_mode":           "Filesystem",
-			"device":                "testdisk",
-		},
-		0, ">", 0)
-
-	By("Verifying kubevirt_vm_vnic_info metric")
-	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vm_vnic_info", 1,
-		map[string]string{
-			"namespace":    vm.Namespace,
-			"name":         vm.Name,
-			"binding_type": "core",
-			"network":      "pod networking",
-			"binding_name": "masquerade",
-		}, 0)
-
-	By("Verifying kubevirt_vmi_vnic_info metric")
-	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_vnic_info", 1,
-		map[string]string{
-			"namespace":    vm.Namespace,
-			"name":         vm.Name,
-			"binding_type": "core",
-			"network":      "pod networking",
-			"binding_name": "masquerade",
-		}, 0)
-
-	By("Verifying kubevirt_vm_labels metric")
-	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vm_labels", 1,
-		map[string]string{
-			"namespace":                 vm.Namespace,
-			"name":                      vm.Name,
-			"label_vm_kubevirt_io_test": "test-vm-labels",
-		}, 0)
 
 	By("Deleting the VirtualMachine")
 	err := virtClient.VirtualMachine(vm.Namespace).Delete(context.Background(), vm.Name, metav1.DeleteOptions{})
@@ -230,17 +253,19 @@ func basicVMLifecycle(virtClient kubecli.KubevirtClient) {
 
 	By("Waiting for the VM deletion to be reported")
 	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", -1)
+
+	return vm
 }
 
 func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vmDiskPVC := "test-vm-pvc"
-	pvc := libstorage.CreateFSPVC(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil)
+	dv := libstorage.CreateBlankFSDataVolume(vmDiskPVC, testsuite.GetTestNamespace(nil), "512Mi", nil)
 	iface := *v1.DefaultMasqueradeNetworkInterface()
 
 	vmi := libvmifact.NewFedora(
 		libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 		libvmi.WithMemoryLimit("512Mi"),
-		libvmi.WithPersistentVolumeClaim("testdisk", pvc.Name),
+		libvmi.WithDataVolume("testdisk", dv.Name),
 		libvmi.WithInterface(iface),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		libvmi.WithLabel("vm.kubevirt.io/test", "test-vm-labels"),

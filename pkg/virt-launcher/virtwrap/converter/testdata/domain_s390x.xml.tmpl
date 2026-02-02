@@ -1,4 +1,4 @@
-<domain type="%s" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+<domain type="kvm" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
   <name>mynamespace_testvmi</name>
   <memory unit="b">8388608</memory>
   <os>
@@ -21,9 +21,8 @@
   <devices>
     <interface type="ethernet">
       <source></source>
-      <model type="virtio-non-transitional"></model>
+      <model type="virtio"></model>
       <alias name="ua-default"></alias>
-      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>

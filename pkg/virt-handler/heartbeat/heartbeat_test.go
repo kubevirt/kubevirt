@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
 package heartbeat
 
 import (
@@ -64,6 +83,7 @@ var _ = Describe("Heartbeat", func() {
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, schedulable))
+		Expect(node.Labels).To(HaveKeyWithValue(virtv1.DeprecatedCPUManager, cpumanager))
 		Expect(node.Labels).To(HaveKeyWithValue(virtv1.CPUManager, cpumanager))
 	},
 		Entry("not schedulable and no cpu manager with no cpu manager file and device plugins are not initialized",
@@ -98,6 +118,7 @@ var _ = Describe("Heartbeat", func() {
 		node, err := fakeClient.CoreV1().Nodes().Get(context.Background(), "mynode", metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(node.Labels).To(HaveKeyWithValue(virtv1.NodeSchedulable, schedulable))
+		Expect(node.Labels).ToNot(HaveKeyWithValue(virtv1.DeprecatedCPUManager, false))
 		Expect(node.Labels).ToNot(HaveKeyWithValue(virtv1.CPUManager, false))
 	},
 		Entry("not schedulable with no cpumanager label present",

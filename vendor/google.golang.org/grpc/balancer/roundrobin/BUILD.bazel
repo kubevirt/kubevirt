@@ -1,0 +1,16 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["roundrobin.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/google.golang.org/grpc/balancer/roundrobin",
+    importpath = "google.golang.org/grpc/balancer/roundrobin",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/google.golang.org/grpc/balancer:go_default_library",
+        "//vendor/google.golang.org/grpc/balancer/endpointsharding:go_default_library",
+        "//vendor/google.golang.org/grpc/balancer/pickfirst/pickfirstleaf:go_default_library",
+        "//vendor/google.golang.org/grpc/grpclog:go_default_library",
+        "//vendor/google.golang.org/grpc/internal/grpclog:go_default_library",
+    ],
+)

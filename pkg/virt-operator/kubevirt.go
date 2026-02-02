@@ -1036,7 +1036,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 	config.SetTargetDeploymentConfig(kv)
 
 	// Set the default architecture
-	config.SetDefaultArchitecture(kv)
+	operatorutil.SetDefaultArchitecture(kv)
 
 	if kv.Status.Phase == "" {
 		kv.Status.Phase = v1.KubeVirtPhaseDeploying
@@ -1060,6 +1060,12 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 
 	// add finalizer to prevent deletion of CR before KubeVirt was undeployed
 	util.AddFinalizer(kv)
+
+	//  delete old install strategies to ensure a clean re-creation
+	err = c.deleteAllOldInstallStrategies(config.GetKubeVirtVersion())
+	if err != nil {
+		return err
+	}
 
 	// once all the install strategies are loaded, garbage collect any
 	// install strategy jobs that were created.

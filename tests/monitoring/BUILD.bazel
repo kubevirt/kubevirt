@@ -11,7 +11,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/tests/monitoring",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//pkg/monitoring/metrics/testing:go_default_library",
         "//pkg/monitoring/metrics/virt-controller:go_default_library",
@@ -20,7 +19,6 @@ go_library(
         "//tests/console:go_default_library",
         "//tests/decorators:go_default_library",
         "//tests/flags:go_default_library",
-        "//tests/framework/checks:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
         "//tests/libkubevirt:go_default_library",
@@ -29,6 +27,7 @@ go_library(
         "//tests/libmonitoring:go_default_library",
         "//tests/libnet:go_default_library",
         "//tests/libnode:go_default_library",
+        "//tests/libregistry:go_default_library",
         "//tests/libstorage:go_default_library",
         "//tests/libvmifact:go_default_library",
         "//tests/libvmops:go_default_library",

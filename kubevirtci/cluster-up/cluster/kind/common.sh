@@ -98,9 +98,17 @@ function _reload-containerd-daemon-cmd() {
 }
 
 function _insecure-registry-config-cmd() {
-    echo "sed -i '/\[plugins.cri.registry.mirrors\]/a\        [plugins.cri.registry.mirrors.\"registry:5000\"]\n\          endpoint = [\"http://registry:5000\"]' /etc/containerd/config.toml"
-}
+    echo '
+    mkdir -p /etc/containerd/certs.d/registry:5000
+    cat > /etc/containerd/certs.d/registry:5000/hosts.toml <<EOF
+server = "http://registry:5000"
 
+[host."http://registry:5000"]
+  capabilities = ["pull", "resolve", "push"]
+  skip_verify = true
+EOF
+    '
+}
 # this works since the nodes use the same names as containers
 function _ssh_into_node() {
     if [[ $2 != "" ]]; then

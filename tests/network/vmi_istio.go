@@ -45,6 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnet/job"
@@ -142,9 +143,9 @@ var istioTests = func(vmType VmType) {
 		})
 		JustBeforeEach(func() {
 			// Enable sidecar injection by setting the namespace label
-			Expect(libnet.AddLabelToNamespace(virtClient, namespace, istioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
+			Expect(libnamespace.AddLabelToNamespace(virtClient, namespace, istioInjectNamespaceLabel, "enabled")).ShouldNot(HaveOccurred())
 			defer func() {
-				Expect(libnet.RemoveLabelFromNamespace(virtClient, namespace, istioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
+				Expect(libnamespace.RemoveLabelFromNamespace(virtClient, namespace, istioInjectNamespaceLabel)).ShouldNot(HaveOccurred())
 			}()
 
 			By("Creating VMI")
@@ -192,12 +193,13 @@ var istioTests = func(vmType VmType) {
 			}
 			checkSSHConnection := func(vmi *v1.VirtualMachineInstance, vmiAddress string) error {
 				user := "doesntmatter"
-				return console.SafeExpectBatch(vmi, []expect.Batcher{
+				// Can't use SafeExpectBatch here because the last command never returns to prompt
+				return console.ExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
 					&expect.BExp{R: console.PromptExpression},
 					&expect.BSnd{S: sshCommand(user, vmiAddress)},
 					&expect.BExp{R: fmt.Sprintf("%s@%s's password: ", user, vmiAddress)},
-				}, 60)
+				}, 60*time.Second)
 			}
 
 			BeforeEach(func() {
@@ -377,7 +379,7 @@ var istioTests = func(vmType VmType) {
 			checkHTTPServiceReturnCode := func(ingressGatewayAddress, returnCode string) error {
 				return console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: curlCommand(ingressGatewayAddress)},
 					&expect.BExp{R: returnCode},
 					&expect.BSnd{S: "echo $?\n"},
@@ -456,7 +458,7 @@ var istioTestsWithPasstBinding = func() {
 		passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 		err := config.RegisterKubevirtConfigChange(
-			config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
+			config.WithNetBindingPluginIfNotPresent(passtBindingName, v1.InterfaceBindingPlugin{
 				SidecarImage:                passtSidecarImage,
 				NetworkAttachmentDefinition: passtNetAttDefName,
 				Migration:                   &v1.InterfaceBindingMigration{},

@@ -31,9 +31,9 @@ import (
 	fake2 "kubevirt.io/client-go/testing"
 )
 
-func (c *FakeVirtualMachineInstanceReplicaSets) GetScale(ctx context.Context, replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error) {
+func (c *fakeVirtualMachineInstanceReplicaSets) GetScale(ctx context.Context, replicaSetName string, options metav1.GetOptions) (*autov1.Scale, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetSubresourceAction(virtualmachineinstancereplicasetsResource, c.ns, "scale", replicaSetName), &autov1.Scale{})
+		Invokes(testing.NewGetSubresourceAction(c.Resource(), c.Namespace(), "scale", replicaSetName), &autov1.Scale{})
 
 	if obj == nil {
 		return nil, err
@@ -41,9 +41,9 @@ func (c *FakeVirtualMachineInstanceReplicaSets) GetScale(ctx context.Context, re
 	return obj.(*autov1.Scale), err
 }
 
-func (c *FakeVirtualMachineInstanceReplicaSets) UpdateScale(ctx context.Context, replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error) {
+func (c *fakeVirtualMachineInstanceReplicaSets) UpdateScale(ctx context.Context, replicaSetName string, scale *autov1.Scale) (*autov1.Scale, error) {
 	obj, err := c.Fake.
-		Invokes(fake2.NewPutSubresourceAction(virtualmachineinstancereplicasetsResource, c.ns, "scale", replicaSetName, struct{}{}), &autov1.Scale{})
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "scale", replicaSetName, struct{}{}), &autov1.Scale{})
 
 	if obj == nil {
 		return nil, err
@@ -51,6 +51,6 @@ func (c *FakeVirtualMachineInstanceReplicaSets) UpdateScale(ctx context.Context,
 	return obj.(*autov1.Scale), err
 }
 
-func (c *FakeVirtualMachineInstanceReplicaSets) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*v1.VirtualMachineInstanceReplicaSet, error) {
+func (c *fakeVirtualMachineInstanceReplicaSets) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*v1.VirtualMachineInstanceReplicaSet, error) {
 	return c.Patch(ctx, name, pt, data, opts, "status")
 }

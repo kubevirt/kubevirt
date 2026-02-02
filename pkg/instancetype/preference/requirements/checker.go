@@ -52,5 +52,11 @@ func (c *checker) Check(
 		}
 	}
 
+	if preferenceSpec.Requirements.Architecture != nil {
+		if conflicts, err := checkArch(preferenceSpec, vmiSpec); err != nil {
+			return conflicts, err
+		}
+	}
+
 	return nil, nil
 }

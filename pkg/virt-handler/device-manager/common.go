@@ -138,8 +138,8 @@ func (h *DeviceUtilsHandler) CreateMDEVType(mdevType string, parentID string) er
 		if e, ok := err.(*exec.ExitError); ok {
 			if len(e.Stderr) > 0 {
 				msg := fmt.Sprintf("failed to create mdev type %s, err: %v", mdevType, string(e.Stderr))
-				errMsg := fmt.Errorf(msg)
-				log.Log.Reason(err).Errorf(msg)
+				errMsg := fmt.Errorf("%s", msg)
+				log.Log.Reason(err).Errorf("%s", msg)
 				return errMsg
 			}
 		}
@@ -157,8 +157,8 @@ func (h *DeviceUtilsHandler) RemoveMDEVType(mdevUUID string) error {
 		if e, ok := err.(*exec.ExitError); ok {
 			if len(e.Stderr) > 0 {
 				msg := fmt.Sprintf("failed to remove mdev %s, can't write to %s, err: %v", mdevUUID, removePath, string(e.Stderr))
-				errMsg := fmt.Errorf(msg)
-				log.Log.Reason(err).Errorf(msg)
+				errMsg := fmt.Errorf("%s", msg)
+				log.Log.Reason(err).Errorf("%s", msg)
 				return errMsg
 			}
 		}

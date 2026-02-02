@@ -19,6 +19,9 @@ package arch
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
 var _ = Describe("Arch Converter", func() {
@@ -33,4 +36,13 @@ var _ = Describe("Arch Converter", func() {
 		Entry("s390x", "s390x", converterS390X{}),
 		Entry("unknown", "unknown", converterAMD64{}),
 	)
+
+	Context("IsUSBNeeded on AMD64", func() {
+		It("should require a USB controller on amd64 when an input device has an empty bus", func() {
+			vmi := libvmi.New()
+			vmi.Spec.Domain.Devices.Inputs = []v1.Input{{}}
+			ac := NewConverter("amd64")
+			Expect(ac.IsUSBNeeded(vmi)).To(BeTrue())
+		})
+	})
 })

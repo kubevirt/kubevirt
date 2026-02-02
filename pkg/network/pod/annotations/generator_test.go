@@ -137,6 +137,7 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(annotations).To(HaveKeyWithValue(istio.KubeVirtTrafficAnnotation, "k6t-eth0"))
+			Expect(annotations).To(HaveKeyWithValue(istio.RerouteVirtualInterfacesAnnotation, "k6t-eth0"))
 		})
 
 		DescribeTable("should not generate Istio annotation", func(vmi *v1.VirtualMachineInstance) {
@@ -145,6 +146,7 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(annotations).To(Not(HaveKey(istio.KubeVirtTrafficAnnotation)))
+			Expect(annotations).To(Not(HaveKey(istio.RerouteVirtualInterfacesAnnotation)))
 		},
 			Entry("when VMI is not connected any network", libvmi.New()),
 			Entry("when VMI is connected to pod network and not using masquerade binding",
@@ -228,6 +230,8 @@ var _ = Describe("Annotations Generator", func() {
 			networkAttachmentDefinitionName3 = "default/sriov"
 			networkName4                     = "goo"
 			networkAttachmentDefinitionName4 = "default/br-net"
+			networkName5                     = "woo"
+			networkAttachmentDefinitionName5 = "default/with-mac-and-device-info"
 
 			deviceInfoPlugin    = "deviceinfo"
 			nonDeviceInfoPlugin = "non_deviceinfo"
@@ -342,6 +346,31 @@ var _ = Describe("Annotations Generator", func() {
 			Expect(actualAnnotations).To(HaveKeyWithValue(
 				downwardapi.NetworkInfoAnnot,
 				`{"interfaces":[{"network":"foo","deviceInfo":{"type":"pci","version":"1.0.0","pci":{"pci-address":"0000:65:00.2"}}}]}`,
+			))
+		})
+
+		It("Should add mac address, if available, to the network info annotation when there is one binding plugin with device info", func() {
+			vmi := libvmi.New(
+				libvmi.WithNamespace(testNamespace),
+				libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin(networkName5, v1.PluginBinding{Name: deviceInfoPlugin})),
+				libvmi.WithNetwork(libvmi.MultusNetwork(networkName5, networkAttachmentDefinitionName5)),
+			)
+
+			const multusNetworkStatusWithPrimaryAndSecondaryNetsWithDeviceInfo = `[` +
+				`{"name":"k8s-pod-network","ips":["10.244.196.146","fd10:244::c491"],"default":true,"dns":{}},` +
+				`{"name":"default/with-mac-and-device-info","interface":"podb260539511e","mac":"3a:17:d7:e5:0f:08","dns":{},` +
+				`"device-info":{"type": "pci","version": "1.0.0","pci": {"pci-address": "0000:65:00.4"}}}` +
+				`]`
+
+			podAnnotations := map[string]string{networkv1.NetworkStatusAnnot: multusNetworkStatusWithPrimaryAndSecondaryNetsWithDeviceInfo}
+
+			generator := annotations.NewGenerator(clusterConfig)
+			actualAnnotations := generator.GenerateFromActivePod(vmi, newStubVirtLauncherPod(vmi, podAnnotations))
+
+			Expect(actualAnnotations).To(HaveKeyWithValue(
+				downwardapi.NetworkInfoAnnot,
+				`{"interfaces":[{"network":"woo","deviceInfo":{"type":"pci","version":"1.0.0",`+
+					`"pci":{"pci-address":"0000:65:00.4"}},"mac":"3a:17:d7:e5:0f:08"}]}`,
 			))
 		})
 

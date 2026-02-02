@@ -20,9 +20,18 @@
 package libstorage
 
 import (
+	"context"
 	"fmt"
+	"time"
+
+	. "github.com/onsi/gomega"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
+
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 )
 
 func LookupVolumeTargetPath(vmi *v1.VirtualMachineInstance, volumeName string) string {
@@ -33,4 +42,18 @@ func LookupVolumeTargetPath(vmi *v1.VirtualMachineInstance, volumeName string) s
 	}
 
 	return ""
+}
+
+func WaitForCBTEnabled(virtClient kubecli.KubevirtClient, namespace, name string) {
+	Eventually(func() v1.ChangedBlockTrackingState {
+		vm, err := virtClient.VirtualMachine(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		return cbt.CBTState(vm.Status.ChangedBlockTracking)
+	}, 3*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingEnabled))
+
+	Eventually(func() v1.ChangedBlockTrackingState {
+		vmi, err := virtClient.VirtualMachineInstance(namespace).Get(context.Background(), name, metav1.GetOptions{})
+		Expect(err).ShouldNot(HaveOccurred())
+		return cbt.CBTState(vmi.Status.ChangedBlockTracking)
+	}, 1*time.Minute, 3*time.Second).Should(Equal(v1.ChangedBlockTrackingEnabled))
 }

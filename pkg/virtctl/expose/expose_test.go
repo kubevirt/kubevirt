@@ -16,6 +16,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/expose"
@@ -430,7 +431,7 @@ func runCommand(args ...string) error {
 func getSelectorKeyAndValue(resType, resName string) (string, string) {
 	if resType == "vmirs" {
 		return labelKey, labelValue
-	} else {
-		return v1.VirtualMachineNameLabel, resName
 	}
+
+	return v1.VirtualMachineInstanceIDLabel, apimachinery.CalculateVirtualMachineInstanceID(resName)
 }

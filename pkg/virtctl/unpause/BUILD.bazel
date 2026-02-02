@@ -21,6 +21,7 @@ go_test(
         "unpause_suite_test.go",
         "unpause_test.go",
     ],
+    race = "on",
     deps = [
         "//pkg/libvmi:go_default_library",
         "//pkg/virtctl/testing:go_default_library",

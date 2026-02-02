@@ -49,7 +49,9 @@ func ParseNameservers(content string) (*Nameservers, error) {
 		line := scanner.Text()
 		if strings.HasPrefix(line, nameserverPrefix) {
 			fields := strings.Fields(line)
-			if len(fields) != 2 {
+
+			const expectedNameserverFields = 2
+			if len(fields) != expectedNameserverFields {
 				log.Log.Warningf("Invalid resolv.conf format: nameserver line should have only one value per line '%s'", line)
 				continue
 			}

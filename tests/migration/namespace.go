@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -182,7 +183,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		It("should live migrate a container disk vm, several times", func() {
 			var targetVM *virtv1.VirtualMachine
 
-			sourceVMI := libvmifact.NewCirros(
+			sourceVMI := libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -219,7 +220,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				err = deleteMigration(targetMigration)
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToCirros(expectedVMI)).To(Succeed())
+				Expect(console.LoginToAlpine(expectedVMI)).To(Succeed())
 
 				By(fmt.Sprintf("deleting source VM %s/%s", sourceVM.Namespace, sourceVM.Name))
 				deleteVM(sourceVM)
@@ -473,13 +474,13 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				// Not sealing against a set of PCRs, out of scope here, but should work with a carefully selected set (at least PCR1 was seen changing across reboots)
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "tpm2_createprimary -Q --hierarchy=o --key-context=prim.ctx\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo MYSECRET | tpm2_create --hash-algorithm=sha256 --public=seal.pub --private=seal.priv --sealing-input=- --parent-context=prim.ctx\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "tpm2_load -Q --parent-context=prim.ctx --public=seal.pub --private=seal.priv --name=seal.name --key-context=seal.ctx\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "tpm2_evictcontrol --hierarchy=o --object-context=seal.ctx 0x81010002\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 300)).To(Succeed(), "failed to store secret into the TPM")
 				checkTPM(vmi)
 			}
@@ -561,20 +562,29 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				checkEFI(targetVMI)
 			})
 		})
+	})
 
-		DescribeTable("should be able to cancel a migration by deleting the migration resource", decorators.SigStorage, func(deleteSource bool) {
-			const timeout = 180
-			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
-			sourceVMI := libvmifact.NewCirros(
+	Context("with migration policy", func() {
+		var (
+			sourceVMI, targetVMI *v1.VirtualMachineInstance
+		)
+
+		BeforeEach(func() {
+			sourceVMI = libvmifact.NewCirros(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
-			targetVMI := sourceVMI.DeepCopy()
-			targetVMI.Namespace = testsuite.NamespaceTestAlternative
+			By("limiting the bandwidth of migrations")
+			Expect(CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(sourceVMI, resource.MustParse("1Ki")))).ToNot(BeNil())
 
-			By("limiting the bandwidth of migrations in the test namespace")
-			CreateMigrationPolicy(virtClient, PreparePolicyAndVMIWithBandwidthLimitation(sourceVMI, resource.MustParse("1Ki")))
+			targetVMI = sourceVMI.DeepCopy()
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
+		})
+
+		DescribeTable("should be able to cancel a migration by deleting the migration resource", decorators.SigStorage, Serial, func(deleteSource bool) {
+			const timeout = 180
+			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
 
 			By("starting the VirtualMachine")
 			createAndStartVMFromVMISpec(sourceVMI)
@@ -615,9 +625,9 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			libmigration.ConfirmVMIPostMigrationAborted(sourceVMI, string(sourceMigration.UID), timeout)
 
 			By("Waiting for the source migration object to disappear")
-			libwait.WaitForMigrationToDisappearWithTimeout(sourceMigration, timeout)
+			Expect(libwait.WaitForMigrationToDisappearWithTimeout(sourceMigration, timeout*time.Second)).To(Succeed())
 			By("Waiting for the target migration object to disappear")
-			libwait.WaitForMigrationToDisappearWithTimeout(targetMigration, timeout)
+			Expect(libwait.WaitForMigrationToDisappearWithTimeout(targetMigration, timeout*time.Second)).To(Succeed())
 			By("Logging in and ensuring the source VM is still running")
 			Expect(console.LoginToCirros(sourceVMI)).To(Succeed())
 			By("Checking that the receiving VM is in WaitingAsReceiver phase")
@@ -627,18 +637,92 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				return targetVMI.Status.Phase
 			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(Equal(virtv1.WaitingForSync))
 		},
-			Entry("delete source migration", true),
-			Entry("delete target migration", false),
+			Entry("[QUARANTINE] delete source migration", decorators.Quarantine, true),
+			Entry("[QUARANTINE]delete target migration", decorators.Quarantine, false),
 		)
-	})
 
+		It("should properly propagate failure from target to source", func() {
+			const timeout = 180
+			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
+			By("starting the VirtualMachine")
+			sourceVM := createAndStartVMFromVMISpec(sourceVMI)
+			By("creating a receiver VM")
+			targetVM := createReceiverVMFromVMISpec(targetVMI)
+			By("creating the migration")
+			sourceMigration := libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+			targetMigration := libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
+
+			By("starting a migration")
+			sourceMigration = libmigration.RunMigration(virtClient, sourceMigration)
+			targetMigration = libmigration.RunMigration(virtClient, targetMigration)
+
+			By("waiting until the migration is Running")
+			Eventually(func() bool {
+				sourceMigration, err := virtClient.VirtualMachineInstanceMigration(sourceMigration.Namespace).Get(context.Background(), sourceMigration.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(sourceMigration.Status.Phase).ToNot(Equal(v1.MigrationFailed))
+				if sourceMigration.Status.Phase == v1.MigrationRunning {
+					sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Get(context.Background(), sourceVMI.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					if sourceVMI.Status.MigrationState.Completed != true {
+						return true
+					}
+				}
+				return false
+			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(BeTrue())
+
+			By("force stopping the source pod")
+			sourcePod, err := libpod.GetPodByVirtualMachineInstance(sourceVMI, sourceVMI.Namespace)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sourcePod.Status.Phase).To(Equal(k8sv1.PodRunning))
+			Expect(virtClient.CoreV1().Pods(sourceVMI.Namespace).Delete(context.Background(), sourcePod.Name, metav1.DeleteOptions{GracePeriodSeconds: pointer.P(int64(0))})).To(Succeed())
+
+			By("waiting for the source migration to fail")
+			Eventually(func() virtv1.VirtualMachineInstanceMigrationPhase {
+				sourceMigration, err = virtClient.VirtualMachineInstanceMigration(sourceMigration.Namespace).Get(context.Background(), sourceMigration.Name, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					// Migration is already deleted, this means the VMI is gone, and thus the migration failed
+					return v1.MigrationFailed
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return sourceMigration.Status.Phase
+			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(Equal(v1.MigrationFailed))
+
+			By("waiting for the target migration to fail")
+			Eventually(func() virtv1.VirtualMachineInstanceMigrationPhase {
+				targetMigration, err = virtClient.VirtualMachineInstanceMigration(targetMigration.Namespace).Get(context.Background(), targetMigration.Name, metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					// Migration is already deleted, this means the VMI is gone, and thus the migration failed
+					return v1.MigrationFailed
+				}
+				Expect(err).ToNot(HaveOccurred())
+				return targetMigration.Status.Phase
+			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(Equal(v1.MigrationFailed))
+
+			By("ensuring the source VM is stopped")
+			Eventually(func() virtv1.VirtualMachinePrintableStatus {
+				sourceVM, err = virtClient.VirtualMachine(sourceVM.Namespace).Get(context.Background(), sourceVM.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return sourceVM.Status.PrintableStatus
+			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(Equal(virtv1.VirtualMachineStatusStopped))
+
+			By("ensuring the target VM is WaitingForReceiver")
+			Eventually(func() virtv1.VirtualMachinePrintableStatus {
+				targetVM, err = virtClient.VirtualMachine(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return targetVM.Status.PrintableStatus
+			}).WithTimeout(timeout * time.Second).WithPolling(500 * time.Millisecond).Should(Equal(virtv1.VirtualMachineStatusWaitingForReceiver))
+		})
+	})
 	Context("datavolume disk", func() {
-		createBlankFromName := func(name, namespace string) *cdiv1.DataVolume {
+		createBlankFromName := func(name, namespace string, volumeMode *k8sv1.PersistentVolumeMode, size string) *cdiv1.DataVolume {
 			targetDV := libdv.NewDataVolume(
 				libdv.WithName(name),
 				libdv.WithBlankImageSource(),
 				libdv.WithStorage(
-					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+					libdv.StorageWithVolumeSize(size),
+					libdv.StorageWithVolumeMode(*volumeMode),
 				),
 			)
 			targetDV, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), targetDV, metav1.CreateOptions{})
@@ -647,12 +731,12 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			return targetDV
 		}
 
-		It("should live migrate regular disk several times", func() {
-			var targetVM *virtv1.VirtualMachine
+		It("should live migrate block to filesystem", decorators.RequiresBlockStorage, func() {
 			sourceDV := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 				libdv.WithStorage(
 					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 				),
 			)
 			sourceDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(sourceDV)).Create(context.Background(), sourceDV, metav1.CreateOptions{})
@@ -663,7 +747,50 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", sourceDV.Name),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
+			)
+			targetVMI := sourceVMI.DeepCopy()
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
+
+			sourceVM := createAndStartVMFromVMISpec(sourceVMI)
+			Expect(sourceVM).ToNot(BeNil())
+			Expect(console.LoginToAlpine(sourceVMI)).To(Succeed())
+			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
+			var sourceMigration, targetMigration *virtv1.VirtualMachineInstanceMigration
+			var expectedVMI *virtv1.VirtualMachineInstance
+
+			// The target DV disk.img is not properly created by CDI, even with the filesystem overhead it disk.img is too small with 512Mi (even though it would fit)
+			// This is a bug in CDI, and should be fixed in the future. That is why we increase the size to 564Mi to ensure it fits.
+			targetDV := createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative, pointer.P(k8sv1.PersistentVolumeFilesystem), "564Mi")
+			Expect(targetDV).ToNot(BeNil())
+			targetVM := createReceiverVMFromVMISpec(targetVMI)
+			Expect(targetVM).ToNot(BeNil())
+			sourceMigration = libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+			targetMigration = libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
+			expectedVMI = targetVMI
+			sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
+			libmigration.ConfirmVMIPostMigration(virtClient, expectedVMI, targetMigration)
+			Expect(console.LoginToAlpine(expectedVMI)).To(Succeed())
+		})
+
+		It("should live migrate regular disk several times", decorators.RequiresBlockStorage, func() {
+			var targetVM *virtv1.VirtualMachine
+			sourceDV := libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+				libdv.WithStorage(
+					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
+			)
+			sourceDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(sourceDV)).Create(context.Background(), sourceDV, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(sourceDV, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+			sourceVMI := libvmi.New(
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithDataVolume("disk0", sourceDV.Name),
+				libvmi.WithMemoryRequest("128Mi"),
 			)
 			targetVMI := sourceVMI.DeepCopy()
 			targetVMI.Namespace = testsuite.NamespaceTestAlternative
@@ -681,14 +808,14 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				By(fmt.Sprintf("executing a migration, and waiting for finalized state, run %d", i))
 				if i%2 == 0 {
 					// source -> target
-					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative)
+					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative, pointer.P(k8sv1.PersistentVolumeBlock), cd.AlpineVolumeSize)
 					targetVM = createReceiverVMFromVMISpec(targetVMI)
 					sourceMigration = libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
 					targetMigration = libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
 					expectedVMI = targetVMI
 				} else {
 					// target -> source
-					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestDefault)
+					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestDefault, pointer.P(k8sv1.PersistentVolumeBlock), cd.AlpineVolumeSize)
 					targetVM = createReceiverVMFromVMISpec(sourceVMI)
 					sourceMigration = libmigration.NewSource(targetVMI.Name, targetVMI.Namespace, migrationID, connectionURL)
 					targetMigration = libmigration.NewTarget(sourceVMI.Name, sourceVMI.Namespace, migrationID)

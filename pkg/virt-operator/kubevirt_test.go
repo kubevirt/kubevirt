@@ -88,9 +88,24 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 85
-	patchCount    = 53
+	resourceCount = 89
+	patchCount    = 57
 	updateCount   = 33
+)
+
+var (
+	crdFunctions = []func() (*extv1.CustomResourceDefinition, error){
+		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
+		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
+		components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
+		components.NewVirtualMachineExportCrd, components.NewVirtualMachineBackupCrd,
+		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineInstancetypeCrd,
+		components.NewVirtualMachineClusterInstancetypeCrd, components.NewVirtualMachinePoolCrd,
+		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
+		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd,
+		components.NewVirtualMachineBackupTrackerCrd,
+	}
+	numCRDs = len(crdFunctions)
 )
 
 type KubeVirtTestData struct {
@@ -111,10 +126,11 @@ type KubeVirtTestData struct {
 	promClient     *promclientfake.Clientset
 	routeClient    *routev1fake.FakeRouteV1
 
-	totalAdds       int
-	totalUpdates    int
-	totalPatches    int
-	totalDeletions  int
+	totalAdds      int
+	totalUpdates   int
+	totalPatches   int
+	totalDeletions int
+
 	resourceChanges map[string]map[string]int
 
 	deleteFromCache bool
@@ -1190,14 +1206,6 @@ func enableExportFeatureGate(kv *v1.KubeVirt) {
 	}
 }
 
-func enableSynchronizationControllerFeatureGate(kv *v1.KubeVirt) {
-	kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
-		FeatureGates: []string{
-			"DecentralizedLiveMigration",
-		},
-	}
-}
-
 func exportProxyEnabled(kv *v1.KubeVirt) bool {
 	if kv.Spec.Configuration.DeveloperConfiguration == nil {
 		return false
@@ -1236,17 +1244,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, rbac.GetAllSynchronizationController(NAMESPACE)...)
 
 	// crds
-	functions := []func() (*extv1.CustomResourceDefinition, error){
-		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
-		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
-		components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
-		components.NewVirtualMachineExportCrd,
-		components.NewVirtualMachineRestoreCrd, components.NewVirtualMachineInstancetypeCrd,
-		components.NewVirtualMachineClusterInstancetypeCrd, components.NewVirtualMachinePoolCrd,
-		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
-		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineCloneCrd,
-	}
-	for _, f := range functions {
+	for _, f := range crdFunctions {
 		crd, err := f()
 		if err != nil {
 			panic(fmt.Errorf("This should not happen, %v", err))
@@ -1266,16 +1264,17 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, components.NewApiServerService(NAMESPACE))
 	all = append(all, components.NewExportProxyService(NAMESPACE))
 
-	apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, config)
+	config.Namespace = NAMESPACE
+	apiDeployment := components.NewApiServerDeployment(config, "", "", "")
 	apiDeploymentPdb := components.NewPodDisruptionBudgetForDeployment(apiDeployment)
-	controller := getDefaultVirtControllerDeployment(NAMESPACE, config)
+	controller := components.NewControllerDeployment(config, "", "", "")
 	controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
 
-	handler := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	handler := components.NewHandlerDaemonSet(config, "", "", "")
 	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
 
 	if exportProxyEnabled(kv) {
-		exportProxy := getDefaultExportProxyDeployment(NAMESPACE, config)
+		exportProxy := components.NewExportProxyDeployment(config, "", "", "")
 		exportProxyPdb := components.NewPodDisruptionBudgetForDeployment(exportProxy)
 		route := components.NewExportProxyRoute(NAMESPACE)
 		all = append(all, exportProxy, exportProxyPdb, route)
@@ -1383,7 +1382,8 @@ func (k *KubeVirtTestData) addAllButHandler(config *util.KubeVirtDeploymentConfi
 }
 
 func (k *KubeVirtTestData) addVirtHandler(config *util.KubeVirtDeploymentConfig, kv *v1.KubeVirt) {
-	handler := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	config.Namespace = NAMESPACE
+	handler := components.NewHandlerDaemonSet(config, "", "", "")
 
 	c, _ := apply.NewCustomizer(kv.Spec.CustomizeComponents)
 
@@ -1522,6 +1522,28 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 	}
 }
 
+func (k *KubeVirtTestData) makeHandlerComplete() {
+	exists := false
+	var obj interface{}
+	// we need to wait until the daemonset exists
+	for !exists {
+		obj, exists, _ = k.controller.stores.DaemonSetCache.GetByKey(NAMESPACE + "/virt-handler")
+		if exists {
+			handler, _ := obj.(*appsv1.DaemonSet)
+			handlerNew := handler.DeepCopy()
+			maxUnavailable := intstr.FromInt(1)
+			handlerNew.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+				MaxUnavailable: &maxUnavailable,
+			}
+			handlerNew.Spec.Template.Spec.Containers[0].Args = append(handlerNew.Spec.Template.Spec.Containers[0].Args, "migration-cn-types")
+			k.controller.stores.DaemonSetCache.Update(handlerNew)
+			key, err := kubecontroller.KeyFunc(handlerNew)
+			Expect(err).To(Not(HaveOccurred()))
+			k.mockQueue.Add(key)
+		}
+	}
+}
+
 func (k *KubeVirtTestData) addDummyValidationWebhook() {
 	version := fmt.Sprintf("rand-%s", rand.String(10))
 	registry := fmt.Sprintf("rand-%s", rand.String(10))
@@ -1606,7 +1628,8 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	// virt-controller
 	// virt-handler
 	var deployments []*appsv1.Deployment
-	apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, config)
+	config.Namespace = NAMESPACE
+	apiDeployment := components.NewApiServerDeployment(config, "", "", "")
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: apiDeployment.Spec.Template.ObjectMeta,
@@ -1623,7 +1646,7 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, apiDeployment)
 
-	controller := getDefaultVirtControllerDeployment(NAMESPACE, config)
+	controller := components.NewControllerDeployment(config, "", "", "")
 	pod = &k8sv1.Pod{
 		ObjectMeta: controller.Spec.Template.ObjectMeta,
 		Spec:       controller.Spec.Template.Spec,
@@ -1639,7 +1662,8 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 	deployments = append(deployments, controller)
 
-	handler := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+	configHandler.Namespace = NAMESPACE
+	handler := components.NewHandlerDaemonSet(configHandler, "", "", "")
 	pod = &k8sv1.Pod{
 		ObjectMeta: handler.Spec.Template.ObjectMeta,
 		Spec:       handler.Spec.Template.Spec,
@@ -1657,7 +1681,8 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	k.addPod(pod)
 
 	if exportProxyEnabled(kv) {
-		exportProxy := getDefaultExportProxyDeployment(NAMESPACE, config)
+		configExportProxy.Namespace = NAMESPACE
+		exportProxy := components.NewExportProxyDeployment(configExportProxy, "", "", "")
 		pod = &k8sv1.Pod{
 			ObjectMeta: exportProxy.Spec.Template.ObjectMeta,
 			Spec:       exportProxy.Spec.Template.Spec,
@@ -1822,6 +1847,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectKubeVirtUpdateStatusVersion(1, customConfig)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 			kvTestData.controller.Execute()
 			kv = kvTestData.getLatestKubeVirt(kv)
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
@@ -2017,6 +2043,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.addPodsAndPodDisruptionBudgets(kvTestData.defaultConfig, kv)
 			kvTestData.makeDeploymentsReady(kv)
 			kvTestData.makeHandlerReady()
+			kvTestData.makeHandlerComplete()
 
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
@@ -2039,6 +2066,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["mutatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["mutatingwebhookconfigurations"][Added]))
 			Expect(kvTestData.resourceChanges["validatingwebhookconfigurations"][Patched]).To(Equal(kvTestData.resourceChanges["validatingwebhookconfigurations"][Added]))
 			Expect(kvTestData.resourceChanges["deployements"][Patched]).To(Equal(kvTestData.resourceChanges["deployements"][Added]))
+			// Expecting to drop certificate
 			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(kvTestData.resourceChanges["daemonsets"][Added]))
 		})
 
@@ -2192,7 +2220,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			const expectedImage = "myimage123:mytag456"
 			err := kvTestData.mockEnvVarManager.Setenv(util.VirtOperatorImageEnvName, expectedImage)
 			Expect(err).ToNot(HaveOccurred())
-			config := kvTestData.getConfig("registry", "v1.1.1")
+			config := kvTestData.getConfig("", "")
 
 			job, err := kvTestData.controller.generateInstallStrategyJob(&v1.ComponentConfig{}, config)
 			Expect(err).ToNot(HaveOccurred())
@@ -2219,8 +2247,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			envKey := rand.String(10)
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
+			config.Namespace = NAMESPACE
 
-			apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, config)
+			apiDeployment := components.NewApiServerDeployment(config, "", "", "")
 			Expect(apiDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
@@ -2233,8 +2262,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			envKey := rand.String(10)
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
+			config.Namespace = NAMESPACE
 
-			controllerDeployment := getDefaultVirtControllerDeployment(NAMESPACE, config)
+			controllerDeployment := components.NewControllerDeployment(config, "", "", "")
 			Expect(controllerDeployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
@@ -2247,8 +2277,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			envKey := rand.String(10)
 			envVal := rand.String(10)
 			config.PassthroughEnvVars = map[string]string{envKey: envVal}
+			config.Namespace = NAMESPACE
 
-			handlerDaemonset := getDefaultVirtHandlerDaemonSet(NAMESPACE, config)
+			handlerDaemonset := components.NewHandlerDaemonSet(config, "", "", "")
 			Expect(handlerDaemonset.Spec.Template.Spec.Containers[0].Env).To(ContainElement(k8sv1.EnvVar{Name: envKey, Value: envVal}))
 		})
 
@@ -2453,7 +2484,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(8))
 			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(6))
 			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(6))
-			Expect(kvTestData.controller.stores.OperatorCrdCache.List()).To(HaveLen(16))
+			Expect(kvTestData.controller.stores.OperatorCrdCache.List()).To(HaveLen(numCRDs))
 			Expect(kvTestData.controller.stores.ServiceCache.List()).To(HaveLen(4))
 			Expect(kvTestData.controller.stores.DeploymentCache.List()).To(HaveLen(1))
 			Expect(kvTestData.controller.stores.DaemonSetCache.List()).To(BeEmpty())
@@ -2512,6 +2543,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectRbacBackupCreations()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -2580,6 +2612,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectRbacBackupCreations()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -2653,6 +2686,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectRbacBackupCreations()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -2680,7 +2714,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			var kvTestData KubeVirtTestData
 			const (
 				CustomizedReplicas              int32 = 4
-				numOfNodes                            = 1000
+				numOfUnschedulableNodes               = 1000
+				numOfSchedulableNodes                 = 1000
 				expectedReplicasForLargeCluster int32 = 100
 			)
 
@@ -2691,11 +2726,17 @@ var _ = Describe("KubeVirt Operator", func() {
 
 				var testNodes []k8sv1.Node
 
-				for i := range numOfNodes {
+				totalNodes := numOfSchedulableNodes + numOfUnschedulableNodes
+				for i := range totalNodes {
 					node := k8sv1.Node{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: fmt.Sprintf("testnode-%d", i),
 						},
+					}
+					if i < numOfSchedulableNodes {
+						node.Labels = map[string]string{
+							v1.NodeSchedulable: "true",
+						}
 					}
 					testNodes = append(testNodes, node)
 				}
@@ -2732,7 +2773,8 @@ var _ = Describe("KubeVirt Operator", func() {
 				kvTestData.addKubeVirt(kv)
 				kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 
-				apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, kvTestData.defaultConfig)
+				kvTestData.defaultConfig.Namespace = NAMESPACE
+				apiDeployment := components.NewApiServerDeployment(kvTestData.defaultConfig, "", "", "")
 				kvTestData.addDeployment(apiDeployment, kv)
 
 				kvTestData.kvInterface.EXPECT().
@@ -2796,7 +2838,8 @@ var _ = Describe("KubeVirt Operator", func() {
 				kvTestData.addKubeVirt(kv)
 				kvTestData.addInstallStrategy(kvTestData.defaultConfig)
 
-				apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, kvTestData.defaultConfig)
+				kvTestData.defaultConfig.Namespace = NAMESPACE
+				apiDeployment := components.NewApiServerDeployment(kvTestData.defaultConfig, "", "", "")
 				kvTestData.addDeployment(apiDeployment, kv)
 
 				kvTestData.kvInterface.EXPECT().
@@ -2895,9 +2938,10 @@ var _ = Describe("KubeVirt Operator", func() {
 				kvTestData.addKubeVirt(kv)
 				kvTestData.addInstallStrategy(customConfig)
 
-				apiDeployment := getDefaultVirtApiDeployment(NAMESPACE, customConfig)
-				controllerDeployment := getDefaultVirtControllerDeployment(NAMESPACE, customConfig)
-				handlerDaemonset := getDefaultVirtHandlerDaemonSet(NAMESPACE, customConfig)
+				customConfig.Namespace = NAMESPACE
+				apiDeployment := components.NewApiServerDeployment(customConfig, "", "", "")
+				controllerDeployment := components.NewControllerDeployment(customConfig, "", "", "")
+				handlerDaemonset := components.NewHandlerDaemonSet(customConfig, "", "", "")
 				// omitempty ignores the field's zero value resulting in the json patch test op breaking
 				apiDeployment.ObjectMeta.Generation = 123
 				controllerDeployment.ObjectMeta.Generation = 123
@@ -3028,6 +3072,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -3105,6 +3150,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -3196,6 +3242,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -3343,8 +3390,17 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
 
-			config, err := util.GetConfigFromEnv()
+			config := kvTestData.defaultConfig
+			// Mimic generateInstallStrategyJob
+			// TODO: Refactor
+			envVars := util.NewEnvVarMap(config.GetExtraEnv())
+			envVarManager := util.DefaultEnvVarManager
+			for _, envVar := range envVars {
+				envVarManager.Setenv(envVar.Name, envVar.Value)
+			}
+			deploymentConfigJson, err := config.GetJson()
 			Expect(err).ToNot(HaveOccurred())
+			envVarManager.Setenv(util.TargetDeploymentConfig, deploymentConfigJson)
 
 			kvTestData.kubeClient.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 				create, ok := action.(testing.CreateAction)
@@ -3444,82 +3500,4 @@ func shouldExpectHCOConditions(kv *v1.KubeVirt, available k8sv1.ConditionStatus,
 			WithTransform(getStatus, Equal(degraded)),
 		),
 	))
-}
-
-func getDefaultVirtApiDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
-	return components.NewApiServerDeployment(
-		namespace,
-		config.GetImageRegistry(),
-		config.GetImagePrefix(),
-		config.GetApiVersion(),
-		"",
-		"",
-		"",
-		config.VirtApiImage,
-		config.GetImagePullPolicy(),
-		config.GetImagePullSecrets(),
-		config.GetVerbosity(),
-		config.GetExtraEnv())
-}
-
-func getDefaultVirtControllerDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
-	return components.NewControllerDeployment(
-		namespace,
-		config.GetImageRegistry(),
-		config.GetImagePrefix(),
-		config.GetControllerVersion(),
-		config.GetLauncherVersion(),
-		config.GetExportServerVersion(),
-		"",
-		"",
-		"",
-		"",
-		config.VirtControllerImage,
-		config.VirtLauncherImage,
-		config.VirtExportServerImage,
-		config.SidecarShimImage,
-		config.GetImagePullPolicy(),
-		config.GetImagePullSecrets(),
-		config.GetVerbosity(),
-		config.GetExtraEnv())
-}
-
-func getDefaultVirtHandlerDaemonSet(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.DaemonSet {
-	return components.NewHandlerDaemonSet(
-		namespace,
-		config.GetImageRegistry(),
-		config.GetImagePrefix(),
-		config.GetHandlerVersion(),
-		"",
-		"",
-		"",
-		"",
-		config.GetLauncherVersion(),
-		config.GetPrHelperVersion(),
-		config.VirtHandlerImage,
-		config.VirtLauncherImage,
-		config.PrHelperImage,
-		config.SidecarShimImage,
-		config.GetImagePullPolicy(),
-		config.GetImagePullSecrets(),
-		nil,
-		config.GetVerbosity(),
-		config.GetExtraEnv(),
-		false)
-}
-
-func getDefaultExportProxyDeployment(namespace string, config *util.KubeVirtDeploymentConfig) *appsv1.Deployment {
-	return components.NewExportProxyDeployment(
-		namespace,
-		config.GetImageRegistry(),
-		config.GetImagePrefix(),
-		config.GetExportProxyVersion(),
-		"",
-		"",
-		"",
-		config.VirtExportProxyImage,
-		config.GetImagePullPolicy(),
-		config.GetImagePullSecrets(),
-		config.GetVerbosity(),
-		config.GetExtraEnv())
 }

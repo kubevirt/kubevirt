@@ -38,6 +38,9 @@ func LoadKubevirtMetadata(metadataCache *Cache) api.KubeVirtMetadata {
 	if value, exists := metadataCache.Migration.Load(); exists {
 		kubevirtMetadata.Migration = &value
 	}
+	if value, exists := metadataCache.Backup.Load(); exists {
+		kubevirtMetadata.Backup = &value
+	}
 	if value, exists := metadataCache.AccessCredential.Load(); exists {
 		kubevirtMetadata.AccessCredential = &value
 	}

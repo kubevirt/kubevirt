@@ -32,6 +32,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -65,7 +67,7 @@ func NewAddVolumeCommand() *cobra.Command {
 	cmd.MarkFlagRequired(volumeNameArg)
 	cmd.Flags().StringVar(&serial, serialArg, "", "serial number you want to assign to the disk")
 	cmd.Flags().StringVar(&cache, cacheArg, "", "caching options attribute control the cache mechanism")
-	cmd.Flags().BoolVar(&persist, persistArg, false, "if set, the added volume will be persisted in the VM spec (if it exists)")
+	cmd.Flags().BoolVar(&persist, persistArg, false, "[deprecated] this flag has no effect and will be removed in a future release")
 	cmd.Flags().BoolVar(&dryRun, dryRunArg, false, dryRunCommandUsage)
 	cmd.Flags().StringVar(&diskType, diskTypeArg, "disk", "specifies disk type to be hotplugged (disk/lun). Disk by default.")
 	cmd.Flags().StringVar(&busType, busTypeArg, string(v1.DiskBusSCSI), fmt.Sprintf("specifies disk bus. %s by default.", v1.DiskBusSCSI))
@@ -74,13 +76,14 @@ func NewAddVolumeCommand() *cobra.Command {
 }
 
 func usageAddVolume() string {
-	return `  #Dynamically attach a volume to a running VM.
-  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv
-
-  #Dynamically attach a volume to a running VM giving it a serial number to identify the volume inside the guest.
+	return `	#Dynamically attach a volume to a running VM giving it a serial number to identify the volume inside the guest.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --serial=1234567890
 
-  #Dynamically attach a volume to a running VM and persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
+  #Dynamically attach a volume to a running VM, persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
+  {{ProgramName}} addvolume fedora-dv --volume-name=example-dv
+
+  #[deprecated]: Dynamically attach a volume to a running VM and persisting it in the VM spec. At next VM restart the volume will be attached like any other volume.
+  --persist flag has no effect and will be removed in future release. New default behavior will be to persist in VM spec even if flag is not provided.
   {{ProgramName}} addvolume fedora-dv --volume-name=example-dv --persist
 
   #Dynamically attach a volume with 'none' cache attribute to a running VM.
@@ -176,11 +179,14 @@ func addVolume(vmiName, volumeName, namespace string, virtClient kubecli.Kubevir
 	}
 	retry := 0
 	for retry < maxRetries {
-		if !persist {
+		// default to adding volume to both VM and VMI if owner VM exists
+		err = virtClient.VirtualMachine(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
+
+		// If VM is not found, VMI is standalone
+		if k8serrors.IsNotFound(err) {
 			err = virtClient.VirtualMachineInstance(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
-		} else {
-			err = virtClient.VirtualMachine(namespace).AddVolume(context.Background(), vmiName, hotplugRequest)
 		}
+
 		if err != nil && err.Error() != concurrentError {
 			return fmt.Errorf("error adding volume, %v", err)
 		}

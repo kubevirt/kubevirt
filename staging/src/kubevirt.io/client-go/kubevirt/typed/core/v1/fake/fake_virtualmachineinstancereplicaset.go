@@ -21,129 +21,34 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1 "kubevirt.io/api/core/v1"
+	corev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 )
 
-// FakeVirtualMachineInstanceReplicaSets implements VirtualMachineInstanceReplicaSetInterface
-type FakeVirtualMachineInstanceReplicaSets struct {
+// fakeVirtualMachineInstanceReplicaSets implements VirtualMachineInstanceReplicaSetInterface
+type fakeVirtualMachineInstanceReplicaSets struct {
+	*gentype.FakeClientWithList[*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstanceReplicaSetList]
 	Fake *FakeKubevirtV1
-	ns   string
 }
 
-var virtualmachineinstancereplicasetsResource = v1.SchemeGroupVersion.WithResource("virtualmachineinstancereplicasets")
-
-var virtualmachineinstancereplicasetsKind = v1.SchemeGroupVersion.WithKind("VirtualMachineInstanceReplicaSet")
-
-// Get takes name of the virtualMachineInstanceReplicaSet, and returns the corresponding virtualMachineInstanceReplicaSet object, and an error if there is any.
-func (c *FakeVirtualMachineInstanceReplicaSets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	emptyResult := &v1.VirtualMachineInstanceReplicaSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(virtualmachineinstancereplicasetsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeVirtualMachineInstanceReplicaSets(fake *FakeKubevirtV1, namespace string) corev1.VirtualMachineInstanceReplicaSetInterface {
+	return &fakeVirtualMachineInstanceReplicaSets{
+		gentype.NewFakeClientWithList[*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstanceReplicaSetList](
+			fake.Fake,
+			namespace,
+			v1.SchemeGroupVersion.WithResource("virtualmachineinstancereplicasets"),
+			v1.SchemeGroupVersion.WithKind("VirtualMachineInstanceReplicaSet"),
+			func() *v1.VirtualMachineInstanceReplicaSet { return &v1.VirtualMachineInstanceReplicaSet{} },
+			func() *v1.VirtualMachineInstanceReplicaSetList { return &v1.VirtualMachineInstanceReplicaSetList{} },
+			func(dst, src *v1.VirtualMachineInstanceReplicaSetList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.VirtualMachineInstanceReplicaSetList) []*v1.VirtualMachineInstanceReplicaSet {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1.VirtualMachineInstanceReplicaSetList, items []*v1.VirtualMachineInstanceReplicaSet) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1.VirtualMachineInstanceReplicaSet), err
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineInstanceReplicaSets that match those selectors.
-func (c *FakeVirtualMachineInstanceReplicaSets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.VirtualMachineInstanceReplicaSetList, err error) {
-	emptyResult := &v1.VirtualMachineInstanceReplicaSetList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(virtualmachineinstancereplicasetsResource, virtualmachineinstancereplicasetsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1.VirtualMachineInstanceReplicaSetList{ListMeta: obj.(*v1.VirtualMachineInstanceReplicaSetList).ListMeta}
-	for _, item := range obj.(*v1.VirtualMachineInstanceReplicaSetList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineInstanceReplicaSets.
-func (c *FakeVirtualMachineInstanceReplicaSets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(virtualmachineinstancereplicasetsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a virtualMachineInstanceReplicaSet and creates it.  Returns the server's representation of the virtualMachineInstanceReplicaSet, and an error, if there is any.
-func (c *FakeVirtualMachineInstanceReplicaSets) Create(ctx context.Context, virtualMachineInstanceReplicaSet *v1.VirtualMachineInstanceReplicaSet, opts metav1.CreateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	emptyResult := &v1.VirtualMachineInstanceReplicaSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(virtualmachineinstancereplicasetsResource, c.ns, virtualMachineInstanceReplicaSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.VirtualMachineInstanceReplicaSet), err
-}
-
-// Update takes the representation of a virtualMachineInstanceReplicaSet and updates it. Returns the server's representation of the virtualMachineInstanceReplicaSet, and an error, if there is any.
-func (c *FakeVirtualMachineInstanceReplicaSets) Update(ctx context.Context, virtualMachineInstanceReplicaSet *v1.VirtualMachineInstanceReplicaSet, opts metav1.UpdateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	emptyResult := &v1.VirtualMachineInstanceReplicaSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(virtualmachineinstancereplicasetsResource, c.ns, virtualMachineInstanceReplicaSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.VirtualMachineInstanceReplicaSet), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualMachineInstanceReplicaSets) UpdateStatus(ctx context.Context, virtualMachineInstanceReplicaSet *v1.VirtualMachineInstanceReplicaSet, opts metav1.UpdateOptions) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	emptyResult := &v1.VirtualMachineInstanceReplicaSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(virtualmachineinstancereplicasetsResource, "status", c.ns, virtualMachineInstanceReplicaSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.VirtualMachineInstanceReplicaSet), err
-}
-
-// Delete takes name of the virtualMachineInstanceReplicaSet and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualMachineInstanceReplicaSets) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualmachineinstancereplicasetsResource, c.ns, name, opts), &v1.VirtualMachineInstanceReplicaSet{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualMachineInstanceReplicaSets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(virtualmachineinstancereplicasetsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1.VirtualMachineInstanceReplicaSetList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched virtualMachineInstanceReplicaSet.
-func (c *FakeVirtualMachineInstanceReplicaSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error) {
-	emptyResult := &v1.VirtualMachineInstanceReplicaSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(virtualmachineinstancereplicasetsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.VirtualMachineInstanceReplicaSet), err
 }

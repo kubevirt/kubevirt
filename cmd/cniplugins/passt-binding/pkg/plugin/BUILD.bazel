@@ -23,6 +23,7 @@ go_test(
         "plugin_suite_test.go",
         "plugin_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//vendor/github.com/containernetworking/cni/pkg/skel:go_default_library",

@@ -21,9 +21,9 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -39,31 +39,32 @@ type PrometheusRulesGetter interface {
 
 // PrometheusRuleInterface has methods to work with PrometheusRule resources.
 type PrometheusRuleInterface interface {
-	Create(ctx context.Context, prometheusRule *v1.PrometheusRule, opts metav1.CreateOptions) (*v1.PrometheusRule, error)
-	Update(ctx context.Context, prometheusRule *v1.PrometheusRule, opts metav1.UpdateOptions) (*v1.PrometheusRule, error)
+	Create(ctx context.Context, prometheusRule *monitoringv1.PrometheusRule, opts metav1.CreateOptions) (*monitoringv1.PrometheusRule, error)
+	Update(ctx context.Context, prometheusRule *monitoringv1.PrometheusRule, opts metav1.UpdateOptions) (*monitoringv1.PrometheusRule, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.PrometheusRule, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.PrometheusRuleList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*monitoringv1.PrometheusRule, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*monitoringv1.PrometheusRuleList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.PrometheusRule, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *monitoringv1.PrometheusRule, err error)
 	PrometheusRuleExpansion
 }
 
 // prometheusRules implements PrometheusRuleInterface
 type prometheusRules struct {
-	*gentype.ClientWithList[*v1.PrometheusRule, *v1.PrometheusRuleList]
+	*gentype.ClientWithList[*monitoringv1.PrometheusRule, *monitoringv1.PrometheusRuleList]
 }
 
 // newPrometheusRules returns a PrometheusRules
 func newPrometheusRules(c *MonitoringV1Client, namespace string) *prometheusRules {
 	return &prometheusRules{
-		gentype.NewClientWithList[*v1.PrometheusRule, *v1.PrometheusRuleList](
+		gentype.NewClientWithList[*monitoringv1.PrometheusRule, *monitoringv1.PrometheusRuleList](
 			"prometheusrules",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.PrometheusRule { return &v1.PrometheusRule{} },
-			func() *v1.PrometheusRuleList { return &v1.PrometheusRuleList{} }),
+			func() *monitoringv1.PrometheusRule { return &monitoringv1.PrometheusRule{} },
+			func() *monitoringv1.PrometheusRuleList { return &monitoringv1.PrometheusRuleList{} },
+		),
 	}
 }

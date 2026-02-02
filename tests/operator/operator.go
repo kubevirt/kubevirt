@@ -97,6 +97,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libnet"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -120,6 +121,8 @@ type vmYamlDefinition struct {
 	yamlFile    string
 	vmSnapshots []vmSnapshotDef
 }
+
+const secondaryNetworkName = "secondarynet"
 
 var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
 
@@ -648,7 +651,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			if updateOperator && flags.OperatorManifestPath == "" {
-				Skip("Skip operator update test when operator manifest path isn't configured")
+				Fail("operator manifest path must be configured for update tests")
 			}
 
 			// This test should run fine on single-node setups as long as no VM is created pre-update
@@ -670,15 +673,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				By(fmt.Sprintf("By Using detected tag %s for previous kubevirt", previousImageTag))
 			} else {
 				By(fmt.Sprintf("By Using user defined tag %s for previous kubevirt", previousImageTag))
-			}
-
-			previousUtilityTag := flags.PreviousUtilityTag
-			previousUtilityRegistry := flags.PreviousUtilityRegistry
-			if previousUtilityTag == "" {
-				previousUtilityTag = previousImageTag
-				By(fmt.Sprintf("By Using detected tag %s for previous utility containers", previousUtilityTag))
-			} else {
-				By(fmt.Sprintf("By Using user defined tag %s for previous utility containers", previousUtilityTag))
 			}
 
 			curVersion := originalKv.Status.ObservedKubeVirtVersion
@@ -741,6 +735,15 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			// over the internet related to the latest kubevirt release
 			By("Waiting for KV to stabilize")
 			testsuite.EnsureKubevirtReadyWithTimeout(kv, 420*time.Second)
+			//previousImageTag
+			// TODO: find way to verify strategy job version as well
+			pods, err := kubevirt.Client().CoreV1().Pods(kv.Namespace).List(context.Background(), metav1.ListOptions{LabelSelector: "kubevirt.io,app.kubernetes.io/managed-by=virt-operator"})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).ToNot(BeEmpty())
+			for _, pod := range pods.Items {
+				Expect(pod.Spec.Containers[0].Image).To(ContainSubstring(previousImageTag))
+				fmt.Println(pod.Spec.Containers[0].Image)
+			}
 
 			By("Verifying infrastructure is Ready")
 			allKvInfraPodsAreReady(kv)
@@ -767,7 +770,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			var vmYamls map[string]*vmYamlDefinition
 			if createVMs {
-				vmYamls, err = generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag)
+				vmYamls, err = generatePreviousVersionVmYamls(workDir)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(generatePreviousVersionVmsnapshotYamls(vmYamls, workDir)).To(Succeed())
 			}
@@ -798,6 +801,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 					return false
 				}, 180*time.Second, 1*time.Second).Should(BeTrue())
 			}
+
+			netAttachDef := libnet.NewBridgeNetAttachDef(secondaryNetworkName, secondaryNetworkName)
+			_, err = libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(migratableVMIs[0]), netAttachDef)
+			Expect(err).NotTo(HaveOccurred())
 
 			By("Starting multiple migratable VMIs before performing update")
 			migratableVMIs = createRunningVMIs(migratableVMIs)
@@ -981,7 +988,11 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			if checks.HasAtLeastTwoNodes() {
 				vmis, err = generateMigratableVMIs(2)
 				Expect(err).ToNot(HaveOccurred())
-				vmis = createRunningVMIs(vmis)
+
+				netAttachDef := libnet.NewBridgeNetAttachDef(secondaryNetworkName, secondaryNetworkName)
+				_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(vmis[0]), netAttachDef)
+				Expect(err).NotTo(HaveOccurred())
+				createRunningVMIs(vmis)
 			}
 
 			By("Deleting KubeVirt object")
@@ -1061,7 +1072,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3148]should be able to create kubevirt install with custom image tag", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			allKvInfraPodsAreReady(originalKv)
@@ -1098,13 +1109,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 
 		// this test ensures that we can deal with image prefixes in case they are not used for tests already
-		//
-		// decorated with no-flake-check since CNAO is enabled on the check-tests-for-flakes-lane
-		// see https://github.com/kubevirt/kubevirt/pull/15333
-		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, decorators.NoFlakeCheck, func() {
+		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
 			if flags.ImagePrefixAlt == "" {
-				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
+				Fail("ImagePrefixAlt must be configured for image prefix tests")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1170,11 +1178,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			allKvInfraPodsAreReady(kv)
 		})
 
-		// decorated with no-flake-check since CNAO is enabled on the check-tests-for-flakes-lane
-		// see https://github.com/kubevirt/kubevirt/pull/15333
-		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, decorators.NoFlakeCheck, func() {
+		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			var vmis []*v1.VirtualMachineInstance
@@ -1215,7 +1221,14 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			sanityCheckDeploymentsExist()
 
 			By("Starting multiple migratable VMIs before performing update")
-			vmis = createRunningVMIs(vmis)
+
+			if len(vmis) > 0 {
+				netAttachDef := libnet.NewBridgeNetAttachDef(secondaryNetworkName, secondaryNetworkName)
+				_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.GetTestNamespace(vmis[0]), netAttachDef)
+				Expect(err).NotTo(HaveOccurred())
+				vmis = createRunningVMIs(vmis)
+			}
+
 			vmisNonMigratable = createRunningVMIs(vmisNonMigratable)
 
 			By("Updating KubeVirtObject With Alt Tag")
@@ -1248,13 +1261,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		// NOTE - this test verifies new operators can grab the leader election lease
 		// during operator updates. The only way the new infrastructure is deployed
 		// is if the update operator is capable of getting the lease.
-		//
-		// decorated with no-flake-check since CNAO is enabled on the check-tests-for-flakes-lane
-		// see https://github.com/kubevirt/kubevirt/pull/15333
-		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, decorators.NoFlakeCheck, func() {
+		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1348,13 +1358,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 		})
 
-		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
-
-			BeforeEach(func() {
-				if !checks.IsOpenShift() {
-					Skip("OpenShift operator tests should not be started on k8s")
-				}
-			})
+		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", decorators.OpenShift, func() {
 
 			It("[test_id:2910]Should have kubevirt SCCs created", func() {
 				const OpenShiftSCCLabel = "openshift.io/scc"
@@ -1403,28 +1407,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled", func() {
-
-		BeforeEach(func() {
-			if serviceMonitorEnabled() {
-				Skip("Test applies on when ServiceMonitor is not defined")
-			}
-		})
-
-		It("[test_id:3154]Should not create RBAC Role or RoleBinding for ServiceMonitor", func() {
-			rbacClient := virtClient.RbacV1()
-
-			By("Checking that Role for ServiceMonitor doesn't exist")
-			roleName := "kubevirt-service-monitor"
-			_, err := rbacClient.Roles(flags.KubeVirtInstallNamespace).Get(context.Background(), roleName, metav1.GetOptions{})
-			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Role 'kubevirt-service-monitor' should not have been created")
-
-			By("Checking that RoleBinding for ServiceMonitor doesn't exist")
-			_, err = rbacClient.RoleBindings(flags.KubeVirtInstallNamespace).Get(context.Background(), roleName, metav1.GetOptions{})
-			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "RoleBinding 'kubevirt-service-monitor' should not have been created")
-		})
-	})
-
 	Context("With PrometheusRule Enabled", func() {
 
 		BeforeEach(func() {
@@ -1441,21 +1423,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(prometheusRule.Spec.Groups).ToNot(BeEmpty())
 			Expect(prometheusRule.Spec.Groups[0].Rules).ToNot(BeEmpty())
 
-		})
-	})
-
-	Context("With PrometheusRule Disabled", func() {
-
-		BeforeEach(func() {
-			if prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is not defined")
-			}
-		})
-
-		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
-			monv1 := virtClient.PrometheusClient().MonitoringV1()
-			_, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
-			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -2941,7 +2908,7 @@ func deleteAllKvAndWait(ignoreOriginal bool, originalKvName string) {
 	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 }
 
-func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag string) (map[string]*vmYamlDefinition, error) {
+func generatePreviousVersionVmYamls(workDir string) (map[string]*vmYamlDefinition, error) {
 	virtClient := kubevirt.Client()
 	vmYamls := make(map[string]*vmYamlDefinition)
 	ext, err := extclient.NewForConfig(virtClient.Config())
@@ -2960,15 +2927,13 @@ func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUt
 		supportedVersions = append(supportedVersions, version.Name)
 	}
 
-	imageName := fmt.Sprintf("%s/%s-container-disk-demo:%s", previousUtilityRegistry, cd.ContainerDiskAlpine, previousUtilityTag)
-
 	for i, version := range supportedVersions {
 		yamlFileName := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
 
 		err = resourcefiles.WriteFile(yamlFileName, resourcefiles.VMInfo{
 			Version:   version,
 			Index:     i,
-			ImageName: imageName,
+			ImageName: cd.ContainerDiskFor(cd.ContainerDiskAlpine),
 		})
 		if err != nil {
 			return nil, err
@@ -3089,13 +3054,13 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 
 		var err error
 		cm := libconfigmap.New(configMapName, configData)
-		cm, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
+		_, err = virtClient.CoreV1().ConfigMaps(testsuite.GetTestNamespace(cm)).Create(context.Background(), cm, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
 
 		secret := libsecret.New(secretName, libsecret.DataString{"user": "admin", "password": "community"})
-		secret, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
+		_, err = kubevirt.Client().CoreV1().Secrets(testsuite.GetTestNamespace(nil)).Create(context.Background(), secret, metav1.CreateOptions{})
 		if err != nil && !errors.IsAlreadyExists(err) {
 			return nil, err
 		}
@@ -3117,7 +3082,17 @@ func generateMigratableVMIs(num int) ([]*v1.VirtualMachineInstance, error) {
 		vmis = append(vmis, vmi)
 	}
 
+	addSecondaryNetworkToLastVMI(vmis, secondaryNetworkName, "tenant-blue")
+
 	return vmis, nil
+}
+
+func addSecondaryNetworkToLastVMI(vmis []*v1.VirtualMachineInstance, nadName, networkName string) {
+	lastVMIIndex := len(vmis) - 1
+	vmi := vmis[lastVMIIndex]
+
+	libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(networkName))(vmi)
+	libvmi.WithNetwork(libvmi.MultusNetwork(networkName, nadName))(vmi)
 }
 
 func verifyVMIsUpdated(vmis []*v1.VirtualMachineInstance) {

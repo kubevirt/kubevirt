@@ -28,6 +28,7 @@ go_test(
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/testutils:go_default_library",
         "//pkg/virt-config:go_default_library",

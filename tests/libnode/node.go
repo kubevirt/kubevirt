@@ -314,18 +314,6 @@ func GetHighestCPUNumberAmongNodes(virtClient kubecli.KubevirtClient) int {
 	return int(cpus)
 }
 
-func GetNodeWithHugepages(virtClient kubecli.KubevirtClient, hugepages k8sv1.ResourceName) *k8sv1.Node {
-	nodeList, err := virtClient.CoreV1().Nodes().List(context.Background(), k8smetav1.ListOptions{})
-	ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-	for _, node := range nodeList.Items {
-		if v, ok := node.Status.Capacity[hugepages]; ok && !v.IsZero() {
-			return &node
-		}
-	}
-	return nil
-}
-
 func GetNodeNameWithHandler() string {
 	listOptions := k8smetav1.ListOptions{LabelSelector: v1.AppLabel + "=virt-handler"}
 	virtClient := kubevirt.Client()

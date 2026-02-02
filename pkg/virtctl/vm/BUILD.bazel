@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "add_volume.go",
         "common.go",
+        "evacuate_cancel.go",
         "expand.go",
         "fs_list.go",
         "guestosinfo.go",
@@ -25,6 +26,7 @@ go_library(
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/yaml:go_default_library",
         "//vendor/sigs.k8s.io/yaml:go_default_library",
@@ -35,6 +37,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "add_volume_test.go",
+        "evacuate_cancel_test.go",
         "expand_test.go",
         "fs_list_test.go",
         "guestosinfo_test.go",
@@ -47,6 +50,7 @@ go_test(
         "user_list_test.go",
         "vm_suite_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/pointer:go_default_library",

@@ -594,7 +594,7 @@ func (app *SubresourceAPIApp) MigrateVMRequestHandler(request *restful.Request, 
 
 func (app *SubresourceAPIApp) findPod(namespace string, vmi *v1.VirtualMachineInstance) (string, error) {
 	fieldSelector := fields.ParseSelectorOrDie("status.phase==" + string(k8sv1.PodRunning))
-	labelSelector, err := labels.Parse(fmt.Sprintf(v1.AppLabel + "=virt-launcher," + v1.CreatedByLabel + "=" + string(vmi.UID)))
+	labelSelector, err := labels.Parse(fmt.Sprintf("%s=virt-launcher,%s=%s", v1.AppLabel, v1.CreatedByLabel, string(vmi.UID)))
 	if err != nil {
 		return "", err
 	}
@@ -679,4 +679,19 @@ func getRunningPatch(vm *v1.VirtualMachine, running bool) ([]byte, error) {
 		patch.WithTest("/spec/running", vm.Spec.Running),
 		patch.WithReplace("/spec/running", running),
 	).GeneratePayload()
+}
+
+func (app *SubresourceAPIApp) BackupVMIRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.BackupURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
 }

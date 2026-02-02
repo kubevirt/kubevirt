@@ -24,6 +24,7 @@ go_test(
         "instancetype_suite_test.go",
         "instancetype_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/instancetype/webhooks:go_default_library",

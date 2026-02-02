@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["compression.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/prometheus/client_golang/prometheus/promhttp/internal",
+    importpath = "github.com/prometheus/client_golang/prometheus/promhttp/internal",
+    visibility = ["//vendor/github.com/prometheus/client_golang/prometheus/promhttp:__subpackages__"],
+)

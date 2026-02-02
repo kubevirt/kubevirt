@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "deviceinfo.go",
+        "macaddress.go",
         "sriov.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/network/deviceinfo",
@@ -22,6 +23,7 @@ go_test(
         "deviceinfo_suite_test.go",
         "deviceinfo_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/libvmi:go_default_library",

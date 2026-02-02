@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["randfill.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/sigs.k8s.io/randfill",
+    importpath = "sigs.k8s.io/randfill",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/sigs.k8s.io/randfill/bytesource:go_default_library"],
+)

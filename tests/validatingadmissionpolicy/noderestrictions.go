@@ -45,15 +45,20 @@ import (
 	"kubevirt.io/kubevirt/tests/libnode"
 )
 
+const (
+	notAllowedLabelPath      = "/metadata/labels/other.io~1notAllowedLabel"
+	notAllowedAnnotationPath = "/metadata/annotations/other.io~1notAllowedAnnotation"
+	allowedLabelPath         = "/metadata/labels/kubevirt.io~1allowedLabel"
+	allowedAnnotationPath    = "/metadata/annotations/kubevirt.io~1allowedAnnotation"
+)
+
 var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdmissionPolicy", decorators.SigCompute, Serial, func() {
-	const (
-		notAllowedLabelPath      = "/metadata/labels/other.io~1notAllowedLabel"
-		notAllowedAnnotationPath = "/metadata/annotations/other.io~1notAllowedAnnotation"
-		allowedLabelPath         = "/metadata/labels/kubevirt.io~1allowedLabel"
-		allowedAnnotationPath    = "/metadata/annotations/kubevirt.io~1allowedAnnotation"
+
+	var (
+		virtClient  kubecli.KubevirtClient
+		nodeName    string
+		anotherNode string
 	)
-	var virtClient kubecli.KubevirtClient
-	var nodeName string
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
@@ -68,39 +73,10 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		nodesList := libnode.GetAllSchedulableNodes(virtClient)
 		Expect(nodesList.Items).ToNot(BeEmpty())
 		nodeName = nodesList.Items[0].Name
-		patchBytes, err := patch.New(
-			patch.WithAdd(notAllowedLabelPath, "value"),
-			patch.WithAdd(notAllowedAnnotationPath, "value"),
-			patch.WithAdd(allowedLabelPath, "value"),
-			patch.WithAdd(allowedAnnotationPath, "value"),
-		).GeneratePayload()
-		Expect(err).ToNot(HaveOccurred())
 
-		_, err = virtClient.CoreV1().Nodes().Patch(context.Background(), nodeName, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred())
-	})
+		prepareNode(nodeName)
 
-	AfterEach(func() {
-		node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		old, err := json.Marshal(node)
-		Expect(err).ToNot(HaveOccurred())
-		newNode := node.DeepCopy()
-		delete(newNode.Labels, "other.io/notAllowedLabel")
-		delete(newNode.Annotations, "other.io/notAllowedAnnotation")
-		delete(newNode.Labels, "kubevirt.io/allowedLabel")
-		delete(newNode.Annotations, "kubevirt.io/allowedAnnotation")
-
-		newJSON, err := json.Marshal(newNode)
-		Expect(err).ToNot(HaveOccurred())
-
-		patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJSON, node)
-		Expect(err).ToNot(HaveOccurred())
-
-		_, err = virtClient.CoreV1().Nodes().Patch(
-			context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(func() { cleanup(nodeName) })
 	})
 
 	type testPatchMap struct {
@@ -146,7 +122,7 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		for description, patchItem := range patchSetList {
 			nodePatch, err := patchItem.patchSet.GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
-			_, err = handlerClient.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, nodePatch, metav1.PatchOptions{})
+			_, err = handlerClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.JSONPatchType, nodePatch, metav1.PatchOptions{})
 			Expect(err).To(HaveOccurred(), fmt.Sprintf("%s should fail on node specific node restriction", description))
 			Expect(err).To(MatchError(errors.IsForbidden, "k8serrors.IsForbidden"))
 			Expect(err.Error()).To(ContainSubstring(patchItem.expectedError), fmt.Sprintf("%s should match specific error", description))
@@ -189,8 +165,106 @@ var _ = Describe("[sig-compute] virt-handler node restrictions via validatingAdm
 		for description, patchSet := range patchSetList {
 			nodePatch, err := patchSet.GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
-			_, err = handlerClient.CoreV1().Nodes().Patch(context.TODO(), node.Name, types.JSONPatchType, nodePatch, metav1.PatchOptions{})
+			_, err = handlerClient.CoreV1().Nodes().Patch(context.Background(), node.Name, types.JSONPatchType, nodePatch, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("%s should not fail on node specific node restriction", description))
 		}
 	})
+
+	Context("patching another node", func() {
+		BeforeEach(func() {
+			nodesList := libnode.GetAllSchedulableNodes(virtClient)
+			Expect(nodesList.Items).ToNot(BeEmpty())
+			Expect(len(nodesList.Items)).To(BeNumerically(">", 1))
+			for _, node := range nodesList.Items {
+				if nodeName != node.Name {
+					anotherNode = node.Name
+					break
+				}
+			}
+
+			prepareNode(anotherNode)
+			DeferCleanup(func() { cleanup(anotherNode) })
+		})
+
+		It("rejects kubevirt related patches", func() {
+			patchSetList := map[string]*patch.PatchSet{
+				"kubevirt.io label addition":      patch.New(patch.WithAdd(allowedLabelPath+"new", "value")),
+				"kubevirt.io label update":        patch.New(patch.WithReplace(allowedLabelPath, "other-value")),
+				"kubevirt.io label removal":       patch.New(patch.WithRemove(allowedLabelPath)),
+				"kubevirt.io annotation addition": patch.New(patch.WithAdd(allowedAnnotationPath+"new", "value")),
+				"kubevirt.io annotation update":   patch.New(patch.WithReplace(allowedAnnotationPath, "other-value")),
+				"kubevirt.io annotation removal":  patch.New(patch.WithRemove(allowedAnnotationPath)),
+			}
+			node, err := virtClient.CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			pod, err := libnode.GetVirtHandlerPod(virtClient, node.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			token, err := exec.ExecuteCommandOnPod(
+				pod,
+				"virt-handler",
+				[]string{"cat",
+					"/var/run/secrets/kubernetes.io/serviceaccount/token",
+				},
+			)
+
+			Expect(err).ToNot(HaveOccurred())
+			handlerClient, err := kubecli.GetKubevirtClientFromRESTConfig(&rest.Config{
+				Host: virtClient.Config().Host,
+				TLSClientConfig: rest.TLSClientConfig{
+					Insecure: true,
+				},
+				BearerToken: token,
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			otherNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), anotherNode, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			for description, patchSet := range patchSetList {
+				nodePatch, err := patchSet.GeneratePayload()
+				Expect(err).ToNot(HaveOccurred())
+				_, err = handlerClient.CoreV1().Nodes().Patch(context.Background(), otherNode.Name, types.JSONPatchType, nodePatch, metav1.PatchOptions{})
+				Expect(err).To(MatchError(ContainSubstring("this user cannot modify this node")), fmt.Sprintf("%s should fail on node specific node restriction", description))
+			}
+		})
+	})
+
 })
+
+func prepareNode(name string) {
+	patchBytes, err := patch.New(
+		patch.WithAdd(notAllowedLabelPath, "value"),
+		patch.WithAdd(notAllowedAnnotationPath, "value"),
+		patch.WithAdd(allowedLabelPath, "value"),
+		patch.WithAdd(allowedAnnotationPath, "value"),
+	).GeneratePayload()
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = kubevirt.Client().CoreV1().Nodes().Patch(context.Background(), name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func cleanup(nodeName string) {
+	node, err := kubevirt.Client().CoreV1().Nodes().Get(context.Background(), nodeName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	old, err := json.Marshal(node)
+	Expect(err).ToNot(HaveOccurred())
+	newNode := node.DeepCopy()
+	delete(newNode.Labels, "other.io/notAllowedLabel")
+	delete(newNode.Annotations, "other.io/notAllowedAnnotation")
+	delete(newNode.Labels, "kubevirt.io/allowedLabel")
+	delete(newNode.Annotations, "kubevirt.io/allowedAnnotation")
+
+	newJSON, err := json.Marshal(newNode)
+	Expect(err).ToNot(HaveOccurred())
+
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(old, newJSON, node)
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = kubevirt.Client().CoreV1().Nodes().Patch(
+		context.Background(), node.Name, types.StrategicMergePatchType, patchBytes, metav1.PatchOptions{})
+	Expect(err).ToNot(HaveOccurred())
+}

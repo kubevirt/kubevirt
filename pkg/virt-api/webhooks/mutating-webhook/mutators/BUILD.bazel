@@ -49,6 +49,7 @@ go_test(
         "vmi-mutator_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/instancetype/webhooks/vm:go_default_library",

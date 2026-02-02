@@ -23,24 +23,31 @@ import (
 
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/controller"
 )
+
+type vmiQueue interface {
+	all() ([]result, bool)
+	startPolling()
+}
 
 type handler struct {
 	sync.Mutex
 
 	vmiStore cache.Store
-	vmiStats map[string]*queue
+	vmiStats map[string]vmiQueue
 }
 
 func newHandler(vmiInformer cache.SharedIndexInformer) (*handler, error) {
 	h := handler{
 		vmiStore: vmiInformer.GetStore(),
-		vmiStats: make(map[string]*queue),
+		vmiStats: make(map[string]vmiQueue),
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    h.handleVmiAdd,
 		UpdateFunc: h.handleVmiUpdate,
 	})
 
@@ -54,10 +61,11 @@ func (h *handler) Collect() []result {
 	defer h.Unlock()
 
 	for key, q := range h.vmiStats {
-		vmiResults, isActive := q.all()
+		vmiResults, isFinished := q.all()
 		allResults = append(allResults, vmiResults...)
 
-		if !isActive {
+		if isFinished {
+			log.Log.V(3).Infof("deleting queue for VMI %s", key)
 			delete(h.vmiStats, key)
 		}
 	}
@@ -73,6 +81,16 @@ func (h *handler) handleVmiUpdate(_oldObj, newObj interface{}) {
 	}
 
 	h.addMigration(newVmi)
+}
+
+func (h *handler) handleVmiAdd(obj interface{}) {
+	vmi := obj.(*v1.VirtualMachineInstance)
+
+	if vmi.Status.MigrationState == nil || vmi.Status.MigrationState.Completed {
+		return
+	}
+
+	h.addMigration(vmi)
 }
 
 func (h *handler) addMigration(vmi *v1.VirtualMachineInstance) {

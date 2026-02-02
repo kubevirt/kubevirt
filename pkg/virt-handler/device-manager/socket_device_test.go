@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
 package device_manager
 
 import (
@@ -16,15 +35,13 @@ import (
 )
 
 var _ = Describe("Socket device", func() {
-	var workDir string
 	var dpi *SocketDevicePlugin
-	var stop chan struct{}
 	var sockDevPath string
 	const socket = "fake-test.sock"
 
 	BeforeEach(func() {
 		var err error
-		workDir = GinkgoT().TempDir()
+		workDir := GinkgoT().TempDir()
 		Expect(err).ToNot(HaveOccurred())
 		sockDevPath = path.Join(workDir, socket)
 		createFile(sockDevPath)
@@ -42,12 +59,9 @@ var _ = Describe("Socket device", func() {
 		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
 		createFile(dpi.socketPath)
 		dpi.done = make(chan struct{})
-		stop = make(chan struct{})
+		stop := make(chan struct{})
 		dpi.stop = stop
-	})
-
-	AfterEach(func() {
-		close(stop)
+		DeferCleanup(func() { close(stop) })
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
@@ -57,7 +71,7 @@ var _ = Describe("Socket device", func() {
 		}(errChan)
 		Consistently(func() string {
 			return dpi.devs[0].Health
-		}, 2*time.Second, 500*time.Millisecond).Should(Equal(pluginapi.Healthy))
+		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
 		Expect(<-errChan).ToNot(HaveOccurred())

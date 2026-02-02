@@ -114,7 +114,7 @@ var _ = Describe("MigrationProxy", func() {
 
 				defer virtqemudListener.Close()
 
-				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, tlsConfig, virtqemudSock, "123")
+				targetProxy := NewTargetProxy("0.0.0.0", 12345, tlsConfig, virtqemudSock, "123")
 				sourceProxy := NewSourceProxy(sourceSock, "127.0.0.1:12345", tlsConfig, tlsConfig, "123")
 				defer targetProxy.Stop()
 				defer sourceProxy.Stop()
@@ -162,7 +162,7 @@ var _ = Describe("MigrationProxy", func() {
 				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					MigrationConfiguration: migrationConfig,
 				})
-				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, config)
+				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, tlsConfig, config)
 				manager.StartTargetListener("mykey", []string{virtqemudSock, directSock})
 				destSrcPortMap := manager.GetTargetListenerPorts("mykey")
 				manager.StartSourceListener("mykey", "127.0.0.1", destSrcPortMap, tmpDir)
@@ -220,17 +220,18 @@ var _ = Describe("MigrationProxy", func() {
 				directMigrationPort := "49152"
 				virtqemudSock := filepath.Join(tmpDir, "virtqemud-sock")
 				virtqemudListener, err := net.Listen("unix", virtqemudSock)
-				defer virtqemudListener.Close()
 				Expect(err).ShouldNot(HaveOccurred())
+				defer virtqemudListener.Close()
+
 				directSock := filepath.Join(tmpDir, key1+"-"+directMigrationPort)
 				directListener, err := net.Listen("unix", directSock)
+				Expect(err).ShouldNot(HaveOccurred())
 				defer directListener.Close()
 
-				Expect(err).ShouldNot(HaveOccurred())
 				config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
 					MigrationConfiguration: migrationConfig,
 				})
-				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, config)
+				manager := NewMigrationProxyManager(tlsConfig, tlsConfig, tlsConfig, config)
 				err = manager.StartTargetListener(key1, []string{virtqemudSock, directSock})
 				Expect(err).ShouldNot(HaveOccurred())
 				destSrcPortMap := manager.GetTargetListenerPorts(key1)

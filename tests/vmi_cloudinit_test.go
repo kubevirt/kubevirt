@@ -84,7 +84,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
 				secretID := fmt.Sprintf("%s-test-secret", uuid.NewString())
 
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpine(
 					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudUserDataSecretName(secretID)),
 				)
 
@@ -95,7 +95,7 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				Expect(err).ToNot(HaveOccurred())
 
 				runningVMI := libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
-				runningVMI = libwait.WaitUntilVMIReady(runningVMI, console.LoginToCirros)
+				runningVMI = libwait.WaitUntilVMIReady(runningVMI, console.LoginToAlpine)
 
 				checkCloudInitIsoSize(runningVMI, cloudinit.DataSourceNoCloud)
 
@@ -114,12 +114,12 @@ var _ = Describe("[rfe_id:151][crit:high][vendor:cnv-qe@redhat.com][level:compon
 
 			It("[test_id:1615]should have cloud-init data from userDataBase64 source", func() {
 				userData := fmt.Sprintf("#!/bin/sh\n\ntouch /%s\n", expectedUserDataFile)
-				vmi := libvmifact.NewCirros(
+				vmi := libvmifact.NewAlpine(
 					libvmi.WithCloudInitNoCloud(libcloudinit.WithNoCloudEncodedUserData(userData)),
 				)
 
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 				checkCloudInitIsoSize(vmi, cloudinit.DataSourceNoCloud)
 
 				By("Checking whether the user-data script had created the file")
@@ -523,9 +523,9 @@ func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
 	cmdCheck := fmt.Sprintf("mount $(blkid  -L %s) /mnt/\n", devName)
 	return console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "sudo su -\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: cmdCheck},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: console.RetValue("0")},
 	}, 15)
@@ -533,14 +533,14 @@ func mountGuestDevice(vmi *v1.VirtualMachineInstance, devName string) error {
 
 func verifyUserDataVMI(vmi *v1.VirtualMachineInstance, commands []expect.Batcher, timeout time.Duration) {
 	By("Checking that the VirtualMachineInstance serial console output equals to expected one")
-	Expect(console.SafeExpectBatch(vmi, commands, int(timeout.Seconds()))).To(Succeed())
+	Expect(console.ExpectBatch(vmi, commands, timeout)).To(Succeed())
 }
 
 func checkCloudInitFile(vmi *v1.VirtualMachineInstance, testFile, testData string) {
 	cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
 	err := console.SafeExpectBatch(vmi, []expect.Batcher{
 		&expect.BSnd{S: "sudo su -\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: cmdCheck},
 		&expect.BExp{R: testData},
 	}, 15)

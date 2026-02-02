@@ -31,14 +31,14 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	k8sv1 "k8s.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -90,10 +90,20 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	}
 
+	scalePool := func(name string, scale int32) *poolv1.VirtualMachinePool {
+		patchSet := patch.New()
+		patchSet.AddOption(patch.WithReplace("/spec/replicas", pointer.P(scale)))
+		patchData, err := patchSet.GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+
+		pool, err := virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Patch(context.Background(), name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		return pool
+	}
+
 	doScale := func(name string, scale int32) {
 		By(fmt.Sprintf("Scaling to %d", scale))
-		pool, err := virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Patch(context.Background(), name, types.JSONPatchType, []byte(fmt.Sprintf("[{ \"op\": \"replace\", \"path\": \"/spec/replicas\", \"value\": %v }]", scale)), metav1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred())
+		pool := scalePool(name, scale)
 
 		runStrategy := pool.Spec.VirtualMachineTemplate.Spec.RunStrategy
 		running := runStrategy != nil && *runStrategy == v1.RunStrategyAlways
@@ -128,7 +138,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}
 
 		dataVolume := libdv.NewDataVolume(
-			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
 			libdv.WithStorage(libdv.StorageWithStorageClass(sc)),
 		)
 
@@ -146,8 +156,6 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		})
 		newPool.Spec.VirtualMachineTemplate.Spec.DataVolumeTemplates = vm.Spec.DataVolumeTemplates
 		newPool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
-		newPool, err = virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
 
 		return newPool
 	}
@@ -161,7 +169,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	newOfflineVirtualMachinePool := func() *poolv1.VirtualMachinePool {
 		By("Create a new VirtualMachinePool")
-		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewCirros()))
+		return createVirtualMachinePool(newPoolFromVMI(libvmifact.NewAlpine()))
 	}
 
 	DescribeTable("pool should scale", func(startScale int, stopScale int) {
@@ -201,7 +209,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		})
 
 		_, err = virtClient.VirtualMachinePool(testsuite.NamespaceTestDefault).Create(context.Background(), newPool, metav1.CreateOptions{})
-		Expect(err.Error()).To(ContainSubstring("admission webhook \"virtualmachinepool-validator.kubevirt.io\" denied the request: spec.virtualMachineTemplate.spec.template.spec.domain.devices.disks[2].Name 'testdisk' not found"))
+		Expect(err.Error()).To(ContainSubstring("admission webhook \"virtualmachinepool-validator.kubevirt.io\" denied the request: spec.virtualMachineTemplate.spec.template.spec.domain.devices.disks[1].Name 'testdisk' not found"))
 	})
 
 	It("should remove VMs once they are marked for deletion", func() {
@@ -223,7 +231,8 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 	})
 
 	It("should handle pool with dataVolumeTemplates", func() {
-		newPool := newPersistentStorageVirtualMachinePool()
+		pool := newPersistentStorageVirtualMachinePool()
+		newPool := createVirtualMachinePool(pool)
 		doScale(newPool.ObjectMeta.Name, 2)
 
 		var (
@@ -268,7 +277,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 		By("deleting a VM")
 		foreGround := metav1.DeletePropagationForeground
-		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, k8smetav1.DeleteOptions{PropagationPolicy: &foreGround})).To(Succeed())
+		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, metav1.DeleteOptions{PropagationPolicy: &foreGround})).To(Succeed())
 
 		By("Waiting for deleted VM to be replaced")
 		Eventually(func() error {
@@ -332,7 +341,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		name := vms.Items[1].Name
 
 		By("deleting a VM")
-		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, k8smetav1.DeleteOptions{})).To(Succeed())
+		Expect(virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).Delete(context.Background(), name, metav1.DeleteOptions{})).To(Succeed())
 
 		By("Waiting for deleted VM to be replaced")
 		Eventually(func() error {
@@ -421,68 +430,268 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		}, 5*time.Second, 1*time.Second).Should(Succeed())
 	})
 
-	It("should roll out VMI template changes and proactively roll out new VMIs", func() {
-		newPool := newVirtualMachinePool()
-		doScale(newPool.Name, 1)
-		waitForVMIs(newPool.Namespace, newPool.Spec.Selector, 1)
+	type updateStrategyTest struct {
+		updateStrategy     *poolv1.VirtualMachinePoolUpdateStrategy
+		initialVMLabels    map[string]string
+		expectedVMUpdate   bool
+		expectedVmiRestart bool
+	}
 
-		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
-			LabelSelector: labelSelectorToString(newPool.Spec.Selector),
-		})
+	DescribeTable("should handle VMI template changes based on update strategy",
+		func(test updateStrategyTest) {
+			pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
+			pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+			pool.Spec.UpdateStrategy = test.updateStrategy
 
-		Expect(err).ToNot(HaveOccurred())
-		Expect(vms.Items).To(HaveLen(1))
-
-		name := vms.Items[0].Name
-		vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		vmiUID := vmi.UID
-
-		By("Rolling Out VM template change")
-		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Get(context.Background(), newPool.ObjectMeta.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		// Make a VMI template change
-		patchData, err := patch.New(patch.WithAdd(
-			fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey), newLabelValue),
-		).GeneratePayload()
-		Expect(err).ToNot(HaveOccurred())
-		newPool, err = virtClient.VirtualMachinePool(newPool.ObjectMeta.Namespace).Patch(context.Background(), newPool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Ensuring VM picks up label")
-		Eventually(func() error {
-
-			vm, err := virtClient.VirtualMachine(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
-			if err != nil {
-				return err
+			if test.initialVMLabels != nil {
+				if pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels == nil {
+					pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels = make(map[string]string)
+				}
+				for k, v := range test.initialVMLabels {
+					pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels[k] = v
+				}
 			}
 
-			_, ok := vm.Spec.Template.ObjectMeta.Labels[newLabelKey]
-			if !ok {
-				return fmt.Errorf("Expected vm pool update to roll out to VMs")
+			pool = createVirtualMachinePool(pool)
+			doScale(pool.Name, 1)
+			waitForVMIs(pool.Namespace, pool.Spec.Selector, 1)
+
+			vmis, err := virtClient.VirtualMachineInstance(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelectorToString(pool.Spec.Selector),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmis.Items).To(HaveLen(1))
+
+			name := vmis.Items[0].Name
+			vmiUID := vmis.Items[0].UID
+			vmiGeneration := vmis.Items[0].Generation
+
+			By("Rolling Out VMI template change")
+			pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Get(context.Background(), pool.ObjectMeta.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			patchData, err := patch.New(patch.WithAdd(
+				fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/labels/%s", newLabelKey), newLabelValue),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Checking VM update behavior")
+			if test.expectedVMUpdate {
+				Eventually(func(g Gomega) {
+					vm, err := virtClient.VirtualMachine(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(vm.Spec.Template.ObjectMeta.Labels[newLabelKey]).To(Equal(newLabelValue))
+				}, 30*time.Second, 1*time.Second).Should(Succeed())
+			} else {
+				Consistently(func(g Gomega) {
+					vm, err := virtClient.VirtualMachine(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(vm.Spec.Template.ObjectMeta.Labels[newLabelKey]).ToNot(Equal(newLabelValue))
+				}, 30*time.Second, 2*time.Second).Should(Succeed())
 			}
 
-			return nil
-		}, 30*time.Second, 1*time.Second).Should(Succeed())
+			By("Checking VMI update behavior")
+			if test.expectedVmiRestart {
+				Eventually(func(g Gomega) {
+					vmi, err := virtClient.VirtualMachineInstance(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(vmi.UID).NotTo(Equal(vmiUID))
+					g.Expect(vmi.Labels[newLabelKey]).To(Equal(newLabelValue))
+				}, 60*time.Second, 2*time.Second).Should(Succeed())
+			} else {
+				Consistently(func(g Gomega) {
+					vmi, err := virtClient.VirtualMachineInstance(pool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(vmi.UID).To(Equal(vmiUID))
+					g.Expect(vmi.Generation).To(Equal(vmiGeneration))
+					g.Expect(vmi.Labels[newLabelKey]).ToNot(Equal(newLabelValue))
+				}, 30*time.Second, 2*time.Second).Should(Succeed())
+			}
+		},
+		Entry("should roll out VMI template changes only to VMs when opportunistic update strategy is set",
+			updateStrategyTest{
+				updateStrategy: &poolv1.VirtualMachinePoolUpdateStrategy{
+					Opportunistic: &poolv1.VirtualMachineOpportunisticUpdateStrategy{},
+				},
+				expectedVMUpdate:   true,
+				expectedVmiRestart: false,
+			},
+		),
+		Entry("should roll out VMI template changes and proactively roll out new VMIs when proactive update strategy is nil",
+			updateStrategyTest{
+				updateStrategy:     nil,
+				expectedVMUpdate:   true,
+				expectedVmiRestart: true,
+			},
+		),
+		Entry("should not roll out VMI template changes and proactively roll out new VMIs when proactive update strategy is set and label selector does not match",
+			updateStrategyTest{
+				updateStrategy: &poolv1.VirtualMachinePoolUpdateStrategy{
+					Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+						SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+							Selectors: &poolv1.VirtualMachinePoolSelectors{
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"app": "test"},
+								},
+							},
+						},
+					},
+				},
+				expectedVMUpdate:   false,
+				expectedVmiRestart: false,
+			},
+		),
+		Entry("should roll out VMI template changes and proactively roll out new VMIs when proactive update strategy is set and label selector matches",
+			updateStrategyTest{
+				updateStrategy: &poolv1.VirtualMachinePoolUpdateStrategy{
+					Proactive: &poolv1.VirtualMachinePoolProactiveUpdateStrategy{
+						SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+							Selectors: &poolv1.VirtualMachinePoolSelectors{
+								LabelSelector: &metav1.LabelSelector{
+									MatchLabels: map[string]string{"app": "test"},
+								},
+							},
+						},
+					},
+				},
+				initialVMLabels:    map[string]string{"app": "test"},
+				expectedVMUpdate:   true,
+				expectedVmiRestart: true,
+			},
+		),
+	)
 
-		By("Ensuring VMI is re-created to pick up new label")
-		Eventually(func() error {
-			vmi, err := virtClient.VirtualMachineInstance(newPool.Namespace).Get(context.Background(), name, metav1.GetOptions{})
-			if err != nil {
-				return nil
-			}
+	It("should auto-heal consistently failing VMs when autohealing is enabled", func() {
+		By("Creating a pool with autohealing enabled and VMs that will crash loop")
+		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool.Spec.Autohealing = &poolv1.VirtualMachinePoolAutohealingStrategy{}
 
-			if vmi.UID == vmiUID {
-				return fmt.Errorf("Waiting on VMI to get deleted and recreated")
-			}
-			_, ok := vmi.ObjectMeta.Labels[newLabelKey]
-			if !ok {
-				return fmt.Errorf("Expected vmi to pick up the new updated label")
-			}
-			return nil
+		// Add the fail-fast annotation to the VMI template so VMIs will crash loop
+		if pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Annotations == nil {
+			pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+		}
+		pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Annotations[v1.FuncTestLauncherFailFastAnnotation] = ""
+
+		pool = createVirtualMachinePool(pool)
+
+		By("Scaling pool to 1 replica")
+		scalePool(pool.Name, 1)
+
+		By("Waiting for VM to be created")
+		var name string
+		Eventually(func(g Gomega) {
+			vms, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelectorToString(pool.Spec.Selector),
+			})
+			g.Expect(err).ToNot(HaveOccurred())
+			activeVMs := filterNotDeletedVMsOwnedByPool(pool.Name, vms)
+			g.Expect(activeVMs).To(HaveLen(1))
+			name = activeVMs[0].Name
 		}, 60*time.Second, 1*time.Second).Should(Succeed())
+
+		By("Waiting for VM to accumulate consecutive start failures (>= 3)")
+		var vmUID types.UID
+		Eventually(func(g Gomega) {
+			vm, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			vmUID = vm.UID
+
+			g.Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusCrashLoopBackOff))
+			g.Expect(vm.Status.StartFailure).ToNot(BeNil())
+			g.Expect(vm.Status.StartFailure.ConsecutiveFailCount).To(BeNumerically(">=", 3))
+		}, 5*time.Minute, 1*time.Second).Should(Succeed())
+
+		By("Checking that autohealing deleted and replaced the failing VMs")
+		Eventually(func(g Gomega) {
+			vm, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+
+			if vm.Status.StartFailure != nil {
+				g.Expect(vm.Status.StartFailure.ConsecutiveFailCount).To(BeNumerically("<", 3))
+			}
+
+			g.Expect(vm.UID).ToNot(Equal(vmUID))
+		}, 2*time.Minute, 5*time.Second).Should(Succeed())
+
+		By("Checking the startFailure status of the VM after replacement as the annotation is still present")
+		Eventually(func(g Gomega) {
+			vm, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vm.Status.StartFailure).NotTo(BeNil())
+		}, 30*time.Second, 5*time.Second).Should(Succeed())
+
+		By("Removing the annotation that causes the VM to crash loop back off")
+		patchData, err := patch.New(patch.WithRemove(fmt.Sprintf("/spec/virtualMachineTemplate/spec/template/metadata/annotations/%s", patch.EscapeJSONPointer(v1.FuncTestLauncherFailFastAnnotation)))).GeneratePayload()
+		Expect(err).ToNot(HaveOccurred())
+		pool, err = virtClient.VirtualMachinePool(pool.ObjectMeta.Namespace).Patch(context.Background(), pool.Name, types.JSONPatchType, patchData, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Checking the startFailure status of the VM to be nil and the VM to be running")
+		Eventually(func(g Gomega) {
+			vm, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vm.Status.StartFailure).To(BeNil())
+			g.Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusRunning))
+		}, 30*time.Second, 5*time.Second).Should(Succeed())
+	})
+
+	It("should auto-heal VMs when VM is in not ready state for too long when pvc is not found", func() {
+		pool := newPoolFromVMI(libvmi.New(libvmi.WithMemoryRequest("2Mi")))
+		pool.Spec.VirtualMachineTemplate.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+		pool.Spec.VirtualMachineTemplate.Spec.Template.Spec.Volumes = []v1.Volume{
+			{
+				Name: "non-existent-pvc",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+							ClaimName: "non-existent-pvc",
+						},
+					},
+				},
+			},
+		}
+
+		pool.Spec.Autohealing = &poolv1.VirtualMachinePoolAutohealingStrategy{
+			MinFailingToStartDuration: &metav1.Duration{
+				Duration: 2 * time.Minute,
+			},
+		}
+		pool = createVirtualMachinePool(pool)
+
+		By("Scaling pool to 1 replica")
+		scalePool(pool.Name, 1)
+
+		By("Waiting for VM to be created")
+		var name string
+		Eventually(func(g Gomega) {
+			vms, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelectorToString(pool.Spec.Selector),
+			})
+			g.Expect(err).ToNot(HaveOccurred())
+			activeVMs := filterNotDeletedVMsOwnedByPool(pool.Name, vms)
+			g.Expect(activeVMs).To(HaveLen(1))
+			name = activeVMs[0].Name
+		}, 60*time.Second, 1*time.Second).Should(Succeed())
+
+		By("Checking status of the VM to be PvcNotFound")
+		var vm *v1.VirtualMachine
+		Eventually(func(g Gomega) {
+			vm, err = virtClient.VirtualMachine(pool.ObjectMeta.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vm.Status.PrintableStatus).To(Equal(v1.VirtualMachineStatusPvcNotFound))
+		}, 30*time.Second, 5*time.Second).Should(Succeed())
+
+		vmUID := vm.UID
+
+		By("checking that the VM is deleted and replaced after the threshold(i.e. 5 minutes)")
+		Eventually(func(g Gomega) {
+			vm, err := virtClient.VirtualMachine(pool.ObjectMeta.Namespace).Get(context.Background(), name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(vm.UID).ToNot(Equal(vmUID))
+		}, 3*time.Minute, 30*time.Second).Should(Succeed())
 	})
 
 	It("should remove owner references on the VirtualMachine if it is orphan deleted", func() {
@@ -514,13 +723,25 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: labelSelectorToString(newPool.Spec.Selector),
 		})
+		Expect(err).ToNot(HaveOccurred())
 		Expect(vms.Items).To(HaveLen(2))
 
 		By("Checking a VirtualMachine owner references")
 		for _, vm := range vms.Items {
 			Expect(vm.OwnerReferences).To(BeEmpty())
 		}
+
+		By("Checking VirtualMachines are not blocked by pool finalizer")
+		err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+			LabelSelector: labelSelectorToString(newPool.Spec.Selector),
+		})
 		Expect(err).ToNot(HaveOccurred())
+		Eventually(func() ([]v1.VirtualMachine, error) {
+			vms, err = virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: labelSelectorToString(newPool.Spec.Selector),
+			})
+			return vms.Items, err
+		}, 60*time.Second, 1*time.Second).Should(BeEmpty())
 	})
 
 	It("should not scale when paused and scale when resume", func() {
@@ -577,14 +798,13 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 
 	It("should use DescendingOrder scale-in strategy when specified", func() {
 		By("Create a new VirtualMachinePool with DescendingOrder scale-in policy")
-		pool := newPoolFromVMI(libvmifact.NewCirros())
+		pool := newPoolFromVMI(libvmifact.NewAlpine())
 
 		// Set up DescendingOrder scale-in strategy
-		basePolicy := poolv1.VirtualMachinePoolBasePolicyDescendingOrder
 		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
 			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
 				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
-					BasePolicy: &basePolicy,
+					SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyDescendingOrder),
 				},
 			},
 		}
@@ -658,6 +878,96 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 		waitForVMIs(pool.Namespace, pool.Spec.Selector, 2)
 	})
 
+	It("should scale in VMs based on the scale-in strategy and preserve state is set to offline", func() {
+		pool := newPersistentStorageVirtualMachinePool()
+		pool.Spec.VirtualMachineTemplate.Spec.Template.ObjectMeta.Labels["app"] = "test"
+		pool.Spec.ScaleInStrategy = &poolv1.VirtualMachinePoolScaleInStrategy{
+			Proactive: &poolv1.VirtualMachinePoolProactiveScaleInStrategy{
+				StatePreservation: pointer.P(poolv1.StatePreservationOffline),
+				SelectionPolicy: &poolv1.VirtualMachinePoolSelectionPolicy{
+					SortPolicy: pointer.P(poolv1.VirtualMachinePoolSortPolicyAscendingOrder),
+				},
+			},
+		}
+		pool = createVirtualMachinePool(pool)
+
+		By("Scaling pool to 3 replicas")
+		doScale(pool.Name, 3)
+
+		By("Waiting until all VMs are created and running")
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 3)
+
+		vms, err := virtClient.VirtualMachine(pool.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(pool.Spec.Selector),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(vms.Items).To(HaveLen(3))
+
+		By("Verify that the DataVolumes are created and owned by the VMs")
+		dvs, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(pool.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(labelSelectorFromVMs(vms)),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(dvs.Items).To(HaveLen(3))
+
+		Eventually(func() error {
+			for _, dv := range dvs.Items {
+				fmt.Println("dv", dv.Name, dv.OwnerReferences)
+				if dv.OwnerReferences == nil || len(dv.OwnerReferences) == 0 {
+					return fmt.Errorf("DataVolume %s has no owner references", dv.Name)
+				}
+				Expect(dv.OwnerReferences).To(HaveLen(1))
+				Expect(dv.OwnerReferences[0].Name).To(ContainSubstring(pool.Name))
+			}
+
+			return nil
+		}, 120*time.Second, 1*time.Second).Should(Succeed())
+
+		By("Scaling pool to 2 replicas")
+		doScale(pool.Name, 2)
+
+		By("Waiting until the pool is scaled down to 2 replicas")
+		Eventually(func() int32 {
+			pool, err = virtClient.VirtualMachinePool(pool.Namespace).Get(context.Background(), pool.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return pool.Status.Replicas
+		}, 120*time.Second, 1*time.Second).Should(Equal(int32(2)))
+
+		By("Verify that the DataVolume of the deleted VM is not owned by the pool but is present in the namespace")
+		dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(pool.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(labelSelectorFromVMs(vms)),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(dvs.Items).To(HaveLen(3))
+		var dvUID string
+		for i, dv := range dvs.Items {
+			if i == 0 {
+				Expect(dv.OwnerReferences).To(BeEmpty())
+				dvUID = string(dv.UID)
+				continue
+			}
+			Expect(dv.OwnerReferences).To(HaveLen(1))
+			Expect(dv.OwnerReferences[0].Name).To(ContainSubstring(pool.Name))
+		}
+
+		By("Scale up the pool to 3 replicas and verify that the DataVolume which was orphaned is re-adopted by the pool")
+		doScale(pool.Name, 3)
+		waitForVMIs(pool.Namespace, pool.Spec.Selector, 3)
+
+		dvs, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(pool.Namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: labelSelectorToString(labelSelectorFromVMs(vms)),
+		})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(dvs.Items).To(HaveLen(3))
+		for i, dv := range dvs.Items {
+			if i == 0 {
+				Expect(dv.UID).To(Equal(types.UID(dvUID)))
+			}
+			Expect(dv.OwnerReferences).To(HaveLen(1))
+			Expect(dv.OwnerReferences[0].Name).To(ContainSubstring(pool.Name))
+		}
+	})
+
 	DescribeTable("should respect name generation settings", func(appendIndex *bool) {
 		const (
 			cmName     = "configmap"
@@ -672,7 +982,7 @@ var _ = Describe("[sig-compute]VirtualMachinePool", decorators.SigCompute, func(
 			AppendIndexToConfigMapRefs: appendIndex,
 			AppendIndexToSecretRefs:    appendIndex,
 		}
-		createVirtualMachinePool(newPool)
+		newPool = createVirtualMachinePool(newPool)
 		doScale(newPool.Name, 2)
 
 		vms, err := virtClient.VirtualMachine(newPool.ObjectMeta.Namespace).List(context.Background(), metav1.ListOptions{

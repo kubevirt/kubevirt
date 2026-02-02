@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1 "kubevirt.io/api/core/v1"
+	corev1 "kubevirt.io/api/core/v1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,34 @@ type KubeVirtsGetter interface {
 
 // KubeVirtInterface has methods to work with KubeVirt resources.
 type KubeVirtInterface interface {
-	Create(ctx context.Context, kubeVirt *v1.KubeVirt, opts metav1.CreateOptions) (*v1.KubeVirt, error)
-	Update(ctx context.Context, kubeVirt *v1.KubeVirt, opts metav1.UpdateOptions) (*v1.KubeVirt, error)
+	Create(ctx context.Context, kubeVirt *corev1.KubeVirt, opts metav1.CreateOptions) (*corev1.KubeVirt, error)
+	Update(ctx context.Context, kubeVirt *corev1.KubeVirt, opts metav1.UpdateOptions) (*corev1.KubeVirt, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, kubeVirt *v1.KubeVirt, opts metav1.UpdateOptions) (*v1.KubeVirt, error)
+	UpdateStatus(ctx context.Context, kubeVirt *corev1.KubeVirt, opts metav1.UpdateOptions) (*corev1.KubeVirt, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.KubeVirt, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.KubeVirtList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.KubeVirt, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*corev1.KubeVirtList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.KubeVirt, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.KubeVirt, err error)
 	KubeVirtExpansion
 }
 
 // kubeVirts implements KubeVirtInterface
 type kubeVirts struct {
-	*gentype.ClientWithList[*v1.KubeVirt, *v1.KubeVirtList]
+	*gentype.ClientWithList[*corev1.KubeVirt, *corev1.KubeVirtList]
 }
 
 // newKubeVirts returns a KubeVirts
 func newKubeVirts(c *KubevirtV1Client, namespace string) *kubeVirts {
 	return &kubeVirts{
-		gentype.NewClientWithList[*v1.KubeVirt, *v1.KubeVirtList](
+		gentype.NewClientWithList[*corev1.KubeVirt, *corev1.KubeVirtList](
 			"kubevirts",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.KubeVirt { return &v1.KubeVirt{} },
-			func() *v1.KubeVirtList { return &v1.KubeVirtList{} }),
+			func() *corev1.KubeVirt { return &corev1.KubeVirt{} },
+			func() *corev1.KubeVirtList { return &corev1.KubeVirtList{} },
+		),
 	}
 }

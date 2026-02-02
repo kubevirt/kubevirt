@@ -24,6 +24,8 @@ type NodeSelectorRenderer struct {
 	sevEnabled             bool
 	sevESEnabled           bool
 	SecureExecutionEnabled bool
+	sevSNPEnabled          bool
+	tdxEnabled             bool
 }
 
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
@@ -80,8 +82,14 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.sevESEnabled {
 		nsr.enableSelectorLabel(v1.SEVESLabel)
 	}
+	if nsr.sevSNPEnabled {
+		nsr.enableSelectorLabel(v1.SEVSNPLabel)
+	}
 	if nsr.SecureExecutionEnabled {
 		nsr.enableSelectorLabel(v1.SecureExecutionLabel)
+	}
+	if nsr.tdxEnabled {
+		nsr.enableSelectorLabel(v1.TDXLabel)
 	}
 
 	return nsr.podNodeSelectors
@@ -111,9 +119,21 @@ func WithSEVESSelector() NodeSelectorRendererOption {
 	}
 }
 
+func WithSEVSNPSelector() NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.sevSNPEnabled = true
+	}
+}
+
 func WithSecureExecutionSelector() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.SecureExecutionEnabled = true
+	}
+}
+
+func WithTDXSelector() NodeSelectorRendererOption {
+	return func(renderer *NodeSelectorRenderer) {
+		renderer.tdxEnabled = true
 	}
 }
 
@@ -222,6 +242,13 @@ func makeHVFeatureLabelTable(vmiFeatures *v1.Features) []hvFeatureLabel {
 		syNICTimer.Enabled = hyperv.SyNICTimer.Enabled
 	}
 
+	var tlbFlushFeatureState *v1.FeatureState
+	if hyperv.TLBFlush != nil {
+		tlbFlushFeatureState = &v1.FeatureState{
+			Enabled: hyperv.TLBFlush.Enabled,
+		}
+	}
+
 	return []hvFeatureLabel{
 		{
 			Feature: hyperv.VPIndex,
@@ -254,7 +281,7 @@ func makeHVFeatureLabelTable(vmiFeatures *v1.Features) []hvFeatureLabel {
 			Label:   "reenlightenment",
 		},
 		{
-			Feature: hyperv.TLBFlush,
+			Feature: tlbFlushFeatureState,
 			Label:   "tlbflush",
 		},
 		{

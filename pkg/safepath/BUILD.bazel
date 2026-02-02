@@ -21,6 +21,7 @@ go_test(
         "safepath_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/unsafepath:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",

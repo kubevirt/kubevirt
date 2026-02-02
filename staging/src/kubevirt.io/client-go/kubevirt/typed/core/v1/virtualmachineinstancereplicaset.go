@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1 "kubevirt.io/api/core/v1"
+	corev1 "kubevirt.io/api/core/v1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,36 @@ type VirtualMachineInstanceReplicaSetsGetter interface {
 
 // VirtualMachineInstanceReplicaSetInterface has methods to work with VirtualMachineInstanceReplicaSet resources.
 type VirtualMachineInstanceReplicaSetInterface interface {
-	Create(ctx context.Context, virtualMachineInstanceReplicaSet *v1.VirtualMachineInstanceReplicaSet, opts metav1.CreateOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
-	Update(ctx context.Context, virtualMachineInstanceReplicaSet *v1.VirtualMachineInstanceReplicaSet, opts metav1.UpdateOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
+	Create(ctx context.Context, virtualMachineInstanceReplicaSet *corev1.VirtualMachineInstanceReplicaSet, opts metav1.CreateOptions) (*corev1.VirtualMachineInstanceReplicaSet, error)
+	Update(ctx context.Context, virtualMachineInstanceReplicaSet *corev1.VirtualMachineInstanceReplicaSet, opts metav1.UpdateOptions) (*corev1.VirtualMachineInstanceReplicaSet, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, virtualMachineInstanceReplicaSet *v1.VirtualMachineInstanceReplicaSet, opts metav1.UpdateOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
+	UpdateStatus(ctx context.Context, virtualMachineInstanceReplicaSet *corev1.VirtualMachineInstanceReplicaSet, opts metav1.UpdateOptions) (*corev1.VirtualMachineInstanceReplicaSet, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.VirtualMachineInstanceReplicaSet, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineInstanceReplicaSetList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.VirtualMachineInstanceReplicaSet, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*corev1.VirtualMachineInstanceReplicaSetList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstanceReplicaSet, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.VirtualMachineInstanceReplicaSet, err error)
 	VirtualMachineInstanceReplicaSetExpansion
 }
 
 // virtualMachineInstanceReplicaSets implements VirtualMachineInstanceReplicaSetInterface
 type virtualMachineInstanceReplicaSets struct {
-	*gentype.ClientWithList[*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstanceReplicaSetList]
+	*gentype.ClientWithList[*corev1.VirtualMachineInstanceReplicaSet, *corev1.VirtualMachineInstanceReplicaSetList]
 }
 
 // newVirtualMachineInstanceReplicaSets returns a VirtualMachineInstanceReplicaSets
 func newVirtualMachineInstanceReplicaSets(c *KubevirtV1Client, namespace string) *virtualMachineInstanceReplicaSets {
 	return &virtualMachineInstanceReplicaSets{
-		gentype.NewClientWithList[*v1.VirtualMachineInstanceReplicaSet, *v1.VirtualMachineInstanceReplicaSetList](
+		gentype.NewClientWithList[*corev1.VirtualMachineInstanceReplicaSet, *corev1.VirtualMachineInstanceReplicaSetList](
 			"virtualmachineinstancereplicasets",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.VirtualMachineInstanceReplicaSet { return &v1.VirtualMachineInstanceReplicaSet{} },
-			func() *v1.VirtualMachineInstanceReplicaSetList { return &v1.VirtualMachineInstanceReplicaSetList{} }),
+			func() *corev1.VirtualMachineInstanceReplicaSet { return &corev1.VirtualMachineInstanceReplicaSet{} },
+			func() *corev1.VirtualMachineInstanceReplicaSetList {
+				return &corev1.VirtualMachineInstanceReplicaSetList{}
+			},
+		),
 	}
 }

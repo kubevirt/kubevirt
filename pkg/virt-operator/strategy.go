@@ -6,9 +6,10 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	install "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
 
@@ -47,5 +48,21 @@ func (c *KubeVirtController) deleteAllInstallStrategy() error {
 
 	// reset the cached strategy
 	c.latestStrategy.Store(strategyCacheEntry{})
+	return nil
+}
+
+func (c *KubeVirtController) deleteAllOldInstallStrategies(kvVersion string) error {
+	for _, obj := range c.stores.InstallStrategyConfigMapCache.List() {
+		configMap := obj.(*k8sv1.ConfigMap)
+		version, ok := configMap.ObjectMeta.Annotations[v1.InstallStrategyVersionAnnotation]
+		if ok && configMap.DeletionTimestamp == nil && version != kvVersion {
+			err := c.clientset.CoreV1().ConfigMaps(configMap.Namespace).Delete(context.Background(), configMap.Name, metav1.DeleteOptions{})
+			if err != nil {
+				log.Log.Errorf("Failed to delete configmap %+v: %v", configMap, err)
+				return err
+			}
+		}
+	}
+
 	return nil
 }

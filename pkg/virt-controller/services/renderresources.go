@@ -253,6 +253,38 @@ func WithHugePages(vmMemory *v1.Memory, memoryOverhead resource.Quantity) Resour
 	}
 }
 
+func WithMemoryRequests(vmiSpecMemory *v1.Memory, overcommit int) ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		limit, hasLimit := renderer.vmLimits[k8sv1.ResourceMemory]
+		request, hasRequest := renderer.vmRequests[k8sv1.ResourceMemory]
+		if hasLimit && !limit.IsZero() && (!hasRequest || request.IsZero()) {
+			renderer.vmRequests[k8sv1.ResourceMemory] = limit
+		}
+
+		if _, exists := renderer.vmRequests[k8sv1.ResourceMemory]; exists {
+			return
+		}
+
+		var memory *resource.Quantity
+		if vmiSpecMemory != nil && vmiSpecMemory.Guest != nil {
+			memory = vmiSpecMemory.Guest
+		} else if vmiSpecMemory != nil && vmiSpecMemory.Hugepages != nil {
+			if hugepagesSize, err := resource.ParseQuantity(vmiSpecMemory.Hugepages.PageSize); err == nil {
+				memory = &hugepagesSize
+			}
+		}
+
+		if memory != nil && memory.Value() > 0 {
+			if overcommit == 100 {
+				renderer.vmRequests[k8sv1.ResourceMemory] = *memory
+			} else {
+				value := (memory.Value() * int64(100)) / int64(overcommit)
+				renderer.vmRequests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
+			}
+		}
+	}
+}
+
 func WithMemoryOverhead(guestResourceSpec v1.ResourceRequirements, memoryOverhead resource.Quantity) ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		memoryRequest := renderer.vmRequests[k8sv1.ResourceMemory]
@@ -468,7 +500,7 @@ func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additiona
 
 	// Consider memory overhead for SEV guests.
 	// Additional information can be found here: https://libvirt.org/kbase/launch_security_sev.html#memory
-	if util.IsSEVVMI(vmi) {
+	if util.IsSEVVMI(vmi) || util.IsSEVSNPVMI(vmi) || util.IsSEVESVMI(vmi) {
 		overhead.Add(resource.MustParse("256Mi"))
 	}
 
@@ -603,7 +635,7 @@ func validatePermittedHostDevices(spec *v1.VirtualMachineInstanceSpec, config *v
 	}
 
 	if len(errors) != 0 {
-		return fmt.Errorf(strings.Join(errors, " "))
+		return fmt.Errorf("%s", strings.Join(errors, " "))
 	}
 
 	return nil
@@ -735,6 +767,36 @@ func hotplugContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceLi
 	return k8sv1.ResourceList{
 		k8sv1.ResourceCPU:    cpuQuantity,
 		k8sv1.ResourceMemory: memQuantity,
+	}
+}
+
+func hotplugPodTolerations() []k8sv1.Toleration {
+	return []k8sv1.Toleration{
+		{
+			Key:      k8sv1.TaintNodeUnschedulable,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodeNetworkUnavailable,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodeDiskPressure,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodeMemoryPressure,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodePIDPressure,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
 	}
 }
 

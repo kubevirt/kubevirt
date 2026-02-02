@@ -21,7 +21,6 @@ package find_test
 
 import (
 	"context"
-	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -30,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
@@ -39,7 +37,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	"kubevirt.io/api/instancetype/v1alpha1"
 	"kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
@@ -47,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 )
 
@@ -270,51 +266,6 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
 		})
 
-		It("find successfully decodes v1alpha1 SpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
-			clusterInstancetype.Spec.CPU = v1beta1.CPUInstancetype{
-				Guest: uint32(2),
-				// Set the following values to be compatible with objects converted from v1alpha1
-				Model:                 pointer.P(""),
-				DedicatedCPUPlacement: pointer.P(false),
-				IsolateEmulatorThread: pointer.P(false),
-			}
-
-			specData, err := json.Marshal(clusterInstancetype.Spec)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Do not set APIVersion as part of VirtualMachineInstancetypeSpecRevision in order to trigger bug #9261
-			specRevision := v1alpha1.VirtualMachineInstancetypeSpecRevision{
-				Spec: specData,
-			}
-			specRevisionData, err := json.Marshal(specRevision)
-			Expect(err).ToNot(HaveOccurred())
-
-			controllerRevision := &appsv1.ControllerRevision{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            "crName",
-					Namespace:       vm.Namespace,
-					OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, v1.VirtualMachineGroupVersionKind)},
-				},
-				Data: runtime.RawExtension{
-					Raw: specRevisionData,
-				},
-			}
-
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(
-				context.Background(), controllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
-				ControllerRevisionRef: &v1.ControllerRevisionRef{
-					Name: controllerRevision.Name,
-				},
-			}
-
-			foundInstancetypeSpec, err := finder.Find(vm)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(foundInstancetypeSpec).To(HaveValue(Equal(clusterInstancetype.Spec)))
-		})
-
 		It("find returns only referenced object - bug #14595", func() {
 			// Make a slightly altered copy of the object already present in the client and store it in a CR
 			stored := clusterInstancetype.DeepCopy()
@@ -483,50 +434,6 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			vm.Spec.Instancetype.Name = nonExistingResourceName
 			_, err := finder.Find(vm)
 			Expect(err).To(MatchError(errors.IsNotFound, "IsNotFound"))
-		})
-
-		It("find successfully decodes v1alpha1 SpecRevision ControllerRevision without APIVersion set - bug #9261", func() {
-			fakeInstancetype.Spec.CPU = v1beta1.CPUInstancetype{
-				Guest: uint32(2),
-				// Set the following values to be compatible with objects converted from v1alpha1
-				Model:                 pointer.P(""),
-				DedicatedCPUPlacement: pointer.P(false),
-				IsolateEmulatorThread: pointer.P(false),
-			}
-
-			specData, err := json.Marshal(fakeInstancetype.Spec)
-			Expect(err).ToNot(HaveOccurred())
-
-			// Do not set APIVersion as part of VirtualMachineInstancetypeSpecRevision in order to trigger bug #9261
-			specRevision := v1alpha1.VirtualMachineInstancetypeSpecRevision{
-				Spec: specData,
-			}
-			specRevisionData, err := json.Marshal(specRevision)
-			Expect(err).ToNot(HaveOccurred())
-
-			controllerRevision := &appsv1.ControllerRevision{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:            "crName",
-					Namespace:       vm.Namespace,
-					OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vm, v1.VirtualMachineGroupVersionKind)},
-				},
-				Data: runtime.RawExtension{
-					Raw: specRevisionData,
-				},
-			}
-
-			_, err = virtClient.AppsV1().ControllerRevisions(vm.Namespace).Create(context.Background(), controllerRevision, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			vm.Status.InstancetypeRef = &v1.InstancetypeStatusRef{
-				ControllerRevisionRef: &v1.ControllerRevisionRef{
-					Name: controllerRevision.Name,
-				},
-			}
-
-			foundInstancetypeSpec, err := finder.Find(vm)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(foundInstancetypeSpec).To(HaveValue(Equal(fakeInstancetype.Spec)))
 		})
 
 		It("find returns only referenced object - bug #14595", func() {

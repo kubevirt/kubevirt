@@ -78,6 +78,8 @@ const (
 
 	restoreDataVolumeCreateErrorEvent = "RestoreDataVolumeCreateError"
 
+	restoreOwnedByVMLabel = "restore.kubevirt.io/owned-by-vm"
+
 	defaultPvcRestorePrefix = "restore"
 
 	waitEventuallyMessage = "Waiting for target VM to be powered off. Please stop the restore target to proceed with restore"
@@ -145,12 +147,20 @@ func restoreVolumeName(vmRestore *snapshotv1.VirtualMachineRestore, volumeName, 
 		return restoreOverride
 	}
 
-	// If the policy is to overwrite the volume, we must return the same backendName name as the source
-	if isVolumeRestorePolicyInPlace(vmRestore) {
-		return claimName
+	// Apply the volume restore policy
+	if vmRestore.Spec.VolumeRestorePolicy != nil {
+		switch *vmRestore.Spec.VolumeRestorePolicy {
+		case snapshotv1.VolumeRestorePolicyInPlace:
+			// Overwrite the volume with the same name as the source
+			return claimName
+		case snapshotv1.VolumeRestorePolicyPrefixTargetName:
+			// Prefix with target VM name: {targetVMName}-{volumeName}
+			targetName := vmRestore.Spec.Target.Name
+			return naming.GetName(targetName, volumeName, validation.DNS1035LabelMaxLength)
+		}
 	}
 
-	// Auto-compute the name of the restored backendName from the VMRestore ID and from the original volume name
+	// Default (RandomizeNames): auto-compute the name from the VMRestore ID and volume name
 	return fmt.Sprintf("%s-%s-%s", defaultPvcRestorePrefix, vmRestore.UID, volumeName)
 }
 
@@ -514,7 +524,7 @@ func (ctrl *VMRestoreController) reconcileVolumeRestores(vmRestore *snapshotv1.V
 				dvOwner = *restore.DataVolumeName
 			}
 
-			if err = ctrl.createRestorePVC(vmRestore, target, backup, &restore, content.Spec.Source.VirtualMachine.Name, content.Spec.Source.VirtualMachine.Namespace, dvOwner); err != nil {
+			if err = ctrl.createRestorePVC(vmRestore, target, backup, &restore, content.Spec.Source.VirtualMachine, dvOwner); err != nil {
 				return false, err
 			}
 			createdPVC = true
@@ -690,7 +700,7 @@ func (t *vmRestoreTarget) Reconcile() (bool, error) {
 }
 
 func (t *vmRestoreTarget) reconcileBackendVolume(snapshotVM *snapshotv1.VirtualMachine) (bool, error) {
-	if !backendstorage.IsBackendStorageNeededForVMI(&snapshotVM.Spec.Template.Spec) {
+	if !backendstorage.IsBackendStorageNeeded(snapshotVM) {
 		return true, nil
 	}
 
@@ -1011,7 +1021,41 @@ func (t *vmRestoreTarget) reconcileSpec(restoredVM *kubevirtv1.VirtualMachine) (
 		return false, err
 	}
 
+	if err = t.updateRestorePVCOwnership(); err != nil {
+		return false, err
+	}
+
 	return true, nil
+}
+
+func (t *vmRestoreTarget) updateRestorePVCOwnership() error {
+	if isVolumeOwnershipPolicyNone(t.vmRestore) || !t.Exists() {
+		return nil
+	}
+	for _, volume := range t.VirtualMachine().Spec.Template.Spec.Volumes {
+		if volume.PersistentVolumeClaim != nil {
+			pvc, err := t.controller.Client.CoreV1().PersistentVolumeClaims(t.vmRestore.Namespace).Get(context.Background(), volume.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			// Check if the PVC is already owned by something else
+			if len(pvc.OwnerReferences) == 0 {
+				// Only set the owner reference if the PVC was originally owned by the source VM
+				if pvc.Annotations[restoreOwnedByVMLabel] == t.vmRestore.Name {
+					t.Own(pvc)
+					delete(pvc.Annotations, restoreOwnedByVMLabel)
+
+					// Update the PVC to have the owner reference
+					_, err = t.controller.Client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 func findDVTemplateIndex(dvName string, vm *snapshotv1.VirtualMachine) int {
@@ -1286,7 +1330,7 @@ func (ctrl *VMRestoreController) deleteObsoleteVolumes(vmRestore *snapshotv1.Vir
 
 func (ctrl *VMRestoreController) deleteObsoleteBackendPVC(vmRestore *snapshotv1.VirtualMachineRestore, target restoreTarget) error {
 	// Target should always exist at this point, just nil check for safety.
-	if target.Exists() && backendstorage.IsBackendStorageNeededForVM(target.VirtualMachine()) {
+	if target.Exists() && backendstorage.IsBackendStorageNeeded(target.VirtualMachine()) {
 		pvcs, err := ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s", restoreCleanupBackendPVCLabel, getCleanupLabelValue(vmRestore)),
 		})
@@ -1463,8 +1507,11 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	target restoreTarget,
 	volumeBackup *snapshotv1.VolumeBackup,
 	volumeRestore *snapshotv1.VolumeRestore,
-	sourceVmName, sourceVmNamespace, dvOwner string,
+	sourceVm *snapshotv1.VirtualMachine,
+	dvOwner string,
 ) error {
+	sourceVmName := sourceVm.Name
+	sourceVmNamespace := sourceVm.Namespace
 	if volumeBackup == nil || volumeBackup.VolumeSnapshotName == nil {
 		log.Log.Errorf("VolumeSnapshot name missing %+v", volumeBackup)
 		return fmt.Errorf("missing VolumeSnapshot name")
@@ -1488,16 +1535,19 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	if err != nil {
 		return err
 	}
+	if pvc.Annotations == nil {
+		pvc.Annotations = make(map[string]string)
+	}
 
 	if dvOwner != "" { // PVC is owned by a DV
-		if pvc.Annotations == nil {
-			pvc.Annotations = make(map[string]string)
-		}
-
 		// By setting this annotation, the CDI will set ownership of the PVC to the DV
 		pvc.Annotations[populatedForPVCAnnotation] = dvOwner
 	} else if !isVolumeOwnershipPolicyNone(vmRestore) { // PVC is owned by the VM
-		target.Own(pvc)
+		if target.Exists() {
+			target.Own(pvc)
+		} else if sourcePVCOwnedBySourceVM(volumeBackup, sourceVm) {
+			pvc.Annotations[restoreOwnedByVMLabel] = vmRestore.Name
+		}
 	}
 
 	_, err = ctrl.Client.CoreV1().PersistentVolumeClaims(vmRestore.Namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
@@ -1506,6 +1556,18 @@ func (ctrl *VMRestoreController) createRestorePVC(
 	}
 
 	return nil
+}
+
+func sourcePVCOwnedBySourceVM(volumeBackup *snapshotv1.VolumeBackup, sourceVm *snapshotv1.VirtualMachine) bool {
+	ownerReferences := volumeBackup.PersistentVolumeClaim.OwnerReferences
+	owned := false
+	for _, ownerReference := range ownerReferences {
+		if ownerReference.Kind == "VirtualMachine" && ownerReference.Name == sourceVm.Name && ownerReference.UID == sourceVm.UID {
+			owned = true
+			break
+		}
+	}
+	return owned
 }
 
 func CreateRestorePVCDef(restorePVCName string, volumeSnapshot *vsv1.VolumeSnapshot, volumeBackup *snapshotv1.VolumeBackup) (*corev1.PersistentVolumeClaim, error) {

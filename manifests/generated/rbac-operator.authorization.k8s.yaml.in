@@ -22,6 +22,8 @@ rules:
   - kubevirt-export-ca
   - kubevirt-virt-handler-certs
   - kubevirt-virt-handler-server-certs
+  - kubevirt-virt-handler-migration-client-certs
+  - kubevirt-virt-handler-vsock-client-certs
   - kubevirt-operator-certs
   - kubevirt-virt-api-certs
   - kubevirt-controller-certs
@@ -449,6 +451,22 @@ rules:
   - list
   - watch
 - apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackuptrackers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - cdi.kubevirt.io
   resources:
   - datasources
@@ -491,6 +509,12 @@ rules:
   verbs:
   - create
   - list
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
   - get
 - apiGroups:
   - ""
@@ -632,6 +656,33 @@ rules:
   - delete
   - patch
 - apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  - virtualmachinebackups/status
+  - virtualmachinebackups/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackuptrackers
+  - virtualmachinebackuptrackers/status
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - delete
+  - patch
+- apiGroups:
   - pool.kubevirt.io
   resources:
   - virtualmachinepools
@@ -665,6 +716,7 @@ rules:
   - virtualmachines/stop
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
+  - virtualmachineinstances/backup
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/reset
@@ -948,6 +1000,7 @@ rules:
   - virtualmachineinstances/reset
   - virtualmachineinstances/sev/setupsession
   - virtualmachineinstances/sev/injectlaunchsecret
+  - virtualmachineinstances/evacuate/cancel
   verbs:
   - update
 - apiGroups:
@@ -966,6 +1019,7 @@ rules:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
   - virtualmachines/memorydump
+  - virtualmachines/evacuate/cancel
   verbs:
   - update
 - apiGroups:
@@ -1004,6 +1058,20 @@ rules:
   - virtualmachinesnapshots
   - virtualmachinesnapshotcontents
   - virtualmachinerestores
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+  - deletecollection
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  - virtualmachinebackuptrackers
   verbs:
   - get
   - delete
@@ -1106,6 +1174,7 @@ rules:
   - virtualmachineinstances/reset
   - virtualmachineinstances/sev/setupsession
   - virtualmachineinstances/sev/injectlaunchsecret
+  - virtualmachineinstances/evacuate/cancel
   verbs:
   - update
 - apiGroups:
@@ -1124,6 +1193,7 @@ rules:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
   - virtualmachines/memorydump
+  - virtualmachines/evacuate/cancel
   verbs:
   - update
 - apiGroups:
@@ -1161,6 +1231,19 @@ rules:
   - virtualmachinesnapshots
   - virtualmachinesnapshotcontents
   - virtualmachinerestores
+  verbs:
+  - get
+  - delete
+  - create
+  - update
+  - patch
+  - list
+  - watch
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  - virtualmachinebackuptrackers
   verbs:
   - get
   - delete
@@ -1279,6 +1362,15 @@ rules:
   - virtualmachinesnapshots
   - virtualmachinesnapshotcontents
   - virtualmachinerestores
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - backup.kubevirt.io
+  resources:
+  - virtualmachinebackups
+  - virtualmachinebackuptrackers
   verbs:
   - get
   - list

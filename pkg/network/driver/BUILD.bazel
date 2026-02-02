@@ -24,5 +24,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = ["driver_suite_test.go"],
+    race = "on",
     deps = ["//staging/src/kubevirt.io/client-go/testutils:go_default_library"],
 )

@@ -19,6 +19,7 @@ go_test(
         "reset_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/virtctl/testing:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",

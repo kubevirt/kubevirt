@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1 "kubevirt.io/api/core/v1"
+	corev1 "kubevirt.io/api/core/v1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,31 +39,32 @@ type VirtualMachineInstancePresetsGetter interface {
 
 // VirtualMachineInstancePresetInterface has methods to work with VirtualMachineInstancePreset resources.
 type VirtualMachineInstancePresetInterface interface {
-	Create(ctx context.Context, virtualMachineInstancePreset *v1.VirtualMachineInstancePreset, opts metav1.CreateOptions) (*v1.VirtualMachineInstancePreset, error)
-	Update(ctx context.Context, virtualMachineInstancePreset *v1.VirtualMachineInstancePreset, opts metav1.UpdateOptions) (*v1.VirtualMachineInstancePreset, error)
+	Create(ctx context.Context, virtualMachineInstancePreset *corev1.VirtualMachineInstancePreset, opts metav1.CreateOptions) (*corev1.VirtualMachineInstancePreset, error)
+	Update(ctx context.Context, virtualMachineInstancePreset *corev1.VirtualMachineInstancePreset, opts metav1.UpdateOptions) (*corev1.VirtualMachineInstancePreset, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.VirtualMachineInstancePreset, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineInstancePresetList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.VirtualMachineInstancePreset, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*corev1.VirtualMachineInstancePresetList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstancePreset, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.VirtualMachineInstancePreset, err error)
 	VirtualMachineInstancePresetExpansion
 }
 
 // virtualMachineInstancePresets implements VirtualMachineInstancePresetInterface
 type virtualMachineInstancePresets struct {
-	*gentype.ClientWithList[*v1.VirtualMachineInstancePreset, *v1.VirtualMachineInstancePresetList]
+	*gentype.ClientWithList[*corev1.VirtualMachineInstancePreset, *corev1.VirtualMachineInstancePresetList]
 }
 
 // newVirtualMachineInstancePresets returns a VirtualMachineInstancePresets
 func newVirtualMachineInstancePresets(c *KubevirtV1Client, namespace string) *virtualMachineInstancePresets {
 	return &virtualMachineInstancePresets{
-		gentype.NewClientWithList[*v1.VirtualMachineInstancePreset, *v1.VirtualMachineInstancePresetList](
+		gentype.NewClientWithList[*corev1.VirtualMachineInstancePreset, *corev1.VirtualMachineInstancePresetList](
 			"virtualmachineinstancepresets",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.VirtualMachineInstancePreset { return &v1.VirtualMachineInstancePreset{} },
-			func() *v1.VirtualMachineInstancePresetList { return &v1.VirtualMachineInstancePresetList{} }),
+			func() *corev1.VirtualMachineInstancePreset { return &corev1.VirtualMachineInstancePreset{} },
+			func() *corev1.VirtualMachineInstancePresetList { return &corev1.VirtualMachineInstancePresetList{} },
+		),
 	}
 }

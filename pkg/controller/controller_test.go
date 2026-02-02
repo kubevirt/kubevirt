@@ -27,8 +27,6 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -186,55 +184,6 @@ var _ = Describe("Controller", func() {
 			},
 				Entry("true if pod exists", &k8sv1.Pod{}, BeTrue()),
 				Entry("false if pod is nil", nil, BeFalse()),
-			)
-		})
-
-		Context("GetHotplugVolumes", func() {
-			DescribeTable("should not return the new volume", func(volume v1.Volume) {
-
-				vmi := &v1.VirtualMachineInstance{
-					Spec: v1.VirtualMachineInstanceSpec{
-						Volumes: []v1.Volume{volume},
-					},
-				}
-				pod := &k8sv1.Pod{
-					Spec: k8sv1.PodSpec{
-						Volumes: []k8sv1.Volume{{Name: "existing"}},
-					},
-				}
-				Expect(controller.GetHotplugVolumes(vmi, pod)).To(BeEmpty())
-			},
-				Entry("if it already exist", v1.Volume{Name: "existing"}),
-				Entry("with HostDisk", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{HostDisk: &v1.HostDisk{}}}),
-				Entry("with CloudInitNoCloud", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{CloudInitNoCloud: &v1.CloudInitNoCloudSource{}}}),
-				Entry("with CloudInitConfigDrive", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{}}}),
-				Entry("with Sysprep", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{Sysprep: &v1.SysprepSource{}}}),
-				Entry("with ContainerDisk", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{ContainerDisk: &v1.ContainerDiskSource{}}}),
-				Entry("with Ephemeral", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{Ephemeral: &v1.EphemeralVolumeSource{}}}),
-				Entry("with EmptyDisk", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{EmptyDisk: &v1.EmptyDiskSource{}}}),
-				Entry("with ConfigMap", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{}}}),
-				Entry("with Secret", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{Secret: &v1.SecretVolumeSource{}}}),
-				Entry("with DownwardAPI", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{DownwardAPI: &v1.DownwardAPIVolumeSource{}}}),
-				Entry("with ServiceAccount", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{ServiceAccount: &v1.ServiceAccountVolumeSource{}}}),
-				Entry("with DownwardMetrics", v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{DownwardMetrics: &v1.DownwardMetricsVolumeSource{}}}),
-			)
-
-			DescribeTable("should return the new volume", func(volume *v1.Volume) {
-				vmi := &v1.VirtualMachineInstance{
-					Spec: v1.VirtualMachineInstanceSpec{
-						Volumes: []v1.Volume{*volume},
-					},
-				}
-				pod := &k8sv1.Pod{
-					Spec: k8sv1.PodSpec{
-						Volumes: []k8sv1.Volume{{Name: "existing"}},
-					},
-				}
-				Expect(controller.GetHotplugVolumes(vmi, pod)).To(ContainElement(volume))
-			},
-				Entry("with DataVolume", &v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{DataVolume: &v1.DataVolumeSource{}}}),
-				Entry("with PersistentVolumeClaim", &v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{}}}),
-				Entry("with MemoryDump", &v1.Volume{Name: "new", VolumeSource: v1.VolumeSource{MemoryDump: &v1.MemoryDumpVolumeSource{}}}),
 			)
 		})
 	})

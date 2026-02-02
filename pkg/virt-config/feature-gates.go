@@ -69,8 +69,8 @@ func (config *ClusterConfig) LiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.LiveMigrationGate)
 }
 
-func (config *ClusterConfig) SRIOVLiveMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.SRIOVLiveMigrationGate)
+func (config *ClusterConfig) UtilityVolumesEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.UtilityVolumesGate)
 }
 
 func (config *ClusterConfig) HypervStrictCheckEnabled() bool {
@@ -105,24 +105,8 @@ func (config *ClusterConfig) HostDiskEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HostDiskGate)
 }
 
-func (config *ClusterConfig) OldVirtiofsEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VirtIOFSGate)
-}
-
-func (config *ClusterConfig) VirtiofsConfigVolumesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.VirtIOFSConfigVolumesGate)
-}
-
 func (config *ClusterConfig) VirtiofsStorageEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VirtIOFSStorageVolumeGate)
-}
-
-func (config *ClusterConfig) MacvtapEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.MacvtapGate)
-}
-
-func (config *ClusterConfig) PasstEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PasstGate)
 }
 
 func (config *ClusterConfig) HostDevicesPassthroughEnabled() bool {
@@ -137,6 +121,10 @@ func (config *ClusterConfig) WorkloadEncryptionSEVEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionSEV)
 }
 
+func (config *ClusterConfig) WorkloadEncryptionTDXEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.WorkloadEncryptionTDX)
+}
+
 func (config *ClusterConfig) DockerSELinuxMCSWorkaroundEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.DockerSELinuxMCSWorkaround)
 }
@@ -145,16 +133,8 @@ func (config *ClusterConfig) VSOCKEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.VSOCKGate)
 }
 
-func (config *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
-	return config.isFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
-}
-
 func (config *ClusterConfig) KubevirtSeccompProfileEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.KubevirtSeccompProfile)
-}
-
-func (config *ClusterConfig) HotplugNetworkInterfacesEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.HotplugNetworkIfacesGate)
 }
 
 func (config *ClusterConfig) PersistentReservationEnabled() bool {
@@ -171,6 +151,10 @@ func (config *ClusterConfig) AlignCPUsEnabled() bool {
 
 func (config *ClusterConfig) ImageVolumeEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ImageVolume)
+}
+
+func (config *ClusterConfig) LibvirtHooksServerAndClientEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.LibvirtHooksServerAndClient)
 }
 
 func (config *ClusterConfig) VideoConfigEnabled() bool {
@@ -211,4 +195,16 @@ func (config *ClusterConfig) GPUsWithDRAGateEnabled() bool {
 
 func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.HostDevicesWithDRAGate)
+}
+
+func (config *ClusterConfig) ConfigurableHypervisorEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.ConfigurableHypervisor)
+}
+
+func (config *ClusterConfig) IncrementalBackupEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
+}
+
+func (config *ClusterConfig) MigrationPriorityQueueEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.MigrationPriorityQueue)
 }

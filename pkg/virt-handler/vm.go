@@ -62,8 +62,8 @@ import (
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
-	pvctypes "kubevirt.io/kubevirt/pkg/storage/types"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -122,6 +122,7 @@ var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup
 func NewVirtualMachineController(
 	recorder record.EventRecorder,
 	clientset kubecli.KubevirtClient,
+	nodeStore cache.Store,
 	host string,
 	virtPrivateDir string,
 	kubeletPodsDir string,
@@ -228,7 +229,7 @@ func NewVirtualMachineController(
 		permissions,
 		deviceManager.PermanentHostDevicePlugins(maxDevices, permissions),
 		clusterConfig,
-		clientset.CoreV1())
+		nodeStore)
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
 
 	return c, nil
@@ -387,7 +388,7 @@ func (c *VirtualMachineController) execute(key string) error {
 		}
 	}
 
-	if isMigrationInProgress(vmi, domain) {
+	if vmi.DeletionTimestamp == nil && isMigrationInProgress(vmi, domain) {
 		c.logger.V(4).Infof("ignoring key %v as migration is in progress", key)
 		return nil
 	}
@@ -470,7 +471,7 @@ func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.V
 	}
 }
 
-func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumeMap map[string]v1.Volume) (v1.VolumeStatus, bool) {
+func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMachineInstance, volumeStatus v1.VolumeStatus, specVolumeMap map[string]struct{}) (v1.VolumeStatus, bool) {
 	needsRefresh := false
 	if volumeStatus.Target == "" {
 		needsRefresh = true
@@ -621,9 +622,12 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 			}
 		}
 	}
-	specVolumeMap := make(map[string]v1.Volume)
+	specVolumeMap := make(map[string]struct{})
 	for _, volume := range vmi.Spec.Volumes {
-		specVolumeMap[volume.Name] = volume
+		specVolumeMap[volume.Name] = struct{}{}
+	}
+	for _, utilityVolume := range vmi.Spec.UtilityVolumes {
+		specVolumeMap[utilityVolume.Name] = struct{}{}
 	}
 	newStatusMap := make(map[string]v1.VolumeStatus)
 	var newStatuses []v1.VolumeStatus
@@ -1019,10 +1023,12 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	c.updateGuestInfoFromDomain(vmi, domain)
 	c.updateVolumeStatusesFromDomain(vmi, domain)
 	c.updateFSFreezeStatus(vmi, domain)
+	c.updateBackupStatus(vmi, domain)
 	c.updateMachineType(vmi, domain)
 	if err = c.updateMemoryInfo(vmi, domain); err != nil {
 		return err
 	}
+	cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
 	err = c.netStat.UpdateStatus(vmi, domain)
 	return err
 }
@@ -1198,6 +1204,8 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 
 	if util.IsSEVVMI(vmi) {
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
+	} else if util.IsTDXVMI(vmi) {
+		return newNonMigratableCondition("VMI uses TDX", v1.VirtualMachineInstanceReasonTDXNotMigratable), isBlockMigration
 	}
 
 	if util.IsSecureExecutionVMI(vmi) {
@@ -1289,6 +1297,8 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 
 	if util.IsSEVVMI(vmi) {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonSEVNotMigratable, "VMI uses SEV")
+	} else if util.IsTDXVMI(vmi) {
+		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonTDXNotMigratable, "VMI uses TDX")
 	}
 
 	if reservation.HasVMIPersistentReservation(vmi) {
@@ -1542,6 +1552,8 @@ func (c *VirtualMachineController) processVmShutdown(vmi *v1.VirtualMachineInsta
 	return c.helperVmShutdown(vmi, domain, tryGracefully)
 }
 
+const firstGracefulShutdownAttempt = -1
+
 // Determines if a domain's grace period has expired during shutdown.
 // If the grace period has started but not expired, timeLeft represents
 // the time in seconds left until the period expires.
@@ -1572,7 +1584,7 @@ func (c *VirtualMachineController) hasGracePeriodExpired(terminationGracePeriod 
 	if startTime == 0 {
 		// If gracePeriod > 0, then the shutdown signal needs to be sent
 		// and the gracePeriod start time needs to be set.
-		timeLeft = -1
+		timeLeft = firstGracefulShutdownAttempt
 		return hasExpired, timeLeft
 	}
 
@@ -1646,8 +1658,17 @@ func (c *VirtualMachineController) shutdownVMI(vmi *v1.VirtualMachineInstance, c
 
 	c.logger.Object(vmi).Infof("Signaled graceful shutdown for %s", vmi.GetObjectMeta().GetName())
 
+	// Only create a VMIGracefulShutdown event for the first attempt as we can
+	// easily hit the default burst limit of 25 for the
+	// EventSourceObjectSpamFilter when gracefully shutting down VMIs with a
+	// large TerminationGracePeriodSeconds value set. Hitting this limit can
+	// result in the eventual VMIShutdown event being dropped.
+	if timeLeft == firstGracefulShutdownAttempt {
+		c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), VMIGracefulShutdown)
+	}
+
 	// Make sure that we don't hot-loop in case we send the first domain notification
-	if timeLeft == -1 {
+	if timeLeft == firstGracefulShutdownAttempt {
 		timeLeft = 5
 		if vmi.Spec.TerminationGracePeriodSeconds != nil && *vmi.Spec.TerminationGracePeriodSeconds < timeLeft {
 			timeLeft = *vmi.Spec.TerminationGracePeriodSeconds
@@ -1661,7 +1682,6 @@ func (c *VirtualMachineController) shutdownVMI(vmi *v1.VirtualMachineInstance, c
 
 	// pending graceful shutdown.
 	c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Duration(timeLeft)*time.Second)
-	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.ShuttingDown.String(), VMIGracefulShutdown)
 	return nil
 }
 
@@ -1746,7 +1766,7 @@ func (c *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 
 			if !ok || volumeStatus.PersistentVolumeClaimInfo == nil {
 				return true, fmt.Errorf("cannot migrate VMI: Unable to determine if PVC %v is shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", claimName)
-			} else if !pvctypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) && !pvctypes.IsMigratedVolume(volumeStatus.Name, vmi) {
+			} else if !storagetypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) && !storagetypes.IsMigratedVolume(volumeStatus.Name, vmi) {
 				return true, fmt.Errorf("cannot migrate VMI: PVC %v is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", claimName)
 			}
 
@@ -1754,7 +1774,7 @@ func (c *VirtualMachineController) checkVolumesForMigration(vmi *v1.VirtualMachi
 			// Check if this is a translated PVC.
 			volumeStatus, ok := volumeStatusMap[volume.Name]
 			if ok && volumeStatus.PersistentVolumeClaimInfo != nil {
-				if !pvctypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) && !pvctypes.IsMigratedVolume(volumeStatus.Name, vmi) {
+				if !storagetypes.HasSharedAccessMode(volumeStatus.PersistentVolumeClaimInfo.AccessModes) && !storagetypes.IsMigratedVolume(volumeStatus.Name, vmi) {
 					return true, fmt.Errorf("cannot migrate VMI: PVC %v is not shared, live migration requires that all PVCs must be shared (using ReadWriteMany access mode)", volumeStatus.PersistentVolumeClaimInfo.ClaimName)
 				} else {
 					continue
@@ -2221,6 +2241,9 @@ func (c *VirtualMachineController) hotplugVolumesReady(vmi *v1.VirtualMachineIns
 			break
 		}
 	}
+	if len(vmi.Spec.UtilityVolumes) > 0 {
+		hasHotplugVolume = true
+	}
 	if !hasHotplugVolume {
 		return true
 	}
@@ -2390,7 +2413,7 @@ func (c *VirtualMachineController) isHostModelMigratable(vmi *v1.VirtualMachineI
 	if cpu := vmi.Spec.Domain.CPU; cpu != nil && cpu.Model == v1.CPUModeHostModel {
 		if c.hostCpuModel == "" {
 			err := fmt.Errorf("the node \"%s\" does not allow migration with host-model", vmi.Status.NodeName)
-			c.logger.Object(vmi).Errorf(err.Error())
+			c.logger.Object(vmi).Errorf("%s", err.Error())
 			return err
 		}
 	}
@@ -2432,4 +2455,33 @@ func parseLibvirtQuantity(value int64, unit string) *resource.Quantity {
 		return resource.NewQuantity(value*1024*1024*1024*1024, resource.BinarySI)
 	}
 	return nil
+}
+
+func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if domain == nil ||
+		domain.Spec.Metadata.KubeVirt.Backup == nil ||
+		vmi.Status.ChangedBlockTracking == nil ||
+		vmi.Status.ChangedBlockTracking.BackupStatus == nil {
+		return
+	}
+	backupMetadata := domain.Spec.Metadata.KubeVirt.Backup
+	// Handle the case where a new backupStatus was initiated but
+	// the backupMetadata wasnt reinitialized yet
+	if vmi.Status.ChangedBlockTracking.BackupStatus.BackupName != backupMetadata.Name {
+		return
+	}
+	vmi.Status.ChangedBlockTracking.BackupStatus.Completed = backupMetadata.Completed
+	if backupMetadata.StartTimestamp != nil {
+		vmi.Status.ChangedBlockTracking.BackupStatus.StartTimestamp = backupMetadata.StartTimestamp
+	}
+	if backupMetadata.EndTimestamp != nil {
+		vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp = backupMetadata.EndTimestamp
+	}
+	if backupMetadata.BackupMsg != "" {
+		vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg = &backupMetadata.BackupMsg
+	}
+	if backupMetadata.CheckpointName != "" {
+		vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName = &backupMetadata.CheckpointName
+	}
+	// TODO: Handle backup failure (backupMetadata.Failed) and abort status (backupMetadata.AbortStatus)
 }

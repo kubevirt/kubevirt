@@ -21,14 +21,14 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	scheme "kubevirt.io/client-go/containerizeddataimporter/scheme"
-	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // VolumeUploadSourcesGetter has a method to return a VolumeUploadSourceInterface.
@@ -39,33 +39,34 @@ type VolumeUploadSourcesGetter interface {
 
 // VolumeUploadSourceInterface has methods to work with VolumeUploadSource resources.
 type VolumeUploadSourceInterface interface {
-	Create(ctx context.Context, volumeUploadSource *v1beta1.VolumeUploadSource, opts v1.CreateOptions) (*v1beta1.VolumeUploadSource, error)
-	Update(ctx context.Context, volumeUploadSource *v1beta1.VolumeUploadSource, opts v1.UpdateOptions) (*v1beta1.VolumeUploadSource, error)
+	Create(ctx context.Context, volumeUploadSource *corev1beta1.VolumeUploadSource, opts v1.CreateOptions) (*corev1beta1.VolumeUploadSource, error)
+	Update(ctx context.Context, volumeUploadSource *corev1beta1.VolumeUploadSource, opts v1.UpdateOptions) (*corev1beta1.VolumeUploadSource, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, volumeUploadSource *v1beta1.VolumeUploadSource, opts v1.UpdateOptions) (*v1beta1.VolumeUploadSource, error)
+	UpdateStatus(ctx context.Context, volumeUploadSource *corev1beta1.VolumeUploadSource, opts v1.UpdateOptions) (*corev1beta1.VolumeUploadSource, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.VolumeUploadSource, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.VolumeUploadSourceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1beta1.VolumeUploadSource, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1beta1.VolumeUploadSourceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VolumeUploadSource, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1beta1.VolumeUploadSource, err error)
 	VolumeUploadSourceExpansion
 }
 
 // volumeUploadSources implements VolumeUploadSourceInterface
 type volumeUploadSources struct {
-	*gentype.ClientWithList[*v1beta1.VolumeUploadSource, *v1beta1.VolumeUploadSourceList]
+	*gentype.ClientWithList[*corev1beta1.VolumeUploadSource, *corev1beta1.VolumeUploadSourceList]
 }
 
 // newVolumeUploadSources returns a VolumeUploadSources
 func newVolumeUploadSources(c *CdiV1beta1Client, namespace string) *volumeUploadSources {
 	return &volumeUploadSources{
-		gentype.NewClientWithList[*v1beta1.VolumeUploadSource, *v1beta1.VolumeUploadSourceList](
+		gentype.NewClientWithList[*corev1beta1.VolumeUploadSource, *corev1beta1.VolumeUploadSourceList](
 			"volumeuploadsources",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1beta1.VolumeUploadSource { return &v1beta1.VolumeUploadSource{} },
-			func() *v1beta1.VolumeUploadSourceList { return &v1beta1.VolumeUploadSourceList{} }),
+			func() *corev1beta1.VolumeUploadSource { return &corev1beta1.VolumeUploadSource{} },
+			func() *corev1beta1.VolumeUploadSourceList { return &corev1beta1.VolumeUploadSourceList{} },
+		),
 	}
 }

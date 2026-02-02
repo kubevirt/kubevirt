@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -169,6 +169,14 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 		}
 	}
 
+	if spec.UpdateStrategy != nil {
+		causes = append(causes, validateUpdateStrategyMutualExclusivity(field, spec.UpdateStrategy)...)
+	}
+
+	if spec.ScaleInStrategy != nil {
+		causes = append(causes, validateScaleInStrategyMutualExclusivity(field, spec.ScaleInStrategy)...)
+	}
+
 	if ar.Request.Operation == admissionv1.Update {
 		oldPool := &poolv1.VirtualMachinePool{}
 		if err := json.Unmarshal(ar.Request.OldObject.Raw, oldPool); err != nil {
@@ -187,4 +195,42 @@ func ValidateVMPoolSpec(ar *admissionv1.AdmissionReview, field *k8sfield.Path, p
 		}
 	}
 	return causes
+}
+
+func validateUpdateStrategyMutualExclusivity(field *k8sfield.Path, strategy *poolv1.VirtualMachinePoolUpdateStrategy) []metav1.StatusCause {
+	mutualExclusivity := map[string]bool{
+		"unmanaged":     strategy.Unmanaged != nil,
+		"opportunistic": strategy.Opportunistic != nil,
+		"proactive":     strategy.Proactive != nil,
+	}
+	return validateMutualExclusivity(field.Child("updateStrategy"), mutualExclusivity)
+}
+
+func validateScaleInStrategyMutualExclusivity(field *k8sfield.Path, strategy *poolv1.VirtualMachinePoolScaleInStrategy) []metav1.StatusCause {
+	mutualExclusivity := map[string]bool{
+		"unmanaged":     strategy.Unmanaged != nil,
+		"opportunistic": strategy.Opportunistic != nil,
+		"proactive":     strategy.Proactive != nil,
+	}
+	return validateMutualExclusivity(field.Child("scaleInStrategy"), mutualExclusivity)
+}
+
+func validateMutualExclusivity(field *k8sfield.Path, strategies map[string]bool) []metav1.StatusCause {
+	var configured []string
+	for name, isSet := range strategies {
+		if isSet {
+			configured = append(configured, name)
+		}
+	}
+
+	if len(configured) > 1 {
+		return []metav1.StatusCause{
+			{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("only one strategy can be configured at a time: but found %s strategies", strings.Join(configured, ", ")),
+				Field:   field.String(),
+			},
+		}
+	}
+	return nil
 }

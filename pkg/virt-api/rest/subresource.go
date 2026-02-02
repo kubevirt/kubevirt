@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -71,7 +70,6 @@ type SubresourceAPIApp struct {
 	consoleServerPort       int
 	profilerComponentPort   int
 	handlerTLSConfiguration *tls.Config
-	credentialsLock         *sync.Mutex
 	clusterConfig           *virtconfig.ClusterConfig
 	instancetypeExpander    instancetypeVMExpander
 	handlerHttpClient       *http.Client
@@ -100,7 +98,6 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 		virtCli:                 virtCli,
 		consoleServerPort:       consoleServerPort,
 		profilerComponentPort:   defaultProfilerComponentPort,
-		credentialsLock:         &sync.Mutex{},
 		handlerTLSConfiguration: tlsConfiguration,
 		clusterConfig:           clusterConfig,
 		instancetypeExpander:    instancetypeExpander,
@@ -166,7 +163,7 @@ func (app *SubresourceAPIApp) putRequestHandlerWithErrorPostProcessing(request *
 
 	vmi, url, conn, statusErr := app.prepareConnection(request, preValidate, getVirtHandlerURL)
 	if statusErr != nil {
-		err := errorPostProcessing(vmi, fmt.Errorf(statusErr.ErrStatus.Message))
+		err := errorPostProcessing(vmi, fmt.Errorf("%s", statusErr.ErrStatus.Message))
 		statusErr.ErrStatus.Message = err.Error()
 		writeError(statusErr, response)
 		return

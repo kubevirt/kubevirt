@@ -123,6 +123,11 @@ const (
 	ResultTypeAvgVirtHandlerCPUUsage    ResultType = "avgVirtHandlerCPUUsage"
 	ResultTypeMinVirtHandlerCPUUsage    ResultType = "minVirtHandlerCPUUsage"
 	ResultTypeMaxVirtHandlerCPUUsage    ResultType = "maxVirtHandlerCPUUsage"
+
+	// virt_controller workqueue metrics
+	ResultTypeVirtControllerWorkqueueAddRate    ResultType = "virtControllerWorkqueueAddRate"
+	ResultTypeVirtControllerWorkqueueDepth      ResultType = "virtControllerWorkqueueDepth"
+	ResultTypeVirtControllerWorkqueueP99Latency ResultType = "virtControllerWorkqueueP99Latency"
 )
 
 const (

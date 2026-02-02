@@ -25,6 +25,7 @@ go_test(
     ],
     data = ["//cmd/fake-qemu-process"],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/google/uuid:go_default_library",

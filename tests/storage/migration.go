@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	expect "github.com/google/goexpect"
@@ -63,8 +64,11 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libinfra"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -142,10 +146,9 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			destPVC string
 		)
 		const (
-			fsPVC            = "filesystem"
-			blockPVC         = "block"
-			size             = "1Gi"
-			sizeWithOverhead = "1.2Gi"
+			fsPVC    = "filesystem"
+			blockPVC = "block"
+			size     = "1Gi"
 		)
 
 		waitMigrationToNotExist := func(vmiName, ns string) {
@@ -166,14 +169,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			}, 120*time.Second, time.Second).Should(BeTrue())
 		}
 		waitVMIToHaveVolumeChangeCond := func(vmiName, ns string) {
-
-			Eventually(func() bool {
-				vmi, err := virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmiName,
-					metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				conditionManager := controller.NewVirtualMachineInstanceConditionManager()
-				return conditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVolumesChange)
-			}, 120*time.Second, time.Second).Should(BeTrue())
+			Eventually(matcher.ThisVMIWith(ns, vmiName), 120*time.Second, time.Second).Should(matcher.HaveConditionTrue(virtv1.VirtualMachineInstanceVolumesChange))
 		}
 
 		createDV := func() *cdiv1.DataVolume {
@@ -287,12 +283,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 					},
 				}), "The volumes migrated should be set",
 			)
-			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return controller.NewVirtualMachineConditionManager().HasCondition(
-					vm, virtv1.VirtualMachineManualRecoveryRequired)
-			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeTrue())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionTrue(virtv1.VirtualMachineManualRecoveryRequired))
 		}
 
 		BeforeEach(func() {
@@ -322,16 +313,17 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				libwait.WaitForSuccessfulVMIStart(vmi)
 
 				// Create dest PVC
-				var dstPVC *k8sv1.PersistentVolumeClaim
 				switch mode {
 				case fsPVC:
-					// Add some overhead to the target PVC for filesystem.
-					dstPVC = libstorage.CreateFSPVC(destPVC, ns, sizeWithOverhead, nil)
+					libstorage.CreateBlankFSDataVolume(destPVC, ns, size, nil)
 				case blockPVC:
-					dstPVC = libstorage.CreateBlockPVC(destPVC, ns, size)
+					libstorage.CreateBlankBlockDataVolume(destPVC, ns, size)
 				default:
 					Fail("Unrecognized mode")
 				}
+
+				dstPVC, err := virtClient.CoreV1().PersistentVolumeClaims(ns).Get(context.Background(), destPVC, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				Expect(dstPVC.Spec.StorageClassName).ToNot(BeNil())
 				if !volumeExpansionAllowed(*dstPVC.Spec.StorageClassName) {
 					Fail("Fail when volume expansion storage class not available")
@@ -362,7 +354,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Eventually(func() error {
 					err := console.SafeExpectBatch(vmi, []expect.Batcher{
 						&expect.BSnd{S: "\n"},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: "[ $(lsblk /dev/vda -o SIZE -n |sed -e \"s/ //g\") == \"4G\" ] && true\n"},
 						&expect.BExp{R: "0"},
 					}, 10)
@@ -375,7 +367,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		})
 
 		DescribeTable("should migrate the source volume from a source DV to a destination DV", func(allowPostCopy bool) {
-
 			policyName := fmt.Sprintf("testpolicy-%s", rand.String(5))
 			migrationPolicy := kubecli.NewMinimalMigrationPolicy(policyName)
 			migrationPolicy.Spec.AllowPostCopy = pointer.P(allowPostCopy)
@@ -400,6 +391,80 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			Entry("with pre-copy", false),
 			Entry("with post-copy", true),
 		)
+
+		It("should continously report storage migration metrics", func() {
+			var pod *k8sv1.Pod
+			var metricsIPs []string
+			volName := "disk0"
+			sc, exist := libstorage.GetRWOFileSystemStorageClass()
+			Expect(exist).To(BeTrue())
+			srcDV := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
+				libdv.WithStorage(libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
+				),
+			)
+			_, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(ns).Create(context.Background(),
+				srcDV, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			vmi := libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
+				libvmi.WithMemoryRequest("256Mi"),
+				libvmi.WithDataVolume(volName, srcDV.Name),
+			)
+			// Limiting the bandwidth of this migration so we can grab metrics
+			policy := testsmig.PreparePolicyAndVMIWithBandwidthLimitation(vmi, resource.MustParse("5Mi"))
+			testsmig.CreateMigrationPolicy(virtClient, policy)
+
+			vm := libvmi.NewVirtualMachine(vmi,
+				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
+				libvmi.WithDataVolumeTemplate(srcDV),
+			)
+			vm, err = virtClient.VirtualMachine(ns).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm), 360*time.Second, 1*time.Second).Should(matcher.BeReady())
+			libwait.WaitForSuccessfulVMIStart(vmi)
+			destDV := createBlankDV(virtClient, ns, "8Gi")
+			vmi, err = virtClient.VirtualMachineInstance(ns).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Finding the prometheus endpoint")
+			pod, err = libnode.GetVirtHandlerPod(virtClient, vmi.Status.NodeName)
+			Expect(err).ToNot(HaveOccurred(), "Should find the virt-handler pod")
+			Expect(pod.Status.PodIPs).ToNot(BeEmpty(), "pod IPs must not be empty")
+			for _, ip := range pod.Status.PodIPs {
+				metricsIPs = append(metricsIPs, ip.IP)
+			}
+			By("Waiting until the Migration Completes")
+
+			By("Update volumes")
+			updateVMWithDV(vm, volName, destDV.Name)
+
+			threshold := resource.MustParse("500Mi")
+			Eventually(func() []string {
+				out := libmonitoring.GetKubevirtVMMetrics(pod)
+				return libinfra.TakeMetricsWithPrefix(out, "kubevirt_vmi_migration_data_processed_bytes")
+			}, 4*time.Minute, 10*time.Second).Should(
+				WithTransform(func(lines []string) []float64 {
+					var values []float64
+					for _, line := range lines {
+						// <metric_name>{<labels...>} <timestamp> <value>
+						if !strings.Contains(line, vmi.Name) {
+							continue
+						}
+						fields := strings.Fields(line)
+						if len(fields) >= 2 {
+							if val, err := strconv.ParseFloat(fields[len(fields)-2], 64); err == nil {
+								values = append(values, val)
+							}
+						}
+					}
+					_, _ = fmt.Fprintf(GinkgoWriter, "[DEBUG] values: %v\n", values)
+					return values
+				}, ContainElement(BeNumerically(">", threshold.Value()))), "should continuously report storage migration metrics")
+		})
 
 		It("should trigger the migration once the destination DV exists", func() {
 			volName := "disk0"
@@ -476,7 +541,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			}, 120*time.Second, time.Second).Should(Equal(virtv1.MigrationPending))
 
 			By("Create the destination PVC")
-			libstorage.CreateFSPVC(destPVC, ns, "2Gi", nil)
+			libstorage.CreateBlankFSDataVolume(destPVC, ns, "2Gi", nil)
 
 			waitForMigrationToSucceed(virtClient, vm.Name, ns)
 
@@ -566,14 +631,14 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 		It("should migrate a PVC with a VM using a containerdisk", func() {
 			volName := "volume"
 			srcPVC := "src-" + rand.String(5)
-			libstorage.CreateFSPVC(srcPVC, ns, size, nil)
-			libstorage.CreateFSPVC(destPVC, ns, size, nil)
+			libstorage.CreateBlankFSDataVolume(srcPVC, ns, size, nil)
+			libstorage.CreateBlankFSDataVolume(destPVC, ns, size, nil)
 			vmi := libvmifact.NewCirros(
 				libvmi.WithNamespace(ns),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(virtv1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
-				libvmi.WithPersistentVolumeClaim(volName, srcPVC),
+				libvmi.WithDataVolume(volName, srcPVC),
 			)
 			vm := libvmi.NewVirtualMachine(vmi,
 				libvmi.WithRunStrategy(virtv1.RunStrategyAlways),
@@ -615,7 +680,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			dv := createDV()
 			vm := createVMWithDV(dv, volName)
 			// Create dest PVC
-			createUnschedulablePVC(destPVC, ns, size)
+			libstorage.CreateFSPVC(destPVC, ns, size, libstorage.WithStorageClass("dontexist"))
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(virtClient, vm.Name, ns)
@@ -703,7 +768,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			dv := createDV()
 			vm := createVMWithDV(dv, volName)
 			// Create dest PVC
-			createUnschedulablePVC(destPVC, ns, size)
+			libstorage.CreateFSPVC(destPVC, ns, size, libstorage.WithStorageClass("dontexist"))
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(virtClient, vm.Name, ns)
@@ -736,12 +801,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			Expect(err).ToNot(HaveOccurred())
 			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() bool {
-				vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				return controller.NewVirtualMachineConditionManager().HasCondition(
-					vm, virtv1.VirtualMachineManualRecoveryRequired)
-			}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeFalse())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionMissingOrFalse(virtv1.VirtualMachineManualRecoveryRequired))
 
 			By("Starting the VM after the volume set correction")
 			err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Start(context.Background(), vm.Name, &virtv1.StartOptions{Paused: false})
@@ -753,7 +813,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 			volName := "volume"
 			dv := createDV()
 			vm := createVMWithDV(dv, volName)
-			createUnschedulablePVC(destPVC, ns, size)
+			libstorage.CreateFSPVC(destPVC, ns, size, libstorage.WithStorageClass("dontexist"))
 			By("Update volumes")
 			updateVMWithPVC(vm, volName, destPVC)
 			waitMigrationToExist(virtClient, vm.Name, ns)
@@ -834,7 +894,7 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 			It("when the copy of the destination volumes was successful", func() {
 				dv := createDV()
-				libstorage.CreateFSPVC(destPVC, ns, sizeWithOverhead, nil)
+				libstorage.CreateBlankFSDataVolume(destPVC, ns, size, nil)
 				vm := createAndStartVM(dv)
 
 				By("Update volumes")
@@ -884,20 +944,10 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 				Expect(err).ToNot(HaveOccurred())
 				vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return controller.NewVirtualMachineConditionManager().HasCondition(
-						vm, virtv1.VirtualMachineManualRecoveryRequired)
-				}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeFalse())
+				Eventually(matcher.ThisVM(vm)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionMissingOrFalse(virtv1.VirtualMachineManualRecoveryRequired))
 
 				By("Starting the VM")
-				Eventually(func() bool {
-					vm, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-					Expect(err).ToNot(HaveOccurred())
-					return controller.NewVirtualMachineConditionManager().HasCondition(
-						vm, virtv1.VirtualMachineManualRecoveryRequired)
-				}).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(BeFalse())
+				Eventually(matcher.ThisVM(vm)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.HaveConditionMissingOrFalse(virtv1.VirtualMachineManualRecoveryRequired))
 				Eventually(matcher.ThisVMI(vmi), 360*time.Second, time.Second).Should(matcher.BeInPhase(v1.Running))
 			})
 		})
@@ -1219,16 +1269,6 @@ var _ = Describe(SIG("Volumes update with migration", decorators.RequiresTwoSche
 
 }))
 
-func createUnschedulablePVC(name, namespace, size string) *k8sv1.PersistentVolumeClaim {
-	pvc := libstorage.NewPVC(name, size, "dontexist")
-	pvc.Spec.VolumeMode = pointer.P(k8sv1.PersistentVolumeFilesystem)
-	virtCli := kubevirt.Client()
-	createdPvc, err := virtCli.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
-	Expect(err).ShouldNot(HaveOccurred())
-
-	return createdPvc
-}
-
 // createSmallImageForDestinationMigration creates a smaller raw image on the destination PVC and the PVC is bound to another node then the running
 // virt-launcher in order to allow the migration.
 func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, size string) {
@@ -1237,7 +1277,7 @@ func createSmallImageForDestinationMigration(vm *virtv1.VirtualMachine, name, si
 	virtCli := kubevirt.Client()
 	vmi, err := virtCli.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 	Expect(err).ShouldNot(HaveOccurred())
-	libstorage.CreateFSPVC(name, vmi.Namespace, size, nil)
+	libstorage.CreateFSPVC(name, vmi.Namespace, size, libstorage.WithStorageProfile())
 	vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 	Expect(err).ShouldNot(HaveOccurred())
 	volume := k8sv1.Volume{

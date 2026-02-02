@@ -129,7 +129,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				addrShow := "ip address show eth0\n"
 				Expect(console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: addrShow},
 					&expect.BExp{R: fmt.Sprintf(".*%s.*\n", expectedMtuString)},
 					&expect.BSnd{S: console.EchoLastReturnValue},
@@ -146,9 +146,9 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				cmdCheck := fmt.Sprintf("ping %s -c 1 -w 5 -s %d\n", addr, payloadSize)
 				err = console.SafeExpectBatch(outboundVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: cmdCheck},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 180)
@@ -237,7 +237,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 			err = console.SafeExpectBatch(vmi, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: fmt.Sprintf(vendorCmd, e1000ModelIface.PciAddress)},
 				&expect.BExp{R: intelVendorID},
 				&expect.BSnd{S: fmt.Sprintf(vendorCmd, defaultModelIface.PciAddress)},
@@ -260,7 +260,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 		By("checking that loopback is the only guest interface")
 		err = console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: "ls /sys/class/net/ | wc -l\n"},
 			&expect.BExp{R: "1"},
 		}, 15)
@@ -285,7 +285,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 		err = console.SafeExpectBatch(testVMI, []expect.Batcher{
 			&expect.BSnd{S: "\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: "ls /sys/bus/pci/devices/" + pciAddress + "/virtio0/net\n"},
 			&expect.BExp{R: "eth0"},
 			&expect.BSnd{S: "cat /sys/bus/pci/devices/" + pciAddress + "/acpi_index\n"},
@@ -329,11 +329,11 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 
 			err = console.SafeExpectBatch(dhcpVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "dhclient -1 -r -d eth0\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "dhclient -1 -sf /usr/bin/env --request-options subnet-mask,broadcast-address,time-offset,routers,domain-search,domain-name,domain-name-servers,host-name,nis-domain,nis-servers,ntp-servers,interface-mtu,tftp-server-name,bootfile-name eth0 | tee /dhcp-env\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "grep -q 'new_tftp_server_name=tftp.kubevirt.io' /dhcp-env; echo $?\n"},
 				&expect.BExp{R: console.RetValue("0")},
 				&expect.BSnd{S: "grep -q 'new_bootfile_name=config' /dhcp-env; echo $?\n"},
@@ -369,23 +369,23 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			const catResolvConf = "cat /etc/resolv.conf\n"
 			err = console.SafeExpectBatch(dnsVMI, []expect.Batcher{
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: catResolvConf},
 				&expect.BExp{R: "search example.com"},
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: catResolvConf},
 				&expect.BExp{R: "nameserver 8.8.8.8"},
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: catResolvConf},
 				&expect.BExp{R: "nameserver 4.2.2.1"},
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 				&expect.BSnd{S: "cat /etc/resolv.conf\n"},
 				&expect.BExp{R: "nameserver 1.1.1.1"},
 				&expect.BSnd{S: "\n"},
-				&expect.BExp{R: console.PromptExpression},
+				&expect.BExp{R: ""},
 			}, 15)
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -403,32 +403,6 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
 				libvmi.WithNetwork(net),
 			)
-		}
-
-		fedoraMasqueradeVMI := func(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
-			if ipv6NetworkCIDR == "" {
-				ipv6NetworkCIDR = cloudinit.DefaultIPv6CIDR
-			}
-			networkData, err := cloudinit.NewNetworkData(
-				cloudinit.WithEthernet("eth0",
-					cloudinit.WithDHCP4Enabled(),
-					cloudinit.WithAddresses(ipv6NetworkCIDR),
-					cloudinit.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
-				),
-			)
-			if err != nil {
-				return nil, err
-			}
-
-			net := v1.DefaultPodNetwork()
-			net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
-			vmi := libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
-				libvmi.WithNetwork(net),
-				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
-			)
-
-			return vmi, nil
 		}
 
 		portsUsedByLiveMigration := func() []v1.Port {
@@ -528,13 +502,13 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			DescribeTable("IPv6", func(ports []v1.Port, tcpPort int, networkCIDR string) {
 				libnet.SkipWhenClusterNotSupportIpv6()
 
-				clientVMI, err := fedoraMasqueradeVMI([]v1.Port{}, networkCIDR)
+				clientVMI, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				clientVMI = libwait.WaitUntilVMIReady(clientVMI, console.LoginToFedora)
 
-				serverVMI, err := fedoraMasqueradeVMI(ports, networkCIDR)
+				serverVMI, err := newFedoraMasqueradeIPv6VMI(ports, networkCIDR)
 				Expect(err).ToNot(HaveOccurred())
 
 				serverVMI.Labels = map[string]string{"expose": "server"}
@@ -566,7 +540,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 					ipv6Address = flags.IPV6ConnectivityCheckAddress
 				}
 
-				vmi, err := fedoraMasqueradeVMI([]v1.Port{}, "")
+				vmi, err := newFedoraMasqueradeIPv6VMI([]v1.Port{}, "")
 				Expect(err).ToNot(HaveOccurred())
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -641,7 +615,7 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Create VMI")
-				vmi, err = fedoraMasqueradeVMI([]v1.Port{}, "")
+				vmi, err = newFedoraMasqueradeIPv6VMI([]v1.Port{}, "")
 				Expect(err).ToNot(HaveOccurred())
 
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -787,24 +761,32 @@ var _ = Describe(SIG("[rfe_id:694][crit:medium][vendor:cnv-qe@redhat.com][level:
 			)
 		})
 	})
-
-	Context("VirtualMachineInstance with TX offload disabled", func() {
-		It("[test_id:1781]should have tx checksumming disabled on interface serving dhcp", func() {
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(
-				context.Background(),
-				libvmifact.NewAlpine(libvmi.WithMemoryRequest("1024M")),
-				metav1.CreateOptions{},
-			)
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-			output := libpod.RunCommandOnVmiPod(
-				vmi,
-				[]string{"/bin/bash", "-c", "/usr/sbin/ethtool -k k6t-eth0|grep tx-checksumming|awk '{ printf $2 }'"},
-			)
-			ExpectWithOffset(1, strings.TrimSpace(output)).To(Equal("off"))
-		})
-	})
 }))
+
+func newFedoraMasqueradeIPv6VMI(ports []v1.Port, ipv6NetworkCIDR string) (*v1.VirtualMachineInstance, error) {
+	if ipv6NetworkCIDR == "" {
+		ipv6NetworkCIDR = cloudinit.DefaultIPv6CIDR
+	}
+	networkData, err := cloudinit.NewNetworkData(
+		cloudinit.WithEthernet("eth0",
+			cloudinit.WithAddresses(ipv6NetworkCIDR),
+			cloudinit.WithGateway6(gatewayIPFromCIDR(ipv6NetworkCIDR)),
+		),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	net := v1.DefaultPodNetwork()
+	net.Pod.VMIPv6NetworkCIDR = ipv6NetworkCIDR
+	vmi := libvmifact.NewFedora(
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding(ports...)),
+		libvmi.WithNetwork(net),
+		libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(networkData)),
+	)
+
+	return vmi, nil
+}
 
 func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess bool) []expect.Batcher {
 	expectResult := console.ShellFail
@@ -821,9 +803,9 @@ func createExpectConnectToServer(serverIP string, tcpPort int, expectSuccess boo
 	}
 	return []expect.Batcher{
 		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: clientCommand},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 		&expect.BSnd{S: console.EchoLastReturnValue},
 		&expect.BExp{R: expectResult},
 	}

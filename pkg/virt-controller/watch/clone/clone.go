@@ -173,7 +173,7 @@ func (ctrl *VMCloneController) retrieveCloneInfo(vmClone *clone.VirtualMachineCl
 		}
 
 		sourceVM := sourceVMObj.(*k6tv1.VirtualMachine)
-		if backendstorage.IsBackendStorageNeededForVM(sourceVM) {
+		if backendstorage.IsBackendStorageNeeded(sourceVM) {
 			return nil, fmt.Errorf("%w: VM %s/%s", ErrSourceWithBackendStorage, vmClone.Namespace, sourceInfo.Name)
 		}
 		cloneInfo.sourceVm = sourceVM
@@ -489,7 +489,7 @@ func (ctrl *VMCloneController) verifySnapshotContent(snapshot *snapshotv1.Virtua
 		return nil
 	}
 
-	if backendstorage.IsBackendStorageNeededForVMI(&vm.Spec.Template.Spec) {
+	if backendstorage.IsBackendStorageNeeded(vm) {
 		return fmt.Errorf("%w: snapshot %s/%s", ErrSourceWithBackendStorage, snapshot.Namespace, snapshot.Name)
 	}
 
@@ -543,7 +543,7 @@ func (ctrl *VMCloneController) createRestoreFromVm(vmClone *clone.VirtualMachine
 		syncInfo.setError(retErr)
 		return syncInfo
 	}
-	restore := generateRestore(vmClone.Spec.Target, vm.Name, vmClone.Namespace, vmClone.Name, snapshotName, vmClone.UID, patches)
+	restore := generateRestore(vmClone.Spec.Target, vm.Name, vmClone.Namespace, vmClone.Name, snapshotName, vmClone.UID, patches, vmClone.Spec.VolumeNamePolicy)
 	log.Log.Object(vmClone).Infof("creating restore %s for clone %s", restore.Name, vmClone.Name)
 	createdRestore, err := ctrl.client.VirtualMachineRestore(restore.Namespace).Create(context.Background(), restore, v1.CreateOptions{})
 	if err != nil {
@@ -664,7 +664,7 @@ func (ctrl *VMCloneController) cleanupRestore(vmClone *clone.VirtualMachineClone
 
 func (ctrl *VMCloneController) logAndRecord(vmClone *clone.VirtualMachineClone, event Event, msg string) {
 	ctrl.recorder.Eventf(vmClone, corev1.EventTypeNormal, string(event), msg)
-	log.Log.Object(vmClone).Infof(msg)
+	log.Log.Object(vmClone).Infof("%s", msg)
 }
 
 func (ctrl *VMCloneController) getTargetType(vmClone *clone.VirtualMachineClone) cloneTargetType {

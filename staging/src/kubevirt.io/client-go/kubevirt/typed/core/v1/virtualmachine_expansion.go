@@ -47,6 +47,7 @@ type VirtualMachineExpansion interface {
 	MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 	RemoveMemoryDump(ctx context.Context, name string) error
 	ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error)
+	EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error
 }
 
 func (c *virtualMachines) GetWithExpandedSpec(ctx context.Context, name string) (*v1.VirtualMachine, error) {
@@ -218,4 +219,21 @@ func (c *virtualMachines) ObjectGraph(ctx context.Context, name string, objectGr
 		Into(&objectGraph)
 
 	return objectGraph, err
+}
+
+func (c *virtualMachines) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error {
+	body, err := json.Marshal(evacuateCancelOptions)
+	if err != nil {
+		return err
+	}
+
+	return c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachines").
+		Name(name).
+		SubResource("evacuate", "cancel").
+		Body(body).
+		Do(ctx).
+		Error()
 }

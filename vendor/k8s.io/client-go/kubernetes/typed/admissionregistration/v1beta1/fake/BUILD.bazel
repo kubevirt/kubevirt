@@ -5,6 +5,8 @@ go_library(
     srcs = [
         "doc.go",
         "fake_admissionregistration_client.go",
+        "fake_mutatingadmissionpolicy.go",
+        "fake_mutatingadmissionpolicybinding.go",
         "fake_mutatingwebhookconfiguration.go",
         "fake_validatingadmissionpolicy.go",
         "fake_validatingadmissionpolicybinding.go",

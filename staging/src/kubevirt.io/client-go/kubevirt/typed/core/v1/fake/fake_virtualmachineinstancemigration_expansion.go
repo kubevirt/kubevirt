@@ -28,6 +28,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-func (c *FakeVirtualMachineInstanceMigrations) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*v1.VirtualMachineInstanceMigration, error) {
+func (c *fakeVirtualMachineInstanceMigrations) PatchStatus(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions) (*v1.VirtualMachineInstanceMigration, error) {
 	return c.Patch(ctx, name, pt, data, opts, "status")
 }

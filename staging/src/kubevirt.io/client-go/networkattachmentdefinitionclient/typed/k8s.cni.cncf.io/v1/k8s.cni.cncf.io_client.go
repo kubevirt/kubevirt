@@ -21,11 +21,11 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"net/http"
+	http "net/http"
 
-	v1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	k8scnicncfiov1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	rest "k8s.io/client-go/rest"
-	"kubevirt.io/client-go/networkattachmentdefinitionclient/scheme"
+	scheme "kubevirt.io/client-go/networkattachmentdefinitionclient/scheme"
 )
 
 type K8sCniCncfIoV1Interface interface {
@@ -87,10 +87,10 @@ func New(c rest.Interface) *K8sCniCncfIoV1Client {
 }
 
 func setConfigDefaults(config *rest.Config) error {
-	gv := v1.SchemeGroupVersion
+	gv := k8scnicncfiov1.SchemeGroupVersion
 	config.GroupVersion = &gv
 	config.APIPath = "/apis"
-	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.NegotiatedSerializer = rest.CodecFactoryForGeneratedClient(scheme.Scheme, scheme.Codecs).WithoutConversion()
 
 	if config.UserAgent == "" {
 		config.UserAgent = rest.DefaultKubernetesUserAgent()

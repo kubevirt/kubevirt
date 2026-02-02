@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1beta1 "kubevirt.io/api/export/v1beta1"
+	exportv1beta1 "kubevirt.io/api/export/v1beta1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,34 @@ type VirtualMachineExportsGetter interface {
 
 // VirtualMachineExportInterface has methods to work with VirtualMachineExport resources.
 type VirtualMachineExportInterface interface {
-	Create(ctx context.Context, virtualMachineExport *v1beta1.VirtualMachineExport, opts v1.CreateOptions) (*v1beta1.VirtualMachineExport, error)
-	Update(ctx context.Context, virtualMachineExport *v1beta1.VirtualMachineExport, opts v1.UpdateOptions) (*v1beta1.VirtualMachineExport, error)
+	Create(ctx context.Context, virtualMachineExport *exportv1beta1.VirtualMachineExport, opts v1.CreateOptions) (*exportv1beta1.VirtualMachineExport, error)
+	Update(ctx context.Context, virtualMachineExport *exportv1beta1.VirtualMachineExport, opts v1.UpdateOptions) (*exportv1beta1.VirtualMachineExport, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, virtualMachineExport *v1beta1.VirtualMachineExport, opts v1.UpdateOptions) (*v1beta1.VirtualMachineExport, error)
+	UpdateStatus(ctx context.Context, virtualMachineExport *exportv1beta1.VirtualMachineExport, opts v1.UpdateOptions) (*exportv1beta1.VirtualMachineExport, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.VirtualMachineExport, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.VirtualMachineExportList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*exportv1beta1.VirtualMachineExport, error)
+	List(ctx context.Context, opts v1.ListOptions) (*exportv1beta1.VirtualMachineExportList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VirtualMachineExport, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *exportv1beta1.VirtualMachineExport, err error)
 	VirtualMachineExportExpansion
 }
 
 // virtualMachineExports implements VirtualMachineExportInterface
 type virtualMachineExports struct {
-	*gentype.ClientWithList[*v1beta1.VirtualMachineExport, *v1beta1.VirtualMachineExportList]
+	*gentype.ClientWithList[*exportv1beta1.VirtualMachineExport, *exportv1beta1.VirtualMachineExportList]
 }
 
 // newVirtualMachineExports returns a VirtualMachineExports
 func newVirtualMachineExports(c *ExportV1beta1Client, namespace string) *virtualMachineExports {
 	return &virtualMachineExports{
-		gentype.NewClientWithList[*v1beta1.VirtualMachineExport, *v1beta1.VirtualMachineExportList](
+		gentype.NewClientWithList[*exportv1beta1.VirtualMachineExport, *exportv1beta1.VirtualMachineExportList](
 			"virtualmachineexports",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1beta1.VirtualMachineExport { return &v1beta1.VirtualMachineExport{} },
-			func() *v1beta1.VirtualMachineExportList { return &v1beta1.VirtualMachineExportList{} }),
+			func() *exportv1beta1.VirtualMachineExport { return &exportv1beta1.VirtualMachineExport{} },
+			func() *exportv1beta1.VirtualMachineExportList { return &exportv1beta1.VirtualMachineExportList{} },
+		),
 	}
 }

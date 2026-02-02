@@ -20,7 +20,6 @@
 package virtwrap
 
 import (
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"path/filepath"
@@ -36,7 +35,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -50,10 +48,10 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cpudedicated"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
-	convxml "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/statsconv"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
@@ -141,57 +139,6 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 	}
 	return nil
 }
-func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
-	var targetTopology cmdv1.Topology
-	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet
-	err := json.Unmarshal([]byte(vmi.Status.MigrationState.TargetNodeTopology), &targetTopology)
-	if err != nil {
-		return nil, err
-	}
-
-	useIOThreads := false
-	for _, diskDevice := range vmi.Spec.Domain.Devices.Disks {
-		if diskDevice.DedicatedIOThread != nil && *diskDevice.DedicatedIOThread {
-			useIOThreads = true
-			break
-		}
-	}
-	domain := api.NewMinimalDomain(vmi.Name)
-	domain.Spec = *domSpec
-	cpuTopology := vcpu.GetCPUTopology(vmi)
-	cpuCount := vcpu.CalculateRequestedVCPUs(cpuTopology)
-
-	// update cpu count to maximum hot plugable CPUs
-	vmiCPU := vmi.Spec.Domain.CPU
-	if vmiCPU != nil && vmiCPU.MaxSockets != 0 {
-		cpuTopology.Sockets = vmiCPU.MaxSockets
-		cpuCount = vcpu.CalculateRequestedVCPUs(cpuTopology)
-	}
-	domain.Spec.CPU.Topology = cpuTopology
-	domain.Spec.VCPU = &api.VCPU{
-		Placement: "static",
-		CPUs:      cpuCount,
-	}
-	err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, &targetTopology, targetNodeCPUSet, useIOThreads)
-	if err != nil {
-		return nil, err
-	}
-
-	return domain, err
-}
-
-func convertCPUDedicatedFields(domain *api.Domain, domcfg *libvirtxml.Domain) error {
-	if domcfg.CPU == nil {
-		domcfg.CPU = &libvirtxml.DomainCPU{}
-	}
-	domcfg.CPU.Topology = convxml.ConvertKubeVirtCPUTopologyToDomainCPUTopology(domain.Spec.CPU.Topology)
-	domcfg.VCPU = convxml.ConvertKubeVirtVCPUToDomainVCPU(domain.Spec.VCPU)
-	domcfg.CPUTune = convxml.ConvertKubeVirtCPUTuneToDomainCPUTune(domain.Spec.CPUTune)
-	domcfg.NUMATune = convxml.ConvertKubeVirtNUMATuneToDomainNUMATune(domain.Spec.NUMATune)
-	domcfg.Features = convxml.ConvertKubeVirtFeaturesToDomainFeatureList(domain.Spec.Features)
-
-	return nil
-}
 
 // This returns domain xml without the metadata section, as it is only relevant to the source domain
 // Note: Unfortunately we can't just use UnMarshall + Marshall here, as that leads to unwanted XML alterations
@@ -211,6 +158,9 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 	if err = convertDisks(domSpec, domcfg); err != nil {
 		return "", err
 	}
+	// TODO: Once the LibvirtHooksServerAndClient feature gate is GA,
+	// this logic in the source can be removed, as XML modifications
+	// for dedicated CPUs will always be handled on the target side.
 	if vmi.IsCPUDedicated() {
 		// If the VMI has dedicated CPUs, we need to replace the old CPUs that were
 		// assigned in the source node with the new CPUs assigned in the target node
@@ -218,11 +168,11 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
 		if err != nil {
 			return "", err
 		}
-		domain, err = generateDomainForTargetCPUSetAndTopology(vmi, domSpec)
+		domain, err := cpudedicated.GenerateDomainForTargetCPUSetAndTopology(vmi, domSpec)
 		if err != nil {
 			return "", err
 		}
-		if err = convertCPUDedicatedFields(domain, domcfg); err != nil {
+		if err = cpudedicated.ConvertCPUDedicatedFields(domain, domcfg); err != nil {
 			return "", err
 		}
 	}
@@ -311,7 +261,7 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 	// Shared volues are being excluded.
 	copyDisks := []string{}
 	migrationVols := classifyVolumesForMigration(vmi)
-	disks, err := getAllDomainDisks(dom)
+	disks, err := util.GetAllDomainDisks(dom)
 	if err != nil {
 		log.Log.Object(vmi).Reason(err).Error("failed to parse domain XML to get disks.")
 	}
@@ -333,6 +283,9 @@ func getDiskTargetsForMigration(dom cli.VirDomain, vmi *v1.VirtualMachineInstanc
 }
 
 func (l *LibvirtDomainManager) startMigration(vmi *v1.VirtualMachineInstance, options *cmdclient.MigrationOptions) error {
+	if vmi.Status.ChangedBlockTracking != nil && vmi.Status.ChangedBlockTracking.BackupStatus != nil {
+		return fmt.Errorf("cannot migrate VMI until backup %s is completed", vmi.Status.ChangedBlockTracking.BackupStatus.BackupName)
+	}
 	if vmi.Status.MigrationState == nil {
 		return fmt.Errorf("cannot migrate VMI until migrationState is ready")
 	}
@@ -551,7 +504,7 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 	now := time.Now().UTC().UnixNano()
 	elapsed := now - m.start
 
-	m.l.migrateInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
+	m.l.domainInfoStats = statsconv.Convert_libvirt_DomainJobInfo_To_stats_DomainJobInfo(stats)
 	if (m.progressWatermark == 0) || (m.remainingData < m.progressWatermark) {
 		m.lastProgressUpdate = now
 	}
@@ -642,7 +595,7 @@ func (m *migrationMonitor) startMonitor() {
 
 	logger := log.Log.Object(vmi)
 	defer func() {
-		m.l.migrateInfoStats = &stats.DomainJobInfo{}
+		m.l.domainInfoStats = &stats.DomainJobInfo{}
 	}()
 
 	domName := api.VMINamespaceKeyFunc(vmi)
@@ -769,7 +722,6 @@ func (l *LibvirtDomainManager) asyncMigrationAbort(vmi *v1.VirtualMachineInstanc
 			l.setMigrationResult(true, "Live migration aborted ", v1.MigrationAbortSucceeded)
 			log.Log.Object(vmi).Info("Live migration abort succeeded")
 		}
-		return
 	}(l, vmi)
 }
 
@@ -1088,7 +1040,7 @@ func (l *LibvirtDomainManager) migrateHelper(vmi *v1.VirtualMachineInstance, opt
 		return fmt.Errorf("error encountered during MigrateToURI3 libvirt api call: %v", err)
 	}
 
-	log.Log.Object(vmi).Errorf("migration completed successfully")
+	log.Log.Object(vmi).Info("migration completed successfully")
 	l.setMigrationResult(false, "", "")
 
 	return nil

@@ -1,6 +1,6 @@
 ### Benchmarks
 
-This document shares some of the performance benchmarks observed as part of the v1.5.0 release.
+This document shares some of the performance benchmarks observed as part of the v1.6.0 release.
 It will talk about what this means for an end-user's perf and scale story.
 
 #### Background: How to interpret the numbers?
@@ -10,8 +10,7 @@ KubeVirt is an extension for Kubernetes that includes a collection of custom res
 nature of the system, understanding performance and scalability data becomes challenging without
 taking specific assumptions into account. This section aims to provide clarity on those assumptions.
 
-1. The data presented in the document is collected from  `periodic-kubevirt-e2e-k8s-1.27-sig-performance` and after March
-   25, 2024, data was collected from `periodic-kubevirt-e2e-k8s-1.29-sig-performance` and after December 5, 2024, data was collected from `periodic-kubevirt-e2e-k8s-1.31-sig-performance`
+1. The data presented in the document is collected from `periodic-kubevirt-e2e-k8s-1.29-sig-performance` and after December 5, 2024, data was collected from `periodic-kubevirt-e2e-k8s-1.31-sig-performance`
 1. The test suite includes three tests:
    1. It creates 100 minimal VMIs, with a small pause of 100 ms between creation of 2 VMIs. The definition
       of minimal VMIs can be found [here](https://github.com/kubevirt/kubevirt/blob/20f6caaba4108733a2c3f216e3247202929c1ef9/tests/performance/density.go#L273).
@@ -35,14 +34,13 @@ taking specific assumptions into account. This section aims to provide clarity o
       KubeVirt stack. This will help users and developers understand the cost of new features going into KubeVirt. It
       will also make end-users aware about the most expensive calls coming from KubeVirt in their deployment and 
       potentially act on it.  
-1. The grey dotted line in the graph is March 5, 2024, denoting release of v1.2.0.
-1. The blue dotted line in the graph is March 25, 2024, denoting change in k8s provider from v1.27 to v1.29.
 1. The green dotted line in the graph is July 17, 2024, denoting release of v1.3.0.
 1. The red dotted line in the graph is November 13, 2024, denoting release of v1.4.0.
 1. The violet dotted line in the graph is December 5, 2024, denoting change in k8s provider from v1.29 to v1.31.
+1. The grey dotted line in the graph is March 25, 2025, denoting release of v1.5.0
 
 
-#### Performance benchmarks for v1.5.0 release
+#### Performance benchmarks for v1.6.0 release
 
 #### vmiCreationToRunningSecondsP50
 
@@ -96,7 +94,7 @@ Note: virt-api and virt-controller memory usage is being collected from June 27t
 
 ![avgVirtHandlerMemoryUsageInMB for VM](perf-scale-graphs/vm/vm-avg-virt-handler-memory-usage.png "avgVirtHandlerMemoryUsageInMB for VM")
 
-#### Scalability benchmarks for v1.5.0 release
+#### Scalability benchmarks for v1.6.0 release
 
 #### PATCH-pods-count
 
@@ -130,11 +128,6 @@ Note: virt-api and virt-controller memory usage is being collected from June 27t
 
 #### Note :
 The metrics we collected until October 2nd, 2024 had a bug where the "watch" metrics were being treated as list calls. This issue was fixed in this specific [PR](https://github.com/kubevirt/kubevirt/pull/12716), so the data collected up to October 1st is categorized under the list, and the data after that is under watch.
-
-For example, the metric like list-virtualmachineinstances-count up to October 1st, was incorrectly categorized as list.
-#### LIST-virtualmachineinstances-count
-
-![LIST-virtualmachineinstances-count for VM](perf-scale-graphs/vm/vm-list-virtualmachineinstances-count.png "LIST-virtualmachineinstances-count for VM")
 
 The bug was fixed on October 2nd 2024, and now the data is categorized correctly under the watch-virtualmachineinstances-count
 

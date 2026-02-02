@@ -6,6 +6,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 	"go.uber.org/mock/gomock"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -22,9 +24,11 @@ import (
 
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 var _ = Describe("Evacuation", func() {
@@ -59,7 +63,7 @@ var _ = Describe("Evacuation", func() {
 				return []string{obj.(*v1.VirtualMachineInstance).Status.NodeName}, nil
 			},
 		})
-		migrationInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstanceMigration{})
+		migrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstanceMigration{}, virtcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
 		nodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
 		podInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Pod{})
 		recorder = record.NewFakeRecorder(100)
@@ -91,18 +95,33 @@ var _ = Describe("Evacuation", func() {
 
 	sanityExecute := func() {
 		controllertesting.SanityExecute(controller, []cache.Store{
-			controller.vmiIndexer, controller.vmiPodIndexer, controller.migrationStore, controller.nodeStore,
+			controller.vmiIndexer, controller.vmiPodIndexer, controller.migrationIndexer, controller.nodeStore,
 		}, Default)
 
 	}
 
 	Context("migration object creation", func() {
-		It("should have expected values and annotations", func() {
-			migration := GenerateNewMigration("my-vmi", "somenode")
+		DescribeTable("should have expected values, annotations and priority", func(fgs []string, annotations map[string]string, matcher types.GomegaMatcher) {
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+				DeveloperConfiguration: &v1.DeveloperConfiguration{FeatureGates: fgs},
+			})
+			vmi := newVirtualMachine("my-vmi", "somenode")
+			vmi.Annotations = annotations
+			migration := GenerateNewMigration(vmi, "somenode", config)
 			Expect(migration.Spec.VMIName).To(Equal("my-vmi"))
 			Expect(migration.Annotations[v1.EvacuationMigrationAnnotation]).To(Equal("somenode"))
-		})
-
+			Expect(migration.Spec.Priority).To(matcher)
+		},
+			Entry("with MigrationPriorityQueue feature gate disabled", nil, nil, BeNil()),
+			Entry("with MigrationPriorityQueue feature gate enabled",
+				[]string{featuregate.MigrationPriorityQueue},
+				nil,
+				gstruct.PointTo(BeEquivalentTo("system-critical"))),
+			Entry("with MigrationPriorityQueue feature gate enabled, and descheduler annotation",
+				[]string{featuregate.MigrationPriorityQueue},
+				map[string]string{v1.EvictionSourceAnnotation: "descheduler"},
+				gstruct.PointTo(BeEquivalentTo("system-maintenance"))),
+		)
 	})
 
 	Context("no node eviction in progress", func() {
@@ -187,11 +206,11 @@ var _ = Describe("Evacuation", func() {
 			controller.vmiIndexer.Add(vmi)
 			controller.vmiIndexer.Add(vmi1)
 
-			controller.migrationStore.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
-			controller.migrationStore.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
-			controller.migrationStore.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
-			controller.migrationStore.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
-			controller.migrationStore.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
 
 			sanityExecute()
 
@@ -206,12 +225,12 @@ var _ = Describe("Evacuation", func() {
 			vmi1 := newVirtualMachineMarkedForEviction("testvmi1", node.Name)
 			migration1 := newMigration("mig1", vmi1.Name, v1.MigrationRunning)
 			controller.vmiIndexer.Add(vmi1)
-			controller.migrationStore.Add(migration1)
+			controller.migrationIndexer.Add(migration1)
 
 			vmi2 := newVirtualMachineMarkedForEviction("testvmi2", node.Name)
 			migration2 := newMigration("mig2", vmi1.Name, v1.MigrationRunning)
 			controller.vmiIndexer.Add(vmi2)
-			controller.migrationStore.Add(migration2)
+			controller.migrationIndexer.Add(migration2)
 
 			vmi3 := newVirtualMachineMarkedForEviction("testvmi3", node.Name)
 			controller.vmiIndexer.Add(vmi3)
@@ -221,7 +240,7 @@ var _ = Describe("Evacuation", func() {
 			Expect(recorder.Events).To(BeEmpty())
 
 			migration2.Status.Phase = v1.MigrationSucceeded
-			controller.migrationStore.Update(migration2)
+			controller.migrationIndexer.Update(migration2)
 
 			enqueue(node)
 			sanityExecute()
@@ -283,11 +302,11 @@ var _ = Describe("Evacuation", func() {
 			}
 			vmi.Status.EvacuationNodeName = node.Name
 			controller.vmiIndexer.Add(vmi)
-			controller.migrationStore.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
-			controller.migrationStore.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
-			controller.migrationStore.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
-			controller.migrationStore.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
-			controller.migrationStore.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("mig1", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("mig2", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("mig3", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("mig4", vmi.Name, v1.MigrationRunning))
+			controller.migrationIndexer.Add(newMigration("mig5", vmi.Name, v1.MigrationRunning))
 			sanityExecute()
 		})
 
@@ -311,7 +330,7 @@ var _ = Describe("Evacuation", func() {
 			for i := 1; i <= activeMigrations; i++ {
 				vmiName := fmt.Sprintf("testvmi-migrating-%d", i)
 				controller.vmiIndexer.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
-				controller.migrationStore.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
+				controller.migrationIndexer.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
 			}
 
 			sanityExecute()
@@ -335,7 +354,7 @@ var _ = Describe("Evacuation", func() {
 			migration := newMigration("mig1", vmi.Name, v1.MigrationRunning)
 			migration.Status.Phase = v1.MigrationRunning
 
-			controller.migrationStore.Add(migration)
+			controller.migrationIndexer.Add(migration)
 
 			sanityExecute()
 		})
@@ -439,7 +458,7 @@ var _ = Describe("Evacuation", func() {
 			for i := 1; i <= activeMigrationsFromThisSourceNode; i++ {
 				vmiName := fmt.Sprintf("testvmi%d", i)
 				controller.vmiIndexer.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
-				controller.migrationStore.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
+				controller.migrationIndexer.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationRunning))
 			}
 
 			By(fmt.Sprintf("Creating %d migration candidates from source node %s", migrationCandidatesFromThisSourceNode, nodeName))
@@ -477,7 +496,7 @@ var _ = Describe("Evacuation", func() {
 			for i := 1; i <= pendingMigrations; i++ {
 				vmiName := fmt.Sprintf("testvmi%d", i)
 				controller.vmiIndexer.Add(newVirtualMachineMarkedForEviction(vmiName, nodeName))
-				controller.migrationStore.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationPending))
+				controller.migrationIndexer.Add(newMigration(fmt.Sprintf("mig%d", i), vmiName, v1.MigrationPending))
 			}
 
 			By(fmt.Sprintf("Creating a migration candidate from source node %s", nodeName))
@@ -553,6 +572,7 @@ func newPod(vmi *v1.VirtualMachineInstance, name string, phase k8sv1.PodPhase, o
 		pod.Annotations = map[string]string{
 			v1.DomainAnnotation: vmi.Name,
 		}
+		pod.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)}
 	}
 
 	return pod

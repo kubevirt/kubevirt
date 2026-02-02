@@ -20,6 +20,7 @@
 package virtwrap
 
 import (
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -29,15 +30,23 @@ import (
 	"strconv"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/watch"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"libvirt.org/go/libvirt"
+
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/hooks"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/net/ip"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
@@ -154,7 +163,14 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		err := l.linkImageVolumeFilePaths(vmi)
 		if err != nil {
 			logger.Reason(err).Error("failed link ImageVolumeFilePaths")
-			return err
+		}
+	}
+
+	if l.libvirtHooksServerAndClientEnabled {
+		if l.hookServer != nil {
+			if err := l.hookServer.Start(vmi); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -177,6 +193,13 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 	l.metadataCache.GracePeriod.Set(
 		api.GracePeriodMetadata{DeletionGracePeriodSeconds: converter.GracePeriodSeconds(vmi)},
 	)
+	inProgress, err := l.initializeMigrationMetadata(vmi, v1.MigrationPreCopy)
+	if err != nil {
+		return err
+	}
+	if inProgress {
+		return nil
+	}
 
 	err = l.generateCloudInitEmptyISO(vmi, nil)
 	if err != nil {
@@ -297,4 +320,99 @@ func getVMIHotplugCount(vmi *v1.VirtualMachineInstance) int {
 		}
 	}
 	return hotplugCount
+}
+
+// The TargetMigrationMonitor is expected to be created and started at the very end of a migration,
+// after the target domain has been resumed.
+// It will poll the current libvirt job on the domain to ensure the migration is really over.
+// This is because a migration isn't truly over even when the target has been resumed.
+// Once no migration job is observed on the domain, the monitor will trigger the notifier.
+// See https://issues.redhat.com/browse/RHEL-117250
+type TargetMigrationMonitor struct {
+	c             cli.Connection
+	events        chan watch.Event
+	vmi           *v1.VirtualMachineInstance
+	domain        *api.Domain
+	metadataCache *metadata.Cache
+	notifier      MigrationEventNotifier
+}
+
+type MigrationEventNotifier interface {
+	SendEvent(event watch.Event) error
+	UpdateEvents(event watch.Event)
+}
+
+func NewTargetMigrationMonitor(
+	c cli.Connection,
+	events chan watch.Event,
+	vmi *v1.VirtualMachineInstance,
+	domain *api.Domain,
+	metadataCache *metadata.Cache,
+	notifier MigrationEventNotifier,
+) *TargetMigrationMonitor {
+	return &TargetMigrationMonitor{
+		c:             c,
+		events:        events,
+		vmi:           vmi,
+		domain:        domain,
+		metadataCache: metadataCache,
+		notifier:      notifier}
+}
+
+var retryDelays = []time.Duration{1 * time.Second, 2 * time.Second, 3 * time.Second}
+
+func (m *TargetMigrationMonitor) StartMonitor() {
+	go func() {
+		var err error
+		domName := api.VMINamespaceKeyFunc(m.vmi)
+		for attempt := 0; attempt <= len(retryDelays); attempt++ {
+			err = virtwait.PollImmediately(100*time.Millisecond, 3*time.Second, func(context context.Context) (bool, error) {
+				dom, err := m.c.LookupDomainByName(domName)
+				if err != nil {
+					return false, err
+				}
+				defer dom.Free()
+				jobInfo, err := dom.GetJobInfo()
+				if err != nil {
+					log.Log.Object(m.vmi).V(4).Reason(err).Info("Failed to get domain job info")
+					// This can happen if the current job doesn't support `GetJobInfo()`, let's try again
+					return false, nil
+				}
+				if jobInfo.Type == libvirt.DOMAIN_JOB_NONE || jobInfo.Operation != libvirt.DOMAIN_JOB_OPERATION_MIGRATION_IN {
+					// No migration job is currently running
+					return true, nil
+				}
+				log.Log.Object(m.vmi).V(4).Infof("Incoming migration job active (type %d)", jobInfo.Type)
+				return false, nil
+			})
+			if err == nil || attempt == len(retryDelays) {
+				break
+			}
+			log.Log.Object(m.vmi).Info("A migration job is still active, retrying after delay")
+			time.Sleep(retryDelays[attempt])
+		}
+		if err != nil {
+			log.Log.Object(m.vmi).Info("Error polling libvirt, setting EndTimestamp anyway to unblock migration")
+		} else {
+			log.Log.Object(m.vmi).Info("Incoming migration job completed, setting EndTimestamp")
+		}
+		setEndTimestamp(m.metadataCache)
+		event := watch.Event{Type: watch.Modified, Object: m.domain}
+		m.notifier.SendEvent(event)
+		m.notifier.UpdateEvents(event)
+	}()
+}
+
+func setEndTimestamp(metadataCache *metadata.Cache) {
+	migrationMetadata, exists := metadataCache.Migration.Load()
+	if exists && migrationMetadata.EndTimestamp == nil {
+		metadataCache.Migration.WithSafeBlock(func(migrationMetadata *api.MigrationMetadata, _ bool) {
+			migrationMetadata.EndTimestamp = pointer.P(metav1.Now())
+		})
+	} else if !exists {
+		migrationMetadata = api.MigrationMetadata{
+			EndTimestamp: pointer.P(metav1.Now()),
+		}
+		metadataCache.Migration.Store(migrationMetadata)
+	}
 }

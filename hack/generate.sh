@@ -13,15 +13,15 @@ swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/core/v1/schema.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/snapshot/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/snapshot/v1beta1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1alpha1/types.go
-swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1alpha2/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/instancetype/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1alpha1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/migrations/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1beta1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/backup/v1alpha1/types.go
 
 deepcopy-gen \
     --bounding-dirs kubevirt.io/api \
@@ -31,13 +31,13 @@ deepcopy-gen \
     kubevirt.io/api/snapshot/v1beta1 \
     kubevirt.io/api/export/v1alpha1 \
     kubevirt.io/api/export/v1beta1 \
-    kubevirt.io/api/instancetype/v1alpha1 \
-    kubevirt.io/api/instancetype/v1alpha2 \
     kubevirt.io/api/instancetype/v1beta1 \
     kubevirt.io/api/pool/v1alpha1 \
+    kubevirt.io/api/pool/v1beta1 \
     kubevirt.io/api/migrations/v1alpha1 \
     kubevirt.io/api/clone/v1alpha1 \
     kubevirt.io/api/clone/v1beta1 \
+    kubevirt.io/api/backup/v1alpha1 \
     kubevirt.io/api/core/v1
 
 defaulter-gen \
@@ -61,20 +61,18 @@ openapi-gen \
     kubevirt.io/api/clone/v1beta1 \
     kubevirt.io/api/export/v1alpha1 \
     kubevirt.io/api/export/v1beta1 \
-    kubevirt.io/api/instancetype/v1alpha1 \
-    kubevirt.io/api/instancetype/v1alpha2 \
     kubevirt.io/api/instancetype/v1beta1 \
     kubevirt.io/api/migrations/v1alpha1 \
     kubevirt.io/api/pool/v1alpha1 \
+    kubevirt.io/api/pool/v1beta1 \
     kubevirt.io/api/snapshot/v1alpha1 \
     kubevirt.io/api/snapshot/v1beta1 \
+    kubevirt.io/api/backup/v1alpha1 \
     kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1
 
 conversion-gen \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt \
     --output-file conversion_generated.go \
-    kubevirt.io/api/instancetype/v1alpha1 \
-    kubevirt.io/api/instancetype/v1alpha2 \
     kubevirt.io/api/instancetype/v1beta1
 
 if cmp ${KUBEVIRT_DIR}/api/api-rule-violations.list ${KUBEVIRT_DIR}/api/api-rule-violations-known.list; then
@@ -88,7 +86,7 @@ fi
 
 client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
-    --input core/v1,export/v1alpha1,export/v1beta1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1alpha1,instancetype/v1alpha2,instancetype/v1beta1,pool/v1alpha1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1 \
+    --input core/v1,export/v1alpha1,export/v1beta1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1 \
     --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
     --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
@@ -145,12 +143,11 @@ deepcopy-gen \
     GOFLAGS= controller-gen crd paths=../api/export/v1beta1/
 
     #include instancetype
-    GOFLAGS= controller-gen crd paths=../api/instancetype/v1alpha1/
-    GOFLAGS= controller-gen crd paths=../api/instancetype/v1alpha2/
     GOFLAGS= controller-gen crd paths=../api/instancetype/v1beta1/
 
     #include pool
     GOFLAGS= controller-gen crd paths=../api/pool/v1alpha1/
+    GOFLAGS= controller-gen crd paths=../api/pool/v1beta1/
 
     #include migrations
     GOFLAGS= controller-gen crd paths=../api/migrations/v1alpha1/
@@ -158,6 +155,9 @@ deepcopy-gen \
     #include clone
     GOFLAGS= controller-gen crd paths=../api/clone/v1alpha1/
     GOFLAGS= controller-gen crd paths=../api/clone/v1beta1/
+
+    #include backup
+    GOFLAGS= controller-gen crd paths=../api/backup/v1alpha1/
 
     #remove some weird stuff from controller-gen
     cd config/crd
@@ -192,6 +192,7 @@ rm -f ${KUBEVIRT_DIR}/examples/*
 ResourceDir=${KUBEVIRT_DIR}/manifests/generated
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=priorityclass >${ResourceDir}/kubevirt-priority-class.yaml
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv >${ResourceDir}/kv-resource.yaml
+${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=networkpolicies --namespace='{{.Namespace}}' >${ResourceDir}/kubevirt-network-policies.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=kv-cr --namespace='{{.Namespace}}' --pullPolicy='{{.ImagePullPolicy}}' \
     --featureGates='{{.FeatureGates}}' --infraReplicas='{{.InfraReplicas}}' >${ResourceDir}/kubevirt-cr.yaml.in
 ${KUBEVIRT_DIR}/tools/resource-generator/resource-generator --type=operator-rbac --namespace='{{.Namespace}}' >${ResourceDir}/rbac-operator.authorization.k8s.yaml.in
@@ -229,3 +230,5 @@ ${KUBEVIRT_DIR}/hack/gen-proto.sh
 mockgen -source pkg/handler-launcher-com/notify/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/notify/info/generated_mock_info.go
 mockgen -source pkg/handler-launcher-com/cmd/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/cmd/info/generated_mock_info.go
 mockgen -source pkg/handler-launcher-com/cmd/v1/cmd.pb.go -package=v1 -destination=pkg/handler-launcher-com/cmd/v1/generated_mock_cmd.go
+
+${KUBEVIRT_DIR}/hack/bazel-race.sh

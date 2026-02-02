@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 )
 
 type VirtualMachinePoolConditionManager struct {
@@ -262,21 +262,22 @@ func NewVirtualMachineInstanceMigrationConditionManager() *VirtualMachineInstanc
 }
 
 func (d *VirtualMachineInstanceMigrationConditionManager) HasCondition(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType) bool {
+	return d.GetCondition(migration, cond) != nil
+}
+
+func (d *VirtualMachineInstanceMigrationConditionManager) GetCondition(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType) *v1.VirtualMachineInstanceMigrationCondition {
 	for _, c := range migration.Status.Conditions {
 		if c.Type == cond {
-			return true
+			return &c
 		}
+
 	}
-	return false
+	return nil
 }
 
 func (d *VirtualMachineInstanceMigrationConditionManager) HasConditionWithStatus(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType, status k8sv1.ConditionStatus) bool {
-	for _, c := range migration.Status.Conditions {
-		if c.Type == cond {
-			return c.Status == status
-		}
-	}
-	return false
+	c := d.GetCondition(migration, cond)
+	return c != nil && c.Status == status
 }
 
 func (d *VirtualMachineInstanceMigrationConditionManager) RemoveCondition(migration *v1.VirtualMachineInstanceMigration, cond v1.VirtualMachineInstanceMigrationConditionType) {

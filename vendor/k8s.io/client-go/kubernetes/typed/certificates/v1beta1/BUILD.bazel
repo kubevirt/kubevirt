@@ -6,6 +6,7 @@ go_library(
         "certificates_client.go",
         "certificatesigningrequest.go",
         "certificatesigningrequest_expansion.go",
+        "clustertrustbundle.go",
         "doc.go",
         "generated_expansion.go",
     ],

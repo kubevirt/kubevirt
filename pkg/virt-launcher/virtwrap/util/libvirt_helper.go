@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
 
-const QEMUSeaBiosDebugPipe = converter.QEMUSeaBiosDebugPipe
+const QEMUSeaBiosDebugPipe = compute.QEMUSeaBiosDebugPipe
 const (
 	qemuConfPath        = "/etc/libvirt/qemu.conf"
 	virtqemudConfPath   = "/etc/libvirt/virtqemud.conf"
@@ -209,6 +209,24 @@ func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*a
 	return domain, nil
 }
 
+// GetAllDomainDevices returns all devices from a domain
+func GetAllDomainDevices(dom cli.VirDomain) (api.Devices, error) {
+	domSpec, err := GetDomainSpecWithFlags(dom, 0)
+	if err != nil {
+		return api.Devices{}, err
+	}
+	return domSpec.Devices, nil
+}
+
+// GetAllDomainDisks returns all disks from a domain
+func GetAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
+	devices, err := GetAllDomainDevices(dom)
+	if err != nil {
+		return nil, err
+	}
+	return devices.Disks, nil
+}
+
 func (l LibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
 	// we spawn libvirt from virt-launcher in order to ensure the virtqemud+qemu process
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
@@ -380,7 +398,7 @@ func startQEMUSeaBiosLogging(stopChan chan struct{}) {
 			return
 		}
 
-		log.Log.Errorf(fmt.Sprintf("%s exited, restarting", logLinePrefix))
+		log.Log.Errorf("%s exited, restarting", logLinePrefix)
 	}
 }
 

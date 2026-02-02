@@ -103,7 +103,6 @@ type synchronizationControllerApp struct {
 
 	serverTLSConfig       *tls.Config
 	clientTLSConfig       *tls.Config
-	consoleServerPort     int
 	clientcertmanager     certificate.Manager
 	servercertmanager     certificate.Manager
 	clusterConfig         *virtconfig.ClusterConfig
@@ -147,7 +146,7 @@ func (app *synchronizationControllerApp) setupTLS(factory controller.KubeInforme
 	kubevirtCAConfigInformer := factory.KubeVirtCAConfigMap()
 	if err := kubevirtCAConfigInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
-		cache.DefaultWatchErrorHandler(r, err)
+		cache.DefaultWatchErrorHandler(context.TODO(), r, err)
 	}); err != nil {
 		return err
 	}

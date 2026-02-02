@@ -45,7 +45,7 @@ var _ = Describe("Validating network binding combinations", func() {
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 		)
-		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true, bindingPluginFGEnabled: true}
+		clusterConfig := stubClusterConfigChecker{bridgeBindingOnPodNetEnabled: true}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(
 			ConsistOf(metav1.StatusCause{
@@ -66,7 +66,7 @@ var _ = Describe("Validating network binding combinations", func() {
 				NetworkSource: v1.NetworkSource{Pod: &v1.PodNetwork{}},
 			}),
 		)
-		clusterConfig := stubClusterConfigChecker{bindingPluginFGEnabled: true}
+		clusterConfig := stubClusterConfigChecker{}
 		validator := admitter.NewValidator(k8sfield.NewPath("fake"), &vm.Spec, clusterConfig)
 		Expect(validator.Validate()).To(BeEmpty())
 	})

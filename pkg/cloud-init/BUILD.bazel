@@ -23,6 +23,7 @@ go_test(
         "cloudinit_suite_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/ephemeral-disk-utils:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

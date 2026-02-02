@@ -314,15 +314,6 @@ func (n NetPod) composeDesiredSpec(currentStatus *nmstate.Status) (*nmstate.Spec
 					spec.LinuxStack.IPv4.ArpIgnore = pointer.P(procsys.ARPReplyMode1)
 				}
 			}
-
-		// Passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		case iface.DeprecatedPasst != nil:
-			spec.LinuxStack.IPv4.PingGroupRange = []int{107, 107}
-			spec.LinuxStack.IPv4.UnprivilegedPortStart = pointer.P(0)
-		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		case iface.DeprecatedMacvtap != nil:
-		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		case iface.DeprecatedSlirp != nil:
 		default:
 			return nil, fmt.Errorf("undefined binding method: %v", iface)
 		}
@@ -348,7 +339,6 @@ func (n NetPod) bridgeBindingSpec(podIfaceName string, vmiIfaceIndex int, ifaceS
 		Name:     link.GenerateBridgeName(podIfaceName),
 		TypeName: nmstate.TypeBridge,
 		State:    nmstate.IfaceStateUp,
-		Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
@@ -430,7 +420,6 @@ func (n NetPod) masqueradeBindingSpec(podIfaceName string, vmiIfaceIndex int, if
 		State:      nmstate.IfaceStateUp,
 		MacAddress: link.StaticMasqueradeBridgeMAC,
 		MTU:        podIface.MTU,
-		Ethtool:    nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 		IPv4:       nmstate.IP{Enabled: pointer.P(false)},
 		IPv6:       nmstate.IP{Enabled: pointer.P(false)},
 		Metadata:   &nmstate.IfaceMetadata{NetworkName: vmiNetwork.Name},
@@ -491,7 +480,6 @@ func (n NetPod) managedTapSpec(podIfaceName string, vmiIfaceIndex int, ifaceStat
 		Name:     link.GenerateBridgeName(podIfaceName),
 		TypeName: nmstate.TypeBridge,
 		State:    nmstate.IfaceStateUp,
-		Ethtool:  nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(false)}},
 		Metadata: &nmstate.IfaceMetadata{NetworkName: vmiNetworkName},
 	}
 
@@ -679,8 +667,7 @@ func filterSupportedBindingNetworks(specNetworks []v1.Network, specInterfaces []
 			return nil, fmt.Errorf("no iface matching with network %s", network.Name)
 		}
 
-		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		if iface.SRIOV != nil || iface.DeprecatedMacvtap != nil {
+		if iface.SRIOV != nil {
 			continue
 		}
 
@@ -703,13 +690,8 @@ func (n NetPod) unplugInterfaces(startedNets, finishedNets []v1.Network) []v1.In
 func (n NetPod) clearCache(nets []v1.Network) error {
 	var unplugErrors []error
 	for _, net := range nets {
-		err := cache.DeleteDomainInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), net.Name)
-		if err != nil {
-			unplugErrors = append(unplugErrors, err)
-		}
-
 		podInterfaceName := namescheme.HashedPodInterfaceName(net, n.vmiIfaceStatuses)
-		err = cache.DeleteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podInterfaceName)
+		err := cache.DeleteDHCPInterfaceCache(n.cacheCreator, strconv.Itoa(n.podPID), podInterfaceName)
 		if err != nil {
 			unplugErrors = append(unplugErrors, err)
 		}

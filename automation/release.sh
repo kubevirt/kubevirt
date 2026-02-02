@@ -64,6 +64,7 @@ function update_github_release() {
         _out/manifests/release/demo-content.yaml \
         _out/manifests/release/kubevirt-operator.yaml \
         _out/manifests/release/kubevirt-cr.yaml \
+        _out/manifests/release/kubevirt-network-policies.yaml \
         _out/manifests/release/olm/kubevirt-operatorsource.yaml \
         "_out/manifests/release/olm/bundle/kubevirtoperator.$DOCKER_TAG.clusterserviceversion.yaml" \
         _out/tests/tests.test \

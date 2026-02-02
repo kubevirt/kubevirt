@@ -27,6 +27,7 @@ go_test(
         "handler_test.go",
         "infer_suite_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/pointer:go_default_library",

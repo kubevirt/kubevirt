@@ -55,7 +55,8 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 			Template: k8sv1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						v1.AppLabel: virtOperatorJobAppLabel,
+						v1.AppLabel:                          virtOperatorJobAppLabel,
+						v1.AllowAccessClusterServicesNPLabel: "true",
 					},
 				},
 				Spec: k8sv1.PodSpec{
@@ -112,7 +113,7 @@ func (c *KubeVirtController) generateInstallStrategyJob(infraPlacement *v1.Compo
 	placement.InjectPlacementMetadata(infraPlacement, &job.Spec.Template.Spec, placement.RequireControlPlanePreferNonWorker)
 	env := job.Spec.Template.Spec.Containers[0].Env
 	extraEnv := util.NewEnvVarMap(config.GetExtraEnv())
-	job.Spec.Template.Spec.Containers[0].Env = append(env, *extraEnv...)
+	job.Spec.Template.Spec.Containers[0].Env = append(env, extraEnv...)
 
 	return job, nil
 }

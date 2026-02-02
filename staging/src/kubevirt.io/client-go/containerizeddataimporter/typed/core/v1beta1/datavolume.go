@@ -21,14 +21,14 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	scheme "kubevirt.io/client-go/containerizeddataimporter/scheme"
-	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // DataVolumesGetter has a method to return a DataVolumeInterface.
@@ -39,33 +39,34 @@ type DataVolumesGetter interface {
 
 // DataVolumeInterface has methods to work with DataVolume resources.
 type DataVolumeInterface interface {
-	Create(ctx context.Context, dataVolume *v1beta1.DataVolume, opts v1.CreateOptions) (*v1beta1.DataVolume, error)
-	Update(ctx context.Context, dataVolume *v1beta1.DataVolume, opts v1.UpdateOptions) (*v1beta1.DataVolume, error)
+	Create(ctx context.Context, dataVolume *corev1beta1.DataVolume, opts v1.CreateOptions) (*corev1beta1.DataVolume, error)
+	Update(ctx context.Context, dataVolume *corev1beta1.DataVolume, opts v1.UpdateOptions) (*corev1beta1.DataVolume, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, dataVolume *v1beta1.DataVolume, opts v1.UpdateOptions) (*v1beta1.DataVolume, error)
+	UpdateStatus(ctx context.Context, dataVolume *corev1beta1.DataVolume, opts v1.UpdateOptions) (*corev1beta1.DataVolume, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.DataVolume, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.DataVolumeList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1beta1.DataVolume, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1beta1.DataVolumeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.DataVolume, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1beta1.DataVolume, err error)
 	DataVolumeExpansion
 }
 
 // dataVolumes implements DataVolumeInterface
 type dataVolumes struct {
-	*gentype.ClientWithList[*v1beta1.DataVolume, *v1beta1.DataVolumeList]
+	*gentype.ClientWithList[*corev1beta1.DataVolume, *corev1beta1.DataVolumeList]
 }
 
 // newDataVolumes returns a DataVolumes
 func newDataVolumes(c *CdiV1beta1Client, namespace string) *dataVolumes {
 	return &dataVolumes{
-		gentype.NewClientWithList[*v1beta1.DataVolume, *v1beta1.DataVolumeList](
+		gentype.NewClientWithList[*corev1beta1.DataVolume, *corev1beta1.DataVolumeList](
 			"datavolumes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1beta1.DataVolume { return &v1beta1.DataVolume{} },
-			func() *v1beta1.DataVolumeList { return &v1beta1.DataVolumeList{} }),
+			func() *corev1beta1.DataVolume { return &corev1beta1.DataVolume{} },
+			func() *corev1beta1.DataVolumeList { return &corev1beta1.DataVolumeList{} },
+		),
 	}
 }

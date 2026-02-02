@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1 "kubevirt.io/api/core/v1"
+	corev1 "kubevirt.io/api/core/v1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,36 @@ type VirtualMachineInstanceMigrationsGetter interface {
 
 // VirtualMachineInstanceMigrationInterface has methods to work with VirtualMachineInstanceMigration resources.
 type VirtualMachineInstanceMigrationInterface interface {
-	Create(ctx context.Context, virtualMachineInstanceMigration *v1.VirtualMachineInstanceMigration, opts metav1.CreateOptions) (*v1.VirtualMachineInstanceMigration, error)
-	Update(ctx context.Context, virtualMachineInstanceMigration *v1.VirtualMachineInstanceMigration, opts metav1.UpdateOptions) (*v1.VirtualMachineInstanceMigration, error)
+	Create(ctx context.Context, virtualMachineInstanceMigration *corev1.VirtualMachineInstanceMigration, opts metav1.CreateOptions) (*corev1.VirtualMachineInstanceMigration, error)
+	Update(ctx context.Context, virtualMachineInstanceMigration *corev1.VirtualMachineInstanceMigration, opts metav1.UpdateOptions) (*corev1.VirtualMachineInstanceMigration, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, virtualMachineInstanceMigration *v1.VirtualMachineInstanceMigration, opts metav1.UpdateOptions) (*v1.VirtualMachineInstanceMigration, error)
+	UpdateStatus(ctx context.Context, virtualMachineInstanceMigration *corev1.VirtualMachineInstanceMigration, opts metav1.UpdateOptions) (*corev1.VirtualMachineInstanceMigration, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.VirtualMachineInstanceMigration, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.VirtualMachineInstanceMigrationList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*corev1.VirtualMachineInstanceMigration, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*corev1.VirtualMachineInstanceMigrationList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VirtualMachineInstanceMigration, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *corev1.VirtualMachineInstanceMigration, err error)
 	VirtualMachineInstanceMigrationExpansion
 }
 
 // virtualMachineInstanceMigrations implements VirtualMachineInstanceMigrationInterface
 type virtualMachineInstanceMigrations struct {
-	*gentype.ClientWithList[*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigrationList]
+	*gentype.ClientWithList[*corev1.VirtualMachineInstanceMigration, *corev1.VirtualMachineInstanceMigrationList]
 }
 
 // newVirtualMachineInstanceMigrations returns a VirtualMachineInstanceMigrations
 func newVirtualMachineInstanceMigrations(c *KubevirtV1Client, namespace string) *virtualMachineInstanceMigrations {
 	return &virtualMachineInstanceMigrations{
-		gentype.NewClientWithList[*v1.VirtualMachineInstanceMigration, *v1.VirtualMachineInstanceMigrationList](
+		gentype.NewClientWithList[*corev1.VirtualMachineInstanceMigration, *corev1.VirtualMachineInstanceMigrationList](
 			"virtualmachineinstancemigrations",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.VirtualMachineInstanceMigration { return &v1.VirtualMachineInstanceMigration{} },
-			func() *v1.VirtualMachineInstanceMigrationList { return &v1.VirtualMachineInstanceMigrationList{} }),
+			func() *corev1.VirtualMachineInstanceMigration { return &corev1.VirtualMachineInstanceMigration{} },
+			func() *corev1.VirtualMachineInstanceMigrationList {
+				return &corev1.VirtualMachineInstanceMigrationList{}
+			},
+		),
 	}
 }

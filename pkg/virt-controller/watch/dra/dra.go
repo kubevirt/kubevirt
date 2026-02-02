@@ -27,7 +27,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	k8sv1 "k8s.io/api/core/v1"
-	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,8 +53,8 @@ const (
 	tombstoneGetObjectErrFmt = "couldn't get object from tombstone %+v"
 
 	indexByNodeName              = "byNodeName"
-	PCIAddressDeviceAttributeKey = "resource.kubernetes.io/pcieRoot"
-	MDevUUIDDeviceAttributeKey   = "resource.kubernetes.io/mDevUUID"
+	PCIAddressDeviceAttributeKey = "resource.kubernetes.io/pciBusID"
+	MDevUUIDDeviceAttributeKey   = "mDevUUID"
 )
 
 type DeviceInfo struct {
@@ -190,7 +190,7 @@ func (c *DRAStatusController) addPod(obj interface{}) {
 		return
 	}
 
-	controllerRef := controller.GetControllerOf(pod)
+	controllerRef := metav1.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -218,7 +218,7 @@ func (c *DRAStatusController) deletePod(obj interface{}) {
 		}
 	}
 
-	controllerRef := controller.GetControllerOf(pod)
+	controllerRef := metav1.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -244,8 +244,8 @@ func (c *DRAStatusController) updatePod(old interface{}, cur interface{}) {
 		return
 	}
 
-	curControllerRef := controller.GetControllerOf(curPod)
-	oldControllerRef := controller.GetControllerOf(oldPod)
+	curControllerRef := metav1.GetControllerOf(curPod)
+	oldControllerRef := metav1.GetControllerOf(oldPod)
 	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
@@ -275,7 +275,7 @@ func (c *DRAStatusController) resolveControllerRef(namespace string, controllerR
 			return nil
 		}
 		pod, _ := obj.(*k8sv1.Pod)
-		controllerRef = controller.GetControllerOf(pod)
+		controllerRef = metav1.GetControllerOf(pod)
 	}
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it is nil or the wrong Kind.
@@ -570,7 +570,7 @@ func getResourceClaimNameForDevice(claimName string, pod *k8sv1.Pod) *string {
 	return nil
 }
 
-func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourceClaimName, requestName string) (*resourcev1beta1.DeviceRequestAllocationResult, error) {
+func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourceClaimName, requestName string) (*resourcev1.DeviceRequestAllocationResult, error) {
 	key := controller.NamespacedKey(resourceClaimNamespace, resourceClaimName)
 	obj, exists, err := c.resourceClaimIndexer.GetByKey(key)
 	if err != nil {
@@ -579,7 +579,7 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 	if !exists {
 		return nil, fmt.Errorf("resource claim %s does not exist", key)
 	}
-	resourceClaim := obj.(*resourcev1beta1.ResourceClaim)
+	resourceClaim := obj.(*resourcev1.ResourceClaim)
 
 	if resourceClaim.Status.Allocation == nil {
 		return nil, nil
@@ -610,11 +610,11 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, d
 	pciAddress := ""
 	mdevUUID := ""
 	for _, obj := range resourceSlices {
-		rs := obj.(*resourcev1beta1.ResourceSlice)
+		rs := obj.(*resourcev1.ResourceSlice)
 		if rs.Spec.Driver == driverName {
 			for _, device := range rs.Spec.Devices {
 				if device.Name == deviceName {
-					for key, value := range device.Basic.Attributes {
+					for key, value := range device.Attributes {
 						if string(key) == PCIAddressDeviceAttributeKey {
 							pciAddress = *value.StringValue
 						} else if string(key) == MDevUUIDDeviceAttributeKey {
@@ -633,11 +633,14 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, d
 }
 
 func indexResourceSliceByNodeName(obj interface{}) ([]string, error) {
-	rs, ok := obj.(*resourcev1beta1.ResourceSlice)
+	rs, ok := obj.(*resourcev1.ResourceSlice)
 	if !ok {
 		return nil, nil
 	}
-	return []string{rs.Spec.NodeName}, nil
+	if rs.Spec.NodeName == nil {
+		return nil, nil
+	}
+	return []string{*rs.Spec.NodeName}, nil
 }
 
 func (c *DRAStatusController) getHostDevicesFromVMISpec(vmi *v1.VirtualMachineInstance) ([]DeviceInfo, error) {

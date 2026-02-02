@@ -34,6 +34,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	vmlabels "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/labels"
+	"kubevirt.io/kubevirt/pkg/util/hardware"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 )
 
 var (
@@ -337,161 +339,13 @@ func CollectResourceRequestsAndLimits(vms []*k6tv1.VirtualMachine) []operatormet
 		// CPU requests and limits from domain resources
 		results = append(results, collectCpuResourceRequestsFromDomainResources(vmCopy)...)
 		results = append(results, collectCpuResourceLimitsFromDomainResources(vmCopy)...)
+
+		// Allocated CPU and memory requests after applying hierarchy and defaults
+		results = append(results, collectAllocatedCpuValues(vmCopy)...)
+		results = append(results, collectAllocatedMemoryValues(vmCopy)...)
 	}
 
 	return results
-}
-
-func collectMemoryResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
-	var cr []operatormetrics.CollectorResult
-
-	if vm.Spec.Template == nil {
-		return cr
-	}
-
-	memoryRequested := vm.Spec.Template.Spec.Domain.Resources.Requests.Memory()
-	if !memoryRequested.IsZero() {
-		cr = append(cr, operatormetrics.CollectorResult{
-			Metric: vmResourceRequests,
-			Value:  float64(memoryRequested.Value()),
-			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "domain"},
-		})
-	}
-
-	if vm.Spec.Template.Spec.Domain.Memory == nil {
-		return cr
-	}
-
-	guestMemory := vm.Spec.Template.Spec.Domain.Memory.Guest
-	if guestMemory != nil && !guestMemory.IsZero() {
-		cr = append(cr, operatormetrics.CollectorResult{
-			Metric: vmResourceRequests,
-			Value:  float64(guestMemory.Value()),
-			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "guest"},
-		})
-	}
-
-	hugepagesMemory := vm.Spec.Template.Spec.Domain.Memory.Hugepages
-	if hugepagesMemory != nil {
-		quantity, err := resource.ParseQuantity(hugepagesMemory.PageSize)
-		if err == nil {
-			cr = append(cr, operatormetrics.CollectorResult{
-				Metric: vmResourceRequests,
-				Value:  float64(quantity.Value()),
-				Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "hugepages"},
-			})
-		}
-	}
-
-	return cr
-}
-
-func collectMemoryResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
-	if vm.Spec.Template == nil {
-		return []operatormetrics.CollectorResult{}
-	}
-
-	memoryLimit := vm.Spec.Template.Spec.Domain.Resources.Limits.Memory()
-	if memoryLimit.IsZero() {
-		return []operatormetrics.CollectorResult{}
-	}
-
-	return []operatormetrics.CollectorResult{{
-		Metric: vmResourceLimits,
-		Value:  float64(memoryLimit.Value()),
-		Labels: []string{vm.Name, vm.Namespace, "memory", "bytes"},
-	}}
-}
-
-func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
-	var cr []operatormetrics.CollectorResult
-
-	if vm.Spec.Template.Spec.Domain.CPU == nil {
-		return cr
-	}
-
-	if vm.Spec.Template.Spec.Domain.CPU.Cores != 0 {
-		cr = append(cr, operatormetrics.CollectorResult{
-			Metric: vmResourceRequests,
-			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Cores),
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "domain"},
-		})
-	}
-
-	if vm.Spec.Template.Spec.Domain.CPU.Threads != 0 {
-		cr = append(cr, operatormetrics.CollectorResult{
-			Metric: vmResourceRequests,
-			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Threads),
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "domain"},
-		})
-	}
-
-	if vm.Spec.Template.Spec.Domain.CPU.Sockets != 0 {
-		cr = append(cr, operatormetrics.CollectorResult{
-			Metric: vmResourceRequests,
-			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Sockets),
-			Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "domain"},
-		})
-	}
-
-	return cr
-}
-
-func collectCpuResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
-	var cr []operatormetrics.CollectorResult
-
-	cpuRequests := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu()
-
-	if cpuRequests == nil || cpuRequests.IsZero() {
-		// If no CPU requests and no Domain CPU are set, the VMI will default to 1 thread with 1 core and 1 socket
-		if vm.Spec.Template.Spec.Domain.CPU == nil {
-			return append(cr,
-				operatormetrics.CollectorResult{
-					Metric: vmResourceRequests,
-					Value:  1.0,
-					Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "default"},
-				},
-				operatormetrics.CollectorResult{
-					Metric: vmResourceRequests,
-					Value:  1.0,
-					Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "default"},
-				},
-				operatormetrics.CollectorResult{
-					Metric: vmResourceRequests,
-					Value:  1.0,
-					Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "default"},
-				},
-			)
-		}
-
-		return cr
-	}
-
-	cr = append(cr, operatormetrics.CollectorResult{
-		Metric: vmResourceRequests,
-		Value:  float64(cpuRequests.ScaledValue(resource.Milli)) / 1000,
-		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "requests"},
-	})
-
-	return cr
-}
-
-func collectCpuResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
-	var cr []operatormetrics.CollectorResult
-
-	cpuLimits := vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu()
-
-	if cpuLimits == nil || cpuLimits.IsZero() {
-		return cr
-	}
-
-	cr = append(cr, operatormetrics.CollectorResult{
-		Metric: vmResourceLimits,
-		Value:  float64(cpuLimits.ScaledValue(resource.Milli)) / 1000,
-		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
-	})
-
-	return cr
 }
 
 func reportVmsStats(vms []*k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
@@ -574,6 +428,191 @@ func getLastConditionDetails(vm *k6tv1.VirtualMachine) int64 {
 	}
 
 	return latestTransitionTime
+}
+
+func collectMemoryResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template == nil {
+		return cr
+	}
+
+	memoryRequested := vm.Spec.Template.Spec.Domain.Resources.Requests.Memory()
+	if !memoryRequested.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(memoryRequested.Value()),
+			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "domain"},
+		})
+	}
+
+	if vm.Spec.Template.Spec.Domain.Memory == nil {
+		return cr
+	}
+
+	guestMemory := vm.Spec.Template.Spec.Domain.Memory.Guest
+	if guestMemory != nil && !guestMemory.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(guestMemory.Value()),
+			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "guest"},
+		})
+	}
+
+	hugepagesMemory := vm.Spec.Template.Spec.Domain.Memory.Hugepages
+	if hugepagesMemory != nil {
+		quantity, err := resource.ParseQuantity(hugepagesMemory.PageSize)
+		if err == nil {
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: vmResourceRequests,
+				Value:  float64(quantity.Value()),
+				Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "hugepages"},
+			})
+		}
+	}
+
+	return cr
+}
+
+func collectMemoryResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	if vm.Spec.Template == nil {
+		return []operatormetrics.CollectorResult{}
+	}
+
+	memoryLimit := vm.Spec.Template.Spec.Domain.Resources.Limits.Memory()
+	if memoryLimit.IsZero() {
+		return []operatormetrics.CollectorResult{}
+	}
+
+	return []operatormetrics.CollectorResult{{
+		Metric: vmResourceLimits,
+		Value:  float64(memoryLimit.Value()),
+		Labels: []string{vm.Name, vm.Namespace, "memory", "bytes"},
+	}}
+}
+
+// collectAllocatedMemoryValues calculates allocated (effective) memory
+func collectAllocatedMemoryValues(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template == nil {
+		return cr
+	}
+
+	vmi := &k6tv1.VirtualMachineInstance{Spec: vm.Spec.Template.Spec}
+	allocatedMemory := vcpu.GetVirtualMemory(vmi)
+	if allocatedMemory != nil && !allocatedMemory.IsZero() {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(allocatedMemory.Value()),
+			Labels: []string{vm.Name, vm.Namespace, "memory", "bytes", "guest_effective"},
+		})
+	}
+	return cr
+}
+
+func collectCpuResourceRequestsFromDomainCpu(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template == nil || vm.Spec.Template.Spec.Domain.CPU == nil {
+		return cr
+	}
+
+	if vm.Spec.Template.Spec.Domain.CPU.Cores != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Cores),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "domain"},
+		})
+	}
+	if vm.Spec.Template.Spec.Domain.CPU.Threads != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Threads),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "domain"},
+		})
+	}
+	if vm.Spec.Template.Spec.Domain.CPU.Sockets != 0 {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(vm.Spec.Template.Spec.Domain.CPU.Sockets),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "domain"},
+		})
+	}
+	return cr
+}
+
+func collectCpuResourceRequestsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template == nil {
+		return cr
+	}
+
+	cpuRequests := vm.Spec.Template.Spec.Domain.Resources.Requests.Cpu()
+	if cpuRequests == nil || cpuRequests.IsZero() {
+		// If no CPU requests and no Domain CPU are set, default to 1 thread with 1 core and 1 socket
+		if vm.Spec.Template.Spec.Domain.CPU == nil {
+			return append(cr,
+				operatormetrics.CollectorResult{Metric: vmResourceRequests, Value: 1.0, Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "default"}},
+				operatormetrics.CollectorResult{Metric: vmResourceRequests, Value: 1.0, Labels: []string{vm.Name, vm.Namespace, "cpu", "threads", "default"}},
+				operatormetrics.CollectorResult{Metric: vmResourceRequests, Value: 1.0, Labels: []string{vm.Name, vm.Namespace, "cpu", "sockets", "default"}},
+			)
+		}
+		return cr
+	}
+
+	cr = append(cr, operatormetrics.CollectorResult{
+		Metric: vmResourceRequests,
+		Value:  float64(cpuRequests.ScaledValue(resource.Milli)) / 1000,
+		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "requests"},
+	})
+	return cr
+}
+
+func collectCpuResourceLimitsFromDomainResources(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template == nil {
+		return cr
+	}
+
+	cpuLimits := vm.Spec.Template.Spec.Domain.Resources.Limits.Cpu()
+	if cpuLimits == nil || cpuLimits.IsZero() {
+		return cr
+	}
+
+	cr = append(cr, operatormetrics.CollectorResult{
+		Metric: vmResourceLimits,
+		Value:  float64(cpuLimits.ScaledValue(resource.Milli)) / 1000,
+		Labels: []string{vm.Name, vm.Namespace, "cpu", "cores"},
+	})
+	return cr
+}
+
+// collectAllocatedCpuValues calculates allocated (effective) CPU vCPUs
+func collectAllocatedCpuValues(vm *k6tv1.VirtualMachine) []operatormetrics.CollectorResult {
+	var cr []operatormetrics.CollectorResult
+
+	if vm.Spec.Template == nil {
+		return cr
+	}
+
+	if vm.Spec.Template.Spec.Domain.CPU != nil {
+		allocatedVCPUs := hardware.GetNumberOfVCPUs(vm.Spec.Template.Spec.Domain.CPU)
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  float64(allocatedVCPUs),
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "guest_effective"},
+		})
+	} else {
+		cr = append(cr, operatormetrics.CollectorResult{
+			Metric: vmResourceRequests,
+			Value:  1.0,
+			Labels: []string{vm.Name, vm.Namespace, "cpu", "cores", "guest_effective"},
+		})
+	}
+	return cr
 }
 
 func containsCondition(target k6tv1.VirtualMachineConditionType, elems []k6tv1.VirtualMachineConditionType) bool {

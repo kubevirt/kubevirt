@@ -535,7 +535,7 @@ var _ = Describe("PVC source", func() {
 			for _, condition := range vmExport.Status.Conditions {
 				if condition.Type == exportv1.ConditionReady {
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
-					Expect(condition.Reason).To(Equal(inUseReason))
+					Expect(condition.Reason).To(Equal(volumesNotPopulatedReason))
 					Expect(condition.Message).To(Equal(fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", vm.Namespace, vm.Name)))
 				}
 			}
@@ -593,6 +593,29 @@ var _ = Describe("PVC source", func() {
 				if condition.Type == exportv1.ConditionReady {
 					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
 					Expect(condition.Reason).To(Equal(noVolumeVMReason))
+				}
+			}
+			return true, vmExport, nil
+		})
+		retry, err := controller.updateVMExport(testVMExport)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(retry).To(BeEquivalentTo(0))
+	})
+
+	It("Should be in skipped phase when VM does not exist", func() {
+		testVMExport := createVMVMExport()
+		vmExportClient.Fake.PrependReactor("update", "virtualmachineexports", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+			update, ok := action.(testing.UpdateAction)
+			Expect(ok).To(BeTrue())
+			vmExport, ok := update.GetObject().(*exportv1.VirtualMachineExport)
+			Expect(ok).To(BeTrue())
+			verifyLinksEmpty(vmExport)
+			Expect(vmExport.Status.Phase).To(Equal(exportv1.Skipped))
+			for _, condition := range vmExport.Status.Conditions {
+				if condition.Type == exportv1.ConditionReady {
+					Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+					Expect(condition.Reason).To(Equal(vmNotFoundReason))
+					Expect(condition.Message).To(Equal(fmt.Sprintf("Virtual Machine %s/%s not found", testNamespace, testVmName)))
 				}
 			}
 			return true, vmExport, nil

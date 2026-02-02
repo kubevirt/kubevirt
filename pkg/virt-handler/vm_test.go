@@ -169,15 +169,18 @@ var _ = Describe("VirtualMachineInstance", func() {
 		mockHotplugVolumeMounter = hotplugvolume.NewMockVolumeMounter(ctrl)
 		mockCgroupManager = cgroup.NewMockManager(ctrl)
 
-		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, config)
+		migrationProxy := migrationproxy.NewMigrationProxyManager(tlsConfig, tlsConfig, tlsConfig, config)
 		fakeDownwardMetricsManager := newFakeManager()
 
 		launcherClientManager := &launcherclients.MockLauncherClientManager{
 			Initialized: true,
 		}
+		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
+		fakeNodeStore := fakeNodeInformer.GetStore()
 		controller, _ = NewVirtualMachineController(
 			recorder,
 			virtClient,
+			fakeNodeStore,
 			host,
 			privateDir,
 			podsDir,
@@ -242,6 +245,13 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 	addDomain := func(domain *api.Domain) {
 		Expect(controller.domainStore.Add(domain)).To(Succeed())
+		key, err := virtcontroller.KeyFunc(domain)
+		Expect(err).ToNot(HaveOccurred())
+		controller.queue.Add(key)
+	}
+
+	updateDomain := func(domain *api.Domain) {
+		Expect(controller.domainStore.Update(domain)).To(Succeed())
 		key, err := virtcontroller.KeyFunc(domain)
 		Expect(err).ToNot(HaveOccurred())
 		controller.queue.Add(key)
@@ -371,6 +381,29 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 			sanityExecute()
 			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
+		})
+
+		It("should only emit one graceful shutdown event", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.UID = vmiTestUUID
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			initGracePeriodHelper(600, vmi, domain)
+
+			client.EXPECT().ShutdownVirtualMachine(libvmi.New(libvmi.WithName("testvmi"), libvmi.WithUID(vmiTestUUID), libvmi.WithNamespace(metav1.NamespaceDefault))).Times(2)
+			addDomain(domain)
+
+			sanityExecute()
+			testutils.ExpectEvent(recorder, VMIGracefulShutdown)
+
+			// Set the DeletionTimestamp within the domain so this is treated as a graceful shutdown retry
+			domain.Spec.Metadata.KubeVirt.GracePeriod.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+			updateDomain(domain)
+
+			// AfterEach will assert that no additional events are seen
+			sanityExecute()
 		})
 
 		It("should attempt graceful shutdown and take the VMI grace period over the cached Domain grace", func() {
@@ -2302,6 +2335,19 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable))
 		})
 
+		It("should not be allowed to live-migrate if the VMI uses TDX", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				TDX: &v1.TDX{},
+			}
+
+			condition, isBlockMigration := controller.calculateLiveMigrationCondition(vmi)
+			Expect(isBlockMigration).To(BeFalse())
+			Expect(condition.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(condition.Status).To(Equal(k8sv1.ConditionFalse))
+			Expect(condition.Reason).To(Equal(v1.VirtualMachineInstanceReasonTDXNotMigratable))
+		})
+
 		It("should not be allowed to live-migrate if the VMI uses SCSI persistent reservation", func() {
 			vmi := api2.NewMinimalVMI("testvmi")
 
@@ -2446,6 +2492,23 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
 			Expect(cond.Status).To(Equal(k8sv1.ConditionFalse))
 			Expect(cond.Reason).To(Equal(v1.VirtualMachineInstanceReasonHypervPassthroughNotMigratable))
+		})
+
+		It("VMI with utility volumes should remain migratable", func() {
+			vmi := api2.NewMinimalVMI("testvmi")
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "test-utility-volume",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-pvc",
+					},
+				},
+			}
+
+			cond, _ := controller.calculateLiveMigrationCondition(vmi)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Type).To(Equal(v1.VirtualMachineInstanceIsMigratable))
+			Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
 		})
 
 	})
@@ -2938,6 +3001,114 @@ var _ = Describe("VirtualMachineInstance", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(updatedVMI.Status.Phase).To(Equal(v1.Failed))
 		})
+	})
+
+	Context("on VM stop / VMI delete during migration", func() {
+		It("should kill the VM", func() {
+			By("Creating a migrating VMI with a domain in failed post-copy migration state")
+			now := metav1.Now()
+			vmi := libvmi.New(
+				libvmi.WithUID(vmiTestUUID),
+				libvmi.WithNamespace("default"),
+				libvmi.WithName("testvmi"),
+				libvmi.WithHostname(host),
+				libvmistatus.WithStatus(
+					libvmistatus.New(
+						libvmistatus.WithPhase(v1.Running),
+						libvmistatus.WithMigrationState(
+							v1.VirtualMachineInstanceMigrationState{
+								TargetNode:                     "abc",
+								TargetNodeAddress:              "127.0.0.1:12345",
+								SourceNode:                     host,
+								MigrationUID:                   "123",
+								TargetNodeDomainDetected:       true,
+								TargetNodeDomainReadyTimestamp: &now,
+								StartTimestamp:                 &now,
+							},
+						),
+					),
+				),
+			)
+			vmi.DeletionTimestamp = &now
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+			domain.Status.Reason = api.ReasonUnknown
+			addVMI(vmi, domain)
+
+			By("Executing the controller")
+			client.EXPECT().KillVirtualMachine(gomock.Any())
+			sanityExecute()
+			expectEvent("VirtualMachineInstance stopping", true)
+		})
+	})
+
+	Context("updateBackupStatus", func() {
+		DescribeTable("should not update when",
+			func(cbtStatus *v1.ChangedBlockTrackingStatus) {
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.ChangedBlockTracking = cbtStatus
+
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				domain.Spec.Metadata.KubeVirt.Backup = &api.BackupMetadata{
+					Name:      "test-backup",
+					Completed: true,
+				}
+
+				controller.updateBackupStatus(vmi, domain)
+				Expect(vmi.Status.ChangedBlockTracking).To(Equal(cbtStatus))
+			},
+			Entry("VMI ChangedBlockTracking is nil", nil),
+			Entry("VMI BackupStatus is nil", &v1.ChangedBlockTrackingStatus{State: v1.ChangedBlockTrackingEnabled, BackupStatus: nil}),
+		)
+
+		DescribeTable("should",
+			func(vmiBackupName, domainBackupName string, expectUpdate bool) {
+				startTime := metav1.Now()
+
+				vmi := api2.NewMinimalVMI("testvmi")
+				vmi.UID = vmiTestUUID
+				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+					State: v1.ChangedBlockTrackingEnabled,
+					BackupStatus: &v1.VirtualMachineInstanceBackupStatus{
+						BackupName:     vmiBackupName,
+						StartTimestamp: &startTime,
+					},
+				}
+
+				domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+				endTime := metav1.NewTime(startTime.Add(5 * time.Minute))
+				checkpointName := "test-checkpoint"
+				backupMsg := "backup completed successfully"
+				domain.Spec.Metadata.KubeVirt.Backup = &api.BackupMetadata{
+					Name:           domainBackupName,
+					StartTimestamp: &startTime,
+					EndTimestamp:   &endTime,
+					Completed:      true,
+					CheckpointName: checkpointName,
+					BackupMsg:      backupMsg,
+				}
+
+				controller.updateBackupStatus(vmi, domain)
+
+				Expect(vmi.Status.ChangedBlockTracking.BackupStatus.BackupName).To(Equal(vmiBackupName))
+				if expectUpdate {
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeTrue())
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).ToNot(BeNil())
+					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(Equal(endTime))
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).ToNot(BeNil())
+					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(Equal(checkpointName))
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).ToNot(BeNil())
+					Expect(*vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg).To(Equal(backupMsg))
+				} else {
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.Completed).To(BeFalse())
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp).To(BeNil())
+					Expect(vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName).To(BeNil())
+				}
+			},
+			Entry("not update backupStatus when backupStatus name and backupMetadata name do not match (race condition)", "new-backup", "old-backup", false),
+			Entry("update backupStatus when backupStatus name and backupMetadata name match", "test-backup", "test-backup", true),
+		)
 	})
 })
 

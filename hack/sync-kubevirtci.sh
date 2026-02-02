@@ -49,5 +49,5 @@ if [[ "$download_cluster_up" == true ]]; then
     "$(dirname $0)/sync-kubevirtci-stable-provider.sh"
     new_sha=$(getClusterUpShasum)
     echo ${new_sha} >${sha_file}
-    echo "KUBEVIRTCI_TAG=${kubevirtci_git_hash}" >>kubevirtci/cluster-up/hack/common.sh
+    echo "KUBEVIRTCI_TAG="'${KUBEVIRTCI_TAG:-'"${kubevirtci_git_hash}}" >>kubevirtci/cluster-up/hack/common.sh
 fi

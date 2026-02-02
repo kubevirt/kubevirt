@@ -42,6 +42,7 @@ const (
 	MigrationAllowPostCopy                   bool   = false
 	MigrationProgressTimeout                 int64  = 150
 	MigrationCompletionTimeoutPerGiB         int64  = 150
+	MigrationUtilityVolumesTimeoutSeconds    int64  = 150
 	DefaultAMD64MachineType                         = "q35"
 	DefaultAARCH64MachineType                       = "virt"
 	DefaultS390XMachineType                         = "s390-ccw-virtio"
@@ -77,10 +78,12 @@ const (
 	DefaultVirtOperatorLogVerbosity                 = 2
 
 	// Default REST configuration settings
-	DefaultVirtHandlerQPS         float32 = 5
-	DefaultVirtHandlerBurst               = 10
+	DefaultVirtHandlerQPS         float32 = 50
+	DefaultVirtHandlerBurst               = 100
 	DefaultVirtControllerQPS      float32 = 200
 	DefaultVirtControllerBurst            = 400
+	DefaultVirtOperatorQPS        float32 = 200
+	DefaultVirtOperatorBurst              = 400
 	DefaultVirtAPIQPS             float32 = 200
 	DefaultVirtAPIBurst                   = 400
 	DefaultVirtWebhookClientQPS           = 200
@@ -378,11 +381,6 @@ func (c *ClusterConfig) GetVirtSynchronizationControllerVerbosity() uint {
 	return c.getComponentVerbosity(virtSynchronizationController, "")
 }
 
-// GetMinCPUModel return minimal cpu which is used in node-labeller
-func (c *ClusterConfig) GetMinCPUModel() string {
-	return c.GetConfig().MinCPUModel
-}
-
 // GetObsoleteCPUModels return slice of obsolete cpus which are used in node-labeller
 func (c *ClusterConfig) GetObsoleteCPUModels() map[string]bool {
 	return c.GetConfig().ObsoleteCPUModels
@@ -480,4 +478,33 @@ func (c *ClusterConfig) GetInstancetypeReferencePolicy() v1.InstancetypeReferenc
 func (c *ClusterConfig) ClusterProfilerEnabled() bool {
 	return c.GetConfig().DeveloperConfiguration.ClusterProfiler ||
 		c.isFeatureGateDefined(featuregate.ClusterProfiler)
+}
+
+func (c *ClusterConfig) MediatedDevicesHandlingDisabled() bool {
+	mdevConfig := c.GetConfig().MediatedDevicesConfiguration
+	if mdevConfig != nil && mdevConfig.Enabled != nil {
+		return !*mdevConfig.Enabled
+	}
+	return c.isFeatureGateEnabled(featuregate.DisableMediatedDevicesHandling)
+}
+
+func (c *ClusterConfig) GetHypervisor() *v1.HypervisorConfiguration {
+	return GetHypervisorFromKvConfig(c.GetConfig(), c.ConfigurableHypervisorEnabled())
+}
+
+// At the moment, we are restricting to a single hypervisor configuration.
+func GetHypervisorFromKvConfig(kvConfig *v1.KubeVirtConfiguration, configHypervisorEnabled bool) *v1.HypervisorConfiguration {
+	if configHypervisorEnabled {
+		if len(kvConfig.Hypervisors) > 0 {
+			// Currently, we are only supporting a single hypervisor configuration,
+			// even though the API allows specification of multiple.
+			// In the future, we will add support for nodes with different hypervisors in the same cluster.
+			return &kvConfig.Hypervisors[0]
+		}
+	}
+
+	// If no hypervisor configuration is specified, return the default KVM configuration.
+	return &v1.HypervisorConfiguration{
+		Name: v1.KvmHypervisorName,
+	}
 }

@@ -56,7 +56,10 @@ func getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAtta
 		if !podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {
 			oldPods = append(oldPods, attachmentPod)
 		} else {
-			currentPod = attachmentPod
+			// don't consider attachementPod if it is marked for deletion
+			if attachmentPod.DeletionTimestamp == nil {
+				currentPod = attachmentPod
+			}
 		}
 	}
 	sort.Slice(oldPods, func(i, j int) bool {
@@ -129,13 +132,42 @@ func volumeReadyForPodDelete(phase v1.VolumePhase) bool {
 	return true
 }
 
+func (c *Controller) isUtilityVolumeWithBlockPVC(vmi *v1.VirtualMachineInstance, volume *v1.Volume) (bool, error) {
+	isUtilityVolume := false
+	for _, utilityVolume := range vmi.Spec.UtilityVolumes {
+		if utilityVolume.Name == volume.Name {
+			isUtilityVolume = true
+			break
+		}
+	}
+	if !isUtilityVolume {
+		return false, nil
+	}
+
+	pvcInterface, pvcExists, _ := c.pvcIndexer.GetByKey(fmt.Sprintf("%s/%s", vmi.Namespace, volume.PersistentVolumeClaim.ClaimName))
+	if !pvcExists {
+		return false, fmt.Errorf("utility volume %s references PVC %s which does not exist", volume.Name, volume.PersistentVolumeClaim.ClaimName)
+	}
+
+	pvc := pvcInterface.(*k8sv1.PersistentVolumeClaim)
+	return storagetypes.IsPVCBlock(pvc.Spec.VolumeMode), nil
+}
+
 func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
 	logger := log.Log.Object(vmi)
 
 	readyHotplugVolumes := make([]*v1.Volume, 0)
 	// Find all ready volumes
 	for _, volume := range hotplugVolumes {
-		var err error
+		isUtilityVolumeWithBlockPVC, err := c.isUtilityVolumeWithBlockPVC(vmi, volume)
+		if err != nil {
+			return common.NewSyncError(err, controller.PVCNotReadyReason)
+		}
+		if isUtilityVolumeWithBlockPVC {
+			logger.V(3).Infof("Skipping utility volume %s: configured with block volume mode PVC, utility volumes require filesystem volume mode", volume.Name)
+			continue
+		}
+
 		ready, wffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("Error determining volume status %v", err), controller.PVCNotReadyReason)
@@ -315,7 +347,7 @@ func (c *Controller) deleteOrphanedAttachmentPods(vmi *v1.VirtualMachineInstance
 	}
 
 	for _, pod := range pods {
-		if !controller.IsControlledBy(pod, vmi) {
+		if !metav1.IsControlledBy(pod, vmi) {
 			continue
 		}
 

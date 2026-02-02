@@ -45,7 +45,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libsecret"
 	"kubevirt.io/kubevirt/tests/libstorage"
 )
@@ -268,7 +268,21 @@ func CleanNamespaces() {
 		Expect(virtCli.VirtualMachineRestore(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
 
 		// Remove events
-		Expect(virtCli.CoreV1().Events(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{})).To(Succeed())
+		deleteEventsFromNamespace(namespace)
+
+		// Remove vmbackups
+		vmbackupList, err := virtCli.VirtualMachineBackup(namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, backup := range vmbackupList.Items {
+			Expect(virtCli.VirtualMachineBackup(namespace).Delete(context.Background(), backup.Name, metav1.DeleteOptions{})).To(Succeed())
+		}
+
+		// Remove vmbackuptrackers
+		vmbackuptrackerList, err := virtCli.VirtualMachineBackupTracker(namespace).List(context.Background(), metav1.ListOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		for _, tracker := range vmbackuptrackerList.Items {
+			Expect(virtCli.VirtualMachineBackupTracker(namespace).Delete(context.Background(), tracker.Name, metav1.DeleteOptions{})).To(Succeed())
+		}
 
 		// Remove vmexports
 		vmexportList, err := virtCli.VirtualMachineExport(namespace).List(context.Background(), metav1.ListOptions{})
@@ -330,6 +344,24 @@ func detectInstallNamespace() {
 	flags.KubeVirtInstallNamespace = kvs.Items[0].Namespace
 }
 
+func deleteEventsFromNamespace(namespace string) {
+	virtCli := kubevirt.Client()
+	Eventually(func() bool {
+		list, err := virtCli.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{Limit: 1})
+		Expect(err).ToNot(HaveOccurred())
+
+		if len(list.Items) == 0 {
+			return true
+		}
+
+		// delete events in batches of 1000
+		err = virtCli.CoreV1().Events(namespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{Limit: 1000})
+		Expect(err).To(Succeed())
+
+		return false
+	}, 10*time.Minute, 10*time.Second).Should(BeTrue())
+}
+
 func GetLabelsForNamespace(namespace string) map[string]string {
 	labels := map[string]string{
 		cleanup.TestLabelForNamespace(namespace): "",
@@ -344,7 +376,7 @@ func GetLabelsForNamespace(namespace string) map[string]string {
 }
 
 func resetNamespaceLabelsToDefault(client kubecli.KubevirtClient, namespace string) error {
-	return libnet.PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
+	return libnamespace.PatchNamespace(client, namespace, func(ns *k8sv1.Namespace) {
 		if ns.Labels == nil {
 			return
 		}

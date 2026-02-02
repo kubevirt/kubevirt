@@ -45,8 +45,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
@@ -101,6 +103,7 @@ var _ = Describe("VirtualMachine", func() {
 
 			dataVolumeInformer, _ = testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+			kvInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
 			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
 			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
 			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
@@ -140,7 +143,8 @@ var _ = Describe("VirtualMachine", func() {
 				vmInformer,
 				dataVolumeInformer,
 				dataSourceInformer,
-				namespaceInformer.GetStore(),
+				kvInformer,
+				namespaceInformer,
 				pvcInformer,
 				crInformer,
 				recorder,
@@ -148,7 +152,9 @@ var _ = Describe("VirtualMachine", func() {
 				config,
 				nil,
 				nil,
-				instancetypecontroller.NewMockController(),
+				instancetypecontroller.NewControllerStub(),
+				[]string{},
+				[]string{},
 			)
 
 			// Wrap our workqueue to have a way to detect when we are done processing updates
@@ -3204,14 +3210,33 @@ var _ = Describe("VirtualMachine", func() {
 			Expect(vmi.Annotations).To(Equal(annotations))
 		})
 
-		Context("dynamic annotations", func() {
-			const selectedKey = descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction
-			const ignoredKey = "anotherAnnotation"
+		Context("dynamic annotations and labels", func() {
+			const selectedAnnotationKey = descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction
+			const customSyncAnnotation = "custom/annotation"
+			const customSyncLabel = "custom/label"
+			const ignoredKey = "anotherKey"
 			const intitialValue = "initialValue"
 			const updatedValue = "updatedValue"
 			const anotherValue = "anotherValue"
 
-			DescribeTable("should sync selected dynamic annotations from spec.template to vmi", func(existingAnnotations, updatedVMAnnotations, expectedVMIAnnotations map[string]string, numExpectedPatches int) {
+			var (
+				initialAdditionalLauncherAnnotationsSync []string
+				initialAdditionalLauncherLabelsSync      []string
+			)
+
+			BeforeEach(func() {
+				initialAdditionalLauncherAnnotationsSync = controller.additionalLauncherAnnotationsSync
+				initialAdditionalLauncherLabelsSync = controller.additionalLauncherLabelsSync
+			})
+
+			AfterEach(func() {
+				controller.additionalLauncherAnnotationsSync = initialAdditionalLauncherAnnotationsSync
+				controller.additionalLauncherLabelsSync = initialAdditionalLauncherLabelsSync
+			})
+
+			DescribeTable("should sync selected dynamic annotations from spec.template to vmi", func(additionalLauncherAnnotationsSync []string, existingAnnotations, updatedVMAnnotations, expectedVMIAnnotations map[string]string, numExpectedPatches int) {
+				controller.additionalLauncherAnnotationsSync = additionalLauncherAnnotationsSync
+
 				vm, vmi := watchtesting.DefaultVirtualMachine(true)
 				vm.Spec.Template.ObjectMeta.Annotations = existingAnnotations
 				vmi.ObjectMeta.Annotations = existingAnnotations
@@ -3239,36 +3264,516 @@ var _ = Describe("VirtualMachine", func() {
 
 			},
 				Entry("should copy selected annotations from VM.spec.template.metadata.annotations to VMI",
-					map[string]string{selectedKey: intitialValue},
-					map[string]string{selectedKey: updatedValue},
-					map[string]string{selectedKey: updatedValue},
+					[]string{},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					map[string]string{selectedAnnotationKey: updatedValue},
+					map[string]string{selectedAnnotationKey: updatedValue},
 					1,
 				),
 				Entry("should remove selected annotations from VMI if missing in VM.spec.template.metadata.annotations",
-					map[string]string{selectedKey: intitialValue, ignoredKey: anotherValue},
+					[]string{},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: anotherValue},
 					map[string]string{ignoredKey: anotherValue},
 					map[string]string{ignoredKey: anotherValue},
 					1,
 				),
 				Entry("should do nothing if selected annotations are already equal",
-					map[string]string{selectedKey: intitialValue, ignoredKey: anotherValue},
-					map[string]string{selectedKey: intitialValue, ignoredKey: anotherValue},
-					map[string]string{selectedKey: intitialValue, ignoredKey: anotherValue},
+					[]string{},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: anotherValue},
 					0,
 				),
 				Entry("should update only selected annotations",
-					map[string]string{selectedKey: intitialValue, ignoredKey: anotherValue},
-					map[string]string{selectedKey: updatedValue, ignoredKey: updatedValue},
-					map[string]string{selectedKey: updatedValue, ignoredKey: anotherValue},
+					[]string{},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: anotherValue},
+					map[string]string{selectedAnnotationKey: updatedValue, ignoredKey: updatedValue},
+					map[string]string{selectedAnnotationKey: updatedValue, ignoredKey: anotherValue},
 					1,
 				),
 				Entry("should ignore other annotations on VM.spec.template.metadata.annotations",
-					map[string]string{selectedKey: intitialValue},
-					map[string]string{selectedKey: intitialValue, ignoredKey: updatedValue},
-					map[string]string{selectedKey: intitialValue},
+					[]string{},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					map[string]string{selectedAnnotationKey: intitialValue, ignoredKey: updatedValue},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					0,
+				),
+				Entry("should copy selected custom additional annotations from VM.spec.template.metadata.annotations to VMI",
+					[]string{customSyncAnnotation},
+					map[string]string{selectedAnnotationKey: intitialValue},
+					map[string]string{selectedAnnotationKey: intitialValue, customSyncAnnotation: customSyncAnnotation},
+					map[string]string{selectedAnnotationKey: intitialValue, customSyncAnnotation: customSyncAnnotation},
+					1,
+				),
+			)
+
+			DescribeTable("should sync selected dynamic labels from spec.template to vmi", func(existingLabels, updatedVMLabels, expectedVMILabels map[string]string, numExpectedPatches int) {
+				controller.additionalLauncherLabelsSync = []string{customSyncLabel}
+
+				vm, vmi := watchtesting.DefaultVirtualMachine(true)
+				vm.Spec.Template.ObjectMeta.Labels = existingLabels
+				vmi.ObjectMeta.Labels = existingLabels
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+
+				vm.Spec.Template.ObjectMeta.Labels = updatedVMLabels
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				addVirtualMachine(vm)
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(controller.vmiIndexer.Add(vmi)).To(Succeed())
+
+				sanityExecute(vm)
+
+				By("Expecting to see the updated VMI with the updated labels")
+				vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.ObjectMeta.Labels).To(Equal(expectedVMILabels))
+
+				Expect(kvtesting.FilterActions(&virtFakeClient.Fake, "patch", "virtualmachineinstances")).To(HaveLen(numExpectedPatches))
+
+			},
+				Entry("should copy selected custom labels from VM.spec.template.metadata.labels to VMI",
+					map[string]string{customSyncLabel: intitialValue},
+					map[string]string{customSyncLabel: updatedValue},
+					map[string]string{customSyncLabel: updatedValue},
+					1,
+				),
+				Entry("should remove selected custom labels from VMI if missing in VM.spec.template.metadata.labels",
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
+					map[string]string{ignoredKey: anotherValue},
+					map[string]string{ignoredKey: anotherValue},
+					1,
+				),
+				Entry("should do nothing if selected custom labels are already equal",
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
+					0,
+				),
+				Entry("should update only custom selected labels",
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: anotherValue},
+					map[string]string{customSyncLabel: updatedValue, ignoredKey: updatedValue},
+					map[string]string{customSyncLabel: updatedValue, ignoredKey: anotherValue},
+					1,
+				),
+				Entry("should ignore other labels on VM.spec.template.metadata.labels",
+					map[string]string{customSyncLabel: intitialValue},
+					map[string]string{customSyncLabel: intitialValue, ignoredKey: updatedValue},
+					map[string]string{customSyncLabel: intitialValue},
 					0,
 				),
 			)
+
+		})
+
+		Context("Changed Block Tracking", func() {
+			createKubeVirtConfigWithCBT := func(enableFeatureGate bool) *v1.KubeVirt {
+				labelSelector := &metav1.LabelSelector{
+					MatchLabels: cbt.CBTLabel,
+				}
+
+				kv := &v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						Configuration: v1.KubeVirtConfiguration{
+							ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
+								VirtualMachineLabelSelector: labelSelector,
+							},
+						},
+					},
+				}
+
+				if enableFeatureGate {
+					kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.IncrementalBackupGate},
+					}
+				}
+
+				return kv
+			}
+
+			// Helper function to create and setup VM with CBT labels
+			createVMWithCBTLabels := func() (*v1.VirtualMachine, error) {
+				vm, _ := watchtesting.DefaultVirtualMachine(true)
+				libvmi.WithLabels(cbt.CBTLabel)(vm)
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				if err != nil {
+					return nil, err
+				}
+				addVirtualMachine(vm)
+				return vm, nil
+			}
+
+			// Helper function for common test execution and basic verification
+			executeAndVerifyBasicCBT := func(vm *v1.VirtualMachine) (*v1.VirtualMachine, *v1.VirtualMachineInstance, error) {
+				sanityExecute(vm)
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				if err != nil {
+					return nil, nil, err
+				}
+
+				vmi, err := virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				if err != nil {
+					return vm, nil, err
+				}
+
+				return vm, vmi, nil
+			}
+
+			DescribeTable("should set correct CBT state based on feature gate",
+				func(enableFeatureGate bool, expectedVMState, expectedVMIState v1.ChangedBlockTrackingState) {
+					// Setup KubeVirt config
+					kv := createKubeVirtConfigWithCBT(enableFeatureGate)
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kv)
+
+					// Create VM with CBT labels
+					vm, err := createVMWithCBTLabels()
+					Expect(err).To(Succeed())
+
+					// Execute and verify
+					vm, vmi, err := executeAndVerifyBasicCBT(vm)
+					Expect(err).To(Succeed())
+
+					// Verify states
+					Expect(cbt.CBTState(vm.Status.ChangedBlockTracking)).To(Equal(expectedVMState))
+					Expect(cbt.CBTState(vmi.Status.ChangedBlockTracking)).To(Equal(expectedVMIState))
+				},
+				Entry("when IncrementalBackup FG is disabled",
+					false,
+					v1.ChangedBlockTrackingFGDisabled,
+					v1.ChangedBlockTrackingUndefined),
+				Entry("when IncrementalBackup FG is enabled",
+					true,
+					v1.ChangedBlockTrackingInitializing,
+					v1.ChangedBlockTrackingInitializing),
+			)
+
+			Context("Event Handlers", func() {
+				Describe("handleKubeVirtUpdate", func() {
+					It("should enqueue all VMs when ChangedBlockTrackingLabelSelectors change", func() {
+						// Create test VMs in different namespaces
+						vm1, _ := watchtesting.DefaultVirtualMachine(true)
+						vm1.Name = "test-vm-1"
+						vm1.Namespace = "ns1"
+						vm2, _ := watchtesting.DefaultVirtualMachine(true)
+						vm2.Name = "test-vm-2"
+						vm2.Namespace = "default"
+
+						// Add VMs to informer
+						Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+						Expect(controller.vmIndexer.Add(vm2)).To(Succeed())
+
+						// Create old and new KubeVrt objects with different CBT selectors
+						oldKV := &v1.KubeVirt{
+							ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+							Spec: v1.KubeVirtSpec{
+								Configuration: v1.KubeVirtConfiguration{
+									ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
+										NamespaceLabelSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{"old-label": "old-value"},
+										},
+									},
+								},
+							},
+						}
+
+						newKV := &v1.KubeVirt{
+							ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+							Spec: v1.KubeVirtSpec{
+								Configuration: v1.KubeVirtConfiguration{
+									ChangedBlockTrackingLabelSelectors: &v1.ChangedBlockTrackingSelectors{
+										NamespaceLabelSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{"new-label": "new-value"},
+										},
+									},
+								},
+							},
+						}
+
+						// Clear any existing items in the queue
+						for mockQueue.Len() > 0 {
+							item, shutdown := mockQueue.Get()
+							if shutdown {
+								break
+							}
+							mockQueue.Done(item)
+						}
+
+						// Call the handler
+						controller.handleKubeVirtUpdate(oldKV, newKV)
+
+						// Expect both VMs to be enqueued
+						Expect(mockQueue.Len()).To(Equal(2))
+					})
+
+					It("should not enqueue VMs when ChangedBlockTrackingLabelSelectors don't change", func() {
+						// Create test VMs
+						vm1, _ := watchtesting.DefaultVirtualMachine(true)
+						vm1.Name = "test-vm-1"
+						vm1.Namespace = "ns1"
+
+						// Add VM to informer
+						Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+
+						// Create old and new KubeVirt objects with same CBT selectors
+						cbtSelectors := &v1.ChangedBlockTrackingSelectors{
+							NamespaceLabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"same-label": "same-value"},
+							},
+						}
+
+						oldKV := &v1.KubeVirt{
+							ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+							Spec: v1.KubeVirtSpec{
+								Configuration: v1.KubeVirtConfiguration{
+									ChangedBlockTrackingLabelSelectors: cbtSelectors,
+								},
+							},
+						}
+
+						newKV := &v1.KubeVirt{
+							ObjectMeta: metav1.ObjectMeta{Name: "kubevirt", Namespace: "kubevirt"},
+							Spec: v1.KubeVirtSpec{
+								Configuration: v1.KubeVirtConfiguration{
+									ChangedBlockTrackingLabelSelectors: cbtSelectors,
+								},
+							},
+						}
+
+						// Clear any existing items in the queue
+						for mockQueue.Len() > 0 {
+							item, shutdown := mockQueue.Get()
+							if shutdown {
+								break
+							}
+							mockQueue.Done(item)
+						}
+
+						// Call the handler
+						controller.handleKubeVirtUpdate(oldKV, newKV)
+
+						// Expect no VMs to be enqueued
+						Expect(mockQueue.Len()).To(Equal(0))
+					})
+				})
+
+				Describe("handleNamespaceUpdate", func() {
+					BeforeEach(func() {
+						// Set up cluster config with CBT selectors
+						cbtConfig := &v1.ChangedBlockTrackingSelectors{
+							NamespaceLabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"cbt-enabled": "true"},
+							},
+						}
+						kvConfig := &v1.KubeVirtConfiguration{
+							ChangedBlockTrackingLabelSelectors: cbtConfig,
+						}
+						testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:            "kubevirt",
+								Namespace:       "kubevirt",
+								ResourceVersion: "1",
+							},
+							Spec: v1.KubeVirtSpec{
+								Configuration: *kvConfig,
+							},
+						})
+					})
+
+					It("should enqueue VMs when namespace labels change affecting CBT selector matching", func() {
+						// Create test VMs in the namespace
+						vm1, _ := watchtesting.DefaultVirtualMachine(true)
+						vm1.Name = "test-vm-1"
+						vm1.Namespace = "test-ns"
+						vm2, _ := watchtesting.DefaultVirtualMachine(true)
+						vm2.Name = "test-vm-2"
+						vm2.Namespace = "test-ns"
+
+						// Add VMs to informer
+						Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+						Expect(controller.vmIndexer.Add(vm2)).To(Succeed())
+
+						// Create old namespace without CBT label (doesn't match selector)
+						oldNS := &k8sv1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:   "test-ns",
+								Labels: map[string]string{"other-label": "value"},
+							},
+						}
+
+						// Create new namespace with CBT label (matches selector)
+						newNS := &k8sv1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "test-ns",
+								Labels: map[string]string{
+									"other-label": "value",
+									"cbt-enabled": "true",
+								},
+							},
+						}
+
+						// Clear any existing items in the queue
+						for mockQueue.Len() > 0 {
+							item, shutdown := mockQueue.Get()
+							if shutdown {
+								break
+							}
+							mockQueue.Done(item)
+						}
+
+						// Call the handler
+						controller.handleNamespaceUpdate(oldNS, newNS)
+
+						// Expect both VMs in the namespace to be enqueued
+						Expect(mockQueue.Len()).To(Equal(2))
+					})
+
+					It("should not enqueue VMs when namespace labels change but don't affect CBT selector matching", func() {
+						// Create test VMs in the namespace
+						vm1, _ := watchtesting.DefaultVirtualMachine(true)
+						vm1.Name = "test-vm-1"
+						vm1.Namespace = "test-ns"
+
+						// Add VM to informer
+						Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+
+						// Create old and new namespaces that both match the selector
+						oldNS := &k8sv1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "test-ns",
+								Labels: map[string]string{
+									"cbt-enabled": "true",
+									"other-label": "old-value",
+								},
+							},
+						}
+
+						newNS := &k8sv1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "test-ns",
+								Labels: map[string]string{
+									"cbt-enabled": "true",
+									"other-label": "new-value",
+								},
+							},
+						}
+
+						// Clear any existing items in the queue
+						for mockQueue.Len() > 0 {
+							item, shutdown := mockQueue.Get()
+							if shutdown {
+								break
+							}
+							mockQueue.Done(item)
+						}
+
+						// Call the handler
+						controller.handleNamespaceUpdate(oldNS, newNS)
+
+						// Expect no VMs to be enqueued since matching status didn't change
+						Expect(mockQueue.Len()).To(Equal(0))
+					})
+
+					It("should not enqueue VMs when no CBT selectors are configured", func() {
+						// Override cluster config to have no CBT selectors
+						kvConfigNoCBT := &v1.KubeVirtConfiguration{}
+						testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:            "kubevirt",
+								Namespace:       "kubevirt",
+								ResourceVersion: "2",
+							},
+							Spec: v1.KubeVirtSpec{
+								Configuration: *kvConfigNoCBT,
+							},
+						})
+
+						// Create test VM
+						vm1, _ := watchtesting.DefaultVirtualMachine(true)
+						vm1.Name = "test-vm-1"
+						vm1.Namespace = "test-ns"
+
+						// Add VM to informer
+						Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+
+						// Create namespace update
+						oldNS := &k8sv1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:   "test-ns",
+								Labels: map[string]string{"old-label": "old-value"},
+							},
+						}
+
+						newNS := &k8sv1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:   "test-ns",
+								Labels: map[string]string{"new-label": "new-value"},
+							},
+						}
+
+						// Clear any existing items in the queue
+						for mockQueue.Len() > 0 {
+							item, shutdown := mockQueue.Get()
+							if shutdown {
+								break
+							}
+							mockQueue.Done(item)
+						}
+
+						// Call the handler
+						controller.handleNamespaceUpdate(oldNS, newNS)
+
+						// Expect no VMs to be enqueued since no CBT selectors are configured
+						Expect(mockQueue.Len()).To(Equal(0))
+					})
+
+					It("should not enqueue VMs when namespace labels don't change", func() {
+						// Create test VM
+						vm1, _ := watchtesting.DefaultVirtualMachine(true)
+						vm1.Name = "test-vm-1"
+						vm1.Namespace = "test-ns"
+
+						// Add VM to informer
+						Expect(controller.vmIndexer.Add(vm1)).To(Succeed())
+
+						// Create old and new namespaces with same labels
+						labels := map[string]string{"cbt-enabled": "true"}
+						oldNS := &k8sv1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:   "test-ns",
+								Labels: labels,
+							},
+						}
+
+						newNS := &k8sv1.Namespace{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:   "test-ns",
+								Labels: labels,
+							},
+						}
+
+						// Clear any existing items in the queue
+						for mockQueue.Len() > 0 {
+							item, shutdown := mockQueue.Get()
+							if shutdown {
+								break
+							}
+							mockQueue.Done(item)
+						}
+
+						// Call the handler
+						controller.handleNamespaceUpdate(oldNS, newNS)
+
+						// Expect no VMs to be enqueued since labels didn't change
+						Expect(mockQueue.Len()).To(Equal(0))
+					})
+				})
+			})
 		})
 
 		Context("VM memory dump", func() {
@@ -4243,6 +4748,62 @@ var _ = Describe("VirtualMachine", func() {
 				Expect(revisionData.Spec.Preference.RevisionName).To(Equal(vm.Status.PreferenceRef.ControllerRevisionRef.Name))
 			})
 
+			It("should not capture instance type or preference ControllerRevisionRefs if matchers are nil - bug #16071", func() {
+				vm.Spec.Instancetype = &v1.InstancetypeMatcher{
+					Name: instancetypeObj.Name,
+					Kind: instancetypeapi.SingularResourceName,
+				}
+				vm.Spec.Preference = &v1.PreferenceMatcher{
+					Name: preference.Name,
+					Kind: instancetypeapi.SingularPreferenceResourceName,
+				}
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyHalted)
+
+				var err error
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				addVirtualMachine(vm)
+				sanityExecute(vm)
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).To(BeTrue())
+				Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeTrue())
+
+				vm.Spec.Instancetype = nil
+				vm.Spec.Preference = nil
+				vm.Spec.RunStrategy = pointer.P(v1.RunStrategyAlways)
+
+				vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.TODO(), vm, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				addVirtualMachine(vm)
+				sanityExecute(vm)
+
+				//FIXME(lyarwood): status.{InstancetypeRef,PreferenceRef} should also be removed
+				// vm, err = virtClient.VirtualMachine(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				// Expect(err).ToNot(HaveOccurred())
+				//
+				// Expect(revision.HasControllerRevisionRef(vm.Status.InstancetypeRef)).To(BeFalse())
+				// Expect(revision.HasControllerRevisionRef(vm.Status.PreferenceRef)).To(BeFalse())
+
+				vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.VirtualMachineRevisionName).ToNot(BeEmpty())
+
+				vmRevision, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
+					context.Background(), vmi.Status.VirtualMachineRevisionName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmRevision).ToNot(BeNil())
+
+				revisionData := &VirtualMachineRevisionData{}
+				Expect(json.Unmarshal(vmRevision.Data.Raw, revisionData)).To(Succeed())
+				Expect(revisionData.Spec.Instancetype).To(BeNil())
+				Expect(revisionData.Spec.Preference).To(BeNil())
+			})
+
 			Context("preference", func() {
 				var (
 					clusterPreference *instancetypev1beta1.VirtualMachineClusterPreference
@@ -4955,8 +5516,7 @@ var _ = Describe("VirtualMachine", func() {
 					vmi, err = virtFakeClient.KubevirtV1().VirtualMachineInstances(vm.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 					Expect(err).NotTo(HaveOccurred())
 
-					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
-					Expect(vmConditionController.HasCondition(vm, v1.VirtualMachineRestartRequired)).To(BeFalse(), "No RestartRequired condition should be set")
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired), "No RestartRequired condition should be set")
 
 					Expect(vmi.Spec.Domain.Memory.Guest.Cmp(*vm.Spec.Template.Spec.Domain.Memory.Guest)).To(Equal(0), "The VMI Guest should match VM's")
 
@@ -5089,8 +5649,7 @@ var _ = Describe("VirtualMachine", func() {
 					err := controller.handleMemoryHotplugRequest(vm, vmi)
 					Expect(err).ToNot(HaveOccurred())
 
-					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
-					Expect(vmConditionController.HasCondition(vm, v1.VirtualMachineRestartRequired)).To(BeTrue())
+					Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
 				})
 
 				It("should set a restartRequired condition if VM does not support memory hotplug", func() {
@@ -5419,29 +5978,6 @@ var _ = Describe("VirtualMachine", func() {
 					newDVName = "newDV"
 					ns        = metav1.NamespaceDefault
 				)
-				DescribeTable("should set the restart condition", func(strategy *v1.UpdateVolumesStrategy) {
-					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-						Spec: v1.KubeVirtSpec{
-							Configuration: v1.KubeVirtConfiguration{
-								VMRolloutStrategy: &liveUpdate,
-							},
-						},
-					})
-					vm, vmi := watchtesting.DefaultVirtualMachine(true)
-					vm.Spec.UpdateVolumesStrategy = strategy
-					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-						Name: "vol1"})
-					vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{Name: "vol2"})
-					controller.handleVolumeUpdateRequest(vm, vmi)
-					cond := virtcontroller.NewVirtualMachineConditionManager().GetCondition(vm, v1.VirtualMachineRestartRequired)
-					Expect(cond).ToNot(BeNil())
-					Expect(cond.Status).To(Equal(k8sv1.ConditionTrue))
-					Expect(cond.Message).To(Equal("the volumes replacement is effective only after restart"))
-				},
-					Entry("without the updateVolumeStrategy field", nil),
-					Entry("with the replacement updateVolumeStrategy",
-						pointer.P(v1.UpdateVolumesStrategyReplacement)),
-				)
 
 				It("should set the restart condition with the Migration updateVolumeStrategy if volumes cannot be migrated", func() {
 					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
@@ -5632,8 +6168,7 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: updatedRevision.Name,
 					}
 					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM, vmi)).To(BeFalse())
-					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
-					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeFalse())
+					Expect(updatedVM).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 				})
 				It("should add addRestartRequiredIfNeeded to VM if not live-updatable", func() {
 					updatedInstancetype := originalInstancetype.DeepCopy()
@@ -5657,8 +6192,7 @@ var _ = Describe("VirtualMachine", func() {
 					}
 
 					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM, vmi)).To(BeTrue())
-					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
-					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeTrue())
+					Expect(updatedVM).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
 				})
 			})
 		})
@@ -5959,21 +6493,26 @@ var _ = Describe("VirtualMachine", func() {
 					sanityExecute(vm)
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
-						v1.VirtualMachineRestartRequired)).To(BeFalse())
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 				})
 
-				It("should appear when the volume is directly added to the spec", func() {
-					By("Creating a VM")
+				DescribeTable("should NOT appear for hotpluggable DataVolume regardless of rollout strategy", func(strategy *v1.VMRolloutStrategy) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: strategy,
+							},
+						},
+					})
+
+					By("Creating a VM with VMI")
 					vmi = SetupVMIFromVM(vm)
 					controller.vmiIndexer.Add(vmi)
-
-					By("Creating a Controller Revision")
 					controller.crIndexer.Add(createVMRevision(vm))
 
-					By("Adding an hotplugged volume to the VM")
+					By("Adding hotpluggable DataVolume to VM spec")
 					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-						Name: "hotplug",
+						Name: "hotplug-vol",
 						VolumeSource: v1.VolumeSource{
 							DataVolume: &v1.DataVolumeSource{
 								Name:         "hotplug-dv",
@@ -5982,22 +6521,213 @@ var _ = Describe("VirtualMachine", func() {
 						},
 					})
 					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-						Name: "hotplug",
+						Name: "hotplug-vol",
 						DiskDevice: v1.DiskDevice{
 							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
-						}})
+						},
+					})
+
 					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
 					Expect(err).To(Succeed())
 					addVirtualMachine(vm)
 
-					By("Executing the controller expecting the RestartRequired not to appear")
 					sanityExecute(vm)
 					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).To(Succeed())
-					Expect(virtcontroller.NewVirtualMachineConditionManager().HasCondition(vm,
-						v1.VirtualMachineRestartRequired)).To(BeTrue())
-				})
+
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+				},
+					Entry("with no rollout strategy", nil),
+					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+				)
+
+				DescribeTable("should NOT appear for hotpluggable PVC regardless of rollout strategy", func(strategy *v1.VMRolloutStrategy) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: strategy,
+							},
+						},
+					})
+
+					By("Creating a VM with VMI")
+					vmi = SetupVMIFromVM(vm)
+					controller.vmiIndexer.Add(vmi)
+					controller.crIndexer.Add(createVMRevision(vm))
+
+					By("Adding hotpluggable PVC volume to VM spec")
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "hotplug-pvc",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "hotplug-claim",
+								},
+								Hotpluggable: true,
+							},
+						},
+					})
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+						Name: "hotplug-pvc",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+						},
+					})
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+				},
+					Entry("with no rollout strategy", nil),
+					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+				)
+
+				DescribeTable("should appear for non-hotpluggable volumes regardless of rollout strategy", func(strategy *v1.VMRolloutStrategy) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: strategy,
+							},
+						},
+					})
+
+					By("Creating a VM with VMI")
+					vmi = SetupVMIFromVM(vm)
+					controller.vmiIndexer.Add(vmi)
+					controller.crIndexer.Add(createVMRevision(vm))
+
+					By("Adding non-hotpluggable volume to VM spec")
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+						Name: "regular-vol",
+						VolumeSource: v1.VolumeSource{
+							DataVolume: &v1.DataVolumeSource{
+								Name:         "regular-dv",
+								Hotpluggable: false,
+							},
+						},
+					})
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+						Name: "regular-vol",
+						DiskDevice: v1.DiskDevice{
+							Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
+						},
+					})
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
+				},
+					Entry("with no rollout strategy", nil),
+					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+				)
+
+				DescribeTable("should appear when mixing hotpluggable and non-hotpluggable volumes", func(strategy *v1.VMRolloutStrategy) {
+					testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+						Spec: v1.KubeVirtSpec{
+							Configuration: v1.KubeVirtConfiguration{
+								VMRolloutStrategy: strategy,
+							},
+						},
+					})
+
+					By("Creating a VM with VMI")
+					vmi = SetupVMIFromVM(vm)
+					controller.vmiIndexer.Add(vmi)
+					controller.crIndexer.Add(createVMRevision(vm))
+
+					By("Adding both hotpluggable and non-hotpluggable volumes")
+					vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes,
+						v1.Volume{
+							Name: "hotplug-vol",
+							VolumeSource: v1.VolumeSource{
+								DataVolume: &v1.DataVolumeSource{
+									Name:         "hotplug-dv",
+									Hotpluggable: true,
+								},
+							},
+						},
+						v1.Volume{
+							Name: "regular-vol",
+							VolumeSource: v1.VolumeSource{
+								DataVolume: &v1.DataVolumeSource{
+									Name:         "regular-dv",
+									Hotpluggable: false,
+								},
+							},
+						},
+					)
+					vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks,
+						v1.Disk{
+							Name: "hotplug-vol",
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{Bus: v1.DiskBusSCSI},
+							},
+						},
+						v1.Disk{
+							Name: "regular-vol",
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{Bus: v1.DiskBusVirtio},
+							},
+						},
+					)
+
+					vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+					Expect(err).To(Succeed())
+					addVirtualMachine(vm)
+
+					sanityExecute(vm)
+					vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+					Expect(err).To(Succeed())
+
+					Expect(vm).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
+				},
+					Entry("with no rollout strategy", nil),
+					Entry("with Stage rollout strategy", pointer.P(v1.VMRolloutStrategyStage)),
+					Entry("with LiveUpdate rollout strategy", pointer.P(v1.VMRolloutStrategyLiveUpdate)),
+				)
 			})
+
+			DescribeTable("RestartRequired condition based on VM and VMI UUID comparison", func(uuid types.UID, matcher gomegatypes.GomegaMatcher) {
+				By("Creating a VM without firmware UUID")
+				vm.Spec.Template.Spec.Domain.Firmware = nil
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with the calculated legacy UUID")
+				vmi = SetupVMIFromVM(vm)
+				controller.vmiIndexer.Add(vmi)
+
+				By("Setting the UUID in VM spec")
+				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
+					UUID: uuid,
+				}
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				By("Executing the controller")
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+				Expect(vm).To(matcher)
+			},
+				Entry("should not raise RestartRequired when VM and VMI UUIDs match", CalculateLegacyUUID("testvmi"), matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired)),
+				Entry("should raise RestartRequired when VM and VMI UUIDs differ", types.UID("different-uuid-than-vmi"), matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired)),
+			)
 		})
 
 		clearExpectations := func(vm *v1.VirtualMachine) {
@@ -6466,25 +7196,24 @@ var _ = Describe("VirtualMachine", func() {
 				Reason: reason,
 			}
 		}
-		DescribeTable("and UpdateVolumesStrategy set to Migration", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectedVolumeMigrationState *v1.VolumeMigrationState, expectCond bool) {
+		DescribeTable("and UpdateVolumesStrategy set to Migration", func(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance, expectedVolumeMigrationState *v1.VolumeMigrationState, condMatcher gomegatypes.GomegaMatcher) {
 			vm.Spec.UpdateVolumesStrategy = pointer.P(v1.UpdateVolumesStrategyMigration)
 			syncVolumeMigration(vm, vmi)
 			Expect(vm.Status.VolumeUpdateState.VolumeMigrationState).To(Equal(expectedVolumeMigrationState))
-			Expect(virtcontroller.NewVirtualMachineConditionManager().HasConditionWithStatus(vm,
-				v1.VirtualMachineManualRecoveryRequired, k8sv1.ConditionTrue)).To(Equal(expectCond))
+			Expect(vm).To(condMatcher)
 		},
-			Entry("without any volume migration in progress", libvmi.NewVirtualMachine(libvmi.New(), libvmistatus.WithVMStatus(libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{})))), libvmi.New(), nil, false),
+			Entry("without any volume migration in progress", libvmi.NewVirtualMachine(libvmi.New(), libvmistatus.WithVMStatus(libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{})))), libvmi.New(), nil, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired)),
 			Entry("with volume migration in progress but no vmi", libvmi.NewVirtualMachine(libvmi.New(), libvmistatus.WithVMStatus(
 				libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(&v1.VolumeUpdateState{VolumeMigrationState: &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1")}},
 				), libvmistatus.WithVMCondition(withVMCondVolumeMigInProgress(k8sv1.ConditionTrue, ""))),
 			)),
-				nil, nil, false),
+				nil, nil, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired)),
 			Entry("with recovered volumes", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv0")), libvmistatus.WithVMStatus(
 				libvmistatus.NewVMStatus(libvmistatus.WithVMVolumeUpdateState(
 					&v1.VolumeUpdateState{VolumeMigrationState: &v1.VolumeMigrationState{MigratedVolumes: withMigVols(volName, "dv0", "dv1")}},
 				)))),
-				libvmi.New(libvmi.WithDataVolume(volName, "dv0")), nil, false),
+				libvmi.New(libvmi.WithDataVolume(volName, "dv0")), nil, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired)),
 			Entry("with volumes still to be recovered", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")), libvmistatus.WithVMStatus(
 				libvmistatus.NewVMStatus(
 					libvmistatus.WithVMCondition(v1.VirtualMachineCondition{
@@ -6498,7 +7227,7 @@ var _ = Describe("VirtualMachine", func() {
 					)))),
 				libvmi.New(libvmi.WithDataVolume(volName, "dv0")), &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-				}, true,
+				}, matcher.HaveConditionTrue(v1.VirtualMachineManualRecoveryRequired),
 			),
 			Entry("with volume change", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
@@ -6511,7 +7240,7 @@ var _ = Describe("VirtualMachine", func() {
 						libvmistatus.New(libvmistatus.WithCondition(
 							withVMICondVolumeMigInProgress(k8sv1.ConditionTrue, "")))),
 				),
-				&v1.VolumeMigrationState{MigratedVolumes: withMigVols(volName, "dv0", "dv1")}, false,
+				&v1.VolumeMigrationState{MigratedVolumes: withMigVols(volName, "dv0", "dv1")}, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired),
 			),
 			Entry("with volume change cancellation", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
@@ -6524,7 +7253,7 @@ var _ = Describe("VirtualMachine", func() {
 						libvmistatus.New(libvmistatus.WithCondition(
 							withVMICondVolumeMigInProgress(k8sv1.ConditionFalse, v1.VirtualMachineInstanceReasonVolumesChangeCancellation)))),
 				),
-				nil, false,
+				nil, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired),
 			),
 			Entry("with a failed volume migration", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
@@ -6538,7 +7267,7 @@ var _ = Describe("VirtualMachine", func() {
 							withVMICondVolumeMigInProgress(k8sv1.ConditionFalse, "")))),
 				), &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-				}, false,
+				}, matcher.HaveConditionMissingOrFalse(v1.VirtualMachineManualRecoveryRequired),
 			),
 			Entry("with volume migration in progress and vmi disappeared", libvmi.NewVirtualMachine(libvmi.New(libvmi.WithDataVolume(volName, "dv1")),
 				libvmistatus.WithVMStatus(
@@ -6548,9 +7277,220 @@ var _ = Describe("VirtualMachine", func() {
 					))),
 				nil, &v1.VolumeMigrationState{
 					MigratedVolumes: withMigVols(volName, "dv0", "dv1"),
-				}, true,
+				}, matcher.HaveConditionTrue(v1.VirtualMachineManualRecoveryRequired),
 			),
 		)
+	})
+
+	Context("isWaitAsReceiverRunStrategy", func() {
+		DescribeTable("should correctly identify WaitAsReceiver run strategy", func(vm *v1.VirtualMachine, expected bool) {
+			result := isWaitAsReceiverRunStrategy(vm)
+			Expect(result).To(Equal(expected))
+		},
+			Entry("when RunStrategy is nil", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: nil,
+				},
+			}, false),
+			Entry("when RunStrategy is Always", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyAlways),
+				},
+			}, false),
+			Entry("when RunStrategy is RerunOnFailure", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyRerunOnFailure),
+				},
+			}, false),
+			Entry("when RunStrategy is Manual", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyManual),
+				},
+			}, false),
+			Entry("when RunStrategy is Halted", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyHalted),
+				},
+			}, false),
+			Entry("when RunStrategy is WaitAsReceiver", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyWaitAsReceiver),
+				},
+			}, true),
+		)
+	})
+
+	Context("handleWaitAsReceiverVolumeInfo", func() {
+		var (
+			ctrl           *gomock.Controller
+			virtClient     *kubecli.MockKubevirtClient
+			fakeClientset  *fake.Clientset
+			pvcStore       cache.Store
+			testController *Controller
+		)
+		const ns = k8sv1.NamespaceDefault
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			fakeClientset = fake.NewSimpleClientset()
+			virtClient.EXPECT().VirtualMachineInstance(ns).Return(fakeClientset.KubevirtV1().VirtualMachineInstances(ns)).AnyTimes()
+			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			pvcStore = pvcInformer.GetStore()
+
+			// Create a minimal controller for testing
+			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
+			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
+			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+			kvInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
+			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{})
+
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			testController, _ = NewController(
+				vmiInformer,
+				vmInformer,
+				dataVolumeInformer,
+				dataSourceInformer,
+				kvInformer,
+				namespaceInformer,
+				pvcInformer,
+				crInformer,
+				record.NewFakeRecorder(100),
+				virtClient,
+				config,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+			)
+		})
+
+		addPVCToStore := func(name, namespace string) {
+			pvcStore.Add(&k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+					Resources: k8sv1.VolumeResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+					},
+				},
+				Status: k8sv1.PersistentVolumeClaimStatus{
+					Capacity: k8sv1.ResourceList{
+						k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+					},
+				},
+			})
+		}
+
+		It("should return nil when VMI is nil", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns)))
+			err := testController.handleWaitAsReceiverVolumeInfo(vm, nil)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return nil when VMI migration is completed", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns)))
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				Completed: true,
+			}
+			err := testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should not return an error when GenerateReceiverMigratedVolumes has no matching PVC", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithDataVolume("disk0", "pvc-dst"),
+			))
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			err := testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return error when PatchVMIStatusWithMigratedVolumes fails", func() {
+			addPVCToStore("pvc-dst", ns)
+
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithDataVolume("disk0", "pvc-dst"),
+			))
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			vmi, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Make the patch fail by setting up a reactor that returns an error
+			fakeClientset.PrependReactor("patch", "virtualmachineinstances", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				return true, nil, fmt.Errorf("patch failed")
+			})
+
+			err = testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("patch failed"))
+		})
+
+		It("should successfully patch VMI with migrated volumes", func() {
+			addPVCToStore("pvc-dst", ns)
+
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithDataVolume("disk0", "pvc-dst"),
+			))
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			vmi, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify the VMI was patched with migrated volumes
+			updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigratedVolumes).ToNot(BeEmpty())
+			Expect(updatedVMI.Status.MigratedVolumes).To(HaveLen(1))
+			Expect(updatedVMI.Status.MigratedVolumes[0].VolumeName).To(Equal("disk0"))
+			Expect(updatedVMI.Status.MigratedVolumes[0].DestinationPVCInfo).ToNot(BeNil())
+			Expect(updatedVMI.Status.MigratedVolumes[0].DestinationPVCInfo.ClaimName).To(Equal("pvc-dst"))
+		})
+
+		It("should not patch VMI when migrated volumes already exist", func() {
+			addPVCToStore("pvc-dst", ns)
+
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithDataVolume("disk0", "pvc-dst"),
+			))
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			// Set migrated volumes already
+			vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{
+				{
+					VolumeName: "disk0",
+					DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{
+						ClaimName: "pvc-dst",
+					},
+				},
+			}
+			vmi, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Track patch calls
+			patchCallCount := 0
+			fakeClientset.PrependReactor("patch", "virtualmachineinstances", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				patchCallCount++
+				return false, nil, nil
+			})
+
+			err = testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			// PatchVMIStatusWithMigratedVolumes should not be called when volumes already exist
+			Expect(patchCallCount).To(Equal(0))
+		})
 	})
 })
 

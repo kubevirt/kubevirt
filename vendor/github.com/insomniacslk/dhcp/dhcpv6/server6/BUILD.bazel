@@ -59,7 +59,15 @@ go_library(
             "//vendor/github.com/insomniacslk/dhcp/interfaces:go_default_library",
             "//vendor/golang.org/x/sys/unix:go_default_library",
         ],
+        "@io_bazel_rules_go//go/platform:osx": [
+            "//vendor/github.com/insomniacslk/dhcp/interfaces:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
         "@io_bazel_rules_go//go/platform:plan9": [
+            "//vendor/github.com/insomniacslk/dhcp/interfaces:go_default_library",
+            "//vendor/golang.org/x/sys/unix:go_default_library",
+        ],
+        "@io_bazel_rules_go//go/platform:qnx": [
             "//vendor/github.com/insomniacslk/dhcp/interfaces:go_default_library",
             "//vendor/golang.org/x/sys/unix:go_default_library",
         ],

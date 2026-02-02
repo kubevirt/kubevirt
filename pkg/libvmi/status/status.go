@@ -141,6 +141,13 @@ func WithNodeName(node string) Option {
 	}
 }
 
+// WithChangedBlockTracking sets the ChangedBlockTracking
+func WithChangedBlockTracking(changedBlockTracking *v1.ChangedBlockTrackingStatus) Option {
+	return func(vmiStatus *v1.VirtualMachineInstanceStatus) {
+		vmiStatus.ChangedBlockTracking = changedBlockTracking
+	}
+}
+
 type VMOption func(vmiStatus *v1.VirtualMachineStatus)
 
 // WithStatus sets the status with specified value

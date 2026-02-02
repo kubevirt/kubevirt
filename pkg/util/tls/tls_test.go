@@ -117,7 +117,7 @@ var _ = Describe("TLS", func() {
 	})
 
 	DescribeTable("on virt-handler with self-signed CA should", func(serverSecret, clientSecret string, errStr string) {
-		serverTLSConfig := kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], false, clusterConfig)
+		serverTLSConfig := kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], false, clusterConfig, []string{"virt-handler", "migration"})
 		clientTLSConfig := kvtls.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], false)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "hello")
@@ -140,6 +140,12 @@ var _ = Describe("TLS", func() {
 		Expect(strings.TrimSpace(string(body))).To(Equal("hello"))
 	},
 		Entry(
+			"connect with migration certificate",
+			components.VirtHandlerServerCertSecretName,
+			components.VirtHandlerMigrationClientCertSecretName,
+			"",
+		),
+		Entry(
 			"connect with proper certificates",
 			components.VirtHandlerServerCertSecretName,
 			components.VirtHandlerCertSecretName,
@@ -160,7 +166,7 @@ var _ = Describe("TLS", func() {
 	)
 
 	DescribeTable("on virt-handler with externally-managed certificates should", func(serverSecret, clientSecret string, errStr string) {
-		serverTLSConfig := kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], true, clusterConfig)
+		serverTLSConfig := kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[serverSecret], true, clusterConfig, []string{"virt-handler"})
 		clientTLSConfig := kvtls.SetupTLSForVirtHandlerClients(caManager, certmanagers[clientSecret], true)
 		srv := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "hello")
@@ -362,7 +368,7 @@ var _ = Describe("TLS", func() {
 	},
 		Entry("on virt-handler",
 			func() *tls.Config {
-				return kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[components.VirtHandlerServerCertSecretName], false, clusterConfig)
+				return kvtls.SetupTLSForVirtHandlerServer(caManager, certmanagers[components.VirtHandlerServerCertSecretName], false, clusterConfig, []string{"virt-handler"})
 			},
 
 			func() *tls.Config {

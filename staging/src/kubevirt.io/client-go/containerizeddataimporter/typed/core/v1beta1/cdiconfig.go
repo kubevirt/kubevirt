@@ -21,14 +21,14 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	scheme "kubevirt.io/client-go/containerizeddataimporter/scheme"
-	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // CDIConfigsGetter has a method to return a CDIConfigInterface.
@@ -39,33 +39,34 @@ type CDIConfigsGetter interface {
 
 // CDIConfigInterface has methods to work with CDIConfig resources.
 type CDIConfigInterface interface {
-	Create(ctx context.Context, cDIConfig *v1beta1.CDIConfig, opts v1.CreateOptions) (*v1beta1.CDIConfig, error)
-	Update(ctx context.Context, cDIConfig *v1beta1.CDIConfig, opts v1.UpdateOptions) (*v1beta1.CDIConfig, error)
+	Create(ctx context.Context, cDIConfig *corev1beta1.CDIConfig, opts v1.CreateOptions) (*corev1beta1.CDIConfig, error)
+	Update(ctx context.Context, cDIConfig *corev1beta1.CDIConfig, opts v1.UpdateOptions) (*corev1beta1.CDIConfig, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, cDIConfig *v1beta1.CDIConfig, opts v1.UpdateOptions) (*v1beta1.CDIConfig, error)
+	UpdateStatus(ctx context.Context, cDIConfig *corev1beta1.CDIConfig, opts v1.UpdateOptions) (*corev1beta1.CDIConfig, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.CDIConfig, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.CDIConfigList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1beta1.CDIConfig, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1beta1.CDIConfigList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.CDIConfig, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1beta1.CDIConfig, err error)
 	CDIConfigExpansion
 }
 
 // cDIConfigs implements CDIConfigInterface
 type cDIConfigs struct {
-	*gentype.ClientWithList[*v1beta1.CDIConfig, *v1beta1.CDIConfigList]
+	*gentype.ClientWithList[*corev1beta1.CDIConfig, *corev1beta1.CDIConfigList]
 }
 
 // newCDIConfigs returns a CDIConfigs
 func newCDIConfigs(c *CdiV1beta1Client) *cDIConfigs {
 	return &cDIConfigs{
-		gentype.NewClientWithList[*v1beta1.CDIConfig, *v1beta1.CDIConfigList](
+		gentype.NewClientWithList[*corev1beta1.CDIConfig, *corev1beta1.CDIConfigList](
 			"cdiconfigs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1beta1.CDIConfig { return &v1beta1.CDIConfig{} },
-			func() *v1beta1.CDIConfigList { return &v1beta1.CDIConfigList{} }),
+			func() *corev1beta1.CDIConfig { return &corev1beta1.CDIConfig{} },
+			func() *corev1beta1.CDIConfigList { return &corev1beta1.CDIConfigList{} },
+		),
 	}
 }
