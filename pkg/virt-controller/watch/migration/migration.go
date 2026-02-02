@@ -2169,7 +2169,7 @@ func (c *Controller) garbageCollectFinalizedMigrations(vmi *virtv1.VirtualMachin
 		}
 	}
 
-	// only keep the oldest 5 finalized migration objects
+	// only keep the most recent 5 finalized migration objects
 	garbageCollectionCount := len(finalizedMigrations) - defaultFinalizedMigrationGarbageCollectionBuffer
 
 	if garbageCollectionCount <= 0 {
