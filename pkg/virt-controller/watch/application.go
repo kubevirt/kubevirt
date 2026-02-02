@@ -726,7 +726,7 @@ func (vca *VirtControllerApp) initCommon() {
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
-		netmigration.NewEvaluator(),
+		netmigration.NewEvaluator(vca.clusterConfig),
 		vca.additionalLauncherAnnotationsSync,
 		vca.additionalLauncherLabelsSync,
 	)
