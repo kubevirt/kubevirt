@@ -88,8 +88,8 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 89
-	patchCount    = 57
+	resourceCount = 91
+	patchCount    = 59
 	updateCount   = 33
 )
 
@@ -1358,6 +1358,9 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 		components.PopulateSecretWithCertificate(secret, caCert, &metav1.Duration{Duration: apply.Duration1d})
 		all = append(all, secret)
 	}
+
+	userName := fmt.Sprintf("system:serviceaccount:%s:%s", config.GetNamespace(), components.HandlerServiceAccountName)
+	all = append(all, components.NewHandlerV1ValidatingAdmissionPolicy(userName), components.NewHandlerV1ValidatingAdmissionPolicyBinding())
 
 	for _, obj := range all {
 		m := obj.(metav1.Object)
