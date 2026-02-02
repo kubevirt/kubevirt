@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["container.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/common/containers",
+    importpath = "github.com/google/cel-go/common/containers",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/google/cel-go/common/ast:go_default_library"],
+)
