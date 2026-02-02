@@ -12,18 +12,23 @@ var containerTag = ""
 const resultsDir = "/tmp/sonobuoy/results"
 
 func main() {
-	err := execute()
-	const writeFilePerms = 0o666
-	writeErr := os.WriteFile(fmt.Sprintf("%s/done", resultsDir), []byte(strings.Join([]string{resultsDir}, "\n")), writeFilePerms)
-	if writeErr != nil {
-		fmt.Printf("Failed to notify sonobuoy that I am done: %v\n", writeErr)
-		if err != nil {
-			fmt.Printf("Additionally, conformance suite failed: %v\n", err)
-		}
-		os.Exit(1)
-	}
-	if err != nil {
+	os.Exit(run())
+}
+
+func run() (exitCode int) {
+	defer writeDoneFile()
+
+	if err := execute(); err != nil {
 		fmt.Printf("Failed to execute conformance suite: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
+func writeDoneFile() {
+	const writeFilePerms = 0o666
+	if err := os.WriteFile(fmt.Sprintf("%s/done", resultsDir), []byte(strings.Join([]string{resultsDir}, "\n")), writeFilePerms); err != nil {
+		fmt.Printf("Failed to notify sonobuoy that I am done: %v\n", err)
 		os.Exit(1)
 	}
 }
