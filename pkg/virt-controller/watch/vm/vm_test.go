@@ -7291,6 +7291,217 @@ var _ = Describe("VirtualMachine", func() {
 			),
 		)
 	})
+
+	Context("isWaitAsReceiverRunStrategy", func() {
+		DescribeTable("should correctly identify WaitAsReceiver run strategy", func(vm *v1.VirtualMachine, expected bool) {
+			result := isWaitAsReceiverRunStrategy(vm)
+			Expect(result).To(Equal(expected))
+		},
+			Entry("when RunStrategy is nil", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: nil,
+				},
+			}, false),
+			Entry("when RunStrategy is Always", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyAlways),
+				},
+			}, false),
+			Entry("when RunStrategy is RerunOnFailure", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyRerunOnFailure),
+				},
+			}, false),
+			Entry("when RunStrategy is Manual", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyManual),
+				},
+			}, false),
+			Entry("when RunStrategy is Halted", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyHalted),
+				},
+			}, false),
+			Entry("when RunStrategy is WaitAsReceiver", &v1.VirtualMachine{
+				Spec: v1.VirtualMachineSpec{
+					RunStrategy: pointer.P(v1.RunStrategyWaitAsReceiver),
+				},
+			}, true),
+		)
+	})
+
+	Context("handleWaitAsReceiverVolumeInfo", func() {
+		var (
+			ctrl           *gomock.Controller
+			virtClient     *kubecli.MockKubevirtClient
+			fakeClientset  *fake.Clientset
+			pvcStore       cache.Store
+			testController *Controller
+		)
+		const ns = k8sv1.NamespaceDefault
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			fakeClientset = fake.NewSimpleClientset()
+			virtClient.EXPECT().VirtualMachineInstance(ns).Return(fakeClientset.KubevirtV1().VirtualMachineInstances(ns)).AnyTimes()
+			pvcInformer, _ := testutils.NewFakeInformerFor(&k8sv1.PersistentVolumeClaim{})
+			pvcStore = pvcInformer.GetStore()
+
+			// Create a minimal controller for testing
+			vmiInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachineInstance{}, virtcontroller.GetVMIInformerIndexers())
+			vmInformer, _ := testutils.NewFakeInformerWithIndexersFor(&v1.VirtualMachine{}, virtcontroller.GetVirtualMachineInformerIndexers())
+			dataVolumeInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
+			dataSourceInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataSource{})
+			kvInformer, _ := testutils.NewFakeInformerFor(&v1.KubeVirt{})
+			namespaceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Namespace{})
+			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, cache.Indexers{})
+
+			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			testController, _ = NewController(
+				vmiInformer,
+				vmInformer,
+				dataVolumeInformer,
+				dataSourceInformer,
+				kvInformer,
+				namespaceInformer,
+				pvcInformer,
+				crInformer,
+				record.NewFakeRecorder(100),
+				virtClient,
+				config,
+				nil,
+				nil,
+				nil,
+				nil,
+				nil,
+			)
+		})
+
+		addPVCToStore := func(name, namespace string) {
+			pvcStore.Add(&k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+				Spec: k8sv1.PersistentVolumeClaimSpec{
+					VolumeMode:  pointer.P(k8sv1.PersistentVolumeFilesystem),
+					AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+					Resources: k8sv1.VolumeResourceRequirements{
+						Requests: k8sv1.ResourceList{
+							k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+					},
+				},
+				Status: k8sv1.PersistentVolumeClaimStatus{
+					Capacity: k8sv1.ResourceList{
+						k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+					},
+				},
+			})
+		}
+
+		It("should return nil when VMI is nil", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns)))
+			err := testController.handleWaitAsReceiverVolumeInfo(vm, nil)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return nil when VMI migration is completed", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(libvmi.WithNamespace(ns)))
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				Completed: true,
+			}
+			err := testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should not return an error when GenerateReceiverMigratedVolumes has no matching PVC", func() {
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithDataVolume("disk0", "pvc-dst"),
+			))
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			err := testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should return error when PatchVMIStatusWithMigratedVolumes fails", func() {
+			addPVCToStore("pvc-dst", ns)
+
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithDataVolume("disk0", "pvc-dst"),
+			))
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			vmi, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Make the patch fail by setting up a reactor that returns an error
+			fakeClientset.PrependReactor("patch", "virtualmachineinstances", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				return true, nil, fmt.Errorf("patch failed")
+			})
+
+			err = testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("patch failed"))
+		})
+
+		It("should successfully patch VMI with migrated volumes", func() {
+			addPVCToStore("pvc-dst", ns)
+
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithDataVolume("disk0", "pvc-dst"),
+			))
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			vmi, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			err = testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify the VMI was patched with migrated volumes
+			updatedVMI, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigratedVolumes).ToNot(BeEmpty())
+			Expect(updatedVMI.Status.MigratedVolumes).To(HaveLen(1))
+			Expect(updatedVMI.Status.MigratedVolumes[0].VolumeName).To(Equal("disk0"))
+			Expect(updatedVMI.Status.MigratedVolumes[0].DestinationPVCInfo).ToNot(BeNil())
+			Expect(updatedVMI.Status.MigratedVolumes[0].DestinationPVCInfo.ClaimName).To(Equal("pvc-dst"))
+		})
+
+		It("should not patch VMI when migrated volumes already exist", func() {
+			addPVCToStore("pvc-dst", ns)
+
+			vm := libvmi.NewVirtualMachine(libvmi.New(
+				libvmi.WithNamespace(ns),
+				libvmi.WithDataVolume("disk0", "pvc-dst"),
+			))
+			vmi := libvmi.New(libvmi.WithNamespace(ns))
+			// Set migrated volumes already
+			vmi.Status.MigratedVolumes = []v1.StorageMigratedVolumeInfo{
+				{
+					VolumeName: "disk0",
+					DestinationPVCInfo: &v1.PersistentVolumeClaimInfo{
+						ClaimName: "pvc-dst",
+					},
+				},
+			}
+			vmi, err := fakeClientset.KubevirtV1().VirtualMachineInstances(ns).Create(context.TODO(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			// Track patch calls
+			patchCallCount := 0
+			fakeClientset.PrependReactor("patch", "virtualmachineinstances", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+				patchCallCount++
+				return false, nil, nil
+			})
+
+			err = testController.handleWaitAsReceiverVolumeInfo(vm, vmi)
+			Expect(err).ToNot(HaveOccurred())
+			// PatchVMIStatusWithMigratedVolumes should not be called when volumes already exist
+			Expect(patchCallCount).To(Equal(0))
+		})
+	})
 })
 
 func failVMSpecUpdate(virtFakeClient *fake.Clientset) {

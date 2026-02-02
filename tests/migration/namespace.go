@@ -716,12 +716,13 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		})
 	})
 	Context("datavolume disk", func() {
-		createBlankFromName := func(name, namespace string) *cdiv1.DataVolume {
+		createBlankFromName := func(name, namespace string, volumeMode *k8sv1.PersistentVolumeMode, size string) *cdiv1.DataVolume {
 			targetDV := libdv.NewDataVolume(
 				libdv.WithName(name),
 				libdv.WithBlankImageSource(),
 				libdv.WithStorage(
-					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+					libdv.StorageWithVolumeSize(size),
+					libdv.StorageWithVolumeMode(*volumeMode),
 				),
 			)
 			targetDV, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(namespace).Create(context.Background(), targetDV, metav1.CreateOptions{})
@@ -730,12 +731,12 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			return targetDV
 		}
 
-		It("should live migrate regular disk several times", func() {
-			var targetVM *virtv1.VirtualMachine
+		It("should live migrate block to filesystem", decorators.RequiresBlockStorage, func() {
 			sourceDV := libdv.NewDataVolume(
 				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
 				libdv.WithStorage(
 					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
 				),
 			)
 			sourceDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(sourceDV)).Create(context.Background(), sourceDV, metav1.CreateOptions{})
@@ -746,7 +747,50 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithDataVolume("disk0", sourceDV.Name),
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
+			)
+			targetVMI := sourceVMI.DeepCopy()
+			targetVMI.Namespace = testsuite.NamespaceTestAlternative
+
+			sourceVM := createAndStartVMFromVMISpec(sourceVMI)
+			Expect(sourceVM).ToNot(BeNil())
+			Expect(console.LoginToAlpine(sourceVMI)).To(Succeed())
+			migrationID := fmt.Sprintf("mig-%s", rand.String(5))
+			var sourceMigration, targetMigration *virtv1.VirtualMachineInstanceMigration
+			var expectedVMI *virtv1.VirtualMachineInstance
+
+			// The target DV disk.img is not properly created by CDI, even with the filesystem overhead it disk.img is too small with 512Mi (even though it would fit)
+			// This is a bug in CDI, and should be fixed in the future. That is why we increase the size to 564Mi to ensure it fits.
+			targetDV := createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative, pointer.P(k8sv1.PersistentVolumeFilesystem), "564Mi")
+			Expect(targetDV).ToNot(BeNil())
+			targetVM := createReceiverVMFromVMISpec(targetVMI)
+			Expect(targetVM).ToNot(BeNil())
+			sourceMigration = libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
+			targetMigration = libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
+			expectedVMI = targetVMI
+			sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
+			libmigration.ConfirmVMIPostMigration(virtClient, expectedVMI, targetMigration)
+			Expect(console.LoginToAlpine(expectedVMI)).To(Succeed())
+		})
+
+		It("should live migrate regular disk several times", decorators.RequiresBlockStorage, func() {
+			var targetVM *virtv1.VirtualMachine
+			sourceDV := libdv.NewDataVolume(
+				libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
+				libdv.WithStorage(
+					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+					libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeBlock),
+				),
+			)
+			sourceDV, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(sourceDV)).Create(context.Background(), sourceDV, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(sourceDV, 240, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
+			sourceVMI := libvmi.New(
+				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithDataVolume("disk0", sourceDV.Name),
+				libvmi.WithMemoryRequest("128Mi"),
 			)
 			targetVMI := sourceVMI.DeepCopy()
 			targetVMI.Namespace = testsuite.NamespaceTestAlternative
@@ -764,14 +808,14 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				By(fmt.Sprintf("executing a migration, and waiting for finalized state, run %d", i))
 				if i%2 == 0 {
 					// source -> target
-					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative)
+					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestAlternative, pointer.P(k8sv1.PersistentVolumeBlock), cd.AlpineVolumeSize)
 					targetVM = createReceiverVMFromVMISpec(targetVMI)
 					sourceMigration = libmigration.NewSource(sourceVMI.Name, sourceVMI.Namespace, migrationID, connectionURL)
 					targetMigration = libmigration.NewTarget(targetVMI.Name, targetVMI.Namespace, migrationID)
 					expectedVMI = targetVMI
 				} else {
 					// target -> source
-					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestDefault)
+					targetDV = createBlankFromName(sourceDV.Name, testsuite.NamespaceTestDefault, pointer.P(k8sv1.PersistentVolumeBlock), cd.AlpineVolumeSize)
 					targetVM = createReceiverVMFromVMISpec(sourceVMI)
 					sourceMigration = libmigration.NewSource(targetVMI.Name, targetVMI.Namespace, migrationID, connectionURL)
 					targetMigration = libmigration.NewTarget(sourceVMI.Name, sourceVMI.Namespace, migrationID)
