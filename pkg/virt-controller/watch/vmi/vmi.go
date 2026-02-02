@@ -198,7 +198,7 @@ type migrationEvaluator interface {
 	//   * ConditionUnknown: No action needed; the VMI should not be marked for auto-migration.
 	//   * ConditionTrue: Mark the VMI for immediate migration.
 	//   * ConditionFalse: Mark the VMI for pending migration.
-	Evaluate(vmi *virtv1.VirtualMachineInstance) k8sv1.ConditionStatus
+	Evaluate(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) k8sv1.ConditionStatus
 }
 
 type Controller struct {

@@ -45,7 +45,7 @@ var _ = Describe("Evaluator", func() {
 	multusAndDomainInfoSource := vmispec.NewInfoSource(vmispec.InfoSourceMultusStatus, vmispec.InfoSourceDomain)
 
 	DescribeTable("Should not require migration", func(vmi *v1.VirtualMachineInstance) {
-		Expect(migration.NewEvaluator().Evaluate(vmi)).To(Equal(k8scorev1.ConditionUnknown))
+		Expect(migration.NewEvaluator(stubClusterConfigurer{}).Evaluate(vmi)).To(Equal(k8scorev1.ConditionUnknown))
 	},
 		Entry("when no networks are specified",
 			libvmi.New(libvmi.WithAutoAttachPodInterface(false)),
@@ -99,7 +99,7 @@ var _ = Describe("Evaluator", func() {
 	)
 
 	DescribeTable("Should require a pending migration", func(vmi *v1.VirtualMachineInstance) {
-		Expect(migration.NewEvaluator().Evaluate(vmi)).To(Equal(k8scorev1.ConditionFalse))
+		Expect(migration.NewEvaluator(stubClusterConfigurer{}).Evaluate(vmi)).To(Equal(k8scorev1.ConditionFalse))
 	},
 		Entry("when a secondary iface using bridge binding is hotplugged",
 			libvmi.New(
@@ -161,7 +161,7 @@ var _ = Describe("Evaluator", func() {
 			),
 		)
 
-		Expect(migration.NewEvaluator().Evaluate(vmi)).To(Equal(k8scorev1.ConditionTrue))
+		Expect(migration.NewEvaluator(stubClusterConfigurer{}).Evaluate(vmi)).To(Equal(k8scorev1.ConditionTrue))
 	})
 
 	Context("Time based scenarios", func() {
@@ -193,7 +193,7 @@ var _ = Describe("Evaluator", func() {
 				return metav1.Time{Time: stubNow}
 			}
 
-			Expect(migration.NewEvaluatorWithTimeProvider(stubTimeProvider).Evaluate(vmi)).To(Equal(expectedResult))
+			Expect(migration.NewEvaluatorWithTimeProvider(stubTimeProvider, stubClusterConfigurer{}).Evaluate(vmi)).To(Equal(expectedResult))
 		},
 			Entry("Should require a pending migration when timeout hasn't expired",
 				lastTransitionTime.Add(migration.DynamicNetworkControllerGracePeriod-1*time.Second),
@@ -206,3 +206,11 @@ var _ = Describe("Evaluator", func() {
 		)
 	})
 })
+
+type stubClusterConfigurer struct {
+	isLiveUpdateNADRefEnabled bool
+}
+
+func (s stubClusterConfigurer) LiveUpdateNADRefEnabled() bool {
+	return s.isLiveUpdateNADRefEnabled
+}
