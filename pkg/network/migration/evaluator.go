@@ -20,10 +20,14 @@
 package migration
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	k8scorev1 "k8s.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/network/multus"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -44,20 +48,34 @@ const (
 
 type timeProviderFunc func() metav1.Time
 
+type clusterConfigurer interface {
+	LiveUpdateNADRefEnabled() bool
+}
+
 type Evaluator struct {
-	timeProvider timeProviderFunc
+	timeProvider      timeProviderFunc
+	clusterConfigurer clusterConfigurer
 }
 
-func NewEvaluator() Evaluator {
-	return NewEvaluatorWithTimeProvider(metav1.Now)
+func NewEvaluator(clusterConfigurer clusterConfigurer) Evaluator {
+	return NewEvaluatorWithTimeProvider(metav1.Now, clusterConfigurer)
 }
 
-func NewEvaluatorWithTimeProvider(timeProvider timeProviderFunc) Evaluator {
-	return Evaluator{timeProvider: timeProvider}
+func NewEvaluatorWithTimeProvider(timeProvider timeProviderFunc, clusterConfigurer clusterConfigurer) Evaluator {
+	return Evaluator{
+		timeProvider:      timeProvider,
+		clusterConfigurer: clusterConfigurer,
+	}
 }
 
-func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance) k8scorev1.ConditionStatus {
-	result := shouldVMIBeMarkedForAutoMigration(vmi)
+func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance,
+	pod *k8scorev1.Pod,
+) k8scorev1.ConditionStatus {
+	result := shouldVMIBeMarkedForAutoMigration(
+		vmi,
+		pod,
+		e.clusterConfigurer.LiveUpdateNADRefEnabled(),
+	)
 
 	switch result {
 	case notRequired:
@@ -78,10 +96,15 @@ func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance) k8scorev1.ConditionS
 	return k8scorev1.ConditionUnknown
 }
 
-func shouldVMIBeMarkedForAutoMigration(vmi *v1.VirtualMachineInstance) migrationRequirementKind {
+func shouldVMIBeMarkedForAutoMigration(
+	vmi *v1.VirtualMachineInstance,
+	pod *k8scorev1.Pod,
+	isLiveUpdateNADRefEnabled bool,
+) migrationRequirementKind {
 	ifaces := vmi.Spec.Domain.Devices.Interfaces
 	nets := vmi.Spec.Networks
 	ifaceStatuses := vmi.Status.Interfaces
+	namespace := vmi.Namespace
 
 	secondaryIfaces := vmispec.FilterInterfacesByNetworks(
 		ifaces,
@@ -89,6 +112,8 @@ func shouldVMIBeMarkedForAutoMigration(vmi *v1.VirtualMachineInstance) migration
 	)
 
 	ifaceStatusesByName := vmispec.IndexInterfaceStatusByName(ifaceStatuses, nil)
+	netsByName := vmispec.IndexNetworkSpecByName(nets)
+	netStatusByPodIfaceName := multus.NetworkStatusesByPodIfaceName(multus.NetworkStatusesFromPod(pod))
 
 	for _, iface := range secondaryIfaces {
 		ifaceStatus, ifaceStatusExists := ifaceStatusesByName[iface.Name]
@@ -99,6 +124,26 @@ func shouldVMIBeMarkedForAutoMigration(vmi *v1.VirtualMachineInstance) migration
 
 		if result := shouldMigrateOnIfaceUnplug(iface, ifaceStatus, ifaceStatusExists); result != notRequired {
 			return result
+		}
+
+		if !isLiveUpdateNADRefEnabled {
+			continue
+		}
+
+		net := netsByName[iface.Name]
+
+		podIfaceName := ifaceStatus.PodInterfaceName
+		if podIfaceName == "" {
+			continue
+		}
+
+		podNetStatus, exists := netStatusByPodIfaceName[podIfaceName]
+		if !exists {
+			continue
+		}
+
+		if !isNADNameEqual(net.Multus.NetworkName, podNetStatus.Name, namespace) {
+			return immediateMigration
 		}
 	}
 	return notRequired
@@ -127,6 +172,17 @@ func shouldMigrateOnIfaceUnplug(
 		return pendingMigration
 	}
 	return notRequired
+}
+
+func isNADNameEqual(nameFromVMISpec, nameFromPodNetworkStatus, vmiNamespace string) bool {
+	if nameFromVMISpec == nameFromPodNetworkStatus {
+		return true
+	}
+	if !strings.Contains(nameFromVMISpec, "/") {
+		vmiNADNameWithNamespace := fmt.Sprintf("%s/%s", vmiNamespace, nameFromVMISpec)
+		return vmiNADNameWithNamespace == nameFromPodNetworkStatus
+	}
+	return false
 }
 
 func lookupMigrationRequiredCondition(conditions []v1.VirtualMachineInstanceCondition) *v1.VirtualMachineInstanceCondition {
