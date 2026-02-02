@@ -2,14 +2,18 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
 )
 
-var containerTag = ""
-
-const resultsDir = "/tmp/sonobuoy/results"
+var (
+	containerTag           = ""
+	resultsDir             = "/tmp/sonobuoy/results"
+	executeFunc            = execute
+	output       io.Writer = os.Stdout
+)
 
 func main() {
 	os.Exit(run())
@@ -18,8 +22,8 @@ func main() {
 func run() (exitCode int) {
 	defer writeDoneFile()
 
-	if err := execute(); err != nil {
-		fmt.Printf("Failed to execute conformance suite: %v\n", err)
+	if err := executeFunc(); err != nil {
+		fmt.Fprintf(output, "Failed to execute conformance suite: %v\n", err)
 		return 1
 	}
 	return 0
@@ -28,7 +32,7 @@ func run() (exitCode int) {
 func writeDoneFile() {
 	const writeFilePerms = 0o666
 	if err := os.WriteFile(fmt.Sprintf("%s/done", resultsDir), []byte(strings.Join([]string{resultsDir}, "\n")), writeFilePerms); err != nil {
-		fmt.Printf("Failed to notify sonobuoy that I am done: %v\n", err)
+		fmt.Fprintf(output, "Failed to notify sonobuoy that I am done: %v\n", err)
 		os.Exit(1)
 	}
 }
