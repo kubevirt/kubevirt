@@ -21,6 +21,7 @@ package hardware
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,6 +36,13 @@ import (
 
 const (
 	PCI_ADDRESS_PATTERN = `^([\da-fA-F]{4}):([\da-fA-F]{2}):([\da-fA-F]{2})\.([0-7]{1})$`
+)
+
+const (
+	PCIDeviceBasePath  = "/sys/bus/pci/devices"
+	MDevDeviceBasePath = "/sys/bus/mdev/devices"
+
+	IOMMUFDPath = "/dev/iommu"
 )
 
 // Parse linux cpuset into an array of ints
@@ -177,4 +185,15 @@ func LookupDeviceVCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]
 		}
 	}
 	return alignedVCPUList, nil
+}
+
+func IOMMUFDExists() (bool, error) {
+	_, err := os.Stat(IOMMUFDPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
