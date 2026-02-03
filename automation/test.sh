@@ -65,6 +65,7 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
     export KUBEVIRT_DEPLOY_CDI=false
     export KUBEVIRT_DEPLOY_ISTIO=true
+    export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
     ;;
   *sig-storage*)
