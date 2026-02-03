@@ -35,9 +35,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libkubevirt/config"
@@ -55,10 +53,6 @@ var _ = Describe(SIGSerial("tls configuration", func() {
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
-
-		if !checks.HasFeature(featuregate.VMExportGate) {
-			Fail(fmt.Sprintf(`Cluster has the %q featuregate disabled, skipping  the tests`, featuregate.VMExportGate))
-		}
 
 		kvConfig := libkubevirt.GetCurrentKv(virtClient).Spec.Configuration.DeepCopy()
 		kvConfig.TLSConfiguration = &v1.TLSConfiguration{
