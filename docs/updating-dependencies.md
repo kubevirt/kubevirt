@@ -11,21 +11,20 @@ staging area will be inherited by the main go.mod when running `make
 deps-update`.
 To update k8s dependencies please follow [update-k8s-dependencies](update-k8s-dependencies.md)
 
-## Updating RPM test dependencies
+## Updating RPM dependencies
 
-We can build our own base images for various architectures with bazel without
-the need of machines of that architecture. Out test container base images is
-defined at this [BUILD.bazel](../images/BUILD.bazel). If you need to add new RPMs
-into the  test base image, you can simply add the RPM package to
-[hack/rpm-deps.sh](../hack/rpm-deps.sh) and run `make rpm-deps` afterwards.
+We can build container images for various architectures using native tools.
+RPM dependencies are managed through JSON lock files in [rpm-lockfiles/](../rpm-lockfiles/).
+
+If you need to add new RPMs, modify [hack/rpm-packages.sh](../hack/rpm-packages.sh) 
+and run `make rpm-deps` afterwards.
 
 `make rpm-deps` can periodically be run to just update to the latest RPM
-packages. The resolved RPMs are then added to the [WORKSPACE](../WORKSPACE) and
-the `rpmtree` targets in [rpm/BUILD.bazel](../rpm/BUILD.bazel) are updated.
-Finally no longer needed RPM definitions are removed from the WORKSPACE.  The
-updated `rpmtree` dependencies are the base for the test image containers.
+packages. The resolved RPMs are saved to JSON lock files in the `rpm-lockfiles/`
+directory. These lock files contain the exact package versions and SHA256
+checksums for reproducible builds.
 
-To update the RPM repositories in use, change [repo.yaml](../repo.yaml).
+To update the RPM repositories in use, change [rpm/repo.yaml](../rpm/repo.yaml).
 
 This is an example entry for Fedora 32 on `aarch64`:
 
@@ -52,42 +51,24 @@ COPR repo:
   name: kubevirt/libvirt-copr-x86_64
 ```
 
-More information can be found at [bazeldnf](https://github.com/rmohr/bazeldnf).
-
 ## Updating libvirt and libvirt-devel RPM dependencies
 
 Works the same way like for the RPM test dependencies.
 
 ## Verifying RPMs
 
-`bazeldnf` does some initial checks based on sha256. Notably the metalink,
-repomd.xml and the packages XML are verified.  These checks happen whenever
-`make rpm-deps` is run. However, since we have no guarantee to still have the
-same RPMs available on subsequent runs, it is hard to check based on this the
-validity of the content in CI. RPM repos use therefore GPG signing to verify
-the origin of the content.
+The native RPM freeze tool performs SHA256 verification on all downloaded packages.
+These checksums are stored in the JSON lock files and verified during container
+image builds.
 
-Therefore, local and CI verification based on gpg keys can be performend by
-executing the `make verify-rpm-deps` command.
+Local and CI verification can be performed by executing the `make verify-rpm-deps` command.
 
 ## Onboarding new architectures
 
-* Create architecture specific entries in [repo.yaml](../repo.yaml) and
-[hack/rpm-deps.sh](../hack/rpm-deps.sh).
-* Adjust the select clauses on all container entries to choose the right
-  target architecture and the right base image.
-* Add architecture specific entries to [.bazelrc](../.bazelrc)
-* Running `make rpm-deps` requires a sandbox enviroment, which is also updated from the previous command. You need to either run the command on an already onboarded architecture or updating the sandbox manually, by sourcing the variables from `hack/rpm-deps.sh` and running the bazeldnf command.
-```
-bazeldnf rpmtree \
-        --public --nobest \
-        --name sandboxroot_s390x --arch s390x \
-        --basesystem ${BASESYSTEM} \
-        ${bazeldnf_repos} \
-        $centos_main \
-        $centos_extra \
-        $sandboxroot_main
-```
+* Create architecture specific entries in [rpm/repo.yaml](../rpm/repo.yaml) and
+[hack/rpm-packages.sh](../hack/rpm-packages.sh).
+* Add architecture-specific Containerfiles in the [build/](../build/) directory.
+* Run `make rpm-deps` to generate lock files for the new architecture.
 
 For x86_64 libvirt-devel dependencies exist for linking and unit-testing.
 Updating or adding such targets for other architectures is only necessary if

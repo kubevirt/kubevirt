@@ -115,9 +115,8 @@ The lowest bar for acceptable **coding styles** is enforced via automation:
 * [shfmt](https://github.com/mvdan/sh) to enforce a common coding style for bash scripts.
 
 The lowest bar for acceptable golang **coding standards** (anti-patterns, coding errors, ...) is enforce via automation:
-* [nogo](https://github.com/bazelbuild/rules_go/blob/master/go/nogo.rst) from
-  bazel is used and applies a [huge set](https://github.com/kubevirt/kubevirt/blob/main/nogo_config.json) of code
-  analyzers when one builds kubevirt. If a check fails the build fails.
+* [golangci-lint](https://golangci-lint.run/) is used and applies a set of code
+  analyzers when building kubevirt. If a check fails the build fails.
 
 The lowest **testing bar** to pass:
 * New code requires new unit tests.

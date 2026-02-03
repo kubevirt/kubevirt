@@ -1,0 +1,153 @@
+{
+  "schema_version": "1.0",
+  "architecture": "s390x",
+  "package_set": "passt_tree",
+  "generated": "2026-02-03T12:54:10Z",
+  "generator": "rpm-freeze-native.sh",
+  "packages": [
+    {
+      "name": "basesystem",
+      "epoch": "0",
+      "version": "11",
+      "release": "13.el9",
+      "arch": "noarch",
+      "sha256": "a7a687ef39dd28d01d34fab18ea7e3e87f649f6c202dded82260b7ea625b9973",
+      "filename": "basesystem-11-13.el9.noarch.rpm"
+    },
+    {
+      "name": "bash",
+      "epoch": "0",
+      "version": "5.1.8",
+      "release": "9.el9",
+      "arch": "s390x",
+      "sha256": "7f69429a343d53be5f3390e0e6032869c33cf1e9e344ee1448a4ec2998dc9d9e",
+      "filename": "bash-5.1.8-9.el9.s390x.rpm"
+    },
+    {
+      "name": "centos-gpg-keys",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "77e4a14370a63fc7b42d5dd7953654d9ae791a8a41e2388788559d65182da8fb",
+      "filename": "centos-gpg-keys-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-stream-release",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "1c9986cabdf106cae20bc548d11aec1af6446ed670c6226b38a2b0383493c184",
+      "filename": "centos-stream-release-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-stream-repos",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "23f3d6d63dd948cf2b0b4ebb5562ccc0facca73bed907db9056fd3d42fdefa29",
+      "filename": "centos-stream-repos-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "filesystem",
+      "epoch": "0",
+      "version": "3.16",
+      "release": "5.el9",
+      "arch": "s390x",
+      "sha256": "67a733fe124cda9da89f6946757800c0fe73b918a477adcf67dfbef15c995729",
+      "filename": "filesystem-3.16-5.el9.s390x.rpm"
+    },
+    {
+      "name": "glibc",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "s390x",
+      "sha256": "b0682a36512f5e61724aba0e1af041481454ee23d290e5978f3e5016615ef962",
+      "filename": "glibc-2.34-245.el9.s390x.rpm"
+    },
+    {
+      "name": "glibc-common",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "s390x",
+      "sha256": "2d58050c2282d9961bdf565a86e175fc14161369dc4a0631d491a23250b22990",
+      "filename": "glibc-common-2.34-245.el9.s390x.rpm"
+    },
+    {
+      "name": "glibc-langpack-et",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "s390x",
+      "sha256": "20ac69cd23a3184d4bfcf9a1cc09492bcba055f91c8f1bd14a65cd283d13a5cd",
+      "filename": "glibc-langpack-et-2.34-245.el9.s390x.rpm"
+    },
+    {
+      "name": "glibc-minimal-langpack",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "s390x",
+      "sha256": "a325deb26609c8f9746e9143f8a3a1d993cd5acf707ba5870e75353fedc87d15",
+      "filename": "glibc-minimal-langpack-2.34-245.el9.s390x.rpm"
+    },
+    {
+      "name": "libgcc",
+      "epoch": "0",
+      "version": "11.5.0",
+      "release": "14.el9",
+      "arch": "s390x",
+      "sha256": "6ccddf8ec532ddc49d7b857ad46cb5404efc30a1ba2d4af575db77c402efdb8e",
+      "filename": "libgcc-11.5.0-14.el9.s390x.rpm"
+    },
+    {
+      "name": "ncurses-base",
+      "epoch": "0",
+      "version": "6.2",
+      "release": "12.20210508.el9",
+      "arch": "noarch",
+      "sha256": "49f6470fa7dd1b3ba81ccdd0547b29953af2835e067de915eeca3c45d5faa339",
+      "filename": "ncurses-base-6.2-12.20210508.el9.noarch.rpm"
+    },
+    {
+      "name": "ncurses-libs",
+      "epoch": "0",
+      "version": "6.2",
+      "release": "12.20210508.el9",
+      "arch": "s390x",
+      "sha256": "d2a6307a398b9cde8f0a83fff92c3b31f5f6c4c15f911f64ff84168a7cd060a4",
+      "filename": "ncurses-libs-6.2-12.20210508.el9.s390x.rpm"
+    },
+    {
+      "name": "passt",
+      "epoch": "0",
+      "version": "0^20250512.g8ec1341",
+      "release": "2.el9",
+      "arch": "s390x",
+      "sha256": "ee4e4896389277f09db8e3a112e83e83be80d1401b43a9993137c12c004bdafc",
+      "filename": "passt-0^20250512.g8ec1341-2.el9.s390x.rpm"
+    },
+    {
+      "name": "setup",
+      "epoch": "0",
+      "version": "2.13.7",
+      "release": "10.el9",
+      "arch": "noarch",
+      "sha256": "42a1c5a415c44e3b55551f49595c087e2ba55f0fd9ece8056b791983601b76d2",
+      "filename": "setup-2.13.7-10.el9.noarch.rpm"
+    },
+    {
+      "name": "tzdata",
+      "epoch": "0",
+      "version": "2025c",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "a7a70f4e8aa1473153235900a76753aef8f43a4c21eb869012bf4b065cc8b932",
+      "filename": "tzdata-2025c-1.el9.noarch.rpm"
+    }
+  ]
+}

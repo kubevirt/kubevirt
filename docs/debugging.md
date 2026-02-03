@@ -96,8 +96,7 @@ Compile the required go [cmd](https://github.com/kubevirt/kubevirt/tree/main/cmd
 a debuggable binary.  
 Validate that it is in fact debuggable by running `file <binary file>` and expect to see `with debug_info, not stripped`
 in the output.
-For `Bazel` based build, add `--@io_bazel_rules_go//go/config:gc_goopts=-N,-l --strip=never` to the bazel 
-build command.
+For native Go build, add `-gcflags='all=-N -l'` to the go build command.
 Build a container image, with the compiled binary and publish to a registry that is accessible to the cluster
 consider adding `dlv` executable to the image for step 2
 ### Step 2 - modify workload manifest to consume debug container image and execute delve

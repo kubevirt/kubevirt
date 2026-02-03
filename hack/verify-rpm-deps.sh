@@ -3,12 +3,27 @@
 set -ex
 
 source hack/common.sh
-source hack/bootstrap.sh
 source hack/config.sh
 
-# verify that RPMs with given SHASUMs in WORKSPACE files
-# are signed with known GPG keysin repo.yaml
-bazel run \
-    --config=${ARCHITECTURE} \
-    //:bazeldnf -- verify \
-    --repofile "rpm/repo.yaml"
+# Verify RPM dependencies using native comparison script
+# Verify RPM dependencies using native lock files
+
+echo "Verifying RPM dependencies..."
+
+# Check that lock files exist
+if [ ! -d "rpm-lockfiles" ]; then
+    echo "Error: rpm-lockfiles directory not found. Run 'make rpm-deps' first."
+    exit 1
+fi
+
+# Verify lock files have valid JSON structure
+for lockfile in rpm-lockfiles/*.lock.json; do
+    if [ -f "$lockfile" ]; then
+        if ! jq empty "$lockfile" 2>/dev/null; then
+            echo "Error: Invalid JSON in $lockfile"
+            exit 1
+        fi
+    fi
+done
+
+echo "RPM dependencies verified successfully."

@@ -2,7 +2,6 @@
 set -e
 
 # Source common without doing any bootstrap work at this stage
-# Bootstrapping should be done inside the build container
 source $(dirname "$0")/common.sh
 
 if [ "${KUBEVIRT_RUN_UNNESTED}" == "true" ]; then
@@ -39,7 +38,7 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 
 TEMPFILE=".rsynctemp"
 
-CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY} --env KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL}"
+CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY}"
 
 # Create the persistent container volume
 if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then
@@ -95,17 +94,11 @@ _rsync() {
 # Copy kubevirt into the persistent container volume
 _rsync \
     --delete \
-    --exclude 'bazel-bin' \
-    --exclude 'bazel-genfiles' \
-    --exclude 'bazel-kubevirt' \
-    --exclude 'bazel-out' \
-    --exclude 'bazel-testlogs' \
     --exclude 'kubevirtci/cluster-up/cluster/**/.kubectl' \
     --exclude 'kubevirtci/cluster-up/cluster/**/.oc' \
     --exclude 'kubevirtci/cluster-up/cluster/**/.kubeconfig' \
     --exclude "_out" \
     --exclude ".vagrant" \
-    --exclude ".bazeldnf" \
     ${KUBEVIRT_DIR}/ \
     "rsync://root@127.0.0.1:${RSYNCD_PORT}/build"
 
@@ -138,30 +131,16 @@ if [ -n "$ARTIFACTS" ]; then
     fi
 fi
 
-# Ensure that a bazel server which is running is the correct one
-if [ -n "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
-    # check if the image is correct
-    builder_id=$($KUBEVIRT_CRI inspect --format='{{.Id}}' ${KUBEVIRT_BUILDER_IMAGE})
-    bazel_server_id=$($KUBEVIRT_CRI inspect --format='{{.Image}}' ${BUILDER}-bazel-server)
-    if [ "${builder_id}" != "${bazel_server_id}" ]; then
-        echo "Bazel server is outdated, restarting ..."
-        $KUBEVIRT_CRI stop ${BUILDER}-bazel-server
-    fi
-fi
-
-# Ensure that a bazel server is running
-if [ -z "$($KUBEVIRT_CRI ps --format '{{.Names}}' | grep ${BUILDER}-bazel-server)" ]; then
-    $KUBEVIRT_CRI run ${CONTAINER_ENV} --ulimit nofile=10000:10000 --network host -d ${volumes} --security-opt "label=disable" --name ${BUILDER}-bazel-server -w "/root/go/src/kubevirt.io/kubevirt" --rm ${KUBEVIRT_BUILDER_IMAGE} hack/bazel-server.sh
-fi
-
-# Update cert trust, if custom is provided
-if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
-    $KUBEVIRT_CRI exec ${CONTAINER_ENV} ${BUILDER}-bazel-server /entrypoint.sh "/usr/bin/update-ca-trust"
-fi
-
-# Run the command
+# Run the command in a one-off container
 test -t 1 && USE_TTY="-it"
-if ! $KUBEVIRT_CRI exec ${CONTAINER_ENV} ${USE_TTY} ${BUILDER}-bazel-server /entrypoint.sh "$@"; then
+
+# Update cert trust if custom CA is provided
+if [ -n "$DOCKER_CA_CERT_FILE" ] && [ -f "$DOCKER_CA_CERT_FILE" ]; then
+    $KUBEVIRT_CRI run ${CONTAINER_ENV} --rm ${volumes} --security-opt "label=disable" -w "/root/go/src/kubevirt.io/kubevirt" ${KUBEVIRT_BUILDER_IMAGE} /entrypoint.sh "/usr/bin/update-ca-trust"
+fi
+
+# Run the actual command
+if ! $KUBEVIRT_CRI run ${CONTAINER_ENV} ${USE_TTY} --rm ${volumes} --security-opt "label=disable" -w "/root/go/src/kubevirt.io/kubevirt" ${KUBEVIRT_BUILDER_IMAGE} /entrypoint.sh "$@"; then
     # Copy the build output out of the container, make sure that _out exactly matches the build result
     if [ "$SYNC_OUT" = "true" ]; then
         _rsync --delete "rsync://root@127.0.0.1:${RSYNCD_PORT}/out" ${OUT_DIR}
@@ -171,11 +150,6 @@ fi
 
 # Copy the whole kubevirt data out to get generated sources and formatting changes
 _rsync \
-    --exclude 'bazel-bin' \
-    --exclude 'bazel-genfiles' \
-    --exclude 'bazel-kubevirt' \
-    --exclude 'bazel-out' \
-    --exclude 'bazel-testlogs' \
     --exclude 'kubevirtci/cluster-up/cluster/**/.kubectl' \
     --exclude 'kubevirtci/cluster-up/cluster/**/.oc' \
     --exclude 'kubevirtci/cluster-up/cluster/**/.kubeconfig' \
@@ -183,7 +157,6 @@ _rsync \
     --exclude "vendor" \
     --exclude ".vagrant" \
     --exclude ".git" \
-    --exclude ".bazeldnf" \
     "rsync://root@127.0.0.1:${RSYNCD_PORT}/build" \
     ${KUBEVIRT_DIR}/
 

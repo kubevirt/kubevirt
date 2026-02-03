@@ -231,4 +231,4 @@ mockgen -source pkg/handler-launcher-com/notify/info/info.pb.go -package=info -d
 mockgen -source pkg/handler-launcher-com/cmd/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/cmd/info/generated_mock_info.go
 mockgen -source pkg/handler-launcher-com/cmd/v1/cmd.pb.go -package=v1 -destination=pkg/handler-launcher-com/cmd/v1/generated_mock_cmd.go
 
-${KUBEVIRT_DIR}/hack/bazel-race.sh
+# Using native Go build

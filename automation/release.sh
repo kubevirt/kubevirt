@@ -42,7 +42,7 @@ function build_release_artifacts() {
     make olm-verify
     make prom-rules-verify
 
-    BUILD_ARCH="${BUILD_ARCH}" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make bazel-push-images
+    BUILD_ARCH="${BUILD_ARCH}" QUAY_REPOSITORY="kubevirt" PACKAGE_NAME="kubevirt-operatorhub" make push
 
     make build-functests
 }

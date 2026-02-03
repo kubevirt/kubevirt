@@ -26,7 +26,6 @@ export WORKSPACE="${WORKSPACE:-$PWD}"
 export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
 readonly TEMPLATES_SERVER="gs://kubevirt-vm-images"
-readonly BAZEL_CACHE="${BAZEL_CACHE:-http://bazel-cache.kubevirt-prow.svc.cluster.local:8080/kubevirt.io/kubevirt}"
 
 source hack/config-default.sh
 
@@ -285,13 +284,10 @@ collect_debug_logs() {
 }
 
 build_images() {
-    # build all images with the basic repeat logic
-    # probably because load on the node, possible situation when the bazel
-    # fails to download artifacts, to avoid job fails because of it,
-    # we repeat the build images action
+    # build all images with retry logic
     local tries=3
     for i in $(seq 1 $tries); do
-        make bazel-build-images && return
+        make build-images && return
         rc=$?
     done
 
@@ -333,12 +329,6 @@ if [ "$CI" != "true" ]; then
   make cluster-down
 fi
 
-# Create .bazelrc to use 4 jobs, remote cache and disable progress output
-cat >ci.bazelrc <<EOF
-build --jobs=4
-build --remote_download_toplevel
-build --noshow_progress
-EOF
 
 # Build and test images with a custom image name prefix
 export IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT:-kv-}

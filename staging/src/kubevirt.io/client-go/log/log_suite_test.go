@@ -29,7 +29,7 @@ func TestLogging(t *testing.T) {
 
 	suiteConfig, _ := GinkgoConfiguration()
 
-	// if run on bazel (XML_OUTPUT_FILE is not empty)
+	// if XML_OUTPUT_FILE is set
 	// and rules_go is configured to not produce the junit xml
 	// produce it here. Otherwise just run the default RunSpec
 	if testsWrapped == "0" && outputFile != "" {

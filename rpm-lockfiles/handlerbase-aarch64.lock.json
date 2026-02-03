@@ -1,0 +1,1080 @@
+{
+  "schema_version": "1.0",
+  "architecture": "aarch64",
+  "package_set": "handlerbase",
+  "generated": "2026-02-03T12:57:48Z",
+  "generator": "rpm-freeze-native.sh",
+  "packages": [
+    {
+      "name": "acl",
+      "epoch": "0",
+      "version": "2.3.1",
+      "release": "4.el9",
+      "arch": "aarch64",
+      "sha256": "a0a9b302d252d32c0da8100a0ad762852c22eeac4ccad0aaf72ad68a2bbd7a93",
+      "filename": "acl-2.3.1-4.el9.aarch64.rpm"
+    },
+    {
+      "name": "alternatives",
+      "epoch": "0",
+      "version": "1.24",
+      "release": "2.el9",
+      "arch": "aarch64",
+      "sha256": "3b8d0d6154ccc1047474072afc94cc1f72b7c234d8cd4e50734c67ca67da4161",
+      "filename": "alternatives-1.24-2.el9.aarch64.rpm"
+    },
+    {
+      "name": "audit-libs",
+      "epoch": "0",
+      "version": "3.1.5",
+      "release": "8.el9",
+      "arch": "aarch64",
+      "sha256": "83af8b9a4dd0539f10ffda2ee09fe4a93eaf45fb12a3fc4aaea5899025f12cac",
+      "filename": "audit-libs-3.1.5-8.el9.aarch64.rpm"
+    },
+    {
+      "name": "basesystem",
+      "epoch": "0",
+      "version": "11",
+      "release": "13.el9",
+      "arch": "noarch",
+      "sha256": "a7a687ef39dd28d01d34fab18ea7e3e87f649f6c202dded82260b7ea625b9973",
+      "filename": "basesystem-11-13.el9.noarch.rpm"
+    },
+    {
+      "name": "bash",
+      "epoch": "0",
+      "version": "5.1.8",
+      "release": "9.el9",
+      "arch": "aarch64",
+      "sha256": "acb782e8dacd2f3efb25d0b8b1b64c59b8a60a84fc86a4fca88ede1affc68f4c",
+      "filename": "bash-5.1.8-9.el9.aarch64.rpm"
+    },
+    {
+      "name": "bzip2-libs",
+      "epoch": "0",
+      "version": "1.0.8",
+      "release": "11.el9",
+      "arch": "aarch64",
+      "sha256": "fafc0f2b7632774d4c07264c73eebbe52f815b4c81056bd44b944e5255cb20bb",
+      "filename": "bzip2-libs-1.0.8-11.el9.aarch64.rpm"
+    },
+    {
+      "name": "ca-certificates",
+      "epoch": "0",
+      "version": "2025.2.80_v9.0.305",
+      "release": "91.el9",
+      "arch": "noarch",
+      "sha256": "489fdf258344892412ff2f10d0c1c849c45d5a15c4628abda33f325a42dd1bb0",
+      "filename": "ca-certificates-2025.2.80_v9.0.305-91.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-gpg-keys",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "77e4a14370a63fc7b42d5dd7953654d9ae791a8a41e2388788559d65182da8fb",
+      "filename": "centos-gpg-keys-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-stream-release",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "1c9986cabdf106cae20bc548d11aec1af6446ed670c6226b38a2b0383493c184",
+      "filename": "centos-stream-release-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-stream-repos",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "23f3d6d63dd948cf2b0b4ebb5562ccc0facca73bed907db9056fd3d42fdefa29",
+      "filename": "centos-stream-repos-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "coreutils-single",
+      "epoch": "0",
+      "version": "8.32",
+      "release": "39.el9",
+      "arch": "aarch64",
+      "sha256": "ff8039cbb4fc624462abb4f556535fff128c99685834f6137db564d1b5a24c95",
+      "filename": "coreutils-single-8.32-39.el9.aarch64.rpm"
+    },
+    {
+      "name": "cracklib",
+      "epoch": "0",
+      "version": "2.9.6",
+      "release": "28.el9",
+      "arch": "aarch64",
+      "sha256": "78dbd83e4de7c011dedc8071af056989dece25dae7605eb60703b219ebbeadc1",
+      "filename": "cracklib-2.9.6-28.el9.aarch64.rpm"
+    },
+    {
+      "name": "cracklib-dicts",
+      "epoch": "0",
+      "version": "2.9.6",
+      "release": "28.el9",
+      "arch": "aarch64",
+      "sha256": "3b449db83d1a649b93eff386e098ab01f24028b106827d9fef899abc99818b15",
+      "filename": "cracklib-dicts-2.9.6-28.el9.aarch64.rpm"
+    },
+    {
+      "name": "crypto-policies",
+      "epoch": "0",
+      "version": "20251126",
+      "release": "1.gite9c4db2.el9",
+      "arch": "noarch",
+      "sha256": "38c1e40b477795017996db0683b72004a4810d88a320ae0554e6736b118c5c9a",
+      "filename": "crypto-policies-20251126-1.gite9c4db2.el9.noarch.rpm"
+    },
+    {
+      "name": "curl-minimal",
+      "epoch": "0",
+      "version": "7.76.1",
+      "release": "38.el9",
+      "arch": "aarch64",
+      "sha256": "1d3c6c9e7c30fccf05cd480dbc0774d724d68f9f225f0e969be07f9d3d3f1cf2",
+      "filename": "curl-minimal-7.76.1-38.el9.aarch64.rpm"
+    },
+    {
+      "name": "diffutils",
+      "epoch": "0",
+      "version": "3.7",
+      "release": "12.el9",
+      "arch": "aarch64",
+      "sha256": "4fea2be2558981a55a569cc7b93f17afce86bba830ebce32a0aa320e4759293e",
+      "filename": "diffutils-3.7-12.el9.aarch64.rpm"
+    },
+    {
+      "name": "elfutils-libelf",
+      "epoch": "0",
+      "version": "0.194",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "ac9cc272659364f6b60f3754b25fedb2e9aa1f8a3fd91eebde5f4e75ecc8510e",
+      "filename": "elfutils-libelf-0.194-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "filesystem",
+      "epoch": "0",
+      "version": "3.16",
+      "release": "5.el9",
+      "arch": "aarch64",
+      "sha256": "c20f1ab9760a8ba5f2d9cb37d7e8fa27f49f91a21a46fe7ad648ff6caf237013",
+      "filename": "filesystem-3.16-5.el9.aarch64.rpm"
+    },
+    {
+      "name": "findutils",
+      "epoch": "1",
+      "version": "4.8.0",
+      "release": "7.el9",
+      "arch": "aarch64",
+      "sha256": "de9914a265a46cc629f7423ef5f53deefc7044a9c46acb941d9ca0dc6bfc73f8",
+      "filename": "findutils-4.8.0-7.el9.aarch64.rpm"
+    },
+    {
+      "name": "fips-provider-next",
+      "epoch": "0",
+      "version": "1.2.0",
+      "release": "7.el9",
+      "arch": "aarch64",
+      "sha256": "e8c9fcd61b0ade060233a0c9755b8ca59705838844bddebef0ab5cd48fbaab9e",
+      "filename": "fips-provider-next-1.2.0-7.el9.aarch64.rpm"
+    },
+    {
+      "name": "gawk",
+      "epoch": "0",
+      "version": "5.1.0",
+      "release": "6.el9",
+      "arch": "aarch64",
+      "sha256": "656d23c583b0705eaad75cffbe880f2ec39c7d5b7a756c6a8853c2977eec331b",
+      "filename": "gawk-5.1.0-6.el9.aarch64.rpm"
+    },
+    {
+      "name": "glib2",
+      "epoch": "0",
+      "version": "2.68.4",
+      "release": "19.el9",
+      "arch": "aarch64",
+      "sha256": "5fc2f7510779708b553a13fc5f0de31fcfe384ce318295a8b9d3cc496b99905c",
+      "filename": "glib2-2.68.4-19.el9.aarch64.rpm"
+    },
+    {
+      "name": "glibc",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "aarch64",
+      "sha256": "bf6a0f12d012662ae124aa18ed00d4f270709cda83bd60b16f6a93138bcd1e50",
+      "filename": "glibc-2.34-245.el9.aarch64.rpm"
+    },
+    {
+      "name": "glibc-common",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "aarch64",
+      "sha256": "4645238ef9126cd91fd4ff37fc681693479779de7cf14fae852605caf9423156",
+      "filename": "glibc-common-2.34-245.el9.aarch64.rpm"
+    },
+    {
+      "name": "glibc-minimal-langpack",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "aarch64",
+      "sha256": "0b208faa1cefdafb7a71544746f0d858696d3c2e60861858c145098836ff3aa3",
+      "filename": "glibc-minimal-langpack-2.34-245.el9.aarch64.rpm"
+    },
+    {
+      "name": "gmp",
+      "epoch": "1",
+      "version": "6.2.0",
+      "release": "13.el9",
+      "arch": "aarch64",
+      "sha256": "01716c2de2af5ddce80cfc2f81fbcabe50670583f8d3ebf8af1058982edb9c70",
+      "filename": "gmp-6.2.0-13.el9.aarch64.rpm"
+    },
+    {
+      "name": "gnutls",
+      "epoch": "0",
+      "version": "3.8.10",
+      "release": "2.el9",
+      "arch": "aarch64",
+      "sha256": "497c98aabb3f0059fda2eea80aa7eb4ff73e138be4ef977e51948f2fa05dd5ef",
+      "filename": "gnutls-3.8.10-2.el9.aarch64.rpm"
+    },
+    {
+      "name": "grep",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "5.el9",
+      "arch": "aarch64",
+      "sha256": "33bdf571a62cb8b7d659617e9278e46043aa936f8e963202750d19463a805f60",
+      "filename": "grep-3.6-5.el9.aarch64.rpm"
+    },
+    {
+      "name": "gzip",
+      "epoch": "0",
+      "version": "1.12",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "5a39a441dad01ccc8af601f1cca5bed46ac231fbdbe39ea3202bd54cf9390d81",
+      "filename": "gzip-1.12-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "iproute",
+      "epoch": "0",
+      "version": "6.17.0",
+      "release": "2.el9",
+      "arch": "aarch64",
+      "sha256": "d388c9ac3e1ab6fdc97227710f35243bf63de4a4aa818222aa8f3fe241e8a9ae",
+      "filename": "iproute-6.17.0-2.el9.aarch64.rpm"
+    },
+    {
+      "name": "iptables-libs",
+      "epoch": "0",
+      "version": "1.8.10",
+      "release": "11.el9",
+      "arch": "aarch64",
+      "sha256": "097df125f6836f5dbdce2f3e961a649cd2e15b5f2a8164267c7c98b281ab60e4",
+      "filename": "iptables-libs-1.8.10-11.el9.aarch64.rpm"
+    },
+    {
+      "name": "jansson",
+      "epoch": "0",
+      "version": "2.14",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "23a8033dae909a6b87db199e04ecbc9798820b1b939e12d51733fed4554b9279",
+      "filename": "jansson-2.14-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "keyutils-libs",
+      "epoch": "0",
+      "version": "1.6.3",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "5d97ee3ed28533eb2ea01a6be97696fbbbc72f8178dcf7f1acf30e674a298a6e",
+      "filename": "keyutils-libs-1.6.3-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "krb5-libs",
+      "epoch": "0",
+      "version": "1.21.1",
+      "release": "8.el9",
+      "arch": "aarch64",
+      "sha256": "7671147fe79cb1fa2fd011cee451be325a8e4aca6290ff67eb9e4d01f0c1edfd",
+      "filename": "krb5-libs-1.21.1-8.el9.aarch64.rpm"
+    },
+    {
+      "name": "libacl",
+      "epoch": "0",
+      "version": "2.3.1",
+      "release": "4.el9",
+      "arch": "aarch64",
+      "sha256": "90e4392e312cd793eeba4cd68bd12836a882ac37356c784806d67a0cd1d48c25",
+      "filename": "libacl-2.3.1-4.el9.aarch64.rpm"
+    },
+    {
+      "name": "libaio",
+      "epoch": "0",
+      "version": "0.3.111",
+      "release": "13.el9",
+      "arch": "aarch64",
+      "sha256": "1730d732818fa2471b5cd461175ceda18e909410db8a32185d8db2aa7461130c",
+      "filename": "libaio-0.3.111-13.el9.aarch64.rpm"
+    },
+    {
+      "name": "libarchive",
+      "epoch": "0",
+      "version": "3.5.3",
+      "release": "6.el9",
+      "arch": "aarch64",
+      "sha256": "737b5493221fbebb7d6578de00ccf9ee29a2685ef6cb6bc4705a4680384b63ae",
+      "filename": "libarchive-3.5.3-6.el9.aarch64.rpm"
+    },
+    {
+      "name": "libatomic",
+      "epoch": "0",
+      "version": "11.5.0",
+      "release": "14.el9",
+      "arch": "aarch64",
+      "sha256": "9111ad5dcd16ac04ee06dbedbc730bdf438d58f1f16af2de5cd3cdb3e346efbe",
+      "filename": "libatomic-11.5.0-14.el9.aarch64.rpm"
+    },
+    {
+      "name": "libattr",
+      "epoch": "0",
+      "version": "2.5.1",
+      "release": "3.el9",
+      "arch": "aarch64",
+      "sha256": "a0101ccea66aef376f4067c1002ebdfb5dbeeecd334047459b3855eff17a6fda",
+      "filename": "libattr-2.5.1-3.el9.aarch64.rpm"
+    },
+    {
+      "name": "libblkid",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "aarch64",
+      "sha256": "ddbde77138e33d01fe88e275f351f8f31754eb26ac5665190437049e867f2b17",
+      "filename": "libblkid-2.37.4-21.el9.aarch64.rpm"
+    },
+    {
+      "name": "libbpf",
+      "epoch": "2",
+      "version": "1.5.0",
+      "release": "3.el9",
+      "arch": "aarch64",
+      "sha256": "1aee4e44b6e5b6b0b888c2d994367efaa4c729521c925baef2e9f96c29813fa1",
+      "filename": "libbpf-1.5.0-3.el9.aarch64.rpm"
+    },
+    {
+      "name": "libburn",
+      "epoch": "0",
+      "version": "1.5.4",
+      "release": "5.el9",
+      "arch": "aarch64",
+      "sha256": "acaf7cc4d8f4926e8a7560af50c0e3248c75dea0ce95d8f0fe48d62088375695",
+      "filename": "libburn-1.5.4-5.el9.aarch64.rpm"
+    },
+    {
+      "name": "libcap",
+      "epoch": "0",
+      "version": "2.48",
+      "release": "10.el9",
+      "arch": "aarch64",
+      "sha256": "7159fe4c1e6be9c8324632bfabcbc86ad8b7cb5105acb0b8a5c35774c93470f2",
+      "filename": "libcap-2.48-10.el9.aarch64.rpm"
+    },
+    {
+      "name": "libcap-ng",
+      "epoch": "0",
+      "version": "0.8.2",
+      "release": "7.el9",
+      "arch": "aarch64",
+      "sha256": "1dfa7208abe1af5522523cabdabb73783ed1df4424dc8846eab8a570d010deaa",
+      "filename": "libcap-ng-0.8.2-7.el9.aarch64.rpm"
+    },
+    {
+      "name": "libcom_err",
+      "epoch": "0",
+      "version": "1.46.5",
+      "release": "8.el9",
+      "arch": "aarch64",
+      "sha256": "7bf194e4f69e548566ff21b178ae1f47d5e00f064bfa492616e4dd42f812f2a7",
+      "filename": "libcom_err-1.46.5-8.el9.aarch64.rpm"
+    },
+    {
+      "name": "libcurl-minimal",
+      "epoch": "0",
+      "version": "7.76.1",
+      "release": "38.el9",
+      "arch": "aarch64",
+      "sha256": "3875300de7f37b3711aa53508c11547141e7e415020ec397377328c90a978271",
+      "filename": "libcurl-minimal-7.76.1-38.el9.aarch64.rpm"
+    },
+    {
+      "name": "libdb",
+      "epoch": "0",
+      "version": "5.3.28",
+      "release": "57.el9",
+      "arch": "aarch64",
+      "sha256": "32cfcb3dbd040c206ead6aae6bb3378246af95ab2c7ba18a9db7ec0cec649f34",
+      "filename": "libdb-5.3.28-57.el9.aarch64.rpm"
+    },
+    {
+      "name": "libeconf",
+      "epoch": "0",
+      "version": "0.4.1",
+      "release": "5.el9",
+      "arch": "aarch64",
+      "sha256": "40675233785bf5ffc0e97cd559efd2e9f4b8b8c392013bb6c9441c6e01b332d6",
+      "filename": "libeconf-0.4.1-5.el9.aarch64.rpm"
+    },
+    {
+      "name": "libfdisk",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "aarch64",
+      "sha256": "e8c908711f60ab15256f368ee1a5d9b4570e2c19139ec52bb73876d379f98f7a",
+      "filename": "libfdisk-2.37.4-21.el9.aarch64.rpm"
+    },
+    {
+      "name": "libffi",
+      "epoch": "0",
+      "version": "3.4.2",
+      "release": "8.el9",
+      "arch": "aarch64",
+      "sha256": "da6d3f1b21c23a97e61c35fde044aca5bc9f1097ffdcb387759f544c61548301",
+      "filename": "libffi-3.4.2-8.el9.aarch64.rpm"
+    },
+    {
+      "name": "libgcc",
+      "epoch": "0",
+      "version": "11.5.0",
+      "release": "14.el9",
+      "arch": "aarch64",
+      "sha256": "ed0598c9cb4f10406c662d17ac2367eeba1e207683953410146927bba3d92c46",
+      "filename": "libgcc-11.5.0-14.el9.aarch64.rpm"
+    },
+    {
+      "name": "libgcrypt",
+      "epoch": "0",
+      "version": "1.10.0",
+      "release": "11.el9",
+      "arch": "aarch64",
+      "sha256": "932bfe51b207e2ad8a0bd2b89e2fb33df73f3993586aaa4cc60576f57795e4db",
+      "filename": "libgcrypt-1.10.0-11.el9.aarch64.rpm"
+    },
+    {
+      "name": "libgpg-error",
+      "epoch": "0",
+      "version": "1.42",
+      "release": "5.el9",
+      "arch": "aarch64",
+      "sha256": "ffeb04823b5317c7e016542c8ecc5180c7824f8b59a180f2434fd096a34a9105",
+      "filename": "libgpg-error-1.42-5.el9.aarch64.rpm"
+    },
+    {
+      "name": "libidn2",
+      "epoch": "0",
+      "version": "2.3.0",
+      "release": "7.el9",
+      "arch": "aarch64",
+      "sha256": "6ed96112059449aa37b99d4d4e3b5d089c34afefbd9b618691bed8c206c4d441",
+      "filename": "libidn2-2.3.0-7.el9.aarch64.rpm"
+    },
+    {
+      "name": "libisoburn",
+      "epoch": "0",
+      "version": "1.5.4",
+      "release": "5.el9",
+      "arch": "aarch64",
+      "sha256": "1a81eca953e8c268f4c7e9fe41b81589c056888649924d9717215fefefe2f4d6",
+      "filename": "libisoburn-1.5.4-5.el9.aarch64.rpm"
+    },
+    {
+      "name": "libisofs",
+      "epoch": "0",
+      "version": "1.5.4",
+      "release": "4.el9",
+      "arch": "aarch64",
+      "sha256": "0f4c8376add266f01328ea001c580ef9258c0ce39c26906226871c934a159e88",
+      "filename": "libisofs-1.5.4-4.el9.aarch64.rpm"
+    },
+    {
+      "name": "libmnl",
+      "epoch": "0",
+      "version": "1.0.4",
+      "release": "16.el9",
+      "arch": "aarch64",
+      "sha256": "c4d87c6439aa762891b024c0213df47af50e5b0683ffd827013bd02882d7d9b3",
+      "filename": "libmnl-1.0.4-16.el9.aarch64.rpm"
+    },
+    {
+      "name": "libmount",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "aarch64",
+      "sha256": "84c61be8eee5f148ece4b17cab7b9774bd4e5e51377ff459c278dadc99d733d6",
+      "filename": "libmount-2.37.4-21.el9.aarch64.rpm"
+    },
+    {
+      "name": "libnetfilter_conntrack",
+      "epoch": "0",
+      "version": "1.0.9",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "6871a3371b5a9a8239606efd453b59b274040e9d8d8f0c18bdffa7264db64264",
+      "filename": "libnetfilter_conntrack-1.0.9-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "libnfnetlink",
+      "epoch": "0",
+      "version": "1.0.1",
+      "release": "23.el9",
+      "arch": "aarch64",
+      "sha256": "8b261a1555fd3b299c8b16d7c1159c726ec17dbd78d5217dbc6e69099f01c6cb",
+      "filename": "libnfnetlink-1.0.1-23.el9.aarch64.rpm"
+    },
+    {
+      "name": "libnftnl",
+      "epoch": "0",
+      "version": "1.2.6",
+      "release": "4.el9",
+      "arch": "aarch64",
+      "sha256": "59f6d922f5540479c088120d411d2ca3cdb4e5ddf6fe8fc05dbd796b9e36ecd3",
+      "filename": "libnftnl-1.2.6-4.el9.aarch64.rpm"
+    },
+    {
+      "name": "libnghttp2",
+      "epoch": "0",
+      "version": "1.43.0",
+      "release": "6.el9",
+      "arch": "aarch64",
+      "sha256": "b9c3685701dc2ad11adac83055811bb8c4909bd73469f31953ef7d534c747b83",
+      "filename": "libnghttp2-1.43.0-6.el9.aarch64.rpm"
+    },
+    {
+      "name": "libpwquality",
+      "epoch": "0",
+      "version": "1.4.4",
+      "release": "8.el9",
+      "arch": "aarch64",
+      "sha256": "3c22a268ce022cb4722aa2d35a95c1174778f424fbf29e98990801651d468aeb",
+      "filename": "libpwquality-1.4.4-8.el9.aarch64.rpm"
+    },
+    {
+      "name": "libselinux",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "3.el9",
+      "arch": "aarch64",
+      "sha256": "42b6190d9e4ea6019059991f50965ac6267012343241f0cc64fd24c6e20aaa2a",
+      "filename": "libselinux-3.6-3.el9.aarch64.rpm"
+    },
+    {
+      "name": "libselinux-utils",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "3.el9",
+      "arch": "aarch64",
+      "sha256": "5e028899301316df30d03631e7d317c3236fea0f5138c799b055560676f991eb",
+      "filename": "libselinux-utils-3.6-3.el9.aarch64.rpm"
+    },
+    {
+      "name": "libsemanage",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "5.el9",
+      "arch": "aarch64",
+      "sha256": "f5402c7056dc92ea2e52ad436c6eece8c18040ac77141e5f0ffe01eea209dfe7",
+      "filename": "libsemanage-3.6-5.el9.aarch64.rpm"
+    },
+    {
+      "name": "libsepol",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "3.el9",
+      "arch": "aarch64",
+      "sha256": "2cd63ed497af8a202c79790b04362ba224b50ec7c377abb21901160e4000e07d",
+      "filename": "libsepol-3.6-3.el9.aarch64.rpm"
+    },
+    {
+      "name": "libsigsegv",
+      "epoch": "0",
+      "version": "2.13",
+      "release": "4.el9",
+      "arch": "aarch64",
+      "sha256": "097399718ae50fb03fde85fa151c060c50445a1a5af185052cac6b92d6fdcdae",
+      "filename": "libsigsegv-2.13-4.el9.aarch64.rpm"
+    },
+    {
+      "name": "libsmartcols",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "aarch64",
+      "sha256": "022b23b2500972666db40ab9d5278ca704c54600e8443dea8e327910afa5b411",
+      "filename": "libsmartcols-2.37.4-21.el9.aarch64.rpm"
+    },
+    {
+      "name": "libtasn1",
+      "epoch": "0",
+      "version": "4.16.0",
+      "release": "9.el9",
+      "arch": "aarch64",
+      "sha256": "7b99e8f1081ba2c511021b666b9f8176abb31168920e86c392cd45299f400b59",
+      "filename": "libtasn1-4.16.0-9.el9.aarch64.rpm"
+    },
+    {
+      "name": "libunistring",
+      "epoch": "0",
+      "version": "0.9.10",
+      "release": "15.el9",
+      "arch": "aarch64",
+      "sha256": "09381b23c9d2343592b8b565dcbb23d055999ab1e521aa802b6d40a682b80e42",
+      "filename": "libunistring-0.9.10-15.el9.aarch64.rpm"
+    },
+    {
+      "name": "liburing",
+      "epoch": "0",
+      "version": "2.12",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "7b99b8c28e8cf9a7d355231207e6151cc3b98cd722682359fff41737744d35d0",
+      "filename": "liburing-2.12-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "libutempter",
+      "epoch": "0",
+      "version": "1.2.1",
+      "release": "6.el9",
+      "arch": "aarch64",
+      "sha256": "65cd8c3813afc69dd2ea9eeb6e2fc7db4a7d626b51efe376b8000dfdaa10402a",
+      "filename": "libutempter-1.2.1-6.el9.aarch64.rpm"
+    },
+    {
+      "name": "libuuid",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "aarch64",
+      "sha256": "9ef80033bf2bbba7aca3a8f789a48a7597f2113271c6da9d9f71bca213aae259",
+      "filename": "libuuid-2.37.4-21.el9.aarch64.rpm"
+    },
+    {
+      "name": "libverto",
+      "epoch": "0",
+      "version": "0.3.2",
+      "release": "3.el9",
+      "arch": "aarch64",
+      "sha256": "1190ea8310b0dab3ebbade3180b4c2cf7064e90c894e5415711d7751e709be8a",
+      "filename": "libverto-0.3.2-3.el9.aarch64.rpm"
+    },
+    {
+      "name": "libxcrypt",
+      "epoch": "0",
+      "version": "4.4.18",
+      "release": "3.el9",
+      "arch": "aarch64",
+      "sha256": "f697d91abb19e9be9b69b8836a802711d2cf7989af27a4e1ba261f35ce53b8b5",
+      "filename": "libxcrypt-4.4.18-3.el9.aarch64.rpm"
+    },
+    {
+      "name": "libxml2",
+      "epoch": "0",
+      "version": "2.9.13",
+      "release": "14.el9",
+      "arch": "aarch64",
+      "sha256": "f62d552977c2b1d53cc4f6d4e9ea91fa7c0351dcd3a5bec8ceb7f91bc1157aaf",
+      "filename": "libxml2-2.9.13-14.el9.aarch64.rpm"
+    },
+    {
+      "name": "libzstd",
+      "epoch": "0",
+      "version": "1.5.5",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "49fb3a1052d9f50abb9ad3f0ab4ed186b2c0bb51fcb04883702fbc362d116108",
+      "filename": "libzstd-1.5.5-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "lua-libs",
+      "epoch": "0",
+      "version": "5.4.4",
+      "release": "4.el9",
+      "arch": "aarch64",
+      "sha256": "bd72283eb56206de91a71b1b7dbdcca1201fdaea4a08faf7b92d8ef9a600a88a",
+      "filename": "lua-libs-5.4.4-4.el9.aarch64.rpm"
+    },
+    {
+      "name": "lz4-libs",
+      "epoch": "0",
+      "version": "1.9.3",
+      "release": "5.el9",
+      "arch": "aarch64",
+      "sha256": "9aa14d26393dd46c0a390cf04f939f7f759a33165bdb506f8bee0653f3b70f45",
+      "filename": "lz4-libs-1.9.3-5.el9.aarch64.rpm"
+    },
+    {
+      "name": "mpfr",
+      "epoch": "0",
+      "version": "4.1.0",
+      "release": "8.el9",
+      "arch": "aarch64",
+      "sha256": "d2e205e6a97983668a7228316a32c9ef0246ee267efa65d2399a05bab5315c86",
+      "filename": "mpfr-4.1.0-8.el9.aarch64.rpm"
+    },
+    {
+      "name": "ncurses-base",
+      "epoch": "0",
+      "version": "6.2",
+      "release": "12.20210508.el9",
+      "arch": "noarch",
+      "sha256": "49f6470fa7dd1b3ba81ccdd0547b29953af2835e067de915eeca3c45d5faa339",
+      "filename": "ncurses-base-6.2-12.20210508.el9.noarch.rpm"
+    },
+    {
+      "name": "ncurses-libs",
+      "epoch": "0",
+      "version": "6.2",
+      "release": "12.20210508.el9",
+      "arch": "aarch64",
+      "sha256": "7b61d1dab8d4113a6ad015c083ac3053ec9db1f2503527d547ba7c741d54e57a",
+      "filename": "ncurses-libs-6.2-12.20210508.el9.aarch64.rpm"
+    },
+    {
+      "name": "nettle",
+      "epoch": "0",
+      "version": "3.10.1",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "caf6dda4eaf3c7e3061ec335d45176ebfcaa72ed583df59c32c9dffc00a24ad9",
+      "filename": "nettle-3.10.1-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "nftables",
+      "epoch": "1",
+      "version": "1.0.9",
+      "release": "6.el9",
+      "arch": "aarch64",
+      "sha256": "961be61924e53a0e1f6c7cb70c2687eb8dbe131cacbef3c4d335c0df46f402a4",
+      "filename": "nftables-1.0.9-6.el9.aarch64.rpm"
+    },
+    {
+      "name": "numactl-libs",
+      "epoch": "0",
+      "version": "2.0.19",
+      "release": "3.el9",
+      "arch": "aarch64",
+      "sha256": "ff63cef9b42cbc82149a6bc6970c20c9e781016dbb3eadd03effa330cb3b2bdd",
+      "filename": "numactl-libs-2.0.19-3.el9.aarch64.rpm"
+    },
+    {
+      "name": "openssl",
+      "epoch": "1",
+      "version": "3.5.5",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "9614ff011d01a53615fc9a05ab29de503af3576ea8aaadfb6f7405a1c60b5755",
+      "filename": "openssl-3.5.5-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "openssl-fips-provider",
+      "epoch": "1",
+      "version": "3.5.5",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "e59ea0883ea57fe2b6c5d2ea52cafa8183a95fc83e0be7bd72ab4e4517f41588",
+      "filename": "openssl-fips-provider-3.5.5-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "openssl-libs",
+      "epoch": "1",
+      "version": "3.5.5",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "2814ed29cf7d61164f9a0fdfa02ecf6f3d98b1341146effca29441ec2b0341bd",
+      "filename": "openssl-libs-3.5.5-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "p11-kit",
+      "epoch": "0",
+      "version": "0.26.1",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "f790f2827555acb4c0cc019b99bc0005817e0ddcd6b6be757dad28a2a9c39f46",
+      "filename": "p11-kit-0.26.1-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "p11-kit-trust",
+      "epoch": "0",
+      "version": "0.26.1",
+      "release": "1.el9",
+      "arch": "aarch64",
+      "sha256": "5ea23e25e968ea2c40b485c64fe894100558dceb84a0ec796ad3196d58472077",
+      "filename": "p11-kit-trust-0.26.1-1.el9.aarch64.rpm"
+    },
+    {
+      "name": "pam",
+      "epoch": "0",
+      "version": "1.5.1",
+      "release": "28.el9",
+      "arch": "aarch64",
+      "sha256": "598477ca76dadefb1c80d4322c2b074aac54d9ecf3d717353641b939147d8caa",
+      "filename": "pam-1.5.1-28.el9.aarch64.rpm"
+    },
+    {
+      "name": "pcre",
+      "epoch": "0",
+      "version": "8.44",
+      "release": "4.el9",
+      "arch": "aarch64",
+      "sha256": "dc5d71786a68cfa15f49aecd12e90de7af7489a2d0a4d102be38a9faf0c99ae8",
+      "filename": "pcre-8.44-4.el9.aarch64.rpm"
+    },
+    {
+      "name": "pcre2",
+      "epoch": "0",
+      "version": "10.40",
+      "release": "6.el9",
+      "arch": "aarch64",
+      "sha256": "c13e323c383bd5bbe3415701aa21a56b3fefc32d96e081e91c012ef692c78599",
+      "filename": "pcre2-10.40-6.el9.aarch64.rpm"
+    },
+    {
+      "name": "pcre2-syntax",
+      "epoch": "0",
+      "version": "10.40",
+      "release": "6.el9",
+      "arch": "noarch",
+      "sha256": "be36a84f6e311a59190664d61a466471391ab01fb77bd1d2348e9a76414aded4",
+      "filename": "pcre2-syntax-10.40-6.el9.noarch.rpm"
+    },
+    {
+      "name": "policycoreutils",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "4.el9",
+      "arch": "aarch64",
+      "sha256": "a64fba72ab38a6df91dad495e0fd8c90ff7a814c5852115894fe9d493e40b2da",
+      "filename": "policycoreutils-3.6-4.el9.aarch64.rpm"
+    },
+    {
+      "name": "popt",
+      "epoch": "0",
+      "version": "1.18",
+      "release": "8.el9",
+      "arch": "aarch64",
+      "sha256": "032427adaa37d2a1c6d2f3cab42ccbdce2c6d9b3c1f3cd91c05a92c99198babb",
+      "filename": "popt-1.18-8.el9.aarch64.rpm"
+    },
+    {
+      "name": "procps-ng",
+      "epoch": "0",
+      "version": "3.3.17",
+      "release": "14.el9",
+      "arch": "aarch64",
+      "sha256": "a79af64966d8bf303d3bd14396df577826f082679f3acdfeaf1bb9a9048be6fb",
+      "filename": "procps-ng-3.3.17-14.el9.aarch64.rpm"
+    },
+    {
+      "name": "psmisc",
+      "epoch": "0",
+      "version": "23.4",
+      "release": "3.el9",
+      "arch": "aarch64",
+      "sha256": "4ad245b41ebf13cbabbb2962fad8d4aa0db7c75eb2171a4235252ad48e81a680",
+      "filename": "psmisc-23.4-3.el9.aarch64.rpm"
+    },
+    {
+      "name": "qemu-img",
+      "epoch": "17",
+      "version": "10.1.0",
+      "release": "10.el9",
+      "arch": "aarch64",
+      "sha256": "b3c671a12649fcba7d3874ac0e0c0afc270a3faeef9c1a790c97befd38a30872",
+      "filename": "qemu-img-10.1.0-10.el9.aarch64.rpm"
+    },
+    {
+      "name": "readline",
+      "epoch": "0",
+      "version": "8.1",
+      "release": "4.el9",
+      "arch": "aarch64",
+      "sha256": "2ecec47a882ff434cc869b691a7e1e8d7639bc1af44bcb214ff4921f675776aa",
+      "filename": "readline-8.1-4.el9.aarch64.rpm"
+    },
+    {
+      "name": "rpm",
+      "epoch": "0",
+      "version": "4.16.1.3",
+      "release": "40.el9",
+      "arch": "aarch64",
+      "sha256": "75e4d04e5712c50d717088642fd23adb9ea62c9662a159c740375510c8f30a47",
+      "filename": "rpm-4.16.1.3-40.el9.aarch64.rpm"
+    },
+    {
+      "name": "rpm-libs",
+      "epoch": "0",
+      "version": "4.16.1.3",
+      "release": "40.el9",
+      "arch": "aarch64",
+      "sha256": "aeddcc0609d5a2faa1206148be2514becc210a5422e7eb6be7a9a159c1e910ff",
+      "filename": "rpm-libs-4.16.1.3-40.el9.aarch64.rpm"
+    },
+    {
+      "name": "rpm-plugin-selinux",
+      "epoch": "0",
+      "version": "4.16.1.3",
+      "release": "40.el9",
+      "arch": "aarch64",
+      "sha256": "19ce6961dfec6e9f818d633e3730c0990b14411757eeb17139d2a1ee71e1c785",
+      "filename": "rpm-plugin-selinux-4.16.1.3-40.el9.aarch64.rpm"
+    },
+    {
+      "name": "sed",
+      "epoch": "0",
+      "version": "4.8",
+      "release": "9.el9",
+      "arch": "aarch64",
+      "sha256": "cfdec0f026af984c11277ae613f16af7a86ea6170aac3da495a027599fdc8e3d",
+      "filename": "sed-4.8-9.el9.aarch64.rpm"
+    },
+    {
+      "name": "selinux-policy",
+      "epoch": "0",
+      "version": "38.1.72",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "ed12eb7ddf97e0ad215e38d00cd178cc90e138f5b3a04caecd879eb9fa8ec55c",
+      "filename": "selinux-policy-38.1.72-1.el9.noarch.rpm"
+    },
+    {
+      "name": "selinux-policy-targeted",
+      "epoch": "0",
+      "version": "38.1.72",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "3510a7455015f12f9b5fe053154dd765bdc94d65a651a9e64593a9ba2939a5e5",
+      "filename": "selinux-policy-targeted-38.1.72-1.el9.noarch.rpm"
+    },
+    {
+      "name": "setup",
+      "epoch": "0",
+      "version": "2.13.7",
+      "release": "10.el9",
+      "arch": "noarch",
+      "sha256": "42a1c5a415c44e3b55551f49595c087e2ba55f0fd9ece8056b791983601b76d2",
+      "filename": "setup-2.13.7-10.el9.noarch.rpm"
+    },
+    {
+      "name": "shadow-utils",
+      "epoch": "2",
+      "version": "4.9",
+      "release": "16.el9",
+      "arch": "aarch64",
+      "sha256": "085a4d0d20ee46e72564939e92533fbf4c049658c58d4e7cc075d5da5baa7098",
+      "filename": "shadow-utils-4.9-16.el9.aarch64.rpm"
+    },
+    {
+      "name": "sqlite-libs",
+      "epoch": "0",
+      "version": "3.34.1",
+      "release": "9.el9",
+      "arch": "aarch64",
+      "sha256": "115fbe01cb007257cbd277bb83e63eb211dd244f10e150e5e71b3edca68181c6",
+      "filename": "sqlite-libs-3.34.1-9.el9.aarch64.rpm"
+    },
+    {
+      "name": "systemd-libs",
+      "epoch": "0",
+      "version": "252",
+      "release": "64.el9",
+      "arch": "aarch64",
+      "sha256": "e48bfbd29f6a1412de603e0cb5d9ac6d46515360841c1b8421c8e2b4871e3d04",
+      "filename": "systemd-libs-252-64.el9.aarch64.rpm"
+    },
+    {
+      "name": "tar",
+      "epoch": "2",
+      "version": "1.34",
+      "release": "10.el9",
+      "arch": "aarch64",
+      "sha256": "84831858ad6cef9cbbb5aa63b383e399e71b7309ddd3e0bbba42b80738f9822e",
+      "filename": "tar-1.34-10.el9.aarch64.rpm"
+    },
+    {
+      "name": "tzdata",
+      "epoch": "0",
+      "version": "2025c",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "a7a70f4e8aa1473153235900a76753aef8f43a4c21eb869012bf4b065cc8b932",
+      "filename": "tzdata-2025c-1.el9.noarch.rpm"
+    },
+    {
+      "name": "util-linux",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "aarch64",
+      "sha256": "434fe9c8a283246524ced5b6637ef2f95ad0e1ab20cbeabc582592b30f69b0b8",
+      "filename": "util-linux-2.37.4-21.el9.aarch64.rpm"
+    },
+    {
+      "name": "util-linux-core",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "aarch64",
+      "sha256": "1066ec56c02d69030fb95b0749f8d21e7748449ffa95bba4fb0e12ec938ca1d8",
+      "filename": "util-linux-core-2.37.4-21.el9.aarch64.rpm"
+    },
+    {
+      "name": "vim-minimal",
+      "epoch": "2",
+      "version": "8.2.2637",
+      "release": "23.el9",
+      "arch": "aarch64",
+      "sha256": "68ab78b16338b49d9669b484c38ee5c09dd4b2901d5aba5d818152b2af4faf2e",
+      "filename": "vim-minimal-8.2.2637-23.el9.aarch64.rpm"
+    },
+    {
+      "name": "xorriso",
+      "epoch": "0",
+      "version": "1.5.4",
+      "release": "5.el9",
+      "arch": "aarch64",
+      "sha256": "e9413affb36cac66415d4a3c6ab0a787f96c0ab2ebeac84d5336a98f286156ba",
+      "filename": "xorriso-1.5.4-5.el9.aarch64.rpm"
+    },
+    {
+      "name": "xz-libs",
+      "epoch": "0",
+      "version": "5.2.5",
+      "release": "8.el9",
+      "arch": "aarch64",
+      "sha256": "99784163a31515239be42e68608478b8337fd168cdb12bcba31de9dd78e35a25",
+      "filename": "xz-libs-5.2.5-8.el9.aarch64.rpm"
+    },
+    {
+      "name": "zlib",
+      "epoch": "0",
+      "version": "1.2.11",
+      "release": "41.el9",
+      "arch": "aarch64",
+      "sha256": "c50e107cdd35460294852d99c954296e0e833d37852a1be1e2aaea2f1b48f9d2",
+      "filename": "zlib-1.2.11-41.el9.aarch64.rpm"
+    }
+  ]
+}

@@ -2,15 +2,12 @@ FROM quay.io/centos/centos:stream9
 
 ARG ARCH
 ARG SONOBUOY_ARCH
-ARG BAZEL_ARCH
 
-ENV BAZEL_VERSION=6.5.0
 ENV GIMME_GO_VERSION=1.24.9
 ENV OPERATOR_COURIER_VERSION=2.1.11
 ENV SONOBUOY_VERSION=0.56.9
 ENV GOLANGCI_LINT_VERSION=v2.2.2
 
-ENV KUBEVIRT_CREATE_BAZELRCS=false
 
 # Install packages
 RUN dnf install -y dnf-plugins-core && \
@@ -54,10 +51,7 @@ RUN gem install asciidoctor
 # Generates Asciidoc files from swagger.json
 ADD https://storage.googleapis.com/builddeps/swagger2markup-cli-1.3.3.jar /opt/swagger2markup-cli/swagger2markup-cli-1.3.3.jar
 
-# Necessary for Bazel to find Python inside the container
-#
-# https://github.com/bazelbuild/bazel/issues/8665
-# https://github.com/bazelbuild/bazel/issues/11554
+# Python symlink for compatibility
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
 ENV JAVA_HOME=/usr/lib/jvm/java-11
@@ -125,13 +119,6 @@ RUN set -x && \
 COPY rsyncd.conf /etc/rsyncd.conf
 
 COPY entrypoint.sh /entrypoint.sh
-
-COPY create_bazel_cache_rcs.sh /create_bazel_cache_rcs.sh
-
-RUN if test "${ARCH}" != "s390x"; then \
-       curl -L -o /usr/bin/bazel https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-linux-${BAZEL_ARCH} && \
-       chmod u+x /usr/bin/bazel; \
-    fi
 
 # Add /root/go/src/kubevirt.io/kubevirt and mark it as a safe directory for git
 RUN mkdir -p /root/go/src/kubevirt.io/kubevirt && git config --global --add safe.directory /root/go/src/kubevirt.io/kubevirt

@@ -1,9 +1,0 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "go_default_library",
-    srcs = ["testing.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/virtctl/testing",
-    visibility = ["//visibility:public"],
-    deps = ["//pkg/virtctl:go_default_library"],
-)

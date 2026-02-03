@@ -1,0 +1,558 @@
+{
+  "schema_version": "1.0",
+  "architecture": "x86_64",
+  "package_set": "sidecar-shim",
+  "generated": "2026-02-03T12:28:50Z",
+  "generator": "rpm-freeze-native.sh",
+  "packages": [
+    {
+      "name": "acl",
+      "epoch": "0",
+      "version": "2.3.1",
+      "release": "4.el9",
+      "arch": "x86_64",
+      "sha256": "dd11bab2ea0abdfa310362eace871422a003340bf223135626500f8f5a985f6b",
+      "filename": "acl-2.3.1-4.el9.x86_64.rpm"
+    },
+    {
+      "name": "alternatives",
+      "epoch": "0",
+      "version": "1.24",
+      "release": "2.el9",
+      "arch": "x86_64",
+      "sha256": "1e9effe6f59312207b55f87eaded01e8f238622ad14018ffd33ef49e9ce8d4c6",
+      "filename": "alternatives-1.24-2.el9.x86_64.rpm"
+    },
+    {
+      "name": "basesystem",
+      "epoch": "0",
+      "version": "11",
+      "release": "13.el9",
+      "arch": "noarch",
+      "sha256": "a7a687ef39dd28d01d34fab18ea7e3e87f649f6c202dded82260b7ea625b9973",
+      "filename": "basesystem-11-13.el9.noarch.rpm"
+    },
+    {
+      "name": "bash",
+      "epoch": "0",
+      "version": "5.1.8",
+      "release": "9.el9",
+      "arch": "x86_64",
+      "sha256": "823859a9e8fad83004fa0d9f698ff223f6f7d38fd8e7629509d98b5ba6764c03",
+      "filename": "bash-5.1.8-9.el9.x86_64.rpm"
+    },
+    {
+      "name": "bzip2-libs",
+      "epoch": "0",
+      "version": "1.0.8",
+      "release": "11.el9",
+      "arch": "x86_64",
+      "sha256": "e1f4ca1a16276a6ede5f67cab8d8d2920b98531419af7498f5fded85835e0fca",
+      "filename": "bzip2-libs-1.0.8-11.el9.x86_64.rpm"
+    },
+    {
+      "name": "ca-certificates",
+      "epoch": "0",
+      "version": "2025.2.80_v9.0.305",
+      "release": "91.el9",
+      "arch": "noarch",
+      "sha256": "489fdf258344892412ff2f10d0c1c849c45d5a15c4628abda33f325a42dd1bb0",
+      "filename": "ca-certificates-2025.2.80_v9.0.305-91.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-gpg-keys",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "77e4a14370a63fc7b42d5dd7953654d9ae791a8a41e2388788559d65182da8fb",
+      "filename": "centos-gpg-keys-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-stream-release",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "1c9986cabdf106cae20bc548d11aec1af6446ed670c6226b38a2b0383493c184",
+      "filename": "centos-stream-release-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-stream-repos",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "23f3d6d63dd948cf2b0b4ebb5562ccc0facca73bed907db9056fd3d42fdefa29",
+      "filename": "centos-stream-repos-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "coreutils-single",
+      "epoch": "0",
+      "version": "8.32",
+      "release": "39.el9",
+      "arch": "x86_64",
+      "sha256": "09f7d8250c478a2931678063068adb8fccd2048d29fe9df31ca4e12c68f2ec7a",
+      "filename": "coreutils-single-8.32-39.el9.x86_64.rpm"
+    },
+    {
+      "name": "crypto-policies",
+      "epoch": "0",
+      "version": "20251126",
+      "release": "1.gite9c4db2.el9",
+      "arch": "noarch",
+      "sha256": "38c1e40b477795017996db0683b72004a4810d88a320ae0554e6736b118c5c9a",
+      "filename": "crypto-policies-20251126-1.gite9c4db2.el9.noarch.rpm"
+    },
+    {
+      "name": "curl-minimal",
+      "epoch": "0",
+      "version": "7.76.1",
+      "release": "38.el9",
+      "arch": "x86_64",
+      "sha256": "f5bb6a14cd6b2fb9527dfd734c6e4386a2240c2756cc5f0275f0b295c0a45e37",
+      "filename": "curl-minimal-7.76.1-38.el9.x86_64.rpm"
+    },
+    {
+      "name": "expat",
+      "epoch": "0",
+      "version": "2.5.0",
+      "release": "6.el9",
+      "arch": "x86_64",
+      "sha256": "39cffc5a3a75ccd06d4214f99e3d3a89dd79bee3532175ae38d37c14aad529fc",
+      "filename": "expat-2.5.0-6.el9.x86_64.rpm"
+    },
+    {
+      "name": "filesystem",
+      "epoch": "0",
+      "version": "3.16",
+      "release": "5.el9",
+      "arch": "x86_64",
+      "sha256": "da7750fc31248ecc606016391c3f570e1abe7422f812b29a49d830c71884e6dc",
+      "filename": "filesystem-3.16-5.el9.x86_64.rpm"
+    },
+    {
+      "name": "findutils",
+      "epoch": "1",
+      "version": "4.8.0",
+      "release": "7.el9",
+      "arch": "x86_64",
+      "sha256": "393fc651dddb826521d528d78819515c09b93e551701cafb62b672c2c4701d04",
+      "filename": "findutils-4.8.0-7.el9.x86_64.rpm"
+    },
+    {
+      "name": "gawk",
+      "epoch": "0",
+      "version": "5.1.0",
+      "release": "6.el9",
+      "arch": "x86_64",
+      "sha256": "6e6d77b76b1e89fe6f012cdc16111bea35eb4ceedac5040e5d81b5a066429af8",
+      "filename": "gawk-5.1.0-6.el9.x86_64.rpm"
+    },
+    {
+      "name": "gdbm-libs",
+      "epoch": "1",
+      "version": "1.23",
+      "release": "1.el9",
+      "arch": "x86_64",
+      "sha256": "cada66331cc07a4f8a0701fc1ad13c346913a0d6f913e35c0257a68b6a1e6ce0",
+      "filename": "gdbm-libs-1.23-1.el9.x86_64.rpm"
+    },
+    {
+      "name": "glibc",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "x86_64",
+      "sha256": "b4a8c93a28d59a4070ee7a3f7f517d0ce4e9c11886477e6d1b5707718892817e",
+      "filename": "glibc-2.34-245.el9.x86_64.rpm"
+    },
+    {
+      "name": "glibc-common",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "x86_64",
+      "sha256": "747ea3dbcdbe9b3b8c26ac70ea8e117a79e62f50df0b8754a645c2ef68e05be2",
+      "filename": "glibc-common-2.34-245.el9.x86_64.rpm"
+    },
+    {
+      "name": "glibc-minimal-langpack",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "x86_64",
+      "sha256": "fe736927c6e91ef4d6ba4f1b467f373e6ab8a47c490c2a1e1d5508ae402f45fa",
+      "filename": "glibc-minimal-langpack-2.34-245.el9.x86_64.rpm"
+    },
+    {
+      "name": "gmp",
+      "epoch": "1",
+      "version": "6.2.0",
+      "release": "13.el9",
+      "arch": "x86_64",
+      "sha256": "b6d592895ccc0fcad6106cd41800cd9d68e5384c418e53a2c3ff2ac8c8b15a33",
+      "filename": "gmp-6.2.0-13.el9.x86_64.rpm"
+    },
+    {
+      "name": "grep",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "5.el9",
+      "arch": "x86_64",
+      "sha256": "10a41b66b1fbd6eb055178e22c37199e5b49b4852e77c806f7af7211044a4a55",
+      "filename": "grep-3.6-5.el9.x86_64.rpm"
+    },
+    {
+      "name": "keyutils-libs",
+      "epoch": "0",
+      "version": "1.6.3",
+      "release": "1.el9",
+      "arch": "x86_64",
+      "sha256": "aef982501694486a27411c68698886d76ec70c5cd10bfe619501e7e4c36f50a9",
+      "filename": "keyutils-libs-1.6.3-1.el9.x86_64.rpm"
+    },
+    {
+      "name": "krb5-libs",
+      "epoch": "0",
+      "version": "1.21.1",
+      "release": "8.el9",
+      "arch": "x86_64",
+      "sha256": "d5d3473637d3453c3216b1f14fef500e10bd8158c99bbadb48b788b88d92786f",
+      "filename": "krb5-libs-1.21.1-8.el9.x86_64.rpm"
+    },
+    {
+      "name": "libacl",
+      "epoch": "0",
+      "version": "2.3.1",
+      "release": "4.el9",
+      "arch": "x86_64",
+      "sha256": "60a3affaa1c387fd6f72dd65aa7ad619a1830947823abb4b29e7b9fcb4c9d27c",
+      "filename": "libacl-2.3.1-4.el9.x86_64.rpm"
+    },
+    {
+      "name": "libattr",
+      "epoch": "0",
+      "version": "2.5.1",
+      "release": "3.el9",
+      "arch": "x86_64",
+      "sha256": "d4db095a015e84065f27a642ee7829cd1690041ba8c51501f908cc34760c9409",
+      "filename": "libattr-2.5.1-3.el9.x86_64.rpm"
+    },
+    {
+      "name": "libcap",
+      "epoch": "0",
+      "version": "2.48",
+      "release": "10.el9",
+      "arch": "x86_64",
+      "sha256": "bda5d981249ac16603228a4f544a15a140e1eed105ab1206da6bef9705cddee7",
+      "filename": "libcap-2.48-10.el9.x86_64.rpm"
+    },
+    {
+      "name": "libcom_err",
+      "epoch": "0",
+      "version": "1.46.5",
+      "release": "8.el9",
+      "arch": "x86_64",
+      "sha256": "ef43794f39d49b69e12506722e432a497e7f96038e26cab2c34476aad4b3d413",
+      "filename": "libcom_err-1.46.5-8.el9.x86_64.rpm"
+    },
+    {
+      "name": "libcurl-minimal",
+      "epoch": "0",
+      "version": "7.76.1",
+      "release": "38.el9",
+      "arch": "x86_64",
+      "sha256": "15a372db1e01940e235eb1109e00c49e382aadac467425dc361610de1e57ef1b",
+      "filename": "libcurl-minimal-7.76.1-38.el9.x86_64.rpm"
+    },
+    {
+      "name": "libffi",
+      "epoch": "0",
+      "version": "3.4.2",
+      "release": "8.el9",
+      "arch": "x86_64",
+      "sha256": "110d5008364a65b38b832949970886fdccb97762b0cdb257571cc0c84182d7d0",
+      "filename": "libffi-3.4.2-8.el9.x86_64.rpm"
+    },
+    {
+      "name": "libgcc",
+      "epoch": "0",
+      "version": "11.5.0",
+      "release": "14.el9",
+      "arch": "x86_64",
+      "sha256": "8e9b2f611466e02703348bfd7fbdc40035898c804dcc417b920d6ad77bf077e9",
+      "filename": "libgcc-11.5.0-14.el9.x86_64.rpm"
+    },
+    {
+      "name": "libnghttp2",
+      "epoch": "0",
+      "version": "1.43.0",
+      "release": "6.el9",
+      "arch": "x86_64",
+      "sha256": "fc1cadbc6cf37cbea60112b7ae6f92fabfd5a7f76fa526bb5a1ea82746455ec7",
+      "filename": "libnghttp2-1.43.0-6.el9.x86_64.rpm"
+    },
+    {
+      "name": "libselinux",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "3.el9",
+      "arch": "x86_64",
+      "sha256": "79abe72ea8dccb4134286fd1aae79827f10bde0cc1c35224886e93b293d282d1",
+      "filename": "libselinux-3.6-3.el9.x86_64.rpm"
+    },
+    {
+      "name": "libsepol",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "3.el9",
+      "arch": "x86_64",
+      "sha256": "6d3d16c3121ccf989f8a123812e524cb1fc098fb01ec9f1c6327544e85aaf84d",
+      "filename": "libsepol-3.6-3.el9.x86_64.rpm"
+    },
+    {
+      "name": "libsigsegv",
+      "epoch": "0",
+      "version": "2.13",
+      "release": "4.el9",
+      "arch": "x86_64",
+      "sha256": "931bd0ec7050e8c3b37a9bfb489e30af32486a3c77203f1e9113eeceaa3b0a3a",
+      "filename": "libsigsegv-2.13-4.el9.x86_64.rpm"
+    },
+    {
+      "name": "libtasn1",
+      "epoch": "0",
+      "version": "4.16.0",
+      "release": "9.el9",
+      "arch": "x86_64",
+      "sha256": "addd155d4abc41529d7e8588f442e50a87db3a1314bd2162fbb4950d898a2e28",
+      "filename": "libtasn1-4.16.0-9.el9.x86_64.rpm"
+    },
+    {
+      "name": "libuuid",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "x86_64",
+      "sha256": "be4793be5af11772206abe023746ec4021a8b7bc124fdc7e7cdb92b57c46d125",
+      "filename": "libuuid-2.37.4-21.el9.x86_64.rpm"
+    },
+    {
+      "name": "libverto",
+      "epoch": "0",
+      "version": "0.3.2",
+      "release": "3.el9",
+      "arch": "x86_64",
+      "sha256": "c55578b84f169c4ed79b2d50ea03fd1817007e35062c9fe7a58e6cad025f3b24",
+      "filename": "libverto-0.3.2-3.el9.x86_64.rpm"
+    },
+    {
+      "name": "libxcrypt",
+      "epoch": "0",
+      "version": "4.4.18",
+      "release": "3.el9",
+      "arch": "x86_64",
+      "sha256": "97e88678b420f619a44608fff30062086aa1dd6931ecbd54f21bba005ff1de1a",
+      "filename": "libxcrypt-4.4.18-3.el9.x86_64.rpm"
+    },
+    {
+      "name": "mpfr",
+      "epoch": "0",
+      "version": "4.1.0",
+      "release": "8.el9",
+      "arch": "x86_64",
+      "sha256": "1944e0ee71e7e5eb0cd0772b78f78e04f5c5b1d5b9aecd3caac3d40c245e080c",
+      "filename": "mpfr-4.1.0-8.el9.x86_64.rpm"
+    },
+    {
+      "name": "ncurses-base",
+      "epoch": "0",
+      "version": "6.2",
+      "release": "12.20210508.el9",
+      "arch": "noarch",
+      "sha256": "49f6470fa7dd1b3ba81ccdd0547b29953af2835e067de915eeca3c45d5faa339",
+      "filename": "ncurses-base-6.2-12.20210508.el9.noarch.rpm"
+    },
+    {
+      "name": "ncurses-libs",
+      "epoch": "0",
+      "version": "6.2",
+      "release": "12.20210508.el9",
+      "arch": "x86_64",
+      "sha256": "7b396883232158d4f9a6977bcd72b5e6f7fa6bc34a51030379833d4c0d24ab6f",
+      "filename": "ncurses-libs-6.2-12.20210508.el9.x86_64.rpm"
+    },
+    {
+      "name": "openssl-fips-provider",
+      "epoch": "1",
+      "version": "3.5.5",
+      "release": "1.el9",
+      "arch": "x86_64",
+      "sha256": "5aec51f1d460ff8da23044b8462e3569ea5e87e531d0ecaf67639b039fbbb896",
+      "filename": "openssl-fips-provider-3.5.5-1.el9.x86_64.rpm"
+    },
+    {
+      "name": "openssl-libs",
+      "epoch": "1",
+      "version": "3.5.5",
+      "release": "1.el9",
+      "arch": "x86_64",
+      "sha256": "93be0a9dbce02f827ffe1f1dd538fd5f61b189f63d0d0b3b98b662d524321b30",
+      "filename": "openssl-libs-3.5.5-1.el9.x86_64.rpm"
+    },
+    {
+      "name": "p11-kit",
+      "epoch": "0",
+      "version": "0.26.1",
+      "release": "1.el9",
+      "arch": "x86_64",
+      "sha256": "96cf32c651b881bf2d7522016da9e93a43d844e7263bd6502e89e5ba4417183d",
+      "filename": "p11-kit-0.26.1-1.el9.x86_64.rpm"
+    },
+    {
+      "name": "p11-kit-trust",
+      "epoch": "0",
+      "version": "0.26.1",
+      "release": "1.el9",
+      "arch": "x86_64",
+      "sha256": "9d6d23f1246dd8a0f7c59449b87e466436064fd7025b66e652e5b3de9a90a835",
+      "filename": "p11-kit-trust-0.26.1-1.el9.x86_64.rpm"
+    },
+    {
+      "name": "pcre",
+      "epoch": "0",
+      "version": "8.44",
+      "release": "4.el9",
+      "arch": "x86_64",
+      "sha256": "7d6be1d41cb4d0b159a764bfc7c8efecc0353224b46e5286cbbea7092b700690",
+      "filename": "pcre-8.44-4.el9.x86_64.rpm"
+    },
+    {
+      "name": "pcre2",
+      "epoch": "0",
+      "version": "10.40",
+      "release": "6.el9",
+      "arch": "x86_64",
+      "sha256": "bc1012f5417aab8393836d78ac8c5472b1a2d84a2f9fa2b00fff5f8ad3a5ec26",
+      "filename": "pcre2-10.40-6.el9.x86_64.rpm"
+    },
+    {
+      "name": "pcre2-syntax",
+      "epoch": "0",
+      "version": "10.40",
+      "release": "6.el9",
+      "arch": "noarch",
+      "sha256": "be36a84f6e311a59190664d61a466471391ab01fb77bd1d2348e9a76414aded4",
+      "filename": "pcre2-syntax-10.40-6.el9.noarch.rpm"
+    },
+    {
+      "name": "python3",
+      "epoch": "0",
+      "version": "3.9.25",
+      "release": "3.el9",
+      "arch": "x86_64",
+      "sha256": "80665300816d833df3f3ed808022c53dda3c3687901bfaf802780bc0b7899842",
+      "filename": "python3-3.9.25-3.el9.x86_64.rpm"
+    },
+    {
+      "name": "python3-libs",
+      "epoch": "0",
+      "version": "3.9.25",
+      "release": "3.el9",
+      "arch": "x86_64",
+      "sha256": "8929e0c6a72abb2f4890897b80ad9ad28c2cab6c7aeae8b145400c0f21443ace",
+      "filename": "python3-libs-3.9.25-3.el9.x86_64.rpm"
+    },
+    {
+      "name": "python3-pip-wheel",
+      "epoch": "0",
+      "version": "21.3.1",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "1c8096f1dd57c5d6db4d1391cafb15326431923ba139f3119015773a307f80d9",
+      "filename": "python3-pip-wheel-21.3.1-1.el9.noarch.rpm"
+    },
+    {
+      "name": "python3-setuptools-wheel",
+      "epoch": "0",
+      "version": "53.0.0",
+      "release": "15.el9",
+      "arch": "noarch",
+      "sha256": "4d61c666c3862bd18caebac2295c088627b47612f3367cd636fcaec9a021bbac",
+      "filename": "python3-setuptools-wheel-53.0.0-15.el9.noarch.rpm"
+    },
+    {
+      "name": "readline",
+      "epoch": "0",
+      "version": "8.1",
+      "release": "4.el9",
+      "arch": "x86_64",
+      "sha256": "49945472925286ad89b0575657b43f9224777e36b442f0c88df67f0b61e26aee",
+      "filename": "readline-8.1-4.el9.x86_64.rpm"
+    },
+    {
+      "name": "sed",
+      "epoch": "0",
+      "version": "4.8",
+      "release": "9.el9",
+      "arch": "x86_64",
+      "sha256": "a2c5d9a7f569abb5a592df1c3aaff0441bf827c9d0e2df0ab42b6c443dbc475f",
+      "filename": "sed-4.8-9.el9.x86_64.rpm"
+    },
+    {
+      "name": "setup",
+      "epoch": "0",
+      "version": "2.13.7",
+      "release": "10.el9",
+      "arch": "noarch",
+      "sha256": "42a1c5a415c44e3b55551f49595c087e2ba55f0fd9ece8056b791983601b76d2",
+      "filename": "setup-2.13.7-10.el9.noarch.rpm"
+    },
+    {
+      "name": "sqlite-libs",
+      "epoch": "0",
+      "version": "3.34.1",
+      "release": "9.el9",
+      "arch": "x86_64",
+      "sha256": "88abee2ce36a11d707d610e796afcd2919a7adc3bb5ba4e92b08ef06046e6970",
+      "filename": "sqlite-libs-3.34.1-9.el9.x86_64.rpm"
+    },
+    {
+      "name": "tzdata",
+      "epoch": "0",
+      "version": "2025c",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "a7a70f4e8aa1473153235900a76753aef8f43a4c21eb869012bf4b065cc8b932",
+      "filename": "tzdata-2025c-1.el9.noarch.rpm"
+    },
+    {
+      "name": "vim-minimal",
+      "epoch": "2",
+      "version": "8.2.2637",
+      "release": "23.el9",
+      "arch": "x86_64",
+      "sha256": "2c4291f0fbf23f507cd74c53fdd00ab740cd41b445024a074c4db7ec15421903",
+      "filename": "vim-minimal-8.2.2637-23.el9.x86_64.rpm"
+    },
+    {
+      "name": "xz-libs",
+      "epoch": "0",
+      "version": "5.2.5",
+      "release": "8.el9",
+      "arch": "x86_64",
+      "sha256": "ff3c88297d75c51a5f8e9d2d69f8ad1eaf8347e20920b4335a3e0fc53269ad28",
+      "filename": "xz-libs-5.2.5-8.el9.x86_64.rpm"
+    },
+    {
+      "name": "zlib",
+      "epoch": "0",
+      "version": "1.2.11",
+      "release": "41.el9",
+      "arch": "x86_64",
+      "sha256": "370951ea635bc16313f21ac2823ec815147ed1124b74865a34c54e94e4db9602",
+      "filename": "zlib-1.2.11-41.el9.x86_64.rpm"
+    }
+  ]
+}

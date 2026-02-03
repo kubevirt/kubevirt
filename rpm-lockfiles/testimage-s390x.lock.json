@@ -1,0 +1,1179 @@
+{
+  "schema_version": "1.0",
+  "architecture": "s390x",
+  "package_set": "testimage",
+  "generated": "2026-02-03T12:11:28Z",
+  "generator": "rpm-freeze-native.sh",
+  "packages": [
+    {
+      "name": "acl",
+      "epoch": "0",
+      "version": "2.3.1",
+      "release": "4.el9",
+      "arch": "s390x",
+      "sha256": "5d12a3e157b07244a7c0546905af864148730e982ac7ceaa4b0bf287dd7ae669",
+      "filename": "acl-2.3.1-4.el9.s390x.rpm"
+    },
+    {
+      "name": "alternatives",
+      "epoch": "0",
+      "version": "1.24",
+      "release": "2.el9",
+      "arch": "s390x",
+      "sha256": "8eb7ef117114059c44818eec88c4ed06c271a1185be1b1178ad096adcc934f11",
+      "filename": "alternatives-1.24-2.el9.s390x.rpm"
+    },
+    {
+      "name": "audit-libs",
+      "epoch": "0",
+      "version": "3.1.5",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "267f9e2528d2ca70c83abd80002aab8284ea93da3f2d87be0d13a0ec7efb13c9",
+      "filename": "audit-libs-3.1.5-8.el9.s390x.rpm"
+    },
+    {
+      "name": "basesystem",
+      "epoch": "0",
+      "version": "11",
+      "release": "13.el9",
+      "arch": "noarch",
+      "sha256": "a7a687ef39dd28d01d34fab18ea7e3e87f649f6c202dded82260b7ea625b9973",
+      "filename": "basesystem-11-13.el9.noarch.rpm"
+    },
+    {
+      "name": "bash",
+      "epoch": "0",
+      "version": "5.1.8",
+      "release": "9.el9",
+      "arch": "s390x",
+      "sha256": "7f69429a343d53be5f3390e0e6032869c33cf1e9e344ee1448a4ec2998dc9d9e",
+      "filename": "bash-5.1.8-9.el9.s390x.rpm"
+    },
+    {
+      "name": "bzip2-libs",
+      "epoch": "0",
+      "version": "1.0.8",
+      "release": "11.el9",
+      "arch": "s390x",
+      "sha256": "e9746e7bd442b4104b726e239cf3b7b87400824c7094de6d11f356da4c27593f",
+      "filename": "bzip2-libs-1.0.8-11.el9.s390x.rpm"
+    },
+    {
+      "name": "ca-certificates",
+      "epoch": "0",
+      "version": "2025.2.80_v9.0.305",
+      "release": "91.el9",
+      "arch": "noarch",
+      "sha256": "489fdf258344892412ff2f10d0c1c849c45d5a15c4628abda33f325a42dd1bb0",
+      "filename": "ca-certificates-2025.2.80_v9.0.305-91.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-gpg-keys",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "77e4a14370a63fc7b42d5dd7953654d9ae791a8a41e2388788559d65182da8fb",
+      "filename": "centos-gpg-keys-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-stream-release",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "1c9986cabdf106cae20bc548d11aec1af6446ed670c6226b38a2b0383493c184",
+      "filename": "centos-stream-release-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-stream-repos",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "23f3d6d63dd948cf2b0b4ebb5562ccc0facca73bed907db9056fd3d42fdefa29",
+      "filename": "centos-stream-repos-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "coreutils-single",
+      "epoch": "0",
+      "version": "8.32",
+      "release": "39.el9",
+      "arch": "s390x",
+      "sha256": "33f20a9d1a8dcbe9b6e587bda728a91b5b014cd0b0c979c7908135c5fed23115",
+      "filename": "coreutils-single-8.32-39.el9.s390x.rpm"
+    },
+    {
+      "name": "cracklib",
+      "epoch": "0",
+      "version": "2.9.6",
+      "release": "28.el9",
+      "arch": "s390x",
+      "sha256": "14006fd9132581ca7ab86b87eb4751efd25279bc60df48aced985002e401112d",
+      "filename": "cracklib-2.9.6-28.el9.s390x.rpm"
+    },
+    {
+      "name": "cracklib-dicts",
+      "epoch": "0",
+      "version": "2.9.6",
+      "release": "28.el9",
+      "arch": "s390x",
+      "sha256": "a0ac88ff592620ae37ea0826d59874f0f5a08828c02fcd514473302d15cf6c03",
+      "filename": "cracklib-dicts-2.9.6-28.el9.s390x.rpm"
+    },
+    {
+      "name": "crypto-policies",
+      "epoch": "0",
+      "version": "20251126",
+      "release": "1.gite9c4db2.el9",
+      "arch": "noarch",
+      "sha256": "38c1e40b477795017996db0683b72004a4810d88a320ae0554e6736b118c5c9a",
+      "filename": "crypto-policies-20251126-1.gite9c4db2.el9.noarch.rpm"
+    },
+    {
+      "name": "curl-minimal",
+      "epoch": "0",
+      "version": "7.76.1",
+      "release": "38.el9",
+      "arch": "s390x",
+      "sha256": "02058c1f9a825e6459762cfc33c95e8909a4fc04c6a4d24539fc4881d0754657",
+      "filename": "curl-minimal-7.76.1-38.el9.s390x.rpm"
+    },
+    {
+      "name": "dbus",
+      "epoch": "1",
+      "version": "1.12.20",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "a99d278716899bb35100d4c9c26a66a795d309555d8d71ef6d1739e2f44cf44d",
+      "filename": "dbus-1.12.20-8.el9.s390x.rpm"
+    },
+    {
+      "name": "dbus-broker",
+      "epoch": "0",
+      "version": "28",
+      "release": "7.el9",
+      "arch": "s390x",
+      "sha256": "d38a5ae851f9006000c3cd7a37310f901a02864e0272d7284c4f2db1efcd61ff",
+      "filename": "dbus-broker-28-7.el9.s390x.rpm"
+    },
+    {
+      "name": "dbus-common",
+      "epoch": "1",
+      "version": "1.12.20",
+      "release": "8.el9",
+      "arch": "noarch",
+      "sha256": "ff91286d9413256c50886a0c96b3d5d0773bd25284b9a94b28b98a5215f09a56",
+      "filename": "dbus-common-1.12.20-8.el9.noarch.rpm"
+    },
+    {
+      "name": "dbus-libs",
+      "epoch": "1",
+      "version": "1.12.20",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "03174ea3bd7d525a263d23fbd5c797acff256d3f01ca75d58b2558c561a2e472",
+      "filename": "dbus-libs-1.12.20-8.el9.s390x.rpm"
+    },
+    {
+      "name": "device-mapper",
+      "epoch": "9",
+      "version": "1.02.206",
+      "release": "2.el9",
+      "arch": "s390x",
+      "sha256": "ba1c1a6f529a1700b2c7257baf88ab421770ea2c760889bc74d1e0372ecf6ea8",
+      "filename": "device-mapper-1.02.206-2.el9.s390x.rpm"
+    },
+    {
+      "name": "device-mapper-libs",
+      "epoch": "9",
+      "version": "1.02.206",
+      "release": "2.el9",
+      "arch": "s390x",
+      "sha256": "61827b1539c7db88538c58fba2a0b95c8cc5ed0f1a696ab26b6acab4cf5c4e67",
+      "filename": "device-mapper-libs-1.02.206-2.el9.s390x.rpm"
+    },
+    {
+      "name": "e2fsprogs",
+      "epoch": "0",
+      "version": "1.46.5",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "b9048f417885369956a1668e204ca2499e2d46b2c61f62a34cb8caa7797e2ff1",
+      "filename": "e2fsprogs-1.46.5-8.el9.s390x.rpm"
+    },
+    {
+      "name": "e2fsprogs-libs",
+      "epoch": "0",
+      "version": "1.46.5",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "d279fad6453b9b5f90fc14181727594fb4aaf980b641976d049448ae978f27c2",
+      "filename": "e2fsprogs-libs-1.46.5-8.el9.s390x.rpm"
+    },
+    {
+      "name": "expat",
+      "epoch": "0",
+      "version": "2.5.0",
+      "release": "6.el9",
+      "arch": "s390x",
+      "sha256": "6e85c05c7eacb3d964af391a67898919239b973d8094c442b917ea450391d25d",
+      "filename": "expat-2.5.0-6.el9.s390x.rpm"
+    },
+    {
+      "name": "filesystem",
+      "epoch": "0",
+      "version": "3.16",
+      "release": "5.el9",
+      "arch": "s390x",
+      "sha256": "67a733fe124cda9da89f6946757800c0fe73b918a477adcf67dfbef15c995729",
+      "filename": "filesystem-3.16-5.el9.s390x.rpm"
+    },
+    {
+      "name": "findutils",
+      "epoch": "1",
+      "version": "4.8.0",
+      "release": "7.el9",
+      "arch": "s390x",
+      "sha256": "627204a8e5a95bde190b1755dacfd72ffe66862438a6e9878d0d0fec90cf5097",
+      "filename": "findutils-4.8.0-7.el9.s390x.rpm"
+    },
+    {
+      "name": "fuse-libs",
+      "epoch": "0",
+      "version": "2.9.9",
+      "release": "17.el9",
+      "arch": "s390x",
+      "sha256": "89b568150669f246789540bb83b24db22821a1b5d761881e591a67643c2aaeaa",
+      "filename": "fuse-libs-2.9.9-17.el9.s390x.rpm"
+    },
+    {
+      "name": "gawk",
+      "epoch": "0",
+      "version": "5.1.0",
+      "release": "6.el9",
+      "arch": "s390x",
+      "sha256": "acad833571094a674d4073b4e747e15d373e3a8b06a7e7e8aecfec6fd4860c0e",
+      "filename": "gawk-5.1.0-6.el9.s390x.rpm"
+    },
+    {
+      "name": "gdbm-libs",
+      "epoch": "1",
+      "version": "1.23",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "29c9ab72536be72b9c78285ef12117633cf3e2dfd18757bcf7587cd94eb9e055",
+      "filename": "gdbm-libs-1.23-1.el9.s390x.rpm"
+    },
+    {
+      "name": "glib2",
+      "epoch": "0",
+      "version": "2.68.4",
+      "release": "19.el9",
+      "arch": "s390x",
+      "sha256": "eae096d247448db793b42cada5accb2176444752b1fe17560c8fc9135626de05",
+      "filename": "glib2-2.68.4-19.el9.s390x.rpm"
+    },
+    {
+      "name": "glibc",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "s390x",
+      "sha256": "b0682a36512f5e61724aba0e1af041481454ee23d290e5978f3e5016615ef962",
+      "filename": "glibc-2.34-245.el9.s390x.rpm"
+    },
+    {
+      "name": "glibc-common",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "s390x",
+      "sha256": "2d58050c2282d9961bdf565a86e175fc14161369dc4a0631d491a23250b22990",
+      "filename": "glibc-common-2.34-245.el9.s390x.rpm"
+    },
+    {
+      "name": "glibc-minimal-langpack",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "s390x",
+      "sha256": "a325deb26609c8f9746e9143f8a3a1d993cd5acf707ba5870e75353fedc87d15",
+      "filename": "glibc-minimal-langpack-2.34-245.el9.s390x.rpm"
+    },
+    {
+      "name": "gmp",
+      "epoch": "1",
+      "version": "6.2.0",
+      "release": "13.el9",
+      "arch": "s390x",
+      "sha256": "c26b4f2d1e2c6a9a3b683d1909df8f788a261fcc8e766ded00a96681e5dc62d2",
+      "filename": "gmp-6.2.0-13.el9.s390x.rpm"
+    },
+    {
+      "name": "gnutls",
+      "epoch": "0",
+      "version": "3.8.10",
+      "release": "2.el9",
+      "arch": "s390x",
+      "sha256": "82d3b08b7b364c9ba840de4461ab813f3c2c49bfe9408bc8497d63ff5aa892d2",
+      "filename": "gnutls-3.8.10-2.el9.s390x.rpm"
+    },
+    {
+      "name": "gobject-introspection",
+      "epoch": "0",
+      "version": "1.68.0",
+      "release": "11.el9",
+      "arch": "s390x",
+      "sha256": "27ff550b5596d6a8ae414c20b42c20aba8f37794372fd19ddce5270a6e0d0328",
+      "filename": "gobject-introspection-1.68.0-11.el9.s390x.rpm"
+    },
+    {
+      "name": "grep",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "5.el9",
+      "arch": "s390x",
+      "sha256": "b6b83738fc6afb9ba28d0c2c57eaf17cdbe5b26ff89a8da17812dd261045df3e",
+      "filename": "grep-3.6-5.el9.s390x.rpm"
+    },
+    {
+      "name": "gzip",
+      "epoch": "0",
+      "version": "1.12",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "72b8b818027d9d716be069743c03431f057ce5af62b38273c249990890cbc504",
+      "filename": "gzip-1.12-1.el9.s390x.rpm"
+    },
+    {
+      "name": "iputils",
+      "epoch": "0",
+      "version": "20210202",
+      "release": "15.el9",
+      "arch": "s390x",
+      "sha256": "ed9f65c5d621415497674b76c248d79da0128d8fb1ee1838060129889f947360",
+      "filename": "iputils-20210202-15.el9.s390x.rpm"
+    },
+    {
+      "name": "keyutils-libs",
+      "epoch": "0",
+      "version": "1.6.3",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "954b22cc636f29363edc7a29c24cb05039929ca71780174b8ec4dc495af314ef",
+      "filename": "keyutils-libs-1.6.3-1.el9.s390x.rpm"
+    },
+    {
+      "name": "kmod-libs",
+      "epoch": "0",
+      "version": "28",
+      "release": "11.el9",
+      "arch": "s390x",
+      "sha256": "e04b90f099224b2cb1dd28df4ff45aaa1982d26b2e2f04cb7bdcdf9b5a1306c4",
+      "filename": "kmod-libs-28-11.el9.s390x.rpm"
+    },
+    {
+      "name": "krb5-libs",
+      "epoch": "0",
+      "version": "1.21.1",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "ea2d05d119e5b9072dd4c58d74079accfd24bae196d012e0de105ab3e0bcc892",
+      "filename": "krb5-libs-1.21.1-8.el9.s390x.rpm"
+    },
+    {
+      "name": "libacl",
+      "epoch": "0",
+      "version": "2.3.1",
+      "release": "4.el9",
+      "arch": "s390x",
+      "sha256": "bfdd2316c1742032df9b15d1a91ff2e3674faeae1e27e4a851165e5c6bb666f5",
+      "filename": "libacl-2.3.1-4.el9.s390x.rpm"
+    },
+    {
+      "name": "libaio",
+      "epoch": "0",
+      "version": "0.3.111",
+      "release": "13.el9",
+      "arch": "s390x",
+      "sha256": "b4adecd95273b4ae7590b84ecbed5a7b4a1795066bab430d15f04eb82bb9dc1c",
+      "filename": "libaio-0.3.111-13.el9.s390x.rpm"
+    },
+    {
+      "name": "libattr",
+      "epoch": "0",
+      "version": "2.5.1",
+      "release": "3.el9",
+      "arch": "s390x",
+      "sha256": "c37335be62aaca9f21f2b0b0312d3800e245f6e70fa8b57d03ab89cce863f2be",
+      "filename": "libattr-2.5.1-3.el9.s390x.rpm"
+    },
+    {
+      "name": "libblkid",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "s390x",
+      "sha256": "28b355ddec6b299b6526c80032cd3f9a74fbf7f965bb3c425352a7e616cab287",
+      "filename": "libblkid-2.37.4-21.el9.s390x.rpm"
+    },
+    {
+      "name": "libcap",
+      "epoch": "0",
+      "version": "2.48",
+      "release": "10.el9",
+      "arch": "s390x",
+      "sha256": "2883f350016ef87b8f6aa33966023cb0f3c789bdcb36374037fc94096ee61bf7",
+      "filename": "libcap-2.48-10.el9.s390x.rpm"
+    },
+    {
+      "name": "libcap-ng",
+      "epoch": "0",
+      "version": "0.8.2",
+      "release": "7.el9",
+      "arch": "s390x",
+      "sha256": "9b68fda78e685d347ae1b9e937613125d01d7c8cdb06226e3c57e6cb08b9f306",
+      "filename": "libcap-ng-0.8.2-7.el9.s390x.rpm"
+    },
+    {
+      "name": "libcom_err",
+      "epoch": "0",
+      "version": "1.46.5",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "b8aa8922757718f85c31dfc7c333434e576a52f9425e91f51db8fb082661c3ff",
+      "filename": "libcom_err-1.46.5-8.el9.s390x.rpm"
+    },
+    {
+      "name": "libcurl-minimal",
+      "epoch": "0",
+      "version": "7.76.1",
+      "release": "38.el9",
+      "arch": "s390x",
+      "sha256": "63bd401440d939c2f5ea18012a5c07b352b26d2e28efb0c0759484caa816d42c",
+      "filename": "libcurl-minimal-7.76.1-38.el9.s390x.rpm"
+    },
+    {
+      "name": "libdb",
+      "epoch": "0",
+      "version": "5.3.28",
+      "release": "57.el9",
+      "arch": "s390x",
+      "sha256": "5bae96e362fb4731b841f84d22b8ec876eeca2519404625afc51b5ae9fcd6326",
+      "filename": "libdb-5.3.28-57.el9.s390x.rpm"
+    },
+    {
+      "name": "libeconf",
+      "epoch": "0",
+      "version": "0.4.1",
+      "release": "5.el9",
+      "arch": "s390x",
+      "sha256": "025025697e1f9d222fb6224be5f6a463ad630971c67f4a55ff8d70fc25780443",
+      "filename": "libeconf-0.4.1-5.el9.s390x.rpm"
+    },
+    {
+      "name": "libfdisk",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "s390x",
+      "sha256": "67f5d8d46714139b75cd84941201e0fa0e1eebd0b26762accfb11d6b4c8b51bb",
+      "filename": "libfdisk-2.37.4-21.el9.s390x.rpm"
+    },
+    {
+      "name": "libffi",
+      "epoch": "0",
+      "version": "3.4.2",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "25556c4a1bdb85f426595faa76996616a45986c93cac4361c2371f2e9b737304",
+      "filename": "libffi-3.4.2-8.el9.s390x.rpm"
+    },
+    {
+      "name": "libgcc",
+      "epoch": "0",
+      "version": "11.5.0",
+      "release": "14.el9",
+      "arch": "s390x",
+      "sha256": "6ccddf8ec532ddc49d7b857ad46cb5404efc30a1ba2d4af575db77c402efdb8e",
+      "filename": "libgcc-11.5.0-14.el9.s390x.rpm"
+    },
+    {
+      "name": "libgcrypt",
+      "epoch": "0",
+      "version": "1.10.0",
+      "release": "11.el9",
+      "arch": "s390x",
+      "sha256": "cf30c86fc1a18f504d639d3cbcf9e431af1ea639e6a5e7db1f6d30b763dd51a8",
+      "filename": "libgcrypt-1.10.0-11.el9.s390x.rpm"
+    },
+    {
+      "name": "libgpg-error",
+      "epoch": "0",
+      "version": "1.42",
+      "release": "5.el9",
+      "arch": "s390x",
+      "sha256": "655367cd72f1908dbc2e42fee35974447d33eae7ec07249d3df098a6512d4601",
+      "filename": "libgpg-error-1.42-5.el9.s390x.rpm"
+    },
+    {
+      "name": "libibverbs",
+      "epoch": "0",
+      "version": "61.0",
+      "release": "2.el9",
+      "arch": "s390x",
+      "sha256": "a515a7d9cea9d8d82ef327460795cd7fe41299684ae1e514e7fb3015db0f8ac8",
+      "filename": "libibverbs-61.0-2.el9.s390x.rpm"
+    },
+    {
+      "name": "libidn2",
+      "epoch": "0",
+      "version": "2.3.0",
+      "release": "7.el9",
+      "arch": "s390x",
+      "sha256": "716716b688d4b702cee523a82d4ee035675f01ee404eb7dd7f2ef63d3389bb66",
+      "filename": "libidn2-2.3.0-7.el9.s390x.rpm"
+    },
+    {
+      "name": "libmount",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "s390x",
+      "sha256": "d7f982570169708f7ff3ba976dd3df4c64cf1d9a197f5da98d7dae2e9f5f2cb2",
+      "filename": "libmount-2.37.4-21.el9.s390x.rpm"
+    },
+    {
+      "name": "libnghttp2",
+      "epoch": "0",
+      "version": "1.43.0",
+      "release": "6.el9",
+      "arch": "s390x",
+      "sha256": "6d9ea7820d952bb492ff575b87fd46c606acf12bd368a5b4c8df3efc6a054c57",
+      "filename": "libnghttp2-1.43.0-6.el9.s390x.rpm"
+    },
+    {
+      "name": "libnl3",
+      "epoch": "0",
+      "version": "3.11.0",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "af754f7cc0670de1449a2a2a5ef353aa21187593f7f7e48389fb3a43724903cc",
+      "filename": "libnl3-3.11.0-1.el9.s390x.rpm"
+    },
+    {
+      "name": "libpcap",
+      "epoch": "14",
+      "version": "1.10.0",
+      "release": "4.el9",
+      "arch": "s390x",
+      "sha256": "ca99e77dd39751b9e769fbec73af47704b30ebac2b3fd0a5f3b4e3b6dca7ebc2",
+      "filename": "libpcap-1.10.0-4.el9.s390x.rpm"
+    },
+    {
+      "name": "libpwquality",
+      "epoch": "0",
+      "version": "1.4.4",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "b8b5178474a0a53bc6463e817e0bca8a3568e333bcae9eda3dabbe84a1e24941",
+      "filename": "libpwquality-1.4.4-8.el9.s390x.rpm"
+    },
+    {
+      "name": "libseccomp",
+      "epoch": "0",
+      "version": "2.5.2",
+      "release": "2.el9",
+      "arch": "s390x",
+      "sha256": "1479993c13970d0a69826051948a080ea216fb74f0717d8718801065edf1a1de",
+      "filename": "libseccomp-2.5.2-2.el9.s390x.rpm"
+    },
+    {
+      "name": "libselinux",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "3.el9",
+      "arch": "s390x",
+      "sha256": "16b3c0c73dcfff8b54a5554a4bcbd639603508d8502857c05ff9aa2360690094",
+      "filename": "libselinux-3.6-3.el9.s390x.rpm"
+    },
+    {
+      "name": "libsemanage",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "5.el9",
+      "arch": "s390x",
+      "sha256": "888a4ef687c43c03324bfe3c5815810d48322478cd966b4bcb1d237a16b3a0b0",
+      "filename": "libsemanage-3.6-5.el9.s390x.rpm"
+    },
+    {
+      "name": "libsepol",
+      "epoch": "0",
+      "version": "3.6",
+      "release": "3.el9",
+      "arch": "s390x",
+      "sha256": "c1246f8553c2aec3ca86721f8bd77fab4f4fcd22527bb6a6e494b4046ee17461",
+      "filename": "libsepol-3.6-3.el9.s390x.rpm"
+    },
+    {
+      "name": "libsigsegv",
+      "epoch": "0",
+      "version": "2.13",
+      "release": "4.el9",
+      "arch": "s390x",
+      "sha256": "730c827d66bd292fccdb6f8ac4c29176e7f06283489be41b67f4bf55deeb3ffb",
+      "filename": "libsigsegv-2.13-4.el9.s390x.rpm"
+    },
+    {
+      "name": "libsmartcols",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "s390x",
+      "sha256": "94929db8ee7027fca21e8ac17519dfcf9366a5a7ba8c8ba627dcb5976b199036",
+      "filename": "libsmartcols-2.37.4-21.el9.s390x.rpm"
+    },
+    {
+      "name": "libss",
+      "epoch": "0",
+      "version": "1.46.5",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "95a10e09d72daebb2cdae054cadd8e9ef3c3689dade4236723e8e69fdd674d3a",
+      "filename": "libss-1.46.5-8.el9.s390x.rpm"
+    },
+    {
+      "name": "libtasn1",
+      "epoch": "0",
+      "version": "4.16.0",
+      "release": "9.el9",
+      "arch": "s390x",
+      "sha256": "0ebbc12c3ae3f270efef2965bb77d6e806733eb07505ec7a33468f0fd72360bd",
+      "filename": "libtasn1-4.16.0-9.el9.s390x.rpm"
+    },
+    {
+      "name": "libunistring",
+      "epoch": "0",
+      "version": "0.9.10",
+      "release": "15.el9",
+      "arch": "s390x",
+      "sha256": "029cedc9f79dcc145f59e2bbf2121d406b3853765d56345a75bc987760d5d2d2",
+      "filename": "libunistring-0.9.10-15.el9.s390x.rpm"
+    },
+    {
+      "name": "liburing",
+      "epoch": "0",
+      "version": "2.12",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "b259bcadc7623840495a33d9dabec62511a0f2133b731d070b59c5df60e8f7c6",
+      "filename": "liburing-2.12-1.el9.s390x.rpm"
+    },
+    {
+      "name": "libutempter",
+      "epoch": "0",
+      "version": "1.2.1",
+      "release": "6.el9",
+      "arch": "s390x",
+      "sha256": "6c000dac4305215beb37c8931a85ee137806f06547ecfb9a23e1915f01a3baa2",
+      "filename": "libutempter-1.2.1-6.el9.s390x.rpm"
+    },
+    {
+      "name": "libuuid",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "s390x",
+      "sha256": "b604d6ef2f49c29d93601f6cad1ac04d83f14ec719ba0f561d6912948d6f2b56",
+      "filename": "libuuid-2.37.4-21.el9.s390x.rpm"
+    },
+    {
+      "name": "libverto",
+      "epoch": "0",
+      "version": "0.3.2",
+      "release": "3.el9",
+      "arch": "s390x",
+      "sha256": "3d794c924cc3611f1b37033d6835c4af71a555fcba053618bd6d48ad79547ab0",
+      "filename": "libverto-0.3.2-3.el9.s390x.rpm"
+    },
+    {
+      "name": "libxcrypt",
+      "epoch": "0",
+      "version": "4.4.18",
+      "release": "3.el9",
+      "arch": "s390x",
+      "sha256": "dd9d51f68ae799b41cbe4cc00945280c65ed0c098b72f79d8d39a5c462b37074",
+      "filename": "libxcrypt-4.4.18-3.el9.s390x.rpm"
+    },
+    {
+      "name": "libzstd",
+      "epoch": "0",
+      "version": "1.5.5",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "720ce927a447b6c9fd2479ecb924112d450ec9b4f927090b36ef34b10ad4b163",
+      "filename": "libzstd-1.5.5-1.el9.s390x.rpm"
+    },
+    {
+      "name": "lz4-libs",
+      "epoch": "0",
+      "version": "1.9.3",
+      "release": "5.el9",
+      "arch": "s390x",
+      "sha256": "358c7c19e9ec8778874066342c591b71877c3324f0727357342dffb4e1ec3498",
+      "filename": "lz4-libs-1.9.3-5.el9.s390x.rpm"
+    },
+    {
+      "name": "mpfr",
+      "epoch": "0",
+      "version": "4.1.0",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "984e6d532c23be3cba9468d5e5786413a3d24167143db3cec75dfac8a7fe1f5d",
+      "filename": "mpfr-4.1.0-8.el9.s390x.rpm"
+    },
+    {
+      "name": "ncurses-base",
+      "epoch": "0",
+      "version": "6.2",
+      "release": "12.20210508.el9",
+      "arch": "noarch",
+      "sha256": "49f6470fa7dd1b3ba81ccdd0547b29953af2835e067de915eeca3c45d5faa339",
+      "filename": "ncurses-base-6.2-12.20210508.el9.noarch.rpm"
+    },
+    {
+      "name": "ncurses-libs",
+      "epoch": "0",
+      "version": "6.2",
+      "release": "12.20210508.el9",
+      "arch": "s390x",
+      "sha256": "d2a6307a398b9cde8f0a83fff92c3b31f5f6c4c15f911f64ff84168a7cd060a4",
+      "filename": "ncurses-libs-6.2-12.20210508.el9.s390x.rpm"
+    },
+    {
+      "name": "nettle",
+      "epoch": "0",
+      "version": "3.10.1",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "d05a33e0b673bc34580c443f7d7c28b50f8b4fd77ad87ed3cef30f991d7cbf09",
+      "filename": "nettle-3.10.1-1.el9.s390x.rpm"
+    },
+    {
+      "name": "nmap-ncat",
+      "epoch": "3",
+      "version": "7.92",
+      "release": "4.el9",
+      "arch": "s390x",
+      "sha256": "13f00e7add0073a12f78cf2a1d7bd66f04e1dd58db1a0020ead30d4ec6026554",
+      "filename": "nmap-ncat-7.92-4.el9.s390x.rpm"
+    },
+    {
+      "name": "openssl",
+      "epoch": "1",
+      "version": "3.5.5",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "37de2ce39ecacbb0105a0aaaf99d186d05814f34df79663ec73ae5e33a523dfc",
+      "filename": "openssl-3.5.5-1.el9.s390x.rpm"
+    },
+    {
+      "name": "openssl-fips-provider",
+      "epoch": "1",
+      "version": "3.5.5",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "1845bf99e7825235a6a0d5ae2990bd5bda0a9e889aa6a735c1e8f459b504195e",
+      "filename": "openssl-fips-provider-3.5.5-1.el9.s390x.rpm"
+    },
+    {
+      "name": "openssl-libs",
+      "epoch": "1",
+      "version": "3.5.5",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "fdf91f4b3f4635964b6a04f76d18fdfdc7de47830a591171e95167047441df15",
+      "filename": "openssl-libs-3.5.5-1.el9.s390x.rpm"
+    },
+    {
+      "name": "p11-kit",
+      "epoch": "0",
+      "version": "0.26.1",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "1ab93ab26009b712a32ff85ba786e2fa7adacfe7f70a42c2ed9bf6a0920c5d22",
+      "filename": "p11-kit-0.26.1-1.el9.s390x.rpm"
+    },
+    {
+      "name": "p11-kit-trust",
+      "epoch": "0",
+      "version": "0.26.1",
+      "release": "1.el9",
+      "arch": "s390x",
+      "sha256": "d72463618137f3f8ecbec2241e82eec0642018abafdd46cb687c7b3026c063c6",
+      "filename": "p11-kit-trust-0.26.1-1.el9.s390x.rpm"
+    },
+    {
+      "name": "pam",
+      "epoch": "0",
+      "version": "1.5.1",
+      "release": "28.el9",
+      "arch": "s390x",
+      "sha256": "f823ac185f1a0c966e608301f09e22a645e37c447f4dd49b6b6930ff67fd8156",
+      "filename": "pam-1.5.1-28.el9.s390x.rpm"
+    },
+    {
+      "name": "pcre",
+      "epoch": "0",
+      "version": "8.44",
+      "release": "4.el9",
+      "arch": "s390x",
+      "sha256": "e42ebd2b71ed4d5ee34a5fbba116396c22ed4deb7d7ab6189f048a3f603e5dbb",
+      "filename": "pcre-8.44-4.el9.s390x.rpm"
+    },
+    {
+      "name": "pcre2",
+      "epoch": "0",
+      "version": "10.40",
+      "release": "6.el9",
+      "arch": "s390x",
+      "sha256": "f7c2df461b8fe6a9617a1c1089fc88576e4df16f6ff9aea83b05413d2e15b4d5",
+      "filename": "pcre2-10.40-6.el9.s390x.rpm"
+    },
+    {
+      "name": "pcre2-syntax",
+      "epoch": "0",
+      "version": "10.40",
+      "release": "6.el9",
+      "arch": "noarch",
+      "sha256": "be36a84f6e311a59190664d61a466471391ab01fb77bd1d2348e9a76414aded4",
+      "filename": "pcre2-syntax-10.40-6.el9.noarch.rpm"
+    },
+    {
+      "name": "procps-ng",
+      "epoch": "0",
+      "version": "3.3.17",
+      "release": "14.el9",
+      "arch": "s390x",
+      "sha256": "3eaf08992132ad2a4b7c924593a8f3ab871967374a96734764941cb9aae7f191",
+      "filename": "procps-ng-3.3.17-14.el9.s390x.rpm"
+    },
+    {
+      "name": "python3",
+      "epoch": "0",
+      "version": "3.9.25",
+      "release": "3.el9",
+      "arch": "s390x",
+      "sha256": "8d256069560f02e70dab77d81fb1f8427adcdabc8f55ac1d64e9c8975b0eab6e",
+      "filename": "python3-3.9.25-3.el9.s390x.rpm"
+    },
+    {
+      "name": "python3-configshell",
+      "epoch": "1",
+      "version": "1.1.30",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "15575ccf52609db52e8535ebdd52f64f2fc9f599a2b4f0ac79d2c3f49aa32cd1",
+      "filename": "python3-configshell-1.1.30-1.el9.noarch.rpm"
+    },
+    {
+      "name": "python3-dbus",
+      "epoch": "0",
+      "version": "1.2.18",
+      "release": "2.el9",
+      "arch": "s390x",
+      "sha256": "6285fd8cbd484311a0e9f6b4fef4c8b0892b468f3633e49b3c93061fb6a0b360",
+      "filename": "python3-dbus-1.2.18-2.el9.s390x.rpm"
+    },
+    {
+      "name": "python3-gobject-base",
+      "epoch": "0",
+      "version": "3.40.1",
+      "release": "6.el9",
+      "arch": "s390x",
+      "sha256": "7a4cfa43d12f5afd3035e4c92395acae04b4e8c397f188dee4f6fa4c933db263",
+      "filename": "python3-gobject-base-3.40.1-6.el9.s390x.rpm"
+    },
+    {
+      "name": "python3-gobject-base-noarch",
+      "epoch": "0",
+      "version": "3.40.1",
+      "release": "6.el9",
+      "arch": "noarch",
+      "sha256": "57ae14f5296ed26cabd264a2b88a015b05f962b65c9633eb328da029a0372b01",
+      "filename": "python3-gobject-base-noarch-3.40.1-6.el9.noarch.rpm"
+    },
+    {
+      "name": "python3-kmod",
+      "epoch": "0",
+      "version": "0.9",
+      "release": "32.el9",
+      "arch": "s390x",
+      "sha256": "d26e61644fa735dc2e63b8793f9bc549d4476a07c77dc587457e86487e0363d4",
+      "filename": "python3-kmod-0.9-32.el9.s390x.rpm"
+    },
+    {
+      "name": "python3-libs",
+      "epoch": "0",
+      "version": "3.9.25",
+      "release": "3.el9",
+      "arch": "s390x",
+      "sha256": "48ddc59124e89c00be67d752f6d2c4f6e65c8681a454bc69b39392f569fe8518",
+      "filename": "python3-libs-3.9.25-3.el9.s390x.rpm"
+    },
+    {
+      "name": "python3-pip-wheel",
+      "epoch": "0",
+      "version": "21.3.1",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "1c8096f1dd57c5d6db4d1391cafb15326431923ba139f3119015773a307f80d9",
+      "filename": "python3-pip-wheel-21.3.1-1.el9.noarch.rpm"
+    },
+    {
+      "name": "python3-pyparsing",
+      "epoch": "0",
+      "version": "2.4.7",
+      "release": "9.el9",
+      "arch": "noarch",
+      "sha256": "ee20a60fb835392fc76c1a1a3e9befa0e4b3d27bdcfbfb0aab90fcddf3c60439",
+      "filename": "python3-pyparsing-2.4.7-9.el9.noarch.rpm"
+    },
+    {
+      "name": "python3-pyudev",
+      "epoch": "0",
+      "version": "0.22.0",
+      "release": "6.el9",
+      "arch": "noarch",
+      "sha256": "db815d76afabb8dd7eca6ca5a5bf838304f82824c41e4f06b6d25b5eb63c65c6",
+      "filename": "python3-pyudev-0.22.0-6.el9.noarch.rpm"
+    },
+    {
+      "name": "python3-rtslib",
+      "epoch": "0",
+      "version": "2.1.76",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "2cc7a615005d44835de5d211208722d9ebc7e5d36ad62632c5773a301ef6f0d2",
+      "filename": "python3-rtslib-2.1.76-1.el9.noarch.rpm"
+    },
+    {
+      "name": "python3-setuptools-wheel",
+      "epoch": "0",
+      "version": "53.0.0",
+      "release": "15.el9",
+      "arch": "noarch",
+      "sha256": "4d61c666c3862bd18caebac2295c088627b47612f3367cd636fcaec9a021bbac",
+      "filename": "python3-setuptools-wheel-53.0.0-15.el9.noarch.rpm"
+    },
+    {
+      "name": "python3-six",
+      "epoch": "0",
+      "version": "1.15.0",
+      "release": "9.el9",
+      "arch": "noarch",
+      "sha256": "efecffed29602079a1ea1d41c819271ec705a97a68891b43e1d626b2fa0ea8a1",
+      "filename": "python3-six-1.15.0-9.el9.noarch.rpm"
+    },
+    {
+      "name": "python3-urwid",
+      "epoch": "0",
+      "version": "2.1.2",
+      "release": "4.el9",
+      "arch": "s390x",
+      "sha256": "8c2347f24774578aee45917782ca5e535cdb5eb0bc12a8bbf301a8cc71174ab7",
+      "filename": "python3-urwid-2.1.2-4.el9.s390x.rpm"
+    },
+    {
+      "name": "qemu-img",
+      "epoch": "17",
+      "version": "10.1.0",
+      "release": "10.el9",
+      "arch": "s390x",
+      "sha256": "f70342c7ed802c44ae8bde3519d4b9f502f843f248846955960a39a2a1ece164",
+      "filename": "qemu-img-10.1.0-10.el9.s390x.rpm"
+    },
+    {
+      "name": "readline",
+      "epoch": "0",
+      "version": "8.1",
+      "release": "4.el9",
+      "arch": "s390x",
+      "sha256": "7b4b6f641f65d99d33ccbefaf4fbfe25a146d80213d359940779be4ad29569a8",
+      "filename": "readline-8.1-4.el9.s390x.rpm"
+    },
+    {
+      "name": "sed",
+      "epoch": "0",
+      "version": "4.8",
+      "release": "9.el9",
+      "arch": "s390x",
+      "sha256": "7185b39912949fe56bc0a9bd6463b1c2dc1206efa00dadecfd6e37c9028e1575",
+      "filename": "sed-4.8-9.el9.s390x.rpm"
+    },
+    {
+      "name": "setup",
+      "epoch": "0",
+      "version": "2.13.7",
+      "release": "10.el9",
+      "arch": "noarch",
+      "sha256": "42a1c5a415c44e3b55551f49595c087e2ba55f0fd9ece8056b791983601b76d2",
+      "filename": "setup-2.13.7-10.el9.noarch.rpm"
+    },
+    {
+      "name": "sevctl",
+      "epoch": "0",
+      "version": "0.1.0",
+      "release": "4.el9",
+      "arch": "s390x",
+      "sha256": "1f9c055b710e3840ea16027f68699587459cf4132e3509aff5db0c4dd7af10dc",
+      "filename": "sevctl-0.1.0-4.el9.s390x.rpm"
+    },
+    {
+      "name": "shadow-utils",
+      "epoch": "2",
+      "version": "4.9",
+      "release": "16.el9",
+      "arch": "s390x",
+      "sha256": "18c43c994a4c8f6c97c195f2bf30ffad338b3cf5ee08e3d813731dbcedf51b4e",
+      "filename": "shadow-utils-4.9-16.el9.s390x.rpm"
+    },
+    {
+      "name": "sqlite-libs",
+      "epoch": "0",
+      "version": "3.34.1",
+      "release": "9.el9",
+      "arch": "s390x",
+      "sha256": "759932a92153b14492308c8330aa398fcabec87f2b42635a231b455431032f3b",
+      "filename": "sqlite-libs-3.34.1-9.el9.s390x.rpm"
+    },
+    {
+      "name": "systemd",
+      "epoch": "0",
+      "version": "252",
+      "release": "64.el9",
+      "arch": "s390x",
+      "sha256": "5d61fb611b20b166e17d6f239535957939b5a021d9508f22d92cda060dd82fed",
+      "filename": "systemd-252-64.el9.s390x.rpm"
+    },
+    {
+      "name": "systemd-libs",
+      "epoch": "0",
+      "version": "252",
+      "release": "64.el9",
+      "arch": "s390x",
+      "sha256": "8f232bee21b9fda85b9b9c69a14d348306620745f9b70261efc14a85e73f10f5",
+      "filename": "systemd-libs-252-64.el9.s390x.rpm"
+    },
+    {
+      "name": "systemd-pam",
+      "epoch": "0",
+      "version": "252",
+      "release": "64.el9",
+      "arch": "s390x",
+      "sha256": "d2d89235bf69a9c840ad71d36895a8454721356c22b9fefb405198075c0628e9",
+      "filename": "systemd-pam-252-64.el9.s390x.rpm"
+    },
+    {
+      "name": "systemd-rpm-macros",
+      "epoch": "0",
+      "version": "252",
+      "release": "64.el9",
+      "arch": "noarch",
+      "sha256": "3a6d7b3d25e5faf5c1514ff4bfdadac927a8c33c159d08707e5e631ee330ee0e",
+      "filename": "systemd-rpm-macros-252-64.el9.noarch.rpm"
+    },
+    {
+      "name": "tar",
+      "epoch": "2",
+      "version": "1.34",
+      "release": "10.el9",
+      "arch": "s390x",
+      "sha256": "9f6c5294ffcbaeb67c6c2d0e4436118fadc7437c5396aa802cadd822d6284759",
+      "filename": "tar-1.34-10.el9.s390x.rpm"
+    },
+    {
+      "name": "target-restore",
+      "epoch": "0",
+      "version": "2.1.76",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "506d34ce73d61becd6190c0a86954e183c30e2d4efb873a4e258229812670ce3",
+      "filename": "target-restore-2.1.76-1.el9.noarch.rpm"
+    },
+    {
+      "name": "targetcli",
+      "epoch": "0",
+      "version": "2.1.57",
+      "release": "3.el9",
+      "arch": "noarch",
+      "sha256": "71aee4574ecf55ca3dec350e1dee3f1188909b2b5430f23bb7352baad322e21f",
+      "filename": "targetcli-2.1.57-3.el9.noarch.rpm"
+    },
+    {
+      "name": "tzdata",
+      "epoch": "0",
+      "version": "2025c",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "a7a70f4e8aa1473153235900a76753aef8f43a4c21eb869012bf4b065cc8b932",
+      "filename": "tzdata-2025c-1.el9.noarch.rpm"
+    },
+    {
+      "name": "util-linux",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "s390x",
+      "sha256": "bc5501f5a26586828a30cc97870f2f907d44c6107d7974c620ff920718b4d6bd",
+      "filename": "util-linux-2.37.4-21.el9.s390x.rpm"
+    },
+    {
+      "name": "util-linux-core",
+      "epoch": "0",
+      "version": "2.37.4",
+      "release": "21.el9",
+      "arch": "s390x",
+      "sha256": "62553c85f62156441de1b4e5da924182b3bafabef47fe803539396fd44fadb43",
+      "filename": "util-linux-core-2.37.4-21.el9.s390x.rpm"
+    },
+    {
+      "name": "vim-minimal",
+      "epoch": "2",
+      "version": "8.2.2637",
+      "release": "23.el9",
+      "arch": "s390x",
+      "sha256": "331adbd8d706c421c9db79304486c9da17d399f5cb592ae8402bc8ab8763e51b",
+      "filename": "vim-minimal-8.2.2637-23.el9.s390x.rpm"
+    },
+    {
+      "name": "which",
+      "epoch": "0",
+      "version": "2.21",
+      "release": "30.el9",
+      "arch": "s390x",
+      "sha256": "671cebde29b96ff50fd35e09b867505721144b4507c1c81ee60276f7c14f8723",
+      "filename": "which-2.21-30.el9.s390x.rpm"
+    },
+    {
+      "name": "xz-libs",
+      "epoch": "0",
+      "version": "5.2.5",
+      "release": "8.el9",
+      "arch": "s390x",
+      "sha256": "f5df58b242361ae5aaf97d1149c4331cc762394cadb5ebd054db089a6e10ae24",
+      "filename": "xz-libs-5.2.5-8.el9.s390x.rpm"
+    },
+    {
+      "name": "zlib",
+      "epoch": "0",
+      "version": "1.2.11",
+      "release": "41.el9",
+      "arch": "s390x",
+      "sha256": "bbe95dadf7383694d5b13ea8ae89b76697ed7009b4be889220d4a7d23db28759",
+      "filename": "zlib-1.2.11-41.el9.s390x.rpm"
+    }
+  ]
+}

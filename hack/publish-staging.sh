@@ -36,10 +36,9 @@ function prepare_repo() {
     cp -f SECURITY.md "${API_REF_DIR}/"
 
     pushd ${API_REF_DIR}
-    # Generate .gitignore file. We want to keep bazel files in kubevirt/kubevirt, but not in sync target repos
+    # Generate .gitignore file to exclude build artifacts from sync target repos
     cat >.gitignore <<__EOF__
 BUILD
-BUILD.bazel
 __EOF__
     popd
 }

@@ -1,49 +1,42 @@
 export GO15VENDOREXPERIMENT := 1
 
 ifeq (${CI}, true)
-  # If we're running under a test lane, enable timestamps and disable progress output
   TIMESTAMP=1
-  ifeq (,$(wildcard ci.bazelrc))
-    $(shell echo 'build --noshow_progress' > ci.bazelrc)
-  endif
 endif
 
 ifeq (${TIMESTAMP}, 1)
   SHELL = ./hack/timestamps.sh
 endif
 
-all: format bazel-build manifests
+# =============================================================================
+# Native Go Build
+# =============================================================================
 
-go-all: go-build manifests-no-bazel
+all: format go-build manifests
 
-bazel-generate:
-	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh"
+build: go-build
 
-bazel-build:
-	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && export DOCKER_TAG=${DOCKER_TAG} && export CI=${CI} && export KUBEVIRT_RELEASE=${KUBEVIRT_RELEASE} && hack/bazel-fmt.sh && ./hack/multi-arch.sh build"
+test: go-test
 
-bazel-build-functests:
-	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build-functests.sh"
+build-functests: go-build-functests
 
-build-functests: bazel-build-functests
+rpm-deps: go-rpm-deps
 
-bazel-build-verify: bazel-build
-	./hack/dockerized "hack/bazel-fmt.sh"
-	./hack/verify-generate.sh
-	./hack/build-verify.sh
-	./hack/dockerized "hack/bazel-test.sh"
+build-images: go-build-images
 
-bazel-build-images:
-	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/multi-arch.sh build-images"
+go-all: go-build manifests
 
-bazel-push-images:
-	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_TARGETS='${PUSH_TARGETS}' ./hack/multi-arch.sh push-images"
+# Native image build
+go-build-images: go-build
+	./hack/build-images.sh --registry ${DOCKER_PREFIX} --tag ${DOCKER_TAG} \
+		virt-launcher virt-handler virt-api virt-controller virt-operator \
+		virt-exportserver virt-exportproxy sidecar-shim libguestfs-tools pr-helper
+
+push: go-build-images
+	./hack/build-images.sh --push --registry ${DOCKER_PREFIX} --tag ${DOCKER_TAG} \
+		virt-launcher virt-handler virt-api virt-controller virt-operator \
+		virt-exportserver virt-exportproxy sidecar-shim libguestfs-tools pr-helper
 	BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} hack/push-container-manifest.sh
-
-push: bazel-push-images
-
-bazel-test:
-	hack/dockerized "hack/bazel-fmt.sh && CI=${CI} ARTIFACTS=${ARTIFACTS} WHAT=${WHAT}  hack/bazel-test.sh"
 
 gen-proto:
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/gen-proto.sh"
@@ -51,7 +44,6 @@ gen-proto:
 generate:
 	hack/dockerized hack/build-ginkgo.sh
 	hack/dockerized "DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} IMAGE_PULL_POLICY=${IMAGE_PULL_POLICY} VERBOSITY=${VERBOSITY} ./hack/generate.sh"
-	SYNC_VENDOR=true hack/dockerized "./hack/bazel-generate.sh && hack/bazel-fmt.sh"
 	hack/dockerized hack/sync-kubevirtci.sh
 	hack/dockerized hack/common-instancetypes/sync.sh
 	./hack/update-generated-api-testdata.sh
@@ -67,10 +59,10 @@ client-python:
 	hack/dockerized "DOCKER_TAG=${DOCKER_TAG} ./hack/gen-client-python/generate.sh"
 
 go-build:
-	KUBEVIRT_NO_BAZEL=true hack/dockerized "export KUBEVIRT_VERSION=${KUBEVIRT_VERSION} && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} KUBEVIRT_RELEASE=${KUBEVIRT_RELEASE} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
+	hack/dockerized "export KUBEVIRT_VERSION=${KUBEVIRT_VERSION} && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} KUBEVIRT_RELEASE=${KUBEVIRT_RELEASE} ./hack/build-go.sh install ${WHAT}" && ./hack/build-copy-artifacts.sh ${WHAT}
 
 go-build-functests:
-	hack/dockerized "export KUBEVIRT_NO_BAZEL=true && KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/go-build-functests.sh"
+	hack/dockerized "KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/go-build-functests.sh"
 
 gosec:
 	hack/dockerized "GOSEC=${GOSEC} ARTIFACTS=${ARTIFACTS} ./hack/gosec.sh"
@@ -79,15 +71,10 @@ coverage:
 	hack/dockerized "./hack/coverage.sh ${WHAT}"
 
 goveralls:
-	SYNC_OUT=false hack/dockerized "COVERALLS_TOKEN_FILE=${COVERALLS_TOKEN_FILE} COVERALLS_TOKEN=${COVERALLS_TOKEN} CI_NAME=prow CI_BRANCH=${PULL_BASE_REF} CI_PR_NUMBER=${PULL_NUMBER} GIT_ID=${PULL_PULL_SHA} PROW_JOB_ID=${PROW_JOB_ID} ./hack/bazel-goveralls.sh"
-
-coverage-report:
-	hack/dockerized "CI=${CI} WHAT=${WHAT} ./hack/bazel-coverage-report.sh"
+	SYNC_OUT=false hack/dockerized "COVERALLS_TOKEN_FILE=${COVERALLS_TOKEN_FILE} COVERALLS_TOKEN=${COVERALLS_TOKEN} CI_NAME=prow CI_BRANCH=${PULL_BASE_REF} CI_PR_NUMBER=${PULL_NUMBER} GIT_ID=${PULL_PULL_SHA} PROW_JOB_ID=${PROW_JOB_ID} ./hack/goveralls.sh"
 
 go-test: go-build
-	SYNC_OUT=false KUBEVIRT_NO_BAZEL=true hack/dockerized "export KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} && ./hack/build-go.sh test ${WHAT}"
-
-test: bazel-test
+	SYNC_OUT=false hack/dockerized "export KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} && ./hack/build-go.sh test ${WHAT}"
 
 fuzz:
 	hack/dockerized "./hack/fuzz.sh"
@@ -98,7 +85,7 @@ integ-test:
 functest: build-functests
 	hack/functests.sh
 
-dump: bazel-build
+dump: go-build
 	hack/dump.sh
 
 functest-image-build: manifests build-functests
@@ -121,7 +108,6 @@ realtime-perftest: build-functests
 
 clean:
 	hack/dockerized "./hack/build-go.sh clean ${WHAT} && rm _out/* -rf"
-	hack/dockerized "bazel clean --expunge"
 	rm -f tools/openapispec/openapispec tools/resource-generator/resource-generator tools/manifest-templator/manifest-templator tools/vms-generator/vms-generator
 
 distclean: clean
@@ -129,31 +115,26 @@ distclean: clean
 	rm -rf vendor/
 
 deps-update-patch:
-	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh -- -u=patch && ./hack/bazel-generate.sh"
+	SYNC_VENDOR=true hack/dockerized "./hack/dep-update.sh -- -u=patch"
 
 deps-update:
-	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh && ./hack/bazel-generate.sh"
+	SYNC_VENDOR=true hack/dockerized "./hack/dep-update.sh"
 
 deps-sync:
-	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh --sync-only && ./hack/bazel-generate.sh"
+	SYNC_VENDOR=true hack/dockerized "./hack/dep-update.sh --sync-only"
 
-rpm-deps:
-	SYNC_VENDOR=true hack/dockerized "CUSTOM_REPO=${CUSTOM_REPO} SINGLE_ARCH=${SINGLE_ARCH} BASESYSTEM=${BASESYSTEM} LIBVIRT_VERSION=${LIBVIRT_VERSION} QEMU_VERSION=${QEMU_VERSION} SEABIOS_VERSION=${SEABIOS_VERSION} EDK2_VERSION=${EDK2_VERSION} LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION} GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION} PASST_VERSION=${PASST_VERSION} VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION} SWTPM_VERSION=${SWTPM_VERSION} ./hack/rpm-deps.sh"
-
-bump-images:
-	hack/dockerized "./hack/rpm-deps.sh && ./hack/bump-distroless.sh"
+# Native RPM freeze (generates JSON lock files)
+go-rpm-deps:
+	hack/dockerized "./hack/rpm-freeze-all.sh"
 
 verify-rpm-deps:
-	SYNC_VENDOR=true hack/dockerized " ./hack/verify-rpm-deps.sh"
+	hack/dockerized "./hack/verify-rpm-deps.sh"
 
 build-verify:
 	hack/build-verify.sh
 
 manifests:
 	hack/manifests.sh
-
-manifests-no-bazel:
-	KUBEVIRT_NO_BAZEL=true hack/manifests.sh
 
 cluster-up:
 	./hack/cluster-up.sh
@@ -208,7 +189,7 @@ fossa:
 	hack/dockerized "FOSSA_TOKEN_FILE=${FOSSA_TOKEN_FILE} PULL_BASE_REF=${PULL_BASE_REF} CI=${CI} ./hack/fossa.sh"
 
 format:
-	./hack/dockerized "hack/bazel-fmt.sh"
+	./hack/dockerized "hack/gofumpt.sh"
 
 fmt: format
 
@@ -230,23 +211,20 @@ update-generated-api-testdata:
 	./hack/update-generated-api-testdata.sh
 
 .PHONY: \
+	all \
+	build \
 	build-verify \
 	conformance \
 	go-build \
 	go-test \
 	go-all \
-	bazel-generate \
-	bazel-build \
-	bazel-build-images \
-	bazel-push-images \
-	bazel-test \
+	go-build-images \
 	functest-image-build \
 	functest-image-push \
 	test \
 	clean \
 	distclean \
 	deps-sync \
-	sync \
 	manifests \
 	functest \
 	cluster-up \

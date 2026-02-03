@@ -78,7 +78,7 @@ for i in ${namespaces[@]}; do
 done
 
 # build perfscale tools
-make bazel-build
+make build
 
 export DOCKER_PREFIX="${DOCKER_PREFIX:-registry:5000/kubevirt}"
 export DOCKER_TAG="${DOCKER_TAG:-devel}"
