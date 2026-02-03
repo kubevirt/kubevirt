@@ -207,7 +207,7 @@ cat > "${OUTPUT_FILE}" << EOF
 # Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 # Original lock file generated: ${GENERATED}
 #
-# Build: podman build --platform linux/${PLATFORM_ARCH} -f ${OUTPUT_FILE} .
+# Build: \${KUBEVIRT_CRI:-podman} build --platform linux/${PLATFORM_ARCH} -f ${OUTPUT_FILE} .
 #
 
 # =============================================================================
@@ -303,8 +303,8 @@ echo "" >> "${OUTPUT_FILE}"
 echo ""
 echo "Containerfile generated: ${OUTPUT_FILE}"
 echo ""
-echo "Build commands:"
-echo "  podman build --platform linux/${PLATFORM_ARCH} --target ${PACKAGE_SET}-${ARCH} \\"
+echo "Build commands (use KUBEVIRT_CRI=docker for Docker):"
+echo "  \${KUBEVIRT_CRI:-podman} build --platform linux/${PLATFORM_ARCH} --target ${PACKAGE_SET}-${ARCH} \\"
 echo "    -t kubevirt-rpms-${PACKAGE_SET}:${ARCH} -f ${OUTPUT_FILE} ."
 echo ""
 echo "Usage in application Containerfile:"
