@@ -1,7 +1,7 @@
 # RPM Lock Files
 
 This directory contains JSON lock files that specify exact RPM package versions
-for reproducible container image builds. These files replace the bazeldnf-generated
+for reproducible container image builds. These files replace the previously generated
 rpmtree definitions.
 
 ## File Format

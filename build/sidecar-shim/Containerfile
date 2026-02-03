@@ -1,5 +1,5 @@
 # sidecar-shim container image
-# Built with native tools (no Bazel)
+# Built with native tools
 #
 # This is the base image for hook sidecars.
 #
@@ -80,7 +80,7 @@ COPY --from=passwd-builder /tmp/group /etc/group
 COPY --from=rpm-layer /rpm-root/ /
 
 # Copy Go binary from build output
-COPY _out/cmd/sidecars/sidecar-shim /usr/bin/sidecar-shim
+COPY _out/cmd/sidecars/sidecars /usr/bin/sidecar-shim
 
 # Run as nonroot user
 USER 1001:1001

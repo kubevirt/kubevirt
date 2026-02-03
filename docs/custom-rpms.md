@@ -60,8 +60,8 @@ repositories:
   * Update the rpms in KubeVirt repository.
   * If you only want to update a single architecture, set `SINGLE_ARCH="x86_64"`.
   * It is sometimes necessary to change `basesystem` when using custom rpms packages. This can be achieved by setting `BASESYSTEM=xyz` env variable.
-  * If you want to change version of some packages you can set env variables. See [`hack/rpm-deps.sh`](/hack/rpm-deps.sh) script for all variables that can be changed.
+  * If you want to change version of some packages you can set env variables. See [`hack/rpm-packages.sh`](/hack/rpm-packages.sh) script for all variables that can be changed.
 ```bash
 $ make CUSTOM_REPO=custom-repo.yaml LIBVIRT_VERSION=0:7.2.0-1.el8 rpm-deps
 ```
-Afterwards, the `WORKSPACE` and `rpm/BUILD.bazel` are automatically updated and KubeVirt can be built with the custom rpms.
+Afterwards, the RPM lock files are automatically updated and KubeVirt can be built with the custom rpms.

@@ -13,7 +13,7 @@
 #                       Default: host architecture
 #   --all-arch          Build for all architectures
 #   --push              Push images after building
-#   --registry REG      Registry prefix (default: quay.io/kubevirt)
+#   --registry REG      Registry prefix (default: localhost:5000/kubevirt or DOCKER_PREFIX)
 #   --tag TAG           Image tag (default: latest)
 #   --dry-run           Show commands without executing
 #   -h, --help          Show this help
@@ -25,7 +25,7 @@
 #   KUBEVIRT_CRI=docker ./hack/build-images.sh virt-launcher
 #
 
-set -euo pipefail
+set -eo pipefail
 
 # Timing support
 START_TIME=$(date +%s.%N)
@@ -40,13 +40,33 @@ show_timing() {
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/common.sh"
 
-# Ensure we have a container runtime
-fail_if_cri_bin_missing
+# Detect container runtime (extracted from common.sh to avoid sourcing kubevirtci)
+determine_cri_bin() {
+    if [ "${KUBEVIRT_CRI:-}" = "podman" ]; then
+        echo podman
+    elif [ "${KUBEVIRT_CRI:-}" = "docker" ]; then
+        echo docker
+    else
+        if podman ps >/dev/null 2>&1; then
+            echo podman
+        elif docker ps >/dev/null 2>&1; then
+            echo docker
+        else
+            echo ""
+        fi
+    fi
+}
+
+KUBEVIRT_CRI="$(determine_cri_bin)"
+
+if [ -z "${KUBEVIRT_CRI}" ]; then
+    echo >&2 "no working container runtime found. Neither docker nor podman seems to work."
+    exit 1
+fi
 
 # Defaults
-REGISTRY="${DOCKER_PREFIX:-quay.io/kubevirt}"
+REGISTRY="${DOCKER_PREFIX:-localhost:5000/kubevirt}"
 TAG="${DOCKER_TAG:-latest}"
 DRY_RUN=false
 PUSH=false

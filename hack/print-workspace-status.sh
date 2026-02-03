@@ -13,26 +13,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This command is used by bazel as the workspace_status_command
-# to implement build stamping with git information.
+# This command prints build stamping information with git information.
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
 export KUBEVIRT_DIR=$(dirname "${BASH_SOURCE}")/..
-export SANDBOX_DIR=${KUBEVIRT_DIR}/.bazeldnf/sandbox
 
 source "${KUBEVIRT_DIR}/hack/version.sh"
-KUBEVIRT_NO_BAZEL=true source "${KUBEVIRT_DIR}/hack/bootstrap.sh"
 kubevirt::version::get_version_vars
 
-# Prefix with STABLE_ so that these values are saved to stable-status.txt
-# instead of volatile-status.txt.
-# Stamped rules will be retriggered by changes to stable-status.txt, but not by
-# changes to volatile-status.txt.
-# IMPORTANT: the camelCase vars should match the lists in hack/version.sh
-# and staging/src/kubevirt.io/client-go/version/def.bzl.
+# Print version information for build stamping
 cat <<EOF
 STABLE_BUILD_GIT_COMMIT ${KUBEVIRT_GIT_COMMIT-}
 STABLE_BUILD_SCM_STATUS ${KUBEVIRT_GIT_TREE_STATE-}
@@ -46,12 +38,3 @@ buildDate $(date \
     -u +'%Y-%m-%dT%H:%M:%SZ')
 containerTag ${DOCKER_TAG-}
 EOF
-
-if [ "${KUBEVIRT_BOOTSTRAPPING:-false}" == "true" ]; then
-    exit 0
-fi
-
-if ! kubevirt::bootstrap::sandbox_exists; then
-    echo -e "\e[31m\e[1mERROR: \e[39mSandbox is not up to date, please run 'hack/bootstrap.sh'" >&2
-    exit 1
-fi

@@ -1,5 +1,5 @@
 # libguestfs-tools container image
-# Built with native tools (no Bazel)
+# Built with native tools
 #
 # Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
 #        -t quay.io/kubevirt/libguestfs-tools:latest -f build/libguestfs-tools/Containerfile .

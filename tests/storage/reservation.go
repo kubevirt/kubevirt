@@ -93,7 +93,7 @@ var _ = Describe(SIG("SCSI persistent reservation", Serial, func() {
 		pod, err := libpod.Run(libpod.RenderTargetcliPod(podName, pvc), testsuite.NamespacePrivileged)
 		Expect(err).ToNot(HaveOccurred())
 		node = pod.Spec.NodeName
-		// The vm-killer image is built with bazel and the /etc/ld.so.cache isn't built
+		// The vm-killer image may not have /etc/ld.so.cache built
 		// at the package installation. The targetcli utility relies on ctype python package that
 		// uses it to find shared library.
 		// To fix this issue, we run ldconfig before targetcli

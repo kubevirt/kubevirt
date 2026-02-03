@@ -79,7 +79,7 @@ sandboxroot_main="
     python3
     sssd-client
 "
-# bazeldnf resolves fips-provider-next on aarch64 (not openssl-fips-provider)
+# fips-provider-next is resolved on aarch64 (not openssl-fips-provider)
 sandboxroot_aarch64="fips-provider-next"
 
 # Launcher base for virt-launcher
@@ -136,7 +136,7 @@ handlerbase_extra="
     util-linux
     xorriso
 "
-# bazeldnf resolves fips-provider-next on aarch64 (not openssl-fips-provider)
+# fips-provider-next is resolved on aarch64 (not openssl-fips-provider)
 handlerbase_aarch64="fips-provider-next"
 
 # libguestfs tools
@@ -168,7 +168,7 @@ exportserverbase_main="
 pr_helper_main="
     qemu-pr-helper
 "
-# bazeldnf resolves fips-provider-next on aarch64 (not openssl-fips-provider)
+# fips-provider-next is resolved on aarch64 (not openssl-fips-provider)
 pr_helper_aarch64="fips-provider-next"
 
 # Sidecar shim
@@ -177,11 +177,11 @@ sidecar_shim_main="
 "
 
 # Passt tree (standalone) - minimal, just passt and its deps
-# Note: bazeldnf resolves glibc-langpack differently per arch
+# Note: glibc-langpack is resolved differently per arch
 passt_tree_main="
     passt-${PASST_VERSION}
 "
-# bazeldnf picks glibc-langpack-XX per arch, not glibc-minimal-langpack
+# glibc-langpack-XX is picked per arch, not glibc-minimal-langpack
 passt_tree_x86_64="glibc-langpack-en"
 passt_tree_aarch64="glibc-langpack-el"
 passt_tree_s390x="glibc-langpack-et"
@@ -261,7 +261,7 @@ get_packages() {
     echo "${packages}" | tr '\n' ' ' | tr -s ' ' | sed 's/^ *//;s/ *$//'
 }
 
-# Get exclusion patterns for dnf (equivalent to bazeldnf --force-ignore-with-dependencies)
+# Get exclusion patterns for dnf (force ignore with dependencies)
 # Usage: get_exclusions <package_set>
 get_exclusions() {
     local pkg_set=$1

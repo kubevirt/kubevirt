@@ -88,7 +88,7 @@ You might want to use a preconfigured OKD cluster. Namespaces might vary in that
 - verify manifests:  
   `make olm-verify`
 - push images:  
-  `DOCKER_PREFIX="index.docker.io/<docker_user>" DOCKER_TAG="<tag>" make bazel-push-images`
+  `DOCKER_PREFIX="index.docker.io/<docker_user>" DOCKER_TAG="<tag>" make push`
 - push the operator bundle:  
   `CSV_VERSION=<csv-version> QUAY_USER=<username> QUAY_PASSWORD=<password> QUAY_REPOSITORY=<repository> make olm-push`
 >**Note:** we need Quay user and repository, because for robot accounts it's not the same  

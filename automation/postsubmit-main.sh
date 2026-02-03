@@ -8,7 +8,7 @@ export GIT_ASKPASS
 
 export DOCKER_TAG=""
 
-make bazel-build-verify
+make build
 
 make build-verify # verify that we set version on the packages built by go (goveralls depends on go-build target)
 make apidocs

@@ -1,5 +1,5 @@
 # virt-handler container image
-# Built with native tools (no Bazel)
+# Built with native tools
 #
 # Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
 #        -t quay.io/kubevirt/virt-handler:latest -f build/virt-handler/Containerfile .

@@ -61,54 +61,11 @@ docker build -t kubevirt/fedora-sriov-testing:latest .
 
 ## Use image in Kubevirt tests
 
-First we need pull the image from the remote registry (or local registry) by adding `container_pull` rule to `WORKSPACE` file:
-```bash
-container_pull(
-    name = "fedora_sriov_lane",
-    # digest = ""
-    registry = "localhost:5000",
-    repository = "kubevirt/fedora-sriov-testing",
-    tag = "latest",
-)
-```
-Once you verified the image works reach out to kubevirt CI maintainers and ask to upload the new image 
-then update the `container_pull` rule accordingly.
-```bash
-container_pull(
-    name = "fedora_sriov_lane",
-    digest = ""
-    registry = "index.docker.io",
-    repository = "kubevirt/fedora-sriov-testing",
-    # tag = "32",
-)
-```
+To use a new container disk image in tests:
 
-Next we need to add `contaier_image` rule for the new image to `containerdisks/BUILD.bazel` file;
-```bash
-container_image(
-    name = "fedora-sriov-lane-container-disk-image",
-    architecture = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "arm64",
-        "//conditions:default": "amd64",
-    }),
-    base = select({
-        "@io_bazel_rules_go//go/platform:linux_arm64": "@fedora_sriov_lane_aarch64//image",
-        "//conditions:default": "@fedora_sriov_lane//image",
-    }),
-    visibility = ["//visibility:public"],
-)
-```
+1. Build and push your image to a container registry
+2. Add the image reference to `tests/containerdisks/containerdisks.go`
+3. Use the image in your test
 
-Then add new line for the container_bundle rules for each architecture at the pojects`BUILD.bazel` file
-```bash
-container_bundle(
-    name = "build-other-images_<arch>",
-    images = {
-        ...
-        "$(container_prefix)/$(image_prefix)fedora-sriov-lane-container-disk:$(container_tag)": "//containerimages:fedora-extended-container-disk-image",
-        ...
-    }
-)
-```
-
-Finally, in order to use the image in tests suite it is necessary to add it to `tests/containerdisks/containerdisks.go` file.
+For official images, reach out to kubevirt CI maintainers to upload the image
+to the official registry.

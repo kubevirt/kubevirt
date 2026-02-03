@@ -1,5 +1,5 @@
 # virt-operator container image
-# Built with native tools (no Bazel)
+# Built with native tools
 #
 # This is a minimal image with static Go binaries.
 # No RPM dependencies required.
@@ -28,7 +28,7 @@ COPY --from=passwd-builder /tmp/group /etc/group
 
 # Copy Go binaries from build output (static binaries)
 COPY _out/cmd/virt-operator/virt-operator /usr/bin/
-COPY _out/tools/csv-generator/csv-generator /usr/bin/
+COPY _out/cmd/csv-generator/csv-generator /usr/bin/
 
 # Run as nonroot user
 USER 1001:1001

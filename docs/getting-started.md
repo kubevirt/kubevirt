@@ -21,10 +21,6 @@ Then build the manifests and images:
 make && make push && make manifests
 ```
 
-**Note:** If you see failures related to fetching some modules, try increasing bazel's timeout with:
- ```bash
- export PULLER_TIMEOUT=10000
- ```
 
 Finally, push the manifests to your cluster:
 
@@ -33,38 +29,6 @@ kubectl create -f _out/manifests/release/kubevirt-operator.yaml
 kubectl create -f _out/manifests/release/kubevirt-cr.yaml
 ```
 
-### Docker Desktop for Mac
-
-The Bazel build system does not support the macOS keychain. Docker uses `osxkeychain`, which is the default [credential helper](https://github.com/docker/docker-credential-helpers) 
-for mac.
-
-Modify the `$HOME/.docker/config.json` file to include the following snippet:
-
-```json
-{
-	"credHelpers": {
-		"https://index.docker.io/v1/": ""
-	}
-}
-```
-
-This makes sure that no credential helpers are used for the specified registry and hence the credentials will be stored in the config.json file itself.
-
-Now log in with `docker login`. You will get a warning message saying that no credential helper is configured. Your `$HOME/.docker/config.json` should look like:
-
-```json
-{
-	"auths": {
-		"https://index.docker.io/v1/": {
-			"auth": "XXXXXXXXXX"
-		}
-	},
-	"credsStore": "desktop",
-	"credHelpers": {
-		"https://index.docker.io/v1/": ""
-	}
-}
-```
 
 ## Requirements
 
@@ -176,7 +140,7 @@ This means you can simply rebuild the component that changed and then kill the r
 cause a fresh pull:
 
 ```sh
-PUSH_TARGETS='virt-api' ./hack/bazel-push-images.sh
+make push
 kubectl delete po -n kubevirt -l kubevirt.io=virt-api
 ```
 
@@ -350,18 +314,3 @@ virtual machine specific commands with it and is a supplement to `kubectl`.
 
 **Note:** If accessing your cluster through ssh, be sure to forward your X11 session in order to launch `virtctl vnc`.
 
-### Bazel and KubeVirt
-
-#### Build.bazel merge conflicts
-
-You may encounter merge conflicts in `BUILD.bazel` files when creating pull
-requests. Normally you can resolve these conflicts extremely easy by simply
-accepting the new upstream version of the files and run `make` again. That will
-update the build files with your changes.
-
-#### Build.bazel build failures when switching branches
-
-In case you work on two or more branches, `make generate` for example might fail,
-the reason is there is a Bazel server in the background, and when the base image changes,
-it should be auto restarted, the detection does not always work perfectly.
-To solve it, run `docker stop kubevirt-bazel-server`, which will stop the Bazel server.

@@ -1,8 +1,0 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
-
-oci_image(
-    name = "vm-killer-image",
-    base = "//images:kubevirt-testing-base",
-    user = "1001",
-    visibility = ["//visibility:public"],
-)

@@ -34,7 +34,6 @@ KUBEVIRT_DIR="$(
     pwd
 )"
 OUT_DIR=$KUBEVIRT_DIR/_out
-SANDBOX_DIR=${KUBEVIRT_DIR}/.bazeldnf/sandbox
 VENDOR_DIR=$KUBEVIRT_DIR/vendor
 CMD_OUT_DIR=$OUT_DIR/cmd
 TESTS_OUT_DIR=$OUT_DIR/tests
@@ -46,7 +45,7 @@ MANIFEST_TEMPLATES_OUT_DIR=$OUT_DIR/templates/manifests
 PYTHON_CLIENT_OUT_DIR=$OUT_DIR/client-python
 ARCHITECTURE="${ARCHITECTURE:-$(uname -m)}"
 HOST_ARCHITECTURE="$(uname -m)"
-KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
+# Native Go build is now the default
 KUBEVIRT_RELEASE=${KUBEVIRT_RELEASE:-false}
 OPERATOR_MANIFEST_PATH=$MANIFESTS_OUT_DIR/release/kubevirt-operator.yaml
 TESTING_MANIFEST_PATH=$MANIFESTS_OUT_DIR/testing
@@ -70,7 +69,6 @@ function build_func_tests_image() {
 #KUBEVIRT_GO_BASE_PKGDIR="${GOPATH}/crossbuild-cache-root/"
 
 # Use this environment variable to specify additional tags for the go build in hack/build-go.sh.
-# To specify tags in the bazel build modify/overwrite the build target in .bazelrc instead.
 if [ -z "$KUBEVIRT_GO_BUILD_TAGS" ]; then
     KUBEVIRT_GO_BUILD_TAGS="selinux"
 else
@@ -105,10 +103,8 @@ function go_build() {
 DOCKER_CA_CERT_FILE="${DOCKER_CA_CERT_FILE:-}"
 DOCKERIZED_CUSTOM_CA_PATH="/etc/pki/ca-trust/source/anchors/custom-ca.crt"
 
-# We are formatting the architecture name here to ensure that
-# it is consistent with the platform name specified in ../.bazelrc
-# if the second argument is set, the function formats arch name for
-# image tag.
+# Format architecture name for consistent naming.
+# If the second argument is set, the function formats arch name for image tag.
 function format_archname() {
     local local_platform=$(uname -m)
     local platform=$1

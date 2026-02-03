@@ -36,13 +36,9 @@ vendor/**/*_test.go
 .coverprofile*
 coverage.html
 manifests/**/*.tmp
-/bazel-*
-/ci.bazelrc
 _ci-configs/
 .history
 hack/builder/manifests/
 *~
-.bazeldnf/
-user.bazelrc
 .vscode/
 rpm-cache/

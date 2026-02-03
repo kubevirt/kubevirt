@@ -4,6 +4,8 @@ binaries_and_docker_images="
     cmd/virt-launcher
     cmd/virt-handler
     cmd/virt-api
+    cmd/virt-exportserver
+    cmd/virt-exportproxy
     cmd/sidecars
     cmd/sidecars/smbios
     cmd/sidecars/cloudinit
@@ -15,6 +17,8 @@ binaries="
     cmd/fake-qemu-process
     cmd/virt-chroot
     cmd/virt-tail
+    cmd/virt-launcher/libvirt-hook-client
+    tools/csv-generator
 "
 
 docker_images="

@@ -12,7 +12,7 @@ This document will provide the steps to:
  - prepare the local environment to build the builder container
  - build the builder container
  - push the builder image to a custom registry
- - how to update the rpm dependencies with bazeldnf
+ - how to update the rpm dependencies
  - invoke the new test builder image to build new kubevirt operator images
  - push the new kubevirt operator images to a custom registry
 
@@ -47,22 +47,7 @@ You will first need to create read and write access to an appropriate namespace 
 
 [`docker.io`](https://docs.docker.com/docker-id/) or [`quay.io`](https://docs.quay.io/solution/getting-started.html) or [`icr.io`](https://cloud.ibm.com/docs/Registry?topic=Registry-getting-started) are popular registries to use for this purpose.  Then set up a repository or namespace to hold the container you are building, e.g. `builder` or, where the namespace needs to be more unique, `kubevirt-builder`. 
 
-##  Install bazel and dependencies in order to containerize the builder 
-
-Bazel binary distribution images for version 5.3.0 for the Arm and x86 architectures are available from https://github.com/bazelbuild/bazel/releases/tag/5.3.0
-
-This, the dependent libraries and build script configuration will constitute the containerized KubeVirt build toolchain.  For architectures other than arm and x86, e.g. IBM s390x, you need to build bazel from scratch on your build-the-builder box. 
-
-Currently, [a scripted build for bazel is available for Ubuntu on s390x](https://github.com/linux-on-ibm-z/docs/wiki/Building-TensorFlow) step 1.2 'Build Bazel v5.3.0'.
-
-The Dockerfile you'll be building with that bazel installation expects to 
-find the bazel executable in `kubevirt/hack/builder/bazel`, so copy it there, e.g.:
-
-```
-$ cp /usr/local/bin/bazel ~/kubevirt/hack/builder/bazel
-```
-
-## Build and publish the Bazel builder container
+## Build and publish the builder container
 
 ### Set environment variables for building the builder -- all architectures, all registries
 
@@ -78,7 +63,7 @@ export KUBEVIRT_BUILDER_IMAGE="${DOCKER_PREFIX}/${DOCKER_IMAGE}/${VERSION}"
 where <your-system-architecture> is either `amd64` or `arm64` or `s390x` for x86, ARM, s390x systems, respectively.
 
 
-`make builder-build` invokes the build of the bazel builder container. 
+`make builder-build` invokes the build of the builder container. 
 
 This tags your image with namespace you set up in your environment variables.
 
@@ -90,91 +75,31 @@ $ make builder-publish
 
 which, among many other things, pushes the image up to the container registry of choice. Note that you will be pushing these changes to your test repository, in order to use this builder image to build kubevirt test operators in further steps. 
 
-### Update the rpms
+### Update the RPM dependencies
 
-edit your local copy of this section of the file `hack/rpm-deps.sh`:
+Edit your local copy of `hack/rpm-packages.sh` to update the version numbers of the rpms in accordance with the latest versions observable in https://mirror.stream.centos.org/9-stream/AppStream/$ARCH/os/Packages/
 
-```
-LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:9.5.0-5.el9}
-QEMU_VERSION=${QEMU_VERSION:-17:8.0.0-13.el9}
-SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.1-1.el9}
-EDK2_VERSION=${EDK2_VERSION:-0:20221207gitfff6d81270b5-9}
-LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.48.4-4.el9}
-GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.48.2-8.el9}
-PASST_VERSION=${PASST_VERSION:-0:0^20230818.g0af928e-4.el9}
-VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.5.0-1.el9}
-SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-1.el9}
-SINGLE_ARCH=${SINGLE_ARCH:-""}
-BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
-```
-
-Update the version numbers of the rpms in accordance with the latest versions observable in https://mirror.stream.centos.org/9-stream/AppStream/$ARCH/os/Packages/
-
-If you do not have a version that can be looked up in the CentOS rpm collection, the build of the bazel helper container for KubeVirt will fail. 
-
-Once you get it working, you can consider incorporating your local versions of the RPM dependencies in a PR, but careful to check for CVEs and other issues in the dependencies you specified. 
-
-### Obtain the `bazeldnf` utility
-
-If you are building the builder on Power, x86 or arm architecture you can get a pre-built binary of the `bazeldnf` utility from https://github.com/rmohr/bazeldnf/releases
-
-If you are building the builder container natively on s390x, you will need to compile it from source, which is also provided at https://github.com/rmohr/bazeldnf/releases
-
-
-Now run a script which you can name `./fix-rpm-deps.sh` to update these versions throughout the installation with bazeldnf:
+Then run:
 
 ```
-#!/bin/bash
-
-set -ex
-
-BASESYSTEM=${BASESYSTEM:-"centos-stream-release"}
-bazeldnf_repos="--repofile rpm/repo.yaml"
-
-centos_main="
-  acl
-  curl-minimal
-  vim-minimal
-"
-centos_extra="
-  coreutils-single
-  glibc-minimal-langpack
-  libcurl-minimal
-"
-
-sandboxroot_main="
-  findutils
-  gcc
-  glibc-static
-  python3
-  sssd-client
-"
-bazeldnf fetch \
-    ${bazeldnf_repos}
-
-bazeldnf rpmtree \
-        --public --nobest \
-        --name sandboxroot_s390x --arch s390x \
-        --basesystem ${BASESYSTEM} \
-        ${bazeldnf_repos} \
-        $centos_main \
-        $centos_extra \
-        $sandboxroot_main
-
-SINGLE_ARCH=<your-system-architecture> make rpm-deps
+make rpm-deps
 ```
 
-where <your-system-architecture> is `amd64`, `arm64` or `s390x`
+This will update the JSON lock files in `rpm-lockfiles/` with the new package versions.
 
 ## Build & push KubeVirt images to your test registry 
 
-Because in this instance, you are using your test registry and potentially an architecture other than x86, before running `make && make bazel-push-images && make manifests` as in [getting-started.md](getting-started.md),
-set the necessary environment variables for these make targets:
+Set the necessary environment variables for these make targets:
 
 ```
-export BUILD_ARCH="<your-system-architecture"
+export BUILD_ARCH="<your-system-architecture>"
 export DOCKER_PREFIX="<your-registry-URL>/<your-kubevirt-namespace>" 
 export QUAY_REPOSITORY="kubevirt" 
 export PACKAGE_NAME="kubevirt-operatorhub"
 ```
 
+Then build and push:
+
+```
+make && make push && make manifests
+```

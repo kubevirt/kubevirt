@@ -1,5 +1,5 @@
 # pr-helper container image (QEMU persistent reservation helper)
-# Built with native tools (no Bazel)
+# Built with native tools
 #
 # Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
 #        -t quay.io/kubevirt/pr-helper:latest -f build/pr-helper/Containerfile .

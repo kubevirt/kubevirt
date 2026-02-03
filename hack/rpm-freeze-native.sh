@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Native RPM freezing tool - bazeldnf replacement
+# Native RPM freezing tool
 # Generates JSON lock files with SHA256 checksums for reproducible builds
 #
 # Usage: ./hack/rpm-freeze-native.sh <arch> <package_set>
@@ -233,7 +233,7 @@ if command -v jq &>/dev/null; then
     # =============================================================================
     # Post-filter: Remove excluded packages from lock file
     # =============================================================================
-    # This mimics bazeldnf's --force-ignore-with-dependencies behavior
+    # Force ignore packages with their dependencies
     # We remove packages matching the exclusion patterns from the lock file
 
     if [ -n "${EXCLUSIONS}" ]; then

@@ -30,9 +30,18 @@ source hack/config.sh
 
 echo "Building ..."
 
-# Build everything and publish it
-${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} ./hack/bazel-build-functests.sh"
-${KUBEVIRT_PATH}hack/dockerized "BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/multi-arch.sh push-images"
+# Build functests (ginkgo, tests.test, junit-merger)
+${KUBEVIRT_PATH}hack/dockerized "KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} ./hack/go-build-functests.sh"
+
+# Build main binaries
+${KUBEVIRT_PATH}hack/dockerized "KUBEVIRT_VERSION=${DOCKER_TAG} ./hack/build-go.sh install"
+
+# Build and push images
+DOCKER_PREFIX=${docker_prefix} DOCKER_TAG=${DOCKER_TAG} ${KUBEVIRT_PATH}hack/build-images.sh --push \
+    virt-launcher virt-handler virt-api virt-controller virt-operator \
+    virt-exportserver virt-exportproxy sidecar-shim
+
+# Push multi-arch manifests if needed
 BUILD_ARCH=${BUILD_ARCH} DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} hack/push-container-manifest.sh
 
 echo "Done $0"

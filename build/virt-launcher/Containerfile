@@ -1,5 +1,5 @@
 # virt-launcher container image
-# Built with native tools (no Bazel)
+# Built with native tools
 #
 # Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
 #        -t quay.io/kubevirt/virt-launcher:latest -f build/virt-launcher/Containerfile .
@@ -79,9 +79,10 @@ RUN cp -a /usr/share/seabios /rpm-root/usr/share/ 2>/dev/null || true && \
 RUN cp -a /usr/share/qemu /rpm-root/usr/share/ 2>/dev/null || true && \
     cp -a /usr/share/qemu-kvm /rpm-root/usr/share/ 2>/dev/null || true
 
-# Copy libvirt configs
+# Copy libvirt configs and create runtime directories
 RUN mkdir -p /rpm-root/etc/libvirt && \
-    cp -a /etc/libvirt/* /rpm-root/etc/libvirt/ 2>/dev/null || true
+    cp -a /etc/libvirt/* /rpm-root/etc/libvirt/ 2>/dev/null || true && \
+    mkdir -p /rpm-root/var/run/libvirt /rpm-root/var/log/libvirt /rpm-root/var/cache/libvirt
 
 # Copy all required shared libraries
 RUN for bin in /rpm-root/usr/bin/* /rpm-root/usr/sbin/* /rpm-root/usr/libexec/*; do \
@@ -108,20 +109,14 @@ COPY --from=rpm-layer /rpm-root/ /
 # Copy Go binaries from build output
 COPY _out/cmd/virt-launcher/virt-launcher /usr/bin/
 COPY _out/cmd/container-disk-v2alpha/container-disk /usr/bin/container-disk
-COPY _out/cmd/virt-freezer/virt-freezer /usr/bin/
-COPY _out/cmd/virt-launcher-monitor/virt-launcher-monitor /usr/bin/
-COPY _out/cmd/virt-probe/virt-probe /usr/bin/
 COPY _out/cmd/virt-tail/virt-tail /usr/bin/
 
 # Copy libvirt hook client
-COPY _out/cmd/virt-launcher/libvirt-hook-client /usr/bin/libvirt-hook-client
+COPY _out/cmd/libvirt-hook-client/libvirt-hook-client /usr/bin/libvirt-hook-client
 
 # Copy configuration files
 COPY cmd/virt-launcher/node-labeller/node-labeller.sh /usr/bin/
-COPY cmd/virt-launcher/qemu-hook /var/run/kubevirt-hooks/qemu
-
-# Create necessary directories
-RUN mkdir -p /var/run/libvirt /var/log/libvirt /var/cache/libvirt
+COPY cmd/virt-launcher/qemu /var/run/kubevirt-hooks/qemu
 
 # Labels
 LABEL org.opencontainers.image.description="KubeVirt virt-launcher"

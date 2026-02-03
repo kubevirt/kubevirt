@@ -1,5 +1,5 @@
 # virt-exportproxy container image
-# Built with native tools (no Bazel)
+# Built with native tools
 #
 # This is a minimal image with a static Go binary.
 # No RPM dependencies required.

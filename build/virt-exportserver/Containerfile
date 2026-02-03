@@ -1,5 +1,5 @@
 # virt-exportserver container image
-# Built with native tools (no Bazel)
+# Built with native tools
 #
 # Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
 #        -t quay.io/kubevirt/virt-exportserver:latest -f build/virt-exportserver/Containerfile .
@@ -58,7 +58,7 @@ RUN cp -a /lib64/ld-linux-*.so* /rpm-root/lib64/ 2>/dev/null || \
 # =============================================================================
 FROM quay.io/centos/centos:stream9 AS passwd-builder
 
-# Use uid 107 for virt-exportserver (matches Bazel)
+# Use uid 107 for virt-exportserver
 RUN echo "nonroot-user:x:107:107:nonroot-user:/:/sbin/nologin" > /tmp/passwd && \
     echo "nonroot-user:x:107:" > /tmp/group
 
