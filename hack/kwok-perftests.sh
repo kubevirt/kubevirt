@@ -43,7 +43,6 @@ echo 'Create kubevirt related kwok manifests'
 kubectl apply -k tests/performance/manifests/kwok
 
 echo 'Preparing directory for artifacts'
-export ARTIFACTS=${ARTIFACTS}/performance
 export AUDIT_CONFIG=${ARTIFACTS}/perfscale-audit-cfg.json
 export AUDIT_RESULTS=${ARTIFACTS}/perfscale-audit-results.json
 rm -rf "$ARTIFACTS"
