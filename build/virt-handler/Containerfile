@@ -1,0 +1,118 @@
+# virt-handler container image
+# Built with native tools (no Bazel)
+#
+# Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
+#        -t quay.io/kubevirt/virt-handler:latest -f build/virt-handler/Containerfile .
+
+ARG ARCH=x86_64
+ARG BASE_IMAGE=gcr.io/distroless/base-debian12:nonroot
+
+# =============================================================================
+# Stage 1: RPM Installation
+# =============================================================================
+FROM quay.io/centos/centos:stream9 AS rpm-installer
+
+ARG ARCH=x86_64
+
+# Copy lock file
+COPY rpm-lockfiles/handlerbase-${ARCH}.lock.json /tmp/lockfile.json
+
+# Install jq for parsing lock file
+RUN dnf install -y jq && dnf clean all
+
+# Install packages from lock file
+RUN set -e && \
+    jq -r '.packages[] | "\(.name)-\(.epoch):\(.version)-\(.release).\(.arch)"' /tmp/lockfile.json | \
+    sed 's/:0:/:/' > /tmp/packages.txt && \
+    dnf install -y --setopt=install_weak_deps=False $(cat /tmp/packages.txt) && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf
+
+# =============================================================================
+# Stage 2: Extract RPM Files
+# =============================================================================
+FROM rpm-installer AS rpm-layer
+
+# Create the directory structure for the final image
+RUN mkdir -p /rpm-root/{usr/bin,usr/sbin,usr/lib64,etc}
+
+# Copy qemu-img for disk operations
+RUN cp -a /usr/bin/qemu-img /rpm-root/usr/bin/ 2>/dev/null || true
+
+# Copy networking tools
+RUN cp -a /usr/sbin/nft /rpm-root/usr/sbin/ 2>/dev/null || true && \
+    cp -a /usr/sbin/ip /rpm-root/usr/sbin/ 2>/dev/null || true
+
+# Copy xorriso for ISO handling
+RUN cp -a /usr/bin/xorriso /rpm-root/usr/bin/ 2>/dev/null || true
+
+# Copy tar for archive operations
+RUN cp -a /usr/bin/tar /rpm-root/usr/bin/ 2>/dev/null || true
+
+# Copy findutils
+RUN cp -a /usr/bin/find /rpm-root/usr/bin/ 2>/dev/null || true
+
+# Copy SELinux policy files
+RUN mkdir -p /rpm-root/etc/selinux && \
+    cp -a /etc/selinux/* /rpm-root/etc/selinux/ 2>/dev/null || true
+
+# Copy all required shared libraries
+RUN for bin in /rpm-root/usr/bin/* /rpm-root/usr/sbin/*; do \
+        [ -f "$bin" ] && [ -x "$bin" ] && \
+        ldd "$bin" 2>/dev/null | grep "=> /" | awk '{print $3}' | \
+        while read lib; do \
+            [ -f "$lib" ] && mkdir -p /rpm-root$(dirname "$lib") && \
+            cp -an "$lib" /rpm-root"$lib" 2>/dev/null || true; \
+        done; \
+    done || true
+
+# Copy dynamic linker
+RUN cp -a /lib64/ld-linux-*.so* /rpm-root/lib64/ 2>/dev/null || \
+    (mkdir -p /rpm-root/lib && cp -a /lib/ld-linux-*.so* /rpm-root/lib/) 2>/dev/null || true
+
+# =============================================================================
+# Stage 3: Passt Repair Layer
+# =============================================================================
+FROM quay.io/centos/centos:stream9 AS passt-layer
+
+ARG ARCH=x86_64
+
+# Copy passt lock file
+COPY rpm-lockfiles/passt_tree-${ARCH}.lock.json /tmp/lockfile.json
+
+# Install jq for parsing lock file
+RUN dnf install -y jq && dnf clean all
+
+# Install passt packages
+RUN set -e && \
+    jq -r '.packages[] | "\(.name)-\(.epoch):\(.version)-\(.release).\(.arch)"' /tmp/lockfile.json | \
+    sed 's/:0:/:/' > /tmp/packages.txt && \
+    dnf install -y --setopt=install_weak_deps=False $(cat /tmp/packages.txt) && \
+    dnf clean all
+
+# Create tar of passt for repair functionality
+RUN mkdir -p /passt-root/usr/bin && \
+    cp -a /usr/bin/passt /passt-root/usr/bin/ 2>/dev/null || true && \
+    cp -a /usr/bin/pasta /passt-root/usr/bin/ 2>/dev/null || true && \
+    tar -C /passt-root -cvf /passt-repair.tar .
+
+# =============================================================================
+# Stage 4: Final Image
+# =============================================================================
+FROM ${BASE_IMAGE}
+
+# Copy RPM layer
+COPY --from=rpm-layer /rpm-root/ /
+
+# Copy passt repair tar
+COPY --from=passt-layer /passt-repair.tar /
+
+# Copy Go binaries from build output
+COPY _out/cmd/virt-handler/virt-handler /usr/bin/
+COPY _out/cmd/virt-chroot/virt-chroot /usr/bin/
+
+# Labels
+LABEL org.opencontainers.image.description="KubeVirt virt-handler"
+LABEL org.kubevirt.component="virt-handler"
+
+ENTRYPOINT ["/usr/bin/virt-handler"]

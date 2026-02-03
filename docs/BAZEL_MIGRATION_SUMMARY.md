@@ -323,12 +323,12 @@ ccc8c9c33a hack: add rpm-freeze-all.sh to generate all lock files
 - [x] Generate all lock files (30 files: 10 package sets × 3 architectures)
 - [x] Validate all lock files match bazeldnf (28/28 passed)
 
-### Phase 3: Container Images (IN PROGRESS)
+### Phase 3: Container Images (COMPLETED)
 
 - [x] Create `hack/containerfile-from-lock.sh` for generating Containerfiles
 - [x] Create `hack/build-images.sh` with Docker/Podman support
-- [ ] Create Containerfiles for each image type
-- [ ] Test image builds
+- [x] Create Containerfiles for main images (virt-launcher, virt-handler, virt-api, virt-controller, virt-operator)
+- [ ] Test image builds (pending Go binaries)
 
 ### Phase 4: Switch Defaults (PLANNED)
 

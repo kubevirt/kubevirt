@@ -1,0 +1,40 @@
+# virt-operator container image
+# Built with native tools (no Bazel)
+#
+# This is a minimal image with static Go binaries.
+# No RPM dependencies required.
+#
+# Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
+#        -t quay.io/kubevirt/virt-operator:latest -f build/virt-operator/Containerfile .
+
+ARG BASE_IMAGE=gcr.io/distroless/base-debian12:nonroot
+
+# =============================================================================
+# Stage 1: Create passwd file for nonroot user
+# =============================================================================
+FROM quay.io/centos/centos:stream9 AS passwd-builder
+
+RUN echo "nonroot-user:x:1001:1001:nonroot-user:/:/sbin/nologin" > /tmp/passwd && \
+    echo "nonroot-user:x:1001:" > /tmp/group
+
+# =============================================================================
+# Stage 2: Final Image
+# =============================================================================
+FROM ${BASE_IMAGE}
+
+# Copy passwd/group for nonroot user
+COPY --from=passwd-builder /tmp/passwd /etc/passwd
+COPY --from=passwd-builder /tmp/group /etc/group
+
+# Copy Go binaries from build output (static binaries)
+COPY _out/cmd/virt-operator/virt-operator /usr/bin/
+COPY _out/tools/csv-generator/csv-generator /usr/bin/
+
+# Run as nonroot user
+USER 1001:1001
+
+# Labels
+LABEL org.opencontainers.image.description="KubeVirt virt-operator"
+LABEL org.kubevirt.component="virt-operator"
+
+ENTRYPOINT ["/usr/bin/virt-operator"]

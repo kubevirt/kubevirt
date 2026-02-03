@@ -1,0 +1,130 @@
+# virt-launcher container image
+# Built with native tools (no Bazel)
+#
+# Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
+#        -t quay.io/kubevirt/virt-launcher:latest -f build/virt-launcher/Containerfile .
+#
+# Required build args:
+#   ARCH - Target architecture (x86_64, aarch64, s390x)
+#
+# Prerequisites:
+#   - Go binaries built in _out/cmd/
+#   - RPM lock files in rpm-lockfiles/
+
+ARG ARCH=x86_64
+ARG BASE_IMAGE=gcr.io/distroless/base-debian12:nonroot
+
+# =============================================================================
+# Stage 1: RPM Installation
+# =============================================================================
+FROM quay.io/centos/centos:stream9 AS rpm-installer
+
+ARG ARCH=x86_64
+
+# Copy lock file
+COPY rpm-lockfiles/launcherbase-${ARCH}.lock.json /tmp/lockfile.json
+
+# Install jq for parsing lock file
+RUN dnf install -y jq && dnf clean all
+
+# Install packages from lock file
+RUN set -e && \
+    jq -r '.packages[] | "\(.name)-\(.epoch):\(.version)-\(.release).\(.arch)"' /tmp/lockfile.json | \
+    sed 's/:0:/:/' > /tmp/packages.txt && \
+    dnf install -y --setopt=install_weak_deps=False $(cat /tmp/packages.txt) && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf
+
+# =============================================================================
+# Stage 2: Extract RPM Files
+# =============================================================================
+FROM rpm-installer AS rpm-layer
+
+# Create the directory structure for the final image
+RUN mkdir -p /rpm-root/{usr/bin,usr/sbin,usr/lib64,usr/libexec,usr/share,etc,var,run}
+
+# Copy libvirt and QEMU binaries/libraries
+RUN cp -a /usr/bin/virsh /rpm-root/usr/bin/ 2>/dev/null || true && \
+    cp -a /usr/bin/qemu-img /rpm-root/usr/bin/ 2>/dev/null || true && \
+    cp -a /usr/sbin/libvirtd /rpm-root/usr/sbin/ 2>/dev/null || true && \
+    cp -a /usr/sbin/virtlogd /rpm-root/usr/sbin/ 2>/dev/null || true && \
+    cp -a /usr/sbin/virtqemud /rpm-root/usr/sbin/ 2>/dev/null || true && \
+    cp -a /usr/libexec/qemu-kvm /rpm-root/usr/libexec/ 2>/dev/null || true
+
+# Copy passt for user-mode networking
+RUN cp -a /usr/bin/passt /rpm-root/usr/bin/ 2>/dev/null || true && \
+    cp -a /usr/bin/pasta /rpm-root/usr/bin/ 2>/dev/null || true
+
+# Copy swtpm for TPM emulation
+RUN cp -a /usr/bin/swtpm* /rpm-root/usr/bin/ 2>/dev/null || true
+
+# Copy nftables for networking
+RUN cp -a /usr/sbin/nft /rpm-root/usr/sbin/ 2>/dev/null || true
+
+# Copy libraries
+RUN cp -a /usr/lib64/libvirt* /rpm-root/usr/lib64/ 2>/dev/null || true && \
+    cp -a /usr/lib64/qemu* /rpm-root/usr/lib64/ 2>/dev/null || true
+
+# Copy QEMU firmware (OVMF/AAVMF)
+RUN mkdir -p /rpm-root/usr/share/OVMF /rpm-root/usr/share/AAVMF && \
+    cp -a /usr/share/OVMF/* /rpm-root/usr/share/OVMF/ 2>/dev/null || true && \
+    cp -a /usr/share/AAVMF/* /rpm-root/usr/share/AAVMF/ 2>/dev/null || true && \
+    cp -a /usr/share/edk2 /rpm-root/usr/share/ 2>/dev/null || true
+
+# Copy seabios
+RUN cp -a /usr/share/seabios /rpm-root/usr/share/ 2>/dev/null || true && \
+    cp -a /usr/share/seavgabios /rpm-root/usr/share/ 2>/dev/null || true
+
+# Copy QEMU keymaps and other data
+RUN cp -a /usr/share/qemu /rpm-root/usr/share/ 2>/dev/null || true && \
+    cp -a /usr/share/qemu-kvm /rpm-root/usr/share/ 2>/dev/null || true
+
+# Copy libvirt configs
+RUN mkdir -p /rpm-root/etc/libvirt && \
+    cp -a /etc/libvirt/* /rpm-root/etc/libvirt/ 2>/dev/null || true
+
+# Copy all required shared libraries
+RUN for bin in /rpm-root/usr/bin/* /rpm-root/usr/sbin/* /rpm-root/usr/libexec/*; do \
+        [ -f "$bin" ] && [ -x "$bin" ] && \
+        ldd "$bin" 2>/dev/null | grep "=> /" | awk '{print $3}' | \
+        while read lib; do \
+            [ -f "$lib" ] && mkdir -p /rpm-root$(dirname "$lib") && \
+            cp -an "$lib" /rpm-root"$lib" 2>/dev/null || true; \
+        done; \
+    done || true
+
+# Copy dynamic linker
+RUN cp -a /lib64/ld-linux-*.so* /rpm-root/lib64/ 2>/dev/null || \
+    (mkdir -p /rpm-root/lib && cp -a /lib/ld-linux-*.so* /rpm-root/lib/) 2>/dev/null || true
+
+# =============================================================================
+# Stage 3: Final Image
+# =============================================================================
+FROM ${BASE_IMAGE}
+
+# Copy RPM layer
+COPY --from=rpm-layer /rpm-root/ /
+
+# Copy Go binaries from build output
+COPY _out/cmd/virt-launcher/virt-launcher /usr/bin/
+COPY _out/cmd/container-disk-v2alpha/container-disk /usr/bin/container-disk
+COPY _out/cmd/virt-freezer/virt-freezer /usr/bin/
+COPY _out/cmd/virt-launcher-monitor/virt-launcher-monitor /usr/bin/
+COPY _out/cmd/virt-probe/virt-probe /usr/bin/
+COPY _out/cmd/virt-tail/virt-tail /usr/bin/
+
+# Copy libvirt hook client
+COPY _out/cmd/virt-launcher/libvirt-hook-client /usr/bin/libvirt-hook-client
+
+# Copy configuration files
+COPY cmd/virt-launcher/node-labeller/node-labeller.sh /usr/bin/
+COPY cmd/virt-launcher/qemu-hook /var/run/kubevirt-hooks/qemu
+
+# Create necessary directories
+RUN mkdir -p /var/run/libvirt /var/log/libvirt /var/cache/libvirt
+
+# Labels
+LABEL org.opencontainers.image.description="KubeVirt virt-launcher"
+LABEL org.kubevirt.component="virt-launcher"
+
+ENTRYPOINT ["/usr/bin/virt-launcher"]
