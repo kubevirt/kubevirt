@@ -165,7 +165,7 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 	frozenFS := false
 	if !backupOptions.SkipQuiesce {
 		logger.Info("Freezing VMI to capture backup state")
-		if err := dom.FSFreeze(nil, 0); err != nil {
+		if err := m.executeFreeze(dom); err != nil {
 			logger.Warningf(freezeFailedMsg, err)
 			m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
 				backupMetadata.BackupMsg = fmt.Sprintf(freezeFailedMsg, err)
