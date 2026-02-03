@@ -1,25 +1,8 @@
-ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2510281240-82d14f4b41
-ARG DISTROLESS_BASE_IMAGE=gcr.io/distroless/base-debian12:latest
+ARG TESTING_BASE_IMAGE=quay.io/kubevirt/kubevirt-testing-base:latest
 
-FROM ${BUILDER_IMAGE} AS builder
-
-ARG BUILD_ARCH=amd64
-ARG KUBEVIRT_VERSION
-
-WORKDIR /workspace
-
-COPY . .
-
-RUN echo "nonroot-user:x:1001:1001:nonroot user:/home/nonroot-user:/sbin/nologin" > /tmp/passwd && \
-    cp /workspace/.version /workspace/get-version
-
-FROM ${DISTROLESS_BASE_IMAGE}
+FROM ${TESTING_BASE_IMAGE}
 
 ARG BUILD_ARCH=amd64
 ARG KUBEVIRT_VERSION
-
-COPY --from=builder /workspace/get-version /get-version
-
-COPY --from=builder --chmod=0644 /tmp/passwd /etc/passwd
 
 USER 1001

@@ -11,7 +11,9 @@ WORKDIR /workspace
 COPY . .
 
 RUN source /etc/profile.d/gimme.sh && \
-    BIN_NAME=sidecars KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/sidecars
+    CGO_ENABLED=0 BIN_NAME=sidecars KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/sidecars
+
+RUN cp /workspace/_out/cmd/sidecars/sidecars /tmp/sidecar-shim
 
 RUN echo "nonroot-user:x:1001:1001:nonroot user:/home/nonroot-user:/sbin/nologin" > /tmp/passwd
 
@@ -20,7 +22,7 @@ FROM ${DISTROLESS_BASE_IMAGE}
 ARG BUILD_ARCH=amd64
 ARG KUBEVIRT_VERSION
 
-COPY --from=builder /workspace/_out/cmd/sidecars/sidecars /usr/bin/sidecar-shim
+COPY --from=builder /tmp/sidecar-shim /usr/bin/sidecar-shim
 
 COPY --from=builder /workspace/.version /.version
 

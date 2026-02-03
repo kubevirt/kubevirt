@@ -1,5 +1,5 @@
 ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2510281240-82d14f4b41
-ARG DISTROLESS_BASE_IMAGE=gcr.io/distroless/base-debian12:latest
+ARG SIDECAR_SHIM_IMAGE=quay.io/kubevirt/sidecar-shim:latest
 
 FROM ${BUILDER_IMAGE} AS builder
 
@@ -11,21 +11,15 @@ WORKDIR /workspace
 COPY . .
 
 RUN source /etc/profile.d/gimme.sh && \
-    BIN_NAME=disk-mutation KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/sidecars/disk-mutation
+    CGO_ENABLED=0 BIN_NAME=disk-mutation KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/sidecars/disk-mutation
 
-RUN echo "nonroot-user:x:1001:1001:nonroot user:/home/nonroot-user:/sbin/nologin" > /tmp/passwd
+RUN cp /workspace/_out/cmd/disk-mutation/disk-mutation /tmp/onDefineDomain
 
-FROM ${DISTROLESS_BASE_IMAGE}
+FROM ${SIDECAR_SHIM_IMAGE}
 
 ARG BUILD_ARCH=amd64
 ARG KUBEVIRT_VERSION
 
-COPY --from=builder /workspace/_out/cmd/disk-mutation/disk-mutation /usr/bin/disk-mutation-sidecar
+COPY --from=builder /tmp/onDefineDomain /usr/bin/onDefineDomain
 
 COPY --from=builder /workspace/.version /.version
-
-COPY --from=builder --chmod=0644 /tmp/passwd /etc/passwd
-
-USER 1001
-
-ENTRYPOINT ["/usr/bin/disk-mutation-sidecar"]

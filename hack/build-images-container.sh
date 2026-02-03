@@ -305,6 +305,7 @@ echo "Targets: ${BUILD_TARGETS[@]}"
 CONTAINER_DISK_IMAGES=""
 REGULAR_BUILD_IMAGES=""
 NEEDS_TESTING_BASE=false
+NEEDS_SIDECAR_SHIM=false
 
 for image in ${BUILD_TARGETS[@]}; do
     if is_retagged_image "${image}"; then
@@ -315,20 +316,40 @@ for image in ${BUILD_TARGETS[@]}; do
         REGULAR_BUILD_IMAGES+=" ${image}"
 
         # Check if this image needs kubevirt-testing-base
-        if [[ "${image}" == "disks-images-provider" || "${image}" == "winrmcli" ]]; then
+        if [[ "${image}" == "disks-images-provider" || "${image}" == "winrmcli" || "${image}" == "vm-killer" ]]; then
             NEEDS_TESTING_BASE=true
+        fi
+
+        # Check if this image needs sidecar-shim
+        if [[ "${image}" == "example-hook-sidecar" || "${image}" == "example-cloudinit-hook-sidecar" || "${image}" == "example-disk-mutation-hook-sidecar" ]]; then
+            NEEDS_SIDECAR_SHIM=true
         fi
     fi
 done
 
-# Build kubevirt-testing-base first if needed
+# Build kubevirt-testing-base first if needed (only if NOT in main build targets)
 if [[ "${NEEDS_TESTING_BASE}" == "true" ]]; then
-    if [[ ! " ${REGULAR_BUILD_IMAGES} " =~ " kubevirt-testing-base " ]]; then
+    if [[ ! " ${BUILD_TARGETS[@]} " =~ " kubevirt-testing-base " ]]; then
         containerfile=$(get_containerfile_path "kubevirt-testing-base")
         if [ -f "${containerfile}" ]; then
+            echo "Pre-building kubevirt-testing-base as dependency..."
             build_image "kubevirt-testing-base" "${containerfile}" "."
         else
             echo "ERROR: kubevirt-testing-base Containerfile not found but required"
+            exit 1
+        fi
+    fi
+fi
+
+# Build sidecar-shim first if needed (only if NOT in main build targets)
+if [[ "${NEEDS_SIDECAR_SHIM}" == "true" ]]; then
+    if [[ ! " ${BUILD_TARGETS[@]} " =~ " sidecar-shim " ]]; then
+        containerfile=$(get_containerfile_path "sidecar-shim")
+        if [ -f "${containerfile}" ]; then
+            echo "Pre-building sidecar-shim as dependency..."
+            build_image "sidecar-shim" "${containerfile}" "."
+        else
+            echo "ERROR: sidecar-shim Containerfile not found but required"
             exit 1
         fi
     fi
@@ -347,11 +368,6 @@ for image in ${BUILD_TARGETS[@]}; do
 done
 
 for image in ${REGULAR_BUILD_IMAGES}; do
-    # Skip kubevirt-testing-base if already built
-    if [[ "${image}" == "kubevirt-testing-base" && "${NEEDS_TESTING_BASE}" == "true" ]]; then
-        continue
-    fi
-
     containerfile=$(get_containerfile_path "${image}")
 
     if [ $? -ne 0 ]; then
@@ -366,8 +382,10 @@ for image in ${REGULAR_BUILD_IMAGES}; do
     fi
 
     extra_args=""
-    if [[ "${image}" == "disks-images-provider" || "${image}" == "winrmcli" ]]; then
+    if [[ "${image}" == "disks-images-provider" || "${image}" == "winrmcli" || "${image}" == "vm-killer" ]]; then
         extra_args="--build-arg TESTING_BASE_IMAGE=${DOCKER_PREFIX}/kubevirt-testing-base:${DOCKER_TAG}"
+    elif [[ "${image}" == "example-hook-sidecar" || "${image}" == "example-cloudinit-hook-sidecar" || "${image}" == "example-disk-mutation-hook-sidecar" ]]; then
+        extra_args="--build-arg SIDECAR_SHIM_IMAGE=${DOCKER_PREFIX}/sidecar-shim:${DOCKER_TAG}"
     fi
 
     build_image "${image}" \
