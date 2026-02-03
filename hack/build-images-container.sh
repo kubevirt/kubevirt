@@ -378,7 +378,7 @@ done
 
 if [[ -n "${CONTAINER_DISK_IMAGES}" ]]; then
     echo "Building container disk images via build-container-disks.sh"
-    BUILD_ARCH=${BUILD_ARCH} \
+    BUILD_ARCH=${PLATFORM_ARCH} \
         DOCKER_TAG=${DOCKER_TAG} \
         DOCKER_PREFIX=${DOCKER_PREFIX} \
         IMAGE_PREFIX=${IMAGE_PREFIX} \

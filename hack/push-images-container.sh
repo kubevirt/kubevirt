@@ -55,6 +55,7 @@ default_targets="
     virt-exportserver
     virt-exportproxy
     virt-synchronization-controller
+    alpine-container-disk-demo
     fedora-with-test-tooling-container-disk
     vm-killer
     sidecar-shim
@@ -69,6 +70,9 @@ if [[ "${BUILD_ARCH}" != "s390x" ]]; then
         example-hook-sidecar
         example-disk-mutation-hook-sidecar
         example-cloudinit-hook-sidecar
+        cirros-container-disk-demo
+        cirros-custom-container-disk-demo
+        virtio-container-disk
         alpine-ext-kernel-boot-demo
         alpine-with-test-tooling-container-disk
         fedora-realtime-container-disk
