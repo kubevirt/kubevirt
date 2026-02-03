@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["direct.go"],
+    importmap = "kubevirt.io/client-go/vendor/k8s.io/apimachinery/pkg/runtime/serializer/cbor/direct",
+    importpath = "k8s.io/apimachinery/pkg/runtime/serializer/cbor/direct",
+    visibility = ["//visibility:public"],
+    deps = ["//staging/src/kubevirt.io/client-go/vendor/k8s.io/apimachinery/pkg/runtime/serializer/cbor/internal/modes:go_default_library"],
+)
