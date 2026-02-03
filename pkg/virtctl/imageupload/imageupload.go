@@ -435,61 +435,104 @@ func ConstructUploadProxyPathAsync(uploadProxyURL, token string, insecure bool) 
 	return u.String(), nil
 }
 
-func (c *command) uploadData(token string, file *os.File) error {
+func (c *command) newUploadRequest(token string, reader io.Reader, length int64) (*http.Request, error) {
 	uploadURL, err := ConstructUploadProxyPathAsync(c.uploadProxyURL, token, c.insecure)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	req, err := http.NewRequest("POST", uploadURL, io.NopCloser(reader))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", "Bearer "+token)
+	req.Header.Add("Content-Type", "application/octet-stream")
+	req.ContentLength = length
+	return req, nil
+}
 
+func (c *command) uploadData(initToken string, file *os.File) error {
 	fi, err := file.Stat()
 	if err != nil {
 		return err
 	}
 
-	bar := pb.New64(fi.Size())
+	length := fi.Size()
+
+	bar := pb.New64(length)
 	bar.SetTemplate(pb.Full)
 	bar.SetWriter(os.Stdout)
 	bar.Set(pb.Bytes, true)
+
 	reader := bar.NewProxyReader(file)
 
 	client := GetHTTPClientFn(c.insecure)
-	req, _ := http.NewRequest("POST", uploadURL, io.NopCloser(reader))
 
-	req.Header.Add("Authorization", "Bearer "+token)
-	req.Header.Add("Content-Type", "application/octet-stream")
-	req.ContentLength = fi.Size()
-
-	clientDo := func() error {
+	// clientDo returns http status code and error
+	// in case of an error, it may return the
+	// relevant http status code for further processing
+	clientDo := func(req *http.Request) (httpCode int, err error) {
 		if _, err := file.Seek(0, io.SeekStart); err != nil {
-			return err
+			return 0, err
 		}
 		resp, err := client.Do(req)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			body, err := io.ReadAll(resp.Body)
 			if err != nil {
-				return err
+				return resp.StatusCode, err
 			}
-			return fmt.Errorf("unexpected return value %d, %s", resp.StatusCode, string(body))
+			return resp.StatusCode, fmt.Errorf("unexpected return value %d, %s", resp.StatusCode, string(body))
 		}
-		return nil
+		return resp.StatusCode, nil
 	}
 
 	c.cmd.Println()
 	bar.Start()
 
 	retry := uint(0)
+	maxTokenRetries := c.uploadRetries/2 + 1
+
+	req, err := c.newUploadRequest(initToken, reader, length)
+	if err != nil {
+		return err
+	}
+
 	for retry < c.uploadRetries {
-		if err = clientDo(); err == nil {
-			break
-		}
-		retry++
-		if retry < c.uploadRetries {
+
+		if retry > 0 {
+			// reset the bar on each retry, either with the same request or
+			// with a new request if we had to refresh the token due to unauthorized error
 			bar.SetCurrent(0)
 			time.Sleep(time.Duration(retry*rand.UintN(50)) * time.Millisecond)
+		}
+
+		code, retryErr := clientDo(req)
+		if retryErr == nil {
+			break
+		}
+
+		err = retryErr
+
+		// don't count this against the retry limit
+		// only refresh the token maxTokenRetries times to avoid infinite loop in case of other errors
+		// fail fast if the unauthorized happens on the first time request without attempting to refresh the token
+		// as this may indicate simple auth error rather than an expired token
+		if code == http.StatusUnauthorized && maxTokenRetries > 0 && retry != 0 {
+			// Token may have expired, get a new one
+			token, tErr := c.getUploadToken()
+			if tErr != nil {
+				return fmt.Errorf("failed to get upload token: %w", tErr)
+			}
+			req, tErr = c.newUploadRequest(token, reader, length)
+			if tErr != nil {
+				return fmt.Errorf("failed to create new upload request with refreshed token: %w", tErr)
+			}
+			maxTokenRetries--
+		} else {
+			retry++
 		}
 	}
 
@@ -504,9 +547,11 @@ func (c *command) uploadData(token string, file *os.File) error {
 }
 
 func (c *command) getUploadToken() (string, error) {
+	// random unique name to avoid collision
+	name := "token-for-virtctl-" + fmt.Sprintf("%d", time.Now().UnixNano())
 	request := &uploadcdiv1.UploadTokenRequest{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "token-for-virtctl",
+			Name: name,
 		},
 		Spec: uploadcdiv1.UploadTokenRequestSpec{
 			PvcName: c.name,
