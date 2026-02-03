@@ -339,4 +339,41 @@ var _ = Describe("Hardware utils test", func() {
 			Expect(devicesNumaNodes[testPCIAddress]).To(Equal(uint32(0)))
 		})
 	})
+
+	Describe("get device VFIO cdev name", func() {
+		var devicePath = filepath.Join(fakePciBasePath, testPCIAddress)
+
+		Context("when device exposes a VFIO cdev", func() {
+			const fakeVFIOCDevName = "vfio0"
+
+			var vfioDevPath = filepath.Join(devicePath, "vfio-dev")
+
+			BeforeEach(func() {
+				var err error
+				err = os.MkdirAll(vfioDevPath, 0o755)
+				Expect(err).ToNot(HaveOccurred())
+
+				err = os.MkdirAll(filepath.Join(vfioDevPath, fakeVFIOCDevName), 0o755)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			AfterEach(func() {
+				os.RemoveAll(vfioDevPath)
+			})
+
+			It("should return the name of the VFIO cdev", func() {
+				cdevName, err := GetDeviceVFIOCDevName(devicePath)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cdevName).To(Equal(fakeVFIOCDevName))
+			})
+		})
+
+		Context("when device does not expose any VFIO cdev", func() {
+			It("should return an empty result", func() {
+				cdevName, err := GetDeviceVFIOCDevName(devicePath)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cdevName).To(BeEmpty())
+			})
+		})
+	})
 })
