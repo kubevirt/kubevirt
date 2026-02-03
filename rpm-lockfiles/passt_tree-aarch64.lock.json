@@ -1,0 +1,153 @@
+{
+  "schema_version": "1.0",
+  "architecture": "aarch64",
+  "package_set": "passt_tree",
+  "generated": "2026-02-03T12:53:36Z",
+  "generator": "rpm-freeze-native.sh",
+  "packages": [
+    {
+      "name": "basesystem",
+      "epoch": "0",
+      "version": "11",
+      "release": "13.el9",
+      "arch": "noarch",
+      "sha256": "a7a687ef39dd28d01d34fab18ea7e3e87f649f6c202dded82260b7ea625b9973",
+      "filename": "basesystem-11-13.el9.noarch.rpm"
+    },
+    {
+      "name": "bash",
+      "epoch": "0",
+      "version": "5.1.8",
+      "release": "9.el9",
+      "arch": "aarch64",
+      "sha256": "acb782e8dacd2f3efb25d0b8b1b64c59b8a60a84fc86a4fca88ede1affc68f4c",
+      "filename": "bash-5.1.8-9.el9.aarch64.rpm"
+    },
+    {
+      "name": "centos-gpg-keys",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "77e4a14370a63fc7b42d5dd7953654d9ae791a8a41e2388788559d65182da8fb",
+      "filename": "centos-gpg-keys-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-stream-release",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "1c9986cabdf106cae20bc548d11aec1af6446ed670c6226b38a2b0383493c184",
+      "filename": "centos-stream-release-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "centos-stream-repos",
+      "epoch": "0",
+      "version": "9.0",
+      "release": "35.el9",
+      "arch": "noarch",
+      "sha256": "23f3d6d63dd948cf2b0b4ebb5562ccc0facca73bed907db9056fd3d42fdefa29",
+      "filename": "centos-stream-repos-9.0-35.el9.noarch.rpm"
+    },
+    {
+      "name": "filesystem",
+      "epoch": "0",
+      "version": "3.16",
+      "release": "5.el9",
+      "arch": "aarch64",
+      "sha256": "c20f1ab9760a8ba5f2d9cb37d7e8fa27f49f91a21a46fe7ad648ff6caf237013",
+      "filename": "filesystem-3.16-5.el9.aarch64.rpm"
+    },
+    {
+      "name": "glibc",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "aarch64",
+      "sha256": "bf6a0f12d012662ae124aa18ed00d4f270709cda83bd60b16f6a93138bcd1e50",
+      "filename": "glibc-2.34-245.el9.aarch64.rpm"
+    },
+    {
+      "name": "glibc-common",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "aarch64",
+      "sha256": "4645238ef9126cd91fd4ff37fc681693479779de7cf14fae852605caf9423156",
+      "filename": "glibc-common-2.34-245.el9.aarch64.rpm"
+    },
+    {
+      "name": "glibc-langpack-el",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "aarch64",
+      "sha256": "eec76288ac3571903f1ae51d41caa7cde8c0d663b455557df98383e34a959dfd",
+      "filename": "glibc-langpack-el-2.34-245.el9.aarch64.rpm"
+    },
+    {
+      "name": "glibc-minimal-langpack",
+      "epoch": "0",
+      "version": "2.34",
+      "release": "245.el9",
+      "arch": "aarch64",
+      "sha256": "0b208faa1cefdafb7a71544746f0d858696d3c2e60861858c145098836ff3aa3",
+      "filename": "glibc-minimal-langpack-2.34-245.el9.aarch64.rpm"
+    },
+    {
+      "name": "libgcc",
+      "epoch": "0",
+      "version": "11.5.0",
+      "release": "14.el9",
+      "arch": "aarch64",
+      "sha256": "ed0598c9cb4f10406c662d17ac2367eeba1e207683953410146927bba3d92c46",
+      "filename": "libgcc-11.5.0-14.el9.aarch64.rpm"
+    },
+    {
+      "name": "ncurses-base",
+      "epoch": "0",
+      "version": "6.2",
+      "release": "12.20210508.el9",
+      "arch": "noarch",
+      "sha256": "49f6470fa7dd1b3ba81ccdd0547b29953af2835e067de915eeca3c45d5faa339",
+      "filename": "ncurses-base-6.2-12.20210508.el9.noarch.rpm"
+    },
+    {
+      "name": "ncurses-libs",
+      "epoch": "0",
+      "version": "6.2",
+      "release": "12.20210508.el9",
+      "arch": "aarch64",
+      "sha256": "7b61d1dab8d4113a6ad015c083ac3053ec9db1f2503527d547ba7c741d54e57a",
+      "filename": "ncurses-libs-6.2-12.20210508.el9.aarch64.rpm"
+    },
+    {
+      "name": "passt",
+      "epoch": "0",
+      "version": "0^20250512.g8ec1341",
+      "release": "2.el9",
+      "arch": "aarch64",
+      "sha256": "b25fd3d6395c66279b57f2c6cafa51d487b40cf7b3caa16915c7e702c5495679",
+      "filename": "passt-0^20250512.g8ec1341-2.el9.aarch64.rpm"
+    },
+    {
+      "name": "setup",
+      "epoch": "0",
+      "version": "2.13.7",
+      "release": "10.el9",
+      "arch": "noarch",
+      "sha256": "42a1c5a415c44e3b55551f49595c087e2ba55f0fd9ece8056b791983601b76d2",
+      "filename": "setup-2.13.7-10.el9.noarch.rpm"
+    },
+    {
+      "name": "tzdata",
+      "epoch": "0",
+      "version": "2025c",
+      "release": "1.el9",
+      "arch": "noarch",
+      "sha256": "a7a70f4e8aa1473153235900a76753aef8f43a4c21eb869012bf4b065cc8b932",
+      "filename": "tzdata-2025c-1.el9.noarch.rpm"
+    }
+  ]
+}
