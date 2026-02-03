@@ -12,6 +12,21 @@
 
 set -euo pipefail
 
+# Timing support
+START_TIME=$(date +%s.%N)
+timing_enabled=${RPM_FREEZE_TIMING:-false}
+
+show_timing() {
+    if [[ "${timing_enabled}" == "true" ]]; then
+        local end_time=$(date +%s.%N)
+        local duration=$(echo "${end_time} - ${START_TIME}" | bc)
+        echo ""
+        echo "=============================================="
+        echo "Timing: ${duration}s (native freeze)"
+        echo "=============================================="
+    fi
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 KUBEVIRT_DIR="${SCRIPT_DIR}/.."
 
@@ -292,5 +307,7 @@ echo "Next steps:"
 echo "  1. Review lock file: ${LOCK_FILE}"
 echo "  2. Verify checksums: ./hack/rpm-verify.sh ${LOCK_FILE}"
 echo "  3. Commit lock file to git"
+
+show_timing
 
 exit 0

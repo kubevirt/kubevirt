@@ -10,6 +10,18 @@
 
 set -euo pipefail
 
+# Timing support
+START_TIME=$(date +%s.%N)
+
+show_timing() {
+    local end_time=$(date +%s.%N)
+    local duration=$(echo "${end_time} - ${START_TIME}" | bc)
+    echo ""
+    echo "=============================================="
+    echo "Total Time: ${duration}s (native freeze-all)"
+    echo "=============================================="
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source package definitions
@@ -136,3 +148,5 @@ echo "Next steps:"
 echo "  1. Review the lock files"
 echo "  2. Run verification: ./hack/rpm-verify.sh"
 echo "  3. Commit lock files to git"
+
+show_timing

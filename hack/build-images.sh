@@ -27,6 +27,18 @@
 
 set -euo pipefail
 
+# Timing support
+START_TIME=$(date +%s.%N)
+
+show_timing() {
+    local end_time=$(date +%s.%N)
+    local duration=$(echo "${end_time} - ${START_TIME}" | bc)
+    echo ""
+    echo "=============================================="
+    echo "Total Build Time: ${duration}s"
+    echo "=============================================="
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/common.sh"
 
@@ -285,3 +297,5 @@ echo ""
 echo "=============================================="
 echo "Build complete!"
 echo "=============================================="
+
+show_timing

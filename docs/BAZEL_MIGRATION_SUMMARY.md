@@ -16,6 +16,86 @@ while maintaining build reproducibility through lock files.
 
 ---
 
+## Build Flow Comparison
+
+### Current Build (with Bazel)
+
+```mermaid
+flowchart TD
+    subgraph inputs [Inputs]
+        GoCode[Go Source Code]
+        BazelFiles[BUILD.bazel files]
+        Workspace[WORKSPACE]
+    end
+
+    subgraph bazelBuild [Bazel Build System]
+        BazelCmd[make build]
+        BazelScript[hack/bazel-build.sh]
+        RulesGo[rules_go]
+        RulesOci[rules_oci]
+        Bazeldnf[bazeldnf]
+    end
+
+    subgraph outputs [Outputs]
+        GoBinaries[Go Binaries]
+        Images[Container Images]
+    end
+
+    GoCode --> BazelCmd
+    BazelFiles --> BazelCmd
+    Workspace --> BazelCmd
+    BazelCmd --> BazelScript
+    BazelScript --> RulesGo
+    BazelScript --> RulesOci
+    BazelScript --> Bazeldnf
+    RulesGo --> GoBinaries
+    RulesOci --> Images
+    Bazeldnf --> Images
+```
+
+### New Build (without Bazel)
+
+```mermaid
+flowchart TD
+    subgraph inputs [Inputs]
+        GoCode[Go Source Code]
+        LockFiles[rpm-lockfiles/*.lock.json]
+    end
+
+    subgraph goBuild [Go Build]
+        BuildGo[hack/build-go.sh]
+        GoBinaries[_out/cmd/*]
+    end
+
+    subgraph imageBuild [Image Build]
+        ContainerfileGen[hack/containerfile-from-lock.sh]
+        Containerfiles[build/*/Containerfile]
+        BuildImages[hack/build-images.sh]
+        Images[Container Images]
+    end
+
+    GoCode --> BuildGo
+    BuildGo --> GoBinaries
+    
+    LockFiles --> ContainerfileGen
+    ContainerfileGen --> Containerfiles
+    
+    GoBinaries --> BuildImages
+    Containerfiles --> BuildImages
+    BuildImages --> Images
+```
+
+### Key Differences
+
+| Aspect | Bazel | Native |
+|--------|-------|--------|
+| Go Build | `rules_go` | `go build` via `hack/build-go.sh` |
+| RPM Management | `bazeldnf` + `rpm/BUILD.bazel` | `rpm-lockfiles/*.lock.json` |
+| Image Build | `rules_oci` | `Containerfile` + `podman/docker` |
+| Configuration | `WORKSPACE` + `BUILD.bazel` | Lock files + Containerfiles |
+
+---
+
 ## Feature-by-Feature Analysis
 
 ### 1. Go Compilation (rules_go)
@@ -243,10 +323,11 @@ ccc8c9c33a hack: add rpm-freeze-all.sh to generate all lock files
 - [x] Generate all lock files (30 files: 10 package sets × 3 architectures)
 - [x] Validate all lock files match bazeldnf (28/28 passed)
 
-### Phase 3: Container Images (PLANNED)
+### Phase 3: Container Images (IN PROGRESS)
 
-- [ ] Create Containerfiles for each image
-- [ ] Create `hack/build-images.sh`
+- [x] Create `hack/containerfile-from-lock.sh` for generating Containerfiles
+- [x] Create `hack/build-images.sh` with Docker/Podman support
+- [ ] Create Containerfiles for each image type
 - [ ] Test image builds
 
 ### Phase 4: Switch Defaults (PLANNED)
@@ -380,3 +461,21 @@ determine_cri_bin() {
 All build scripts use `${KUBEVIRT_CRI}` for container operations. Override with:
 - `KUBEVIRT_CRI=podman` - Force Podman
 - `KUBEVIRT_CRI=docker` - Force Docker
+
+### Timing Benchmarks
+
+All native scripts include timing output at completion:
+
+```bash
+# Enable timing for rpm-freeze-native.sh
+RPM_FREEZE_TIMING=true ./hack/rpm-freeze-native.sh x86_64 launcherbase
+
+# rpm-freeze-all.sh and build-images.sh always show timing
+./hack/rpm-freeze-all.sh
+./hack/build-images.sh virt-launcher
+```
+
+Sample timing results (on typical CI hardware):
+- Single package set freeze: ~30-60s per arch
+- All 30 lock files: ~15-30 minutes
+- Single image build: varies by image size
