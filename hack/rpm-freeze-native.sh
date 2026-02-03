@@ -57,14 +57,14 @@ if [ -z "${PACKAGES}" ]; then
     exit 1
 fi
 
-# Get exclusion patterns
+# Get exclusion patterns (for post-filtering, not dnf install)
 EXCLUSIONS=$(get_exclusions "${PACKAGE_SET}")
 
 echo "=============================================="
 echo "RPM Freeze: ${PACKAGE_SET} for ${ARCH}"
 echo "=============================================="
 echo "Packages: ${PACKAGES}"
-echo "Exclusions: ${EXCLUSIONS:-none}"
+echo "Post-filter exclusions: ${EXCLUSIONS:-none}"
 echo ""
 
 # =============================================================================
@@ -110,12 +110,6 @@ EOF
 
 echo "Resolving dependencies..."
 
-# Build exclusion arguments for dnf
-EXCLUDE_ARGS=""
-for pattern in ${EXCLUSIONS}; do
-    EXCLUDE_ARGS="${EXCLUDE_ARGS} --exclude=${pattern}"
-done
-
 # Create a temporary installroot to avoid polluting host
 INSTALLROOT="${DNF_CONF_DIR}/installroot-${ARCH}-${PACKAGE_SET}"
 rm -rf "${INSTALLROOT}"
@@ -125,6 +119,8 @@ mkdir -p "${INSTALLROOT}/var/lib/rpm"
 rpm --root="${INSTALLROOT}" --initdb
 
 # Use dnf to download packages (this resolves dependencies)
+# NOTE: We don't use --exclude here because dnf's exclude breaks dependency resolution
+# Instead, we'll filter out unwanted packages from the lock file afterward
 echo "Downloading packages to cache..."
 if ! dnf \
     --config="${DNF_CONF}" \
@@ -135,7 +131,6 @@ if ! dnf \
     --forcearch="${ARCH}" \
     --downloadonly \
     --downloaddir="${CACHE_DIR}/${ARCH}/${PACKAGE_SET}" \
-    ${EXCLUDE_ARGS} \
     install -y ${PACKAGES} 2>&1; then
     echo "WARNING: dnf reported errors, but continuing to process downloaded packages"
 fi
@@ -189,17 +184,16 @@ for rpm_file in "${CACHE_DIR}/${ARCH}/${PACKAGE_SET}"/*.rpm; do
         echo "," >> "${TEMP_LOCK_FILE}"
     fi
 
-    # Write package entry
-    cat >> "${TEMP_LOCK_FILE}" << EOF
-    {
-      "name": "${PKG_NAME}",
-      "epoch": "${PKG_EPOCH}",
-      "version": "${PKG_VERSION}",
-      "release": "${PKG_RELEASE}",
-      "arch": "${PKG_ARCH}",
-      "sha256": "${PKG_SHA256}",
-      "filename": "${PKG_FILENAME}"
-    }EOF
+    # Write package entry (using printf to avoid heredoc issues)
+    printf '    {\n' >> "${TEMP_LOCK_FILE}"
+    printf '      "name": "%s",\n' "${PKG_NAME}" >> "${TEMP_LOCK_FILE}"
+    printf '      "epoch": "%s",\n' "${PKG_EPOCH}" >> "${TEMP_LOCK_FILE}"
+    printf '      "version": "%s",\n' "${PKG_VERSION}" >> "${TEMP_LOCK_FILE}"
+    printf '      "release": "%s",\n' "${PKG_RELEASE}" >> "${TEMP_LOCK_FILE}"
+    printf '      "arch": "%s",\n' "${PKG_ARCH}" >> "${TEMP_LOCK_FILE}"
+    printf '      "sha256": "%s",\n' "${PKG_SHA256}" >> "${TEMP_LOCK_FILE}"
+    printf '      "filename": "%s"\n' "${PKG_FILENAME}" >> "${TEMP_LOCK_FILE}"
+    printf '    }' >> "${TEMP_LOCK_FILE}"
 
     PACKAGE_COUNT=$((PACKAGE_COUNT + 1))
 done
@@ -219,6 +213,45 @@ if command -v jq &>/dev/null; then
         echo "ERROR: Generated invalid JSON"
         cat "${TEMP_LOCK_FILE}"
         exit 1
+    fi
+
+    # =============================================================================
+    # Post-filter: Remove excluded packages from lock file
+    # =============================================================================
+    # This mimics bazeldnf's --force-ignore-with-dependencies behavior
+    # We remove packages matching the exclusion patterns from the lock file
+
+    if [ -n "${EXCLUSIONS}" ]; then
+        echo "Applying post-filter exclusions: ${EXCLUSIONS}"
+
+        # Build jq filter to exclude matching packages
+        # jq syntax: select((.name | test("pattern")) | not)
+        FILTER_EXPR=""
+        for pattern in ${EXCLUSIONS}; do
+            # Convert glob pattern to regex (basic conversion)
+            regex_pattern=$(echo "${pattern}" | sed 's/\*/.*/g')
+            if [ -n "${FILTER_EXPR}" ]; then
+                FILTER_EXPR="${FILTER_EXPR} or"
+            fi
+            FILTER_EXPR="${FILTER_EXPR} (.name | test(\"^${regex_pattern}\$\"))"
+        done
+
+        # Apply filter and save - use "| not" for negation in jq
+        FILTERED_FILE="${LOCK_FILE}.filtered"
+        if jq ".packages |= map(select((${FILTER_EXPR}) | not))" "${LOCK_FILE}" > "${FILTERED_FILE}"; then
+            mv "${FILTERED_FILE}" "${LOCK_FILE}"
+            # Update package count
+            PACKAGE_COUNT=$(jq -r '.packages | length' "${LOCK_FILE}")
+            echo "After filtering: ${PACKAGE_COUNT} packages"
+        else
+            echo "WARNING: Post-filter failed, keeping unfiltered lock file"
+            rm -f "${FILTERED_FILE}"
+        fi
+
+        # Also remove filtered packages from cache to save space
+        for pattern in ${EXCLUSIONS}; do
+            rm -f "${CACHE_DIR}/${ARCH}/${PACKAGE_SET}"/${pattern}.rpm 2>/dev/null || true
+        done
     fi
 else
     mv "${TEMP_LOCK_FILE}" "${LOCK_FILE}"
@@ -240,7 +273,8 @@ echo ""
 # List packages
 if command -v jq &>/dev/null; then
     echo "Package list:"
-    jq -r '.packages[] | "  - \(.name)-\(.epoch):\(.version)-\(.release).\(.arch)"' "${LOCK_FILE}" | head -20
+    # Use || true to prevent SIGPIPE from head causing script failure with pipefail
+    jq -r '.packages[] | "  - \(.name)-\(.epoch):\(.version)-\(.release).\(.arch)"' "${LOCK_FILE}" | head -20 || true
     if [ "${PACKAGE_COUNT}" -gt 20 ]; then
         echo "  ... and $((PACKAGE_COUNT - 20)) more"
     fi
@@ -258,3 +292,5 @@ echo "Next steps:"
 echo "  1. Review lock file: ${LOCK_FILE}"
 echo "  2. Verify checksums: ./hack/rpm-verify.sh ${LOCK_FILE}"
 echo "  3. Commit lock file to git"
+
+exit 0
