@@ -168,23 +168,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			admitter = NewKubeVirtUpdateAdmitter(nil, clusterConfig)
 		})
 
-		admit := func(ctx context.Context, kubevirt v1.KubeVirt) *admissionv1.AdmissionResponse {
-			kvBytes, err := json.Marshal(kubevirt)
-			Expect(err).ToNot(HaveOccurred())
-
-			request := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: KubeVirtGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: kvBytes,
-					},
-					OldObject: runtime.RawExtension{
-						Raw: kvBytes,
-					},
-					Operation: admissionv1.Update,
-				},
-			}
-			return admitter.Admit(ctx, request)
+		admit := func(kubevirt v1.KubeVirt) *admissionv1.AdmissionResponse {
+			return admitKVUpdate(admitter, &kubevirt, &kubevirt)
 		}
 
 		const warn = true
@@ -202,7 +187,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			response := admit(context.Background(), kvObject)
+			response := admit(kvObject)
 			Expect(response).NotTo(BeNil())
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
@@ -236,7 +221,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			response := admit(context.Background(), kvObject)
+			response := admit(kvObject)
 			Expect(response).NotTo(BeNil())
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
@@ -321,7 +306,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			response := admit(context.Background(), kv)
+			response := admit(kv)
 			Expect(response).NotTo(BeNil())
 
 			if shouldWarn {
@@ -336,7 +321,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		)
 	})
 
-	FContext("Feature Gate Validation", func() {
+	Context("Feature Gate Validation", func() {
 		var admitter *KubeVirtUpdateAdmitter
 
 		BeforeEach(func() {
@@ -345,24 +330,10 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		})
 
 		admitUpdate := func(devConfig *v1.DeveloperConfiguration) *admissionv1.AdmissionResponse {
-			currKV := &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
-			newKV := currKV.DeepCopy()
+			oldKV := &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+			newKV := oldKV.DeepCopy()
 			newKV.Spec.Configuration.DeveloperConfiguration = devConfig
-
-			currKVBytes, err := json.Marshal(currKV)
-			Expect(err).ToNot(HaveOccurred())
-			newKVBytes, err := json.Marshal(newKV)
-			Expect(err).ToNot(HaveOccurred())
-
-			request := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource:  KubeVirtGroupVersionResource,
-					Operation: admissionv1.Update,
-					OldObject: runtime.RawExtension{Raw: currKVBytes},
-					Object:    runtime.RawExtension{Raw: newKVBytes},
-				},
-			}
-			return admitter.Admit(context.Background(), request)
+			return admitKVUpdate(admitter, oldKV, newKV)
 		}
 
 		DescribeTable("should reject conflicting feature gates", func(enabledGates, disabledGates []string, expectedConflictingGates ...string) {
@@ -426,3 +397,20 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		)
 	})
 })
+
+func admitKVUpdate(admitter *KubeVirtUpdateAdmitter, oldKV, newKV *v1.KubeVirt) *admissionv1.AdmissionResponse {
+	oldKVBytes, err := json.Marshal(oldKV)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	newKVBytes, err := json.Marshal(newKV)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	request := &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource:  KubeVirtGroupVersionResource,
+			Operation: admissionv1.Update,
+			OldObject: runtime.RawExtension{Raw: oldKVBytes},
+			Object:    runtime.RawExtension{Raw: newKVBytes},
+		},
+	}
+	return admitter.Admit(context.Background(), request)
+}
