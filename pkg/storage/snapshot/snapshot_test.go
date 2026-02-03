@@ -1521,7 +1521,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should set QuiesceFailed indication if error in content says failed freeze vm", func() {
+			It("should set QuiesceFailed indication if error contains VSS freeze timeout", func() {
 				vm := createLockedVM()
 				vmSource.Add(vm)
 				vmi := createVMI(vm)
@@ -1533,8 +1533,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 				vmiSource.Add(vmi)
 
-				errorMessage := "Guest agent is not responding"
-				formatedErr := fmt.Sprintf("%s %s: %v", failedFreezeMsg, vm.Name, errorMessage)
+				// VSS timeout error during unfreeze - this should trigger QuiesceFailed
+				formatedErr := fmt.Sprintf("%s %s: %s", failedUnfreezeMsg, vm.Name, VSSFreezeLimitReached)
 				vmSnapshotContent := createErrorVMSnapshotContent(formatedErr)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 
@@ -1575,7 +1575,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should not unset QuiesceFailed indication if freeze succeeded afterwards", func() {
+			It("should not set QuiesceFailed indication for transient freeze failures", func() {
 				vm := createLockedVM()
 				vmSource.Add(vm)
 				vmi := createVMI(vm)
@@ -1587,6 +1587,58 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 				vmiSource.Add(vmi)
 
+				// Regular freeze failure - should NOT trigger QuiesceFailed since it may succeed on retry
+				errorMessage := "Guest agent is not responding"
+				formatedErr := fmt.Sprintf("%s %s: %v", failedFreezeMsg, vm.Name, errorMessage)
+				vmSnapshotContent := createErrorVMSnapshotContent(formatedErr)
+				vmSnapshotContentSource.Add(vmSnapshotContent)
+
+				vmSnapshot := createVMSnapshotInProgress()
+				addVirtualMachineSnapshot(vmSnapshot)
+
+				updatedSnapshot := vmSnapshot.DeepCopy()
+				updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
+				updatedSnapshot.Status.ReadyToUse = pointer.P(false)
+				// No QuiesceFailed indication for transient freeze failures
+				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
+					snapshotv1.VMSnapshotGuestAgentIndication,
+					snapshotv1.VMSnapshotOnlineSnapshotIndication,
+				}
+				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotGuestAgentIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotGuestAgentIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
+				}
+				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
+					newProgressingCondition(corev1.ConditionFalse, "In error state"),
+					newReadyCondition(corev1.ConditionFalse, "Not ready"),
+				}
+				updatedSnapshot.Status.Error = vmSnapshotContent.Status.Error
+
+				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
+
+				controller.processVMSnapshotWorkItem()
+				Expect(*updateStatusCalls).To(Equal(1))
+			})
+
+			It("should not unset QuiesceFailed indication once set", func() {
+				vm := createLockedVM()
+				vmSource.Add(vm)
+				vmi := createVMI(vm)
+				agentCondition := v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceAgentConnected,
+					LastProbeTime: metav1.Now(),
+					Status:        corev1.ConditionTrue,
+				}
+				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
+				vmiSource.Add(vmi)
+
+				// Snapshot already has QuiesceFailed from a previous VSS timeout error
 				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
