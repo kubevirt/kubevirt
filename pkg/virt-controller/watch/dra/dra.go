@@ -622,7 +622,7 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, d
 						}
 					}
 					if pciAddress == "" && mdevUUID == "" {
-						return "", "", fmt.Errorf("neither pciAddress nor mdevUUIDa attribute found for device %s", deviceName)
+						return "", "", fmt.Errorf("neither pciAddress nor mDevUUID attribute found for device %s", deviceName)
 					}
 					return pciAddress, mdevUUID, nil
 				}
