@@ -34,7 +34,6 @@ default_targets="
     virt-exportproxy
     virt-synchronization-controller
     alpine-container-disk-demo
-    alpine-with-test-tooling-container-disk
     fedora-with-test-tooling-container-disk
     vm-killer
     sidecar-shim
@@ -54,6 +53,7 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
         cirros-custom-container-disk-demo
         virtio-container-disk
         alpine-ext-kernel-boot-demo
+        alpine-with-test-tooling-container-disk
         fedora-realtime-container-disk
         winrmcli
         network-slirp-binding
@@ -68,7 +68,7 @@ for tag in ${docker_tag} ${docker_tag_alt}; do
     for target in ${PUSH_TARGETS[@]}; do
 
         bazel run \
-            --config=${ARCHITECTURE} \
+            --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
             //:push-${target} -- --repository ${docker_prefix}/${image_prefix}${target} --tag ${tag}
 
     done
@@ -79,7 +79,7 @@ if [[ $image_prefix_alt ]]; then
     for target in ${PUSH_TARGETS[@]}; do
 
         bazel run \
-            --config=${ARCHITECTURE} \
+            --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
             //:push-${target} -- --repository ${docker_prefix}/${image_prefix_alt}${target} --tag ${docker_tag}
 
     done
