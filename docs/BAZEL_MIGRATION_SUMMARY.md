@@ -327,7 +327,10 @@ ccc8c9c33a hack: add rpm-freeze-all.sh to generate all lock files
 
 - [x] Create `hack/containerfile-from-lock.sh` for generating Containerfiles
 - [x] Create `hack/build-images.sh` with Docker/Podman support
-- [x] Create Containerfiles for main images (virt-launcher, virt-handler, virt-api, virt-controller, virt-operator)
+- [x] Create Containerfiles for all images:
+  - virt-launcher, virt-handler, virt-api, virt-controller, virt-operator
+  - virt-exportserver, virt-exportproxy, sidecar-shim
+  - libguestfs-tools, pr-helper
 - [x] Test Go builds work (`make go-build`: ~56s)
 
 ### Phase 4: Switch Defaults (COMPLETED)
@@ -364,9 +367,11 @@ Bazel will remain alongside native tools for now. Both systems work side-by-side
 ## What We Lose (and Mitigations)
 
 1. **Remote build caching** - Bazel can share cache across CI runs
-   - **Mitigation**: Use GitHub Actions cache for `GOCACHE` and `GOMODCACHE`
+   - **Mitigation (GitHub)**: Use `actions/cache@v4` with `~/.cache/go-build` and `~/go/pkg/mod`
+   - **Mitigation (Prow)**: Use GCS bucket for GOCACHE with `gsutil rsync` before/after build
+   - **Mitigation (Prow)**: Mount persistent volume for build cache in ProwJob spec
    - **Mitigation**: Use `sccache` or `ccache` for CGO compilation
-   - **Example**: `actions/cache@v4` with `~/.cache/go-build` and `~/go/pkg/mod`
+   - **Example Prow**: Add `extra_refs` with cache bucket, rsync in `presubmits`
 
 2. **Deterministic container layers** - OCI images have reproducible hashes
    - **Mitigation**: Use `SOURCE_DATE_EPOCH` for reproducible timestamps
@@ -375,12 +380,14 @@ Bazel will remain alongside native tools for now. Both systems work side-by-side
 
 3. **Integrated static analysis** - nogo runs during build
    - **Mitigation**: Run `golangci-lint` in CI (already configured in `hack/linter/`)
+   - **Mitigation (Prow)**: Add lint job to presubmits in `prow/jobs` config
    - **Mitigation**: Pre-commit hooks with `go vet` and linters
    - **Note**: Actually an improvement - more analyzers available
 
 4. **Fine-grained test caching** - Bazel caches individual test results
    - **Mitigation**: Use `-count=1` only when needed (Go caches by default)
-   - **Mitigation**: GitHub Actions test result caching
+   - **Mitigation (GitHub)**: GitHub Actions test result caching
+   - **Mitigation (Prow)**: Use GCS for test cache, or rely on Go's built-in cache within job
    - **Note**: Go's test cache is sufficient for most use cases
 
 ## What We Gain

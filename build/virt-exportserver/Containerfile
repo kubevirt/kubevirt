@@ -1,0 +1,87 @@
+# virt-exportserver container image
+# Built with native tools (no Bazel)
+#
+# Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
+#        -t quay.io/kubevirt/virt-exportserver:latest -f build/virt-exportserver/Containerfile .
+
+ARG ARCH=x86_64
+ARG BASE_IMAGE=gcr.io/distroless/base-debian12:nonroot
+
+# =============================================================================
+# Stage 1: RPM Installation
+# =============================================================================
+FROM quay.io/centos/centos:stream9 AS rpm-installer
+
+ARG ARCH=x86_64
+
+# Copy lock file
+COPY rpm-lockfiles/exportserverbase-${ARCH}.lock.json /tmp/lockfile.json
+
+# Install jq for parsing lock file
+RUN dnf install -y jq && dnf clean all
+
+# Install packages from lock file (mainly tar)
+RUN set -e && \
+    jq -r '.packages[] | "\(.name)-\(.epoch):\(.version)-\(.release).\(.arch)"' /tmp/lockfile.json | \
+    sed 's/:0:/:/' > /tmp/packages.txt && \
+    dnf install -y --setopt=install_weak_deps=False $(cat /tmp/packages.txt) && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf
+
+# =============================================================================
+# Stage 2: Extract RPM Files
+# =============================================================================
+FROM rpm-installer AS rpm-layer
+
+# Create the directory structure
+RUN mkdir -p /rpm-root/{usr/bin,usr/lib64}
+
+# Copy tar for export operations
+RUN cp -a /usr/bin/tar /rpm-root/usr/bin/ 2>/dev/null || true
+
+# Copy all required shared libraries
+RUN for bin in /rpm-root/usr/bin/*; do \
+        [ -f "$bin" ] && [ -x "$bin" ] && \
+        ldd "$bin" 2>/dev/null | grep "=> /" | awk '{print $3}' | \
+        while read lib; do \
+            [ -f "$lib" ] && mkdir -p /rpm-root$(dirname "$lib") && \
+            cp -an "$lib" /rpm-root"$lib" 2>/dev/null || true; \
+        done; \
+    done || true
+
+# Copy dynamic linker
+RUN cp -a /lib64/ld-linux-*.so* /rpm-root/lib64/ 2>/dev/null || \
+    (mkdir -p /rpm-root/lib && cp -a /lib/ld-linux-*.so* /rpm-root/lib/) 2>/dev/null || true
+
+# =============================================================================
+# Stage 3: Create passwd file
+# =============================================================================
+FROM quay.io/centos/centos:stream9 AS passwd-builder
+
+# Use uid 107 for virt-exportserver (matches Bazel)
+RUN echo "nonroot-user:x:107:107:nonroot-user:/:/sbin/nologin" > /tmp/passwd && \
+    echo "nonroot-user:x:107:" > /tmp/group
+
+# =============================================================================
+# Stage 4: Final Image
+# =============================================================================
+FROM ${BASE_IMAGE}
+
+# Copy passwd/group for nonroot user
+COPY --from=passwd-builder /tmp/passwd /etc/passwd
+COPY --from=passwd-builder /tmp/group /etc/group
+
+# Copy RPM layer
+COPY --from=rpm-layer /rpm-root/ /
+
+# Copy Go binary from build output (static binary)
+COPY _out/cmd/virt-exportserver/virt-exportserver /usr/bin/
+
+# Run as nonroot user (uid 107)
+USER 107:107
+
+# Labels
+LABEL org.opencontainers.image.description="KubeVirt Export Server"
+LABEL org.kubevirt.component="virt-exportserver"
+
+ENTRYPOINT ["/usr/bin/virt-exportserver"]

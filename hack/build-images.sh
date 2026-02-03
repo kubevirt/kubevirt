@@ -86,6 +86,8 @@ image_to_package_set() {
         virt-operator)    echo "sandboxroot" ;;
         virt-api)         echo "sandboxroot" ;;
         virt-controller)  echo "sandboxroot" ;;
+        virt-exportserver) echo "exportserverbase" ;;
+        virt-exportproxy) echo "sandboxroot" ;;  # No RPMs, uses passwd-image base
         libguestfs-tools) echo "libguestfs-tools" ;;
         pr-helper)        echo "pr-helper" ;;
         sidecar-shim)     echo "sidecar-shim" ;;

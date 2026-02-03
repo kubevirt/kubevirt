@@ -1,0 +1,112 @@
+# libguestfs-tools container image
+# Built with native tools (no Bazel)
+#
+# Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
+#        -t quay.io/kubevirt/libguestfs-tools:latest -f build/libguestfs-tools/Containerfile .
+#
+# Note: Only x86_64 and s390x are supported (no aarch64)
+
+ARG ARCH=x86_64
+ARG BASE_IMAGE=gcr.io/distroless/base-debian12:nonroot
+
+# =============================================================================
+# Stage 1: RPM Installation
+# =============================================================================
+FROM quay.io/centos/centos:stream9 AS rpm-installer
+
+ARG ARCH=x86_64
+
+# Copy lock file
+COPY rpm-lockfiles/libguestfs-tools-${ARCH}.lock.json /tmp/lockfile.json
+
+# Install jq for parsing lock file
+RUN dnf install -y jq && dnf clean all
+
+# Install packages from lock file
+RUN set -e && \
+    jq -r '.packages[] | "\(.name)-\(.epoch):\(.version)-\(.release).\(.arch)"' /tmp/lockfile.json | \
+    sed 's/:0:/:/' > /tmp/packages.txt && \
+    dnf install -y --setopt=install_weak_deps=False $(cat /tmp/packages.txt) && \
+    dnf clean all && \
+    rm -rf /var/cache/dnf
+
+# =============================================================================
+# Stage 2: Extract RPM Files
+# =============================================================================
+FROM rpm-installer AS rpm-layer
+
+# Create the directory structure
+RUN mkdir -p /rpm-root/{usr/bin,usr/sbin,usr/lib64,usr/libexec,usr/share,etc,var,boot}
+
+# Copy libguestfs tools
+RUN cp -a /usr/bin/guestfish /rpm-root/usr/bin/ 2>/dev/null || true && \
+    cp -a /usr/bin/guestmount /rpm-root/usr/bin/ 2>/dev/null || true && \
+    cp -a /usr/bin/virt-* /rpm-root/usr/bin/ 2>/dev/null || true
+
+# Copy libguestfs libraries
+RUN cp -a /usr/lib64/libguestfs* /rpm-root/usr/lib64/ 2>/dev/null || true && \
+    cp -a /usr/lib64/guestfs /rpm-root/usr/lib64/ 2>/dev/null || true
+
+# Copy libguestfs appliance
+RUN mkdir -p /rpm-root/usr/lib64/guestfs && \
+    cp -a /usr/lib64/guestfs/appliance /rpm-root/usr/lib64/guestfs/ 2>/dev/null || true
+
+# Copy QEMU for libguestfs
+RUN cp -a /usr/libexec/qemu-kvm /rpm-root/usr/libexec/ 2>/dev/null || true && \
+    cp -a /usr/share/qemu /rpm-root/usr/share/ 2>/dev/null || true && \
+    cp -a /usr/share/qemu-kvm /rpm-root/usr/share/ 2>/dev/null || true
+
+# Copy OVMF/SeaBIOS for VM boot
+RUN cp -a /usr/share/OVMF /rpm-root/usr/share/ 2>/dev/null || true && \
+    cp -a /usr/share/edk2 /rpm-root/usr/share/ 2>/dev/null || true && \
+    cp -a /usr/share/seabios /rpm-root/usr/share/ 2>/dev/null || true
+
+# Copy SELinux policy
+RUN mkdir -p /rpm-root/etc/selinux && \
+    cp -a /etc/selinux/* /rpm-root/etc/selinux/ 2>/dev/null || true
+
+# Copy all required shared libraries
+RUN for bin in /rpm-root/usr/bin/* /rpm-root/usr/sbin/* /rpm-root/usr/libexec/*; do \
+        [ -f "$bin" ] && [ -x "$bin" ] && \
+        ldd "$bin" 2>/dev/null | grep "=> /" | awk '{print $3}' | \
+        while read lib; do \
+            [ -f "$lib" ] && mkdir -p /rpm-root$(dirname "$lib") && \
+            cp -an "$lib" /rpm-root"$lib" 2>/dev/null || true; \
+        done; \
+    done || true
+
+# Copy dynamic linker
+RUN cp -a /lib64/ld-linux-*.so* /rpm-root/lib64/ 2>/dev/null || \
+    (mkdir -p /rpm-root/lib && cp -a /lib/ld-linux-*.so* /rpm-root/lib/) 2>/dev/null || true
+
+# =============================================================================
+# Stage 3: Create passwd file
+# =============================================================================
+FROM quay.io/centos/centos:stream9 AS passwd-builder
+
+RUN echo "nonroot-user:x:1001:1001:nonroot-user:/:/sbin/nologin" > /tmp/passwd && \
+    echo "nonroot-user:x:1001:" > /tmp/group
+
+# =============================================================================
+# Stage 4: Final Image
+# =============================================================================
+FROM ${BASE_IMAGE}
+
+# Copy passwd/group for nonroot user
+COPY --from=passwd-builder /tmp/passwd /etc/passwd
+COPY --from=passwd-builder /tmp/group /etc/group
+
+# Copy RPM layer
+COPY --from=rpm-layer /rpm-root/ /
+
+# Copy entrypoint script
+COPY cmd/libguestfs/entrypoint.sh /entrypoint.sh
+
+# Run as nonroot user
+USER 1001:1001
+
+# Labels
+LABEL org.opencontainers.image.description="KubeVirt libguestfs-tools"
+LABEL org.kubevirt.component="libguestfs-tools"
+
+ENTRYPOINT ["/entrypoint.sh"]

@@ -65,7 +65,9 @@ bazel-build-images:
 
 # Native image build (no Bazel)
 go-build-images: go-build
-	./hack/build-images.sh --registry ${DOCKER_PREFIX} --tag ${DOCKER_TAG} virt-launcher virt-handler virt-api virt-controller virt-operator
+	./hack/build-images.sh --registry ${DOCKER_PREFIX} --tag ${DOCKER_TAG} \
+		virt-launcher virt-handler virt-api virt-controller virt-operator \
+		virt-exportserver virt-exportproxy sidecar-shim libguestfs-tools pr-helper
 
 bazel-push-images:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_TARGETS='${PUSH_TARGETS}' ./hack/multi-arch.sh push-images"

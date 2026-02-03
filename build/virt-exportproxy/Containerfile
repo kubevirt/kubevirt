@@ -1,0 +1,39 @@
+# virt-exportproxy container image
+# Built with native tools (no Bazel)
+#
+# This is a minimal image with a static Go binary.
+# No RPM dependencies required.
+#
+# Build: ${KUBEVIRT_CRI:-podman} build --platform linux/amd64 \
+#        -t quay.io/kubevirt/virt-exportproxy:latest -f build/virt-exportproxy/Containerfile .
+
+ARG BASE_IMAGE=gcr.io/distroless/base-debian12:nonroot
+
+# =============================================================================
+# Stage 1: Create passwd file for nonroot user
+# =============================================================================
+FROM quay.io/centos/centos:stream9 AS passwd-builder
+
+RUN echo "nonroot-user:x:1001:1001:nonroot-user:/:/sbin/nologin" > /tmp/passwd && \
+    echo "nonroot-user:x:1001:" > /tmp/group
+
+# =============================================================================
+# Stage 2: Final Image
+# =============================================================================
+FROM ${BASE_IMAGE}
+
+# Copy passwd/group for nonroot user
+COPY --from=passwd-builder /tmp/passwd /etc/passwd
+COPY --from=passwd-builder /tmp/group /etc/group
+
+# Copy Go binary from build output (static binary)
+COPY _out/cmd/virt-exportproxy/virt-exportproxy /usr/bin/
+
+# Run as nonroot user
+USER 1001:1001
+
+# Labels
+LABEL org.opencontainers.image.description="KubeVirt Export Proxy"
+LABEL org.kubevirt.component="virt-exportproxy"
+
+ENTRYPOINT ["/usr/bin/virt-exportproxy"]
