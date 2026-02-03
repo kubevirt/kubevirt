@@ -27,10 +27,10 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	routev1 "github.com/openshift/api/route/v1"
 	secv1 "github.com/openshift/api/security/v1"
 	routev1fake "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1/fake"
@@ -91,7 +91,7 @@ const (
 
 	// +1 for ContainerPathVolumes webhook (always enabled in tests)
 	resourceCount = 92 + virtTemplateResourceCount
-	patchCount    = 60 + virtTemplatePatchCount
+	patchCount    = 61 + virtTemplatePatchCount
 	updateCount   = 33 + virtTemplateUpdateCount
 
 	// 1 because a temporary validation webhook is created to block new CRDs until api server is deployed
@@ -701,7 +701,7 @@ func (k *KubeVirtTestData) shouldExpectPatchesAndUpdates(kv *v1.KubeVirt) {
 	k.kubeClient.Fake.PrependReactor("patch", "mutatingwebhookconfigurations", webhookMutatingPatchFunc)
 	k.kubeClient.Fake.PrependReactor("patch", "secrets", genericPatchFunc)
 	k.kubeClient.Fake.PrependReactor("patch", "configmaps", genericPatchFunc)
-
+	k.routeClient.Fake.PrependReactor("patch", "routes", genericPatchFunc)
 	k.kubeClient.Fake.PrependReactor("patch", "services", genericPatchFunc)
 	k.kubeClient.Fake.PrependReactor("patch", "daemonsets", daemonsetPatchFunc)
 	k.kubeClient.Fake.PrependReactor("patch", "deployments", deploymentPatchFunc)
@@ -712,9 +712,6 @@ func (k *KubeVirtTestData) shouldExpectPatchesAndUpdates(kv *v1.KubeVirt) {
 	k.apiServiceClient.EXPECT().Patch(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Do(func(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, _ ...string) {
 		genericPatchFunc(&testing.PatchActionImpl{ActionImpl: testing.ActionImpl{Resource: schema.GroupVersionResource{Resource: "apiservices"}}})
 	})
-	if exportProxyEnabled(kv) {
-		k.routeClient.Fake.PrependReactor("patch", "routes", genericPatchFunc)
-	}
 	k.kubeClient.Fake.PrependReactor("patch", "validatingadmissionpolicybindings", genericPatchFunc)
 	k.kubeClient.Fake.PrependReactor("patch", "validatingadmissionpolicies", genericPatchFunc)
 }
@@ -830,6 +827,7 @@ func (k *KubeVirtTestData) shouldExpectCreations() {
 	k.kubeClient.Fake.PrependReactor("create", "clusterroles", genericCreateFunc)
 	k.kubeClient.Fake.PrependReactor("create", "clusterrolebindings", genericCreateFunc)
 	k.kubeClient.Fake.PrependReactor("create", "roles", genericCreateFunc)
+	k.routeClient.Fake.PrependReactor("create", "routes", genericCreateFunc)
 	k.kubeClient.Fake.PrependReactor("create", "rolebindings", genericCreateFunc)
 	k.extClient.Fake.PrependReactor("create", "customresourcedefinitions", genericCreateFunc)
 	k.kubeClient.Fake.PrependReactor("create", "services", genericCreateFunc)
@@ -1225,10 +1223,6 @@ func (k *KubeVirtTestData) generateRandomResources() int {
 	return len(all)
 }
 
-func enableExportFeatureGate(kv *v1.KubeVirt) {
-	enableFeatureGate(kv, featuregate.VMExportGate)
-}
-
 func enableTemplateFeatureGate(kv *v1.KubeVirt) {
 	enableFeatureGate(kv, featuregate.Template)
 }
@@ -1320,14 +1314,10 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	controllerPdb := components.NewPodDisruptionBudgetForDeployment(controller)
 
 	handler := components.NewHandlerDaemonSet(config, "", "", "")
-	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler)
-
-	if exportProxyEnabled(kv) {
-		exportProxy := components.NewExportProxyDeployment(config, "", "", "")
-		exportProxyPdb := components.NewPodDisruptionBudgetForDeployment(exportProxy)
-		route := components.NewExportProxyRoute(NAMESPACE)
-		all = append(all, exportProxy, exportProxyPdb, route)
-	}
+	exportProxy := components.NewExportProxyDeployment(config, "", "", "")
+	exportProxyPdb := components.NewPodDisruptionBudgetForDeployment(exportProxy)
+	route := components.NewExportProxyRoute(NAMESPACE)
+	all = append(all, apiDeployment, apiDeploymentPdb, controller, controllerPdb, handler, exportProxy, exportProxyPdb, route)
 
 	all = append(all, rbac.GetAllServiceMonitor(NAMESPACE, config.GetPotentialMonitorNamespaces()[0], config.GetMonitorServiceAccountName())...)
 	all = append(all, components.NewServiceMonitorCR(NAMESPACE, config.GetPotentialMonitorNamespaces()[0], true))
@@ -1578,10 +1568,7 @@ func (k *KubeVirtTestData) makeDeploymentsReady(kv *v1.KubeVirt) {
 		k.mockQueue.Add(key)
 	}
 
-	deployments := []string{"/virt-api", "/virt-controller"}
-	if exportProxyEnabled(kv) {
-		deployments = append(deployments, "/virt-exportproxy")
-	}
+	deployments := []string{"/virt-api", "/virt-controller", "/virt-exportproxy"}
 	if synchronizationControllerEnabled(kv) {
 		deployments = append(deployments, "/virt-synchronization-controller")
 	}
@@ -1609,10 +1596,7 @@ func (k *KubeVirtTestData) makeDeploymentsReady(kv *v1.KubeVirt) {
 }
 
 func (k *KubeVirtTestData) makePodDisruptionBudgetsReady(kv *v1.KubeVirt) {
-	pdbs := []string{"/virt-api-pdb", "/virt-controller-pdb"}
-	if exportProxyEnabled(kv) {
-		pdbs = append(pdbs, "/virt-exportproxy-pdb")
-	}
+	pdbs := []string{"/virt-api-pdb", "/virt-controller-pdb", "/virt-exportproxy-pdb"}
 
 	for _, pdbname := range pdbs {
 		exists := false
@@ -1810,24 +1794,22 @@ func (k *KubeVirtTestData) addPodsWithIndividualConfigs(config *util.KubeVirtDep
 	pod.Name = "virt-handler-xxxx"
 	k.addPod(pod)
 
-	if exportProxyEnabled(kv) {
-		configExportProxy.Namespace = NAMESPACE
-		exportProxy := components.NewExportProxyDeployment(configExportProxy, "", "", "")
-		pod = &k8sv1.Pod{
-			ObjectMeta: exportProxy.Spec.Template.ObjectMeta,
-			Spec:       exportProxy.Spec.Template.Spec,
-			Status: k8sv1.PodStatus{
-				Phase: k8sv1.PodRunning,
-				ContainerStatuses: []k8sv1.ContainerStatus{
-					{Ready: true, Name: "somecontainer"},
-				},
+	configExportProxy.Namespace = NAMESPACE
+	exportProxy := components.NewExportProxyDeployment(configExportProxy, "", "", "")
+	pod = &k8sv1.Pod{
+		ObjectMeta: exportProxy.Spec.Template.ObjectMeta,
+		Spec:       exportProxy.Spec.Template.Spec,
+		Status: k8sv1.PodStatus{
+			Phase: k8sv1.PodRunning,
+			ContainerStatuses: []k8sv1.ContainerStatus{
+				{Ready: true, Name: "somecontainer"},
 			},
-		}
-		pod.Name = "virt-exportproxy-xxxx"
-		injectMetadata(&pod.ObjectMeta, configExportProxy)
-		k.addPod(pod)
-		deployments = append(deployments, exportProxy)
+		},
 	}
+	pod.Name = "virt-exportproxy-xxxx"
+	injectMetadata(&pod.ObjectMeta, configExportProxy)
+	k.addPod(pod)
+	deployments = append(deployments, exportProxy)
 
 	if virtTemplateDeploymentEnabled(kv) {
 		resources, err := components.NewVirtTemplateResources(config)
@@ -2225,8 +2207,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			// add one for the namespace
-			Expect(kvTestData.totalPatches).To(Equal(numGenerations + 1))
+			// add one for the namespace and one for the exportProxy service
+			Expect(kvTestData.totalPatches).To(Equal(numGenerations + 2))
 
 			// all these resources should be tracked by there generation so everyone that has been added should now be patched
 			// since they where the `lastGeneration` was set to -1 on the KubeVirt CR
@@ -2649,11 +2631,11 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.ObjectMeta.Finalizers).To(HaveLen(1))
 			shouldExpectHCOConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)
 
-			// 8 in total are yet missing at this point
+			// 7 in total are yet missing at this point
 			// because waiting on controller, controller's PDB and virt-handler daemonset until API server deploys successfully
-			// also exportProxy + PDB + route
+			// also exportProxy + PDB
 			// also virt-template-apiserver and virt-template-controller
-			expectedUncreatedResources := 8
+			expectedUncreatedResources := 7
 
 			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources + externalCAConfigMapCount))
 
@@ -3126,10 +3108,13 @@ var _ = Describe("KubeVirt Operator", func() {
 				apiDeployment := components.NewApiServerDeployment(customConfig, "", "", "")
 				controllerDeployment := components.NewControllerDeployment(customConfig, "", "", "")
 				handlerDaemonset := components.NewHandlerDaemonSet(customConfig, "", "", "")
+				exportProxyDeployment := components.NewExportProxyDeployment(customConfig, "", "", "")
+
 				// omitempty ignores the field's zero value resulting in the json patch test op breaking
 				apiDeployment.ObjectMeta.Generation = 123
 				controllerDeployment.ObjectMeta.Generation = 123
 				handlerDaemonset.ObjectMeta.Generation = 123
+				exportProxyDeployment.ObjectMeta.Generation = 123
 
 				virtTemplateResources, err := components.NewVirtTemplateResources(customConfig)
 				Expect(err).ToNot(HaveOccurred())
@@ -3140,12 +3125,13 @@ var _ = Describe("KubeVirt Operator", func() {
 
 				kvTestData.addDeployment(apiDeployment, kv)
 				kvTestData.addDeployment(controllerDeployment, kv)
+				kvTestData.addDeployment(exportProxyDeployment, kv)
 				kvTestData.addDaemonset(handlerDaemonset, kv)
 				kvTestData.addPodsAndPodDisruptionBudgets(customConfig, kv)
 				kvTestData.makeDeploymentsReady(kv)
 				kvTestData.makeHandlerReady()
 
-				var apiDeploy, ctrlDeploy, tplApiDeploy, tplCtrlDeploy *appsv1.Deployment
+				var apiDeploy, ctrlDeploy, tplApiDeploy, tplCtrlDeploy, exportProxyDeploy *appsv1.Deployment
 				kvTestData.deploymentPatchReactionFunc = func(action testing.Action) (handled bool, obj runtime.Object, err error) {
 					deploy := &appsv1.Deployment{}
 					a := action.(testing.PatchActionImpl)
@@ -3169,6 +3155,8 @@ var _ = Describe("KubeVirt Operator", func() {
 						apiDeploy = deploy.DeepCopy()
 					case "virt-controller":
 						ctrlDeploy = deploy.DeepCopy()
+					case "virt-exportproxy":
+						exportProxyDeploy = deploy.DeepCopy()
 					case components.VirtTemplateApiserverDeploymentName:
 						tplApiDeploy = deploy.DeepCopy()
 					case components.VirtTemplateControllerDeploymentName:
@@ -3205,7 +3193,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 				kvTestData.controller.Execute()
 
-				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "deployments")).To(HaveLen(4))
+				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "deployments")).To(HaveLen(5))
 				Expect(kvtesting.FilterActions(&kvTestData.kubeClient.Fake, "patch", "daemonsets")).To(HaveLen(1))
 
 				for _, meta := range []metav1.Object{
@@ -3213,7 +3201,7 @@ var _ = Describe("KubeVirt Operator", func() {
 					ctrlDeploy, &ctrlDeploy.Spec.Template,
 					tplApiDeploy, &tplApiDeploy.Spec.Template,
 					tplCtrlDeploy, &tplCtrlDeploy.Spec.Template,
-					ds, &ds.Spec.Template,
+					ds, &ds.Spec.Template, exportProxyDeploy, &exportProxyDeploy.Spec.Template,
 				} {
 					// Labels should be on both the pod/workload controller resource
 					Expect(meta.GetLabels()[v1.AppPartOfLabel]).To(Equal(kv.Spec.ProductName))
@@ -3223,7 +3211,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			})
 		})
 
-		DescribeTable("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func(withExport bool, patchCount, resourceCount, numPDBs int) {
+		It("should update kubevirt resources when Operator version changes if no imageTag and imageRegistry is explicitly set.", func() {
+			numPDBs := 3
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -3245,9 +3234,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
-			if withExport {
-				enableExportFeatureGate(kv)
-			}
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
 			util.UpdateConditionsCreated(kv)
@@ -3285,8 +3271,8 @@ var _ = Describe("KubeVirt Operator", func() {
 			// conditions should reflect a successful update
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 
-			// 1 because of virt-handler
-			Expect(kvTestData.totalPatches).To(Equal(patchCount))
+			// -1 for virt-handler not patched, -1 for virt-exportproxy already in patchCount
+			Expect(kvTestData.totalPatches).To(Equal(patchCount - 2))
 			Expect(kvTestData.totalUpdates).To(Equal(updateCount))
 
 			// ensure every resource is either patched or updated
@@ -3295,15 +3281,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.totalUpdates + kvTestData.totalPatches).To(Equal(resourceCount))
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(numPDBs))
+		})
 
-		},
-			// -1 for virt-handler which is already updated
-			// -3 for virt-exportproxy
-			Entry("without export", false, patchCount-1-3, resourceCount-3, 2),
-			Entry("with export", true, patchCount-1, resourceCount, 3),
-		)
-
-		DescribeTable("should update resources when changing KubeVirt version.", func(withExport bool, patchCount, resourceCount int) {
+		It("should update resources when changing KubeVirt version.", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -3327,9 +3307,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
-			if withExport {
-				enableExportFeatureGate(kv)
-			}
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
 			util.UpdateConditionsCreated(kv)
@@ -3365,30 +3342,24 @@ var _ = Describe("KubeVirt Operator", func() {
 			// conditions should reflect a successful update
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
 
-			if withExport {
-				o, exists, err := kvTestData.controller.stores.DeploymentCache.GetByKey(fmt.Sprintf("%s/%s", NAMESPACE, "virt-exportproxy"))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(exists).To(BeTrue())
-				proxy := o.(*appsv1.Deployment)
-				Expect(proxy.Spec.Template.Annotations["openshift.io/required-scc"]).To(Equal("restricted-v2"))
-			}
+			o, exists, err := kvTestData.controller.stores.DeploymentCache.GetByKey(fmt.Sprintf("%s/%s", NAMESPACE, "virt-exportproxy"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(exists).To(BeTrue())
+			proxy := o.(*appsv1.Deployment)
+			Expect(proxy.Spec.Template.Annotations["openshift.io/required-scc"]).To(Equal("restricted-v2"))
 
-			Expect(kvTestData.totalPatches).To(Equal(patchCount))
+			// -1 for virt-handler not patched, -1 for virt-exportproxy already in patchCount
+			Expect(kvTestData.totalPatches).To(Equal(patchCount - 2))
 			Expect(kvTestData.totalUpdates).To(Equal(updateCount))
 
 			// ensure every resource is either patched or updated
 			// + 1 is for the namespace patch which we don't consider as a resource we own.
 			// - 1 is for virt-handler.
 			Expect(kvTestData.totalUpdates + kvTestData.totalPatches).To(Equal(resourceCount))
+		})
 
-		},
-			// -1 for virt-handler which is already updated
-			// -3 for virt-exportproxy
-			Entry("without export", false, patchCount-1-3, resourceCount-3),
-			Entry("with export", true, patchCount-1, resourceCount),
-		)
-
-		DescribeTable("should patch poddisruptionbudgets when changing KubeVirt version.", func(withExport bool, numPDBs int) {
+		It("should patch poddisruptionbudgets when changing KubeVirt version.", func() {
+			numPDBs := 3
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -3426,9 +3397,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			}
 			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
-			if withExport {
-				enableExportFeatureGate(kv)
-			}
 			kvTestData.defaultConfig.SetTargetDeploymentConfig(kv)
 			kvTestData.defaultConfig.SetObservedDeploymentConfig(kv)
 
@@ -3456,14 +3424,9 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(numPDBs))
+		})
 
-		},
-			Entry("without export", false, 2),
-			Entry("with export", true, 3),
-		)
-
-		DescribeTable("should remove resources on deletion", func(withExport bool, resourceCount int) {
-
+		It("should remove resources on deletion", func() {
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -3477,9 +3440,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			enableTemplateFeatureGate(kv)
 			enableContainerPathVolumesFeatureGate(kv)
 			kv.DeletionTimestamp = now()
-			if withExport {
-				enableExportFeatureGate(kv)
-			}
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			kvTestData.addKubeVirt(kv)
 
@@ -3506,13 +3466,10 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kv.Status.Phase).To(Equal(v1.KubeVirtPhaseDeleted))
 			Expect(kv.Status.Conditions).To(HaveLen(3))
 			shouldExpectHCOConditions(kv, k8sv1.ConditionFalse, k8sv1.ConditionFalse, k8sv1.ConditionTrue)
-		},
-			Entry("without export", false, resourceCount-3),
-			Entry("with export", true, resourceCount),
-		)
+		})
 
-		DescribeTable("should remove poddisruptionbudgets on deletion", func(withExport bool, numPDBs int) {
-
+		It("should remove poddisruptionbudgets on deletion", func() {
+			numPDBs := 3
 			kvTestData := KubeVirtTestData{}
 			kvTestData.BeforeTest()
 			defer kvTestData.AfterTest()
@@ -3527,9 +3484,6 @@ var _ = Describe("KubeVirt Operator", func() {
 			enableContainerPathVolumesFeatureGate(kv)
 
 			kv.DeletionTimestamp = now()
-			if withExport {
-				enableExportFeatureGate(kv)
-			}
 
 			kubecontroller.SetLatestApiVersionAnnotation(kv)
 			kvTestData.addKubeVirt(kv)
@@ -3548,10 +3502,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.controller.Execute()
 
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Deleted]).To(Equal(numPDBs))
-		},
-			Entry("without export", false, 2),
-			Entry("with export", true, 3),
-		)
+		})
 	})
 
 	Context("VirtTemplateDeployment configuration", func() {
@@ -3611,11 +3562,11 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			// 39 in total should be missing at this point
+			// 38 in total should be missing at this point
 			// because waiting on controller, controller's PDB and virt-handler daemonset until API server deploys successfully
-			// also exportProxy + PDB + route
+			// also exportProxy + PDB
 			// and all virt-template resources
-			expectedUncreatedResources := 39
+			expectedUncreatedResources := 38
 
 			// KV should be progressing, resources have been added, but they are not all ready yet
 			shouldExpectHCOConditions(kvTestData.getLatestKubeVirt(kv), k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)

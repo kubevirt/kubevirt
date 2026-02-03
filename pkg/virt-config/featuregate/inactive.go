@@ -83,6 +83,13 @@ const (
 	// Introduced in v1.3.0
 	VolumeMigration = "VolumeMigration"
 
+	// Owner: sig-storage
+	// Alpha: v0.55.0
+	// Beta: v1.3.0
+	// GA: v1.8.0
+	// VMExportGate enables the creation of VMExport resources, that allows setting up the export server to export VM volumes.
+	VMExportGate = "VMExport"
+
 	// DisableCustomSELinuxPolicy disables the installation of the custom SELinux policy for virt-launcher
 	DisableCustomSELinuxPolicy = "DisableCustomSELinuxPolicy"
 
@@ -143,6 +150,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: AutoResourceLimitsGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: ClusterProfiler, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: VMPersistentState, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: VMExportGate, State: GA})
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(
 		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
