@@ -12,7 +12,36 @@ ifeq (${TIMESTAMP}, 1)
   SHELL = ./hack/timestamps.sh
 endif
 
-all: format bazel-build manifests
+# =============================================================================
+# Global Build Mode Switch
+# =============================================================================
+# Set USE_BAZEL=true to use Bazel for all operations (legacy mode)
+# Default is native Go build (no Bazel)
+#
+# Examples:
+#   make build                    # Uses native Go build
+#   USE_BAZEL=true make build     # Uses Bazel
+#   make bazel-build              # Always uses Bazel (explicit)
+#   make go-build                 # Always uses native (explicit)
+# =============================================================================
+
+ifeq (${USE_BAZEL}, true)
+  # Legacy Bazel mode
+  all: format bazel-build manifests
+  build: bazel-build
+  test: bazel-test
+  build-functests: bazel-build-functests
+  rpm-deps: bazel-rpm-deps
+  build-images: bazel-build-images
+else
+  # Native Go mode (default)
+  all: format go-build manifests-no-bazel
+  build: go-build
+  test: go-test
+  build-functests: go-build-functests
+  rpm-deps: go-rpm-deps
+  build-images: go-build-images
+endif
 
 go-all: go-build manifests-no-bazel
 
@@ -25,8 +54,6 @@ bazel-build:
 bazel-build-functests:
 	hack/dockerized "hack/bazel-fmt.sh && hack/bazel-build-functests.sh"
 
-build-functests: bazel-build-functests
-
 bazel-build-verify: bazel-build
 	./hack/dockerized "hack/bazel-fmt.sh"
 	./hack/verify-generate.sh
@@ -35,6 +62,10 @@ bazel-build-verify: bazel-build
 
 bazel-build-images:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} ./hack/multi-arch.sh build-images"
+
+# Native image build (no Bazel)
+go-build-images: go-build
+	./hack/build-images.sh --registry ${DOCKER_PREFIX} --tag ${DOCKER_TAG} virt-launcher virt-handler virt-api virt-controller virt-operator
 
 bazel-push-images:
 	hack/dockerized "export BUILD_ARCH=${BUILD_ARCH} && hack/bazel-fmt.sh && DOCKER_PREFIX=${DOCKER_PREFIX} DOCKER_TAG=${DOCKER_TAG} DOCKER_TAG_ALT=${DOCKER_TAG_ALT} IMAGE_PREFIX=${IMAGE_PREFIX} IMAGE_PREFIX_ALT=${IMAGE_PREFIX_ALT} KUBEVIRT_PROVIDER=${KUBEVIRT_PROVIDER} PUSH_TARGETS='${PUSH_TARGETS}' ./hack/multi-arch.sh push-images"
@@ -87,8 +118,6 @@ coverage-report:
 go-test: go-build
 	SYNC_OUT=false KUBEVIRT_NO_BAZEL=true hack/dockerized "export KUBEVIRT_GO_BUILD_TAGS=${KUBEVIRT_GO_BUILD_TAGS} && ./hack/build-go.sh test ${WHAT}"
 
-test: bazel-test
-
 fuzz:
 	hack/dockerized "./hack/fuzz.sh"
 
@@ -137,7 +166,12 @@ deps-update:
 deps-sync:
 	SYNC_VENDOR=true hack/dockerized " ./hack/dep-update.sh --sync-only && ./hack/bazel-generate.sh"
 
-rpm-deps:
+# Native RPM freeze (generates JSON lock files)
+go-rpm-deps:
+	hack/dockerized "./hack/rpm-freeze-all.sh"
+
+# Legacy Bazel-based rpm-deps
+bazel-rpm-deps:
 	SYNC_VENDOR=true hack/dockerized "CUSTOM_REPO=${CUSTOM_REPO} SINGLE_ARCH=${SINGLE_ARCH} BASESYSTEM=${BASESYSTEM} LIBVIRT_VERSION=${LIBVIRT_VERSION} QEMU_VERSION=${QEMU_VERSION} SEABIOS_VERSION=${SEABIOS_VERSION} EDK2_VERSION=${EDK2_VERSION} LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION} GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION} PASST_VERSION=${PASST_VERSION} VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION} SWTPM_VERSION=${SWTPM_VERSION} ./hack/rpm-deps.sh"
 
 bump-images:

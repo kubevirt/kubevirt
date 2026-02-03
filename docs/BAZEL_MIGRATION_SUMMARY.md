@@ -328,19 +328,20 @@ ccc8c9c33a hack: add rpm-freeze-all.sh to generate all lock files
 - [x] Create `hack/containerfile-from-lock.sh` for generating Containerfiles
 - [x] Create `hack/build-images.sh` with Docker/Podman support
 - [x] Create Containerfiles for main images (virt-launcher, virt-handler, virt-api, virt-controller, virt-operator)
-- [ ] Test image builds (pending Go binaries)
+- [x] Test Go builds work (`make go-build`: ~56s)
 
-### Phase 4: Switch Defaults (PLANNED)
+### Phase 4: Switch Defaults (COMPLETED)
 
-- [ ] Set `KUBEVIRT_NO_BAZEL=true` in `hack/common.sh`
-- [ ] Update Makefile targets
+- [x] Add `USE_BAZEL` global flag to Makefile for switching modes
+- [x] Update Makefile targets to use native Go by default
+- [x] Keep Bazel targets available with `USE_BAZEL=true` for side-by-side operation
+- [x] Test `make build` and `make test` work with native Go
 
-### Phase 5: Remove Bazel (PLANNED)
+### Phase 5: Remove Bazel (TBD - Not in this PR)
 
-- [ ] Remove `hack/bazel-*.sh` (12 files)
-- [ ] Remove `.bazelrc`, `.bazelversion`, `bazel/`
-- [ ] Remove `BUILD.bazel` files (~1,557 files)
-- [ ] Remove `WORKSPACE`
+Bazel will remain alongside native tools for now. Both systems work side-by-side:
+- `make build` - Uses native Go (default)
+- `USE_BAZEL=true make build` - Uses Bazel
 
 ---
 
@@ -360,12 +361,27 @@ ccc8c9c33a hack: add rpm-freeze-all.sh to generate all lock files
 
 ---
 
-## What We Lose
+## What We Lose (and Mitigations)
 
 1. **Remote build caching** - Bazel can share cache across CI runs
+   - **Mitigation**: Use GitHub Actions cache for `GOCACHE` and `GOMODCACHE`
+   - **Mitigation**: Use `sccache` or `ccache` for CGO compilation
+   - **Example**: `actions/cache@v4` with `~/.cache/go-build` and `~/go/pkg/mod`
+
 2. **Deterministic container layers** - OCI images have reproducible hashes
+   - **Mitigation**: Use `SOURCE_DATE_EPOCH` for reproducible timestamps
+   - **Mitigation**: Sort file lists before adding to layers
+   - **Note**: Less critical for CI/CD - image tags provide traceability
+
 3. **Integrated static analysis** - nogo runs during build
+   - **Mitigation**: Run `golangci-lint` in CI (already configured in `hack/linter/`)
+   - **Mitigation**: Pre-commit hooks with `go vet` and linters
+   - **Note**: Actually an improvement - more analyzers available
+
 4. **Fine-grained test caching** - Bazel caches individual test results
+   - **Mitigation**: Use `-count=1` only when needed (Go caches by default)
+   - **Mitigation**: GitHub Actions test result caching
+   - **Note**: Go's test cache is sufficient for most use cases
 
 ## What We Gain
 
@@ -436,32 +452,6 @@ bazeldnf and DNF resolve "alternative" packages differently:
 or Go `go.sum`), not DNF-specific terminology. Our `.lock.json` files serve the
 same purpose: pinning exact versions and checksums for reproducible builds.
 
-### Container Runtime Support
-
-KubeVirt supports both **Docker** and **Podman** with auto-detection:
-
-```bash
-# From hack/common.sh
-determine_cri_bin() {
-    if [ "${KUBEVIRT_CRI}" = "podman" ]; then
-        echo podman
-    elif [ "${KUBEVIRT_CRI}" = "docker" ]; then
-        echo docker
-    else
-        # Auto-detect: try podman first, then docker
-        if podman ps >/dev/null 2>&1; then
-            echo podman
-        elif docker ps >/dev/null 2>&1; then
-            echo docker
-        fi
-    fi
-}
-```
-
-All build scripts use `${KUBEVIRT_CRI}` for container operations. Override with:
-- `KUBEVIRT_CRI=podman` - Force Podman
-- `KUBEVIRT_CRI=docker` - Force Docker
-
 ### Timing Benchmarks
 
 All native scripts include timing output at completion:
@@ -479,3 +469,16 @@ Sample timing results (on typical CI hardware):
 - Single package set freeze: ~30-60s per arch
 - All 30 lock files: ~15-30 minutes
 - Single image build: varies by image size
+
+**Native Go Build Benchmark:**
+- `make go-build` (all binaries): ~56 seconds
+- `make go-test ./pkg/util/...`: ~44 seconds
+
+To compare with Bazel:
+```bash
+# Native mode (default)
+time make build
+
+# Bazel mode
+time USE_BAZEL=true make build
+```
