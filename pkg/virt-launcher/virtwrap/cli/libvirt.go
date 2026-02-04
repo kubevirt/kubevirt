@@ -58,6 +58,7 @@ type Connection interface {
 	ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error)
 	SetReconnectChan(reconnect chan bool)
 	QemuAgentCommand(command string, domainName string) (string, error)
+	QemuAgentCommandWithTimeout(command string, domainName string, timeout int) (string, error)
 	GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error)
 	// helper method, not found in libvirt
 	// We add this helper to
@@ -241,6 +242,10 @@ func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFl
 // command - the qemu command, for example this gets the interfaces: {"execute":"guest-network-get-interfaces"}
 // domainName -  the qemu domain name
 func (l *LibvirtConnection) QemuAgentCommand(command string, domainName string) (string, error) {
+	return l.QemuAgentCommandWithTimeout(command, domainName, int(libvirt.DOMAIN_QEMU_AGENT_COMMAND_DEFAULT))
+}
+
+func (l *LibvirtConnection) QemuAgentCommandWithTimeout(command string, domainName string, timeout int) (string, error) {
 	if err := l.reconnectIfNecessary(); err != nil {
 		return "", err
 	}
@@ -249,7 +254,7 @@ func (l *LibvirtConnection) QemuAgentCommand(command string, domainName string) 
 		return "", err
 	}
 	defer domain.Free()
-	result, err := domain.QemuAgentCommand(command, libvirt.DOMAIN_QEMU_AGENT_COMMAND_DEFAULT, uint32(0))
+	result, err := domain.QemuAgentCommand(command, libvirt.DomainQemuAgentCommandTimeout(timeout), uint32(0))
 	return result, err
 }
 

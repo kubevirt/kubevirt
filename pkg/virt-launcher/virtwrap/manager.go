@@ -108,6 +108,10 @@ const (
 const maxConcurrentHotplugHostDevices = 1
 const maxConcurrentMemoryDumps = 1
 
+// fsFreezeRequestTimeoutSec is the timeout for the fsfreeze request, which may
+// take time depending on I/O load and pending disk flushes.
+const fsFreezeRequestTimeoutSec = 60
+
 type contextStore struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -1760,7 +1764,7 @@ func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreez
 			return err
 		}
 	}
-	_, err = l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, domainName)
+	_, err = l.virConn.QemuAgentCommandWithTimeout(`{"execute":"guest-fsfreeze-freeze"}`, domainName, fsFreezeRequestTimeoutSec)
 	if err != nil {
 		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
 		return err
