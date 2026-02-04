@@ -547,6 +547,11 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		podAnnotations[v1.EphemeralProvisioningObject] = "true"
 	}
 
+	if t.clusterConfig.VmiMemoryOverheadReportEnabled() {
+		memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netBindingPluginMemoryCalculator, vmi)
+		podAnnotations[v1.MemoryOverheadAnnotationBytes] = strconv.FormatInt(memoryOverhead.Value(), 10)
+	}
+
 	var initContainers []k8sv1.Container
 
 	sconsolelogContainer := generateSerialConsoleLogContainer(vmi, t.launcherImage, t.clusterConfig, virtLauncherLogVerbosity)

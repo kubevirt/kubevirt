@@ -23,6 +23,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -2551,6 +2552,33 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				controller.syncMemoryHotplug(vmi)
 
 				Expect(vmi.Labels).To(HaveKeyWithValue(virtv1.MemoryHotplugOverheadRatioLabel, overheadRatio))
+			})
+
+			It("should update memory overhead in VMI status from pod annotation", func() {
+				memoryQuantity := resource.NewQuantity(256*1024*1024, resource.BinarySI) // 256Mi
+				memory := strconv.FormatInt(memoryQuantity.Value(), 10)
+
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				pod.Annotations[virtv1.MemoryOverheadAnnotationBytes] = memory
+
+				controller.updateMemoryOverheadStatusFromPod(vmi, pod)
+
+				Expect(vmi.Status.Memory).ToNot(BeNil(), "Memory status should be populated")
+				Expect(vmi.Status.Memory.MemoryOverhead).ToNot(BeNil(), "MemoryOverhead should be set")
+				Expect(vmi.Status.Memory.MemoryOverhead.Value()).To(Equal(memoryQuantity.Value()), "MemoryOverhead should match annotation value")
+			})
+
+			It("should not update memory overhead if pod annotation is missing", func() {
+				vmi := newPendingVirtualMachine("testvmi")
+				vmi.Status.Phase = virtv1.Running
+				pod := newPodForVirtualMachine(vmi, k8sv1.PodRunning)
+				delete(pod.Annotations, virtv1.MemoryOverheadAnnotationBytes)
+
+				controller.updateMemoryOverheadStatusFromPod(vmi, pod)
+
+				Expect(vmi.Status.Memory).To(BeNil(), "Memory status should remain nil")
 			})
 		})
 	})
