@@ -39,6 +39,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -108,6 +109,10 @@ const (
 const maxConcurrentHotplugHostDevices = 1
 const maxConcurrentMemoryDumps = 1
 
+// fsFreezeRequestTimeoutSec is the timeout for the fsfreeze request, which may
+// take time depending on I/O load and pending disk flushes.
+const fsFreezeRequestTimeoutSec = 60
+
 type contextStore struct {
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -174,6 +179,7 @@ type LibvirtDomainManager struct {
 	disksInfo                map[string]*cmdv1.DiskInfo
 	cancelSafetyUnfreezeChan chan struct{}
 	migrateInfoStats         *stats.DomainJobInfo
+	freezeInProgress         atomic.Bool
 
 	metadataCache    *metadata.Cache
 	domainStatsCache *virtcache.TimeDefinedCache[*stats.DomainStats]
@@ -607,6 +613,10 @@ func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, t
 }
 
 func (l *LibvirtDomainManager) GuestPing(domainName string) error {
+	if l.IsFreezeInProgress() {
+		log.Log.V(1).Infof("Skipping GuestPing for %s: freeze in progress", domainName)
+		return nil
+	}
 	pingCmd := `{"execute":"guest-ping"}`
 	_, err := l.virConn.QemuAgentCommand(pingCmd, domainName)
 	return err
@@ -1731,10 +1741,20 @@ func (l *LibvirtDomainManager) getParsedFSStatus(domainName string) (string, err
 	return fsfreezeStatus.Status, nil
 }
 
+func (l *LibvirtDomainManager) IsFreezeInProgress() bool {
+	return l.freezeInProgress.Load()
+}
+
 func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
 	if l.migrationInProgress() {
 		return fmt.Errorf("Failed to freeze VMI, VMI is currently during migration")
 	}
+
+	// idempotent - return early if freeze is already in progress
+	if l.IsFreezeInProgress() {
+		return nil
+	}
+
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
 
@@ -1760,7 +1780,11 @@ func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreez
 			return err
 		}
 	}
-	_, err = l.virConn.QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, domainName)
+
+	l.freezeInProgress.Store(true)
+	defer l.freezeInProgress.Store(false)
+
+	_, err = l.virConn.QemuAgentCommandWithTimeout(`{"execute":"guest-fsfreeze-freeze"}`, domainName, fsFreezeRequestTimeoutSec)
 	if err != nil {
 		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
 		return err

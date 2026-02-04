@@ -166,6 +166,17 @@ func (_mr *_MockConnectionRecorder) QemuAgentCommand(arg0, arg1 interface{}) *go
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "QemuAgentCommand", arg0, arg1)
 }
 
+func (_m *MockConnection) QemuAgentCommandWithTimeout(command string, domainName string, timeout int) (string, error) {
+	ret := _m.ctrl.Call(_m, "QemuAgentCommandWithTimeout", command, domainName, timeout)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockConnectionRecorder) QemuAgentCommandWithTimeout(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "QemuAgentCommandWithTimeout", arg0, arg1, arg2)
+}
+
 func (_m *MockConnection) GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error) {
 	ret := _m.ctrl.Call(_m, "GetAllDomainStats", statsTypes, flags)
 	ret0, _ := ret[0].([]libvirt.DomainStats)
