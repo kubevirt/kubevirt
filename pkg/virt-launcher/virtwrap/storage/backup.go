@@ -292,20 +292,37 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		}
 	}
 
-	// TODO: Handle non-success job completion (DOMAIN_JOB_FAILED, DOMAIN_JOB_CANCELLED, unknown types)
-	if event.Info.Type == libvirt.DOMAIN_JOB_COMPLETED {
-		logger.Info("Backup has been completed successfully")
-	} else {
-		logger.Warningf("Unexpected job completion type: %d (only handling success case)", event.Info.Type)
+	var failed bool
+	var message string
+	switch event.Info.Type {
+	case libvirt.DOMAIN_JOB_COMPLETED:
+	case libvirt.DOMAIN_JOB_CANCELLED:
+		failed = backupMetadata.Mode == string(backupv1.PushMode)
+		message = "Backup aborted"
+	case libvirt.DOMAIN_JOB_FAILED:
+		failed = true
+		message = ""
+		if event.Info.ErrorMessageSet {
+			message = event.Info.ErrorMessage
+		}
+	default:
+		failed = true
+		message = fmt.Sprintf("Unexpected job completion type: %d", event.Info.Type)
 	}
 
 	metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, exists bool) {
-		// Verify the backup metadata is still for the same backup to avoid race conditions
+		if backupMetadata.EndTimestamp != nil {
+			return
+		}
+
 		if !exists || backupMetadata.Name != backupName {
 			logger.Warning("Backup metadata changed or was cleared before update could complete. Backup completion may not be properly recorded.")
 			return
 		}
+
+		backupMetadata.Failed = failed
 		backupMetadata.Completed = true
+		backupMetadata.BackupMsg = message
 		now := metav1.Now()
 		backupMetadata.EndTimestamp = &now
 	})
@@ -313,7 +330,45 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 	log.Log.V(2).Infof("Updated backup result in metadata via Notifier: %s", metadataCache.Backup.String())
 }
 
-// TODO: Implement backup abort functionality for graceful shutdown
+func (m *StorageManager) AbortVirtualMachineBackup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
+	return m.abortBackup(vmi, backupOptions)
+}
+
+func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
+	backup, exists := m.metadataCache.Backup.Load()
+	if !exists || backup.Name != backupOptions.BackupName || !backup.StartTimestamp.Equal(backupOptions.BackupStartTime) {
+		return fmt.Errorf("failed to cancel backup, requested backup is not an ongoing one")
+	}
+
+	if backup.EndTimestamp != nil || backup.Failed || backup.StartTimestamp == nil {
+		return fmt.Errorf("failed to abort backup, vmi is not being backed up")
+	}
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := m.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warning("failed to abort backup, domain not found")
+		return err
+	}
+	defer dom.Free()
+
+	stats, err := dom.GetJobStats(0)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to get domain job stats")
+		return err
+	}
+	if stats.Operation != libvirt.DOMAIN_JOB_OPERATION_BACKUP || stats.Type != libvirt.DOMAIN_JOB_UNBOUNDED {
+		return fmt.Errorf("cannot abort backup, wrong operation or type: %d, %d", stats.Operation, stats.Type)
+	}
+
+	if err := dom.AbortJob(); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to abort backup, error calling abort job on domain")
+		return err
+	}
+
+	log.Log.Object(vmi).Info("backup job abort initiated successfully")
+	return nil
+}
 
 // isLibvirtCheckpointInvalidError checks if the libvirt error indicates
 // the checkpoint is invalid/corrupt (bitmap corruption, inconsistent state, etc.)
