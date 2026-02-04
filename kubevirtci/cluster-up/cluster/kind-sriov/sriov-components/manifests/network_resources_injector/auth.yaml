@@ -160,4 +160,3 @@ subjects:
 - kind: ServiceAccount
   name: network-resources-injector-sa
   namespace: kube-system
-
