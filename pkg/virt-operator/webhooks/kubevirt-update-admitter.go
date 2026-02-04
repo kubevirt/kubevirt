@@ -74,6 +74,14 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 		return resp
 	}
 
+	results := admitter.validateKubeVirtSpec(ctx, newKV, currKV)
+	response := validating_webhooks.NewAdmissionResponse(results)
+	response.Warnings = generateKubeVirtWarnings(newKV, currKV)
+
+	return response
+}
+
+func (admitter *KubeVirtUpdateAdmitter) validateKubeVirtSpec(ctx context.Context, newKV, currKV *v1.KubeVirt) []metav1.StatusCause {
 	var results []metav1.StatusCause
 
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
@@ -103,68 +111,82 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 
 	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.SeccompConfiguration, newKV.Spec.Configuration.SeccompConfiguration) {
 		results = append(results,
-			validateSeccompConfiguration(field.NewPath("spec").Child("configuration", "seccompConfiguration"), newKV.Spec.Configuration.SeccompConfiguration)...)
-
+			validateSeccompConfiguration(
+				field.NewPath("spec").Child("configuration", "seccompConfiguration"),
+				newKV.Spec.Configuration.SeccompConfiguration)...)
 	}
 
 	if newKV.Spec.Infra != nil {
 		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
 	}
 
-	response := validating_webhooks.NewAdmissionResponse(results)
+	return results
+}
+
+func generateKubeVirtWarnings(newKV, currKV *v1.KubeVirt) []string {
+	var warnings []string
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
 		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
-		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates)...)
+		warnings = append(warnings, warnDeprecatedFeatureGates(featureGates)...)
 	}
 
-	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
-	if mdev := newKV.Spec.Configuration.MediatedDevicesConfiguration; mdev != nil {
-		f := field.NewPath("spec", "configuration", "mediatedDevicesConfiguration")
-		if mdev.MediatedDevicesTypes != nil {
-			f := f.Child("mediatedDevicesTypes")
-			response.Warnings = append(response.Warnings, fmt.Sprintf(mdevWarningfmt, f.String()))
-		}
+	warnings = append(warnings, warnDeprecatedMediatedDevices(newKV.Spec.Configuration.MediatedDevicesConfiguration)...)
+	warnings = append(warnings, warnDeprecatedArchitectures(newKV.Spec.Configuration.ArchitectureConfiguration)...)
 
-		f = f.Child("nodeMediatedDeviceTypes")
-		for i, mdevType := range mdev.NodeMediatedDeviceTypes {
-			f := f.Index(i).Child("mediatedDevicesTypes")
-			if mdevType.MediatedDevicesTypes != nil {
-				response.Warnings = append(response.Warnings, fmt.Sprintf(mdevWarningfmt, f.String()))
-			}
-		}
-	}
-
-	response.Warnings = append(response.Warnings, warnDeprecatedArchitectures(newKV.Spec.Configuration.ArchitectureConfiguration)...)
-
-	return response
+	return warnings
 }
 
-func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (new *v1.KubeVirt, old *v1.KubeVirt, err error) {
+func warnDeprecatedMediatedDevices(mdev *v1.MediatedDevicesConfiguration) []string {
+	if mdev == nil {
+		return nil
+	}
+
+	var warnings []string
+	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
+	f := field.NewPath("spec", "configuration", "mediatedDevicesConfiguration")
+
+	if mdev.MediatedDevicesTypes != nil {
+		fChild := f.Child("mediatedDevicesTypes")
+		warnings = append(warnings, fmt.Sprintf(mdevWarningfmt, fChild.String()))
+	}
+
+	f = f.Child("nodeMediatedDeviceTypes")
+	for i, mdevType := range mdev.NodeMediatedDeviceTypes {
+		fChild := f.Index(i).Child("mediatedDevicesTypes")
+		if mdevType.MediatedDevicesTypes != nil {
+			warnings = append(warnings, fmt.Sprintf(mdevWarningfmt, fChild.String()))
+		}
+	}
+
+	return warnings
+}
+
+func getAdmissionReviewKubeVirt(ar *admissionv1.AdmissionReview) (newKV, oldKV *v1.KubeVirt, err error) {
 	if !webhookutils.ValidateRequestResource(ar.Request.Resource, KubeVirtGroupVersionResource.Group, KubeVirtGroupVersionResource.Resource) {
 		return nil, nil, fmt.Errorf("expect resource to be '%s'", KubeVirtGroupVersionResource)
 	}
 
 	raw := ar.Request.Object.Raw
-	newKV := v1.KubeVirt{}
+	newKVObj := v1.KubeVirt{}
 
-	err = json.Unmarshal(raw, &newKV)
+	err = json.Unmarshal(raw, &newKVObj)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if ar.Request.Operation == admissionv1.Update {
 		raw := ar.Request.OldObject.Raw
-		oldKV := v1.KubeVirt{}
-		err = json.Unmarshal(raw, &oldKV)
+		oldKVObj := v1.KubeVirt{}
+		err = json.Unmarshal(raw, &oldKVObj)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		return &newKV, &oldKV, nil
+		return &newKVObj, &oldKVObj, nil
 	}
 
-	return &newKV, nil, nil
+	return &newKVObj, nil, nil
 }
 
 func validateCustomizeComponents(customization v1.CustomizeComponents) []metav1.StatusCause {
@@ -192,20 +214,14 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 		return statuses
 	}
 
-	deprecatedApi := false
-	if certConfig.CARotateInterval != nil || certConfig.CertRotateInterval != nil || certConfig.CAOverlapInterval != nil {
-		deprecatedApi = true
-	}
+	deprecatedAPI := certConfig.CARotateInterval != nil || certConfig.CertRotateInterval != nil || certConfig.CAOverlapInterval != nil
+	currentAPI := certConfig.CA != nil || certConfig.Server != nil
 
-	currentApi := false
-	if certConfig.CA != nil || certConfig.Server != nil {
-		currentApi = true
-	}
-
-	if deprecatedApi && currentApi {
+	if deprecatedAPI && currentAPI {
 		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueNotSupported,
-			Message: fmt.Sprintf("caRotateInterval, certRotateInterval and caOverlapInterval are deprecated and conflict with CertConfig defined rotation parameters"),
+			Type: metav1.CauseTypeFieldValueNotSupported,
+			Message: "caRotateInterval, certRotateInterval and caOverlapInterval are deprecated " +
+				"and conflict with CertConfig defined rotation parameters",
 		})
 	}
 
@@ -216,23 +232,25 @@ func validateCertificates(certConfig *v1.KubeVirtSelfSignConfiguration) []metav1
 
 	if caDuration.Duration < caRenewBefore.Duration {
 		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("CA RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.ca.duration < spec.certificateRotationStrategy.selfSigned.ca.renewBefore)"),
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: "CA RenewBefore cannot exceed Duration " +
+				"(spec.certificateRotationStrategy.selfSigned.ca.duration < spec.certificateRotationStrategy.selfSigned.ca.renewBefore)",
 		})
-
 	}
 
 	if certDuration.Duration < certRenewBefore.Duration {
 		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Cert RenewBefore cannot exceed Duration (spec.certificateRotationStrategy.selfSigned.server.duration < spec.certificateRotationStrategy.selfSigned.server.renewBefore)"),
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: "Cert RenewBefore cannot exceed Duration " +
+				"(spec.certificateRotationStrategy.selfSigned.server.duration < spec.certificateRotationStrategy.selfSigned.server.renewBefore)",
 		})
 	}
 
 	if certDuration.Duration > caDuration.Duration {
 		statuses = append(statuses, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("Certificate duration cannot exceed CA (spec.certificateRotationStrategy.selfSigned.server.duration > spec.certificateRotationStrategy.selfSigned.ca.duration)"),
+			Type: metav1.CauseTypeFieldValueInvalid,
+			Message: "Certificate duration cannot exceed CA " +
+				"(spec.certificateRotationStrategy.selfSigned.server.duration > spec.certificateRotationStrategy.selfSigned.ca.duration)",
 		})
 	}
 
@@ -258,7 +276,7 @@ func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.St
 	}
 
 	if len(tlsConfiguration.Ciphers) > 0 {
-		var idByName = kvtls.CipherSuiteNameMap()
+		idByName := kvtls.CipherSuiteNameMap()
 		for index, cipher := range tlsConfiguration.Ciphers {
 			if _, exists := idByName[cipher]; !exists {
 				statuses = append(statuses, metav1.StatusCause{
@@ -275,29 +293,31 @@ func validateTLSConfiguration(tlsConfiguration *v1.TLSConfiguration) []metav1.St
 	return statuses
 }
 
-func validateSeccompConfiguration(field *field.Path, seccompConf *v1.SeccompConfiguration) []metav1.StatusCause {
+func validateSeccompConfiguration(fieldPath *field.Path, seccompConf *v1.SeccompConfiguration) []metav1.StatusCause {
 	statuses := []metav1.StatusCause{}
 	if seccompConf == nil || seccompConf.VirtualMachineInstanceProfile == nil {
 		return statuses
 	}
 
 	customProfile := seccompConf.VirtualMachineInstanceProfile.CustomProfile
-	customProfileField := field.Child("virtualMachineInstanceProfile").Child("customProfile")
+	customProfileField := fieldPath.Child("virtualMachineInstanceProfile").Child("customProfile")
 
 	if customProfile != nil {
 		if customProfile.LocalhostProfile != nil && customProfile.RuntimeDefaultProfile {
 			localhostProfileField := customProfileField.Child("localhostProfile")
 			runtimeDefaultProfileField := customProfileField.Child("runtimeDefaultProfile")
-			statuses = append(statuses, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Field:   localhostProfileField.String(),
-				Message: fmt.Sprintf("%s cannot be set when %s is set", localhostProfileField.String(), runtimeDefaultProfileField.String()),
-			})
-			statuses = append(statuses, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Field:   runtimeDefaultProfileField.String(),
-				Message: fmt.Sprintf("%s cannot be set when %s is set", runtimeDefaultProfileField.String(), localhostProfileField.String()),
-			})
+			statuses = append(statuses,
+				metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   localhostProfileField.String(),
+					Message: fmt.Sprintf("%s cannot be set when %s is set", localhostProfileField.String(), runtimeDefaultProfileField.String()),
+				},
+				metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   runtimeDefaultProfileField.String(),
+					Message: fmt.Sprintf("%s cannot be set when %s is set", runtimeDefaultProfileField.String(), localhostProfileField.String()),
+				},
+			)
 		}
 	} else {
 		statuses = append(statuses, metav1.StatusCause{
@@ -308,17 +328,18 @@ func validateSeccompConfiguration(field *field.Path, seccompConf *v1.SeccompConf
 	}
 
 	return statuses
-
 }
 
-func validateWorkloadPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {
+func validateWorkloadPlacement(
+	ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient,
+) []metav1.StatusCause {
 	statuses := []metav1.StatusCause{}
 
 	const (
 		dsName    = "placement-validation-webhook"
 		mockLabel = "kubevirt.io/choose-me"
 		podName   = "placement-verification-pod"
-		mockUrl   = "test.only:latest"
+		mockURL   = "test.only:latest"
 	)
 
 	mockDaemonSet := &appsv1.DaemonSet{
@@ -342,7 +363,7 @@ func validateWorkloadPlacement(ctx context.Context, namespace string, placementC
 					Containers: []corev1.Container{
 						{
 							Name:  podName,
-							Image: mockUrl,
+							Image: mockURL,
 						},
 					},
 					// Inject placement fields here
@@ -355,7 +376,6 @@ func validateWorkloadPlacement(ctx context.Context, namespace string, placementC
 	}
 
 	_, err := client.AppsV1().DaemonSets(namespace).Create(ctx, mockDaemonSet, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
-
 	if err != nil {
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -365,14 +385,16 @@ func validateWorkloadPlacement(ctx context.Context, namespace string, placementC
 	return statuses
 }
 
-func validateInfraPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {
+func validateInfraPlacement(
+	ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient,
+) []metav1.StatusCause {
 	statuses := []metav1.StatusCause{}
 
 	const (
 		deploymentName = "placement-validation-webhook"
 		mockLabel      = "kubevirt.io/choose-me"
 		podName        = "placement-verification-pod"
-		mockUrl        = "test.only:latest"
+		mockURL        = "test.only:latest"
 	)
 
 	mockDeployment := &appsv1.Deployment{
@@ -397,7 +419,7 @@ func validateInfraPlacement(ctx context.Context, namespace string, placementConf
 					Containers: []corev1.Container{
 						{
 							Name:  podName,
-							Image: mockUrl,
+							Image: mockURL,
 						},
 					},
 					// Inject placement fields here
@@ -410,7 +432,6 @@ func validateInfraPlacement(ctx context.Context, namespace string, placementConf
 	}
 
 	_, err := client.AppsV1().Deployments(namespace).Create(ctx, mockDeployment, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
-
 	if err != nil {
 		statuses = append(statuses, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
@@ -463,6 +484,7 @@ func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
 }
 
 func warnDeprecatedArchitectures(archConfiguration *v1.ArchConfiguration) []string {
+	//nolint:staticcheck // SA1019: we need to check deprecated field to warn users
 	if archConfiguration != nil && archConfiguration.Ppc64le != nil {
 		return []string{"spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."}
 	}
