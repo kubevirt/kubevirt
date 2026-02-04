@@ -424,79 +424,138 @@ var _ = Describe("Backup Controller", func() {
 		Expect(statusUpdated).To(BeTrue())
 	})
 
-	Context("verifyBackupSource", func() {
-		It("should fail when VM doesn't exist", func() {
-			backup := createBackup(backupName, vmName, pvcName)
-			// Don't add VM to store
+	Context("source verification", func() {
+		Context("sourceVMExists", func() {
+			It("should return false when VM doesn't exist", func() {
+				backup := createBackup(backupName, vmName, pvcName)
+				exists, err := controller.sourceVMExists(backup, vmName)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(BeFalse())
+			})
 
-			vmi, syncInfo := controller.verifyBackupSource(backup, vmName)
-			Expect(vmi).To(BeNil())
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNotFoundMsg, testNamespace, vmName)))
+			It("should return true when VM exists", func() {
+				backup := createBackup(backupName, vmName, pvcName)
+				vm := createVM(vmName)
+				controller.vmStore.Add(vm)
+				exists, err := controller.sourceVMExists(backup, vmName)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(BeTrue())
+			})
 		})
 
-		It("should fail when VMI doesn't exist", func() {
-			backup := createBackup(backupName, vmName, pvcName)
-			vm := createVM(vmName)
-			controller.vmStore.Add(vm)
-			// Don't add VMI to store
+		Context("vmiFromSource", func() {
+			It("should return false when VMI doesn't exist", func() {
+				backup := createBackup(backupName, vmName, pvcName)
+				vmi, exists, err := controller.vmiFromSource(backup, vmName)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(BeFalse())
+				Expect(vmi).To(BeNil())
+			})
 
-			vmi, syncInfo := controller.verifyBackupSource(backup, vmName)
-			Expect(vmi).To(BeNil())
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNotRunningMsg, vmName)))
+			It("should return VMI when it exists", func() {
+				backup := createBackup(backupName, vmName, pvcName)
+				expectedVMI := createVMI()
+				controller.vmiStore.Add(expectedVMI)
+				vmi, exists, err := controller.vmiFromSource(backup, vmName)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(exists).To(BeTrue())
+				Expect(vmi).To(Equal(expectedVMI))
+			})
 		})
 
-		It("should fail when VMI doesn't have CBT eligible volumes", func() {
-			backup := createBackup(backupName, vmName, pvcName)
-			vm := createVM(vmName)
-			controller.vmStore.Add(vm)
+		Context("verifyVMIEligibleForBackup", func() {
+			It("should fail when VMI doesn't have CBT eligible volumes", func() {
+				vmi := createVMI()
+				vmi.Spec.Volumes = []v1.Volume{}
+				syncInfo := controller.verifyVMIEligibleForBackup(vmi, backupName)
+				Expect(syncInfo).ToNot(BeNil())
+				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
+				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoVolumesToBackupMsg, vmName)))
+			})
 
-			vmi := createVMI()
-			vmi.Spec.Volumes = []v1.Volume{}
-			controller.vmiStore.Add(vmi)
+			It("should fail when VMI doesn't have ChangedBlockTracking", func() {
+				vmi := createVMI()
+				vmi.Status.ChangedBlockTracking = nil
+				syncInfo := controller.verifyVMIEligibleForBackup(vmi, backupName)
+				Expect(syncInfo).ToNot(BeNil())
+				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
+				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
+			})
 
-			resultVMI, syncInfo := controller.verifyBackupSource(backup, vmName)
-			Expect(resultVMI).To(BeNil())
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoVolumesToBackupMsg, vmName)))
+			It("should fail when ChangedBlockTracking is not enabled", func() {
+				vmi := createVMI()
+				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+					State: v1.ChangedBlockTrackingDisabled,
+				}
+				syncInfo := controller.verifyVMIEligibleForBackup(vmi, backupName)
+				Expect(syncInfo).ToNot(BeNil())
+				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
+				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
+			})
+
+			It("should succeed when VMI has eligible volumes and CBT enabled", func() {
+				vmi := createVMI()
+				syncInfo := controller.verifyVMIEligibleForBackup(vmi, backupName)
+				Expect(syncInfo).To(BeNil())
+			})
 		})
 
-		It("should fail when VMI doesn't have ChangedBlockTracking", func() {
-			backup := createBackup(backupName, vmName, pvcName)
-			vm := createVM(vmName)
-			controller.vmStore.Add(vm)
+		Context("sync during initialization", func() {
+			It("should wait when VM doesn't exist", func() {
+				backup := createBackup(backupName, vmName, pvcName)
+				// Don't add VM to store
+				controller.backupInformer.GetStore().Add(backup)
 
-			vmi := createVMI()
-			vmi.Status.ChangedBlockTracking = nil
-			controller.vmiStore.Add(vmi)
+				syncInfo := controller.sync(backup)
+				Expect(syncInfo).ToNot(BeNil())
+				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
+				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNotFoundMsg, testNamespace, vmName)))
+			})
 
-			resultVMI, syncInfo := controller.verifyBackupSource(backup, vmName)
-			Expect(resultVMI).To(BeNil())
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
-		})
+			It("should wait when VMI doesn't exist", func() {
+				backup := createBackup(backupName, vmName, pvcName)
+				vm := createVM(vmName)
+				controller.vmStore.Add(vm)
+				controller.backupInformer.GetStore().Add(backup)
+				// Don't add VMI to store
 
-		It("should fail when ChangedBlockTracking is not enabled", func() {
-			backup := createBackup(backupName, vmName, pvcName)
-			vm := createVM(vmName)
-			controller.vmStore.Add(vm)
+				syncInfo := controller.sync(backup)
+				Expect(syncInfo).ToNot(BeNil())
+				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
+				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNotRunningMsg, vmName)))
+			})
 
-			vmi := createVMI()
-			vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
-				State: v1.ChangedBlockTrackingDisabled,
-			}
-			controller.vmiStore.Add(vmi)
+			It("should wait when VMI doesn't have CBT eligible volumes", func() {
+				backup := createBackup(backupName, vmName, pvcName)
+				vm := createVM(vmName)
+				controller.vmStore.Add(vm)
+				vmi := createVMI()
+				vmi.Spec.Volumes = []v1.Volume{}
+				controller.vmiStore.Add(vmi)
+				controller.backupInformer.GetStore().Add(backup)
 
-			resultVMI, syncInfo := controller.verifyBackupSource(backup, vmName)
-			Expect(resultVMI).To(BeNil())
-			Expect(syncInfo).ToNot(BeNil())
-			Expect(syncInfo.event).To(Equal(backupInitializingEvent))
-			Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
+				syncInfo := controller.sync(backup)
+				Expect(syncInfo).ToNot(BeNil())
+				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
+				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoVolumesToBackupMsg, vmName)))
+			})
+
+			It("should wait when ChangedBlockTracking is not enabled", func() {
+				backup := createBackup(backupName, vmName, pvcName)
+				vm := createVM(vmName)
+				controller.vmStore.Add(vm)
+				vmi := createVMI()
+				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+					State: v1.ChangedBlockTrackingDisabled,
+				}
+				controller.vmiStore.Add(vmi)
+				controller.backupInformer.GetStore().Add(backup)
+
+				syncInfo := controller.sync(backup)
+				Expect(syncInfo).ToNot(BeNil())
+				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
+				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
+			})
 		})
 	})
 

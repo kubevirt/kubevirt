@@ -60,7 +60,7 @@ const (
 
 	backupCompletedWithWarningMsg        = "Completed VirtualMachineBackup, warning: %s"
 	vmNotFoundMsg                        = "VM %s/%s doesnt exist"
-	vmNotRunningMsg                      = "vm %s is not running, can not do backup"
+	vmNotRunningMsg                      = "vm %s is not running, cannot do backup"
 	vmNoVolumesToBackupMsg               = "vm %s has no volumes to backup"
 	vmNoChangedBlockTrackingMsg          = "vm %s has no ChangedBlockTracking, cannot start backup"
 	backupTrackerNotFoundMsg             = "BackupTracker %s does not exist"
@@ -370,9 +370,31 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) *Syn
 		return ctrl.deletionCleanup(backup, sourceName)
 	}
 
-	vmi, syncInfo := ctrl.verifyBackupSource(backup, sourceName)
-	if syncInfo != nil {
-		return syncInfo
+	sourceExists, err := ctrl.sourceVMExists(backup, sourceName)
+	if err != nil {
+		return syncInfoError(err)
+	}
+	vmi, vmiExists, err := ctrl.vmiFromSource(backup, sourceName)
+	if err != nil {
+		return syncInfoError(err)
+	}
+
+	if isBackupInitializing(backup.Status) {
+		if !sourceExists {
+			return &SyncInfo{
+				event:  backupInitializingEvent,
+				reason: fmt.Sprintf(vmNotFoundMsg, backup.Namespace, sourceName),
+			}
+		}
+		if !vmiExists {
+			return &SyncInfo{
+				event:  backupInitializingEvent,
+				reason: fmt.Sprintf(vmNotRunningMsg, sourceName),
+			}
+		}
+		if syncInfo := ctrl.verifyVMIEligibleForBackup(vmi, backup.Name); syncInfo != nil {
+			return syncInfo
+		}
 	}
 
 	// If the tracker needs checkpoint redefinition, wait for it to complete.
@@ -388,7 +410,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) *Syn
 		return ctrl.checkBackupCompletion(backup, vmi, backupTracker)
 	}
 
-	backup, err := ctrl.addBackupFinalizer(backup)
+	backup, err = ctrl.addBackupFinalizer(backup)
 	if err != nil {
 		err = fmt.Errorf("failed to add finalizer: %w", err)
 		logger.Error(err.Error())
@@ -605,33 +627,27 @@ func (ctrl *VMBackupController) getVMI(namespace, sourceName string) (*v1.Virtua
 	return obj.(*v1.VirtualMachineInstance), exists, nil
 }
 
-func (ctrl *VMBackupController) verifyBackupSource(backup *backupv1.VirtualMachineBackup, sourceName string) (*v1.VirtualMachineInstance, *SyncInfo) {
+func (ctrl *VMBackupController) sourceVMExists(backup *backupv1.VirtualMachineBackup, sourceName string) (bool, error) {
 	objKey := cacheKeyFunc(backup.Namespace, sourceName)
 	_, exists, err := ctrl.vmStore.GetByKey(objKey)
 	if err != nil {
 		err = fmt.Errorf("failed to get VM from store: %w", err)
 		log.Log.With("VirtualMachineBackup", backup.Name).Error(err.Error())
-		return nil, syncInfoError(err)
 	}
+	return exists, err
+}
 
-	if !exists {
-		return nil, &SyncInfo{
-			event:  backupInitializingEvent,
-			reason: fmt.Sprintf(vmNotFoundMsg, backup.Namespace, sourceName),
-		}
-	}
+func (ctrl *VMBackupController) vmiFromSource(backup *backupv1.VirtualMachineBackup, sourceName string) (*v1.VirtualMachineInstance, bool, error) {
 	vmi, exists, err := ctrl.getVMI(backup.Namespace, sourceName)
 	if err != nil {
 		err = fmt.Errorf("failed to get VMI from store: %w", err)
 		log.Log.With("VirtualMachineBackup", backup.Name).Error(err.Error())
-		return nil, syncInfoError(err)
 	}
-	if !exists {
-		return nil, &SyncInfo{
-			event:  backupInitializingEvent,
-			reason: fmt.Sprintf(vmNotRunningMsg, sourceName),
-		}
-	}
+
+	return vmi, exists, err
+}
+
+func (ctrl *VMBackupController) verifyVMIEligibleForBackup(vmi *v1.VirtualMachineInstance, backupName string) *SyncInfo {
 	hasEligibleVolumes := false
 	for _, volume := range vmi.Spec.Volumes {
 		if IsCBTEligibleVolume(&volume) {
@@ -640,20 +656,19 @@ func (ctrl *VMBackupController) verifyBackupSource(backup *backupv1.VirtualMachi
 		}
 	}
 	if !hasEligibleVolumes {
-		return nil, &SyncInfo{
+		return &SyncInfo{
 			event:  backupInitializingEvent,
-			reason: fmt.Sprintf(vmNoVolumesToBackupMsg, sourceName),
+			reason: fmt.Sprintf(vmNoVolumesToBackupMsg, vmi.Name),
 		}
 	}
 	if vmi.Status.ChangedBlockTracking == nil || vmi.Status.ChangedBlockTracking.State != v1.ChangedBlockTrackingEnabled {
-		log.Log.With("VirtualMachineBackup", backup.Name).Errorf(vmNoChangedBlockTrackingMsg, sourceName)
-		return nil, &SyncInfo{
+		log.Log.With("VirtualMachineBackup", backupName).Errorf(vmNoChangedBlockTrackingMsg, vmi.Name)
+		return &SyncInfo{
 			event:  backupInitializingEvent,
-			reason: fmt.Sprintf(vmNoChangedBlockTrackingMsg, sourceName),
+			reason: fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmi.Name),
 		}
 	}
-
-	return vmi, nil
+	return nil
 }
 
 func (ctrl *VMBackupController) removeSourceBackupInProgress(vmi *v1.VirtualMachineInstance) *SyncInfo {
