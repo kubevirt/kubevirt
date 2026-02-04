@@ -2200,6 +2200,8 @@ type VirtualMachineInstanceBackupStatus struct {
 	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
 	// Completed indicates the backup completed
 	Completed bool `json:"completed,omitempty"`
+	// Failed indicates that the backup failed
+	Failed bool `json:"failed,omitempty"`
 	// BackupMsg resturns any relevant information like failure reason
 	// unfreeze failed etc...
 	// +optional

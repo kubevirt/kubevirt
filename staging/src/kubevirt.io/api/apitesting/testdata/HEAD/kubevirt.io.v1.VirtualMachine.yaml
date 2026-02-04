@@ -813,6 +813,7 @@ status:
       checkpointName: checkpointNameValue
       completed: true
       endTimestamp: "1988-01-01T01:01:01Z"
+      failed: true
       startTimestamp: "1986-01-01T01:01:01Z"
       volumes:
       - diskTarget: diskTargetValue
