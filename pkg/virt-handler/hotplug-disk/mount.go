@@ -729,10 +729,22 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 		newRecord := vmiMountTargetRecord{
 			MountTargetEntries: make([]vmiMountTargetEntry, 0),
 		}
+		var errs []error
+		logErrAndKeepMount := func(path string, format string, args ...any) {
+			err := fmt.Errorf(format, args...)
+			log.Log.Object(vmi).Error(err.Error())
+			newRecord.appendPath(path)
+			errs = append(errs, err)
+		}
 		for _, entry := range record.MountTargetEntries {
 			fd, err := safepath.NewFileNoFollow(entry.TargetFile)
 			if err != nil {
-				return err
+				if errors.Is(err, os.ErrNotExist) {
+					log.Log.Object(vmi).Infof("Volume %v is not mounted anymore, continuing", entry.TargetFile)
+				} else {
+					logErrAndKeepMount(entry.TargetFile, "Unable to unmount volume at path %s: %v", entry.TargetFile, err)
+				}
+				continue
 			}
 			fd.Close()
 			diskPath := fd.Path()
@@ -740,13 +752,16 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 
 			if _, ok := currentHotplugPaths[diskPathAbs]; !ok {
 				if blockDevice, err := isBlockDevice(diskPath); err != nil {
-					return err
+					logErrAndKeepMount(diskPathAbs, "Unable to unmount volume at path %s: %v", diskPath, err)
+					continue
 				} else if blockDevice {
 					if err := m.unmountBlockHotplugVolumes(diskPath, cgroupManager); err != nil {
-						return err
+						logErrAndKeepMount(diskPathAbs, "Unable to remove block device at path %s: %v", diskPath, err)
+						continue
 					}
 				} else if err := m.unmountFileSystemHotplugVolumes(diskPath); err != nil {
-					return err
+					logErrAndKeepMount(diskPathAbs, "Unable to unmount filesystem volume at path %s: %v", diskPath, err)
+					continue
 				}
 				log.Log.Object(vmi).V(3).Infof("Unmounted hotplug volume path %s", diskPath)
 			} else {
@@ -760,6 +775,9 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 		}
 		if err != nil {
 			return err
+		}
+		if len(errs) > 0 {
+			return fmt.Errorf("failed to cleanup hotplug mounts for VMI %s: %w", vmi.Name, errors.Join(errs...))
 		}
 	}
 	return nil
