@@ -23726,6 +23726,12 @@ func schema_kubevirtio_api_core_v1_MemoryStatus(ref common.ReferenceCallback) co
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
+					"memoryOverhead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MemoryOverhead specifies the memory overhead added by the virtualization infrastructure for the virt-launcher pod.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
 				},
 			},
 		},

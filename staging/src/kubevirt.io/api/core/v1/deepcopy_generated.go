@@ -3440,6 +3440,11 @@ func (in *MemoryStatus) DeepCopyInto(out *MemoryStatus) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
+	if in.MemoryOverhead != nil {
+		in, out := &in.MemoryOverhead, &out.MemoryOverhead
+		x := (*in).DeepCopy()
+		*out = &x
+	}
 	return
 }
 

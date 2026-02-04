@@ -14407,6 +14407,15 @@ var CRDsValidation map[string]string = map[string]string{
                 (hotplug) for the VirtualMachine.
               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
               x-kubernetes-int-or-string: true
+            memoryOverhead:
+              anyOf:
+              - type: integer
+              - type: string
+              description: |-
+                MemoryOverhead specifies the memory overhead added by the virtualization infrastructure
+                for the virt-launcher pod.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
           type: object
         migratedVolumes:
           description: MigratedVolumes lists the source and destination volumes during

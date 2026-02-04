@@ -1213,6 +1213,8 @@ const (
 	EphemeralBackupObject = "kubevirt.io/ephemeral-backup-object"
 	// This annotation represents that the annotated object is for temporary use during pod/volume provisioning
 	EphemeralProvisioningObject string = "kubevirt.io/ephemeral-provisioning"
+	// This annotation stores the memory overhead calculated for the virt-launcher pod
+	MemoryOverheadAnnotationBytes string = "kubevirt.io/memory-overhead-bytes"
 	// This annotation indicates the VMI contains an ephemeral hotplug volume
 	EphemeralHotplugAnnotation string = "kubevirt.io/ephemeral-hotplug-volumes"
 
