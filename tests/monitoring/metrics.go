@@ -39,6 +39,7 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -214,6 +215,17 @@ var _ = Describe("[sig-monitoring]Metrics", decorators.SigMonitoring, func() {
 			}
 		})
 	})
+
+	Context("Configuration metrics", Serial, func() {
+
+		It("kubevirt_configuration_emulation_enabled is 1 when useEmulation=true", func() {
+			updateUseEmulationAndWaitForMetric(virtClient, true)
+		})
+
+		It("kubevirt_configuration_emulation_enabled is 0 when useEmulation=false", func() {
+			updateUseEmulationAndWaitForMetric(virtClient, false)
+		})
+	})
 })
 
 func fetchPrometheusKubevirtMetrics(virtClient kubecli.KubevirtClient) *libmonitoring.QueryRequestResult {
@@ -283,4 +295,20 @@ func createAndRunVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 
 func gomegaContainsMetricMatcher(metric operatormetrics.Metric, labels map[string]string) types.GomegaMatcher {
 	return &testing.MetricMatcher{Metric: metric, Labels: labels}
+}
+
+func updateUseEmulationAndWaitForMetric(virtClient kubecli.KubevirtClient, enabled bool) {
+	kv := libkubevirt.GetCurrentKv(virtClient)
+	cfg := kv.Spec.Configuration
+	if cfg.DeveloperConfiguration == nil {
+		cfg.DeveloperConfiguration = &v1.DeveloperConfiguration{}
+	}
+	cfg.DeveloperConfiguration.UseEmulation = enabled
+	testsuite.UpdateKubeVirtConfigValue(cfg)
+
+	expected := float64(0)
+	if enabled {
+		expected = 1
+	}
+	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_configuration_emulation_enabled", expected)
 }
