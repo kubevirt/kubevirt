@@ -101,7 +101,7 @@ func (m *VirtLauncherPodMutator) Mutate(ar *admissionv1.AdmissionReview) *admiss
 	containerPathVolumes := virtiofs.GetContainerPathVolumesWithFilesystems(vmi)
 
 	// Generate virtiofs containers for missing containerPath volumes
-	containersToAdd := m.generateContainerPathVirtiofsContainers(vmi, containerPathVolumes, computeContainer, missingContainers)
+	containersToAdd := m.generateContainerPathVirtiofsContainers(vmi, pod, containerPathVolumes, computeContainer, missingContainers)
 	if len(containersToAdd) == 0 {
 		return allowedResponse()
 	}
@@ -127,6 +127,7 @@ func (m *VirtLauncherPodMutator) Mutate(ar *admissionv1.AdmissionReview) *admiss
 
 func (m *VirtLauncherPodMutator) generateContainerPathVirtiofsContainers(
 	vmi *v1.VirtualMachineInstance,
+	pod *k8sv1.Pod,
 	volumes []v1.Volume,
 	computeContainer *k8sv1.Container,
 	missingContainers []string,
@@ -157,6 +158,17 @@ func (m *VirtLauncherPodMutator) generateContainerPathVirtiofsContainers(
 		volumeMount, subPath := virtiofs.FindVolumeMountForPath(computeContainer, volume.ContainerPath.Path)
 		if volumeMount == nil {
 			log.Log.Warningf("No volumeMount found for containerPath %s in volume %s", volume.ContainerPath.Path, volume.Name)
+			continue
+		}
+
+		// Validate that the pod volume is a supported type for ContainerPath
+		podVolume := virtiofs.FindPodVolumeByName(pod, volumeMount.Name)
+		if podVolume == nil {
+			log.Log.Warningf("Pod volume %s not found for containerPath volume %s", volumeMount.Name, volume.Name)
+			continue
+		}
+		if !virtiofs.IsSupportedContainerPathVolumeType(podVolume) {
+			log.Log.Warningf("Pod volume %s has unsupported type for containerPath volume %s; supported types are: ConfigMap, Secret, Projected, DownwardAPI, EmptyDir", volumeMount.Name, volume.Name)
 			continue
 		}
 
