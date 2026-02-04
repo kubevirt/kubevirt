@@ -395,22 +395,24 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) *Syn
 		if syncInfo := ctrl.verifyVMIEligibleForBackup(vmi, backup.Name); syncInfo != nil {
 			return syncInfo
 		}
-	}
 
-	// If the tracker needs checkpoint redefinition, wait for it to complete.
-	if trackerNeedsCheckpointRedefinition(backupTracker) {
-		logger.Infof(trackerCheckpointRedefinitionPending, backupTracker.Name)
-		return &SyncInfo{
-			event:  backupInitializingEvent,
-			reason: fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTracker.Name),
+		// If the tracker needs checkpoint redefinition, wait for it to complete.
+		if trackerNeedsCheckpointRedefinition(backupTracker) {
+			logger.Infof(trackerCheckpointRedefinitionPending, backupTracker.Name)
+			return &SyncInfo{
+				event:  backupInitializingEvent,
+				reason: fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTracker.Name),
+			}
 		}
+
+		return ctrl.handleBackupInitiation(backup, vmi, backupTracker, logger)
 	}
 
-	if !isBackupInitializing(backup.Status) || vmi == nil {
-		return ctrl.checkBackupCompletion(backup, vmi, backupTracker)
-	}
+	return ctrl.checkBackupCompletion(backup, vmi, backupTracker)
+}
 
-	backup, err = ctrl.addBackupFinalizer(backup)
+func (ctrl *VMBackupController) handleBackupInitiation(backup *backupv1.VirtualMachineBackup, vmi *v1.VirtualMachineInstance, backupTracker *backupv1.VirtualMachineBackupTracker, logger *log.FilteredLogger) *SyncInfo {
+	backup, err := ctrl.addBackupFinalizer(backup)
 	if err != nil {
 		err = fmt.Errorf("failed to add finalizer: %w", err)
 		logger.Error(err.Error())
@@ -436,7 +438,7 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) *Syn
 	switch *backup.Spec.Mode {
 	case backupv1.PushMode:
 		pvcName := backup.Spec.PvcName
-		syncInfo = ctrl.verifyBackupTargetPVC(pvcName, backup.Namespace)
+		syncInfo := ctrl.verifyBackupTargetPVC(pvcName, backup.Namespace)
 		if syncInfo != nil {
 			return syncInfo
 		}
