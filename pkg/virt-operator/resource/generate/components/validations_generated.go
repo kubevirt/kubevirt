@@ -1021,6 +1021,14 @@ var CRDsValidation map[string]string = map[string]string{
                     https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio
                     Defaults to 10
                   type: integer
+                disabledFeatureGates:
+                  description: |-
+                    DisabledFeatureGates specifies a list of experimental feature gates to disable.
+                    A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
                 diskVerification:
                   description: DiskVerification holds container disks verification
                     limits
@@ -1035,11 +1043,13 @@ var CRDsValidation map[string]string = map[string]string{
                   - memoryLimit
                   type: object
                 featureGates:
-                  description: FeatureGates is the list of experimental features to
-                    enable. Defaults to none
+                  description: |-
+                    FeatureGates specifies a list of experimental feature gates to enable. Defaults to none.
+                    A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
                   items:
                     type: string
                   type: array
+                  x-kubernetes-list-type: atomic
                 logVerbosity:
                   description: LogVerbosity sets log verbosity level of  various components
                   properties:
