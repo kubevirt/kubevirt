@@ -70,6 +70,22 @@ func (r *Reconciler) updateKubeVirtSystem(controllerDeploymentsRolledOver bool) 
 		}
 	}
 
+	// create/update virt-template Deployments
+	for _, deployment := range r.targetStrategy.VirtTemplateDeployments() {
+		if r.virtTemplateDeploymentEnabled() {
+			deployment, err := r.syncDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+			err = r.syncPodDisruptionBudgetForDeployment(deployment)
+			if err != nil {
+				return false, err
+			}
+		} else if err := r.deleteDeployment(deployment); err != nil {
+			return false, err
+		}
+	}
+
 	// create/update API Deployments
 	for _, deployment := range r.targetStrategy.ApiDeployments() {
 		deployment, err := r.syncDeployment(deployment)
