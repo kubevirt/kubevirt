@@ -244,6 +244,21 @@ var _ = Describe("HotplugVolume", func() {
 			_, err = os.Stat(filepath.Join(tempDir, "test"))
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("writePathToMountRecord should not duplicate existing entry", func() {
+			duplicatePath := record.MountTargetEntries[0].TargetFile
+			originalLength := len(record.MountTargetEntries)
+			originalBytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			Expect(err).ToNot(HaveOccurred())
+
+			err = m.writePathToMountRecord(duplicatePath, vmi, record)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(record.MountTargetEntries).To(HaveLen(originalLength))
+
+			updatedBytes, err := os.ReadFile(filepath.Join(tempDir, string(vmi.UID)))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedBytes).To(Equal(originalBytes))
+		})
 	})
 
 	Context("block devices", func() {

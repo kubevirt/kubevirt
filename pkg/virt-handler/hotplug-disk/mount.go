@@ -283,10 +283,19 @@ func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, rec
 	return nil
 }
 
-func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
+func (m *volumeMounter) appendPathToMountRecord(path string, record *vmiMountTargetRecord) {
+	for _, entry := range record.MountTargetEntries {
+		if entry.TargetFile == path {
+			return // skip appending if already present
+		}
+	}
 	record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
 		TargetFile: path,
 	})
+}
+
+func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
+	m.appendPathToMountRecord(path, record)
 	if err := m.setMountTargetRecord(vmi, record); err != nil {
 		return err
 	}
@@ -726,8 +735,9 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 			}
 			fd.Close()
 			diskPath := fd.Path()
+			diskPathAbs := unsafepath.UnsafeAbsolute(diskPath.Raw())
 
-			if _, ok := currentHotplugPaths[unsafepath.UnsafeAbsolute(diskPath.Raw())]; !ok {
+			if _, ok := currentHotplugPaths[diskPathAbs]; !ok {
 				if blockDevice, err := isBlockDevice(diskPath); err != nil {
 					return err
 				} else if blockDevice {
@@ -739,9 +749,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 				}
 				log.Log.Object(vmi).V(3).Infof("Unmounted hotplug volume path %s", diskPath)
 			} else {
-				newRecord.MountTargetEntries = append(newRecord.MountTargetEntries, vmiMountTargetEntry{
-					TargetFile: unsafepath.UnsafeAbsolute(diskPath.Raw()),
-				})
+				m.appendPathToMountRecord(diskPathAbs, newRecord)
 			}
 		}
 		if len(newRecord.MountTargetEntries) > 0 {
