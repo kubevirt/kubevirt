@@ -10740,8 +10740,8 @@ var CRDsValidation map[string]string = map[string]string{
                 backups:
                   description: Backups is a list of available backups for the export
                   items:
-                    description: VirtualMachineExportBackup contains the URL and available
-                      formats for the exported backup
+                    description: VirtualMachineExportBackup contains the name and
+                      available endpoints for the exported backup
                     properties:
                       endpoints:
                         items:
@@ -10846,8 +10846,8 @@ var CRDsValidation map[string]string = map[string]string{
                 backups:
                   description: Backups is a list of available backups for the export
                   items:
-                    description: VirtualMachineExportBackup contains the URL and available
-                      formats for the exported backup
+                    description: VirtualMachineExportBackup contains the name and
+                      available endpoints for the exported backup
                     properties:
                       endpoints:
                         items:

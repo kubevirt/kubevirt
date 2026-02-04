@@ -31,7 +31,7 @@ import (
 
 	"kubevirt.io/api/backup"
 	virt "kubevirt.io/api/core"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/api/snapshot"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
