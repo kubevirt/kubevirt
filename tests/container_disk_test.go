@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	k8sversion "k8s.io/apimachinery/pkg/version"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,6 +33,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -236,12 +235,15 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 		})
 
-		DescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when ", func(vmi *v1.VirtualMachineInstance) {
+		DescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when", func(vmi *v1.VirtualMachineInstance) {
 			config.DisableFeatureGate(featuregate.ImageVolume)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			By("Fetching virt-launcher pod without ImageVolume")
 			sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(sourcePod.Spec.InitContainers).ToNot(BeEmpty(), "without ImageVolume should include container-disk-binary init container to copy the container-disk binary")
+			containerName := func(container k8sv1.Container) string {
+				return container.Name
+			}
+			Expect(sourcePod.Spec.InitContainers).To(ContainElement(WithTransform(containerName, Equal("container-disk-binary"))), "without ImageVolume should include container-disk-binary init container to copy the container-disk binary")
 			config.EnableFeatureGate(featuregate.ImageVolume)
 			By("Starting new migration and waiting for it to succeed")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -255,7 +257,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			targetPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(targetPod.Spec.InitContainers).To(BeEmpty(), "with ImageVolume should not include container-disk-binary init container")
+			Expect(targetPod.Spec.InitContainers).ToNot(ContainElement(WithTransform(containerName, Equal("container-disk-binary"))), "with ImageVolume should not include container-disk-binary init container")
 
 			By("Expecting to be able to login")
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
