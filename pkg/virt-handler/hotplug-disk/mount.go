@@ -178,6 +178,15 @@ type vmiMountTargetRecord struct {
 	UsesSafePaths      bool                  `json:"usesSafePaths"`
 }
 
+func (r *vmiMountTargetRecord) appendPath(path string) {
+    for _, entry := range r.MountTargetEntries {
+        if entry.TargetFile == path {
+            return // skip appending if already present
+        }
+    }
+    r.MountTargetEntries = append(r.MountTargetEntries, vmiMountTargetEntry{TargetFile: path})
+}
+
 // NewVolumeMounter creates a new VolumeMounter
 func NewVolumeMounter(mountStateDir string, kubeletPodsDir string, host string) VolumeMounter {
 	return &volumeMounter{
@@ -283,19 +292,8 @@ func (m *volumeMounter) setMountTargetRecord(vmi *v1.VirtualMachineInstance, rec
 	return nil
 }
 
-func (m *volumeMounter) appendPathToMountRecord(path string, record *vmiMountTargetRecord) {
-	for _, entry := range record.MountTargetEntries {
-		if entry.TargetFile == path {
-			return // skip appending if already present
-		}
-	}
-	record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
-		TargetFile: path,
-	})
-}
-
 func (m *volumeMounter) writePathToMountRecord(path string, vmi *v1.VirtualMachineInstance, record *vmiMountTargetRecord) error {
-	m.appendPathToMountRecord(path, record)
+	record.appendPath(path)
 	if err := m.setMountTargetRecord(vmi, record); err != nil {
 		return err
 	}
@@ -749,7 +747,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
 				}
 				log.Log.Object(vmi).V(3).Infof("Unmounted hotplug volume path %s", diskPath)
 			} else {
-				m.appendPathToMountRecord(diskPathAbs, newRecord)
+				newRecord.appendPath(diskPathAbs)
 			}
 		}
 		if len(newRecord.MountTargetEntries) > 0 {
