@@ -112,6 +112,17 @@ var _ = Describe("FSFreeze", func() {
 		Expect(manager.FreezeVMI(vmi, 0)).To(MatchError(ContainSubstring("failed to set freeze timeout")))
 	})
 
+	It("should return success when freeze is already in progress (idempotent)", func() {
+		vmi := newVMI(testNamespace, testVmName)
+
+		// Simulate freeze already in progress
+		manager.freezeInProgress.Store(true)
+		defer manager.freezeInProgress.Store(false)
+
+		// No mock expectations - we return early before any calls
+		Expect(manager.FreezeVMI(vmi, 0)).To(Succeed())
+	})
+
 	It("should unfreeze a VirtualMachineInstance", func() {
 		vmi := newVMI(testNamespace, testVmName)
 
