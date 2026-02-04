@@ -102,6 +102,31 @@ func MissingContainerPathContainers(vmi *v1.VirtualMachineInstance, pod *k8sv1.P
 	return missing
 }
 
+// IsSupportedContainerPathVolumeType checks if a pod volume is a supported type for ContainerPath.
+// Supported types are those managed by Kubernetes that cannot contain user-controlled symlinks
+// that escape the volume boundary: ConfigMap, Secret, Projected, DownwardAPI, and EmptyDir.
+func IsSupportedContainerPathVolumeType(volume *k8sv1.Volume) bool {
+	if volume == nil {
+		return false
+	}
+	vs := volume.VolumeSource
+	return vs.ConfigMap != nil ||
+		vs.Secret != nil ||
+		vs.Projected != nil ||
+		vs.DownwardAPI != nil ||
+		vs.EmptyDir != nil
+}
+
+// FindPodVolumeByName finds a volume in the pod spec by name.
+func FindPodVolumeByName(pod *k8sv1.Pod, name string) *k8sv1.Volume {
+	for i := range pod.Spec.Volumes {
+		if pod.Spec.Volumes[i].Name == name {
+			return &pod.Spec.Volumes[i]
+		}
+	}
+	return nil
+}
+
 // FindVolumeMountForPath finds the volumeMount in the container that matches the given path.
 // It returns the volumeMount and the subPath within that mount, or nil if not found.
 func FindVolumeMountForPath(container *k8sv1.Container, path string) (*k8sv1.VolumeMount, string) {
