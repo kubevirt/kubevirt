@@ -205,7 +205,7 @@ var _ = Describe("Virt remote commands", func() {
 				})
 				client.Exec(testDomainName, testCommand, testArgs, testTimeoutSeconds)
 			})
-			It("calls cmdclient.GuestPing", func() {
+			It("calls cmdclient.IsAgentConnected", func() {
 				expectGuestPing().Times(1)
 				client.GuestPing(testDomainName, testTimeoutSeconds)
 			})
