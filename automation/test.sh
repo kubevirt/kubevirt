@@ -47,9 +47,17 @@ if [ -z $TARGET ]; then
   exit 1
 fi
 
+add_feature_gate() {
+  if [ -z "$FEATURE_GATES" ]; then
+    export FEATURE_GATES="$1"
+  else
+    export FEATURE_GATES="$FEATURE_GATES,$1"
+  fi
+}
+
 export KUBEVIRT_DEPLOY_CDI=true
 if [[ ! $TARGET =~ .*kind.* ]]; then
-  export FEATURE_GATES="NodeRestriction"
+  add_feature_gate "NodeRestriction"
   export KUBEVIRT_PSA="true"
   export KUBEVIRT_FLANNEL=true
 fi
@@ -128,6 +136,12 @@ case "$TARGET" in
   *wg-arm64*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
     export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
+    ;;
+  *wg-mshv-amd64*)
+    export KUBEVIRT_PROVIDER=${TARGET/-wg-mshv-amd64/}
+    export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
+    add_feature_gate "ConfigurableHypervisor"
+    export HYPERVISOR="hyperv-direct"
     ;;
   *sev*)
     export KUBEVIRT_PROVIDER=${TARGET/-sev}

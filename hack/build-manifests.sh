@@ -92,6 +92,7 @@ for arg in $args; do
         --quay-repository=${QUAY_REPOSITORY} \
         --runbook-url-template=${runbook_url_template} \
         --verbosity=${verbosity} \
+        --hypervisor=${hypervisor} \
         >${outfile}
 done
 

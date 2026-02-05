@@ -80,6 +80,7 @@ type templateData struct {
 	GsImage                            string
 	PrHelperImage                      string
 	SidecarShimImage                   string
+	Hypervisor                         string
 }
 
 func main() {
@@ -114,6 +115,7 @@ func main() {
 	gsImage := flag.String("gs-image", "", "custom image for gs. "+customImageExample)
 	prHelperImage := flag.String("pr-helper-image", "", "custom image for pr-helper. "+customImageExample)
 	sidecarShimImage := flag.String("sidecar-shim-image", "", "custom image for sidecar-shim. "+customImageExample)
+	hypervisor := flag.String("hypervisor", "", "hypervisor name (e.g., kvm or hyperv-direct).")
 
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.CommandLine.ParseErrorsWhitelist.UnknownFlags = true
@@ -164,6 +166,7 @@ func main() {
 		data.GsImage = *gsImage
 		data.PrHelperImage = *prHelperImage
 		data.SidecarShimImage = *sidecarShimImage
+		data.Hypervisor = *hypervisor
 		if *featureGates != "" {
 			data.FeatureGates = strings.Split(*featureGates, ",")
 		}
@@ -200,6 +203,7 @@ func main() {
 		data.GsImage = "{{.GsImage}}"
 		data.PrHelperImage = "{{.PrHelperImage}}"
 		data.SidecarShimImage = "{{.SidecarShimImage}}"
+		data.Hypervisor = "{{.Hypervisor}}"
 	}
 
 	if *processFiles {
