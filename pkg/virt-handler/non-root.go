@@ -124,7 +124,7 @@ func (c *BaseController) prepareStorage(vmi *v1.VirtualMachineInstance, res isol
 	return changeOwnershipOfHostDisks(vmi, res)
 }
 
-func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
+func (*BaseController) prepareVFIOLegacy(res isolation.IsolationResult) error {
 	vfioBasePath, err := isolation.SafeJoin(res, "dev", "vfio")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -155,11 +155,69 @@ func (*BaseController) prepareVFIO(res isolation.IsolationResult) error {
 		if group.Name() == "vfio" {
 			continue
 		}
+		if group.Name() == "devices" {
+			continue
+		}
 		groupPath, err := safepath.JoinNoFollow(vfioBasePath, group.Name())
 		if err != nil {
 			return err
 		}
 		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(groupPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (*BaseController) prepareVFIOModern(res isolation.IsolationResult) error {
+	iommufdPath, err := isolation.SafeJoin(res, "dev", "iommu")
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+	}
+	err = safepath.ChmodAtNoFollow(iommufdPath, 0666)
+	if err != nil {
+		return err
+	}
+
+	cDevDirPath, err := isolation.SafeJoin(res, "dev", "vfio", "devices")
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+	}
+	var cDevs []os.DirEntry
+	err = cDevDirPath.ExecuteNoFollow(func(safePath string) (err error) {
+		cDevs, err = os.ReadDir(safePath)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, cDev := range cDevs {
+		cDevPath, err := safepath.JoinNoFollow(cDevDirPath, cDev.Name())
+		if err != nil {
+			return err
+		}
+		if err := diskutils.DefaultOwnershipManager.SetFileOwnership(cDevPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *BaseController) prepareVFIO(res isolation.IsolationResult) error {
+	// Have to prepare both legacy and modern devices until iommufd is
+	// supported by any device plugin/DRA driver among the kubevirt eco
+	err := c.prepareVFIOLegacy(res)
+	if err != nil {
+		return err
+	}
+	if c.clusterConfig.HostDevIOMMUFDEnabled() {
+		err := c.prepareVFIOModern(res)
+		if err != nil {
 			return err
 		}
 	}
