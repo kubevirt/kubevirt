@@ -221,6 +221,13 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 
 	domainExists := domain != nil
 
+	// higher memlock needed due to GPU
+	if len(vmi.Spec.Domain.Devices.GPUs) > 0 {
+		if err := c.podIsolationDetector.AdjustResources(vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
+			return err
+		}
+	}
+
 	// detect domain on target node
 	if domainExists && !vmi.Status.MigrationState.TargetNodeDomainDetected {
 		// record that we've seen the domain populated on the target's node
