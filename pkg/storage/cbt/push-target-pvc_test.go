@@ -176,7 +176,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 		It("should return nil when utilityVolumes is empty", func() {
 			testVMI.Spec.UtilityVolumes = []v1.UtilityVolume{}
 
-			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
+			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName, backupInitializingEvent)
 			Expect(syncInfo).To(BeNil())
 		})
 
@@ -212,7 +212,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				return testVMI, nil
 			})
 
-			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
+			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName, backupInitiatedEvent)
 			Expect(syncInfo).NotTo(BeNil())
 			Expect(syncInfo.err).ToNot(HaveOccurred())
 			Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
@@ -243,7 +243,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				return testVMI, nil
 			})
 
-			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
+			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName, backupInitiatedEvent)
 			Expect(syncInfo).NotTo(BeNil())
 			Expect(syncInfo.err).ToNot(HaveOccurred())
 			Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
@@ -339,7 +339,7 @@ var _ = Describe("Backup Target PVC with Utility Volumes", func() {
 				gomock.Any(),
 			).Return(nil, fmt.Errorf("detach patch failed"))
 
-			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName)
+			syncInfo := backupController.detachBackupTargetPVC(testVMI, testBackupVolumeName, backupInitiatedEvent)
 			Expect(syncInfo).NotTo(BeNil())
 			Expect(syncInfo.err).To(HaveOccurred())
 			Expect(syncInfo.err.Error()).To(ContainSubstring("detach patch failed"))
