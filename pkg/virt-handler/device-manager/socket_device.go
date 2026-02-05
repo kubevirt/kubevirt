@@ -60,11 +60,14 @@ func (p *permissionManager) ChownAtNoFollow(path *safepath.Path, uid, gid int) e
 
 type SocketDevicePlugin struct {
 	*DevicePluginBase
-	socketDir  string
-	socket     string
-	socketName string
-	executor   selinux.Executor
-	p          PermissionManager
+	socketRoot    string
+	socketDir     string
+	socket        string
+	socketName    string
+	executor      selinux.Executor
+	p             PermissionManager
+	healthChecks  bool
+	hostRootMount string
 }
 
 func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
@@ -114,13 +117,16 @@ func (dpi *SocketDevicePlugin) Start(stop <-chan struct{}) (err error) {
 }
 
 func (dpi *SocketDevicePlugin) setSocketPermissions() error {
-	prSock, err := safepath.JoinAndResolveWithRelativeRoot("/", dpi.socketDir, dpi.socket)
+	if dpi.p == nil {
+		return nil
+	}
+	prSock, err := safepath.JoinAndResolveWithRelativeRoot(dpi.socketRoot, dpi.socketDir, dpi.socket)
 	if err != nil {
-		return fmt.Errorf("error opening the socket %s/%s: %v", dpi.socketDir, dpi.socketName, err)
+		return fmt.Errorf("error opening the socket %s: %v", path.Join(dpi.socketRoot, dpi.socketDir, dpi.socket), err)
 	}
 	err = dpi.p.ChownAtNoFollow(prSock, util.NonRootUID, util.NonRootUID)
 	if err != nil {
-		return fmt.Errorf("error setting the permission the socket %s/%s:%v", dpi.socketDir, dpi.socketName, err)
+		return fmt.Errorf("error setting the permission the socket %s: %v", path.Join(dpi.socketRoot, dpi.socketDir, dpi.socket), err)
 	}
 	if se, exists, err := dpi.executor.NewSELinux(); err == nil && exists {
 		if err := selinux.RelabelFilesUnprivileged(se.IsPermissive(), prSock); err != nil {
@@ -134,13 +140,17 @@ func (dpi *SocketDevicePlugin) setSocketPermissions() error {
 }
 
 func (dpi *SocketDevicePlugin) setSocketDirectoryPermissions() error {
-	dir, err := safepath.JoinAndResolveWithRelativeRoot("/", dpi.socketDir)
+	if dpi.p == nil {
+		return nil
+	}
+	dir, err := safepath.JoinAndResolveWithRelativeRoot(dpi.socketRoot, dpi.socketDir)
+	log.DefaultLogger().Infof("setting socket directory permissions for %s", path.Join(dpi.socketRoot, dpi.socketDir))
 	if err != nil {
-		return fmt.Errorf("error opening the socket dir %s: %v", dpi.socket, err)
+		return fmt.Errorf("error opening the socket dir %s: %v", path.Join(dpi.socketRoot, dpi.socketDir), err)
 	}
 	err = dpi.p.ChownAtNoFollow(dir, util.NonRootUID, util.NonRootUID)
 	if err != nil {
-		return fmt.Errorf("error setting the permission the socket dir %s: %v", dpi.socketDir, err)
+		return fmt.Errorf("error setting the permission the socket dir %s: %v", path.Join(dpi.socketRoot, dpi.socketDir), err)
 	}
 	if se, exists, err := dpi.executor.NewSELinux(); err == nil && exists {
 		if err := selinux.RelabelFilesUnprivileged(se.IsPermissive(), dir); err != nil {
@@ -153,7 +163,11 @@ func (dpi *SocketDevicePlugin) setSocketDirectoryPermissions() error {
 	return nil
 }
 
-func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p PermissionManager) (*SocketDevicePlugin, error) {
+func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p PermissionManager, useHostRootMount bool) (*SocketDevicePlugin, error) {
+	socketRoot := "/"
+	if useHostRootMount {
+		socketRoot = util.HostRootMount
+	}
 	dpi := &SocketDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
 			health:       make(chan deviceHealth),
@@ -164,11 +178,13 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 			deregistered: make(chan struct{}),
 			socketPath:   SocketPath(strings.Replace(socketName, "/", "-", -1)),
 		},
-		socket:     socket,
-		socketDir:  socketDir,
-		socketName: socketName,
-		executor:   executor,
-		p:          p,
+		socketRoot:   socketRoot,
+		socket:       socket,
+		socketDir:    socketDir,
+		socketName:   socketName,
+		executor:     executor,
+		p:            p,
+		healthChecks: true,
 	}
 
 	for i := 0; i < maxDevices; i++ {
@@ -179,13 +195,20 @@ func NewSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int,
 		})
 	}
 	if err := dpi.setSocketDirectoryPermissions(); err != nil {
-		return nil, err
+		return dpi, err
 	}
 	if err := dpi.setSocketPermissions(); err != nil {
-		return nil, err
+		return dpi, err
 	}
 
 	return dpi, nil
+}
+
+// NewOptionalSocketDevicePlugin creates a SocketDevicePlugin where health checks are disabled (so device is always healthy)
+func NewOptionalSocketDevicePlugin(socketName, socketDir, socket string, maxDevices int, executor selinux.Executor, p PermissionManager, useHostRootMount bool) *SocketDevicePlugin {
+	dpi, _ := NewSocketDevicePlugin(socketName, socketDir, socket, maxDevices, executor, p, useHostRootMount)
+	dpi.healthChecks = false
+	return dpi
 }
 
 // Register registers the device plugin for the given resourceName with Kubelet.
@@ -227,6 +250,17 @@ func (dpi *SocketDevicePlugin) Allocate(ctx context.Context, r *pluginapi.Alloca
 	return &response, nil
 }
 
+func (dpi *SocketDevicePlugin) sendHealthUpdate(healthy bool) {
+	if !dpi.healthChecks {
+		return
+	}
+	if healthy {
+		dpi.health <- deviceHealth{Health: pluginapi.Healthy}
+	} else {
+		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
+	}
+}
+
 func (dpi *SocketDevicePlugin) healthCheck() error {
 	logger := log.DefaultLogger()
 	watcher, err := fsnotify.NewWatcher()
@@ -235,10 +269,11 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 	}
 	defer watcher.Close()
 
-	devicePath := filepath.Join(dpi.socketDir, dpi.socket)
+	deviceDir := filepath.Join(dpi.socketRoot, dpi.socketDir)
+	devicePath := filepath.Join(deviceDir, dpi.socket)
 
 	// Start watching the files before we check for their existence to avoid races
-	err = watcher.Add(dpi.socketDir)
+	err = watcher.Add(deviceDir)
 	if err != nil {
 		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
 	}
@@ -249,12 +284,11 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 			return fmt.Errorf("could not stat the device: %v", err)
 		}
 		logger.Warningf("device '%s' is not present, the device plugin can't expose it.", dpi.socketName)
-		dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
+		dpi.sendHealthUpdate(false)
 	}
 	logger.Infof("device '%s' is present.", devicePath)
 
-	dirName := filepath.Dir(dpi.socketPath)
-	err = watcher.Add(dirName)
+	err = watcher.Add(deviceDir)
 
 	if err != nil {
 		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
@@ -272,14 +306,20 @@ func (dpi *SocketDevicePlugin) healthCheck() error {
 			logger.Reason(err).Errorf("error watching devices and device plugin directory")
 		case event := <-watcher.Events:
 			logger.V(4).Infof("health Event: %v", event)
-			if event.Name == devicePath {
+			if event.Name == devicePath && dpi.healthChecks {
 				// Health in this case is if the device path actually exists
 				if event.Op == fsnotify.Create {
 					logger.Infof("monitored device %s appeared", dpi.socketName)
-					dpi.health <- deviceHealth{Health: pluginapi.Healthy}
+					dpi.sendHealthUpdate(true)
+					if err := dpi.setSocketDirectoryPermissions(); err != nil {
+						logger.Warningf("failed to set directory permissions for socket device %s", dpi.socketName)
+					}
+					if err := dpi.setSocketPermissions(); err != nil {
+						logger.Warningf("failed to set socket permissions for socket device %s", dpi.socketName)
+					}
 				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
 					logger.Infof("monitored device %s disappeared", dpi.socketName)
-					dpi.health <- deviceHealth{Health: pluginapi.Unhealthy}
+					dpi.sendHealthUpdate(false)
 				}
 			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
 				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.socketName)
