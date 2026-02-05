@@ -119,6 +119,7 @@ message VirtualMachineOptions {
   ClusterConfig clusterConfig = 7;
   map<string, string> interfaceDomainAttachment = 8;
   map<string, InterfaceBindingMigration> interfaceMigration = 9;
+  bool HostDevIOMMUFDCap = 10;
 }
 
 message VMIRequest {
