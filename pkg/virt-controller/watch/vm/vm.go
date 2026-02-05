@@ -2983,8 +2983,8 @@ func setRestartRequired(vm *virtv1.VirtualMachine, message string) {
 	})
 }
 
-// addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
-func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+// syncRestartRequired adds or removes the RestartRequired condition from the VM based on whether any non-live-updatable field was changed
+func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	if lastSeenVMSpec == nil {
 		return false
 	}
@@ -3048,6 +3048,14 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
 		setRestartRequired(vm, "a non-live-updatable field was changed in the template spec")
 		return true
+	}
+
+	// If no restart is needed, remove any existing RestartRequired condition.
+	// This handles cases where a previous condition was set but is no longer valid,
+	// such as when the firmware UUID synchronizer persisted a UUID that matches the VMI's UUID.
+	vmConditionManager := controller.NewVirtualMachineConditionManager()
+	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
+		vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
 	}
 
 	return false
@@ -3211,7 +3219,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, syncErr, nil
 	}
 
-	restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm, vmi)
+	restartRequired := c.syncRestartRequired(startVMSpec, vm, vmi)
 
 	// Must check satisfiedExpectations again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
