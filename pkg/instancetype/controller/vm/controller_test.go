@@ -192,7 +192,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 			},
 			Spec: instancetypev1.VirtualMachinePreferenceSpec{
 				Firmware: &instancetypev1.FirmwarePreferences{
-					DeprecatedPreferredUseEfi: pointer.P(true),
+					PreferredEfi: &virtv1.EFI{},
 				},
 				Devices: &instancetypev1.DevicePreferences{
 					PreferredDiskBus:        virtv1.DiskBusVirtio,
@@ -504,7 +504,7 @@ var _ = Describe("Instance type and Preference VirtualMachine Controller", func(
 				},
 				Spec: instancetypev1.VirtualMachinePreferenceSpec{
 					Firmware: &instancetypev1.FirmwarePreferences{
-						DeprecatedPreferredUseEfi: pointer.P(true),
+						PreferredEfi: &virtv1.EFI{},
 					},
 					Devices: &instancetypev1.DevicePreferences{
 						PreferredDiskBus:        virtv1.DiskBusVirtio,

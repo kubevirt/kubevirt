@@ -31582,20 +31582,6 @@ func schema_kubevirtio_api_instancetype_v1_FirmwarePreferences(ref common.Refere
 							Format:      "",
 						},
 					},
-					"preferredUseEfi": {
-						SchemaProps: spec.SchemaProps{
-							Description: "PreferredUseEfi optionally enables EFI\n\nDeprecated: Will be removed with v1beta2 or v1",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"preferredUseSecureBoot": {
-						SchemaProps: spec.SchemaProps{
-							Description: "PreferredUseSecureBoot optionally enables SecureBoot and the OVMF roms will be swapped for SecureBoot-enabled ones.\n\nRequires PreferredUseEfi and PreferredSmm to be enabled.\n\nDeprecated: Will be removed with v1beta2 or v1",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 					"preferredEfi": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PreferredEfi optionally enables EFI",
