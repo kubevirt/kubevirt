@@ -822,11 +822,18 @@ func getBackupOptionsFromRequest(request *cmdv1.BackupRequest) (*backupv1.Backup
 		return nil, fmt.Errorf("no valid backup options object present in command server request: %v", err)
 	}
 
-	if options.Mode != backupv1.PushMode {
-		return nil, fmt.Errorf("currently only backup in push mode is supported")
-	}
-	if options.PushPath == nil {
-		return nil, fmt.Errorf("backup with push mode - pushPath wasn't provided")
+	switch options.Cmd {
+	case backupv1.Start:
+		if options.Mode != backupv1.PushMode {
+			return nil, fmt.Errorf("currently only backup in push mode is supported")
+		}
+		if options.PushPath == nil {
+			return nil, fmt.Errorf("backup with push mode - pushPath wasn't provided")
+		}
+	case backupv1.Abort:
+		return options, nil
+	default:
+		return nil, fmt.Errorf("cmd unsupported, backup command only supports start or abort")
 	}
 
 	return options, nil
@@ -860,4 +867,54 @@ func (l *Launcher) BackupVirtualMachine(_ context.Context, request *cmdv1.Backup
 
 	log.Log.Object(vmi).Info("VMI backup job initiated")
 	return response, nil
+}
+
+func (l *Launcher) RedefineCheckpoint(_ context.Context, request *cmdv1.RedefineCheckpointRequest) (*cmdv1.RedefineCheckpointResponse, error) {
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return &cmdv1.RedefineCheckpointResponse{
+			Response:          response,
+			CheckpointInvalid: false,
+		}, nil
+	}
+
+	if !storage.IsChangedBlockTrackingEnabled(vmi) {
+		return &cmdv1.RedefineCheckpointResponse{
+			Response: &cmdv1.Response{
+				Success: false,
+				Message: "Redefine checkpoint failed: ChangedBlockTracking is not enabled",
+			},
+			CheckpointInvalid: false,
+		}, nil
+	}
+
+	checkpoint := &backupv1.BackupCheckpoint{}
+	if err := json.Unmarshal(request.Checkpoint, checkpoint); err != nil {
+		return &cmdv1.RedefineCheckpointResponse{
+			Response: &cmdv1.Response{
+				Success: false,
+				Message: fmt.Sprintf("Redefine checkpoint failed: invalid checkpoint info: %v", err),
+			},
+			CheckpointInvalid: false,
+		}, nil
+	}
+
+	checkpointInvalid, err := l.domainManager.RedefineCheckpoint(vmi, checkpoint)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to redefine checkpoint %s", checkpoint.Name)
+		return &cmdv1.RedefineCheckpointResponse{
+			Response: &cmdv1.Response{
+				Success: false,
+				Message: err.Error(),
+			},
+			CheckpointInvalid: checkpointInvalid,
+		}, nil
+	}
+
+	log.Log.Object(vmi).Infof("Checkpoint %s redefined successfully", checkpoint.Name)
+	return &cmdv1.RedefineCheckpointResponse{
+		Response: &cmdv1.Response{
+			Success: true,
+		},
+	}, nil
 }

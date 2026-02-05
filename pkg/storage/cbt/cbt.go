@@ -31,7 +31,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 var (
@@ -69,8 +68,12 @@ func cbtStateDisabled(status *v1.ChangedBlockTrackingStatus) bool {
 		CompareCBTState(status, v1.ChangedBlockTrackingDisabled)
 }
 
+func CBTStateInitializing(status *v1.ChangedBlockTrackingStatus) bool {
+	return CompareCBTState(status, v1.ChangedBlockTrackingInitializing)
+}
+
 func HasCBTStateEnabled(status *v1.ChangedBlockTrackingStatus) bool {
-	return CompareCBTState(status, v1.ChangedBlockTrackingInitializing) ||
+	return CBTStateInitializing(status) ||
 		CompareCBTState(status, v1.ChangedBlockTrackingEnabled)
 }
 
@@ -295,38 +298,6 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 	return volume.VolumeSource.PersistentVolumeClaim != nil ||
 		volume.VolumeSource.DataVolume != nil ||
 		volume.VolumeSource.HostDisk != nil
-}
-
-func SetChangedBlockTrackingOnVMIFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	if domain == nil || vmi.Status.ChangedBlockTracking == nil || cbtStateDisabled(vmi.Status.ChangedBlockTracking) {
-		return
-	}
-
-	cbtSet := true
-	for _, volume := range vmi.Spec.Volumes {
-		if !IsCBTEligibleVolume(&volume) {
-			continue
-		}
-		found := false
-		for _, disk := range domain.Spec.Devices.Disks {
-			if disk.Alias.GetName() == volume.Name {
-				found = true
-				if disk.Source.DataStore == nil {
-					cbtSet = false
-				}
-				break
-			}
-		}
-		// If we didn't find a matching disk for an eligible volume, disable CBT
-		if !found {
-			cbtSet = false
-			break
-		}
-	}
-
-	if cbtSet {
-		SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
-	}
 }
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
