@@ -811,39 +811,14 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("when vm not running", false),
 			)
 
-			DescribeTable("should not lock source if volume PVCs", func(createPVCs, boundPVCs bool, expectedReason string) {
+			DescribeTable("should not lock source if volume PVCs", func(setupPVC func(*corev1.PersistentVolumeClaim), expectedReason string) {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
 				vmSource.Add(vm)
 
 				pvcs := createPersistentVolumeClaims()
 				for i := range pvcs {
-					if createPVCs {
-						if !boundPVCs {
-							pvcs[i].Status.Phase = corev1.ClaimPending
-						} else {
-							dv := &cdiv1.DataVolume{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:      pvcs[i].Name,
-									Namespace: pvcs[i].Namespace,
-								},
-								Status: cdiv1.DataVolumeStatus{
-									Phase: cdiv1.WaitForFirstConsumer,
-								},
-							}
-							dvSource.Add(dv)
-							pvcs[i].OwnerReferences = []metav1.OwnerReference{
-								*metav1.NewControllerRef(dv, schema.GroupVersionKind{
-									Group:   cdiv1.SchemeGroupVersion.Group,
-									Version: cdiv1.SchemeGroupVersion.Version,
-									Kind:    "DataVolume",
-								}),
-							}
-						}
-						pvcSource.Add(&pvcs[i])
-					} else {
-						pvcSource.Delete(&pvcs[i])
-					}
+					setupPVC(&pvcs[i])
 				}
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
@@ -861,9 +836,37 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
 			},
-				Entry("doesnt exist", false, false, "volume doesnt exist"),
-				Entry("are not bound", true, false, "volume not bound"),
-				Entry("are not populated", true, true, "volume not populated"),
+				Entry("doesnt exist", func(pvc *corev1.PersistentVolumeClaim) {
+					pvcSource.Delete(pvc)
+				}, "volume doesnt exist"),
+				Entry("are not bound", func(pvc *corev1.PersistentVolumeClaim) {
+					pvc.Status.Phase = corev1.ClaimPending
+					pvcSource.Add(pvc)
+				}, "volume not bound"),
+				Entry("are not populated", func(pvc *corev1.PersistentVolumeClaim) {
+					dv := &cdiv1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      pvc.Name,
+							Namespace: pvc.Namespace,
+						},
+						Status: cdiv1.DataVolumeStatus{
+							Phase: cdiv1.WaitForFirstConsumer,
+						},
+					}
+					dvSource.Add(dv)
+					pvc.OwnerReferences = []metav1.OwnerReference{
+						*metav1.NewControllerRef(dv, schema.GroupVersionKind{
+							Group:   cdiv1.SchemeGroupVersion.Group,
+							Version: cdiv1.SchemeGroupVersion.Version,
+							Kind:    "DataVolume",
+						}),
+					}
+					pvcSource.Add(pvc)
+				}, "volume not populated"),
+				Entry("are being deleted", func(pvc *corev1.PersistentVolumeClaim) {
+					pvc.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+					pvcSource.Add(pvc)
+				}, "volume is being deleted"),
 			)
 
 			It("should not lock source if pods using PVCs when vm not running", func() {
