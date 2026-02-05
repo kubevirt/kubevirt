@@ -165,6 +165,9 @@ const (
 	// Details of the new hypervisors should be specified via the
 	// HypervisorConfigurations field in KubeVirtConfiguration.
 	ConfigurableHypervisor = "ConfigurableHypervisor"
+
+	// HostDevIOMMUFD introduces the usage of the IOMMUFD user API for modern Host Devices Assignment.
+	HostDevIOMMUFDGate = "HostDevIOMMUFD"
 )
 
 func init() {
@@ -202,4 +205,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: HostDevIOMMUFDGate, State: Alpha})
 }
