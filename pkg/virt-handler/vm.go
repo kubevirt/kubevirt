@@ -2477,6 +2477,7 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 		return
 	}
 	vmi.Status.ChangedBlockTracking.BackupStatus.Completed = backupMetadata.Completed
+	vmi.Status.ChangedBlockTracking.BackupStatus.Failed = backupMetadata.Failed
 	if backupMetadata.StartTimestamp != nil {
 		vmi.Status.ChangedBlockTracking.BackupStatus.StartTimestamp = backupMetadata.StartTimestamp
 	}
@@ -2495,5 +2496,4 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = volumes
 		}
 	}
-	// TODO: Handle backup failure (backupMetadata.Failed) and abort status (backupMetadata.AbortStatus)
 }
