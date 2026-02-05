@@ -2587,6 +2587,73 @@ var _ = Describe("Manager", func() {
 		Expect(err).To(MatchError(ContainSubstring("failed to find the status of volume test1")))
 	})
 
+	Context("PCINUMAAwareTopology feature gate integration", func() {
+		var vmi *v1.VirtualMachineInstance
+		var manager DomainManager
+
+		BeforeEach(func() {
+			vmi = newVMI(testNamespace, testVmName)
+			var err error
+			manager, err = newLibvirtDomainManagerDefault()
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("should set PCINUMAAwareTopologyEnabled=true when feature gate is enabled", func() {
+			// Create cluster config with PCINUMAAwareTopology feature gate enabled
+			clusterConfig := &cmdv1.ClusterConfig{
+				PCINUMAAwareTopologyEnabled: true,
+			}
+
+			// Create VirtualMachineOptions with the cluster config
+			options := &cmdv1.VirtualMachineOptions{
+				VirtualMachineSMBios: &cmdv1.SMBios{},
+				ClusterConfig:        clusterConfig,
+			}
+
+			// Call generateConverterContext through a public method that uses it
+			libvirtManager := manager.(*LibvirtDomainManager)
+			converterContext, err := libvirtManager.generateConverterContext(vmi, true, options, false)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(converterContext.PCINUMAAwareTopologyEnabled).To(BeTrue())
+		})
+
+		It("should set PCINUMAAwareTopologyEnabled=false when feature gate is disabled", func() {
+			// Create cluster config without PCINUMAAwareTopology feature gate enabled
+			clusterConfig := &cmdv1.ClusterConfig{
+				PCINUMAAwareTopologyEnabled: false,
+			}
+
+			// Create VirtualMachineOptions with the cluster config
+			options := &cmdv1.VirtualMachineOptions{
+				VirtualMachineSMBios: &cmdv1.SMBios{},
+				ClusterConfig:        clusterConfig,
+			}
+
+			// Call generateConverterContext through a public method that uses it
+			libvirtManager := manager.(*LibvirtDomainManager)
+			converterContext, err := libvirtManager.generateConverterContext(vmi, true, options, false)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(converterContext.PCINUMAAwareTopologyEnabled).To(BeFalse())
+		})
+
+		It("should default PCINUMAAwareTopologyEnabled=false when cluster config is nil", func() {
+			// Create VirtualMachineOptions with nil cluster config
+			options := &cmdv1.VirtualMachineOptions{
+				VirtualMachineSMBios: &cmdv1.SMBios{},
+				ClusterConfig:        nil,
+			}
+
+			// Call generateConverterContext through a public method that uses it
+			libvirtManager := manager.(*LibvirtDomainManager)
+			converterContext, err := libvirtManager.generateConverterContext(vmi, true, options, false)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(converterContext.PCINUMAAwareTopologyEnabled).To(BeFalse())
+		})
+	})
+
 	// TODO: test error reporting on non successful VirtualMachineInstance syncs and kill attempts
 })
 
