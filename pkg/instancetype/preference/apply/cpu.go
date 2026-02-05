@@ -21,7 +21,17 @@ package apply
 import (
 	virtv1 "kubevirt.io/api/core/v1"
 	instancetypev1 "kubevirt.io/api/instancetype/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
+
+// deprecatedTopologyToNew maps deprecated topology values to their new equivalents
+var deprecatedTopologyToNew = map[instancetypev1.PreferredCPUTopology]instancetypev1.PreferredCPUTopology{
+	instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferSockets): instancetypev1.Sockets,
+	instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferCores):   instancetypev1.Cores,
+	instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferThreads): instancetypev1.Threads,
+	instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferSpread):  instancetypev1.Spread,
+	instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferAny):     instancetypev1.Any,
+}
 
 func applyCPUPreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.CPU == nil || len(preferenceSpec.CPU.PreferredCPUFeatures) == 0 {
@@ -40,10 +50,14 @@ func applyCPUPreferences(preferenceSpec *instancetypev1.VirtualMachinePreference
 }
 
 func GetPreferredTopology(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) instancetypev1.PreferredCPUTopology {
-	// Default to PreferSockets when a PreferredCPUTopology isn't provided
+	// Default to Sockets when a PreferredCPUTopology isn't provided
 	preferredTopology := instancetypev1.Sockets
 	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != nil {
 		preferredTopology = *preferenceSpec.CPU.PreferredCPUTopology
+	}
+	// Normalize deprecated values to new equivalents
+	if newTopology, ok := deprecatedTopologyToNew[preferredTopology]; ok {
+		return newTopology
 	}
 	return preferredTopology
 }

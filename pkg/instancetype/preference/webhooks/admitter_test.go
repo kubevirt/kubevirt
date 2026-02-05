@@ -34,6 +34,7 @@ import (
 
 	apiinstancetype "kubevirt.io/api/instancetype"
 	instancetypev1 "kubevirt.io/api/instancetype/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/webhooks"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -98,75 +99,9 @@ var _ = Describe("Validating Preference Admitter", func() {
 		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "across").String()))
 	},
 		Entry("with spread", instancetypev1.Spread),
-		Entry("with preferSpread", instancetypev1.DeprecatedPreferSpread),
 	)
 
-	DescribeTable("should reject when spreading vCPUs across CoresThreads with a ratio higher than 2 set through",
-		func(preferenceObj instancetypev1.VirtualMachinePreference) {
-			ar := createPreferenceAdmissionReview(&preferenceObj, instancetypev1.SchemeGroupVersion.Version)
-			response := admitter.Admit(context.Background(), ar)
-			Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
-			Expect(response.Result.Details.Causes).To(HaveLen(1))
-			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(response.Result.Details.Causes[0].Message).To(Equal(
-				"only a ratio of 2 (1 core 2 threads) is allowed when spreading vCPUs over cores and threads"))
-			Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "ratio").String()))
-		},
-		Entry("PreferSpreadSocketToCoreRatio with spread",
-			instancetypev1.VirtualMachinePreference{
-				Spec: instancetypev1.VirtualMachinePreferenceSpec{
-					PreferSpreadSocketToCoreRatio: uint32(3),
-					CPU: &instancetypev1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1.Spread),
-						SpreadOptions: &instancetypev1.SpreadOptions{
-							Across: pointer.P(instancetypev1.SpreadAcrossCoresThreads),
-						},
-					},
-				},
-			},
-		),
-		Entry("PreferSpreadSocketToCoreRatio with preferSpread",
-			instancetypev1.VirtualMachinePreference{
-				Spec: instancetypev1.VirtualMachinePreferenceSpec{
-					PreferSpreadSocketToCoreRatio: uint32(3),
-					CPU: &instancetypev1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1.DeprecatedPreferSpread),
-						SpreadOptions: &instancetypev1.SpreadOptions{
-							Across: pointer.P(instancetypev1.SpreadAcrossCoresThreads),
-						},
-					},
-				},
-			},
-		),
-		Entry("SpreadOptions with spread",
-			instancetypev1.VirtualMachinePreference{
-				Spec: instancetypev1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1.Spread),
-						SpreadOptions: &instancetypev1.SpreadOptions{
-							Across: pointer.P(instancetypev1.SpreadAcrossCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
-						},
-					},
-				},
-			},
-		),
-		Entry("SpreadOptions with preferSpread",
-			instancetypev1.VirtualMachinePreference{
-				Spec: instancetypev1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1.DeprecatedPreferSpread),
-						SpreadOptions: &instancetypev1.SpreadOptions{
-							Across: pointer.P(instancetypev1.SpreadAcrossCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
-						},
-					},
-				},
-			},
-		),
-	)
-
-	DescribeTable("should raise warning for", func(deprecatedTopology, expectedAlternativeTopology instancetypev1.PreferredCPUTopology) {
+	DescribeTable("should reject deprecated PreferredCPUTopology values", func(deprecatedTopology instancetypev1.PreferredCPUTopology) {
 		preferenceObj := &instancetypev1.VirtualMachinePreference{
 			Spec: instancetypev1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1.CPUPreferences{
@@ -176,31 +111,26 @@ var _ = Describe("Validating Preference Admitter", func() {
 		}
 		ar := createPreferenceAdmissionReview(preferenceObj, instancetypev1.SchemeGroupVersion.Version)
 		response := admitter.Admit(context.Background(), ar)
-		Expect(response.Allowed).To(BeTrue())
-		Expect(response.Warnings).To(HaveLen(1))
-		Expect(response.Warnings[0]).To(ContainSubstring(
-			fmt.Sprintf("PreferredCPUTopology %s is deprecated for removal in a future release, please use %s instead",
-				deprecatedTopology, expectedAlternativeTopology)))
+		Expect(response.Allowed).To(BeFalse())
+		Expect(response.Result.Details.Causes).To(HaveLen(1))
+		Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+		Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("unknown preferredCPUTopology %s", deprecatedTopology)))
+		Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "preferredCPUTopology").String()))
 	},
-		Entry("DeprecatedPreferSockets and provide Sockets as an alternative",
-			instancetypev1.DeprecatedPreferSockets,
-			instancetypev1.Sockets,
+		Entry("DeprecatedPreferSockets",
+			instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferSockets),
 		),
-		Entry("DeprecatedPreferCores and provide Cores as an alternative",
-			instancetypev1.DeprecatedPreferCores,
-			instancetypev1.Cores,
+		Entry("DeprecatedPreferCores",
+			instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferCores),
 		),
-		Entry("DeprecatedPreferThreads and provide Threads as an alternative",
-			instancetypev1.DeprecatedPreferThreads,
-			instancetypev1.Threads,
+		Entry("DeprecatedPreferThreads",
+			instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferThreads),
 		),
-		Entry("DeprecatedPreferSpread and provide Spread as an alternative",
-			instancetypev1.DeprecatedPreferSpread,
-			instancetypev1.Spread,
+		Entry("DeprecatedPreferSpread",
+			instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferSpread),
 		),
-		Entry("DeprecatedPreferAny and provide Any as an alternative",
-			instancetypev1.DeprecatedPreferAny,
-			instancetypev1.Any,
+		Entry("DeprecatedPreferAny",
+			instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferAny),
 		),
 	)
 })
@@ -246,115 +176,39 @@ var _ = Describe("Validating ClusterPreference Admitter", func() {
 			Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "across").String()))
 		},
 		Entry("with spread", instancetypev1.Spread),
-		Entry("with preferSpread", instancetypev1.DeprecatedPreferSpread),
 	)
 
-	DescribeTable("should reject when spreading vCPUs across CoresThreads with a ratio higher than 2 set through",
-		func(clusterPreferenceObj instancetypev1.VirtualMachineClusterPreference) {
-			ar := createClusterPreferenceAdmissionReview(&clusterPreferenceObj, instancetypev1.SchemeGroupVersion.Version)
-			response := admitter.Admit(context.Background(), ar)
-			Expect(response.Allowed).To(BeFalse(), "Expected preference to not be allowed")
-			Expect(response.Result.Details.Causes).To(HaveLen(1))
-			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
-			Expect(response.Result.Details.Causes[0].Message).To(Equal(
-				"only a ratio of 2 (1 core 2 threads) is allowed when spreading vCPUs over cores and threads"))
-			Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "spreadOptions", "ratio").String()))
-		},
-		Entry("PreferSpreadSocketToCoreRatio with spread",
-			instancetypev1.VirtualMachineClusterPreference{
-				Spec: instancetypev1.VirtualMachinePreferenceSpec{
-					PreferSpreadSocketToCoreRatio: uint32(3),
-					CPU: &instancetypev1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1.Spread),
-						SpreadOptions: &instancetypev1.SpreadOptions{
-							Across: pointer.P(instancetypev1.SpreadAcrossCoresThreads),
-						},
-					},
-				},
-			},
-		),
-		Entry("PreferSpreadSocketToCoreRatio with preferSpread",
-			instancetypev1.VirtualMachineClusterPreference{
-				Spec: instancetypev1.VirtualMachinePreferenceSpec{
-					PreferSpreadSocketToCoreRatio: uint32(3),
-					CPU: &instancetypev1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1.DeprecatedPreferSpread),
-						SpreadOptions: &instancetypev1.SpreadOptions{
-							Across: pointer.P(instancetypev1.SpreadAcrossCoresThreads),
-						},
-					},
-				},
-			},
-		),
-		Entry("SpreadOptions with spread",
-			instancetypev1.VirtualMachineClusterPreference{
-				Spec: instancetypev1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1.Spread),
-						SpreadOptions: &instancetypev1.SpreadOptions{
-							Across: pointer.P(instancetypev1.SpreadAcrossCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
-						},
-					},
-				},
-			},
-		),
-		Entry("SpreadOptions with preferSpread",
-			instancetypev1.VirtualMachineClusterPreference{
-				Spec: instancetypev1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1.DeprecatedPreferSpread),
-						SpreadOptions: &instancetypev1.SpreadOptions{
-							Across: pointer.P(instancetypev1.SpreadAcrossCoresThreads),
-							Ratio:  pointer.P(uint32(3)),
-						},
-					},
-				},
-			},
-		),
-	)
-
-	DescribeTable("should raise warning for",
-		func(deprecatedTopology, expectedAlternativeTopology instancetypev1.PreferredCPUTopology) {
-			preferenceObj := &instancetypev1.VirtualMachineClusterPreference{
+	DescribeTable("should reject deprecated PreferredCPUTopology values",
+		func(deprecatedTopology instancetypev1.PreferredCPUTopology) {
+			clusterPreferenceObj := &instancetypev1.VirtualMachineClusterPreference{
 				Spec: instancetypev1.VirtualMachinePreferenceSpec{
 					CPU: &instancetypev1.CPUPreferences{
 						PreferredCPUTopology: pointer.P(deprecatedTopology),
 					},
 				},
 			}
-			ar := createClusterPreferenceAdmissionReview(preferenceObj, instancetypev1.SchemeGroupVersion.Version)
+			ar := createClusterPreferenceAdmissionReview(clusterPreferenceObj, instancetypev1.SchemeGroupVersion.Version)
 			response := admitter.Admit(context.Background(), ar)
-			Expect(response.Allowed).To(BeTrue())
-			Expect(response.Warnings).To(HaveLen(1))
-			Expect(response.Warnings[0]).To(
-				ContainSubstring(
-					fmt.Sprintf("PreferredCPUTopology %s is deprecated for removal in a future release, please use %s instead",
-						deprecatedTopology,
-						expectedAlternativeTopology,
-					),
-				),
-			)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(HaveLen(1))
+			Expect(response.Result.Details.Causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(response.Result.Details.Causes[0].Message).To(Equal(fmt.Sprintf("unknown preferredCPUTopology %s", deprecatedTopology)))
+			Expect(response.Result.Details.Causes[0].Field).To(Equal(k8sfield.NewPath("spec", "cpu", "preferredCPUTopology").String()))
 		},
-		Entry("DeprecatedPreferSockets and provide Sockets as an alternative",
-			instancetypev1.DeprecatedPreferSockets,
-			instancetypev1.Sockets,
+		Entry("DeprecatedPreferSockets",
+			instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferSockets),
 		),
-		Entry("DeprecatedPreferCores and provide Cores as an alternative",
-			instancetypev1.DeprecatedPreferCores,
-			instancetypev1.Cores,
+		Entry("DeprecatedPreferCores",
+			instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferCores),
 		),
-		Entry("DeprecatedPreferThreads and provide Threads as an alternative",
-			instancetypev1.DeprecatedPreferThreads,
-			instancetypev1.Threads,
+		Entry("DeprecatedPreferThreads",
+			instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferThreads),
 		),
-		Entry("DeprecatedPreferSpread and provide Spread as an alternative",
-			instancetypev1.DeprecatedPreferSpread,
-			instancetypev1.Spread,
+		Entry("DeprecatedPreferSpread",
+			instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferSpread),
 		),
-		Entry("DeprecatedPreferAny and provide Any as an alternative",
-			instancetypev1.DeprecatedPreferAny,
-			instancetypev1.Any,
+		Entry("DeprecatedPreferAny",
+			instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferAny),
 		),
 	)
 })

@@ -82,8 +82,9 @@ func hasSpreadTopology(spec *instancetypev1.VirtualMachinePreferenceSpec) bool {
 	if spec == nil || spec.CPU == nil || spec.CPU.PreferredCPUTopology == nil {
 		return false
 	}
-	topology := *spec.CPU.PreferredCPUTopology
-	return topology == instancetypev1.Spread || topology == instancetypev1.DeprecatedPreferSpread
+	// Use GetPreferredTopology to normalize deprecated values
+	topology := apply.GetPreferredTopology(spec)
+	return topology == instancetypev1.Spread
 }
 
 func validateSpreadOptions(field *k8sfield.Path, spec *instancetypev1.VirtualMachinePreferenceSpec) []metav1.StatusCause {
@@ -115,27 +116,6 @@ func validateSpreadOptions(field *k8sfield.Path, spec *instancetypev1.VirtualMac
 	return nil
 }
 
-const deprecatedPreferredCPUTopologyErrFmt = "PreferredCPUTopology %s is deprecated for removal in a future release, please use %s instead"
-
-var deprecatedTopologies = map[instancetypev1.PreferredCPUTopology]instancetypev1.PreferredCPUTopology{
-	instancetypev1.DeprecatedPreferSockets: instancetypev1.Sockets,
-	instancetypev1.DeprecatedPreferCores:   instancetypev1.Cores,
-	instancetypev1.DeprecatedPreferThreads: instancetypev1.Threads,
-	instancetypev1.DeprecatedPreferSpread:  instancetypev1.Spread,
-	instancetypev1.DeprecatedPreferAny:     instancetypev1.Any,
-}
-
-func checkForDeprecatedPreferredCPUTopology(spec *instancetypev1.VirtualMachinePreferenceSpec) []string {
-	if spec.CPU == nil || spec.CPU.PreferredCPUTopology == nil {
-		return nil
-	}
-	topology := *spec.CPU.PreferredCPUTopology
-	if _, ok := deprecatedTopologies[topology]; !ok {
-		return nil
-	}
-	return []string{fmt.Sprintf(deprecatedPreferredCPUTopologyErrFmt, topology, deprecatedTopologies[topology])}
-}
-
 func admitPreference(request *admissionv1.AdmissionRequest, resource string) *admissionv1.AdmissionResponse {
 	// Only handle create and update
 	if request.Operation != admissionv1.Create && request.Operation != admissionv1.Update {
@@ -162,7 +142,6 @@ func admitPreference(request *admissionv1.AdmissionRequest, resource string) *ad
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 	return &admissionv1.AdmissionResponse{
-		Allowed:  true,
-		Warnings: checkForDeprecatedPreferredCPUTopology(preferenceSpec),
+		Allowed: true,
 	}
 }

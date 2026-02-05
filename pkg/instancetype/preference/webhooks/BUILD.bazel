@@ -11,7 +11,6 @@ go_library(
         "//pkg/util/webhooks:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1:go_default_library",
-        "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//vendor/k8s.io/api/admission/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",

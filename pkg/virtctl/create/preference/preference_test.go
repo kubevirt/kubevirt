@@ -130,8 +130,8 @@ var _ = Describe("create preference", func() {
 			Expect(*spec.CPU.PreferredCPUTopology).To(Equal(topology))
 			Expect(validatePreferenceSpec(spec)).To(BeEmpty())
 		},
-			Entry("VirtualMachinePreference", instancetypev1.DeprecatedPreferCores, setFlag(NamespacedFlag, "true")),
-			Entry("VirtualMachineClusterPreference", instancetypev1.DeprecatedPreferThreads),
+			Entry("VirtualMachinePreference", instancetypev1.Cores, setFlag(NamespacedFlag, "true")),
+			Entry("VirtualMachineClusterPreference", instancetypev1.Threads),
 		)
 	})
 

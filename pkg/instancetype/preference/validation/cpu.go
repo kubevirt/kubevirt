@@ -30,11 +30,6 @@ import (
 
 func IsPreferredTopologySupported(topology instancetypev1.PreferredCPUTopology) bool {
 	supportedTopologies := []instancetypev1.PreferredCPUTopology{
-		instancetypev1.DeprecatedPreferSockets,
-		instancetypev1.DeprecatedPreferCores,
-		instancetypev1.DeprecatedPreferThreads,
-		instancetypev1.DeprecatedPreferSpread,
-		instancetypev1.DeprecatedPreferAny,
 		instancetypev1.Sockets,
 		instancetypev1.Cores,
 		instancetypev1.Threads,
@@ -58,7 +53,7 @@ func CheckSpreadCPUTopology(
 	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 ) *conflict.Conflict {
 	topology := apply.GetPreferredTopology(preferenceSpec)
-	if instancetypeSpec == nil || (topology != instancetypev1.Spread && topology != instancetypev1.DeprecatedPreferSpread) {
+	if instancetypeSpec == nil || topology != instancetypev1.Spread {
 		return nil
 	}
 
