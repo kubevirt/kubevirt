@@ -94,6 +94,48 @@ var _ = Describe("Device Controller", func() {
 	var fakeNodeStore cache.Store
 	var wg *sync.WaitGroup
 
+	Context("getMiscCapacity", func() {
+		var originalTeeCapacityPath string
+		var tempDir string
+
+		BeforeEach(func() {
+			tempDir = GinkgoT().TempDir()
+			originalTeeCapacityPath = teeCapacityPath
+			// Use path traversal to escape /proc/1/root/ and point to our temp dir
+			// path.Join("/proc/1/root/", "../../../../tmp/xyz/file") resolves to /tmp/xyz/file
+			teeCapacityPath = path.Join(tempDir, "misc.capacity")
+		})
+
+		AfterEach(func() {
+			teeCapacityPath = originalTeeCapacityPath
+		})
+
+		DescribeTable("should return correct capacity",
+			func(fileContent string, key string, expectedCapacity int) {
+				if fileContent != "" {
+					err := os.WriteFile(path.Join(tempDir, "misc.capacity"), []byte(fileContent), 0644)
+					Expect(err).ToNot(HaveOccurred())
+				}
+				Expect(getMiscCapacity(key)).To(Equal(expectedCapacity))
+			},
+			Entry("returns capacity for matching key",
+				"tdx 10\nsev 5\n", "tdx", 10,
+			),
+			Entry("returns capacity for different key",
+				"sev 5\n", "sev", 5,
+			),
+			Entry("returns 0 when key not found",
+				"tdx 10\nsev 5\n", "nonexistent", 0,
+			),
+			Entry("returns 0 for malformed line",
+				"tdx\n", "tdx", 0,
+			),
+			Entry("returns 0 for non-numeric capacity",
+				"tdx abc\n", "tdx", 0,
+			),
+		)
+	})
+
 	runDeviceController := func(deviceController *DeviceController) {
 		wg.Add(1)
 		go func() {
