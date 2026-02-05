@@ -168,7 +168,7 @@ var _ = Describe("[sig-compute] vitiofs config volumes", decorators.SigCompute, 
 
 	Context("With a ServiceAccount defined", func() {
 
-		serviceAccountPath := config.ServiceAccountSourceDir
+		serviceAccountPath := config.GetServiceAccountSourcePath("")
 
 		It("Should be the namespace and token the same for a pod and vmi with virtiofs", func() {
 			serviceAccountVolumeName := "default-disk"

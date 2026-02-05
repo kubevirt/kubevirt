@@ -31,23 +31,45 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 )
 
+type sAVolumeInfoTest struct {
+	path string
+}
+
+func (i sAVolumeInfoTest) isValidType(v *v1.Volume) bool {
+	return v.ServiceAccount != nil
+}
+func (i sAVolumeInfoTest) getSourcePath(_ *v1.Volume) string {
+	return i.path
+}
+func (i sAVolumeInfoTest) getIsoPath(_ *v1.Volume) string {
+	return GetServiceAccountDiskPath()
+}
+func (i sAVolumeInfoTest) getLabel(v *v1.Volume) string {
+	return ""
+}
+
 var _ = Describe("ServiceAccount", func() {
+	var (
+		saSourceDir string
+		volInfo     sAVolumeInfoTest
+	)
 
 	BeforeEach(func() {
 		var err error
 
-		ServiceAccountSourceDir, err = os.MkdirTemp("", "serviceaccount")
+		saSourceDir = GinkgoT().TempDir()
+		volInfo = sAVolumeInfoTest{path: saSourceDir}
 		Expect(err).NotTo(HaveOccurred())
-		os.MkdirAll(ServiceAccountSourceDir, 0755)
-		os.OpenFile(filepath.Join(ServiceAccountSourceDir, "token"), os.O_RDONLY|os.O_CREATE, 0666)
-		os.OpenFile(filepath.Join(ServiceAccountSourceDir, "namespace"), os.O_RDONLY|os.O_CREATE, 0666)
+		os.MkdirAll(saSourceDir, 0755)
+		os.OpenFile(filepath.Join(saSourceDir, "token"), os.O_RDONLY|os.O_CREATE, 0666)
+		os.OpenFile(filepath.Join(saSourceDir, "namespace"), os.O_RDONLY|os.O_CREATE, 0666)
 
-		ServiceAccountDiskDir, err = os.MkdirTemp("", "serviceaccount-disk")
+		ServiceAccountDiskDir = GinkgoT().TempDir()
 		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		os.RemoveAll(ServiceAccountSourceDir)
+		os.RemoveAll(saSourceDir)
 		os.RemoveAll(ServiceAccountDiskDir)
 	})
 
@@ -56,7 +78,7 @@ var _ = Describe("ServiceAccount", func() {
 			libvmi.WithServiceAccountDisk("testaccount"),
 		)
 
-		err := CreateServiceAccountDisk(vmi, false)
+		err := createIsoDisksForConfigVolumes(vmi, false, volInfo)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = os.Stat(filepath.Join(ServiceAccountDiskDir, ServiceAccountDiskName))
 		Expect(err).NotTo(HaveOccurred())
@@ -73,7 +95,7 @@ var _ = Describe("ServiceAccount", func() {
 			},
 		})
 
-		err := CreateServiceAccountDisk(vmi, false)
+		err := createIsoDisksForConfigVolumes(vmi, false, volInfo)
 		Expect(err).NotTo(HaveOccurred())
 		files, _ := os.ReadDir(ServiceAccountDiskDir)
 		Expect(files).To(BeEmpty())

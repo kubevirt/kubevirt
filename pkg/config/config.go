@@ -51,7 +51,10 @@ const (
 	DownwardAPI Type = "downwardapi"
 	// ServiceAccount represents a secret type,
 	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
-	ServiceAccount Type = "serviceaccount"
+	ServiceAccount                Type = "serviceaccount"
+	serviceAccountBaseDir              = "/var/run/secrets"
+	serviceAccountDefaultProvider      = "kubernetes.io"
+	serviceAccountDir                  = "serviceaccount"
 
 	mountBaseDir = "/var/run/kubevirt-private"
 )
@@ -65,8 +68,6 @@ var (
 	SecretSourceDir = filepath.Join(mountBaseDir, "secret")
 	// DownwardAPISourceDir represents a location where downwardapi is attached to the pod
 	DownwardAPISourceDir = filepath.Join(mountBaseDir, "downwardapi")
-	// ServiceAccountSourceDir represents the location where the ServiceAccount token is attached to the pod
-	ServiceAccountSourceDir = "/var/run/secrets/kubernetes.io/serviceaccount/"
 
 	// ConfigMapDisksDir represents a path to ConfigMap iso images
 	ConfigMapDisksDir = filepath.Join(mountBaseDir, "config-map-disks")

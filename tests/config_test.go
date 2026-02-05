@@ -333,7 +333,7 @@ var _ = Describe("[rfe_id:899][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Context("With a ServiceAccount defined", func() {
 
-		serviceAccountPath := config.ServiceAccountSourceDir
+		serviceAccountPath := config.GetServiceAccountSourcePath("")
 
 		It("[test_id:998]Should be the namespace and token the same for a pod and vmi", func() {
 

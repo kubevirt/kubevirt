@@ -83,7 +83,7 @@ func virtioFSMountPoint(volume *v1.Volume) string {
 	} else if volume.Secret != nil {
 		volumeMountPoint = config.GetSecretSourcePath(volume.Name)
 	} else if volume.ServiceAccount != nil {
-		volumeMountPoint = config.ServiceAccountSourceDir
+		volumeMountPoint = config.GetServiceAccountSourcePath(volume.ServiceAccount.Provider)
 	} else if volume.DownwardAPI != nil {
 		volumeMountPoint = config.GetDownwardAPISourcePath(volume.Name)
 	}

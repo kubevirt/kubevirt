@@ -25,6 +25,14 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
+func GetServiceAccountSourcePath(provider string) string {
+	if provider == "" {
+		provider = serviceAccountDefaultProvider
+	}
+
+	return filepath.Join(serviceAccountBaseDir, provider, serviceAccountDir)
+}
+
 // GetServiceAccountDiskPath returns a path to the ServiceAccount iso image
 func GetServiceAccountDiskPath() string {
 	return filepath.Join(ServiceAccountDiskDir, ServiceAccountDiskName)
@@ -36,7 +44,7 @@ func (i serviceAccountVolumeInfo) isValidType(v *v1.Volume) bool {
 	return v.ServiceAccount != nil
 }
 func (i serviceAccountVolumeInfo) getSourcePath(v *v1.Volume) string {
-	return ServiceAccountSourceDir
+	return GetServiceAccountSourcePath(v.ServiceAccount.Provider)
 }
 func (i serviceAccountVolumeInfo) getIsoPath(v *v1.Volume) string {
 	return GetServiceAccountDiskPath()
