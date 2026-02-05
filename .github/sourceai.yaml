@@ -1,0 +1,167 @@
+# Source AI Configuration for Commit Message Analysis
+# This configuration enables commit message analysis and feedback on pull requests
+# Source AI will automatically read this file when analyzing PRs
+
+# Enable commit message analysis
+commit_message_analysis:
+  enabled: true
+  
+  # Fetch commit messages from PR
+  fetch_commits:
+    enabled: true
+    max_commits: 20  # Maximum number of commits to analyze per PR
+    
+  # Format compliance patterns
+  format_patterns:
+    # Component prefix pattern (~80% of commits)
+    - name: "component_prefix"
+      pattern: '^[a-z][a-z0-9_-]+(?:,\s*[a-z][a-z0-9_-]+)*:\s+.+'
+      weight: 0.80
+      description: "Component prefix: 'component: description' or 'component1, component2: description'"
+      example: "network: Add support for SR-IOV interfaces"
+      
+    # Capitalized component prefix (~10% of commits)
+    - name: "capitalized_component_prefix"
+      pattern: '^[A-Z][a-zA-Z0-9_-]+(?:,\s*[A-Z][a-zA-Z0-9_-]+)*:\s+.+'
+      weight: 0.10
+      description: "Capitalized component prefix: 'Component: Description'"
+      example: "Network: Add support for SR-IOV interfaces"
+      
+    # Conventional commits (~5% of commits)
+    - name: "conventional_commits"
+      pattern: '^(feat|fix|refactor|test|docs|chore|style|perf|ci|build|revert)(\([a-z0-9_-]+\))?:\s+.+'
+      weight: 0.05
+      description: "Conventional commits: 'type(scope): description' or 'type: description'"
+      example: "feat(network): Add support for SR-IOV interfaces"
+      
+    # No prefix (~5% of commits) - acceptable but less common
+    - name: "no_prefix"
+      pattern: '^[A-Z][^:]+$'
+      weight: 0.05
+      description: "No prefix: Direct description starting with capital letter"
+      example: "Add support for SR-IOV interfaces"
+      acceptable: true
+      
+  # Common characteristics to check
+  characteristics:
+    # Imperative mood check
+    imperative_mood:
+      enabled: true
+      preferred_verbs:
+        - "Add"
+        - "Fix"
+        - "Refactor"
+        - "Remove"
+        - "Update"
+        - "Improve"
+        - "Implement"
+        - "Change"
+        - "Move"
+        - "Rename"
+        - "Clean"
+        - "Simplify"
+        - "Optimize"
+        - "Enable"
+        - "Disable"
+        - "Support"
+        - "Handle"
+        - "Create"
+        - "Delete"
+        - "Modify"
+      check_first_word: true
+      
+    # First word capitalization
+    first_word_capitalized:
+      enabled: true
+      required: true
+      
+    # First line length
+    first_line_length:
+      enabled: true
+      max_length: 72
+      recommended_length: 50
+      
+    # Description quality
+    description_quality:
+      enabled: true
+      min_length: 10
+      should_be_descriptive: true
+      avoid_generic_words:
+        - "stuff"
+        - "things"
+        - "fix"
+        - "update"
+        - "change"
+        - "modify"
+        
+  # Validate alignment between commit message and code changes
+  validate_alignment:
+    enabled: true
+    
+    # Check if commit message accurately describes code changes
+    check_code_changes:
+      enabled: true
+      
+    # Analyze file changes
+    analyze_files:
+      enabled: true
+      
+    # Check for mismatches
+    detect_mismatches:
+      enabled: true
+      threshold: 0.3  # If similarity is below 30%, flag as mismatch
+      
+  # Feedback configuration
+  feedback:
+    enabled: true
+    
+    # Post feedback as PR comment
+    post_comment: true
+    comment_type: "regular"  # regular, review, or inline
+    
+    # Feedback content
+    include_summary: true
+    include_format_compliance: true
+    include_non_compliant_commits: true
+    include_mismatch_commits: true
+    include_recommendations: true
+    
+    # Recommendations format
+    recommendations:
+      include_examples: true
+      example_count: 3
+      show_before_after: true
+      
+    # Feedback format
+    format:
+      use_markdown: true
+      use_sections: true
+      use_bullet_points: true
+      highlight_issues: true
+      
+  # Output configuration
+  output:
+    # Print feedback to console/logs
+    print_feedback: true
+    
+    # Detailed output
+    verbose: false
+    
+    # Include statistics
+    include_statistics: true
+    
+    # Include commit details
+    include_commit_details: true
+
+# General Source AI settings
+general:
+  # Continue with normal Source AI functionality
+  continue_normal_operations: true
+  
+  # Language settings
+  language: "en"
+  
+  # Repository-specific settings
+  repository:
+    name: "kubevirt/kubevirt"
+    default_branch: "main"
