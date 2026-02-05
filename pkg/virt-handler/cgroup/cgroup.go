@@ -20,13 +20,17 @@
 package cgroup
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"kubevirt.io/client-go/log"
+
+	"kubevirt.io/kubevirt/pkg/util"
 
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/configs"
@@ -187,4 +191,31 @@ func detectVMIsolation(vm *v1.VirtualMachineInstance) (isolationRes isolation.Is
 	}
 
 	return isolationRes, nil
+}
+
+var miscCapacityPath = path.Join(util.HostRootMount, "/sys/fs/cgroup/misc.capacity")
+
+func GetMiscCapacity(key string) (int, error) {
+	f, err := os.Open(miscCapacityPath)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	// File has lines in the format: "key [capacity]"
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Fields(line)
+		if len(parts) != 2 {
+			continue
+		}
+		if parts[0] == key {
+			capacity, err := strconv.Atoi(parts[1])
+			if err != nil {
+				return 0, err
+			}
+			return capacity, nil
+		}
+	}
+	return 0, fmt.Errorf("key %s not found in misc.capacity", key)
 }
