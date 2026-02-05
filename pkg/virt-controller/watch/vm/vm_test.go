@@ -5647,7 +5647,7 @@ var _ = Describe("VirtualMachine", func() {
 					})
 				})
 
-				It("should not add addRestartRequiredIfNeeded to VM if live-updatable", func() {
+				It("should not add RestartRequired condition to VM if live-updatable", func() {
 					updatedInstancetype := originalInstancetype.DeepCopy()
 					updatedInstancetype.Generation = originalInstancetype.Generation + 1
 					updatedInstancetype.Spec.CPU.Guest = uint32(2)
@@ -5664,11 +5664,10 @@ var _ = Describe("VirtualMachine", func() {
 						Kind:         instancetypeapi.SingularResourceName,
 						RevisionName: updatedRevision.Name,
 					}
-					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM, vmi)).To(BeFalse())
-					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
-					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeFalse())
+					Expect(controller.syncRestartRequired(&originalVM.Spec, updatedVM, vmi)).To(BeFalse())
+					Expect(updatedVM).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
 				})
-				It("should add addRestartRequiredIfNeeded to VM if not live-updatable", func() {
+				It("should add RestartRequired condition to VM if not live-updatable", func() {
 					updatedInstancetype := originalInstancetype.DeepCopy()
 					updatedInstancetype.Generation = originalInstancetype.Generation + 1
 					updatedInstancetype.Spec.CPU.Guest = uint32(2)
@@ -5689,9 +5688,8 @@ var _ = Describe("VirtualMachine", func() {
 						RevisionName: updatedRevision.Name,
 					}
 
-					Expect(controller.addRestartRequiredIfNeeded(&originalVM.Spec, updatedVM, vmi)).To(BeTrue())
-					vmConditionController := virtcontroller.NewVirtualMachineConditionManager()
-					Expect(vmConditionController.HasCondition(updatedVM, v1.VirtualMachineRestartRequired)).To(BeTrue())
+					Expect(controller.syncRestartRequired(&originalVM.Spec, updatedVM, vmi)).To(BeTrue())
+					Expect(updatedVM).To(matcher.HaveConditionTrue(v1.VirtualMachineRestartRequired))
 				})
 			})
 		})
@@ -6232,6 +6230,31 @@ var _ = Describe("VirtualMachine", func() {
 				Entry("should not raise RestartRequired when VM and VMI UUIDs match", CalculateLegacyUUID("testvmi"), BeFalse()),
 				Entry("should raise RestartRequired when VM and VMI UUIDs differ", types.UID("different-uuid-than-vmi"), BeTrue()),
 			)
+
+			It("should clear existing RestartRequired condition when VM and VMI specs match", func() {
+				By("Creating a VM with an existing RestartRequired condition")
+				vm.Status.Conditions = append(vm.Status.Conditions, v1.VirtualMachineCondition{
+					Type:   v1.VirtualMachineRestartRequired,
+					Status: k8sv1.ConditionTrue,
+				})
+				controller.crIndexer.Add(createVMRevision(vm))
+
+				By("Creating a VMI with matching spec")
+				vmi = controller.setupVMIFromVM(vm)
+				controller.vmiIndexer.Add(vmi)
+
+				vm, err := virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Create(context.TODO(), vm, metav1.CreateOptions{})
+				Expect(err).To(Succeed())
+				addVirtualMachine(vm)
+
+				By("Executing the controller")
+				sanityExecute(vm)
+				vm, err = virtFakeClient.KubevirtV1().VirtualMachines(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
+				Expect(err).To(Succeed())
+
+				By("Verifying the RestartRequired condition was removed")
+				Expect(vm).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineRestartRequired))
+			})
 		})
 
 		clearExpectations := func(vm *v1.VirtualMachine) {
