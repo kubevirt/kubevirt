@@ -973,9 +973,9 @@ func (r *KubernetesReporter) logAPIServices(virtCli kubecli.KubevirtClient) {
 }
 
 func (r *KubernetesReporter) logEndpoints(virtCli kubecli.KubevirtClient) {
-	endpoints, err := virtCli.CoreV1().Endpoints(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	endpoints, err := virtCli.DiscoveryV1().EndpointSlices(v1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		printError("failed to fetch endpointss: %v", err)
+		printError("failed to fetch endpoint slices: %v", err)
 		return
 	}
 
