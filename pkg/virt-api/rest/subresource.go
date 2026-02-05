@@ -361,3 +361,57 @@ func decodeBody(request *restful.Request, bodyStruct interface{}) *errors.Status
 		return errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err))
 	}
 }
+
+// MonitoringQuery handles the subresource for executing monitoring queries via guest agent
+func (app *SubresourceAPIApp) MonitoringQuery(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi == nil || vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiNotRunning))
+		}
+		condManager := controller.NewVirtualMachineInstanceConditionManager()
+		if !condManager.HasCondition(vmi, v1.VirtualMachineInstanceAgentConnected) {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmiGuestAgentErr))
+		}
+		return nil
+	}
+
+	// Get query parameters and forward them to virt-handler
+	command := request.QueryParameter("command")
+	arguments := request.QueryParameter("arguments")
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		baseURL, err := conn.MonitoringQueryURI(vmi)
+		if err != nil {
+			return "", err
+		}
+		// Append query parameters
+		if command != "" {
+			baseURL = baseURL + "?command=" + command
+			if arguments != "" {
+				baseURL = baseURL + "&arguments=" + arguments
+			}
+		}
+		return baseURL, nil
+	}
+
+	// Pass through the raw JSON response from virt-handler
+	_, url, conn, err := app.prepareConnection(request, validate, getURL)
+	if err != nil {
+		log.Log.Errorf(prepConnectionErrFmt, err.Error())
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	resp, conErr := conn.Get(url, restful.MIME_JSON)
+	if conErr != nil {
+		log.Log.Errorf(getRequestErrFmt, conErr.Error())
+		response.WriteError(http.StatusInternalServerError, conErr)
+		return
+	}
+
+	// Write the raw JSON response directly
+	response.Header().Set("Content-Type", "application/json")
+	if _, err := response.Write([]byte(resp)); err != nil {
+		log.Log.Reason(err).Error("Failed to write response.")
+	}
+}

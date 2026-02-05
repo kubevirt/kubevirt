@@ -163,6 +163,7 @@ type DomainManager interface {
 	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
 	GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error)
 	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
+	ExecuteMonitoringQuery(domainName string, command string) (string, error)
 }
 
 type LibvirtDomainManager struct {
@@ -611,6 +612,10 @@ func (l *LibvirtDomainManager) GuestPing(domainName string) error {
 	pingCmd := `{"execute":"guest-ping"}`
 	_, err := l.virConn.QemuAgentCommand(pingCmd, domainName)
 	return err
+}
+
+func (l *LibvirtDomainManager) ExecuteMonitoringQuery(domainName string, command string) (string, error) {
+	return l.virConn.QemuAgentCommand(command, domainName)
 }
 
 func getVMIEphemeralDisksTotalSize(ephemeralDiskDir string) *resource.Quantity {

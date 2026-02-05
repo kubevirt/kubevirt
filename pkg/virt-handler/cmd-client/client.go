@@ -113,6 +113,7 @@ type LauncherClient interface {
 	GetDomainDirtyRateStats() (dirtyRateMbps int64, err error)
 	GetScreenshot(*v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
 	VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *backupv1.BackupOptions) error
+	ExecuteMonitoringQuery(domainName string, command string) (string, error)
 }
 
 type VirtLauncherClient struct {
@@ -678,6 +679,27 @@ func (c *VirtLauncherClient) GuestPing(domainName string, timeoutSeconds int32) 
 
 	_, err := c.v1client.GuestPing(ctx, request)
 	return err
+}
+
+func (c *VirtLauncherClient) ExecuteMonitoringQuery(domainName string, command string) (string, error) {
+	request := &cmdv1.MonitoringQueryRequest{
+		DomainName: domainName,
+		Command:    command,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	response, err := c.v1client.ExecuteMonitoringQuery(ctx, request)
+	if err != nil {
+		return "", err
+	}
+
+	if response.Response != nil && !response.Response.Success {
+		return "", fmt.Errorf("monitoring query failed: %s", response.Response.Message)
+	}
+
+	return response.RawOutput, nil
 }
 
 func (c *VirtLauncherClient) GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error) {

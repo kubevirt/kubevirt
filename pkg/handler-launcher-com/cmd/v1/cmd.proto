@@ -38,6 +38,7 @@ service Cmd {
   rpc GetDomainDirtyRateStats(EmptyRequest) returns (DirtyRateStatsResponse) {}
   rpc GetScreenshot(VMIRequest) returns (ScreenshotResponse) {}
   rpc BackupVirtualMachine(BackupRequest) returns (Response) {}
+  rpc ExecuteMonitoringQuery(MonitoringQueryRequest) returns (MonitoringQueryResponse) {}
 }
 
 message QemuVersionResponse {
@@ -224,4 +225,14 @@ message ScreenshotResponse {
 message BackupRequest {
   VMI vmi = 1;
   bytes options = 2;
+}
+
+message MonitoringQueryRequest {
+  string domainName = 1;
+  string command = 2;
+}
+
+message MonitoringQueryResponse {
+  Response response = 1;
+  string rawOutput = 2;
 }

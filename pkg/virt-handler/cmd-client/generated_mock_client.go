@@ -101,6 +101,21 @@ func (mr *MockLauncherClientMockRecorder) Exec(arg0, arg1, arg2, arg3 any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockLauncherClient)(nil).Exec), arg0, arg1, arg2, arg3)
 }
 
+// ExecuteMonitoringQuery mocks base method.
+func (m *MockLauncherClient) ExecuteMonitoringQuery(domainName, command string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExecuteMonitoringQuery", domainName, command)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ExecuteMonitoringQuery indicates an expected call of ExecuteMonitoringQuery.
+func (mr *MockLauncherClientMockRecorder) ExecuteMonitoringQuery(domainName, command any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteMonitoringQuery", reflect.TypeOf((*MockLauncherClient)(nil).ExecuteMonitoringQuery), domainName, command)
+}
+
 // FinalizeVirtualMachineMigration mocks base method.
 func (m *MockLauncherClient) FinalizeVirtualMachineMigration(vmi *v1.VirtualMachineInstance, options *v10.VirtualMachineOptions) error {
 	m.ctrl.T.Helper()

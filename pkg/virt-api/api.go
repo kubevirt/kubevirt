@@ -488,6 +488,15 @@ func (app *virtAPIApp) composeSubresources() {
 			Writes(v1.VirtualMachineInstanceFileSystemList{}).
 			Returns(http.StatusOK, "OK", v1.VirtualMachineInstanceFileSystemList{}))
 
+		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR) + definitions.SubResourcePath("monitoring/query")).
+			To(subresourceApp.MonitoringQuery).
+			Produces(restful.MIME_JSON).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Param(restful.QueryParameter("command", "QEMU guest agent command to execute (e.g., guest-info, guest-get-cpustats)").Required(true)).
+			Param(restful.QueryParameter("arguments", "Optional JSON-encoded arguments for the command")).
+			Operation(version.Version + "MonitoringQuery").
+			Doc("Execute monitoring query via guest agent"))
+
 		subws.Route(subws.GET(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("objectgraph")).
 			To(subresourceApp.VMIObjectGraph).
 			Consumes(restful.MIME_JSON).
@@ -744,6 +753,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/filesystemlist",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/monitoring/query",
 						Namespaced: true,
 					},
 					{
