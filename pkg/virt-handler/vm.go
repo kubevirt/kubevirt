@@ -111,6 +111,7 @@ type VirtualMachineController struct {
 	vmiGlobalStore           cache.Store
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
 	cbtHandler               *CBTHandler
+	nodeStore                cache.Store
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation) (cgroup.Manager, error) {
@@ -195,6 +196,7 @@ func NewVirtualMachineController(
 		vmiGlobalStore:           vmiGlobalStore,
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
 		cbtHandler:               cbtHandler,
+		nodeStore:                nodeStore,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -1999,6 +2001,12 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 	options := virtualMachineOptions(smbios, period, preallocatedVolumes, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 
+	if c.clusterConfig.HostDevIOMMUFDEnabled() {
+		if c.isVMIOwnedByNode(vmi) {
+			options.HostDevIOMMUFDCap = c.getHostDevIOMMUFDCap()
+		}
+	}
+
 	err := client.SyncVirtualMachine(vmi, options)
 	if err != nil {
 		if strings.Contains(err.Error(), "EFI OVMF rom missing") {
@@ -2007,6 +2015,36 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 	}
 
 	return err
+}
+
+func (c *VirtualMachineController) getHostDevIOMMUFDCap() bool {
+	node, err := c.getNode()
+	if err != nil {
+		c.logger.Reason(err).Errorf("failed to get IOMMUFD capabilitiy from node labels")
+		return false
+	}
+	val, exist := node.Labels[v1.HostDevIOMMUFDLabel]
+	if exist && val == "true" {
+		return true
+	}
+	return false
+}
+
+func (c *VirtualMachineController) getNode() (*k8sv1.Node, error) {
+	nodeObj, exists, err := c.nodeStore.GetByKey(c.host)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, fmt.Errorf("node %s does not exist", c.host)
+	}
+
+	node, ok := nodeObj.(*k8sv1.Node)
+	if !ok {
+		return nil, fmt.Errorf("unknown object type found in node informer")
+	}
+
+	return node, nil
 }
 
 func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachineInstance) []string {
