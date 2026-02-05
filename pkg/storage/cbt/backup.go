@@ -874,7 +874,11 @@ func (ctrl *VMBackupController) cleanup(backup *backupv1.VirtualMachineBackup, v
 		volumeName := backupTargetVolumeName(backup.Name)
 		detached := ctrl.backupTargetPVCDetached(vmi, volumeName)
 		if !detached {
-			return false, ctrl.detachBackupTargetPVC(vmi, volumeName)
+			event := backupInitializingEvent
+			if isBackupProgressing(backup.Status) {
+				event = backupInitiatedEvent
+			}
+			return false, ctrl.detachBackupTargetPVC(vmi, volumeName, event)
 		}
 	}
 
@@ -894,6 +898,10 @@ func (ctrl *VMBackupController) cleanup(backup *backupv1.VirtualMachineBackup, v
 
 func isBackupInitializing(status *backupv1.VirtualMachineBackupStatus) bool {
 	return status == nil || hasCondition(status.Conditions, backupv1.ConditionInitializing)
+}
+
+func isBackupProgressing(status *backupv1.VirtualMachineBackupStatus) bool {
+	return status != nil && hasCondition(status.Conditions, backupv1.ConditionProgressing)
 }
 
 func IsBackupDone(status *backupv1.VirtualMachineBackupStatus) bool {
