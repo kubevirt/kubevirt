@@ -828,7 +828,8 @@
               "volumeLabel": "volumeLabelValue"
             },
             "serviceAccount": {
-              "serviceAccountName": "serviceAccountNameValue"
+              "serviceAccountName": "serviceAccountNameValue",
+              "provider": "providerValue"
             },
             "downwardMetrics": {},
             "memoryDump": {

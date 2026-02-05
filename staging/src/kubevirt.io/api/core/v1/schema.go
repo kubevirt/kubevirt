@@ -121,6 +121,14 @@ type ServiceAccountVolumeSource struct {
 	// Name of the service account in the pod's namespace to use.
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// ServiceAccount provider. The service account is mounted in a well known path
+	// "/var/run/secrets/PROVIDER/serviceaccount", by default the provider is
+	// "kubernetes.io", but on a aws cluster "eks.amazonaws.com" should be used
+	// +optional
+	// +kubebuilder:validation:MaxLength=4060
+	// +kubebuilder:validation:Pattern:=^[0-9a-zA-Z-.]+$
+	// +kubebuilder:validation:XValidation:rule="!self.contains('..')",message="provider must not contain '..'"
+	Provider string `json:"provider,omitempty"`
 }
 
 // DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest

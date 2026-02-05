@@ -41,6 +41,7 @@ func (ServiceAccountVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                   "ServiceAccountVolumeSource adapts a ServiceAccount into a volume.",
 		"serviceAccountName": "Name of the service account in the pod's namespace to use.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
+		"provider":           "ServiceAccount provider. The service account is mounted in a well known path\n\"/var/run/secrets/PROVIDER/serviceaccount\", by default the provider is\n\"kubernetes.io\", but on a aws cluster \"eks.amazonaws.com\" should be used\n+optional\n+kubebuilder:validation:MaxLength=4060\n+kubebuilder:validation:Pattern:=^[0-9a-zA-Z-.]+$\n+kubebuilder:validation:XValidation:rule=\"!self.contains('..')\",message=\"provider must not contain '..'\"",
 	}
 }
 

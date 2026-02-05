@@ -17388,6 +17388,10 @@
     "description": "ServiceAccountVolumeSource adapts a ServiceAccount into a volume.",
     "type": "object",
     "properties": {
+     "provider": {
+      "description": "ServiceAccount provider. The service account is mounted in a well known path \"/var/run/secrets/PROVIDER/serviceaccount\", by default the provider is \"kubernetes.io\", but on a aws cluster \"eks.amazonaws.com\" should be used",
+      "type": "string"
+     },
      "serviceAccountName": {
       "description": "Name of the service account in the pod's namespace to use. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
       "type": "string"

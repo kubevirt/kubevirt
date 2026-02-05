@@ -25684,6 +25684,13 @@ func schema_kubevirtio_api_core_v1_ServiceAccountVolumeSource(ref common.Referen
 							Format:      "",
 						},
 					},
+					"provider": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceAccount provider. The service account is mounted in a well known path \"/var/run/secrets/PROVIDER/serviceaccount\", by default the provider is \"kubernetes.io\", but on a aws cluster \"eks.amazonaws.com\" should be used",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

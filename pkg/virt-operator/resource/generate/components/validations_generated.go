@@ -8305,6 +8305,17 @@ var CRDsValidation map[string]string = map[string]string{
                           There can only be one volume of this type!
                           More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
                         properties:
+                          provider:
+                            description: |-
+                              ServiceAccount provider. The service account is mounted in a well known path
+                              "/var/run/secrets/PROVIDER/serviceaccount", by default the provider is
+                              "kubernetes.io", but on a aws cluster "eks.amazonaws.com" should be used
+                            maxLength: 4060
+                            pattern: ^[0-9a-zA-Z-.]+$
+                            type: string
+                            x-kubernetes-validations:
+                            - message: provider must not contain '..'
+                              rule: '!self.contains(''..'')'
                           serviceAccountName:
                             description: |-
                               Name of the service account in the pod's namespace to use.
@@ -14094,6 +14105,17 @@ var CRDsValidation map[string]string = map[string]string{
                   There can only be one volume of this type!
                   More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
                 properties:
+                  provider:
+                    description: |-
+                      ServiceAccount provider. The service account is mounted in a well known path
+                      "/var/run/secrets/PROVIDER/serviceaccount", by default the provider is
+                      "kubernetes.io", but on a aws cluster "eks.amazonaws.com" should be used
+                    maxLength: 4060
+                    pattern: ^[0-9a-zA-Z-.]+$
+                    type: string
+                    x-kubernetes-validations:
+                    - message: provider must not contain '..'
+                      rule: '!self.contains(''..'')'
                   serviceAccountName:
                     description: |-
                       Name of the service account in the pod's namespace to use.
@@ -20451,6 +20473,17 @@ var CRDsValidation map[string]string = map[string]string{
                           There can only be one volume of this type!
                           More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
                         properties:
+                          provider:
+                            description: |-
+                              ServiceAccount provider. The service account is mounted in a well known path
+                              "/var/run/secrets/PROVIDER/serviceaccount", by default the provider is
+                              "kubernetes.io", but on a aws cluster "eks.amazonaws.com" should be used
+                            maxLength: 4060
+                            pattern: ^[0-9a-zA-Z-.]+$
+                            type: string
+                            x-kubernetes-validations:
+                            - message: provider must not contain '..'
+                              rule: '!self.contains(''..'')'
                           serviceAccountName:
                             description: |-
                               Name of the service account in the pod's namespace to use.
@@ -25498,6 +25531,17 @@ var CRDsValidation map[string]string = map[string]string{
                                   There can only be one volume of this type!
                                   More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
                                 properties:
+                                  provider:
+                                    description: |-
+                                      ServiceAccount provider. The service account is mounted in a well known path
+                                      "/var/run/secrets/PROVIDER/serviceaccount", by default the provider is
+                                      "kubernetes.io", but on a aws cluster "eks.amazonaws.com" should be used
+                                    maxLength: 4060
+                                    pattern: ^[0-9a-zA-Z-.]+$
+                                    type: string
+                                    x-kubernetes-validations:
+                                    - message: provider must not contain '..'
+                                      rule: '!self.contains(''..'')'
                                   serviceAccountName:
                                     description: |-
                                       Name of the service account in the pod's namespace to use.
@@ -31001,6 +31045,17 @@ var CRDsValidation map[string]string = map[string]string{
                                       There can only be one volume of this type!
                                       More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
                                     properties:
+                                      provider:
+                                        description: |-
+                                          ServiceAccount provider. The service account is mounted in a well known path
+                                          "/var/run/secrets/PROVIDER/serviceaccount", by default the provider is
+                                          "kubernetes.io", but on a aws cluster "eks.amazonaws.com" should be used
+                                        maxLength: 4060
+                                        pattern: ^[0-9a-zA-Z-.]+$
+                                        type: string
+                                        x-kubernetes-validations:
+                                        - message: provider must not contain '..'
+                                          rule: '!self.contains(''..'')'
                                       serviceAccountName:
                                         description: |-
                                           Name of the service account in the pod's namespace to use.

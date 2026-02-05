@@ -600,6 +600,7 @@ spec:
       secretName: secretNameValue
       volumeLabel: volumeLabelValue
     serviceAccount:
+      provider: providerValue
       serviceAccountName: serviceAccountNameValue
     sysprep:
       configMap:
