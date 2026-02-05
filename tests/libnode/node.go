@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/util/nodes"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -282,7 +283,8 @@ func GetNodesWithKVM() []*k8sv1.Node {
 		virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, k8smetav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		_, ok := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+		kvmResource := services.ConstructHypervisorResourceName(hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName))
+		_, ok := virtHandlerNode.Status.Allocatable[kvmResource]
 		if ok {
 			nodeList = append(nodeList, virtHandlerNode)
 		}
