@@ -1429,6 +1429,10 @@ const (
 	// This could be useful to distinguish evictions originated from the descheduler.
 	EvictionSourceAnnotation = "kubevirt.io/eviction-source"
 
+	// QGSSocketPathAnnotation specifies the path to the TDX Quote Generation Service socket.
+	// This annotation is set by virt-handler based on the cluster configuration.
+	QGSSocketPathAnnotation = "kubevirt.io/qgs-socket-path"
+
 	// AllowAccessClusterServicesNPLabel is a pod label to be set by virt-components to indicate that they require
 	// access to cluster services otherwise blocked by the strict network policy (NP).
 	// This label will be applied to the following virt pods:
