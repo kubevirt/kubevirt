@@ -20,7 +20,9 @@
 package storage
 
 import (
+	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,6 +35,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -47,6 +50,8 @@ const (
 	freezeFailedMsg                   = "Failed freezing guest filesystem: %s"
 	unfreezeFailedMsg                 = "Failed to unfreeze filesystem after backup completion"
 )
+
+var getDiskInfoWithForceShare = osdisk.GetDiskInfoWithForceShare
 
 func (m *StorageManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
 	logger := log.Log.With("backupName", backupOptions.BackupName)
@@ -146,7 +151,7 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 			}
 		}(backupPath)
 	}
-	domainBackup, domainCheckpoint := generateDomainBackup(domainDisks, backupOptions, backupPath)
+	domainBackup, domainCheckpoint, backupVolumesInfo := generateDomainBackup(domainDisks, backupOptions, backupPath)
 	backupXML, err := xml.Marshal(domainBackup)
 	if err != nil {
 		logger.Reason(err).Error("marshalling backup xml failed")
@@ -158,8 +163,14 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 		return err
 	}
 
+	volumesJSON, err := json.Marshal(backupVolumesInfo)
+	if err != nil {
+		logger.Reason(err).Error("Failed to marshal backup volumes info")
+		return err
+	}
 	m.metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, _ bool) {
 		backupMetadata.CheckpointName = domainCheckpoint.Name
+		backupMetadata.Volumes = string(volumesJSON)
 	})
 
 	frozenFS := false
@@ -190,7 +201,7 @@ func (m *StorageManager) backup(vmi *v1.VirtualMachineInstance, backupOptions *b
 	return dom.BackupBegin(strings.ToLower(string(backupXML)), strings.ToLower(string(checkpointXML)), 0)
 }
 
-func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath string) (*api.DomainBackup, *api.DomainCheckpoint) {
+func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOptions, backupPath string) (*api.DomainBackup, *api.DomainCheckpoint, []backupv1.BackupVolumeInfo) {
 	domainBackup := &api.DomainBackup{
 		Mode: string(backupOptions.Mode),
 	}
@@ -200,6 +211,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 	}
 	backupDisks := &api.BackupDisks{}
 	checkpointDisks := &api.CheckpointDisks{}
+	var backupVolumesInfo []backupv1.BackupVolumeInfo
 	// the name of the volume should match the alias
 	for _, disk := range disks {
 		if disk.Target.Device == "" {
@@ -221,6 +233,10 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 				}
 			}
 			checkpointDisk.Checkpoint = "bitmap"
+			backupVolumesInfo = append(backupVolumesInfo, backupv1.BackupVolumeInfo{
+				VolumeName: volumeName,
+				DiskTarget: disk.Target.Device,
+			})
 		} else {
 			backupDisk.Backup = "no"
 			checkpointDisk.Checkpoint = "no"
@@ -236,7 +252,7 @@ func generateDomainBackup(disks []api.Disk, backupOptions *backupv1.BackupOption
 		Name:            checkpointName,
 		CheckpointDisks: checkpointDisks,
 	}
-	return domainBackup, domainCheckpoint
+	return domainBackup, domainCheckpoint, backupVolumesInfo
 }
 
 func getBackupPath(backupOptions *backupv1.BackupOptions, vmiName string) string {
@@ -298,3 +314,116 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 }
 
 // TODO: Implement backup abort functionality for graceful shutdown
+
+// isLibvirtCheckpointInvalidError checks if the libvirt error indicates
+// the checkpoint is invalid/corrupt (bitmap corruption, inconsistent state, etc.)
+func isLibvirtCheckpointInvalidError(err error) bool {
+	var libvirtErr libvirt.Error
+	if errors.As(err, &libvirtErr) {
+		switch libvirtErr.Code {
+		case libvirt.ERR_INVALID_DOMAIN_CHECKPOINT,
+			libvirt.ERR_NO_DOMAIN_CHECKPOINT,
+			libvirt.ERR_CHECKPOINT_INCONSISTENT:
+			return true
+		}
+	}
+	return false
+}
+
+// RedefineCheckpoint redefines a checkpoint from a previous backup session.
+// This is used after VM restart to restore checkpoint metadata in libvirt.
+// It iterates over all domain disks and includes those that have the checkpoint bitmap.
+func (m *StorageManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
+	logger := log.Log.With("checkpointName", checkpoint.Name)
+	logger.Info("Redefining checkpoint")
+
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := m.virConn.LookupDomainByName(domName)
+	if err != nil {
+		return false, fmt.Errorf("failed to lookup domain %s: %v", domName, err)
+	}
+	defer dom.Free()
+
+	// Get all domain disks and find those with the checkpoint bitmap
+	checkpointDisks, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(dom, checkpoint.Name)
+	if err != nil {
+		return false, err
+	}
+
+	if len(disksWithoutBitmap) > 0 {
+		logger.V(3).Infof("Disks without checkpoint bitmap: %v", disksWithoutBitmap)
+	}
+
+	if len(checkpointDisks.Disks) == 0 {
+		logger.Warning("No disks found with checkpoint bitmap")
+		return true, fmt.Errorf("no disks found with checkpoint bitmap %s", checkpoint.Name)
+	}
+
+	domainCheckpoint := &api.DomainCheckpoint{
+		Name:            checkpoint.Name,
+		CheckpointDisks: checkpointDisks,
+	}
+
+	if checkpoint.CreationTime != nil {
+		ct := uint64(checkpoint.CreationTime.Unix())
+		domainCheckpoint.CreationTime = &ct
+	}
+
+	checkpointXML, err := xml.Marshal(domainCheckpoint)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal checkpoint XML: %v", err)
+	}
+
+	logger.V(3).Infof("Checkpoint XML for redefinition: %s", string(checkpointXML))
+
+	redefineFlags := libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE | libvirt.DOMAIN_CHECKPOINT_CREATE_REDEFINE_VALIDATE
+	_, err = dom.CreateCheckpointXML(string(checkpointXML), redefineFlags)
+	if err != nil {
+		checkpointInvalid = isLibvirtCheckpointInvalidError(err)
+		if checkpointInvalid {
+			logger.Reason(err).Error("Checkpoint bitmap is invalid/corrupt")
+		}
+		return checkpointInvalid, fmt.Errorf("failed to redefine checkpoint %s: %v", checkpoint.Name, err)
+	}
+
+	logger.Infof("Checkpoint redefined successfully with %d disks", len(checkpointDisks.Disks))
+	return false, nil
+}
+
+// findDisksWithCheckpointBitmap iterates over all domain disks and returns those
+// that have the specified checkpoint bitmap in their qcow2 file.
+func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*api.CheckpointDisks, []string, error) {
+	disks, err := util.GetAllDomainDisks(dom)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get domain disks: %v", err)
+	}
+
+	checkpointDisks := &api.CheckpointDisks{}
+	var disksWithoutBitmap []string
+
+	for _, disk := range disks {
+		if disk.Target.Device == "" || disk.Source.DataStore == nil {
+			continue
+		}
+		if disk.Source.File == "" {
+			log.Log.Warningf("disk with data store source should have the qcow2 overlay file source, disk %s", disk.Target.Device)
+			continue
+		}
+
+		diskInfo, err := getDiskInfoWithForceShare(disk.Source.File)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to get disk info for %s at %s: %v", disk.Target.Device, disk.Source.File, err)
+		}
+
+		if diskInfo.HasBitmap(checkpointName) {
+			checkpointDisks.Disks = append(checkpointDisks.Disks, api.CheckpointDisk{
+				Name:       disk.Target.Device,
+				Checkpoint: "bitmap",
+			})
+		} else {
+			disksWithoutBitmap = append(disksWithoutBitmap, disk.Target.Device)
+		}
+	}
+
+	return checkpointDisks, disksWithoutBitmap, nil
+}

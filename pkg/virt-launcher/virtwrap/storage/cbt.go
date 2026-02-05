@@ -37,17 +37,11 @@ import (
 )
 
 func IsChangedBlockTrackingEnabled(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Status.ChangedBlockTracking != nil &&
-		vmi.Status.ChangedBlockTracking.State == v1.ChangedBlockTrackingEnabled
-}
-
-func IsChangedBlockTrackingInitializing(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Status.ChangedBlockTracking != nil &&
-		vmi.Status.ChangedBlockTracking.State == v1.ChangedBlockTrackingInitializing
+	return cbt.CompareCBTState(vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
 }
 
 func shouldCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance, isHotplug bool, hotplugPhase v1.VolumePhase) bool {
-	if IsChangedBlockTrackingInitializing(vmi) {
+	if cbt.CBTStateInitializing(vmi.Status.ChangedBlockTracking) {
 		return true
 	}
 
@@ -58,11 +52,6 @@ func shouldCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance, isHotplug bool, ho
 	// For hotplug volumes with CBT enabled, only create overlay when mounted but not yet in domain.
 	// Once VolumeReady, the volume is in the domain and the overlay was already created.
 	return isHotplug && hotplugPhase == v1.HotplugVolumeMounted
-}
-
-func ShouldApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance) bool {
-	return IsChangedBlockTrackingInitializing(vmi) ||
-		IsChangedBlockTrackingEnabled(vmi)
 }
 
 var CreateQCOW2Overlay = createQCOW2OverlayFunc
@@ -128,7 +117,7 @@ func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error 
 }
 
 func DeleteQCOW2Overlay(vmi *v1.VirtualMachineInstance, volumeName string) error {
-	if !ShouldApplyChangedBlockTracking(vmi) {
+	if !cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
 		return nil
 	}
 

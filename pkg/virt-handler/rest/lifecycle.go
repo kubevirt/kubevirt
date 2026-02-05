@@ -380,3 +380,43 @@ func (lh *LifecycleHandler) BackupHandler(request *restful.Request, response *re
 
 	response.WriteHeader(http.StatusAccepted)
 }
+
+func (lh *LifecycleHandler) RedefineCheckpointHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	if request.Request.Body == nil {
+		log.Log.Object(vmi).Error("Request with no body: checkpoint info is required")
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to retrieve checkpoint info from request"))
+		return
+	}
+
+	checkpoint := &backupv1.BackupCheckpoint{}
+	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(checkpoint)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		log.Log.Object(vmi).Reason(err).Error("Failed to decode checkpoint info")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+
+	checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to redefine checkpoint %s", checkpoint.Name)
+		if checkpointInvalid {
+			// Checkpoint bitmap is corrupt/invalid - use 422 Unprocessable Entity
+			// This tells the caller the checkpoint cannot be processed and should be cleared
+			response.WriteError(http.StatusUnprocessableEntity, err)
+		} else {
+			// Transient error - use 503 Service Unavailable to indicate retry
+			response.WriteError(http.StatusServiceUnavailable, err)
+		}
+		return
+	}
+
+	response.WriteHeader(http.StatusOK)
+}

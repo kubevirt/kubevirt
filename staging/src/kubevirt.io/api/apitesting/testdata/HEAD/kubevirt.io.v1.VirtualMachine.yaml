@@ -812,6 +812,9 @@ status:
       completed: true
       endTimestamp: "1988-01-01T01:01:01Z"
       startTimestamp: "1986-01-01T01:01:01Z"
+      volumes:
+      - diskTarget: diskTargetValue
+        volumeName: volumeNameValue
     state: stateValue
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"

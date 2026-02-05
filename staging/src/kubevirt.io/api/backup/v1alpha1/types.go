@@ -33,9 +33,21 @@ const (
 	PushMode BackupMode = "Push"
 )
 
+// BackupVolumeInfo contains information about a volume included in a backup
+type BackupVolumeInfo struct {
+	// VolumeName is the volume name from VMI spec
+	VolumeName string `json:"volumeName"`
+	// DiskTarget is the disk target device name at backup time
+	DiskTarget string `json:"diskTarget"`
+}
+
 type BackupCheckpoint struct {
 	Name         string       `json:"name,omitempty"`
 	CreationTime *metav1.Time `json:"creationTime,omitempty"`
+	// Volumes lists volumes and their disk targets at backup time
+	// +optional
+	// +listType=atomic
+	Volumes []BackupVolumeInfo `json:"volumes,omitempty"`
 }
 
 // BackupType is the const type for the backup possible types
@@ -95,8 +107,14 @@ type VirtualMachineBackupTrackerSpec struct {
 type VirtualMachineBackupTrackerStatus struct {
 	// +optional
 	// LatestCheckpoint is the metadata of the checkpoint of
-	// the latest preformed backup
+	// the latest performed backup
 	LatestCheckpoint *BackupCheckpoint `json:"latestCheckpoint,omitempty"`
+
+	// +optional
+	// CheckpointRedefinitionRequired is set to true by virt-handler when the VM
+	// restarts and has a checkpoint that needs to be redefined in libvirt.
+	// virt-controller will process this flag, attempt redefinition, and clear it.
+	CheckpointRedefinitionRequired *bool `json:"checkpointRedefinitionRequired,omitempty"`
 }
 
 // VirtualMachineBackupTrackerList is a list of VirtualMachineBackupTracker resources
@@ -172,6 +190,10 @@ type VirtualMachineBackupStatus struct {
 	// +optional
 	// CheckpointName the name of the checkpoint created for the current backup
 	CheckpointName *string `json:"checkpointName,omitempty"`
+	// +optional
+	// +listType=atomic
+	// IncludedVolumes lists the volumes that were included in the backup
+	IncludedVolumes []BackupVolumeInfo `json:"includedVolumes,omitempty"`
 }
 
 // ConditionType is the const type for Conditions
