@@ -48,7 +48,7 @@ func createMockRelease(tagName string, isDraft, isPrerelease bool, assetCount in
 	return release
 }
 
-var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
+var _ = Describe("detectLatestYRelease", func() {
 
 	Context("when target is a GA release on release branch", func() {
 		It("should return latest patch from previous minor version (v1.8.0 -> v1.7.x)", func() {
@@ -61,7 +61,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.6.4", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v1.8.0", mockReleases)
+			result, err := detectLatestYRelease("v1.8.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v1.7.3"))
 		})
@@ -77,7 +77,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.7.2", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v1.8.0-alpha.0", mockReleases)
+			result, err := detectLatestYRelease("v1.8.0-alpha.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v1.8.2"))
 		})
@@ -89,7 +89,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.6.2", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v1.7.0-beta.0", mockReleases)
+			result, err := detectLatestYRelease("v1.7.0-beta.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v1.7.0"))
 		})
@@ -103,7 +103,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.6.3", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v1.8.0", mockReleases)
+			result, err := detectLatestYRelease("v1.8.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v1.7.2"))
 		})
@@ -115,7 +115,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.6.3", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v1.8.0", mockReleases)
+			result, err := detectLatestYRelease("v1.8.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v1.7.2"))
 		})
@@ -127,7 +127,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.6.3", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v1.8.0", mockReleases)
+			result, err := detectLatestYRelease("v1.8.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v1.7.2"))
 		})
@@ -140,7 +140,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.9.4", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v2.0.0", mockReleases)
+			result, err := detectLatestYRelease("v2.0.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v1.9.5"))
 		})
@@ -152,7 +152,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.9.5", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v2.1.0", mockReleases)
+			result, err := detectLatestYRelease("v2.1.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v2.0.3"))
 		})
@@ -164,7 +164,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.7.0", notDraft, notPrerelease, 1),
 			}
 
-			_, err := detectLatestUpstreamOfficialTagFromReleases("invalid-tag", mockReleases)
+			_, err := detectLatestYRelease("invalid-tag", mockReleases)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("invalid target tag"))
 		})
@@ -175,7 +175,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.9.0", notDraft, notPrerelease, 1),
 			}
 
-			_, err := detectLatestUpstreamOfficialTagFromReleases("v1.7.0", mockReleases)
+			_, err := detectLatestYRelease("v1.7.0", mockReleases)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no previous minor release found"))
 		})
@@ -183,7 +183,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 		It("should return error when no releases available", func() {
 			mockReleases := []*github.RepositoryRelease{}
 
-			_, err := detectLatestUpstreamOfficialTagFromReleases("v1.8.0", mockReleases)
+			_, err := detectLatestYRelease("v1.8.0", mockReleases)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no previous minor release found"))
 		})
@@ -199,7 +199,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.7.2", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v1.8.0", mockReleases)
+			result, err := detectLatestYRelease("v1.8.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v1.7.15"))
 		})
@@ -219,7 +219,7 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.6.0", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v1.7.0-beta.0", mockReleases)
+			result, err := detectLatestYRelease("v1.7.0-beta.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v1.7.0"), "Should select v1.7.0 GA, not fall back to v1.6.3")
 		})
@@ -236,9 +236,125 @@ var _ = Describe("detectLatestUpstreamOfficialTagFromReleases", func() {
 				createMockRelease("v1.6.3", notDraft, notPrerelease, 1),
 			}
 
-			result, err := detectLatestUpstreamOfficialTagFromReleases("v1.8.0-alpha.0", mockReleases)
+			result, err := detectLatestYRelease("v1.8.0-alpha.0", mockReleases)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result).To(Equal("v1.7.5"))
+		})
+	})
+})
+
+var _ = Describe("detectLatestYAndZReleases", func() {
+
+	Context("when target is a GA release on release branch", func() {
+		It("should return both Y and Z releases (v1.8.2 -> Y:v1.7.x, Z:v1.8.x)", func() {
+			mockReleases := []*github.RepositoryRelease{
+				createMockRelease("v1.8.1", notDraft, notPrerelease, 1),
+				createMockRelease("v1.8.0", notDraft, notPrerelease, 1),
+				createMockRelease("v1.7.3", notDraft, notPrerelease, 1),
+				createMockRelease("v1.7.2", notDraft, notPrerelease, 1),
+				createMockRelease("v1.6.5", notDraft, notPrerelease, 1),
+			}
+
+			yRelease, zRelease, err := detectLatestYAndZReleases("v1.8.2", mockReleases)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(yRelease).To(Equal("v1.7.3"))
+			Expect(zRelease).To(Equal("v1.8.1"))
+		})
+
+		It("should return only Y release when no Z releases exist (v1.8.0 -> Y:v1.7.x, Z:none)", func() {
+			mockReleases := []*github.RepositoryRelease{
+				createMockRelease("v1.7.3", notDraft, notPrerelease, 1),
+				createMockRelease("v1.7.2", notDraft, notPrerelease, 1),
+				createMockRelease("v1.6.5", notDraft, notPrerelease, 1),
+			}
+
+			yRelease, zRelease, err := detectLatestYAndZReleases("v1.8.0", mockReleases)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(yRelease).To(Equal("v1.7.3"))
+			Expect(zRelease).To(BeEmpty())
+		})
+	})
+
+	Context("when target is a prerelease (alpha/beta) on main branch", func() {
+		It("should return same tag for both Y and Z (v1.8.0-alpha.0 -> v1.8.x)", func() {
+			mockReleases := []*github.RepositoryRelease{
+				createMockRelease("v1.8.2", notDraft, notPrerelease, 1),
+				createMockRelease("v1.8.1", notDraft, notPrerelease, 1),
+				createMockRelease("v1.8.0", notDraft, notPrerelease, 1),
+				createMockRelease("v1.7.3", notDraft, notPrerelease, 1),
+			}
+
+			yRelease, zRelease, err := detectLatestYAndZReleases("v1.8.0-alpha.0", mockReleases)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(yRelease).To(Equal("v1.8.2"))
+			Expect(zRelease).To(Equal("v1.8.2"))
+		})
+	})
+
+	Context("when using helper functions", func() {
+		It("detectLatestYRelease should return only Y release", func() {
+			mockReleases := []*github.RepositoryRelease{
+				createMockRelease("v1.8.1", notDraft, notPrerelease, 1),
+				createMockRelease("v1.7.3", notDraft, notPrerelease, 1),
+			}
+
+			result, err := detectLatestYRelease("v1.8.2", mockReleases)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal("v1.7.3"))
+		})
+
+		It("detectLatestZRelease should return only Z release", func() {
+			mockReleases := []*github.RepositoryRelease{
+				createMockRelease("v1.8.1", notDraft, notPrerelease, 1),
+				createMockRelease("v1.7.3", notDraft, notPrerelease, 1),
+			}
+
+			result, err := detectLatestZRelease("v1.8.2", mockReleases)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(result).To(Equal("v1.8.1"))
+		})
+
+		It("detectLatestZRelease should error when no Z release exists", func() {
+			mockReleases := []*github.RepositoryRelease{
+				createMockRelease("v1.7.3", notDraft, notPrerelease, 1),
+			}
+
+			_, err := detectLatestZRelease("v1.8.0", mockReleases)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("no previous patch release found"))
+		})
+	})
+
+	Context("realistic scenarios with both Y and Z releases", func() {
+		It("should handle patch releases correctly", func() {
+			mockReleases := []*github.RepositoryRelease{
+				createMockRelease("v1.8.4", notDraft, notPrerelease, 1),
+				createMockRelease("v1.8.3", notDraft, notPrerelease, 1),
+				createMockRelease("v1.8.2", notDraft, notPrerelease, 1),
+				createMockRelease("v1.8.1", notDraft, notPrerelease, 1),
+				createMockRelease("v1.8.0", notDraft, notPrerelease, 1),
+				createMockRelease("v1.7.5", notDraft, notPrerelease, 1),
+				createMockRelease("v1.7.4", notDraft, notPrerelease, 1),
+			}
+
+			yRelease, zRelease, err := detectLatestYAndZReleases("v1.8.5", mockReleases)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(yRelease).To(Equal("v1.7.5"))
+			Expect(zRelease).To(Equal("v1.8.4"))
+		})
+
+		It("should filter out drafts and prereleases for both Y and Z", func() {
+			mockReleases := []*github.RepositoryRelease{
+				createMockRelease("v1.8.2", isDraft, notPrerelease, 1),  // draft Z
+				createMockRelease("v1.8.1", notDraft, notPrerelease, 1), // valid Z
+				createMockRelease("v1.7.4", notDraft, isPrerelease, 1),  // prerelease Y
+				createMockRelease("v1.7.3", notDraft, notPrerelease, 1), // valid Y
+			}
+
+			yRelease, zRelease, err := detectLatestYAndZReleases("v1.8.3", mockReleases)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(yRelease).To(Equal("v1.7.3"))
+			Expect(zRelease).To(Equal("v1.8.1"))
 		})
 	})
 })
