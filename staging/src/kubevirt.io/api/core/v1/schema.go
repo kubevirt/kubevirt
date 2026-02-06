@@ -413,6 +413,10 @@ type MemoryStatus struct {
 	// GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.
 	// +optional
 	GuestRequested *resource.Quantity `json:"guestRequested,omitempty"`
+	// MemoryOverhead specifies the memory overhead added by the virtualization infrastructure
+	// for the virt-launcher pod.
+	// +optional
+	MemoryOverhead *resource.Quantity `json:"memoryOverhead,omitempty"`
 }
 
 // Hugepages allow to use hugepages for the VirtualMachineInstance instead of regular memory.
