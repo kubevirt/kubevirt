@@ -445,6 +445,12 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ty
 		return err
 	}
 
+	// create/update or delete ContainerPath volumes webhook based on feature gate
+	err = r.createOrDeleteContainerPathVolumesWebhook(caBundle)
+	if err != nil {
+		return err
+	}
+
 	// create/update APIServices
 	err = r.createOrUpdateAPIServices(caBundle)
 	if err != nil {

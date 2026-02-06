@@ -92,4 +92,40 @@ var _ = Describe("virtiofs container", func() {
 		Expect(container[1].SecurityContext.RunAsNonRoot).To(HaveValue(BeTrue()))
 		Expect(container[1].SecurityContext.AllowPrivilegeEscalation).To(HaveValue(BeFalse()))
 	})
+
+	It("should skip ContainerPath volumes", func() {
+		vmi := api.NewMinimalVMI("testvm")
+
+		// Add a PVC volume with filesystem - should create container
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "pvc-volume",
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: testutils.NewFakePersistentVolumeSource(),
+			},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name:     "pvc-volume",
+			Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+
+		// Add a ContainerPath volume with filesystem - should be skipped
+		vmi.Spec.Volumes = append(vmi.Spec.Volumes, v1.Volume{
+			Name: "token-volume",
+			VolumeSource: v1.VolumeSource{
+				ContainerPath: &v1.ContainerPathVolumeSource{
+					Path: "/var/run/secrets/token",
+				},
+			},
+		})
+		vmi.Spec.Domain.Devices.Filesystems = append(vmi.Spec.Domain.Devices.Filesystems, v1.Filesystem{
+			Name:     "token-volume",
+			Virtiofs: &v1.FilesystemVirtiofs{},
+		})
+
+		containers := generateVirtioFSContainers(vmi, "virtiofs-container", config)
+
+		// Only the PVC volume should have a container, not the ContainerPath volume
+		Expect(containers).To(HaveLen(1))
+		Expect(containers[0].Name).To(Equal("virtiofs-pvc-volume"))
+	})
 })
