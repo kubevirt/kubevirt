@@ -35,11 +35,6 @@ import (
 	"github.com/google/go-github/v32/github"
 )
 
-func DetectLatestUpstreamOfficialTag() (string, error) {
-	release, _, err := DetectLatestYAndZOfficialTags()
-	return release, err
-}
-
 func DetectLatestYAndZOfficialTags() (string, string, error) {
 	client := github.NewClient(&http.Client{
 		Timeout: 5 * time.Second,
