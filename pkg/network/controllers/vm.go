@@ -22,11 +22,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/client-go/kubevirt"
@@ -36,8 +36,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
+type clusterConfigurer interface {
+	LiveUpdateNADRefEnabled() bool
+}
+
 type VMController struct {
-	clientset kubevirt.Interface
+	clientset         kubevirt.Interface
+	clusterConfigurer clusterConfigurer
 }
 
 type syncError struct {
@@ -61,9 +66,10 @@ const (
 	hotPlugNetworkInterfaceErrorReason = "HotPlugNetworkInterfaceError"
 )
 
-func NewVMController(clientset kubevirt.Interface) *VMController {
+func NewVMController(clientset kubevirt.Interface, clusterConfigurer clusterConfigurer) *VMController {
 	return &VMController{
-		clientset: clientset,
+		clientset:         clientset,
+		clusterConfigurer: clusterConfigurer,
 	}
 }
 
@@ -82,7 +88,7 @@ func (v *VMController) Sync(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstanc
 			func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool { return true },
 		)
 
-		updatedVMI := syncVMIInterfaces(vm, vmi, vmiIfaceStatusesByName)
+		updatedVMI := syncVMIInterfaces(vm, vmi, vmiIfaceStatusesByName, v.clusterConfigurer.LiveUpdateNADRefEnabled())
 
 		if err := v.vmiInterfacesPatch(&updatedVMI.Spec, vmi); err != nil {
 			return vm, &syncError{
@@ -111,10 +117,11 @@ func syncVMIInterfaces(
 	vm *v1.VirtualMachine,
 	vmi *v1.VirtualMachineInstance,
 	indexedStatusIfaces map[string]v1.VirtualMachineInstanceNetworkInterface,
+	isLiveUpdateNADRefEnabled bool,
 ) *v1.VirtualMachineInstance {
 	vmiCopy := vmi.DeepCopy()
 	hasOrdinalIfaces := namescheme.HasOrdinalSecondaryIfaces(vmi.Spec.Networks, vmi.Status.Interfaces)
-	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmiCopy, hasOrdinalIfaces)
+	updatedVmiSpec := applyDynamicIfaceRequestOnVMI(vm, vmiCopy, hasOrdinalIfaces, isLiveUpdateNADRefEnabled)
 	vmiCopy.Spec = *updatedVmiSpec
 
 	ifaces, networks := clearDetachedIfacesFromVMI(vmiCopy.Spec.Domain.Devices.Interfaces, vmiCopy.Spec.Networks, indexedStatusIfaces)
@@ -125,7 +132,8 @@ func syncVMIInterfaces(
 }
 
 func (v *VMController) vmiInterfacesPatch(newVmiSpec *v1.VirtualMachineInstanceSpec, vmi *v1.VirtualMachineInstance) error {
-	if equality.Semantic.DeepEqual(vmi.Spec.Domain.Devices.Interfaces, newVmiSpec.Domain.Devices.Interfaces) {
+	if equality.Semantic.DeepEqual(vmi.Spec.Domain.Devices.Interfaces, newVmiSpec.Domain.Devices.Interfaces) &&
+		equality.Semantic.DeepEqual(vmi.Spec.Networks, newVmiSpec.Networks) {
 		return nil
 	}
 	patchBytes, err := patch.New(
@@ -148,9 +156,11 @@ func applyDynamicIfaceRequestOnVMI(
 	vm *v1.VirtualMachine,
 	vmi *v1.VirtualMachineInstance,
 	hasOrdinalIfaces bool,
+	isLiveUpdateNADRefEnabled bool,
 ) *v1.VirtualMachineInstanceSpec {
 	vmiSpecCopy := vmi.Spec.DeepCopy()
 	vmiIndexedInterfaces := vmispec.IndexInterfaceSpecByName(vmiSpecCopy.Domain.Devices.Interfaces)
+	vmiIndexedNetworks := vmispec.IndexNetworkSpecByName(vmiSpecCopy.Networks)
 	vmIndexedNetworks := vmispec.IndexNetworkSpecByName(vm.Spec.Template.Spec.Networks)
 	for _, vmIface := range vm.Spec.Template.Spec.Domain.Devices.Interfaces {
 		vmiIfaceCopy, existsInVMISpec := vmiIndexedInterfaces[vmIface.Name]
@@ -162,6 +172,10 @@ func applyDynamicIfaceRequestOnVMI(
 		shouldUpdateExistingIfaceState := existsInVMISpec &&
 			vmIface.State != vmiIfaceCopy.State &&
 			vmiIfaceCopy.State != v1.InterfaceStateAbsent
+
+		if isLiveUpdateNADRefEnabled {
+			syncNetworkNADReference(vmiIndexedNetworks, vmIndexedNetworks, vmIface, vmiSpecCopy)
+		}
 
 		switch {
 		case shouldHotplugIface:
@@ -176,6 +190,41 @@ func applyDynamicIfaceRequestOnVMI(
 		}
 	}
 	return vmiSpecCopy
+}
+
+func syncNetworkNADReference(
+	vmiIndexedNetworks map[string]v1.Network,
+	vmIndexedNetworks map[string]v1.Network,
+	vmIface v1.Interface,
+	vmiSpec *v1.VirtualMachineInstanceSpec,
+) {
+	vmNet, vmNetExists := vmIndexedNetworks[vmIface.Name]
+	vmiNet, vmiNetExists := vmiIndexedNetworks[vmIface.Name]
+
+	if vmiNetExists && vmNetExists && !reflect.DeepEqual(vmNet, vmiNet) {
+		if areNormalizedNetsEqual(vmNet, vmiNet) {
+			for i, n := range vmiSpec.Networks {
+				if n.Name == vmNet.Name {
+					vmiSpec.Networks[i] = *vmNet.DeepCopy()
+					break
+				}
+			}
+		}
+	}
+}
+
+func areNormalizedNetsEqual(net1, net2 v1.Network) bool {
+	normalizedNet1 := net1.DeepCopy()
+	if normalizedNet1.Multus != nil {
+		normalizedNet1.Multus.NetworkName = ""
+	}
+
+	normalizedNet2 := net2.DeepCopy()
+	if normalizedNet2.Multus != nil {
+		normalizedNet2.Multus.NetworkName = ""
+	}
+
+	return reflect.DeepEqual(normalizedNet1, normalizedNet2)
 }
 
 func clearDetachedIfacesFromVMI(
