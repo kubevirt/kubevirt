@@ -162,7 +162,7 @@ func (c *command) getResourceInfo(vmType, vmName string) (*resourceInfo, error) 
 		}
 		ports := podNetworkPorts(&vmi.Spec)
 		selector := map[string]string{
-			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vmi.Name),
+			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateValidUniqueID(vmi.Name),
 		}
 		info = &resourceInfo{
 			selector: selector,
@@ -180,7 +180,7 @@ func (c *command) getResourceInfo(vmType, vmName string) (*resourceInfo, error) 
 			ports = podNetworkPorts(&vm.Spec.Template.Spec)
 		}
 		selector := map[string]string{
-			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vm.Name),
+			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateValidUniqueID(vm.Name),
 		}
 		info = &resourceInfo{
 			selector: selector,
