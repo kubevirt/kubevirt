@@ -1513,7 +1513,12 @@ func (k *KubeVirtTestData) makeHandlerReady() {
 			handlerNew := handler.DeepCopy()
 			handlerNew.Status.DesiredNumberScheduled = 1
 			handlerNew.Status.NumberReady = 1
+			handlerNew.Status.NumberAvailable = 1
 			handlerNew.Status.UpdatedNumberScheduled = 1
+			maxUnavailable := intstr.FromInt(1)
+			handlerNew.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+				MaxUnavailable: &maxUnavailable,
+			}
 			k.controller.stores.DaemonSetCache.Update(handlerNew)
 			key, err := kubecontroller.KeyFunc(handlerNew)
 			Expect(err).To(Not(HaveOccurred()))
@@ -2058,8 +2063,8 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			// add one for the namespace
-			Expect(kvTestData.totalPatches).To(Equal(numGenerations + 1))
+			// add one for the namespace, and one for the daemonset canary upgrade patch
+			Expect(kvTestData.totalPatches).To(Equal(numGenerations))
 
 			// all these resources should be tracked by there generation so everyone that has been added should now be patched
 			// since they where the `lastGeneration` was set to -1 on the KubeVirt CR
@@ -2707,7 +2712,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.resourceChanges["deployments"][Patched]).To(Equal(1))          // virt-operator patched, virt-api unpatched
 			Expect(kvTestData.resourceChanges["poddisruptionbudgets"][Patched]).To(Equal(1)) // 1 of 2 PDBs patched
 			Expect(kvTestData.resourceChanges["namespace"][Patched]).To(Equal(0))            // namespace unpatched
-			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(0))           // namespace unpatched
+			Expect(kvTestData.resourceChanges["daemonsets"][Patched]).To(Equal(0))           // daemonset unpatched
 		})
 
 		Context("virt-api replica count", func() {
