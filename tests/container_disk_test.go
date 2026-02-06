@@ -276,8 +276,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				),
 				console.LoginToCirros,
 			),
-			// See https://github.com/kubevirt/kubevirt/issues/16757
-			PEntry("using Alpine vmi with kernel boot", decorators.Periodic,
+			Entry("using Alpine vmi with kernel boot", decorators.Periodic,
 				newAlpineWithKernelBoot(),
 				console.LoginToAlpine,
 			),
