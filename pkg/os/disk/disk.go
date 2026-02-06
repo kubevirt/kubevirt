@@ -20,7 +20,9 @@ const (
 
 func GetDiskInfo(imagePath string) (*DiskInfo, error) {
 	// #nosec No risk for attacker injection. Only get information about an image
-	args := []string{"info", imagePath, "--output", "json"}
+	// Use -U (--force-share) to allow reading image metadata while the qcow2
+	// image is in use by a running VM, avoiding exclusive locks during probing.
+	args := []string{"info", "-U", imagePath, "--output", "json"}
 	cmd := exec.Command(QEMUIMGPath, args...)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {

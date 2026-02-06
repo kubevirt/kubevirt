@@ -5,8 +5,10 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/tools/record"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	kutil "kubevirt.io/kubevirt/pkg/util"
 
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 )
@@ -57,6 +59,7 @@ func (c diskImgCreator) handleRequestedSizeAndCreateQcow2(vmi *v1.VirtualMachine
 			return err
 		}
 	}
+	requestedSize = kutil.AlignImageSizeTo1MiB(requestedSize, log.Log.With("image", diskPath))
 	err = createQcow2(diskPath, requestedSize)
 	if err != nil {
 		log.Log.Reason(err).Errorf("Couldn't create a qcow2 file for disk path: %s, error: %v", diskPath, err)
