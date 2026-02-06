@@ -236,6 +236,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateVideoConfig(field, spec, config)...)
 	causes = append(causes, validatePanicDevices(field, spec, config)...)
+	causes = append(causes, validateReservedOverheadMemlock(field, spec, config)...)
 
 	return causes
 }
@@ -2078,6 +2079,25 @@ func validatePanicDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 		if cause := validatePanicDeviceModel(field.Child("domain", "devices", "panicDevices").Index(idx).Child("model"), panicDevice.Model); cause != nil {
 			causes = append(causes, *cause)
 		}
+	}
+
+	return causes
+}
+
+func validateReservedOverheadMemlock(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.Domain.Memory == nil {
+		return causes
+	}
+
+	if spec.Domain.Memory.ReservedOverhead != nil && !config.ReservedOverheadMemlockEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Reserved overhead memlock feature gate is not enabled in kubevirt-config",
+			Field:   field.Child("domain", "memory", "reservedOverhead").String(),
+		})
+		return causes
 	}
 
 	return causes

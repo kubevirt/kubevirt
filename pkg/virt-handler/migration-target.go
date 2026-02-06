@@ -232,7 +232,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 
 		// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
 		// perform host-devices hotplug post migration.
-		if err := isolation.AdjustQemuProcessMemoryLimits(c.podIsolationDetector, vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
+		if err := isolation.AdjustQemuProcessMemoryLimits(c.podIsolationDetector, vmi, c.clusterConfig); err != nil {
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "Failed to update target node qemu memory limits during live migration")
 		}
 	}
@@ -920,7 +920,7 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 	}
 
 	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
-	requiredMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
+	requiredMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio, c.clusterConfig)
 	requiredMemory.Add(
 		c.netBindingPluginMemoryCalculator.Calculate(vmi, c.clusterConfig.GetNetworkBindings()),
 	)
