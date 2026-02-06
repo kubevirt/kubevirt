@@ -33,11 +33,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-func DetectLatestUpstreamOfficialTag() (string, error) {
-	release, _, err := DetectLatestYAndZOfficialTags()
-	return release, err
-}
-
 func DetectLatestYAndZOfficialTags() (string, string, error) {
 	client := github.NewClient(&http.Client{
 		Timeout: 5 * time.Second,

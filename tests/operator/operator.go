@@ -639,17 +639,48 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 	Describe("[rfe_id:2291][crit:high][vendor:cnv-qe@redhat.com][level:component]should update kubevirt", decorators.Upgrade, func() {
 		runStrategyHalted := v1.RunStrategyHalted
 
+		const (
+			fromY = iota
+			fromZ
+		)
+
 		// This test is installing a previous release of KubeVirt
 		// running a VM/VMI using that previous release
 		// Updating KubeVirt to the target tested code
 		// Ensuring VM/VMI is still operational after the update from previous release.
-		DescribeTable("[release-blocker][test_id:3145]from previous release to target tested release", func(updateOperator bool) {
+		DescribeTable("[release-blocker][test_id:3145]to target tested release", func(previousRelease int, updateOperator bool) {
 			if !libstorage.HasCDI() {
 				Fail("Fail update test when CDI is not present")
 			}
 
 			if updateOperator && flags.OperatorManifestPath == "" {
 				Fail("operator manifest path must be configured for update tests")
+			}
+
+			previousImageTag := flags.PreviousReleaseTag
+			previousImageRegistry := flags.PreviousReleaseRegistry
+
+			// The z-1 release upgrade tests will be skipped if:
+			// - previousImageTag is explicitly set
+			// - z-1 is equal to y-1
+			if previousImageTag == "" {
+				prevY, prevZ, err := version.DetectLatestYAndZOfficialTags()
+				Expect(err).ToNot(HaveOccurred())
+				if previousRelease == fromZ && (prevZ == "" || prevY == prevZ) {
+					Skip("Skip z-1 upgrade test because it is already covered by y-1")
+				}
+				switch previousRelease {
+				case fromY:
+					previousImageTag = prevY
+				case fromZ:
+					previousImageTag = prevZ
+				}
+				By(fmt.Sprintf("By Using detected tag %s for previous kubevirt", previousImageTag))
+			} else {
+				if previousRelease == fromZ {
+					Skip("Skip z-1 upgrade test because the previous tag is explicitly set")
+				}
+				By(fmt.Sprintf("By Using user defined tag %s for previous kubevirt", previousImageTag))
 			}
 
 			// This test should run fine on single-node setups as long as no VM is created pre-update
@@ -662,15 +693,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			if createVMs {
 				migratableVMIs, err = generateMigratableVMIs(2)
 				Expect(err).NotTo(HaveOccurred())
-			}
-			previousImageTag := flags.PreviousReleaseTag
-			previousImageRegistry := flags.PreviousReleaseRegistry
-			if previousImageTag == "" {
-				previousImageTag, err = version.DetectLatestUpstreamOfficialTag()
-				Expect(err).ToNot(HaveOccurred())
-				By(fmt.Sprintf("By Using detected tag %s for previous kubevirt", previousImageTag))
-			} else {
-				By(fmt.Sprintf("By Using user defined tag %s for previous kubevirt", previousImageTag))
 			}
 
 			curVersion := originalKv.Status.ObservedKubeVirtVersion
@@ -970,8 +992,10 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Deleting KubeVirt object")
 			deleteAllKvAndWait(false, originalKv.Name)
 		},
-			Entry("by patching KubeVirt CR", false),
-			Entry("by updating virt-operator", true),
+			Entry("from previous y release by patching KubeVirt CR", fromY, false),
+			Entry("from previous y release by updating virt-operator", fromY, true),
+			Entry("from previous z release by patching KubeVirt CR", fromZ, false),
+			Entry("from previous z release by updating virt-operator", fromZ, true),
 		)
 	})
 
