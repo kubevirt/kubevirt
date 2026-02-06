@@ -164,6 +164,7 @@ type DomainManager interface {
 	UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error
 	GetDomainDirtyRateStats(calculationDuration time.Duration) (*stats.DomainStatsDirtyRate, error)
 	GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
+	GetLibvirtConnect() *libvirt.Connect
 }
 
 type LibvirtDomainManager struct {
@@ -203,6 +204,8 @@ type LibvirtDomainManager struct {
 
 	// Premigration hook server for VMI updates during migration
 	hookServer *premigrationhookserver.PreMigrationHookServer
+
+	virtLintChannel chan util.VirtLintEvent
 }
 
 type pausedVMIs struct {
@@ -230,14 +233,14 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
 	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, virtLintChannel chan util.VirtLintEvent) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled, libvirtHooksServerAndClientEnabled, hookServer)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled, libvirtHooksServerAndClientEnabled, hookServer, virtLintChannel)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
 	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, virtLintChannel chan util.VirtLintEvent) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		diskMemoryLimitBytes: diskMemoryLimitBytes,
 		virConn:              connection,
@@ -260,6 +263,8 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		imageVolumeFeatureGateEnabled:      imageVolumeEnabled,
 		libvirtHooksServerAndClientEnabled: libvirtHooksServerAndClientEnabled,
 		hookServer:                         hookServer,
+
+		virtLintChannel: virtLintChannel,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -293,6 +298,10 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 	}
 
 	return &manager, nil
+}
+
+func (l *LibvirtDomainManager) GetLibvirtConnect() *libvirt.Connect {
+	return l.virConn.GetLibvirtConnect()
 }
 
 func (l *LibvirtDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error {
@@ -1955,7 +1964,9 @@ func (l *LibvirtDomainManager) ListAllDomains() ([]*api.Domain, error) {
 }
 
 func (l *LibvirtDomainManager) setDomainSpecWithHooks(vmi *v1.VirtualMachineInstance, origSpec *api.DomainSpec) (cli.VirDomain, error) {
-	return util.SetDomainSpecStrWithHooks(l.virConn, vmi, origSpec)
+	libvirtConnection := l.GetLibvirtConnect()
+
+	return util.SetDomainSpecStrWithHooks(l.virConn, vmi, origSpec, l.virtLintChannel, libvirtConnection)
 }
 
 func (l *LibvirtDomainManager) GetQemuVersion() (string, error) {
