@@ -3552,26 +3552,27 @@ var _ = Describe("Converter", func() {
 				c = &ConverterContext{
 					VirtualMachine: vmi,
 					AllowEmulation: true,
+					Architecture:   archconverter.NewConverter(runtime.GOARCH),
 				}
 			})
 
 			It("should not setup hotplug when maxGuest is missing", func() {
 				vmi.Spec.Domain.Memory.MaxGuest = nil
-				err := setupDomainMemory(vmi, domain)
-				Expect(err).ToNot(HaveOccurred())
+				domain = vmiToDomain(vmi, c)
+				Expect(domain).ToNot(BeNil())
 				Expect(domain.Spec.MaxMemory).To(BeNil())
 			})
 
 			It("should not setup hotplug when maxGuest equals guest memory", func() {
 				vmi.Spec.Domain.Memory.MaxGuest = &guestMemory
-				err := setupDomainMemory(vmi, domain)
-				Expect(err).ToNot(HaveOccurred())
+				domain = vmiToDomain(vmi, c)
+				Expect(domain).ToNot(BeNil())
 				Expect(domain.Spec.MaxMemory).To(BeNil())
 			})
 
 			It("should setup hotplug when maxGuest is set", func() {
-				err := setupDomainMemory(vmi, domain)
-				Expect(err).ToNot(HaveOccurred())
+				domain = vmiToDomain(vmi, c)
+				Expect(domain).ToNot(BeNil())
 
 				Expect(domain.Spec.MaxMemory).ToNot(BeNil())
 				Expect(domain.Spec.MaxMemory.Unit).To(Equal("b"))
