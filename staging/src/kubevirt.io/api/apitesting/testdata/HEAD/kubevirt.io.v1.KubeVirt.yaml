@@ -253,6 +253,8 @@ spec:
       ciphers:
       - ciphersValue
       minTLSVersion: minTLSVersionValue
+    virtTemplateDeployment:
+      enabled: true
     virtualMachineInstancesPerNode: -30
     virtualMachineOptions:
       disableFreePageReporting: {}
