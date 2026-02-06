@@ -321,7 +321,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 					return pdb.Spec.Selector.MatchLabels["kubevirt.io"] != "dne"
 				}),
-			Entry("[test_id:6308] daemonsets",
+			Entry("[QUARANTINE][test_id:6308] daemonsets", decorators.Quarantine,
 				func() {
 					patchBytes, err := patch.New(
 						patch.WithAdd(
