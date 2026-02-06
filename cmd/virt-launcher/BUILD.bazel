@@ -163,6 +163,20 @@ pkg_tar(
     package_dir = "/etc/libvirt/hooks",
 )
 
+# Symlink /var/run -> ../run for compatibility with libvirt socket paths
+# In CentOS Stream 10+, libvirt creates sockets in /run/libvirt/ but
+# KubeVirt expects them at /var/run/libvirt/
+# IMPORTANT: Must use relative symlink (../run) not absolute (/run) because
+# virt-handler accesses the container's filesystem via /proc/<pid>/root/var/run.
+# With an absolute symlink, the kernel would resolve /run relative to
+# virt-handler's root, not the container's root.
+pkg_tar(
+    name = "var-run-symlink-tar",
+    symlinks = {
+        "/var/run": "../run",
+    },
+)
+
 # Go binary for advanced qemu hook (used when LibvirtHooksServerAndClient is enabled)
 # This binary is placed in /usr/bin and replaces /etc/libvirt/hooks/qemu at runtime
 pkg_tar(
@@ -208,6 +222,7 @@ oci_image(
             ":qemu-hook-tar",
             ":libvirt-hook-client-tar",
             ":qemu-kvm-modules-dir-tar",
+            ":var-run-symlink-tar",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
             "//rpm:launcherbase_s390x",
@@ -218,6 +233,7 @@ oci_image(
             ":qemu-hook-tar",
             ":libvirt-hook-client-tar",
             ":qemu-kvm-modules-dir-tar",
+            ":var-run-symlink-tar",
         ],
         "//conditions:default": [
             "//rpm:launcherbase_x86_64",
@@ -228,6 +244,7 @@ oci_image(
             ":qemu-hook-tar",
             ":libvirt-hook-client-tar",
             ":qemu-kvm-modules-dir-tar",
+            ":var-run-symlink-tar",
         ],
     }),
 )

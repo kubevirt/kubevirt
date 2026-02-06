@@ -16,7 +16,7 @@ EOF
     function collect_results() {
         cd ${KUBEVIRT_DIR}
         mkdir -p ${ARTIFACTS}/junit/
-        bazel run --config=${ARCHITECTURE} //tools/junit-merger:junit-merger -- -o ${ARTIFACTS}/junit/junit.unittests.xml $(find bazel-testlogs/ -name 'test.xml' -printf "%p ")
+        bazel run --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} //tools/junit-merger:junit-merger -- -o ${ARTIFACTS}/junit/junit.unittests.xml $(find bazel-testlogs/ -name 'test.xml' -printf "%p ")
 
         for f in $(find bazel-out/ -name 'test.log'); do
             dir=${ARTIFACTS}/testlogs/$(dirname $f)
@@ -30,5 +30,5 @@ fi
 ${KUBEVIRT_DIR}/hack/bazel-race.sh
 
 bazel test \
-    --config=${ARCHITECTURE} \
+    --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     --test_output=errors -- ${WHAT}

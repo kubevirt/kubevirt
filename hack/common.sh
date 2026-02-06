@@ -29,6 +29,11 @@ fi
 
 export GOFLAGS="$GOFLAGS -mod=vendor"
 
+# CentOS Stream version for RPM builds (default to 9)
+KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION:-9}
+# Bazel config flag for CentOS Stream version selection
+BAZEL_CS_CONFIG="--config=cs${KUBEVIRT_CENTOS_STREAM_VERSION}"
+
 KUBEVIRT_DIR="$(
     cd "$(dirname "$BASH_SOURCE[0]")/../"
     pwd
