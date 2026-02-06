@@ -236,6 +236,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateFilesystemsWithVirtIOFSEnabled(field, spec, config)...)
 	causes = append(causes, validateVideoConfig(field, spec, config)...)
 	causes = append(causes, validatePanicDevices(field, spec, config)...)
+	causes = append(causes, validateRebootPolicy(field, spec, config)...)
 
 	return causes
 }
@@ -2078,6 +2079,25 @@ func validatePanicDevices(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 		if cause := validatePanicDeviceModel(field.Child("domain", "devices", "panicDevices").Index(idx).Child("model"), panicDevice.Model); cause != nil {
 			causes = append(causes, *cause)
 		}
+	}
+
+	return causes
+}
+
+func validateRebootPolicy(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.Domain.RebootPolicy == nil {
+		return causes
+	}
+
+	if !config.RebootPolicyEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", featuregate.RebootPolicy),
+			Field:   field.Child("domain", "rebootPolicy").String(),
+		})
+		return causes
 	}
 
 	return causes

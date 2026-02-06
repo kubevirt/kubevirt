@@ -7187,6 +7187,17 @@ var CRDsValidation map[string]string = map[string]string{
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                       type: object
+                    rebootPolicy:
+                      description: |-
+                        RebootPolicy specifies how the guest should behave on reboot.
+                        Reboot (default): The guest is allowed to reboot silently.
+                        Terminate: The VMI will be terminated on guest reboot, allowing
+                        higher level controllers (such as the VM controller) to recreate
+                        the VMI with any updated configuration such as boot order changes.
+                      enum:
+                      - Reboot
+                      - Terminate
+                      type: string
                     resources:
                       description: Resources describes the Compute Resources required
                         by this vmi.
@@ -13052,6 +13063,17 @@ var CRDsValidation map[string]string = map[string]string{
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
               type: object
+            rebootPolicy:
+              description: |-
+                RebootPolicy specifies how the guest should behave on reboot.
+                Reboot (default): The guest is allowed to reboot silently.
+                Terminate: The VMI will be terminated on guest reboot, allowing
+                higher level controllers (such as the VM controller) to recreate
+                the VMI with any updated configuration such as boot order changes.
+              enum:
+              - Reboot
+              - Terminate
+              type: string
             resources:
               description: Resources describes the Compute Resources required by this
                 vmi.
@@ -16892,6 +16914,17 @@ var CRDsValidation map[string]string = map[string]string{
                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                   x-kubernetes-int-or-string: true
               type: object
+            rebootPolicy:
+              description: |-
+                RebootPolicy specifies how the guest should behave on reboot.
+                Reboot (default): The guest is allowed to reboot silently.
+                Terminate: The VMI will be terminated on guest reboot, allowing
+                higher level controllers (such as the VM controller) to recreate
+                the VMI with any updated configuration such as boot order changes.
+              enum:
+              - Reboot
+              - Terminate
+              type: string
             resources:
               description: Resources describes the Compute Resources required by this
                 vmi.
@@ -19416,6 +19449,17 @@ var CRDsValidation map[string]string = map[string]string{
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                       type: object
+                    rebootPolicy:
+                      description: |-
+                        RebootPolicy specifies how the guest should behave on reboot.
+                        Reboot (default): The guest is allowed to reboot silently.
+                        Terminate: The VMI will be terminated on guest reboot, allowing
+                        higher level controllers (such as the VM controller) to recreate
+                        the VMI with any updated configuration such as boot order changes.
+                      enum:
+                      - Reboot
+                      - Terminate
+                      type: string
                     resources:
                       description: Resources describes the Compute Resources required
                         by this vmi.
@@ -24453,6 +24497,17 @@ var CRDsValidation map[string]string = map[string]string{
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               type: object
+                            rebootPolicy:
+                              description: |-
+                                RebootPolicy specifies how the guest should behave on reboot.
+                                Reboot (default): The guest is allowed to reboot silently.
+                                Terminate: The VMI will be terminated on guest reboot, allowing
+                                higher level controllers (such as the VM controller) to recreate
+                                the VMI with any updated configuration such as boot order changes.
+                              enum:
+                              - Reboot
+                              - Terminate
+                              type: string
                             resources:
                               description: Resources describes the Compute Resources
                                 required by this vmi.
@@ -29945,6 +30000,17 @@ var CRDsValidation map[string]string = map[string]string{
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
+                                rebootPolicy:
+                                  description: |-
+                                    RebootPolicy specifies how the guest should behave on reboot.
+                                    Reboot (default): The guest is allowed to reboot silently.
+                                    Terminate: The VMI will be terminated on guest reboot, allowing
+                                    higher level controllers (such as the VM controller) to recreate
+                                    the VMI with any updated configuration such as boot order changes.
+                                  enum:
+                                  - Reboot
+                                  - Terminate
+                                  type: string
                                 resources:
                                   description: Resources describes the Compute Resources
                                     required by this vmi.
