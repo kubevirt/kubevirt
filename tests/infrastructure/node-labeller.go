@@ -161,11 +161,17 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 				errorMessageTemplate := "node " + node.Name + " does not contain %s label"
 				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelLabel)), fmt.Sprintf(errorMessageTemplate, "cpu"))
 				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUFeatureLabel)), fmt.Sprintf(errorMessageTemplate, "feature"))
-				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HypervLabel)), fmt.Sprintf(errorMessageTemplate, "hyperV"))
 				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelCPULabel)), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
 				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelRequiredFeaturesLabel)),
 					fmt.Sprintf(errorMessageTemplate, "host cpu required features"))
-				if node.Labels[k8sv1.LabelArchStable] == "amd64" {
+
+				arch := node.Labels[k8sv1.LabelArchStable]
+
+				if arch == testsuite.ArchAMD64 {
+					Expect(node.Labels).To(HaveKey(HavePrefix(v1.HypervLabel)), fmt.Sprintf(errorMessageTemplate, "hyperV"))
+				}
+
+				if arch == testsuite.ArchAMD64 || arch == testsuite.ArchS390x {
 					Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelVendorLabel)), fmt.Sprintf(errorMessageTemplate, "vendor"))
 				} else {
 					Expect(node.Labels).ToNot(HaveKey(HavePrefix(v1.CPUModelVendorLabel)))
