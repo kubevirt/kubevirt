@@ -804,6 +804,8 @@ spec:
           - create
           - get
           - delete
+          - list
+          - watch
         - apiGroups:
           - resource.k8s.io
           resources:

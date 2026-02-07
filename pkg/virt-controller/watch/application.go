@@ -210,6 +210,7 @@ type VirtControllerApp struct {
 	vmSnapshotInformer           cache.SharedIndexInformer
 	vmSnapshotContentInformer    cache.SharedIndexInformer
 	vmRestoreInformer            cache.SharedIndexInformer
+	jobInformer                  cache.SharedIndexInformer
 	storageClassInformer         cache.SharedIndexInformer
 	allPodInformer               cache.SharedIndexInformer
 	resourceQuotaInformer        cache.SharedIndexInformer
@@ -413,6 +414,7 @@ func Execute() {
 	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
 	app.vmRestoreInformer = app.informerFactory.VirtualMachineRestore()
+	app.jobInformer = app.informerFactory.Job()
 	app.storageClassInformer = app.informerFactory.StorageClass()
 	app.caExportConfigMapInformer = app.informerFactory.KubeVirtExportCAConfigMap()
 	app.exportRouteConfigMapInformer = app.informerFactory.ExportRouteConfigMap()
@@ -926,9 +928,11 @@ func (vca *VirtControllerApp) initRestoreController() {
 		DataVolumeInformer:        vca.dataVolumeInformer,
 		PVCInformer:               vca.persistentVolumeClaimInformer,
 		StorageClassInformer:      vca.storageClassInformer,
+		JobInformer:               vca.jobInformer,
 		VolumeSnapshotProvider:    vca.snapshotController,
 		Recorder:                  recorder,
 		CRInformer:                vca.controllerRevisionInformer,
+		TemplateService:           vca.templateService,
 	}
 	if err := vca.restoreController.Init(); err != nil {
 		panic(err)
