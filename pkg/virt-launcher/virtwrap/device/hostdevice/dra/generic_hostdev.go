@@ -96,13 +96,17 @@ func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, er
 			if hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
 				continue
 			}
+			model := "vfio-pci"
+			if vmi.Spec.Architecture == "s390x" {
+				model = "vfio-ap"
+			}
 			if hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil {
 				hostDevices = append(hostDevices, api.HostDevice{
 					Alias:  api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hdStatus.Name),
 					Source: api.HostDeviceSource{Address: &api.Address{UUID: *hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID}},
 					Type:   api.HostDeviceMDev,
 					Mode:   "subsystem",
-					Model:  "vfio-pci",
+					Model:  model,
 				})
 			}
 		}
