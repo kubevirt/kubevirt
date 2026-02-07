@@ -48,6 +48,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -1299,10 +1300,11 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				}
 				node := nodeList.Items[0]
 
-				_, ok := node.Status.Allocatable[services.KvmDevice]
+				kvmDevice := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetHypervisorDevice()
+				_, ok := node.Status.Allocatable[k8sv1.ResourceName(services.K8sDevicePrefix+"/"+kvmDevice)]
 				Expect(ok).To(BeTrue(), "KVM devices not allocatable on node: %s", node.Name)
 
-				_, ok = node.Status.Capacity[services.KvmDevice]
+				_, ok = node.Status.Capacity[k8sv1.ResourceName(services.K8sDevicePrefix+"/"+kvmDevice)]
 				Expect(ok).To(BeTrue(), "No Capacity for KVM devices on node: %s", node.Name)
 			})
 		})

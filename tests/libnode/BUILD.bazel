@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
+        "//pkg/hypervisor:go_default_library",
         "//pkg/util/nodes:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-controller/services:go_default_library",

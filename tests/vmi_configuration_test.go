@@ -47,6 +47,8 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
+	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -1293,8 +1295,9 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				requestWithoutHeadroom := getComputeMemoryRequest(vmiWithoutHeadroom)
 				requestWithHeadroom := getComputeMemoryRequest(vmiWithHeadroom)
 
-				overheadWithoutHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, nil)
-				overheadWithHeadroom := services.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, pointer.P(ratio))
+				kvmLauncherRenderer := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName)
+				overheadWithoutHeadroom := kvmLauncherRenderer.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, nil)
+				overheadWithHeadroom := kvmLauncherRenderer.GetMemoryOverhead(vmiWithoutHeadroom, runtime.GOARCH, pointer.P(ratio))
 
 				expectedDiffBetweenRequests := overheadWithHeadroom.DeepCopy()
 				expectedDiffBetweenRequests.Sub(overheadWithoutHeadroom)
@@ -1618,7 +1621,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					libvmi.WithCPUCount(1, 1, 1),
 				)
 
-				vmiPodRequest := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+				vmiPodRequest := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, nil)
 				vmiPodRequest.Add(vmiRequest)
 				value := int64(float64(vmiPodRequest.Value()) * services.DefaultMemoryLimitOverheadRatio)
 
@@ -2404,11 +2407,11 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			}
 
 			By("Ensuring no process is using too much ram")
-			doesntExceedMemoryUsage(&processRss, "virt-launcher-monitor", resource.MustParse(services.VirtLauncherMonitorOverhead))
-			doesntExceedMemoryUsage(&processRss, "virt-launcher", resource.MustParse(services.VirtLauncherOverhead))
-			doesntExceedMemoryUsage(&processRss, "virtlogd", resource.MustParse(services.VirtlogdOverhead))
-			doesntExceedMemoryUsage(&processRss, "virtqemud", resource.MustParse(services.VirtqemudOverhead))
-			qemuExpected := resource.MustParse(services.QemuOverhead)
+			doesntExceedMemoryUsage(&processRss, "virt-launcher-monitor", resource.MustParse(kvm.VirtLauncherMonitorOverhead))
+			doesntExceedMemoryUsage(&processRss, "virt-launcher", resource.MustParse(kvm.VirtLauncherOverhead))
+			doesntExceedMemoryUsage(&processRss, "virtlogd", resource.MustParse(kvm.VirtlogdOverhead))
+			doesntExceedMemoryUsage(&processRss, "virtqemud", resource.MustParse(kvm.VirtqemudOverhead))
+			qemuExpected := resource.MustParse(kvm.QemuOverhead)
 			qemuExpected.Add(vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory])
 			doesntExceedMemoryUsage(&processRss, "qemu", qemuExpected)
 		})
