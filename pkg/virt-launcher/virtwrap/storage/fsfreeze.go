@@ -26,17 +26,55 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+	"libvirt.org/go/libvirt"
 
 	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
+
+// fsFreezeRequestTimeoutSec is the timeout for the fsfreeze request, which may
+// take time depending on I/O load and pending disk flushes.
+const fsFreezeRequestTimeoutSec = 60
+
+func (m *StorageManager) IsFreezeInProgress() bool {
+	return m.freezeInProgress.Load()
+}
+
+// executeFreeze sets a timeout for the guest agent, marks freeze in progress,
+// and executes FSFreeze.
+func (m *StorageManager) executeFreeze(domain cli.VirDomain) error {
+	if m.IsFreezeInProgress() {
+		return fmt.Errorf("freeze already in progress")
+	}
+
+	if err := domain.AgentSetResponseTimeout(fsFreezeRequestTimeoutSec, 0); err != nil {
+		return fmt.Errorf("failed to set freeze timeout: %w", err)
+	}
+
+	m.freezeInProgress.Store(true)
+	defer func() {
+		m.freezeInProgress.Store(false)
+		if err := domain.AgentSetResponseTimeout(int(libvirt.DOMAIN_AGENT_RESPONSE_TIMEOUT_DEFAULT), 0); err != nil {
+			log.Log.Warningf("Failed to reset agent timeout after freeze: %v", err)
+		}
+	}()
+
+	return domain.FSFreeze(nil, 0)
+}
 
 func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
 	if m.MigrationInProgress() {
 		return fmt.Errorf("failed to freeze VMI, VMI is currently during migration")
 	}
+
+	// idempotent - return early if freeze is already in progress
+	if m.IsFreezeInProgress() {
+		return nil
+	}
+
 	domainName := api.VMINamespaceKeyFunc(vmi)
 	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
 
@@ -70,7 +108,7 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 	}
 	defer domain.Free()
 
-	if err := domain.FSFreeze(nil, 0); err != nil {
+	if err := m.executeFreeze(domain); err != nil {
 		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
 		return err
 	}

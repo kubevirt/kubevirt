@@ -863,9 +863,11 @@ func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotPausedIndication)
 		} else if source.GuestAgent() {
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
+			// Add QuiesceFailed only for VSS timeout errors, not transient freeze failures
+			// which are retried and may succeed.
 			snapErr := snapshot.Status.Error
 			if snapErr != nil && snapErr.Message != nil &&
-				strings.Contains(*snapErr.Message, failedFreezeMsg) {
+				strings.Contains(*snapErr.Message, VSSFreezeLimitReached) {
 				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceFailedIndication)
 			}
 		} else {

@@ -236,6 +236,7 @@ var _ = Describe("Backup", func() {
 			It("should freeze, start backup, and thaw", func() {
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+				mockDomain.EXPECT().AgentSetResponseTimeout(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().FSThaw(gomock.Any(), gomock.Any()).Return(nil)
@@ -261,6 +262,7 @@ var _ = Describe("Backup", func() {
 			It("should continue backup without freeze and skip thaw", func() {
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+				mockDomain.EXPECT().AgentSetResponseTimeout(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(fmt.Errorf("freeze error"))
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 				// FSThaw should NOT be called since freeze failed
@@ -280,6 +282,7 @@ var _ = Describe("Backup", func() {
 			It("should record thaw failure in metadata", func() {
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+				mockDomain.EXPECT().AgentSetResponseTimeout(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().FSThaw(gomock.Any(), gomock.Any()).Return(fmt.Errorf("thaw error"))
@@ -301,6 +304,7 @@ var _ = Describe("Backup", func() {
 
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+				mockDomain.EXPECT().AgentSetResponseTimeout(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 				mockDomain.EXPECT().FSFreeze(gomock.Any(), gomock.Any()).Return(nil)
 				mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(fmt.Errorf("backup begin failed"))
 				mockDomain.EXPECT().FSThaw(gomock.Any(), gomock.Any()).Return(nil)
