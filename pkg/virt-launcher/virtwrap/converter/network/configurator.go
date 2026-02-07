@@ -96,21 +96,16 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		Alias: api.NewUserDefinedAlias(iface.Name),
 	}
 
+	if err := applyGenericInterfaceConfig(&domainIface, iface); err != nil {
+		return api.Interface{}, err
+	}
+
+	if iface.PasstBinding != nil {
+		return createPasstInterface(&domainIface, vmi, iface)
+	}
+
 	if queueCount := uint(calculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
 		domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
-	}
-
-	// Add a pciAddress if specified
-	if iface.PciAddress != "" {
-		addr, err := device.NewPciAddressField(iface.PciAddress)
-		if err != nil {
-			return domainIface, fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
-		}
-		domainIface.Address = addr
-	}
-
-	if iface.ACPIIndex > 0 {
-		domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
 	}
 
 	if d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap) {
@@ -142,6 +137,26 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		domainIface.LinkState = &api.LinkState{State: "down"}
 	}
 	return domainIface, nil
+}
+
+func applyGenericInterfaceConfig(domainIface *api.Interface, iface *v1.Interface) error {
+	if iface.PciAddress != "" {
+		addr, err := device.NewPciAddressField(iface.PciAddress)
+		if err != nil {
+			return fmt.Errorf("failed to configure PCI address: %v", err)
+		}
+		domainIface.Address = addr
+	}
+
+	if iface.MacAddress != "" {
+		domainIface.MAC = &api.MAC{MAC: iface.MacAddress}
+	}
+
+	if iface.ACPIIndex > 0 {
+		domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
+	}
+
+	return nil
 }
 
 func WithDomainAttachmentByInterfaceName(domainAttachmentByInterfaceName map[string]string) option {

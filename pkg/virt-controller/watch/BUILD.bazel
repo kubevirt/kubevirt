@@ -20,6 +20,7 @@ go_library(
         "//pkg/network/migration:go_default_library",
         "//pkg/network/netbinding:go_default_library",
         "//pkg/network/pod/annotations:go_default_library",
+        "//pkg/network/resources:go_default_library",
         "//pkg/service:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/storage/export/export:go_default_library",

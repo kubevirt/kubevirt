@@ -6559,6 +6559,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   please refer to Kubevirt user guide for alternatives.
                                   Deprecated: Removed in v1.3
                                 type: object
+                              passtBinding:
+                                description: InterfacePasstBinding connects to a given
+                                  network using passt usermode networking.
+                                type: object
                               pciAddress:
                                 description: 'If specified, the virtual network interface
                                   will be placed on the guests pci address with the
@@ -12435,6 +12439,10 @@ var CRDsValidation map[string]string = map[string]string{
                           please refer to Kubevirt user guide for alternatives.
                           Deprecated: Removed in v1.3
                         type: object
+                      passtBinding:
+                        description: InterfacePasstBinding connects to a given network
+                          using passt usermode networking.
+                        type: object
                       pciAddress:
                         description: 'If specified, the virtual network interface
                           will be placed on the guests pci address with the specified
@@ -16275,6 +16283,10 @@ var CRDsValidation map[string]string = map[string]string{
                           please refer to Kubevirt user guide for alternatives.
                           Deprecated: Removed in v1.3
                         type: object
+                      passtBinding:
+                        description: InterfacePasstBinding connects to a given network
+                          using passt usermode networking.
+                        type: object
                       pciAddress:
                         description: 'If specified, the virtual network interface
                           will be placed on the guests pci address with the specified
@@ -18787,6 +18799,10 @@ var CRDsValidation map[string]string = map[string]string{
                                   DeprecatedPasst is an alias to the deprecated Passt interface,
                                   please refer to Kubevirt user guide for alternatives.
                                   Deprecated: Removed in v1.3
+                                type: object
+                              passtBinding:
+                                description: InterfacePasstBinding connects to a given
+                                  network using passt usermode networking.
                                 type: object
                               pciAddress:
                                 description: 'If specified, the virtual network interface
@@ -23810,6 +23826,11 @@ var CRDsValidation map[string]string = map[string]string{
                                           DeprecatedPasst is an alias to the deprecated Passt interface,
                                           please refer to Kubevirt user guide for alternatives.
                                           Deprecated: Removed in v1.3
+                                        type: object
+                                      passtBinding:
+                                        description: InterfacePasstBinding connects
+                                          to a given network using passt usermode
+                                          networking.
                                         type: object
                                       pciAddress:
                                         description: 'If specified, the virtual network
@@ -29299,6 +29320,11 @@ var CRDsValidation map[string]string = map[string]string{
                                               DeprecatedPasst is an alias to the deprecated Passt interface,
                                               please refer to Kubevirt user guide for alternatives.
                                               Deprecated: Removed in v1.3
+                                            type: object
+                                          passtBinding:
+                                            description: InterfacePasstBinding connects
+                                              to a given network using passt usermode
+                                              networking.
                                             type: object
                                           pciAddress:
                                             description: 'If specified, the virtual

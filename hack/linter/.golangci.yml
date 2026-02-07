@@ -107,6 +107,7 @@ linters:
       - examples$
       - (^|/)vendor/
       - tests/network/bindingplugin_macvtap\.go$
+      - tests/network/bindingplugin_passt\.go$
       - tests/network/bindingplugin_slirp\.go$
       - tests/network/dual_stack_cluster\.go$
       - tests/network/framework\.go$
@@ -114,6 +115,7 @@ linters:
       - tests/network/hotplug_sriov\.go$
       - tests/network/link_state\.go$
       - tests/network/networkpolicy\.go$
+      - tests/network/passt\.go$
       - tests/network/port_forward\.go$
       - tests/network/primary_pod_network\.go$
       - tests/network/probes\.go$
