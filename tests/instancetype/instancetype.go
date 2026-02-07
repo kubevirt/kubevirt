@@ -268,6 +268,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 
 			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.BeReady())
 
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(clusterInstancetype.Spec.CPU.Guest))
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Cores).To(Equal(uint32(1)))
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Threads).To(Equal(uint32(1)))
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(clusterInstancetype.Spec.Memory.Guest))
+
 			_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
@@ -326,6 +336,16 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(matcher.ThisVM(vm)).WithTimeout(timeout).WithPolling(time.Second).Should(matcher.BeReady())
+
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(vm.Status.InstancetypeRef).ToNot(BeNil())
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(instancetype.Spec.CPU.Guest))
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Cores).To(Equal(uint32(1)))
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Threads).To(Equal(uint32(1)))
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(instancetype.Spec.Memory.Guest))
 
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vm.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -527,6 +547,7 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			By("Creating a VirtualMachineInstancetype")
 			instancetype := builder.NewInstancetypeFromVMI(vmi)
 			originalInstancetypeCPUGuest := instancetype.Spec.CPU.Guest
+			originalInstancetypeMemoryGuest := instancetype.Spec.Memory.Guest.DeepCopy()
 			instancetype, err := virtClient.VirtualMachineInstancetype(testsuite.GetTestNamespace(instancetype)).
 				Create(context.Background(), instancetype, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -562,6 +583,13 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 			stashedInstancetype := &instancetypev1beta1.VirtualMachineInstancetype{}
 			Expect(json.Unmarshal(instancetypeRevision.Data.Raw, stashedInstancetype)).To(Succeed())
 			Expect(stashedInstancetype.Spec).To(Equal(instancetype.Spec))
+
+			By("Checking that InstancetypeStatusResources has been populated in the VirtualMachine status")
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources).ToNot(BeNil())
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Sockets).To(Equal(originalInstancetypeCPUGuest))
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Cores).To(Equal(uint32(1)))
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.CPU.Threads).To(Equal(uint32(1)))
+			Expect(vm.Status.InstancetypeRef.InstancetypeStatusResources.Memory).To(Equal(originalInstancetypeMemoryGuest))
 
 			preferenceRevision, err := virtClient.AppsV1().ControllerRevisions(testsuite.GetTestNamespace(vm)).Get(context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())

@@ -16,7 +16,6 @@
  * Copyright The KubeVirt Authors.
  *
  */
-//nolint:dupl
 package revision
 
 import (
@@ -90,6 +89,7 @@ func syncStatusWithMatcher(
 	// from the matcher or to store a copy of the new resource the matcher is pointing at.
 	if clearControllerRevisionRef {
 		statusRef.ControllerRevisionRef = nil
+		statusRef.InstancetypeStatusResources = nil
 	}
 
 	syncInferFromVolumeFailurePolicy(matcher, statusRef)
@@ -140,12 +140,43 @@ func (h *revisionHandler) storeInstancetypeRevision(vm *virtv1.VirtualMachine) (
 		return nil, err
 	}
 
+	// Populate InstancetypeStatusResources if not already set
+	if statusRef.InstancetypeStatusResources == nil {
+		if err := h.populateInstancetypeStatusResources(vm, statusRef); err != nil {
+			return nil, err
+		}
+	}
+
 	if equality.Semantic.DeepEqual(vm.Status.InstancetypeRef, statusRef) {
 		return nil, nil
 	}
 
 	vm.Status.InstancetypeRef = statusRef
 	return vm.Status.InstancetypeRef, nil
+}
+
+func (h *revisionHandler) populateInstancetypeStatusResources(
+	vm *virtv1.VirtualMachine,
+	statusRef *virtv1.InstancetypeStatusRef,
+) error {
+	vmApplier := apply.NewVMApplier(
+		find.NewSpecFinder(h.clusterInstancetypeStore, h.instancetypeStore, h.revisionStore, h.virtClient),
+		preferenceFind.NewSpecFinder(h.clusterPreferenceStore, h.preferenceStore, h.revisionStore, h.virtClient),
+	)
+	vmCopy := vm.DeepCopy()
+	if err := vmApplier.ApplyToVM(vmCopy); err != nil {
+		return err
+	}
+
+	statusRef.InstancetypeStatusResources = &virtv1.InstancetypeStatusResources{
+		CPU: virtv1.CPUTopology{
+			Cores:   vmCopy.Spec.Template.Spec.Domain.CPU.Cores,
+			Sockets: vmCopy.Spec.Template.Spec.Domain.CPU.Sockets,
+			Threads: vmCopy.Spec.Template.Spec.Domain.CPU.Threads,
+		},
+		Memory: vmCopy.Spec.Template.Spec.Domain.Memory.Guest.DeepCopy(),
+	}
+	return nil
 }
 
 func (h *revisionHandler) createInstancetypeRevision(vm *virtv1.VirtualMachine) (*appsv1.ControllerRevision, error) {
