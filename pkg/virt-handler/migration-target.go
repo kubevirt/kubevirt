@@ -70,10 +70,6 @@ type netBindingPluginMemoryCalculator interface {
 	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
 }
 
-type passtRepairTargetHandler interface {
-	HandleMigrationTarget(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
-}
-
 type MigrationTargetController struct {
 	*BaseController
 	capabilities                     *libvirtxml.Caps
@@ -82,7 +78,7 @@ type MigrationTargetController struct {
 	migrationIpAddress               string
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
 	netConf                          netconf
-	passtRepairHandler               passtRepairTargetHandler
+	passtRepairController            netMigrationCoordinator
 }
 
 func NewMigrationTargetController(
@@ -103,7 +99,7 @@ func NewMigrationTargetController(
 	netConf netconf,
 	netStat netstat,
 	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator,
-	passtRepairHandler passtRepairTargetHandler,
+	passtRepairController netMigrationCoordinator,
 ) (*MigrationTargetController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -149,7 +145,7 @@ func NewMigrationTargetController(
 		migrationIpAddress:               migrationIpAddress,
 		netBindingPluginMemoryCalculator: netBindingPluginMemoryCalculator,
 		netConf:                          netConf,
-		passtRepairHandler:               passtRepairHandler,
+		passtRepairController:            passtRepairController,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -733,8 +729,8 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 
 	if c.clusterConfig.PasstIPStackMigrationEnabled() {
-		if err := c.passtRepairHandler.HandleMigrationTarget(vmi, c.passtSocketDirOnHostForVMI); err != nil {
-			c.logger.Object(vmi).Warningf("failed to call passt-repair for migration target, %v", err)
+		if err := c.passtRepairController.MigrationTargetRun(vmi, c.passtSocketDirOnHostForVMI); err != nil {
+			c.logger.Object(vmi).Warningf("failed to call passt-repair for migration source, %v", err)
 		}
 	}
 
