@@ -116,10 +116,10 @@ var _ = Describe(SIG("Backup", func() {
 		)
 
 		dv := libdv.NewDataVolume(
-			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
 			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 			libdv.WithStorage(
-				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+				libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
 			),
 		)
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
@@ -133,10 +133,10 @@ var _ = Describe(SIG("Backup", func() {
 		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
 
-		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
-		incrementalBackupPVC := libstorage.CreateFSPVC("incremental-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.FedoraVolumeSize), libstorage.WithStorageProfile())
+		incrementalBackupPVC := libstorage.CreateFSPVC("incremental-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.FedoraVolumeSize), libstorage.WithStorageProfile())
 
-		expectedDiskSize := resource.MustParse(cd.AlpineVolumeSize)
+		expectedDiskSize := resource.MustParse(cd.FedoraVolumeSize)
 
 		By("Creating BackupTracker")
 		tracker := createBackupTracker(virtClient, vm)
@@ -161,7 +161,7 @@ var _ = Describe(SIG("Backup", func() {
 		By(fmt.Sprintf("Writing %dMB of data to VM disk before incremental backup", testDataSizeMB))
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should be able to login to Alpine VM")
+		Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to Fedora VM")
 		// Write random data to root home directory (on disk) not /tmp (which is tmpfs/RAM)
 		// Use /dev/urandom instead of /dev/zero to ensure data is actually written to QCOW2 (not optimized as sparse zeros)
 		err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/root/testfile bs=1M count=%d && sync", testDataSizeMB), 2*time.Minute)
@@ -187,7 +187,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
 	})
 
-	It("[QUARANTINE]Full and Incremental Backup with 2 disks", decorators.Quarantine, func() {
+	FIt("Full and Incremental Backup with 2 disks", func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
@@ -195,10 +195,10 @@ var _ = Describe(SIG("Backup", func() {
 		)
 
 		bootDv := libdv.NewDataVolume(
-			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
 			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
 			libdv.WithStorage(
-				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+				libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
 			),
 		)
 
@@ -214,6 +214,8 @@ var _ = Describe(SIG("Backup", func() {
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
+		vm.Spec.Template.Spec.Domain.Devices.LogSerialConsole = pointer.P(true)
+		vm.Spec.Template.ObjectMeta.Annotations["kubevirt.io/libvirt-log-filters"] = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
 
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
 		libstorage.AddDataVolume(vm, "disk1", blankDv)
@@ -225,7 +227,7 @@ var _ = Describe(SIG("Backup", func() {
 		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
 
 		// Calculate PVC sizes for full and incremental backups
-		totalSize := resource.MustParse(cd.AlpineVolumeSize)
+		totalSize := resource.MustParse(cd.FedoraVolumeSize)
 		blankSize := resource.MustParse(blankDiskSize)
 		totalSize.Add(blankSize)
 		fullBackupPVCSize := getTargetPVCSizeWithOverhead(totalSize.String())
@@ -233,7 +235,7 @@ var _ = Describe(SIG("Backup", func() {
 		fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), fullBackupPVCSize, libstorage.WithStorageProfile())
 		incrementalBackupPVC := libstorage.CreateFSPVC("incremental-backup-pvc", testsuite.GetTestNamespace(vm), fullBackupPVCSize, libstorage.WithStorageProfile())
 
-		expectedBootDiskSize := resource.MustParse(cd.AlpineVolumeSize)
+		expectedBootDiskSize := resource.MustParse(cd.FedoraVolumeSize)
 		expectedBlankDiskSize := resource.MustParse(blankDiskSize)
 
 		By("Creating BackupTracker")
@@ -259,7 +261,7 @@ var _ = Describe(SIG("Backup", func() {
 		By(fmt.Sprintf("Writing %dMB of data to boot disk before incremental backup", testDataSizeMB))
 		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should be able to login to Alpine VM")
+		Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to Fedora VM")
 
 		// Write random data to root home directory on boot disk
 		err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/root/testfile bs=1M count=%d && sync", testDataSizeMB), 2*time.Minute)
