@@ -1354,31 +1354,6 @@ var _ = Describe("Template", func() {
 				})
 			})
 
-			Context("When scheduling TDX workloads", func() {
-				var vmi *v1.VirtualMachineInstance
-
-				BeforeEach(func() {
-					config, kvStore, svc = configFactory(defaultArch)
-					vmi = api.NewMinimalVMI("testvmi")
-				})
-
-				It("should add TDX node label selector with TDX workload", func() {
-					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{TDX: &v1.TDX{}}
-
-					pod, err := svc.RenderLaunchManifest(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.TDXLabel, "true"))
-				})
-
-				It("should not add TDX node label selector when no TDX workload", func() {
-					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
-
-					pod, err := svc.RenderLaunchManifest(vmi)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(pod.Spec.NodeSelector).To(Not(HaveKey(ContainSubstring(v1.TDXLabel))))
-				})
-			})
-
 			It("should not add node selector for hyperv nodes if VMI does not request hyperv features", func() {
 				config, kvStore, svc = configFactory(defaultArch)
 				enableFeatureGate(featuregate.HypervStrictCheckGate)
@@ -3539,6 +3514,39 @@ var _ = Describe("Template", func() {
 				val, ok := resources.Requests["vendor.com/dev_name"]
 				Expect(ok).To(BeTrue())
 				Expect(val).To(Equal(*resource.NewQuantity(1, resource.DecimalSI)))
+			})
+		})
+
+		Context("with TDX launch security", func() {
+			const tdxResource = "devices.kubevirt.io/tdx"
+
+			It("should add TDX device resource for VMI with TDX workload", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := api.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{TDX: &v1.TDX{}}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resources := pod.Spec.Containers[0].Resources
+				val, ok := resources.Limits[k8sv1.ResourceName(tdxResource)]
+				Expect(ok).To(BeTrue())
+				Expect(val).To(Equal(*resource.NewQuantity(1, resource.DecimalSI)))
+			})
+
+			It("should not add TDX device resource when no TDX workload", func() {
+				config, kvStore, svc = configFactory(defaultArch)
+				vmi := api.NewMinimalVMI("testvmi")
+				vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+
+				pod, err := svc.RenderLaunchManifest(vmi)
+				Expect(err).ToNot(HaveOccurred())
+
+				resources := pod.Spec.Containers[0].Resources
+				val, ok := resources.Limits[k8sv1.ResourceName(tdxResource)]
+				if ok {
+					Expect(val).To(Equal(*resource.NewQuantity(0, resource.DecimalSI)))
+				}
 			})
 		})
 

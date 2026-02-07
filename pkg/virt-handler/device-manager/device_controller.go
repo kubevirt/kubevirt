@@ -20,9 +20,12 @@
 package device_manager
 
 import (
+	"bufio"
 	"fmt"
 	"math"
 	"os"
+	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -33,6 +36,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
@@ -122,6 +126,11 @@ type DeviceControllerInterface interface {
 	RefreshMediatedDeviceTypes()
 }
 
+type tdxConfigState struct {
+	socketPath string
+	requireQGS bool
+}
+
 type DeviceController struct {
 	permanentPlugins    map[string]Device
 	startedPlugins      map[string]controlledDevice
@@ -134,6 +143,7 @@ type DeviceController struct {
 	mdevTypesManager    *MDEVTypesManager
 	nodeStore           cache.Store
 	mdevRefreshWG       *sync.WaitGroup
+	lastTDXConfig       *tdxConfigState
 }
 
 func NewDeviceController(
@@ -171,11 +181,59 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 	return err == nil
 }
 
+var teeCapacityPath = path.Join(util.HostRootMount, "/sys/fs/cgroup/misc.capacity")
+
+func getMiscCapacity(key string) int {
+	f, err := os.Open(teeCapacityPath)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+	// File has lines in the format: "key [capacity]"
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Fields(line)
+		if len(parts) != 2 {
+			continue
+		}
+		if parts[0] == key {
+			capacity, err := strconv.Atoi(parts[1])
+			if err != nil {
+				log.Log.Reason(err).Errorf("failed to parse \"%s\" for its capacity value", line)
+				return 0
+			}
+			return capacity
+		}
+	}
+	return 0
+}
+
 // updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
 func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	var permittedDevices []Device
 
-	var featureGatedDevices = []struct {
+	if maxTDXVMs := getMiscCapacity("tdx"); c.virtConfig.WorkloadEncryptionTDXEnabled() && maxTDXVMs > 0 {
+		// Pass the socket path without the HostRootMount prefix - socket_device.go will add it
+		socketPath := c.virtConfig.GetQGSSocketPath()
+		socketDir := path.Dir(socketPath)
+		socketFile := path.Base(socketPath)
+		var tdxPlugin Device
+		var err error
+		if c.virtConfig.RequireQGS() {
+			tdxPlugin, err = NewSocketDevicePlugin("tdx", socketDir, socketFile, maxTDXVMs, selinux.SELinuxExecutor{}, NewPermissionManager(), true)
+		} else {
+			tdxPlugin = NewOptionalSocketDevicePlugin("tdx", socketDir, socketFile, maxTDXVMs, selinux.SELinuxExecutor{}, NewPermissionManager(), true)
+		}
+
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to configure the TDX-QGS device plugin")
+		} else {
+			permittedDevices = append(permittedDevices, tdxPlugin)
+		}
+	}
+
+	var featureGatedGenericDevices = []struct {
 		Name      string
 		Path      string
 		IsAllowed func() bool
@@ -183,7 +241,8 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 		{"sev", "/dev/sev", c.virtConfig.WorkloadEncryptionSEVEnabled},
 		{"vhost-vsock", "/dev/vhost-vsock", c.virtConfig.VSOCKEnabled},
 	}
-	for _, dev := range featureGatedDevices {
+
+	for _, dev := range featureGatedGenericDevices {
 		if dev.IsAllowed() {
 			permittedDevices = append(
 				permittedDevices,
@@ -193,7 +252,7 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	}
 
 	if c.virtConfig.PersistentReservationEnabled() {
-		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, NewPermissionManager())
+		d, err := NewSocketDevicePlugin(reservation.GetPrResourceName(), reservation.GetPrHelperSocketDir(), reservation.GetPrHelperSocket(), c.maxDevices, selinux.SELinuxExecutor{}, NewPermissionManager(), false)
 		if err != nil {
 			log.Log.Reason(err).Errorf("failed to configure the desired mdev types, failed to get node details")
 		} else {
@@ -343,6 +402,27 @@ func (c *DeviceController) getNode() (*k8sv1.Node, error) {
 	return node, nil
 }
 
+func (c *DeviceController) checkAndUpdateTDXConfig() bool {
+	if !c.virtConfig.WorkloadEncryptionTDXEnabled() {
+		// TDX not enabled, reset tracking
+		c.lastTDXConfig = nil
+		return false
+	}
+
+	currentTDXConfig := tdxConfigState{
+		socketPath: c.virtConfig.GetQGSSocketPath(),
+		requireQGS: c.virtConfig.RequireQGS(),
+	}
+
+	changed := c.lastTDXConfig == nil || *c.lastTDXConfig != currentTDXConfig
+
+	if changed {
+		c.lastTDXConfig = &currentTDXConfig
+	}
+
+	return changed
+}
+
 func (c *DeviceController) refreshPermittedDevices() {
 	c.mdevRefreshWG.Add(1)
 	logger := log.DefaultLogger()
@@ -356,6 +436,17 @@ func (c *DeviceController) refreshPermittedDevices() {
 	//   c.updatePermittedHostDevicePlugins() and write to below.
 	c.startedPluginsMutex.Lock()
 	defer c.startedPluginsMutex.Unlock()
+
+	// Check if QGS config changed and restart the QGS device plugin if needed
+	tdxResourceName := fmt.Sprintf("%s/%s", DeviceNamespace, "tdx")
+	if c.checkAndUpdateTDXConfig() {
+		if _, exists := c.startedPlugins[tdxResourceName]; exists {
+			logger.Infof("QGS config changed, restarting QGS device plugin")
+			// only call stopDevice here,
+			// startDevice will be called when updatePermittedHostDevicePlugins() is called
+			c.stopDevice(tdxResourceName)
+		}
+	}
 
 	enabledDevicePlugins, disabledDevicePlugins := c.splitPermittedDevices(
 		c.updatePermittedHostDevicePlugins(),

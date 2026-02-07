@@ -25,7 +25,6 @@ type NodeSelectorRenderer struct {
 	sevESEnabled           bool
 	SecureExecutionEnabled bool
 	sevSNPEnabled          bool
-	tdxEnabled             bool
 }
 
 type NodeSelectorRendererOption func(renderer *NodeSelectorRenderer)
@@ -88,9 +87,6 @@ func (nsr *NodeSelectorRenderer) Render() map[string]string {
 	if nsr.SecureExecutionEnabled {
 		nsr.enableSelectorLabel(v1.SecureExecutionLabel)
 	}
-	if nsr.tdxEnabled {
-		nsr.enableSelectorLabel(v1.TDXLabel)
-	}
 
 	return nsr.podNodeSelectors
 }
@@ -128,12 +124,6 @@ func WithSEVSNPSelector() NodeSelectorRendererOption {
 func WithSecureExecutionSelector() NodeSelectorRendererOption {
 	return func(renderer *NodeSelectorRenderer) {
 		renderer.SecureExecutionEnabled = true
-	}
-}
-
-func WithTDXSelector() NodeSelectorRendererOption {
-	return func(renderer *NodeSelectorRenderer) {
-		renderer.tdxEnabled = true
 	}
 }
 

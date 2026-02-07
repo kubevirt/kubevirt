@@ -81,6 +81,7 @@ const KvmDevice = "devices.kubevirt.io/kvm"
 const TunDevice = "devices.kubevirt.io/tun"
 const VhostNetDevice = "devices.kubevirt.io/vhost-net"
 const SevDevice = "devices.kubevirt.io/sev"
+const TdxDevice = "devices.kubevirt.io/tdx"
 const VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
 const PrDevice = "devices.kubevirt.io/pr-helper"
 
@@ -751,11 +752,6 @@ func (t *TemplateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance
 	if util.IsSecureExecutionVMI(vmi) {
 		log.Log.V(4).Info("Add Secure Execution node label selector")
 		opts = append(opts, WithSecureExecutionSelector())
-	}
-
-	if util.IsTDXVMI(vmi) {
-		log.Log.V(4).Info("Add TDX node label selector")
-		opts = append(opts, WithTDXSelector())
 	}
 
 	return NewNodeSelectorRenderer(
@@ -1566,6 +1562,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 				return t.clusterConfig.HostDevicesWithDRAEnabled() && isHostDevVMIDRA(vmi)
 			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
+			NewVMIResourceRule(util.IsTDXVMI, WithTDX()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 		},
 	}
