@@ -507,3 +507,7 @@ func GetHypervisorFromKvConfig(kvConfig *v1.KubeVirtConfiguration, configHypervi
 		Name: v1.KvmHypervisorName,
 	}
 }
+
+func (c *ClusterConfig) SecureGuestCapacityExtendedResourceEnabled() bool {
+	return false
+}
