@@ -393,7 +393,7 @@ oci_pull(
 
 oci_pull(
     name = "alpine-ext-kernel-boot-demo-container-base",
-    digest = "sha256:de4bc8de772ff7570e6dda871ea9cdd502feeeff1973f16f84bfbd60ff8f4149",
+    digest = "sha256:bccd990554f55623d96fa70bc7efc553dd617523ebca76919b917ad3ee616c1d",
     image = "quay.io/kubevirt/alpine-ext-kernel-boot-demo",
 )
 

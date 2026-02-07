@@ -235,7 +235,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			}
 		})
 
-		DescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when", func(vmi *v1.VirtualMachineInstance) {
+		DescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when", func(vmi *v1.VirtualMachineInstance, loginTo console.LoginToFunction) {
 			config.DisableFeatureGate(featuregate.ImageVolume)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			By("Fetching virt-launcher pod without ImageVolume")
@@ -259,23 +259,26 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				"with ImageVolume should not include container-disk-binary init container")
 
 			By("Expecting to be able to login")
-			Expect(console.LoginToAlpine(vmi)).To(Succeed())
+			Expect(loginTo(vmi)).To(Succeed())
 		},
 			Entry("using simple Alpine vmi",
 				libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				),
+				console.LoginToAlpine,
 			),
-			Entry("using  Alpine vmi with custom location", decorators.Periodic,
-				libvmifact.NewAlpine(
+			Entry("using Cirros vmi with custom location", decorators.Periodic,
+				libvmifact.NewCirros(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					overrideCustomLocation,
 				),
+				console.LoginToCirros,
 			),
-			Entry("using  Alpine vmi with kernel boot", decorators.Periodic,
+			Entry("using Alpine vmi with kernel boot", decorators.Periodic,
 				newAlpineWithKernelBoot(),
+				console.LoginToAlpine,
 			),
 		)
 	})
