@@ -24,7 +24,7 @@ import (
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	virtv1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -33,7 +33,7 @@ import (
 var _ = Describe("Instancetype.Spec.Annotations", func() {
 	var (
 		vmi              *virtv1.VirtualMachineInstance
-		instancetypeSpec *instancetypev1beta1.VirtualMachineInstancetypeSpec
+		instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec
 
 		vmiApplier = apply.NewVMIApplier()
 		field      = k8sfield.NewPath("spec", "template", "spec")
@@ -42,7 +42,7 @@ var _ = Describe("Instancetype.Spec.Annotations", func() {
 	BeforeEach(func() {
 		vmi = libvmi.New()
 
-		instancetypeSpec = &instancetypev1beta1.VirtualMachineInstancetypeSpec{
+		instancetypeSpec = &instancetypev1.VirtualMachineInstancetypeSpec{
 			Annotations: map[string]string{
 				"annotation-1": "1",
 				"annotation-2": "2",

@@ -28,12 +28,12 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/api"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
-	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1"
 	"kubevirt.io/client-go/log"
 	kvtesting "kubevirt.io/client-go/testing"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -4589,10 +4589,10 @@ var _ = Describe("VirtualMachine", func() {
 			var (
 				vm *v1.VirtualMachine
 
-				instancetypeObj *instancetypev1beta1.VirtualMachineInstancetype
-				preference      *instancetypev1beta1.VirtualMachinePreference
+				instancetypeObj *instancetypev1.VirtualMachineInstancetype
+				preference      *instancetypev1.VirtualMachinePreference
 
-				fakeInstancetypeClients       instancetypeclientset.InstancetypeV1beta1Interface
+				fakeInstancetypeClients       instancetypeclientset.InstancetypeV1Interface
 				fakeInstancetypeClient        instancetypeclientset.VirtualMachineInstancetypeInterface
 				fakeClusterInstancetypeClient instancetypeclientset.VirtualMachineClusterInstancetypeInterface
 				fakePreferenceClient          instancetypeclientset.VirtualMachinePreferenceInterface
@@ -4611,7 +4611,7 @@ var _ = Describe("VirtualMachine", func() {
 				// We need to clear the domainSpec here to ensure the instancetype doesn't conflict
 				vm.Spec.Template.Spec.Domain = v1.DomainSpec{}
 
-				fakeInstancetypeClients = fake.NewSimpleClientset().InstancetypeV1beta1()
+				fakeInstancetypeClients = fake.NewSimpleClientset().InstancetypeV1()
 
 				fakeInstancetypeClient = fakeInstancetypeClients.VirtualMachineInstancetypes(metav1.NamespaceDefault)
 				virtClient.EXPECT().VirtualMachineInstancetype(gomock.Any()).Return(fakeInstancetypeClient).AnyTimes()
@@ -4628,16 +4628,16 @@ var _ = Describe("VirtualMachine", func() {
 				k8sClient = k8sfake.NewSimpleClientset()
 				virtClient.EXPECT().AppsV1().Return(k8sClient.AppsV1()).AnyTimes()
 
-				instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
+				instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineInstancetype{})
 				instancetypeInformerStore = instancetypeInformer.GetStore()
 
-				clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
+				clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterInstancetype{})
 				clusterInstancetypeInformerStore = clusterInstancetypeInformer.GetStore()
 
-				preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
+				preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachinePreference{})
 				preferenceInformerStore = preferenceInformer.GetStore()
 
-				clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+				clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterPreference{})
 				clusterPreferenceInformerStore = clusterPreferenceInformer.GetStore()
 
 				controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
@@ -4654,9 +4654,9 @@ var _ = Describe("VirtualMachine", func() {
 					controller.recorder,
 				)
 
-				instancetypeObj = &instancetypev1beta1.VirtualMachineInstancetype{
+				instancetypeObj = &instancetypev1.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						APIVersion: instancetypev1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachineInstancetype",
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -4665,11 +4665,11 @@ var _ = Describe("VirtualMachine", func() {
 						UID:        resourceUID,
 						Generation: resourceGeneration,
 					},
-					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-						CPU: instancetypev1beta1.CPUInstancetype{
+					Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1.CPUInstancetype{
 							Guest: uint32(2),
 						},
-						Memory: instancetypev1beta1.MemoryInstancetype{
+						Memory: instancetypev1.MemoryInstancetype{
 							Guest: resource.MustParse("128M"),
 						},
 					},
@@ -4680,7 +4680,7 @@ var _ = Describe("VirtualMachine", func() {
 				err = instancetypeInformerStore.Add(instancetypeObj)
 				Expect(err).NotTo(HaveOccurred())
 
-				preference = &instancetypev1beta1.VirtualMachinePreference{
+				preference = &instancetypev1.VirtualMachinePreference{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:       "preference",
 						Namespace:  vm.Namespace,
@@ -4688,14 +4688,14 @@ var _ = Describe("VirtualMachine", func() {
 						Generation: resourceGeneration,
 					},
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						APIVersion: instancetypev1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachinePreference",
 					},
-					Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-						Firmware: &instancetypev1beta1.FirmwarePreferences{
-							DeprecatedPreferredUseEfi: pointer.P(true),
+					Spec: instancetypev1.VirtualMachinePreferenceSpec{
+						Firmware: &instancetypev1.FirmwarePreferences{
+							PreferredEfi: &v1.EFI{},
 						},
-						Devices: &instancetypev1beta1.DevicePreferences{
+						Devices: &instancetypev1.DevicePreferences{
 							PreferredDiskBus:        v1.DiskBusVirtio,
 							PreferredInterfaceModel: "virtio",
 							PreferredInputBus:       v1.InputBusUSB,
@@ -4806,25 +4806,25 @@ var _ = Describe("VirtualMachine", func() {
 
 			Context("preference", func() {
 				var (
-					clusterPreference *instancetypev1beta1.VirtualMachineClusterPreference
+					clusterPreference *instancetypev1.VirtualMachineClusterPreference
 				)
 
 				BeforeEach(func() {
-					clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
+					clusterPreference = &instancetypev1.VirtualMachineClusterPreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:       "clusterPreference",
 							UID:        resourceUID,
 							Generation: resourceGeneration,
 						},
 						TypeMeta: metav1.TypeMeta{
-							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+							APIVersion: instancetypev1.SchemeGroupVersion.String(),
 							Kind:       "VirtualMachineClusterPreference",
 						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							Firmware: &instancetypev1beta1.FirmwarePreferences{
-								DeprecatedPreferredUseEfi: pointer.P(true),
+						Spec: instancetypev1.VirtualMachinePreferenceSpec{
+							Firmware: &instancetypev1.FirmwarePreferences{
+								PreferredEfi: &v1.EFI{},
 							},
-							Devices: &instancetypev1beta1.DevicePreferences{
+							Devices: &instancetypev1.DevicePreferences{
 								PreferredDiskBus:        v1.DiskBusVirtio,
 								PreferredInterfaceModel: "virtio",
 								PreferredInputBus:       v1.InputBusUSB,
@@ -4870,15 +4870,15 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should apply preferredAutoattachPodInterface and skip adding default network interface", func() {
 
-					autoattachPodInterfacePreference := &instancetypev1beta1.VirtualMachinePreference{
+					autoattachPodInterfacePreference := &instancetypev1.VirtualMachinePreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:       "autoattachPodInterfacePreference",
 							Namespace:  vm.Namespace,
 							UID:        resourceUID,
 							Generation: resourceGeneration,
 						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							Devices: &instancetypev1beta1.DevicePreferences{
+						Spec: instancetypev1.VirtualMachinePreferenceSpec{
+							Devices: &instancetypev1.DevicePreferences{
 								PreferredAutoattachPodInterface: pointer.P(false),
 							},
 						},
@@ -4999,15 +4999,15 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should apply preferences to preferredAutoattachInputDevice attached input device", func() {
 
-					autoattachInputDevicePreference := &instancetypev1beta1.VirtualMachinePreference{
+					autoattachInputDevicePreference := &instancetypev1.VirtualMachinePreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:       "autoattachInputDevicePreference",
 							Namespace:  vm.Namespace,
 							UID:        resourceUID,
 							Generation: resourceGeneration,
 						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							Devices: &instancetypev1beta1.DevicePreferences{
+						Spec: instancetypev1.VirtualMachinePreferenceSpec{
+							Devices: &instancetypev1.DevicePreferences{
 								PreferredAutoattachInputDevice: pointer.P(true),
 								PreferredInputBus:              v1.InputBusVirtio,
 								PreferredInputType:             v1.InputTypeTablet,
@@ -5045,15 +5045,15 @@ var _ = Describe("VirtualMachine", func() {
 
 				It("should apply preferredAutoattachInputDevice and skip adding default input device", func() {
 
-					autoattachInputDevicePreference := &instancetypev1beta1.VirtualMachinePreference{
+					autoattachInputDevicePreference := &instancetypev1.VirtualMachinePreference{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:       "preferredAutoattachInputDevicePreference",
 							Namespace:  vm.Namespace,
 							UID:        resourceUID,
 							Generation: resourceGeneration,
 						},
-						Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-							Devices: &instancetypev1beta1.DevicePreferences{
+						Spec: instancetypev1.VirtualMachinePreferenceSpec{
+							Devices: &instancetypev1.DevicePreferences{
 								PreferredAutoattachInputDevice: pointer.P(false),
 							},
 						},
@@ -6087,7 +6087,7 @@ var _ = Describe("VirtualMachine", func() {
 
 					controllerrevisionInformerStore cache.Store
 
-					originalInstancetype *instancetypev1beta1.VirtualMachineInstancetype
+					originalInstancetype *instancetypev1.VirtualMachineInstancetype
 				)
 
 				BeforeEach(func() {
@@ -6097,9 +6097,9 @@ var _ = Describe("VirtualMachine", func() {
 					controllerrevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 					controllerrevisionInformerStore = controllerrevisionInformer.GetStore()
 
-					originalInstancetype = &instancetypev1beta1.VirtualMachineInstancetype{
+					originalInstancetype = &instancetypev1.VirtualMachineInstancetype{
 						TypeMeta: metav1.TypeMeta{
-							APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+							APIVersion: instancetypev1.SchemeGroupVersion.String(),
 							Kind:       "VirtualMachineInstancetype",
 						},
 						ObjectMeta: metav1.ObjectMeta{
@@ -6108,11 +6108,11 @@ var _ = Describe("VirtualMachine", func() {
 							UID:        resourceUID,
 							Generation: resourceGeneration,
 						},
-						Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-							CPU: instancetypev1beta1.CPUInstancetype{
+						Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+							CPU: instancetypev1.CPUInstancetype{
 								Guest: uint32(2),
 							},
-							Memory: instancetypev1beta1.MemoryInstancetype{
+							Memory: instancetypev1.MemoryInstancetype{
 								Guest: resource.MustParse("128M"),
 							},
 						},

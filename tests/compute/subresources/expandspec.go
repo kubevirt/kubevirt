@@ -29,7 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
@@ -52,8 +52,8 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 
 	Context("instancetype", func() {
 		var (
-			instancetype               *instancetypev1beta1.VirtualMachineInstancetype
-			clusterInstancetype        *instancetypev1beta1.VirtualMachineClusterInstancetype
+			instancetype               *instancetypev1.VirtualMachineInstancetype
+			clusterInstancetype        *instancetypev1.VirtualMachineClusterInstancetype
 			instancetypeMatcher        *v1.InstancetypeMatcher
 			clusterInstancetypeMatcher *v1.InstancetypeMatcher
 			expectedCpu                *v1.CPU
@@ -198,8 +198,8 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 
 	Context("preference", func() {
 		var (
-			preference        *instancetypev1beta1.VirtualMachinePreference
-			clusterPreference *instancetypev1beta1.VirtualMachineClusterPreference
+			preference        *instancetypev1.VirtualMachinePreference
+			clusterPreference *instancetypev1.VirtualMachineClusterPreference
 
 			preferenceMatcher        *v1.PreferenceMatcher
 			clusterPreferenceMatcher *v1.PreferenceMatcher
@@ -215,7 +215,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 		BeforeEach(func() {
 			var err error
 			preference = instancetypebuilder.NewPreference()
-			preference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
+			preference.Spec.Devices = &instancetypev1.DevicePreferences{
 				PreferredAutoattachSerialConsole: pointer.P(true),
 			}
 			preference, err = virtClient.VirtualMachinePreference(testsuite.GetTestNamespace(preference)).
@@ -227,7 +227,7 @@ var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInst
 			}
 
 			clusterPreference = instancetypebuilder.NewClusterPreference()
-			clusterPreference.Spec.Devices = &instancetypev1beta1.DevicePreferences{
+			clusterPreference.Spec.Devices = &instancetypev1.DevicePreferences{
 				PreferredAutoattachSerialConsole: pointer.P(true),
 			}
 			clusterPreference, err = virtClient.VirtualMachineClusterPreference().

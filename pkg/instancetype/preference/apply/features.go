@@ -21,10 +21,10 @@ package apply
 
 import (
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 )
 
-func applyFeaturePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyFeaturePreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Features == nil {
 		return
 	}
@@ -59,7 +59,10 @@ func applyFeaturePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpe
 	}
 }
 
-func applyHyperVFeaturePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyHyperVFeaturePreferences(
+	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+) {
 	if vmiSpec.Domain.Features.Hyperv == nil {
 		vmiSpec.Domain.Features.Hyperv = &virtv1.FeatureHyperv{}
 	}

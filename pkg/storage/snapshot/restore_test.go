@@ -44,7 +44,7 @@ import (
 
 	kubevirtv1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -2114,10 +2114,10 @@ var _ = Describe("Restore controller", func() {
 				originalVM             *kubevirtv1.VirtualMachine
 				vmSnapshotContent      *snapshotv1.VirtualMachineSnapshotContent
 				restore                *snapshotv1.VirtualMachineRestore
-				instancetypeObj        *instancetypev1beta1.VirtualMachineInstancetype
+				instancetypeObj        *instancetypev1.VirtualMachineInstancetype
 				instancetypeSnapshotCR *appsv1.ControllerRevision
 				instancetypeOriginalCR *appsv1.ControllerRevision
-				preferenceObj          *instancetypev1beta1.VirtualMachinePreference
+				preferenceObj          *instancetypev1.VirtualMachinePreference
 				preferenceSnapshotCR   *appsv1.ControllerRevision
 				preferenceOriginalCR   *appsv1.ControllerRevision
 			)

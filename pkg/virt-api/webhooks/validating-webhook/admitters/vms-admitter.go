@@ -32,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -54,12 +54,12 @@ var validRunStrategies = []v1.VirtualMachineRunStrategy{v1.RunStrategyHalted, v1
 
 type instancetypeVMsAdmitter interface {
 	ApplyToVM(vm *v1.VirtualMachine) (
-		*instancetypev1beta1.VirtualMachineInstancetypeSpec,
-		*instancetypev1beta1.VirtualMachinePreferenceSpec,
+		*instancetypev1.VirtualMachineInstancetypeSpec,
+		*instancetypev1.VirtualMachinePreferenceSpec,
 		[]metav1.StatusCause,
 	)
-	Check(*instancetypev1beta1.VirtualMachineInstancetypeSpec,
-		*instancetypev1beta1.VirtualMachinePreferenceSpec,
+	Check(*instancetypev1.VirtualMachineInstancetypeSpec,
+		*instancetypev1.VirtualMachinePreferenceSpec,
 		*v1.VirtualMachineInstanceSpec,
 	) (conflict.Conflicts, error)
 }

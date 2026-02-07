@@ -28,7 +28,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	"kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 )
@@ -41,7 +41,7 @@ func (f *InstancetypeAdmitter) Admit(_ context.Context, ar *admissionv1.Admissio
 	return admitInstancetype(ar.Request, instancetype.PluralResourceName)
 }
 
-func ValidateInstanceTypeSpec(field *k8sfield.Path, spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) []metav1.StatusCause {
+func ValidateInstanceTypeSpec(field *k8sfield.Path, spec *instancetypev1.VirtualMachineInstancetypeSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
 	causes = append(causes, validateMemoryOvercommitPercentSetting(field, spec)...)
@@ -51,7 +51,7 @@ func ValidateInstanceTypeSpec(field *k8sfield.Path, spec *instancetypev1beta1.Vi
 
 func validateMemoryOvercommitPercentSetting(
 	field *k8sfield.Path,
-	spec *instancetypev1beta1.VirtualMachineInstancetypeSpec,
+	spec *instancetypev1.VirtualMachineInstancetypeSpec,
 ) (causes []metav1.StatusCause) {
 	if spec.Memory.OvercommitPercent < 0 || spec.Memory.OvercommitPercent > 100 {
 		causes = append(causes, metav1.StatusCause{
@@ -66,7 +66,7 @@ func validateMemoryOvercommitPercentSetting(
 
 func validateMemoryOvercommitPercentNoHugepages(
 	field *k8sfield.Path,
-	spec *instancetypev1beta1.VirtualMachineInstancetypeSpec,
+	spec *instancetypev1.VirtualMachineInstancetypeSpec,
 ) (causes []metav1.StatusCause) {
 	if spec.Memory.OvercommitPercent != 0 && spec.Memory.Hugepages != nil {
 		causes = append(causes, metav1.StatusCause{
@@ -95,7 +95,7 @@ func admitInstancetype(request *admissionv1.AdmissionRequest, resource string) *
 	}
 
 	gvk := schema.GroupVersionKind{
-		Group:   instancetypev1beta1.SchemeGroupVersion.Group,
+		Group:   instancetypev1.SchemeGroupVersion.Group,
 		Kind:    resource,
 		Version: request.Resource.Version,
 	}

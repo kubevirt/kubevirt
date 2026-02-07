@@ -14,7 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -75,16 +75,16 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 		maxGuest := originalGuest.DeepCopy()
 		maxGuest.Add(resource.MustParse("128Mi"))
 
-		originalInstancetype := &instancetypev1beta1.VirtualMachineInstancetype{
+		originalInstancetype := &instancetypev1.VirtualMachineInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "original-instancetype",
 				Namespace: vmi.Namespace,
 			},
-			Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-				CPU: instancetypev1beta1.CPUInstancetype{
+			Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1.CPUInstancetype{
 					Guest: originalSockets,
 				},
-				Memory: instancetypev1beta1.MemoryInstancetype{
+				Memory: instancetypev1.MemoryInstancetype{
 					Guest: originalGuest,
 				},
 			},
@@ -96,16 +96,16 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 		originalInstancetype, err := virtClient.VirtualMachineInstancetype(vmi.Namespace).Create(context.Background(), originalInstancetype, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 
-		maxInstancetype := &instancetypev1beta1.VirtualMachineInstancetype{
+		maxInstancetype := &instancetypev1.VirtualMachineInstancetype{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "max-instancetype",
 				Namespace: vmi.Namespace,
 			},
-			Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-				CPU: instancetypev1beta1.CPUInstancetype{
+			Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1.CPUInstancetype{
 					Guest: maxSockets,
 				},
-				Memory: instancetypev1beta1.MemoryInstancetype{
+				Memory: instancetypev1.MemoryInstancetype{
 					Guest: maxGuest,
 				},
 			},
@@ -200,8 +200,8 @@ var _ = Describe("[sig-compute]Instance Type and Preference Hotplug", decorators
 			)
 
 			preference := builder.NewPreference()
-			preference.Spec.Requirements = &instancetypev1beta1.PreferenceRequirements{
-				Memory: &instancetypev1beta1.MemoryPreferenceRequirement{
+			preference.Spec.Requirements = &instancetypev1.PreferenceRequirements{
+				Memory: &instancetypev1.MemoryPreferenceRequirement{
 					Guest: resource.MustParse("1Gi"),
 				},
 			}
