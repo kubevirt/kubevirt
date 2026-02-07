@@ -50,8 +50,9 @@ import (
 )
 
 const (
-	PVCPrefix = "persistent-state-for"
-	PVCSize   = "10Mi"
+	PVCPrefix            = "persistent-state-for"
+	PVCSize              = "10Mi"
+	MaxPVCBaseNameLength = 58
 )
 
 func basePVC(vmi *corev1.VirtualMachineInstance) string {
@@ -96,7 +97,6 @@ func pvcForMigrationTargetFromStore(pvcStore cache.Store, migration *corev1.Virt
 	}
 
 	return nil
-
 }
 
 func PVCForMigrationTarget(pvcStore cache.Store, migration *corev1.VirtualMachineInstanceMigration) *v1.PersistentVolumeClaim {
@@ -242,7 +242,6 @@ func buildRecoveryJob(jobName, launcherImage string, migration *corev1.VirtualMa
 			},
 		},
 	}
-
 }
 
 func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name string) {
@@ -262,8 +261,16 @@ func (bs *BackendStorage) labelLegacyPVC(pvc *v1.PersistentVolumeClaim, name str
 }
 
 func CurrentPVCName(vmi *corev1.VirtualMachineInstance) string {
+	base := basePVC(vmi)
+	// The .metadata.generateName will have mangled our base PVC name if it's longer than 58 chars.
+	// We need to compare only the first 58 characters, as the rest is truncated
+	// and a random ID is appended to the very end.
+	if len(base) > MaxPVCBaseNameLength {
+		base = base[:MaxPVCBaseNameLength]
+	}
+
 	for _, volume := range vmi.Status.VolumeStatus {
-		if strings.Contains(volume.Name, basePVC(vmi)) {
+		if strings.HasPrefix(volume.Name, base) {
 			return volume.PersistentVolumeClaimInfo.ClaimName
 		}
 	}
@@ -344,7 +351,6 @@ func MigrationHandoff(client kubecli.KubevirtClient, pvcStore cache.Store, migra
 			patch.WithTest("/metadata/labels/"+patch.EscapeJSONPointer(corev1.MigrationNameLabel), migration.Name),
 			patch.WithRemove("/metadata/labels/"+patch.EscapeJSONPointer(corev1.MigrationNameLabel)),
 		).GeneratePayload()
-
 		if err != nil {
 			return fmt.Errorf("failed to generate PVC patch: %v", err)
 		}
@@ -396,7 +402,7 @@ type BackendStorage struct {
 	pvcStore      cache.Store
 }
 
-func NewBackendStorage(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, scStore cache.Store, spStore cache.Store, pvcStore cache.Store) *BackendStorage {
+func NewBackendStorage(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig, scStore, spStore, pvcStore cache.Store) *BackendStorage {
 	return &BackendStorage{
 		client:        client,
 		clusterConfig: clusterConfig,
