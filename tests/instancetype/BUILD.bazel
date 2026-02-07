@@ -3,9 +3,14 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "inference.go",
         "instancetype.go",
+        "memory_overcommit.go",
         "reference_policy.go",
+        "requirements.go",
+        "revisions.go",
         "upgrade.go",
+        "webhook.go",
     ],
     importpath = "kubevirt.io/kubevirt/tests/instancetype",
     visibility = ["//visibility:public"],
