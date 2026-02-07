@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -52,13 +53,13 @@ func getClusterRoleBindingName(saName string) string {
 
 func createServiceAccounts() {
 	createServiceAccount(AdminServiceAccountName)
-	createRoleBinding(AdminServiceAccountName, "kubevirt.io:admin")
+	createRoleBinding(AdminServiceAccountName, rbac.ClusterRoleAdmin)
 
 	createServiceAccount(EditServiceAccountName)
-	createRoleBinding(EditServiceAccountName, "kubevirt.io:edit")
+	createRoleBinding(EditServiceAccountName, rbac.ClusterRoleEdit)
 
 	createServiceAccount(ViewServiceAccountName)
-	createRoleBinding(ViewServiceAccountName, "kubevirt.io:view")
+	createRoleBinding(ViewServiceAccountName, rbac.ClusterRoleView)
 
 	createServiceAccount(ViewInstancetypeServiceAccountName)
 	createClusterRoleBinding(ViewInstancetypeServiceAccountName, "instancetype.kubevirt.io:view")
