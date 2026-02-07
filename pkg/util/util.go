@@ -21,10 +21,12 @@ const (
 	VirtImageVolumeDir                        = "/var/run/kubevirt-image-volume"
 	VirtKernelBootVolumeDir                   = "/var/run/kubevirt-kernel-boot"
 	VirtPrivateDir                            = "/var/run/kubevirt-private"
-	KubeletRoot                               = "/var/lib/kubelet"
-	KubeletPodsDir                            = KubeletRoot + "/pods"
 	HostRootMount                             = "/proc/1/root/"
 	ContainerBinary                           = "/container-disk-binary"
+
+	// Default kubelet paths - can be overridden via configuration
+	DefaultKubeletRoot    = "/var/lib/kubelet"
+	DefaultKubeletPodsDir = "/var/lib/kubelet/pods"
 
 	NonRootUID        = 107
 	NonRootUserString = "qemu"

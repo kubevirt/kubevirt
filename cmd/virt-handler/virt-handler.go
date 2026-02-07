@@ -423,6 +423,7 @@ func (app *virtHandlerApp) Run() {
 		nodeInformer.GetStore(),
 		app.HostOverride,
 		app.VirtPrivateDir,
+		app.KubeletRoot,
 		app.KubeletPodsDir,
 		launcherClientsManager,
 		vmiSourceInformer,
@@ -675,10 +676,10 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.StringVar(&app.VirtPrivateDir, "kubevirt-private-dir", util.VirtPrivateDir,
 		"private directory for virt-handler state")
 
-	flag.StringVar(&app.KubeletPodsDir, "kubelet-pods-dir", util.KubeletPodsDir,
+	flag.StringVar(&app.KubeletPodsDir, "kubelet-pods-dir", util.DefaultKubeletPodsDir,
 		"Path for pod directory (matching host's path for kubelet root)")
 
-	flag.StringVar(&app.KubeletRoot, "kubelet-root", util.KubeletRoot,
+	flag.StringVar(&app.KubeletRoot, "kubelet-root", util.DefaultKubeletRoot,
 		"Path for Kubelet root")
 
 	flag.StringVar(&app.caConfigMapName, "ca-configmap-name", defaultCAConfigMapName,
