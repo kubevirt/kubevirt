@@ -427,4 +427,70 @@ var _ = Describe("Backend Storage", func() {
 			}),
 		)
 	})
+
+	Context("CurrentPVCName", func() {
+		It("Should return the PVC name when it matches the base name", func() {
+			vmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: "testvmi",
+				},
+				Status: virtv1.VirtualMachineInstanceStatus{
+					VolumeStatus: []virtv1.VolumeStatus{
+						{
+							Name: "persistent-state-for-testvmi",
+							PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+								ClaimName: "persistent-state-for-testvmi",
+							},
+						},
+					},
+				},
+			}
+			Expect(CurrentPVCName(vmi)).To(Equal("persistent-state-for-testvmi"))
+		})
+
+		It("Should return the PVC name when it matches a mangled base name", func() {
+			// PVCPrefix (20) + "-" (1) + name (53) = 74 characters > 58
+			longName := "this-is-a-very-long-vmi-name-that-will-cause-mangling"
+			vmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: longName,
+				},
+				Status: virtv1.VirtualMachineInstanceStatus{
+					VolumeStatus: []virtv1.VolumeStatus{
+						{
+							// base = "persistent-state-for-this-is-a-very-long-vmi-name-that-will-cause-mangling"
+							// len(base) = 20 + 1 + 53 = 74
+							// mangled base = base[:58] = "persistent-state-for-this-is-a-very-long-vmi-name-that-wil"
+							// .metadata.generateName will add a random suffix (here, 12345) to the end and overwrite
+							// the last 5 bytes, we ignore those in the comparison
+							Name: "persistent-state-for-this-is-a-very-long-vmi-name-that-wil12345",
+							PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+								ClaimName: "persistent-state-for-this-is-a-very-long-vmi-name-that-wil12345",
+							},
+						},
+					},
+				},
+			}
+			Expect(CurrentPVCName(vmi)).To(Equal("persistent-state-for-this-is-a-very-long-vmi-name-that-wil12345"))
+		})
+
+		It("Should return empty string when no volume status matches", func() {
+			vmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: k8smetav1.ObjectMeta{
+					Name: "testvmi",
+				},
+				Status: virtv1.VirtualMachineInstanceStatus{
+					VolumeStatus: []virtv1.VolumeStatus{
+						{
+							Name: "other-volume",
+							PersistentVolumeClaimInfo: &virtv1.PersistentVolumeClaimInfo{
+								ClaimName: "pvc-other",
+							},
+						},
+					},
+				},
+			}
+			Expect(CurrentPVCName(vmi)).To(Equal(""))
+		})
+	})
 })
