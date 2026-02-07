@@ -140,8 +140,9 @@ var (
 		parent isolation.IsolationResult,
 		child isolation.IsolationResult,
 		findmntInfo FindmntInfo,
+		podUID types.UID,
 	) (*safepath.Path, error) {
-		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target)
+		return isolation.ParentPathForMount(parent, child, findmntInfo.Source, findmntInfo.Target, string(podUID))
 	}
 )
 
@@ -599,7 +600,7 @@ func (m *volumeMounter) getSourcePodFilePath(sourceUID types.UID, vmi *v1.Virtua
 	for _, findmnt := range findmounts {
 		if filepath.Base(findmnt.Target) == volume {
 			source := findmnt.GetSourcePath()
-			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt)
+			path, err := parentPathForMount(nodeIsoRes, isoRes, findmnt, sourceUID)
 			exists := !errors.Is(err, os.ErrNotExist)
 			if err != nil && !errors.Is(err, os.ErrNotExist) {
 				return nil, err
