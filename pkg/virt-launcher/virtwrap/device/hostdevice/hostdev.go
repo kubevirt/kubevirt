@@ -20,7 +20,9 @@
 package hostdevice
 
 import (
+	"encoding/base32"
 	"fmt"
+	"regexp"
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -188,4 +190,12 @@ func createUSBHostDevice(device HostDeviceMetaData, usbAddress string) (*api.Hos
 			},
 		},
 	}, nil
+}
+
+func GenerateEncodedAliasIfNeeded(aliasName string) string {
+	matched := regexp.MustCompile("^[a-zA-Z0-9_-]+$").MatchString(aliasName)
+	if matched {
+		return aliasName
+	}
+	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte(aliasName))
 }

@@ -27,6 +27,7 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
 
 const (
@@ -73,7 +74,7 @@ func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 					return nil, fmt.Errorf("failed to create PCI device for %s: %v", hdStatus.Name, err)
 				}
 				hostDevices = append(hostDevices, api.HostDevice{
-					Alias:   api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hdStatus.Name),
+					Alias:   api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hostdevice.GenerateEncodedAliasIfNeeded(hdStatus.Name)),
 					Source:  api.HostDeviceSource{Address: hostAddr},
 					Type:    api.HostDevicePCI,
 					Managed: "no",

@@ -20,6 +20,7 @@
 package generic_test
 
 import (
+	"encoding/base32"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -93,6 +94,28 @@ var _ = Describe("Generic HostDevice", func() {
 
 		Expect(generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool)).
 			To(Equal([]api.HostDevice{expectHostDevice0, expectHostDevice1}))
+	})
+
+	It("creates device with invalid alias name", func() {
+		vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+			{DeviceName: hostdevResource0, Name: hostdevInvalidAliasName},
+		}
+		pciPool := newAddressPoolStub()
+		pciPool.AddResource(hostdevResource0, hostdevPCIAddress0)
+		mdevPool := newAddressPoolStub()
+		usbPool := newAddressPoolStub()
+
+		expectedAlias := generic.AliasPrefix + base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte(hostdevInvalidAliasName))
+		hostPCIAddress := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		expectHostDevice0 := api.HostDevice{
+			Alias:   api.NewUserDefinedAlias(expectedAlias),
+			Source:  api.HostDeviceSource{Address: &hostPCIAddress},
+			Type:    api.HostDevicePCI,
+			Managed: "no",
+		}
+
+		Expect(generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool)).
+			To(Equal([]api.HostDevice{expectHostDevice0}))
 	})
 })
 
