@@ -45,16 +45,25 @@ type Interface interface {
 
 // New returns a new Interface for accessing sysctl
 func New() Interface {
-	return &procSysctl{}
+	return &procSysctl{sysctlBase: sysctlBase}
 }
 
 // procSysctl implements Interface by reading and writing files under /proc/sys
 type procSysctl struct {
+	sysctlBase string
+}
+
+// getBase returns the configured base or defaults to /proc/sys
+func (p *procSysctl) getBase() string {
+	if p.sysctlBase == "" {
+		return sysctlBase
+	}
+	return p.sysctlBase
 }
 
 // GetSysctl returns the value for the specified sysctl setting
-func (*procSysctl) GetSysctl(sysctl string) (string, error) {
-	data, err := os.ReadFile(path.Join(sysctlBase, sysctl))
+func (p *procSysctl) GetSysctl(sysctl string) (string, error) {
+	data, err := os.ReadFile(path.Join(p.getBase(), sysctl))
 	if err != nil {
 		return "-1", err
 	}
@@ -63,6 +72,6 @@ func (*procSysctl) GetSysctl(sysctl string) (string, error) {
 }
 
 // SetSysctl modifies the specified sysctl flag to the new value
-func (*procSysctl) SetSysctl(sysctl string, newVal string) error {
-	return util.WriteFileWithNosec(path.Join(sysctlBase, sysctl), []byte(newVal))
+func (p *procSysctl) SetSysctl(sysctl string, newVal string) error {
+	return util.WriteFileWithNosec(path.Join(p.getBase(), sysctl), []byte(newVal))
 }
