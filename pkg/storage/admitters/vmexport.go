@@ -62,10 +62,6 @@ func (admitter *VMExportAdmitter) Admit(_ context.Context, ar *admissionv1.Admis
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
 	}
 
-	if ar.Request.Operation == admissionv1.Create && !admitter.Config.VMExportEnabled() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("vm export feature gate not enabled"))
-	}
-
 	vmExport := &exportv1.VirtualMachineExport{}
 	// TODO ideally use UniversalDeserializer here
 	err := json.Unmarshal(ar.Request.Object.Raw, vmExport)
