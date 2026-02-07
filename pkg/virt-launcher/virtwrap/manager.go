@@ -937,9 +937,6 @@ func getUsableDiskSize(path string) (int64, error) {
 }
 
 func shouldExpandOffline(disk api.Disk) bool {
-	if !disk.ExpandDisksEnabled {
-		return false
-	}
 	if disk.Source.Dev != "" {
 		// Block devices don't need to be expanded
 		return false
@@ -1070,7 +1067,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	}
 
 	if options != nil {
-		c.ExpandDisksEnabled = options.ExpandDisksEnabled
 		if options.VirtualMachineSMBios != nil {
 			c.SMBios = options.VirtualMachineSMBios
 		}
@@ -1082,7 +1078,6 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		c.VolumesDiscardIgnore = options.PreallocatedVolumes
 
 		if options.GetClusterConfig() != nil {
-			c.ExpandDisksEnabled = options.GetClusterConfig().GetExpandDisksEnabled()
 			c.FreePageReporting = isFreePageReportingEnabled(options.GetClusterConfig().GetFreePageReportingDisabled(), vmi)
 			c.BochsForEFIGuests = options.GetClusterConfig().GetBochsDisplayForEFIGuests()
 			c.SerialConsoleLog = isSerialConsoleLogEnabled(options.GetClusterConfig().GetSerialConsoleLogDisabled(), vmi)
@@ -1612,10 +1607,6 @@ func isBlockDeviceVolumeFunc(volumeName string) (bool, error) {
 }
 
 func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
-	if !disk.ExpandDisksEnabled {
-		log.DefaultLogger().V(3).Infof("Not expanding disks, ExpandDisks featuregate disabled")
-		return false
-	}
 	blockInfo, err := dom.GetBlockInfo(getSourceFile(disk), 0)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to get block info")
