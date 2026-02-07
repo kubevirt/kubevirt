@@ -143,7 +143,7 @@ var _ = Describe(SIG("Storage", func() {
 				By("Cleaning up")
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180*time.Second)).To(Succeed())
 			}
 
 			BeforeEach(func() {
@@ -292,7 +292,7 @@ var _ = Describe(SIG("Storage", func() {
 
 					err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+					Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
 				}
 			},
 				Entry("[test_id:3132]with Disk PVC", newRandomVMIWithPVC),
@@ -392,7 +392,7 @@ var _ = Describe(SIG("Storage", func() {
 						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 
 						By("Waiting for VMI to disappear")
-						libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+						Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
 					}
 				})
 
@@ -455,7 +455,7 @@ var _ = Describe(SIG("Storage", func() {
 				By("Killing a VirtualMachineInstance")
 				err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120)
+				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(createdVMI, 120*time.Second)).To(Succeed())
 
 				By("Starting the VirtualMachineInstance again")
 				if isRunOnKindInfra {
@@ -807,7 +807,7 @@ var _ = Describe(SIG("Storage", func() {
 				AfterEach(func() {
 					if vmi != nil {
 						Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-						libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+						Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
 					}
 					Expect(virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})).To(Succeed())
 					waitForPodToDisappearWithTimeout(pod.Name, 120)
@@ -1287,7 +1287,7 @@ var _ = Describe(SIG("Storage", func() {
 
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180*time.Second)).To(Succeed())
 			},
 				Entry("PVC source", addPVCLunDisk),
 				Entry("DataVolume source", addDataVolumeLunDisk),
@@ -1343,7 +1343,7 @@ var _ = Describe(SIG("Storage", func() {
 
 				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 				Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
-				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+				Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180*time.Second)).To(Succeed())
 			})
 		})
 	})

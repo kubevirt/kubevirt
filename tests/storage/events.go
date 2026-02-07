@@ -96,7 +96,7 @@ var _ = Describe(SIG("K8s IO events", Serial, func() {
 
 		err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 		Expect(err).ToNot(HaveOccurred(), "Failed to delete VMI")
-		libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+		Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
 	})
 }))
 
