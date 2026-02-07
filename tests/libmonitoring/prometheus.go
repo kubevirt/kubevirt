@@ -78,7 +78,7 @@ func WaitForMetricValueWithLabels(client kubecli.KubevirtClient, metric string, 
 			return -1
 		}
 		return i
-	}, 3*time.Minute, 1*time.Second).Should(BeNumerically("==", expectedValue))
+	}, 3*time.Minute, 1*time.Second).Should(Equal(expectedValue), "Metric %s with labels %v has value %f, not the expected %f", metric, labels, expectedValue, expectedValue)
 }
 
 func WaitForMetricValueWithLabelsToBe(client kubecli.KubevirtClient, metric string, labels map[string]string, offset int, comparator string, expectedValue float64) {
@@ -412,18 +412,24 @@ func getPrometheusAlerts(virtClient kubecli.KubevirtClient) promv1.PrometheusRul
 	return newRules
 }
 
-func GetKubevirtVMMetrics(pod *k8sv1.Pod, ip string) string {
+// Works whenever pod has curl
+func GetKubevirtVMMetrics(pod *k8sv1.Pod) string {
+	return GetKubevirtVMMetricsByIP(pod, "localhost")
+}
+
+// Deprecated: Use GetKubevirtVMMetrics or grab metrics indirectly through prometheus
+func GetKubevirtVMMetricsByIP(pod *k8sv1.Pod, ip string) string {
 	metricsURL := PrepareMetricsURL(ip, 8443)
-	stdout, _, err := execute.ExecuteCommandOnPodWithResults(
+	stdout, stderr, err := execute.ExecuteCommandOnPodWithResults(
 		pod,
-		"virt-handler",
+		pod.Spec.Containers[0].Name,
 		[]string{
 			"curl",
 			"-L",
 			"-k",
 			metricsURL,
 		})
-	Expect(err).ToNot(HaveOccurred())
+	Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", stdout, stderr)
 	return stdout
 }
 

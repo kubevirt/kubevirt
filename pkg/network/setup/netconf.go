@@ -26,12 +26,7 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/network/namescheme"
-
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -40,6 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod"
 	"kubevirt.io/kubevirt/pkg/network/setup/netpod/masquerade"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
+	"kubevirt.io/kubevirt/pkg/util"
+	converternet "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 )
 
 type cacheCreator interface {
@@ -88,13 +85,9 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	state, ok := c.state[string(vmi.UID)]
 	c.configStateMutex.RUnlock()
 	if !ok {
-		cache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
-		configStateCache, err := upgradeConfigStateCache(&cache, networks, c.cacheCreator, string(vmi.UID))
-		if err != nil {
-			return err
-		}
+		configStateCache := NewConfigStateCache(string(vmi.UID), c.cacheCreator)
 		ns := c.nsFactory(launcherPid)
-		state = netpod.NewState(configStateCache, ns)
+		state = netpod.NewState(&configStateCache, ns)
 		c.configStateMutex.Lock()
 		c.state[string(vmi.UID)] = state
 		c.configStateMutex.Unlock()
@@ -104,7 +97,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	if util.IsNonRootVMI(vmi) {
 		ownerID = util.NonRootUID
 	}
-	queuesCapacity := int(converter.NetworkQueuesCapacity(vmi))
+	queuesCapacity := int(converternet.NetworkQueuesCapacity(vmi))
 	netpod := netpod.NewNetPod(
 		networks,
 		vmispec.FilterInterfacesByNetworks(vmi.Spec.Domain.Devices.Interfaces, networks),
@@ -124,31 +117,6 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 		return fmt.Errorf("setup failed, err: %w", err)
 	}
 	return nil
-}
-
-func upgradeConfigStateCache(stateCache *ConfigStateCache, networks []v1.Network, cacheCreator cacheCreator, vmiUID string) (*ConfigStateCache, error) {
-	for networkName, podIfaceName := range namescheme.CreateOrdinalNetworkNameScheme(networks) {
-		exists, err := stateCache.Exists(podIfaceName)
-		if err != nil {
-			return nil, err
-		}
-		if exists {
-			data, rErr := stateCache.Read(podIfaceName)
-			if rErr != nil {
-				return nil, rErr
-			}
-			if wErr := stateCache.Write(networkName, data); wErr != nil {
-				return nil, wErr
-			}
-			if dErr := stateCache.Delete(podIfaceName); dErr != nil {
-				log.Log.Reason(dErr).Errorf("failed to delete pod interface (%s) state from cache", podIfaceName)
-			}
-			if dErr := cache.DeletePodInterfaceCache(cacheCreator, vmiUID, podIfaceName); dErr != nil {
-				log.Log.Reason(dErr).Errorf("failed to delete pod interface (%s) from cache", podIfaceName)
-			}
-		}
-	}
-	return stateCache, nil
 }
 
 func (c *NetConf) Teardown(vmi *v1.VirtualMachineInstance) error {

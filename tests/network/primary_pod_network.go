@@ -132,7 +132,7 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 						if err != nil {
 							return err
 						}
-						return libnet.ValidateVMIandPodIPMatch(vmi, vmiPod)
+						return libnet.AssertAllPodIPsReportedOnVMI(vmi, vmiPod)
 					}, 5*time.Second, time.Second).Should(Succeed())
 				})
 			})

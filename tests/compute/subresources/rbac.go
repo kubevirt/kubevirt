@@ -48,7 +48,7 @@ var _ = Describe(compute.SIG("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.co
 		})
 
 		It("[test_id:3170]should allow access to vm subresource endpoint", func() {
-			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
+			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
 			vm, err := kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			err = saClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Start(context.Background(), vm.Name, &v1.StartOptions{})
@@ -77,7 +77,7 @@ var _ = Describe(compute.SIG("[rfe_id:1195][crit:medium][vendor:cnv-qe@redhat.co
 		})
 
 		It("[test_id:3171]should block access to vm subresource endpoint", func() {
-			vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
+			vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
 			vm, err := kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			err = saClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Start(context.Background(), vm.Name, &v1.StartOptions{})

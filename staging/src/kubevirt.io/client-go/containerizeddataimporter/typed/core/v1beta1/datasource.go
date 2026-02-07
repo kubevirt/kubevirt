@@ -21,14 +21,14 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	scheme "kubevirt.io/client-go/containerizeddataimporter/scheme"
-	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // DataSourcesGetter has a method to return a DataSourceInterface.
@@ -39,33 +39,34 @@ type DataSourcesGetter interface {
 
 // DataSourceInterface has methods to work with DataSource resources.
 type DataSourceInterface interface {
-	Create(ctx context.Context, dataSource *v1beta1.DataSource, opts v1.CreateOptions) (*v1beta1.DataSource, error)
-	Update(ctx context.Context, dataSource *v1beta1.DataSource, opts v1.UpdateOptions) (*v1beta1.DataSource, error)
+	Create(ctx context.Context, dataSource *corev1beta1.DataSource, opts v1.CreateOptions) (*corev1beta1.DataSource, error)
+	Update(ctx context.Context, dataSource *corev1beta1.DataSource, opts v1.UpdateOptions) (*corev1beta1.DataSource, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, dataSource *v1beta1.DataSource, opts v1.UpdateOptions) (*v1beta1.DataSource, error)
+	UpdateStatus(ctx context.Context, dataSource *corev1beta1.DataSource, opts v1.UpdateOptions) (*corev1beta1.DataSource, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.DataSource, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.DataSourceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1beta1.DataSource, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1beta1.DataSourceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.DataSource, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1beta1.DataSource, err error)
 	DataSourceExpansion
 }
 
 // dataSources implements DataSourceInterface
 type dataSources struct {
-	*gentype.ClientWithList[*v1beta1.DataSource, *v1beta1.DataSourceList]
+	*gentype.ClientWithList[*corev1beta1.DataSource, *corev1beta1.DataSourceList]
 }
 
 // newDataSources returns a DataSources
 func newDataSources(c *CdiV1beta1Client, namespace string) *dataSources {
 	return &dataSources{
-		gentype.NewClientWithList[*v1beta1.DataSource, *v1beta1.DataSourceList](
+		gentype.NewClientWithList[*corev1beta1.DataSource, *corev1beta1.DataSourceList](
 			"datasources",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1beta1.DataSource { return &v1beta1.DataSource{} },
-			func() *v1beta1.DataSourceList { return &v1beta1.DataSourceList{} }),
+			func() *corev1beta1.DataSource { return &corev1beta1.DataSource{} },
+			func() *corev1beta1.DataSourceList { return &corev1beta1.DataSourceList{} },
+		),
 	}
 }

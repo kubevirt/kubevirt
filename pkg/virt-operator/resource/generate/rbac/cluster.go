@@ -23,6 +23,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"kubevirt.io/api/backup"
 	"kubevirt.io/api/clone"
 	"kubevirt.io/api/export"
 	"kubevirt.io/api/pool"
@@ -50,21 +51,24 @@ const (
 	apiVMIMigrations      = "virtualmachineinstancemigrations"
 	apiVMSnapshots        = "virtualmachinesnapshots"
 	apiVMSnapshotContents = "virtualmachinesnapshotcontents"
+	apiVMBackups          = "virtualmachinebackups"
+	apiVMBackupTrackers   = "virtualmachinebackuptrackers"
 	apiVMRestores         = "virtualmachinerestores"
 	apiVMExports          = "virtualmachineexports"
 	apiVMClones           = "virtualmachineclones"
 	apiVMPools            = "virtualmachinepools"
 
-	apiVMExpandSpec   = "virtualmachines/expand-spec"
-	apiVMPortForward  = "virtualmachines/portforward"
-	apiVMStart        = "virtualmachines/start"
-	apiVMStop         = "virtualmachines/stop"
-	apiVMRestart      = "virtualmachines/restart"
-	apiVMAddVolume    = "virtualmachines/addvolume"
-	apiVMRemoveVolume = "virtualmachines/removevolume"
-	apiVMMigrate      = "virtualmachines/migrate"
-	apiVMMemoryDump   = "virtualmachines/memorydump"
-	apiVMObjectGraph  = "virtualmachines/objectgraph"
+	apiVMExpandSpec     = "virtualmachines/expand-spec"
+	apiVMPortForward    = "virtualmachines/portforward"
+	apiVMStart          = "virtualmachines/start"
+	apiVMStop           = "virtualmachines/stop"
+	apiVMRestart        = "virtualmachines/restart"
+	apiVMAddVolume      = "virtualmachines/addvolume"
+	apiVMRemoveVolume   = "virtualmachines/removevolume"
+	apiVMMigrate        = "virtualmachines/migrate"
+	apiVMMemoryDump     = "virtualmachines/memorydump"
+	apiVMObjectGraph    = "virtualmachines/objectgraph"
+	apiVMEvacuateCancel = "virtualmachines/evacuate/cancel"
 
 	apiVMInstancesConsole                   = "virtualmachineinstances/console"
 	apiVMInstancesVNC                       = "virtualmachineinstances/vnc"
@@ -87,6 +91,7 @@ const (
 	apiVMInstancesSEVInjectLaunchSecret     = "virtualmachineinstances/sev/injectlaunchsecret"
 	apiVMInstancesUSBRedir                  = "virtualmachineinstances/usbredir"
 	apiVMInstancesObjectGraph               = "virtualmachineinstances/objectgraph"
+	apiVMInstancesEvacuateCancel            = "virtualmachineinstances/evacuate/cancel"
 )
 
 func GetAllCluster() []runtime.Object {
@@ -227,6 +232,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesReset,
 					apiVMInstancesSEVSetupSession,
 					apiVMInstancesSEVInjectLaunchSecret,
+					apiVMInstancesEvacuateCancel,
 				},
 				Verbs: []string{
 					"update",
@@ -255,6 +261,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMAddVolume,
 					apiVMRemoveVolume,
 					apiVMMemoryDump,
+					apiVMEvacuateCancel,
 				},
 				Verbs: []string{
 					"update",
@@ -304,6 +311,18 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMSnapshots,
 					apiVMSnapshotContents,
 					apiVMRestores,
+				},
+				Verbs: []string{
+					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
+				},
+			},
+			{
+				APIGroups: []string{
+					backup.GroupName,
+				},
+				Resources: []string{
+					apiVMBackups,
+					apiVMBackupTrackers,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch", "deletecollection",
@@ -422,6 +441,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesReset,
 					apiVMInstancesSEVSetupSession,
 					apiVMInstancesSEVInjectLaunchSecret,
+					apiVMInstancesEvacuateCancel,
 				},
 				Verbs: []string{
 					"update",
@@ -450,6 +470,7 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMAddVolume,
 					apiVMRemoveVolume,
 					apiVMMemoryDump,
+					apiVMEvacuateCancel,
 				},
 				Verbs: []string{
 					"update",
@@ -499,6 +520,18 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMSnapshots,
 					apiVMSnapshotContents,
 					apiVMRestores,
+				},
+				Verbs: []string{
+					"get", "delete", "create", "update", "patch", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					backup.GroupName,
+				},
+				Resources: []string{
+					apiVMBackups,
+					apiVMBackupTrackers,
 				},
 				Verbs: []string{
 					"get", "delete", "create", "update", "patch", "list", "watch",
@@ -693,6 +726,18 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 					apiVMSnapshots,
 					apiVMSnapshotContents,
 					apiVMRestores,
+				},
+				Verbs: []string{
+					"get", "list", "watch",
+				},
+			},
+			{
+				APIGroups: []string{
+					backup.GroupName,
+				},
+				Resources: []string{
+					apiVMBackups,
+					apiVMBackupTrackers,
 				},
 				Verbs: []string{
 					"get", "list", "watch",

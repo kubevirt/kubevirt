@@ -17,6 +17,7 @@ go_test(
         "restart_test.go",
         "vmliveupdate_suite_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/libvmi:go_default_library",

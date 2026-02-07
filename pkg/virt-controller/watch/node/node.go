@@ -388,7 +388,7 @@ func (c *Controller) alivePodsOnNode(nodeName string) ([]*v1.Pod, error) {
 
 	for i := range list.Items {
 		pod := &list.Items[i]
-		if controllerRef := controller.GetControllerOf(pod); !isControlledByVMI(controllerRef) {
+		if controllerRef := metav1.GetControllerOf(pod); !isControlledByVMI(controllerRef) {
 			continue
 		}
 
@@ -425,7 +425,7 @@ func filterStuckVirtualMachinesWithoutPods(vmis []*virtv1.VirtualMachineInstance
 		if !ok {
 			podsForVMI = map[string]*v1.Pod{}
 		}
-		if controllerRef := controller.GetControllerOf(pod); isControlledByVMI(controllerRef) {
+		if controllerRef := metav1.GetControllerOf(pod); isControlledByVMI(controllerRef) {
 			podsForVMI[string(controllerRef.UID)] = pod
 			podsPerNamespace[pod.Namespace] = podsForVMI
 		}

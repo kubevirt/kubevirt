@@ -72,10 +72,24 @@ func addFlagsPatch(name, resource string, flags map[string]string, patches []v1.
 func flagsToArray(flags map[string]string) []string {
 	farr := make([]string, 0)
 
-	for flag, v := range flags {
-		farr = append(farr, fmt.Sprintf("--%s", strings.ToLower(flag)))
-		if v != "" {
-			farr = append(farr, v)
+	fnames := make([]string, 0, len(flags))
+	for flag := range flags {
+		fnames = append(fnames, flag)
+	}
+	sort.Strings(fnames)
+
+	for _, flag := range fnames {
+		flagName := strings.ToLower(flag)
+		val := strings.ToLower(flags[flag])
+
+		switch val {
+		case "":
+			farr = append(farr, fmt.Sprintf("--%s", flagName))
+		case "true", "false":
+			farr = append(farr, fmt.Sprintf("--%s=%s", flagName, val))
+		default:
+			farr = append(farr, fmt.Sprintf("--%s", flagName))
+			farr = append(farr, val)
 		}
 	}
 

@@ -21,7 +21,7 @@ func createMDEVType(mdevType string, parentID string, uid string) error {
 	// wait for interface to become available
 	if !isInterfaceAvailable(path) {
 		msg := fmt.Sprintf("failed to create mdev type %s, interface is not available %s", mdevType, path)
-		errMsg := fmt.Errorf(msg)
+		errMsg := fmt.Errorf("%s", msg)
 		fmt.Println(msg)
 		return errMsg
 	}
@@ -46,7 +46,7 @@ func removeMDEVType(mdevUUID string) error {
 	// wait for interface to become available
 	if !isInterfaceAvailable(removePath) {
 		msg := fmt.Sprintf("failed to remove mdev %s, interface is not available %s", mdevUUID, removePath)
-		errMsg := fmt.Errorf(msg)
+		errMsg := fmt.Errorf("%s", msg)
 		fmt.Println(msg)
 		return errMsg
 	}

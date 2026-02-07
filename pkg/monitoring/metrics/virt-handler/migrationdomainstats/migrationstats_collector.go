@@ -40,7 +40,7 @@ var (
 
 	migrateVMIDataTotal = operatormetrics.NewCounter(
 		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_migration_data_total_bytes",
+			Name: "kubevirt_vmi_migration_data_bytes_total",
 			Help: "The total Guest OS data to be migrated to the new VM.",
 		},
 	)

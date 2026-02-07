@@ -33,13 +33,14 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
-	util "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	"kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
 )
 
 const nodeName = "testNode"
@@ -47,6 +48,7 @@ const nodeName = "testNode"
 var _ = Describe("Node-labeller ", func() {
 	var nlController *NodeLabeller
 	var kubeClient *fake.Clientset
+	var fakeNodeStore cache.Store
 	var cpuCounter *libvirtxml.CapsHostCPUCounter
 	var supportedMachines []libvirtxml.CapsGuestMachine
 
@@ -56,7 +58,7 @@ var _ = Describe("Node-labeller ", func() {
 		recorder.IncludeObject = true
 
 		var err error
-		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), nodeName, "testdata", recorder, cpuCounter, supportedMachines)
+		nlController, err = newNodeLabeller(config, kubeClient.CoreV1().Nodes(), fakeNodeStore, nodeName, "testdata", recorder, cpuCounter, supportedMachines)
 		Expect(err).ToNot(HaveOccurred())
 	}
 
@@ -71,6 +73,9 @@ var _ = Describe("Node-labeller ", func() {
 
 		node := newNode(nodeName)
 		kubeClient = fake.NewSimpleClientset(node)
+		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
+		fakeNodeStore = fakeNodeInformer.GetStore()
+		fakeNodeStore.Add(node)
 		initNodeLabeller(&v1.KubeVirt{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
@@ -79,7 +84,6 @@ var _ = Describe("Node-labeller ", func() {
 			Spec: v1.KubeVirtSpec{
 				Configuration: v1.KubeVirtConfiguration{
 					ObsoleteCPUModels: util.DefaultObsoleteCPUModels,
-					MinCPUModel:       "Penryn",
 				},
 			},
 		})
@@ -177,6 +181,43 @@ var _ = Describe("Node-labeller ", func() {
 		Expect(node.Labels).To(HaveKey(v1.SecureExecutionLabel))
 	})
 
+	It("should add SEV-SNP label", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKey(v1.SEVSNPLabel))
+	})
+
+	It("should not add SEV-SNP label when SNP is not supported", func() {
+		nlController.SEV.SupportedSNP = "no"
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(Not(HaveKey(v1.SEVSNPLabel)))
+	})
+
+	It("should not add TDX label", func() {
+		// virsh_domcapabilities.xml in which tdx is disabled
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(Not(HaveKey(v1.TDXLabel)))
+	})
+
+	It("should add TDX label with value set to true", func() {
+		nlController.domCapabilitiesFileName = "domcapabilities_tdx.xml"
+		Expect(nlController.loadAll()).Should(Succeed())
+
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(HaveKeyWithValue(v1.TDXLabel, "true"))
+	})
+
 	It("should add usable cpu model labels for the host cpu model", func() {
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
@@ -186,6 +227,17 @@ var _ = Describe("Node-labeller ", func() {
 			HaveKey(v1.HostModelCPULabel+"Skylake-Client-IBRS"),
 			HaveKey(v1.CPUModelLabel+"Skylake-Client-IBRS"),
 			HaveKey(v1.SupportedHostModelMigrationCPU+"Skylake-Client-IBRS"),
+		))
+	})
+
+	It("should not include non-usable CPU models with the CPU model label but include them with the SupportedHostModelMigrationCPU label", func() {
+		res := nlController.execute()
+		Expect(res).To(BeTrue())
+
+		node := retrieveNode(kubeClient)
+		Expect(node.Labels).To(SatisfyAll(
+			Not(HaveKey(v1.CPUModelLabel+"EPYC-IBPB")),
+			HaveKey(v1.SupportedHostModelMigrationCPU+"EPYC-IBPB"),
 		))
 	})
 
@@ -240,6 +292,7 @@ var _ = Describe("Node-labeller ", func() {
 			HaveKey(v1.CPUModelLabel+"Cascadelake-Server"),
 			HaveKey(v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"),
 		))
+		fakeNodeStore.Update(node)
 
 		res := nlController.execute()
 		Expect(res).To(BeTrue())
@@ -268,6 +321,7 @@ var _ = Describe("Node-labeller ", func() {
 			HaveKey(v1.CPUModelLabel+"Cascadelake-Server"),
 			HaveKey(v1.SupportedHostModelMigrationCPU+"Cascadelake-Server"),
 		))
+		fakeNodeStore.Update(node)
 
 		res := nlController.execute()
 		Expect(res).To(BeTrue())

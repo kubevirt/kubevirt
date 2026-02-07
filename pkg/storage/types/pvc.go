@@ -283,44 +283,6 @@ func RenderPVC(size *resource.Quantity, claimName, namespace, storageClass, acce
 	return pvc
 }
 
-func IsDeclarativeHotplugVolume(vol *virtv1.Volume) bool {
-	if vol == nil {
-		return false
-	}
-	volSrc := vol.VolumeSource
-	if volSrc.PersistentVolumeClaim != nil && volSrc.PersistentVolumeClaim.Hotpluggable {
-		return true
-	}
-	if volSrc.DataVolume != nil && volSrc.DataVolume.Hotpluggable {
-		return true
-	}
-
-	return false
-}
-
-func IsHotplugVolume(vol *virtv1.Volume) bool {
-	if vol == nil {
-		return false
-	}
-	if IsDeclarativeHotplugVolume(vol) {
-		return true
-	}
-	volSrc := vol.VolumeSource
-	if volSrc.MemoryDump != nil && volSrc.MemoryDump.PersistentVolumeClaimVolumeSource.Hotpluggable {
-		return true
-	}
-
-	return false
-}
-
-func GetVolumesByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Volume {
-	volumes := map[string]*virtv1.Volume{}
-	for _, vol := range vmiSpec.Volumes {
-		volumes[vol.Name] = vol.DeepCopy()
-	}
-	return volumes
-}
-
 func GetDisksByName(vmiSpec *virtv1.VirtualMachineInstanceSpec) map[string]*virtv1.Disk {
 	disks := map[string]*virtv1.Disk{}
 	for _, disk := range vmiSpec.Domain.Devices.Disks {
@@ -353,46 +315,4 @@ func GetDiskCapacity(pvcInfo *virtv1.PersistentVolumeClaimInfo) *int64 {
 	}
 	preferredSize := min(storageRequest, storageCapacity)
 	return &preferredSize
-}
-
-func GetFilesystemsFromVolumes(vmi *virtv1.VirtualMachineInstance) map[string]*virtv1.Filesystem {
-	fs := map[string]*virtv1.Filesystem{}
-
-	for _, f := range vmi.Spec.Domain.Devices.Filesystems {
-		fs[f.Name] = f.DeepCopy()
-	}
-
-	return fs
-}
-
-func IsMigratedVolume(name string, vmi *virtv1.VirtualMachineInstance) bool {
-	for _, v := range vmi.Status.MigratedVolumes {
-		if v.VolumeName == name {
-			return true
-		}
-	}
-	return false
-}
-
-func GetTotalSizeMigratedVolumes(vmi *virtv1.VirtualMachineInstance) *resource.Quantity {
-	size := int64(0)
-	srcVols := make(map[string]bool)
-	for _, v := range vmi.Status.MigratedVolumes {
-		if v.SourcePVCInfo == nil {
-			continue
-		}
-		srcVols[v.SourcePVCInfo.ClaimName] = true
-	}
-	for _, vstatus := range vmi.Status.VolumeStatus {
-		if vstatus.PersistentVolumeClaimInfo == nil {
-			continue
-		}
-		if _, ok := srcVols[vstatus.PersistentVolumeClaimInfo.ClaimName]; ok {
-			if s := GetDiskCapacity(vstatus.PersistentVolumeClaimInfo); s != nil {
-				size += *s
-			}
-		}
-	}
-
-	return resource.NewScaledQuantity(size, resource.Giga)
 }

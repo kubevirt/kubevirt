@@ -6,13 +6,13 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:10.10.0-13.el9}
-QEMU_VERSION=${QEMU_VERSION:-17:9.1.0-19.el9}
+LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:11.9.0-1.el9}
+QEMU_VERSION=${QEMU_VERSION:-17:10.1.0-10.el9}
 SEABIOS_VERSION=${SEABIOS_VERSION:-0:1.16.3-4.el9}
-EDK2_VERSION=${EDK2_VERSION:-0:20241117-3.el9}
+EDK2_VERSION=${EDK2_VERSION:-0:20241117-8.el9}
 LIBGUESTFS_VERSION=${LIBGUESTFS_VERSION:-1:1.54.0-9.el9}
 GUESTFSTOOLS_VERSION=${GUESTFSTOOLS_VERSION:-0:1.52.2-5.el9}
-PASST_VERSION=${PASST_VERSION:-0:0^20250415.g8ec1341-1.el9}
+PASST_VERSION=${PASST_VERSION:-0:0^20250512.g8ec1341-2.el9}
 VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.0-1.el9}
 SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-2.el9}
 SINGLE_ARCH=${SINGLE_ARCH:-""}
@@ -113,7 +113,6 @@ launcherbase_s390x="
   qemu-kvm-device-display-virtio-gpu-ccw-${QEMU_VERSION}
 "
 launcherbase_extra="
-  ethtool
   findutils
   nftables
   nmap-ncat
@@ -127,7 +126,6 @@ launcherbase_extra="
 
 handlerbase_main="
   qemu-img-${QEMU_VERSION}
-  passt-${PASST_VERSION}
 "
 handlerbase_extra="
   findutils
@@ -244,6 +242,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $handlerbase_extra
 
     bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree_x86_64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
+
+    bazel run \
         //:bazeldnf -- rpmtree \
         --public --nobest \
         --name libguestfs-tools_x86_64 \
@@ -345,6 +352,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_main \
         $centos_extra \
         $sandboxroot_main
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree_aarch64 --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -474,6 +490,15 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $launcherbase_main \
         $launcherbase_s390x \
         $launcherbase_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name passt_tree_s390x --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        passt-${PASST_VERSION}
 
     # create a rpmtree for virt-handler
     bazel run \

@@ -24,6 +24,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -40,21 +42,27 @@ const (
 	supportedFeaturesXml = "supported_features.xml"
 )
 
-func (n *NodeLabeller) getSupportedCpuModels(obsoleteCPUsx86 map[string]bool) []string {
-	supportedCPUModels := make([]string, 0)
-
-	if obsoleteCPUsx86 == nil {
-		obsoleteCPUsx86 = util.DefaultObsoleteCPUModels
+func (n *NodeLabeller) filterCpuModels(models []string, obsolete map[string]bool) []string {
+	if obsolete == nil {
+		obsolete = util.DefaultObsoleteCPUModels
 	}
 
-	for _, model := range n.hostCapabilities.items {
-		if _, ok := obsoleteCPUsx86[model]; ok {
+	filtered := make([]string, 0, len(models))
+	for _, model := range models {
+		if _, ok := obsolete[model]; ok {
 			continue
 		}
-		supportedCPUModels = append(supportedCPUModels, model)
+		filtered = append(filtered, model)
 	}
+	return filtered
+}
 
-	return supportedCPUModels
+func (n *NodeLabeller) getSupportedCpuModels(obsolete map[string]bool) []string {
+	return n.filterCpuModels(n.hostCapabilities.usableModels, obsolete)
+}
+
+func (n *NodeLabeller) getKnownCpuModels(obsolete map[string]bool) []string {
+	return n.filterCpuModels(n.hostCapabilities.knownModels, obsolete)
 }
 
 func (n *NodeLabeller) getSupportedCpuFeatures() cpuFeatures {
@@ -79,6 +87,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	}
 
 	usableModels := make([]string, 0)
+	knownModels := make([]string, 0)
 	for _, mode := range hostDomCapabilities.CPU.Mode {
 		if mode.Name == v1.CPUModeHostModel {
 			if !n.arch.supportsHostModel() {
@@ -110,16 +119,22 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 		}
 
 		for _, model := range mode.Model {
-			if model.Usable == isUnusable || model.Usable == "" {
+			name := strings.TrimSpace(model.Name)
+			if model.Usable == "" || name == "" {
 				continue
 			}
-			usableModels = append(usableModels, model.Name)
+			knownModels = append(knownModels, name)
+			if model.Usable != isUnusable {
+				usableModels = append(usableModels, name)
+			}
 		}
 	}
 
-	n.hostCapabilities.items = usableModels
+	n.hostCapabilities.usableModels = usableModels
+	n.hostCapabilities.knownModels = knownModels
 	n.SEV = hostDomCapabilities.SEV
 	n.SecureExecution = hostDomCapabilities.SecureExecution
+	n.TDX = hostDomCapabilities.TDX
 
 	return nil
 }
@@ -153,10 +168,16 @@ func (n *NodeLabeller) getDomCapabilities() (HostDomCapabilities, error) {
 		return hostDomCapabilities, err
 	}
 
-	if hostDomCapabilities.SEV.Supported == "yes" && hostDomCapabilities.SEV.MaxESGuests > 0 {
-		hostDomCapabilities.SEV.SupportedES = "yes"
+	if hostDomCapabilities.SEV.Supported == isSupported && hostDomCapabilities.SEV.MaxESGuests > 0 {
+		hostDomCapabilities.SEV.SupportedES = isSupported
+		if hostDomCapabilities.LaunchSecurity.Supported == isSupported && slices.Contains(hostDomCapabilities.LaunchSecurity.SecTypes.Values, "sev-snp") {
+			hostDomCapabilities.SEV.SupportedSNP = isSupported
+		} else {
+			hostDomCapabilities.SEV.SupportedSNP = isUnusable
+		}
 	} else {
-		hostDomCapabilities.SEV.SupportedES = "no"
+		hostDomCapabilities.SEV.SupportedES = isUnusable
+		hostDomCapabilities.SEV.SupportedSNP = isUnusable
 	}
 
 	return hostDomCapabilities, err

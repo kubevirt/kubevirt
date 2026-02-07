@@ -23,6 +23,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -75,6 +76,10 @@ var _ = Describe("Notify", func() {
 			go func() {
 				notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
 			}()
+			// mimic pipe
+			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
+			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
+			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 
 			client = NewNotifier(shareDir)
 
@@ -279,6 +284,10 @@ var _ = Describe("Notify", func() {
 			go func() {
 				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
 			}()
+			// mimic pipe
+			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
+			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
+			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 
 			time.Sleep(1 * time.Second)
 

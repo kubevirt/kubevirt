@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "conditions.go",
         "controller.go",
-        "controller_ref.go",
         "controller_ref_manager.go",
         "expectations.go",
         "keys.go",
@@ -14,7 +13,9 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/controller",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery/patch:go_default_library",
         "//pkg/testutils:go_default_library",
+        "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/clone:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
@@ -25,6 +26,7 @@ go_library(
         "//staging/src/kubevirt.io/api/migrations:go_default_library",
         "//staging/src/kubevirt.io/api/migrations/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/pool/v1alpha1:go_default_library",
+        "//staging/src/kubevirt.io/api/pool/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
@@ -41,7 +43,7 @@ go_library(
         "//vendor/k8s.io/api/networking/v1:go_default_library",
         "//vendor/k8s.io/api/policy/v1:go_default_library",
         "//vendor/k8s.io/api/rbac/v1:go_default_library",
-        "//vendor/k8s.io/api/resource/v1beta1:go_default_library",
+        "//vendor/k8s.io/api/resource/v1:go_default_library",
         "//vendor/k8s.io/api/storage/v1:go_default_library",
         "//vendor/k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1:go_default_library",
         "//vendor/k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset:go_default_library",
@@ -76,6 +78,7 @@ go_test(
         "expectations_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/libvmi:go_default_library",
         "//pkg/pointer:go_default_library",

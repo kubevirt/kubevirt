@@ -24,6 +24,7 @@ go_test(
         "logverbosity_suite_test.go",
         "logverbosity_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/virtctl/testing:go_default_library",

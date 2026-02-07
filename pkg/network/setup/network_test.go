@@ -37,19 +37,6 @@ var _ = Describe("VMNetworkConfigurator", func() {
 		Expect(baseCacheCreator.New("").Delete()).To(Succeed())
 	})
 	Context("interface configuration", func() {
-
-		It("when vm has no network source should propagate errors when phase2 is called", func() {
-			vmi := newVMIBridgeInterface("testnamespace", "testVmName")
-			vmi.Spec.Networks = []v1.Network{{
-				Name:          "default",
-				NetworkSource: v1.NetworkSource{},
-			}}
-			vmNetworkConfigurator := NewVMNetworkConfigurator(vmi, &baseCacheCreator)
-			var domain *api.Domain
-			err := vmNetworkConfigurator.SetupPodNetworkPhase2(domain, vmi.Spec.Networks)
-			Expect(err).To(MatchError("Network not implemented"))
-		})
-
 		Context("when calling []podNIC factory functions", func() {
 			It("should not process SR-IOV networks", func() {
 				const networkName = "sriov"

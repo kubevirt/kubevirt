@@ -4,11 +4,12 @@ source hack/common.sh
 source hack/bootstrap.sh
 source hack/config.sh
 
-WHAT=${WHAT:-"//staging/src/kubevirt.io/... //pkg/... //cmd/... //tools/util/... //tools/cache/... //tests/framework/..."}
+WHAT=${WHAT:-"//staging/src/kubevirt.io/... //pkg/... //cmd/... //tools/... //tests/framework/..."}
 rm -rf ${ARTIFACTS}/junit ${ARTIFACTS}/testlogs
 
 if [ "${CI}" == "true" ]; then
     cat >>ci.bazelrc <<EOF
+build --jobs=4
 test --cache_test_results=no --runs_per_test=1
 EOF
 
@@ -26,7 +27,8 @@ EOF
     trap collect_results EXIT
 fi
 
+${KUBEVIRT_DIR}/hack/bazel-race.sh
+
 bazel test \
     --config=${ARCHITECTURE} \
-    --features race \
     --test_output=errors -- ${WHAT}

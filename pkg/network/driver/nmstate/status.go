@@ -76,12 +76,6 @@ func (n NMState) readInterfaces(links []vishnetlink.Link) ([]Interface, error) {
 			iface.Controller = bridgeLink.Attrs().Name
 		}
 
-		et, err := n.readEthtool(iface.Name)
-		if err != nil {
-			return nil, err
-		}
-		iface.Ethtool = et
-
 		addresses, err := n.readAddresses(link, vishnetlink.FAMILY_V4)
 		if err != nil {
 			return nil, err
@@ -130,14 +124,6 @@ func (n NMState) readLinuxStackByLink(link vishnetlink.Link) (LinuxIfaceStack, e
 		IP4RouteLocalNet: &ip4RouteLocalNet,
 		PortLearning:     &protInfo.Learning,
 	}, nil
-}
-
-func (n NMState) readEthtool(name string) (Ethtool, error) {
-	txChecksumEnabled, err := n.adapter.ReadTXChecksum(name)
-	if err != nil {
-		return Ethtool{}, err
-	}
-	return Ethtool{Feature: Feature{TxChecksum: &txChecksumEnabled}}, nil
 }
 
 func (n NMState) readAddresses(link vishnetlink.Link, family int) ([]IPAddress, error) {

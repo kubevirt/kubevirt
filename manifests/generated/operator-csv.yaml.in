@@ -423,6 +423,22 @@ spec:
           - list
           - watch
         - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackuptrackers
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - cdi.kubevirt.io
           resources:
           - datasources
@@ -465,6 +481,12 @@ spec:
           verbs:
           - create
           - list
+          - get
+        - apiGroups:
+          - ""
+          resources:
+          - nodes
+          verbs:
           - get
         - apiGroups:
           - ""
@@ -606,6 +628,33 @@ spec:
           - delete
           - patch
         - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          - virtualmachinebackups/status
+          - virtualmachinebackups/finalizers
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+          - patch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackuptrackers
+          - virtualmachinebackuptrackers/status
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - delete
+          - patch
+        - apiGroups:
           - pool.kubevirt.io
           resources:
           - virtualmachinepools
@@ -639,6 +688,8 @@ spec:
           - virtualmachines/stop
           - virtualmachineinstances/addvolume
           - virtualmachineinstances/removevolume
+          - virtualmachineinstances/backup
+          - virtualmachineinstances/redefine-checkpoint
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/reset
@@ -819,6 +870,15 @@ spec:
           - list
           - watch
         - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackuptrackers
+          - virtualmachinebackuptrackers/status
+          verbs:
+          - list
+          - watch
+          - patch
+        - apiGroups:
           - export.kubevirt.io
           resources:
           - virtualmachineexports
@@ -851,6 +911,8 @@ spec:
           - get
           - list
           - watch
+          - patch
+          - delete
         - apiGroups:
           - kubevirt.io
           resources:
@@ -920,6 +982,7 @@ spec:
           - virtualmachineinstances/reset
           - virtualmachineinstances/sev/setupsession
           - virtualmachineinstances/sev/injectlaunchsecret
+          - virtualmachineinstances/evacuate/cancel
           verbs:
           - update
         - apiGroups:
@@ -938,6 +1001,7 @@ spec:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
           - virtualmachines/memorydump
+          - virtualmachines/evacuate/cancel
           verbs:
           - update
         - apiGroups:
@@ -976,6 +1040,20 @@ spec:
           - virtualmachinesnapshots
           - virtualmachinesnapshotcontents
           - virtualmachinerestores
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+          - deletecollection
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          - virtualmachinebackuptrackers
           verbs:
           - get
           - delete
@@ -1078,6 +1156,7 @@ spec:
           - virtualmachineinstances/reset
           - virtualmachineinstances/sev/setupsession
           - virtualmachineinstances/sev/injectlaunchsecret
+          - virtualmachineinstances/evacuate/cancel
           verbs:
           - update
         - apiGroups:
@@ -1096,6 +1175,7 @@ spec:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
           - virtualmachines/memorydump
+          - virtualmachines/evacuate/cancel
           verbs:
           - update
         - apiGroups:
@@ -1133,6 +1213,19 @@ spec:
           - virtualmachinesnapshots
           - virtualmachinesnapshotcontents
           - virtualmachinerestores
+          verbs:
+          - get
+          - delete
+          - create
+          - update
+          - patch
+          - list
+          - watch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          - virtualmachinebackuptrackers
           verbs:
           - get
           - delete
@@ -1251,6 +1344,15 @@ spec:
           - virtualmachinesnapshots
           - virtualmachinesnapshotcontents
           - virtualmachinerestores
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          - virtualmachinebackuptrackers
           verbs:
           - get
           - list
@@ -1355,6 +1457,7 @@ spec:
               labels:
                 kubevirt.io: virt-operator
                 name: virt-operator
+                np.kubevirt.io/allow-access-cluster-services: "true"
                 prometheus.kubevirt.io: "true"
               name: virt-operator
             spec:
@@ -1477,6 +1580,8 @@ spec:
           - kubevirt-export-ca
           - kubevirt-virt-handler-certs
           - kubevirt-virt-handler-server-certs
+          - kubevirt-virt-handler-migration-client-certs
+          - kubevirt-virt-handler-vsock-client-certs
           - kubevirt-operator-certs
           - kubevirt-virt-api-certs
           - kubevirt-controller-certs

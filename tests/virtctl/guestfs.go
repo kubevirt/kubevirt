@@ -70,7 +70,7 @@ var _ = Describe(SIG("[sig-storage]Guestfs", decorators.SigStorage, func() {
 
 		Context("on a FS PVC", func() {
 			BeforeEach(func() {
-				libstorage.CreateFSPVC(pvcClaim, testsuite.GetTestNamespace(nil), "500Mi", nil)
+				libstorage.CreateFSPVC(pvcClaim, testsuite.GetTestNamespace(nil), "500Mi", libstorage.WithStorageProfile())
 			})
 
 			It("[test_id:11669]Should successfully run libguestfs-test-tool", func() {
@@ -99,7 +99,7 @@ var _ = Describe(SIG("[sig-storage]Guestfs", decorators.SigStorage, func() {
 
 		It("[posneg:positive][test_id:6479]Should successfully run guestfs command on a block-based PVC",
 			decorators.Conformance, decorators.RequiresBlockStorage, func() {
-				libstorage.CreateBlockPVC(pvcClaim, testsuite.GetTestNamespace(nil), "500Mi")
+				libstorage.CreateBlockPVC(pvcClaim, testsuite.GetTestNamespace(nil), "500Mi", libstorage.WithStorageProfile())
 				runGuestfsOnPVC(done, pvcClaim, testsuite.GetTestNamespace(nil), setGroup)
 				stdout, stderr, err := execCommandLibguestfsPod(
 					getGuestfsPodName(pvcClaim), testsuite.GetTestNamespace(nil), []string{"guestfish", "-a", "/dev/vda", "run"},
@@ -111,7 +111,7 @@ var _ = Describe(SIG("[sig-storage]Guestfs", decorators.SigStorage, func() {
 	})
 
 	It("[rfe_id:6364]Should successfully run guestfs command on a filesystem-based PVC with root", func() {
-		libstorage.CreateFSPVC(pvcClaim, testsuite.NamespacePrivileged, "500Mi", nil)
+		libstorage.CreateFSPVC(pvcClaim, testsuite.NamespacePrivileged, "500Mi", libstorage.WithStorageProfile())
 		runGuestfsOnPVC(done, pvcClaim, testsuite.NamespacePrivileged, false, "--root")
 		verifyCanRunOnFSPVC(getGuestfsPodName(pvcClaim), testsuite.NamespacePrivileged)
 	})

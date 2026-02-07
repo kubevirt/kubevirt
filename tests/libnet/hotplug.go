@@ -120,6 +120,8 @@ func normalizeIfaceStatuses(status []v1.VirtualMachineInstanceNetworkInterface) 
 	for i := range status {
 		status[i].MAC = ""
 		status[i].InterfaceName = ""
+		status[i].IP = ""
+		status[i].IPs = nil
 	}
 	return status
 }

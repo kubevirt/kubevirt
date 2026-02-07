@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"k8s.io/client-go/util/keyutil"
@@ -189,8 +190,8 @@ func SetupTLSForVirtHandlerServer(cert *tls.Certificate) *tls.Config {
 						return fmt.Errorf("could not verify peer certificate: %v", err)
 					}
 
-					if c.Subject.CommonName != "kubevirt.io:system:client:virt-handler" {
-						return fmt.Errorf("common name is invalid, expected %s, but got %s", "kubevirt.io:system:client:virt-handler", c.Subject.CommonName)
+					if !strings.HasPrefix(c.Subject.CommonName, "kubevirt.io:system:client") {
+						return fmt.Errorf("common name is invalid, expected prefix of  %s, but got %s", "kubevirt.io:system:client", c.Subject.CommonName)
 					}
 
 					return nil

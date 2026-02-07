@@ -78,13 +78,13 @@ var _ = Describe(SIG("VM Post Copy Live Migration", decorators.RequiresTwoSchedu
 		migrationPolicy.Spec.BandwidthPerMigration = kvpointer.P(resource.MustParse("5Mi"))
 	})
 
-	Context("with datavolume", func() {
+	Context("with datavolume", decorators.RequiresRWXFilesystemStorage, func() {
 		var dv *cdiv1.DataVolume
 
 		BeforeEach(func() {
 			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 			if !foundSC {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Failed test when RWX Filesystem storage is not present")
 			}
 
 			dv = libdv.NewDataVolume(

@@ -21,6 +21,7 @@ go_test(
         "objectgraph_suite_test.go",
         "objectgraph_test.go",
     ],
+    race = "on",
     deps = [
         "//pkg/pointer:go_default_library",
         "//pkg/virtctl/testing:go_default_library",

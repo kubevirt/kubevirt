@@ -20,16 +20,16 @@
 package defaults
 
 import (
+	"context"
 	"strings"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-
-	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/liveupdate/memory"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
@@ -37,15 +37,13 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
-func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
-	setDefaultInstancetypeKind(vm)
-	setDefaultPreferenceKind(vm)
+func SetVirtualMachineDefaults(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig, virtClient kubecli.KubevirtClient) {
+	setDefaultArchitectureFromDataSource(clusterConfig, vm, virtClient)
 	setDefaultArchitecture(clusterConfig, &vm.Spec.Template.Spec)
-	setVMDefaultMachineType(vm, preferenceSpec, clusterConfig)
-	setPreferenceStorageClassName(vm, preferenceSpec)
+	setVMDefaultMachineType(vm, clusterConfig)
 }
 
-func setVMDefaultMachineType(vm *v1.VirtualMachine, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec, clusterConfig *virtconfig.ClusterConfig) {
+func setVMDefaultMachineType(vm *v1.VirtualMachine, clusterConfig *virtconfig.ClusterConfig) {
 	// Nothing to do, let's the validating webhook fail later
 	if vm.Spec.Template == nil {
 		return
@@ -59,51 +57,8 @@ func setVMDefaultMachineType(vm *v1.VirtualMachine, preferenceSpec *instancetype
 		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{}
 	}
 
-	if preferenceSpec != nil && preferenceSpec.Machine != nil {
-		vm.Spec.Template.Spec.Domain.Machine.Type = preferenceSpec.Machine.PreferredMachineType
-	}
-
-	// Only use the cluster default if the user hasn't provided a machine type or referenced a preference with PreferredMachineType
 	if vm.Spec.Template.Spec.Domain.Machine.Type == "" {
 		vm.Spec.Template.Spec.Domain.Machine.Type = clusterConfig.GetMachineType(vm.Spec.Template.Spec.Architecture)
-	}
-}
-
-func setPreferenceStorageClassName(vm *v1.VirtualMachine, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) {
-	// Nothing to do, let's the validating webhook fail later
-	if vm.Spec.Template == nil {
-		return
-	}
-
-	if preferenceSpec != nil && preferenceSpec.Volumes != nil && preferenceSpec.Volumes.PreferredStorageClassName != "" {
-		for _, dv := range vm.Spec.DataVolumeTemplates {
-			if dv.Spec.PVC != nil && dv.Spec.PVC.StorageClassName == nil {
-				dv.Spec.PVC.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
-			}
-			if dv.Spec.Storage != nil && dv.Spec.Storage.StorageClassName == nil {
-				dv.Spec.Storage.StorageClassName = &preferenceSpec.Volumes.PreferredStorageClassName
-			}
-		}
-	}
-}
-
-func setDefaultInstancetypeKind(vm *v1.VirtualMachine) {
-	if vm.Spec.Instancetype == nil {
-		return
-	}
-
-	if vm.Spec.Instancetype.Kind == "" {
-		vm.Spec.Instancetype.Kind = apiinstancetype.ClusterSingularResourceName
-	}
-}
-
-func setDefaultPreferenceKind(vm *v1.VirtualMachine) {
-	if vm.Spec.Preference == nil {
-		return
-	}
-
-	if vm.Spec.Preference.Kind == "" {
-		vm.Spec.Preference.Kind = apiinstancetype.ClusterSingularPreferenceResourceName
 	}
 }
 
@@ -314,40 +269,6 @@ func setDefaultResourceRequests(clusterConfig *virtconfig.ClusterConfig, spec *v
 		resources.Requests[k8sv1.ResourceCPU] = resources.Limits[k8sv1.ResourceCPU]
 	}
 
-	if !resources.Limits.Memory().IsZero() && resources.Requests.Memory().IsZero() {
-		if resources.Requests == nil {
-			resources.Requests = k8sv1.ResourceList{}
-		}
-		resources.Requests[k8sv1.ResourceMemory] = resources.Limits[k8sv1.ResourceMemory]
-	}
-
-	if _, exists := resources.Requests[k8sv1.ResourceMemory]; !exists {
-		var memory *resource.Quantity
-		if spec.Domain.Memory != nil && spec.Domain.Memory.Guest != nil {
-			memory = spec.Domain.Memory.Guest
-		}
-		if memory == nil && spec.Domain.Memory != nil && spec.Domain.Memory.Hugepages != nil {
-			if hugepagesSize, err := resource.ParseQuantity(spec.Domain.Memory.Hugepages.PageSize); err == nil {
-				memory = &hugepagesSize
-			}
-		}
-
-		if memory != nil && memory.Value() > 0 {
-			if resources.Requests == nil {
-				resources.Requests = k8sv1.ResourceList{}
-			}
-			overcommit := clusterConfig.GetMemoryOvercommit()
-			if overcommit == 100 {
-				resources.Requests[k8sv1.ResourceMemory] = *memory
-			} else {
-				value := (memory.Value() * int64(100)) / int64(overcommit)
-				resources.Requests[k8sv1.ResourceMemory] = *resource.NewQuantity(value, memory.Format)
-			}
-			memoryRequest := resources.Requests[k8sv1.ResourceMemory]
-			log.Log.V(4).Infof("Set memory-request to %s as a result of memory-overcommit = %v%%", memoryRequest.String(), overcommit)
-		}
-	}
-
 	if cpuRequest := clusterConfig.GetCPURequest(); !cpuRequest.Equal(resource.MustParse(virtconfig.DefaultCPURequest)) {
 		if _, exists := resources.Requests[k8sv1.ResourceCPU]; !exists {
 			if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
@@ -406,5 +327,53 @@ func setDefaultCPUModel(clusterConfig *virtconfig.ClusterConfig, spec *v1.Virtua
 func setDefaultArchitecture(clusterConfig *virtconfig.ClusterConfig, spec *v1.VirtualMachineInstanceSpec) {
 	if spec.Architecture == "" {
 		spec.Architecture = clusterConfig.GetDefaultArchitecture()
+	}
+}
+
+func setDefaultArchitectureFromDataSource(clusterConfig *virtconfig.ClusterConfig, vm *v1.VirtualMachine, virtClient kubecli.KubevirtClient) {
+	const (
+		dataSourceKind        = "datasource"
+		templateArchLabel     = "template.kubevirt.io/architecture"
+		ignoreFailureErrorFmt = "ignoring failure to find datasource during vm mutation: %v"
+		ignoreUnknownArchFmt  = "ignoring unknown architecture %s provided by DataSource %s in namespace %s"
+	)
+	if vm.Spec.Template.Spec.Architecture != "" {
+		return
+	}
+	for _, template := range vm.Spec.DataVolumeTemplates {
+		if template.Spec.SourceRef == nil || !strings.EqualFold(template.Spec.SourceRef.Kind, dataSourceKind) {
+			continue
+		}
+		namespace := vm.Namespace
+		templateNamespace := template.Spec.SourceRef.Namespace
+		if templateNamespace != nil && *templateNamespace != "" {
+			namespace = *templateNamespace
+		}
+		ds, err := virtClient.CdiClient().CdiV1beta1().DataSources(namespace).Get(
+			context.Background(), template.Spec.SourceRef.Name, metav1.GetOptions{})
+		if err != nil {
+			log.Log.Errorf(ignoreFailureErrorFmt, err)
+			continue
+		}
+		if ds.Spec.Source.DataSource != nil {
+			ds, err = virtClient.CdiClient().CdiV1beta1().DataSources(ds.Spec.Source.DataSource.Namespace).Get(
+				context.Background(), ds.Spec.Source.DataSource.Name, metav1.GetOptions{})
+			if err != nil {
+				log.Log.Errorf(ignoreFailureErrorFmt, err)
+				continue
+			}
+		}
+		arch, ok := ds.Labels[templateArchLabel]
+		if !ok {
+			continue
+		}
+		switch arch {
+		case "amd64", "arm64", "s390x":
+			vm.Spec.Template.Spec.Architecture = arch
+		default:
+			log.Log.Warningf(ignoreUnknownArchFmt, arch, ds.Name, ds.Namespace)
+			continue
+		}
+		return
 	}
 }

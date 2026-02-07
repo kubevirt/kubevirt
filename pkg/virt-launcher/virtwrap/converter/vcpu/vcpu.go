@@ -334,7 +334,7 @@ func QuantityToByte(quantity resource.Quantity) (api.Memory, error) {
 	}
 
 	if memorySize < 0 {
-		return api.Memory{Unit: "b"}, fmt.Errorf("Memory size '%s' must be greater than or equal to 0", quantity.String())
+		return api.Memory{}, fmt.Errorf("Memory size '%s' must be greater than or equal to 0", quantity.String())
 	}
 	return api.Memory{
 		Value: uint64(memorySize),
@@ -374,6 +374,10 @@ func appendDomainIOThreadPin(domain *api.Domain, thread uint32, cpuset string) {
 }
 
 func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain, emulatorThreadsCPUSet string, cpuset []int) error {
+	if domain.Spec.IOThreads == nil {
+		return fmt.Errorf("domain is missing IOThreads")
+	}
+
 	iothreads := int(domain.Spec.IOThreads.IOThreads)
 	vcpus := int(CalculateRequestedVCPUs(domain.Spec.CPU.Topology))
 
@@ -462,7 +466,7 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 			}
 		}
 		disabledSockets := uint32(disabledVCPUs) / (requestedToplogy.Cores * requestedToplogy.Threads)
-		requestedToplogy.Sockets -= uint32(disabledSockets)
+		requestedToplogy.Sockets -= disabledSockets
 	}
 
 	if isNumaPassthrough(vmi) {
@@ -619,10 +623,10 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 	domain.MemoryBacking.Allocation = &api.MemoryAllocation{Mode: api.MemoryAllocationModeImmediate}
 
 	memory, err := QuantityToByte(*GetVirtualMemory(vmi))
-	memoryBytes := memory.Value
 	if err != nil {
 		return fmt.Errorf("could not convert VMI memory to quantity: %v", err)
 	}
+	memoryBytes := memory.Value
 	var mod uint64
 	cellCount := uint64(len(involvedCellIDs))
 	if memoryBytes < cellCount*hugepagesSize {

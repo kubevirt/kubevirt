@@ -24,7 +24,6 @@ import (
 
 	vishnetlink "github.com/vishvananda/netlink"
 
-	"kubevirt.io/kubevirt/pkg/network/driver/ethtool"
 	"kubevirt.io/kubevirt/pkg/network/driver/netlink"
 	"kubevirt.io/kubevirt/pkg/network/driver/procsys"
 	"kubevirt.io/kubevirt/pkg/network/driver/virtchroot"
@@ -42,15 +41,14 @@ type Status struct {
 }
 
 type Interface struct {
-	Name        string  `json:"name"`
-	Index       int     `json:"index,omitempty"`
-	TypeName    string  `json:"type,omitempty"`
-	State       string  `json:"state,omitempty"`
-	MacAddress  string  `json:"mac-address,omitempty"`
-	CopyMacFrom string  `json:"copy-mac-from,omitempty"`
-	MTU         int     `json:"mtu,omitempty"`
-	Controller  string  `json:"controller,omitempty"`
-	Ethtool     Ethtool `json:"ethtool,omitempty"`
+	Name        string `json:"name"`
+	Index       int    `json:"index,omitempty"`
+	TypeName    string `json:"type,omitempty"`
+	State       string `json:"state,omitempty"`
+	MacAddress  string `json:"mac-address,omitempty"`
+	CopyMacFrom string `json:"copy-mac-from,omitempty"`
+	MTU         int    `json:"mtu,omitempty"`
+	Controller  string `json:"controller,omitempty"`
 
 	Tap *TapDevice `json:"tap,omitempty"`
 
@@ -81,14 +79,6 @@ type Route struct {
 	NextHopInterface string `json:"next-hop-interface,omitempty"`
 	NextHopAddress   string `json:"next-hop-address,omitempty"`
 	TableID          int    `json:"table-id,omitempty"`
-}
-
-type Ethtool struct {
-	Feature Feature `json:"feature,omitempty"`
-}
-
-type Feature struct {
-	TxChecksum *bool `json:"tx-checksum,omitempty"`
 }
 
 type TapDevice struct {
@@ -140,9 +130,6 @@ type adapter interface {
 	LinkSetMaster(vishnetlink.Link, *vishnetlink.Bridge) error
 	LinkSetName(vishnetlink.Link, string) error
 	LinkSetLearningOff(vishnetlink.Link) error
-	ReadTXChecksum(string) (bool, error)
-	TXChecksumOff(name string) error
-
 	AddrList(vishnetlink.Link, int) ([]vishnetlink.Addr, error)
 	AddrAdd(vishnetlink.Link, *vishnetlink.Addr) error
 	AddrDel(vishnetlink.Link, *vishnetlink.Addr) error
@@ -189,7 +176,6 @@ func WithAdapter(adapter adapter) option {
 
 type defaultHandler struct {
 	netlink.NetLink
-	ethtool.Ethtool
 	procsys.ProcSys
 	virtchroot.VirtCHRoot
 }

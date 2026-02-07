@@ -20,14 +20,9 @@
 package network
 
 import (
-	"fmt"
-	"os"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
-
-	goerrors "errors"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
@@ -42,7 +37,6 @@ const defaultState = cache.PodIfaceNetworkPreparationPending
 type podNIC struct {
 	vmi              *v1.VirtualMachineInstance
 	podInterfaceName string
-	launcherPID      *int
 	vmiSpecIface     *v1.Interface
 	vmiSpecNetwork   *v1.Network
 	handler          netdriver.NetworkHandler
@@ -52,10 +46,7 @@ type podNIC struct {
 }
 
 func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator, domain *api.Domain, domainAttachment string) (*podNIC, error) {
-	podnic, err := newPodNIC(vmi, network, iface, handler, cacheCreator, nil)
-	if err != nil {
-		return nil, err
-	}
+	podnic := newPodNIC(vmi, network, iface, handler, cacheCreator)
 
 	ifaceLink, err := link.DiscoverByNetwork(podnic.handler, podnic.vmi.Spec.Networks, *podnic.vmiSpecNetwork, vmi.Status.Interfaces)
 	if err != nil {
@@ -73,19 +64,14 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface 
 	return podnic, nil
 }
 
-func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator, launcherPID *int) (*podNIC, error) {
-	if network.Pod == nil && network.Multus == nil {
-		return nil, fmt.Errorf("Network not implemented")
-	}
-
+func newPodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface *v1.Interface, handler netdriver.NetworkHandler, cacheCreator cacheCreator) *podNIC {
 	return &podNIC{
 		cacheCreator:   cacheCreator,
 		handler:        handler,
 		vmi:            vmi,
 		vmiSpecNetwork: network,
 		vmiSpecIface:   iface,
-		launcherPID:    launcherPID,
-	}, nil
+	}
 }
 
 func (l *podNIC) PlugPhase2(domain *api.Domain) error {
@@ -116,7 +102,6 @@ func (l *podNIC) newDHCPConfigurator() dhcpconfigurator.Configurator {
 	if l.vmiSpecIface.Bridge != nil {
 		dhcpConfigurator = dhcpconfigurator.NewBridgeConfigurator(
 			l.cacheCreator,
-			getPIDString(l.launcherPID),
 			link.GenerateBridgeName(l.podInterfaceName),
 			l.handler,
 			l.podInterfaceName,
@@ -140,25 +125,4 @@ func (l *podNIC) newLibvirtSpecGenerator(domain *api.Domain, domainAttachment st
 		return domainspec.NewTapLibvirtSpecGenerator(l.vmiSpecIface, *l.vmiSpecNetwork, domain, l.podInterfaceName, l.handler)
 	}
 	return nil
-}
-
-func (l *podNIC) cachedDomainInterface() (*api.Interface, error) {
-	var ifaceConfig *api.Interface
-	ifaceConfig, err := cache.ReadDomainInterfaceCache(l.cacheCreator, getPIDString(l.launcherPID), l.vmiSpecIface.Name)
-	if goerrors.Is(err, os.ErrNotExist) {
-		return nil, nil
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ifaceConfig, nil
-}
-
-func getPIDString(pid *int) string {
-	if pid != nil {
-		return fmt.Sprintf("%d", *pid)
-	}
-	return "self"
 }

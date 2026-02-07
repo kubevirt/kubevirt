@@ -174,23 +174,24 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("store VirtualMachineClusterInstancetype ControllerRevision", func() {
+			DescribeTable("store VirtualMachineClusterInstancetype ControllerRevision", func(updateVM func()) {
+				updateVM()
 				Expect(storeHandler.Store(vm)).To(Succeed())
 
 				clusterInstancetypeControllerRevision, err := revision.CreateControllerRevision(vm, clusterInstancetype)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(vm.Spec.Instancetype.RevisionName).To(BeEmpty())
-				Expect(vm.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
-				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
+				Expect(vm.Status.InstancetypeRef.Name).To(Equal(vm.Spec.Instancetype.Name))
+				Expect(vm.Status.InstancetypeRef.Kind).To(Equal(vm.Spec.Instancetype.Kind))
 				Expect(vm.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
 
 				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(updatedVM.Spec.Instancetype.RevisionName).To(BeEmpty())
-				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(clusterInstancetype.Name))
-				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(clusterInstancetype.Kind))
+				Expect(updatedVM.Status.InstancetypeRef.Name).To(Equal(vm.Spec.Instancetype.Name))
+				Expect(updatedVM.Status.InstancetypeRef.Kind).To(Equal(vm.Spec.Instancetype.Kind))
 				Expect(updatedVM.Status.InstancetypeRef.ControllerRevisionRef.Name).To(Equal(clusterInstancetypeControllerRevision.Name))
 
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
@@ -198,7 +199,19 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(createdCR).To(Equal(clusterInstancetypeControllerRevision))
-			})
+			},
+				Entry("with kind set", func() {
+					vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+						Name: clusterInstancetype.Name,
+						Kind: apiinstancetype.ClusterSingularResourceName,
+					}
+				}),
+				Entry("without kind set", func() {
+					vm.Spec.Instancetype = &virtv1.InstancetypeMatcher{
+						Name: clusterInstancetype.Name,
+					}
+				}),
+			)
 
 			It("store succeeds when RevisionName already populated", func() {
 				clusterInstancetypeControllerRevision, err := revision.CreateControllerRevision(vm, clusterInstancetype)
@@ -432,7 +445,7 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				preferredCPUTopology := instancetypev1beta1.Cores
 				clusterPreference = &instancetypev1beta1.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
-						Kind:       "VirtualMachineClusterPreference",
+						Kind:       apiinstancetype.ClusterSingularPreferenceResourceName,
 						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -462,19 +475,44 @@ var _ = Describe("Instancetype and Preferences revision handler", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 
-			It("store VirtualMachineClusterPreference ControllerRevision", func() {
+			DescribeTable("store VirtualMachineClusterPreference ControllerRevision", func(updateVM func()) {
+				updateVM()
+				Expect(storeHandler.Store(vm)).To(Succeed())
+
 				clusterPreferenceControllerRevision, err := revision.CreateControllerRevision(vm, clusterPreference)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(storeHandler.Store(vm)).To(Succeed())
+				Expect(vm.Spec.Preference.RevisionName).To(BeEmpty())
+				Expect(vm.Status.PreferenceRef.Name).To(Equal(vm.Spec.Preference.Name))
+				Expect(vm.Status.PreferenceRef.Kind).To(Equal(vm.Spec.Preference.Kind))
 				Expect(vm.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(clusterPreferenceControllerRevision.Name))
+
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(updatedVM.Spec.Preference.RevisionName).To(BeEmpty())
+				Expect(updatedVM.Status.PreferenceRef.Name).To(Equal(vm.Spec.Preference.Name))
+				Expect(updatedVM.Status.PreferenceRef.Kind).To(Equal(vm.Spec.Preference.Kind))
+				Expect(updatedVM.Status.PreferenceRef.ControllerRevisionRef.Name).To(Equal(clusterPreferenceControllerRevision.Name))
 
 				createdCR, err := virtClient.AppsV1().ControllerRevisions(vm.Namespace).Get(
 					context.Background(), vm.Status.PreferenceRef.ControllerRevisionRef.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(createdCR).To(Equal(clusterPreferenceControllerRevision))
-			})
+			},
+				Entry("with kind set", func() {
+					vm.Spec.Preference = &virtv1.PreferenceMatcher{
+						Name: clusterPreference.Name,
+						Kind: apiinstancetype.ClusterSingularPreferenceResourceName,
+					}
+				}),
+				Entry("without kind set", func() {
+					vm.Spec.Preference = &virtv1.PreferenceMatcher{
+						Name: clusterPreference.Name,
+					}
+				}),
+			)
 
 			It("store fails when VirtualMachineClusterPreference doesn't exist", func() {
 				vm.Spec.Preference.Name = nonExistingResourceName

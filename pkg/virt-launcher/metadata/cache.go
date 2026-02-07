@@ -31,6 +31,7 @@ type Cache struct {
 	GracePeriod      SafeData[api.GracePeriodMetadata]
 	AccessCredential SafeData[api.AccessCredentialMetadata]
 	MemoryDump       SafeData[api.MemoryDumpMetadata]
+	Backup           SafeData[api.BackupMetadata]
 
 	notificationSignal chan struct{}
 }
@@ -44,6 +45,7 @@ func NewCache() *Cache {
 	cache.GracePeriod.dirtyChanel = cache.notificationSignal
 	cache.AccessCredential.dirtyChanel = cache.notificationSignal
 	cache.MemoryDump.dirtyChanel = cache.notificationSignal
+	cache.Backup.dirtyChanel = cache.notificationSignal
 	return cache
 }
 

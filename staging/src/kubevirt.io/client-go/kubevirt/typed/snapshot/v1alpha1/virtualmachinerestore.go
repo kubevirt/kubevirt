@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
+	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,36 @@ type VirtualMachineRestoresGetter interface {
 
 // VirtualMachineRestoreInterface has methods to work with VirtualMachineRestore resources.
 type VirtualMachineRestoreInterface interface {
-	Create(ctx context.Context, virtualMachineRestore *v1alpha1.VirtualMachineRestore, opts v1.CreateOptions) (*v1alpha1.VirtualMachineRestore, error)
-	Update(ctx context.Context, virtualMachineRestore *v1alpha1.VirtualMachineRestore, opts v1.UpdateOptions) (*v1alpha1.VirtualMachineRestore, error)
+	Create(ctx context.Context, virtualMachineRestore *snapshotv1alpha1.VirtualMachineRestore, opts v1.CreateOptions) (*snapshotv1alpha1.VirtualMachineRestore, error)
+	Update(ctx context.Context, virtualMachineRestore *snapshotv1alpha1.VirtualMachineRestore, opts v1.UpdateOptions) (*snapshotv1alpha1.VirtualMachineRestore, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, virtualMachineRestore *v1alpha1.VirtualMachineRestore, opts v1.UpdateOptions) (*v1alpha1.VirtualMachineRestore, error)
+	UpdateStatus(ctx context.Context, virtualMachineRestore *snapshotv1alpha1.VirtualMachineRestore, opts v1.UpdateOptions) (*snapshotv1alpha1.VirtualMachineRestore, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.VirtualMachineRestore, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.VirtualMachineRestoreList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*snapshotv1alpha1.VirtualMachineRestore, error)
+	List(ctx context.Context, opts v1.ListOptions) (*snapshotv1alpha1.VirtualMachineRestoreList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachineRestore, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *snapshotv1alpha1.VirtualMachineRestore, err error)
 	VirtualMachineRestoreExpansion
 }
 
 // virtualMachineRestores implements VirtualMachineRestoreInterface
 type virtualMachineRestores struct {
-	*gentype.ClientWithList[*v1alpha1.VirtualMachineRestore, *v1alpha1.VirtualMachineRestoreList]
+	*gentype.ClientWithList[*snapshotv1alpha1.VirtualMachineRestore, *snapshotv1alpha1.VirtualMachineRestoreList]
 }
 
 // newVirtualMachineRestores returns a VirtualMachineRestores
 func newVirtualMachineRestores(c *SnapshotV1alpha1Client, namespace string) *virtualMachineRestores {
 	return &virtualMachineRestores{
-		gentype.NewClientWithList[*v1alpha1.VirtualMachineRestore, *v1alpha1.VirtualMachineRestoreList](
+		gentype.NewClientWithList[*snapshotv1alpha1.VirtualMachineRestore, *snapshotv1alpha1.VirtualMachineRestoreList](
 			"virtualmachinerestores",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.VirtualMachineRestore { return &v1alpha1.VirtualMachineRestore{} },
-			func() *v1alpha1.VirtualMachineRestoreList { return &v1alpha1.VirtualMachineRestoreList{} }),
+			func() *snapshotv1alpha1.VirtualMachineRestore { return &snapshotv1alpha1.VirtualMachineRestore{} },
+			func() *snapshotv1alpha1.VirtualMachineRestoreList {
+				return &snapshotv1alpha1.VirtualMachineRestoreList{}
+			},
+		),
 	}
 }

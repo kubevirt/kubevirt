@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha1 "kubevirt.io/api/migrations/v1alpha1"
+	migrationsv1alpha1 "kubevirt.io/api/migrations/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,34 @@ type MigrationPoliciesGetter interface {
 
 // MigrationPolicyInterface has methods to work with MigrationPolicy resources.
 type MigrationPolicyInterface interface {
-	Create(ctx context.Context, migrationPolicy *v1alpha1.MigrationPolicy, opts v1.CreateOptions) (*v1alpha1.MigrationPolicy, error)
-	Update(ctx context.Context, migrationPolicy *v1alpha1.MigrationPolicy, opts v1.UpdateOptions) (*v1alpha1.MigrationPolicy, error)
+	Create(ctx context.Context, migrationPolicy *migrationsv1alpha1.MigrationPolicy, opts v1.CreateOptions) (*migrationsv1alpha1.MigrationPolicy, error)
+	Update(ctx context.Context, migrationPolicy *migrationsv1alpha1.MigrationPolicy, opts v1.UpdateOptions) (*migrationsv1alpha1.MigrationPolicy, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, migrationPolicy *v1alpha1.MigrationPolicy, opts v1.UpdateOptions) (*v1alpha1.MigrationPolicy, error)
+	UpdateStatus(ctx context.Context, migrationPolicy *migrationsv1alpha1.MigrationPolicy, opts v1.UpdateOptions) (*migrationsv1alpha1.MigrationPolicy, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.MigrationPolicy, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.MigrationPolicyList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*migrationsv1alpha1.MigrationPolicy, error)
+	List(ctx context.Context, opts v1.ListOptions) (*migrationsv1alpha1.MigrationPolicyList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.MigrationPolicy, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *migrationsv1alpha1.MigrationPolicy, err error)
 	MigrationPolicyExpansion
 }
 
 // migrationPolicies implements MigrationPolicyInterface
 type migrationPolicies struct {
-	*gentype.ClientWithList[*v1alpha1.MigrationPolicy, *v1alpha1.MigrationPolicyList]
+	*gentype.ClientWithList[*migrationsv1alpha1.MigrationPolicy, *migrationsv1alpha1.MigrationPolicyList]
 }
 
 // newMigrationPolicies returns a MigrationPolicies
 func newMigrationPolicies(c *MigrationsV1alpha1Client) *migrationPolicies {
 	return &migrationPolicies{
-		gentype.NewClientWithList[*v1alpha1.MigrationPolicy, *v1alpha1.MigrationPolicyList](
+		gentype.NewClientWithList[*migrationsv1alpha1.MigrationPolicy, *migrationsv1alpha1.MigrationPolicyList](
 			"migrationpolicies",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1alpha1.MigrationPolicy { return &v1alpha1.MigrationPolicy{} },
-			func() *v1alpha1.MigrationPolicyList { return &v1alpha1.MigrationPolicyList{} }),
+			func() *migrationsv1alpha1.MigrationPolicy { return &migrationsv1alpha1.MigrationPolicy{} },
+			func() *migrationsv1alpha1.MigrationPolicyList { return &migrationsv1alpha1.MigrationPolicyList{} },
+		),
 	}
 }

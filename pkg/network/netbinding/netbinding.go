@@ -52,7 +52,7 @@ func netBindingPluginSidecar(vmi *v1.VirtualMachineInstance, config *v1.KubeVirt
 			}
 
 			if !exist {
-				return nil, fmt.Errorf("couldn't find configuration for network bindining: %s", iface.Binding.Name)
+				return nil, fmt.Errorf("couldn't find configuration for network binding: %s", iface.Binding.Name)
 			}
 		}
 	}

@@ -22,11 +22,12 @@ package synchronization
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -61,8 +62,6 @@ const (
 	targetNamespace         = "target-namespace"
 	sourcePodName           = "sourcePod"
 	targetPodName           = "targetPod"
-
-	remoteHostURL = "localhost:9186"
 )
 
 var _ = Describe("VMI status synchronization controller", func() {
@@ -90,6 +89,8 @@ var _ = Describe("VMI status synchronization controller", func() {
 		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(targetNamespace).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(targetNamespace)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(k8sv1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault)).AnyTimes()
+		virtClient.EXPECT().VirtualMachineInstanceMigration(targetNamespace).Return(virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetNamespace)).AnyTimes()
 		vmiInformer, _ = testutils.NewFakeInformerWithIndexersFor(&virtv1.VirtualMachineInstance{}, kvcontroller.GetVMIInformerIndexers())
 		migrationInformer, _ = testutils.NewFakeInformerFor(&virtv1.VirtualMachineInstanceMigration{})
 		tmpDir, err := os.MkdirTemp("", "synchronizationcontrollertest")
@@ -470,6 +471,8 @@ var _ = Describe("VMI status synchronization controller", func() {
 			targetMigration = createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
 			err = migrationInformer.GetStore().Add(targetMigration)
 			Expect(err).ToNot(HaveOccurred())
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetVMI.Namespace).Create(context.TODO(), targetMigration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			sourceVMI = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			sourceVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 			err = vmiInformer.GetStore().Add(sourceVMI)
@@ -479,6 +482,8 @@ var _ = Describe("VMI status synchronization controller", func() {
 			remoteURL, err := controller.getLocalSynchronizationAddress()
 			sourceMigration = createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
 			err = migrationInformer.GetStore().Add(sourceMigration)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(k8sv1.NamespaceDefault).Create(context.TODO(), sourceMigration, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -650,6 +655,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			err                                  error
 			remoteController                     *SynchronizationController
 			targetVMI, sourceVMI                 *virtv1.VirtualMachineInstance
+			targetMigration, sourceMigration     *virtv1.VirtualMachineInstanceMigration
 			remoteURL, localURL                  string
 			controllerDone, remoteControllerDone chan struct{}
 		)
@@ -675,16 +681,17 @@ var _ = Describe("VMI status synchronization controller", func() {
 				controller.grpcServer.Serve(localTCPConn)
 			}()
 
-			targetVMI = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			targetVMI = libvmi.New(libvmi.WithNamespace(targetNamespace))
 			targetVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 			err = vmiInformer.GetStore().Add(targetVMI)
 			Expect(err).ToNot(HaveOccurred())
 			_, err = virtClient.VirtualMachineInstance(targetVMI.Namespace).Create(context.TODO(), targetVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			targetMigration := createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
+			targetMigration = createTargetMigration(testMigrationID, targetVMI.Name, targetVMI.Namespace)
 			err = remoteMigrationInformer.GetStore().Add(targetMigration)
 			Expect(err).ToNot(HaveOccurred())
-
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(targetVMI.Namespace).Create(context.TODO(), targetMigration, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
 			sourceVMI = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 			sourceVMI.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 			err = vmiInformer.GetStore().Add(sourceVMI)
@@ -692,8 +699,10 @@ var _ = Describe("VMI status synchronization controller", func() {
 			sourceVMI, err = virtClient.VirtualMachineInstance(sourceVMI.Namespace).Create(context.TODO(), sourceVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			remoteURL, err = remoteController.getLocalSynchronizationAddress()
-			sourceMigration := createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
+			sourceMigration = createSourceMigration(testMigrationID, sourceVMI.Name, remoteURL, sourceVMI.Namespace)
 			err = migrationInformer.GetStore().Add(sourceMigration)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtfakeClient.KubevirtV1().VirtualMachineInstanceMigrations(sourceVMI.Namespace).Create(context.TODO(), sourceMigration, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			localURL, err = controller.getLocalSynchronizationAddress()
 			Expect(err).ToNot(HaveOccurred())
@@ -930,13 +939,54 @@ var _ = Describe("VMI status synchronization controller", func() {
 			})
 			Expect(count).To(Equal(1), "there should be one item in the map")
 		})
+
+		It("should cancel remote migration", func() {
+			targetVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: targetTestMigrationUID,
+				},
+			}
+			targetVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(localURL),
+				},
+			}
+			sourceVMI.Status.MigrationState.SourceState = &virtv1.VirtualMachineInstanceMigrationSourceState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					MigrationUID: sourceTestMigrationUID,
+				},
+			}
+			sourceVMI.Status.MigrationState.TargetState = &virtv1.VirtualMachineInstanceMigrationTargetState{
+				VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+					SyncAddress: pointer.P(remoteURL),
+				},
+			}
+			By("setting up the clients and informers")
+			err = remoteController.vmiInformer.GetStore().Update(targetVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = remoteController.client.VirtualMachineInstance(targetVMI.Namespace).Update(context.Background(), targetVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(sourceVMI)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = controller.client.VirtualMachineInstance(sourceVMI.Namespace).Update(context.Background(), sourceVMI, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			targetMigration.DeletionTimestamp = pointer.P(metav1.Now())
+			err = remoteController.migrationInformer.GetStore().Update(targetMigration)
+			Expect(err).ToNot(HaveOccurred())
+
+			res, err := controller.CancelMigration(context.Background(), &syncv1.MigrationCancelRequest{
+				MigrationUID: targetTestMigrationUID,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res.Message).To(Equal("migration canceled"))
+		})
 	})
 
 	It("should return nil, nil if invalid resource type passed into index function", func() {
 		res, err := indexByMigrationUID("invalid")
 		Expect(res).To(BeNil())
 		Expect(err).ToNot(HaveOccurred())
-		res, err = indexByVmiName("invalid")
+		res, err = indexByActiveVmiName("invalid")
 		Expect(res).To(BeNil())
 		Expect(err).ToNot(HaveOccurred())
 		res, err = indexBySourceMigrationID("invalid")
@@ -944,18 +994,6 @@ var _ = Describe("VMI status synchronization controller", func() {
 		Expect(err).ToNot(HaveOccurred())
 		res, err = indexByTargetMigrationID("invalid")
 		Expect(res).To(BeNil())
-		Expect(err).ToNot(HaveOccurred())
-	})
-
-	It("should not index migrations marked for deletion", func() {
-		migration := createSourceMigration(testMigrationID, "test-vmi", "", k8sv1.NamespaceDefault)
-		res, err := indexByVmiName(migration)
-		Expect(res).To(HaveLen(1))
-		Expect(err).ToNot(HaveOccurred())
-
-		migration.DeletionTimestamp = &metav1.Time{Time: time.Now()}
-		res, err = indexByVmiName(migration)
-		Expect(res).To(BeEmpty())
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -1041,6 +1079,7 @@ var _ = Describe("VMI status synchronization controller", func() {
 			Expect(loaded).To(BeFalse())
 		})
 	})
+
 	It("should be able to find the VMI from the migration", func() {
 		vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
 		err := controller.vmiInformer.GetStore().Add(vmi)
@@ -1053,6 +1092,672 @@ var _ = Describe("VMI status synchronization controller", func() {
 		res, err = controller.getVMIFromMigration(migration)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(res).To(BeNil())
+	})
+
+	Context("Decentralized Live Migration Failure", func() {
+		It("should recognize x509 hostname error", func() {
+			err := x509.HostnameError{
+				Host: "1.1.1.1",
+			}
+			message := getErrorMessageForDecentralizedLiveMigrationFailure(err)
+			Expect(message).To(Equal("x509 hostname error"))
+		})
+
+		It("should return the error message if not a x509 hostname error", func() {
+			err := errors.New("test error")
+			message := getErrorMessageForDecentralizedLiveMigrationFailure(err)
+			Expect(message).To(Equal("test error"))
+		})
+
+		It("should set/clear the decentralized live migration failure condition", func() {
+			vmi := libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+			_, err := controller.client.VirtualMachineInstance(k8sv1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.setDecentralizedLiveMigrationFailure(vmi, "test error")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.Conditions).To(HaveLen(1))
+			Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+			Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+			Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+			Expect(vmi.Status.Conditions[0].Message).To(Equal("test error"))
+			err = controller.clearDecentralizedLiveMigrationFailure(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(vmi.Status.Conditions).To(BeEmpty())
+		})
+
+		Context("updateDecentralizedFailureOnSource", func() {
+			var (
+				vmi       *virtv1.VirtualMachineInstance
+				migration *virtv1.VirtualMachineInstanceMigration
+			)
+
+			BeforeEach(func() {
+				vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+				_, err := controller.client.VirtualMachineInstance(k8sv1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				migration = createSourceMigration(testMigrationID, vmi.Name, "", k8sv1.NamespaceDefault)
+			})
+
+			It("should clear the failure condition when opErr is nil", func() {
+				// First set a failure condition
+				err := controller.setDecentralizedLiveMigrationFailure(vmi, "previous error")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+
+				// Then call updateDecentralizedFailureOnSource with nil error
+				err = controller.updateDecentralizedFailureOnSource(vmi, migration, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(BeEmpty())
+			})
+
+			It("should set the failure condition when opErr is not nil, should return the original error", func() {
+				testErr := errors.New("test operation error")
+				err := controller.updateDecentralizedFailureOnSource(vmi, migration, testErr)
+				Expect(err).To(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("test operation error"))
+			})
+
+			It("should handle x509 hostname error correctly", func() {
+				x509Err := x509.HostnameError{
+					Host: "example.com",
+				}
+				err := controller.updateDecentralizedFailureOnSource(vmi, migration, x509Err)
+				Expect(err).To(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("x509 hostname error"))
+			})
+		})
+
+		Context("updateDecentralizedFailureOnTarget", func() {
+			var (
+				vmi       *virtv1.VirtualMachineInstance
+				migration *virtv1.VirtualMachineInstanceMigration
+			)
+
+			BeforeEach(func() {
+				vmi = libvmi.New(libvmi.WithNamespace(k8sv1.NamespaceDefault))
+				_, err := controller.client.VirtualMachineInstance(k8sv1.NamespaceDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				migration = createTargetMigration(testMigrationID, vmi.Name, k8sv1.NamespaceDefault)
+			})
+
+			It("should clear the failure condition when opErr is nil and migration phase is not MigrationWaitingForSync", func() {
+				// Set migration phase to something other than MigrationWaitingForSync
+				migration.Status.Phase = virtv1.MigrationRunning
+
+				// First set a failure condition
+				err := controller.setDecentralizedLiveMigrationFailure(vmi, "previous error")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+
+				// Then call updateDecentralizedFailureOnTarget with nil error
+				err = controller.updateDecentralizedFailureOnTarget(vmi, migration, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(BeEmpty())
+			})
+
+			It("should set the failure condition when opErr is nil and migration phase is MigrationWaitingForSync", func() {
+				migration.Status.Phase = virtv1.MigrationWaitingForSync
+
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal(waitingForSyncErrorMessage))
+			})
+
+			It("should set the failure condition when opErr is not nil", func() {
+				testErr := errors.New("test operation error")
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, testErr)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Type).To(Equal(virtv1.VirtualMachineInstanceDecentralizedLiveMigrationFailure))
+				Expect(vmi.Status.Conditions[0].Status).To(Equal(k8sv1.ConditionTrue))
+				Expect(vmi.Status.Conditions[0].Reason).To(Equal(virtv1.VirtualMachineInstanceReasonDecentralizedNotMigratable))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("test operation error"))
+			})
+
+			It("should prioritize opErr over MigrationWaitingForSync phase", func() {
+				migration.Status.Phase = virtv1.MigrationWaitingForSync
+				testErr := errors.New("operation failed")
+
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, testErr)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("operation failed"))
+				Expect(vmi.Status.Conditions[0].Message).ToNot(Equal(waitingForSyncErrorMessage))
+			})
+
+			It("should handle x509 hostname error correctly", func() {
+				x509Err := x509.HostnameError{
+					Host: "example.com",
+				}
+				err := controller.updateDecentralizedFailureOnTarget(vmi, migration, x509Err)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vmi.Status.Conditions).To(HaveLen(1))
+				Expect(vmi.Status.Conditions[0].Message).To(Equal("x509 hostname error"))
+			})
+		})
+
+	})
+
+	// Unit tests for getMergedTargetMigratedVolumes function.
+	// These tests verify the merging logic for StorageMigratedVolumeInfo slices, specifically:
+	// - Merging destination PVC volume mode and access modes from remote volumes when local volumes lack them
+	// - Handling empty volume lists (both VMI and remote)
+	// - Handling nil PVC info (SourcePVCInfo and DestinationPVCInfo)
+	// - Preserving local source PVC info when merging destination from remote
+	// - Handling multiple volumes with different volume mode and access mode combinations
+	// - Edge cases like empty volume names
+	// The merging logic focuses on VolumeMode and AccessModes of PVCs - if the local volume doesn't have
+	// volume mode or access mode, it should take the value from the remote volume.
+	Context("getMergedTargetMigratedVolumes", func() {
+		It("should merge destination PVC volume mode and access modes from remote when local destination lacks them", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1", nil, nil),
+				verifyDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+			})
+		})
+
+		It("should include VMI volumes that don't have matches in remote", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+				createVmiVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2", nil, nil),
+					withDestinationPVC("dest-pvc-2", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1-new", nil, nil),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 2,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifyDestinationPVC("dest-pvc-1-new", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifyDestinationPVC("dest-pvc-2", nil, nil),
+				},
+			)
+		})
+
+		DescribeTable("should handle empty volume lists",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectedLen int, description string) {
+				result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+				Expect(result).To(HaveLen(expectedLen), description)
+				if expectedLen > 0 {
+					verifyVolume(result[0],
+						verifyVolumeName("volume1"),
+						verifySourcePVC("source-pvc-1", nil, nil),
+						verifyDestinationPVC("dest-pvc-1", nil, nil),
+					)
+				}
+			},
+			Entry("empty VMI volumes list", createVmiVolumes(), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), 0, "should return empty when VMI volumes is empty"),
+			Entry("empty remote volumes list", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(), 1, "should return VMI volumes when remote is empty"),
+		)
+
+		DescribeTable("should handle nil PVC info",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectNilSource, expectNilDest bool, destClaimName string) {
+				result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+				opts := []volumeVerificationOption{verifyVolumeName("volume1")}
+				if expectNilSource {
+					opts = append(opts, verifySourceIsNil())
+				} else {
+					opts = append(opts, verifySourcePVC("source-pvc-1", nil, nil))
+				}
+				if expectNilDest {
+					opts = append(opts, verifyDestinationIsNil())
+				} else {
+					opts = append(opts, verifyDestinationPVC(destClaimName, nil, nil))
+				}
+				verifyVolumes(result, 1, opts)
+			},
+			Entry("nil SourcePVCInfo in VMI volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1-new", nil, nil),
+				),
+			), true, false, "dest-pvc-1-new"),
+			Entry("nil DestinationPVCInfo in remote volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withNilDestinationPVC(),
+				),
+			), false, true, ""),
+		)
+
+		It("should preserve local source PVC info when merging destination from remote", func() {
+			volumeModeFS := k8sv1.PersistentVolumeFilesystem
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifySourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+				verifyDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+			})
+		})
+
+		It("should merge multiple volumes with different volume mode and access mode combinations", func() {
+			volumeModeFS := k8sv1.PersistentVolumeFilesystem
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+				createVmiVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2", nil, nil),
+					withDestinationPVC("dest-pvc-2", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+				createRemoteVolume(
+					withVolumeName("volume2"),
+					withDestinationPVC("dest-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadOnlyMany}),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 2,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifyDestinationPVC("dest-pvc-1", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifyDestinationPVC("dest-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadOnlyMany}),
+				},
+			)
+		})
+
+		It("should handle volumes with empty volume names", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName(""),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName(""),
+					withDestinationPVC("dest-pvc-1-new", nil, nil),
+				),
+			)
+
+			result := getMergedTargetMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName(""),
+			})
+		})
+	})
+
+	// Unit tests for getMergedSourceMigratedVolumes function.
+	// These tests verify the merging logic for StorageMigratedVolumeInfo slices, specifically:
+	// - Using VMI SourcePVCInfo when present, even if remote has volume mode and access modes
+	// - Using remote SourcePVCInfo with volume mode and access modes when VMI SourcePVCInfo is nil
+	// - Including remote volumes that don't have matches in VMI
+	// - Handling empty volume lists (both VMI and remote)
+	// - Handling nil PVC info (SourcePVCInfo and DestinationPVCInfo)
+	// - Preserving VMI SourcePVCInfo volume mode and access modes when VMI has them set
+	// - Handling multiple volumes with various combinations
+	// - Edge cases like empty volume names
+	// The merging logic focuses on VolumeMode and AccessModes of PVCs - if the local volume doesn't have
+	// volume mode or access mode, it should take the value from the remote volume.
+	Context("getMergedSourceMigratedVolumes", func() {
+		It("should use VMI SourcePVCInfo when present, even if remote has volume mode and access modes", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-vmi", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1-vmi", nil, nil),
+				verifySourceVolumeModeIsNil(),
+				verifySourceAccessModesIsNil(),
+				verifyDestinationPVC("dest-pvc-1", nil, nil),
+			})
+		})
+
+		It("should use remote SourcePVCInfo with volume mode and access modes when VMI SourcePVCInfo is nil", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				verifyDestinationPVC("dest-pvc-1", nil, nil),
+			})
+		})
+
+		It("should include remote volumes with volume mode and access modes that don't have matches in VMI", func() {
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+				createRemoteVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 2,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifySourcePVC("source-pvc-1", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifySourcePVC("source-pvc-2", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				},
+			)
+		})
+
+		DescribeTable("should handle empty volume lists",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectedLen int, description string) {
+				result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+				Expect(result).To(HaveLen(expectedLen), description)
+				if expectedLen > 0 {
+					verifyVolume(result[0],
+						verifyVolumeName("volume1"),
+						verifySourcePVC("source-pvc-1", nil, nil),
+					)
+				}
+			},
+			Entry("empty VMI volumes list", createVmiVolumes(), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+				),
+			), 1, "should return remote volumes when VMI volumes is empty"),
+			Entry("empty remote volumes list", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(), 0, "should return empty when remote volumes is empty"),
+		)
+
+		DescribeTable("should handle nil PVC info",
+			func(vmiVolumes []virtv1.StorageMigratedVolumeInfo, remoteVolumes []virtv1.StorageMigratedVolumeInfo, expectNilSource, expectNilDest bool, sourceClaimName string) {
+				result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+				opts := []volumeVerificationOption{verifyVolumeName("volume1")}
+				if expectNilSource {
+					opts = append(opts, verifySourceIsNil())
+				} else {
+					opts = append(opts, verifySourcePVC(sourceClaimName, nil, nil))
+				}
+				if expectNilDest {
+					opts = append(opts, verifyDestinationIsNil())
+				} else {
+					opts = append(opts, verifyDestinationPVC("dest-pvc-1", nil, nil))
+				}
+				verifyVolumes(result, 1, opts)
+			},
+			Entry("nil SourcePVCInfo in both VMI and remote volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withNilSourcePVC(),
+				),
+			), true, false, ""),
+			Entry("nil DestinationPVCInfo in VMI volumes", createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withNilDestinationPVC(),
+				),
+			), createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+			), false, true, "source-pvc-1"),
+		)
+
+		It("should preserve VMI SourcePVCInfo volume mode and access modes when VMI has them set", func() {
+			volumeModeFS := k8sv1.PersistentVolumeFilesystem
+			volumeModeBlock := k8sv1.PersistentVolumeBlock
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", &volumeModeBlock, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName("volume1"),
+				verifySourcePVC("source-pvc-1", &volumeModeFS, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+			})
+		})
+
+		It("should ensure returned volumes have valid structure", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+					withDestinationPVC("dest-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadOnlyMany}),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifySourcePVC("source-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+				verifyDestinationPVC("dest-pvc-1", nil, []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteMany}),
+			})
+		})
+
+		It("should handle multiple volumes with various combinations", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+				createVmiVolume(
+					withVolumeName("volume2"),
+					withNilSourcePVC(),
+					withDestinationPVC("dest-pvc-2", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName("volume1"),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+				createRemoteVolume(
+					withVolumeName("volume2"),
+					withSourcePVC("source-pvc-2-remote", nil, nil),
+				),
+				createRemoteVolume(
+					withVolumeName("volume3"),
+					withSourcePVC("source-pvc-3", nil, nil),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 3,
+				[]volumeVerificationOption{
+					verifyVolumeName("volume1"),
+					verifySourcePVC("source-pvc-1", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume2"),
+					verifySourcePVC("source-pvc-2-remote", nil, nil),
+				},
+				[]volumeVerificationOption{
+					verifyVolumeName("volume3"),
+					verifySourcePVC("source-pvc-3", nil, nil),
+				},
+			)
+		})
+
+		It("should handle volumes with empty volume names", func() {
+			vmiVolumes := createVmiVolumes(
+				createVmiVolume(
+					withVolumeName(""),
+					withSourcePVC("source-pvc-1", nil, nil),
+					withDestinationPVC("dest-pvc-1", nil, nil),
+				),
+			)
+			remoteVolumes := createRemoteVolumes(
+				createRemoteVolume(
+					withVolumeName(""),
+					withSourcePVC("source-pvc-1-remote", nil, nil),
+				),
+			)
+
+			result := getMergedSourceMigratedVolumes(vmiVolumes, remoteVolumes)
+
+			verifyVolumes(result, 1, []volumeVerificationOption{
+				verifyVolumeName(""),
+			})
+		})
 	})
 })
 
@@ -1089,12 +1794,200 @@ func createTargetMigration(migrationID, vmiName, namespace string) *virtv1.Virtu
 	}
 }
 
-func createLegacyMigration() *virtv1.VirtualMachineInstanceMigration {
-	return &virtv1.VirtualMachineInstanceMigration{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      testMigrationID,
-			Namespace: k8sv1.NamespaceDefault,
-			UID:       testMigrationUID,
-		},
+// Helper functions for creating test volumes
+
+type volumeOption func(*virtv1.StorageMigratedVolumeInfo)
+
+func withVolumeName(name string) volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.VolumeName = name
+	}
+}
+
+func withSourcePVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.SourcePVCInfo = &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:   claimName,
+			VolumeMode:  volumeMode,
+			AccessModes: accessModes,
+		}
+	}
+}
+
+func withNilSourcePVC() volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.SourcePVCInfo = nil
+	}
+}
+
+func withDestinationPVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.DestinationPVCInfo = &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:   claimName,
+			VolumeMode:  volumeMode,
+			AccessModes: accessModes,
+		}
+	}
+}
+
+func withNilDestinationPVC() volumeOption {
+	return func(v *virtv1.StorageMigratedVolumeInfo) {
+		v.DestinationPVCInfo = nil
+	}
+}
+
+func createVmiVolume(opts ...volumeOption) virtv1.StorageMigratedVolumeInfo {
+	volume := virtv1.StorageMigratedVolumeInfo{}
+	for _, opt := range opts {
+		opt(&volume)
+	}
+	return volume
+}
+
+func createVmiVolumes(volumes ...virtv1.StorageMigratedVolumeInfo) []virtv1.StorageMigratedVolumeInfo {
+	return volumes
+}
+
+func createRemoteVolume(opts ...volumeOption) virtv1.StorageMigratedVolumeInfo {
+	return createVmiVolume(opts...)
+}
+
+func createRemoteVolumes(volumes ...virtv1.StorageMigratedVolumeInfo) []virtv1.StorageMigratedVolumeInfo {
+	return volumes
+}
+
+// Verification helper functions
+
+type volumeVerificationOption func(*volumeVerification)
+
+type volumeVerification struct {
+	volumeName                 string
+	sourceClaimName            string
+	sourceVolumeMode           *k8sv1.PersistentVolumeMode
+	sourceAccessModes          []k8sv1.PersistentVolumeAccessMode
+	sourceShouldBeNil          bool
+	sourceVolumeModeShouldNil  bool
+	sourceAccessModesShouldNil bool
+	destClaimName              string
+	destVolumeMode             *k8sv1.PersistentVolumeMode
+	destAccessModes            []k8sv1.PersistentVolumeAccessMode
+	destShouldBeNil            bool
+	destVolumeModeShouldNil    bool
+	destAccessModesShouldNil   bool
+}
+
+func verifyVolumeName(name string) volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.volumeName = name
+	}
+}
+
+func verifySourcePVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceClaimName = claimName
+		v.sourceVolumeMode = volumeMode
+		v.sourceAccessModes = accessModes
+		v.sourceShouldBeNil = false
+	}
+}
+
+func verifySourceVolumeModeIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceVolumeModeShouldNil = true
+	}
+}
+
+func verifySourceAccessModesIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceAccessModesShouldNil = true
+	}
+}
+
+func verifySourceIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.sourceShouldBeNil = true
+	}
+}
+
+func verifyDestinationPVC(claimName string, volumeMode *k8sv1.PersistentVolumeMode, accessModes []k8sv1.PersistentVolumeAccessMode) volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destClaimName = claimName
+		v.destVolumeMode = volumeMode
+		v.destAccessModes = accessModes
+		v.destShouldBeNil = false
+	}
+}
+
+func verifyDestinationVolumeModeIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destVolumeModeShouldNil = true
+	}
+}
+
+func verifyDestinationAccessModesIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destAccessModesShouldNil = true
+	}
+}
+
+func verifyDestinationIsNil() volumeVerificationOption {
+	return func(v *volumeVerification) {
+		v.destShouldBeNil = true
+	}
+}
+
+func verifyVolume(volume virtv1.StorageMigratedVolumeInfo, opts ...volumeVerificationOption) {
+	verification := &volumeVerification{}
+	for _, opt := range opts {
+		opt(verification)
+	}
+
+	if verification.volumeName != "" {
+		Expect(volume.VolumeName).To(Equal(verification.volumeName))
+	}
+
+	if verification.sourceShouldBeNil {
+		Expect(volume.SourcePVCInfo).To(BeNil())
+	} else if verification.sourceClaimName != "" {
+		Expect(volume.SourcePVCInfo).ToNot(BeNil())
+		Expect(volume.SourcePVCInfo.ClaimName).To(Equal(verification.sourceClaimName))
+		if verification.sourceVolumeModeShouldNil {
+			Expect(volume.SourcePVCInfo.VolumeMode).To(BeNil())
+		} else if verification.sourceVolumeMode != nil {
+			Expect(volume.SourcePVCInfo.VolumeMode).ToNot(BeNil())
+			Expect(*volume.SourcePVCInfo.VolumeMode).To(Equal(*verification.sourceVolumeMode))
+		}
+		if verification.sourceAccessModesShouldNil {
+			Expect(volume.SourcePVCInfo.AccessModes).To(BeNil())
+		} else if verification.sourceAccessModes != nil {
+			Expect(volume.SourcePVCInfo.AccessModes).To(Equal(verification.sourceAccessModes))
+		}
+	}
+
+	if verification.destShouldBeNil {
+		Expect(volume.DestinationPVCInfo).To(BeNil())
+	} else if verification.destClaimName != "" {
+		Expect(volume.DestinationPVCInfo).ToNot(BeNil())
+		Expect(volume.DestinationPVCInfo.ClaimName).To(Equal(verification.destClaimName))
+		if verification.destVolumeModeShouldNil {
+			Expect(volume.DestinationPVCInfo.VolumeMode).To(BeNil())
+		} else if verification.destVolumeMode != nil {
+			Expect(volume.DestinationPVCInfo.VolumeMode).ToNot(BeNil())
+			Expect(*volume.DestinationPVCInfo.VolumeMode).To(Equal(*verification.destVolumeMode))
+		}
+		if verification.destAccessModesShouldNil {
+			Expect(volume.DestinationPVCInfo.AccessModes).To(BeNil())
+		} else if verification.destAccessModes != nil {
+			Expect(volume.DestinationPVCInfo.AccessModes).To(Equal(verification.destAccessModes))
+		}
+	}
+}
+
+func verifyVolumes(result []virtv1.StorageMigratedVolumeInfo, expectedLen int, verifications ...[]volumeVerificationOption) {
+	Expect(result).To(HaveLen(expectedLen))
+	for i, verifyOpts := range verifications {
+		if i < len(result) {
+			verifyVolume(result[i], verifyOpts...)
+		}
 	}
 }

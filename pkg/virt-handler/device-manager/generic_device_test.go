@@ -1,3 +1,22 @@
+/*
+ * This file is part of the KubeVirt project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright The KubeVirt Authors.
+ *
+ */
+
 package device_manager
 
 import (
@@ -14,14 +33,11 @@ import (
 )
 
 var _ = Describe("Generic Device", func() {
-	var workDir string
-	var err error
 	var dpi *GenericDevicePlugin
-	var stop chan struct{}
 	var devicePath string
 
 	BeforeEach(func() {
-		workDir, err = os.MkdirTemp("", "kubevirt-test")
+		workDir, err := os.MkdirTemp("", "kubevirt-test")
 		Expect(err).ToNot(HaveOccurred())
 
 		devicePath = path.Join(workDir, "foo")
@@ -34,14 +50,13 @@ var _ = Describe("Generic Device", func() {
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.done = make(chan struct{})
 		dpi.deviceRoot = "/"
-		stop = make(chan struct{})
+		stop := make(chan struct{})
 		dpi.stop = stop
+		DeferCleanup(func() {
+			close(stop)
+			os.RemoveAll(workDir)
+		})
 
-	})
-
-	AfterEach(func() {
-		close(stop)
-		os.RemoveAll(workDir)
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
@@ -53,7 +68,7 @@ var _ = Describe("Generic Device", func() {
 		}(errChan)
 		Consistently(func() string {
 			return dpi.devs[0].Health
-		}, 2*time.Second, 500*time.Millisecond).Should(Equal(pluginapi.Healthy))
+		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
 		Expect(<-errChan).ToNot(HaveOccurred())
@@ -64,9 +79,10 @@ var _ = Describe("Generic Device", func() {
 		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
 
 		go dpi.healthCheck()
-		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Healthy))
+		Consistently(func() string {
+			return dpi.devs[0].Health
+		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
 
-		time.Sleep(1 * time.Second)
 		By("Removing a (fake) device node")
 		os.Remove(devicePath)
 

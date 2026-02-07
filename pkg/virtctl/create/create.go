@@ -38,7 +38,7 @@ func NewCommand() *cobra.Command {
 		Use:   CREATE,
 		Short: "Create a manifest for the specified Kind.",
 		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Printf(cmd.UsageString())
+			cmd.Printf("%s", cmd.UsageString())
 		},
 	}
 

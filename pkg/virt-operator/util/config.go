@@ -36,7 +36,6 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-	clientutil "kubevirt.io/client-go/util"
 
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
@@ -113,6 +112,20 @@ var DefaultMonitorNamespaces = []string{
 	"monitoring",           // default namespace of https://github.com/prometheus-operator/kube-prometheus
 }
 
+type ComponentImages struct {
+	VirtOperatorImage                  string `json:"virtOperatorImage,omitempty" optional:"true"`
+	VirtApiImage                       string `json:"virtApiImage,omitempty" optional:"true"`
+	VirtControllerImage                string `json:"virtControllerImage,omitempty" optional:"true"`
+	VirtHandlerImage                   string `json:"virtHandlerImage,omitempty" optional:"true"`
+	VirtLauncherImage                  string `json:"virtLauncherImage,omitempty" optional:"true"`
+	VirtExportProxyImage               string `json:"virtExportProxyImage,omitempty" optional:"true"`
+	VirtExportServerImage              string `json:"virtExportServerImage,omitempty" optional:"true"`
+	VirtSynchronizationControllerImage string `json:"virtSynchronizationControllerImage,omitempty" optional:"true"`
+	GsImage                            string `json:"GsImage,omitempty" optional:"true"`
+	PrHelperImage                      string `json:"PrHelperImage,omitempty" optional:"true"`
+	SidecarShimImage                   string `json:"SidecarShimImage,omitempty" optional:"true"`
+}
+
 type KubeVirtDeploymentConfig struct {
 	ID          string `json:"id,omitempty" optional:"true"`
 	Namespace   string `json:"namespace,omitempty" optional:"true"`
@@ -125,18 +138,7 @@ type KubeVirtDeploymentConfig struct {
 	KubeVirtVersion string `json:"kubeVirtVersion,omitempty" optional:"true"`
 
 	// the images names of every image we use
-	VirtOperatorImage                  string `json:"virtOperatorImage,omitempty" optional:"true"`
-	VirtApiImage                       string `json:"virtApiImage,omitempty" optional:"true"`
-	VirtControllerImage                string `json:"virtControllerImage,omitempty" optional:"true"`
-	VirtHandlerImage                   string `json:"virtHandlerImage,omitempty" optional:"true"`
-	VirtLauncherImage                  string `json:"virtLauncherImage,omitempty" optional:"true"`
-	VirtExportProxyImage               string `json:"virtExportProxyImage,omitempty" optional:"true"`
-	VirtExportServerImage              string `json:"virtExportServerImage,omitempty" optional:"true"`
-	VirtSynchronizationControllerImage string `json:"virtSynchronizationControllerImage,omitempty" optional:"true"`
-	GsImage                            string `json:"GsImage,omitempty" optional:"true"`
-	PrHelperImage                      string `json:"PrHelperImage,omitempty" optional:"true"`
-	SidecarShimImage                   string `json:"SidecarShimImage,omitempty" optional:"true"`
-
+	ComponentImages
 	// everything else, which can e.g. come from KubeVirt CR spec
 	AdditionalProperties map[string]string `json:"additionalProperties,omitempty" optional:"true"`
 
@@ -145,38 +147,6 @@ type KubeVirtDeploymentConfig struct {
 }
 
 var DefaultEnvVarManager EnvVarManager = EnvVarManagerImpl{}
-
-func GetConfigFromEnv() (*KubeVirtDeploymentConfig, error) {
-	return GetConfigFromEnvWithEnvVarManager(DefaultEnvVarManager)
-}
-
-func GetConfigFromEnvWithEnvVarManager(envVarManager EnvVarManager) (*KubeVirtDeploymentConfig, error) {
-	// first check if we have the new deployment config json
-	c := envVarManager.Getenv(TargetDeploymentConfig)
-	if c != "" {
-		config := &KubeVirtDeploymentConfig{}
-		if err := json.Unmarshal([]byte(c), config); err != nil {
-			return nil, err
-		}
-		return config, nil
-	}
-
-	// for backwards compatibility: check for namespace and pullpolicy from deprecated env vars
-	ns := envVarManager.Getenv(TargetInstallNamespace)
-	if ns == "" {
-		var err error
-		ns, err = clientutil.GetNamespace()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	pullPolicy := envVarManager.Getenv(TargetImagePullPolicy)
-	additionalProperties := make(map[string]string)
-	additionalProperties[AdditionalPropertiesNamePullPolicy] = pullPolicy
-
-	return getConfig("", "", ns, additionalProperties, envVarManager), nil
-}
 
 func GetTargetConfigFromKV(kv *v1.KubeVirt) *KubeVirtDeploymentConfig {
 	return GetTargetConfigFromKVWithEnvVarManager(kv, DefaultEnvVarManager)
@@ -202,21 +172,6 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		kv.Namespace,
 		additionalProperties,
 		envVarManager)
-}
-
-// retrieve imagePrefix from an existing deployment config (which is stored as JSON)
-func getImagePrefixFromDeploymentConfig(deploymentConfig string) (string, bool, error) {
-	var obj interface{}
-	err := json.Unmarshal([]byte(deploymentConfig), &obj)
-	if err != nil {
-		return "", false, fmt.Errorf("unable to parse deployment config: %v", err)
-	}
-	for k, v := range obj.(map[string]interface{}) {
-		if k == ImagePrefixKey {
-			return v.(string), true, nil
-		}
-	}
-	return "", false, nil
 }
 
 func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
@@ -252,53 +207,74 @@ func GetOperatorImageWithEnvVarManager(envVarManager EnvVarManager) string {
 	return envVarManager.Getenv(OldOperatorImageEnvName)
 }
 
-func getConfig(registry, tag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
+func getImagePrefix(parsedImage [][]string) string {
+	if len(parsedImage) == 1 {
+		return parsedImage[0][2]
+	}
+	return ""
+}
+
+func getImageRegistry(parsedImage [][]string) string {
+	if len(parsedImage) == 1 {
+		return parsedImage[0][1]
+
+	}
+	return ""
+}
+
+func getTag(parsedImage [][]string, kubeVirtVersion string) string {
+	if len(parsedImage) != 1 {
+		return kubeVirtVersion
+
+	}
+	version := parsedImage[0][3]
+	if version == "" {
+		return "latest"
+	} else if strings.HasPrefix(version, ":") {
+		return strings.TrimPrefix(version, ":")
+	} else {
+		// we have a shasum... chances are high that we get the shasums for the other images as well from env vars,
+		// but as a fallback use latest tag
+		return kubeVirtVersion
+	}
+}
+
+func getConfig(providedRegistry, providedTag, namespace string, additionalProperties map[string]string, envVarManager EnvVarManager) *KubeVirtDeploymentConfig {
 
 	// get registry and tag/shasum from operator image
 	imageString := GetOperatorImageWithEnvVarManager(envVarManager)
 	imageRegEx := regexp.MustCompile(operatorImageRegex)
-	matches := imageRegEx.FindAllStringSubmatch(imageString, 1)
+	parsedImage := imageRegEx.FindAllStringSubmatch(imageString, 1)
 	kubeVirtVersion := envVarManager.Getenv(KubeVirtVersionEnvName)
 	if kubeVirtVersion == "" {
 		kubeVirtVersion = "latest"
 	}
 
-	tagFromOperator := ""
 	imagePrefix, useStoredImagePrefix := additionalProperties[ImagePrefixKey]
-
-	if len(matches) == 1 {
-		// only use registry from operator image if it was not given yet
-		if registry == "" {
-			registry = matches[0][1]
-		}
-		if !useStoredImagePrefix {
-			imagePrefix = matches[0][2]
-		}
-
-		version := matches[0][3]
-		if version == "" {
-			tagFromOperator = "latest"
-		} else if strings.HasPrefix(version, ":") {
-			tagFromOperator = strings.TrimPrefix(version, ":")
-		} else {
-			// we have a shasum... chances are high that we get the shasums for the other images as well from env vars,
-			// but as a fallback use latest tag
-			tagFromOperator = kubeVirtVersion
-		}
-
-		if tag == "" {
-			tag = tagFromOperator
-		}
+	if !useStoredImagePrefix {
+		imagePrefix = getImagePrefix(parsedImage)
+	}
+	operatorImage := ""
+	registry, tag := getImageRegistry(parsedImage), getTag(parsedImage, kubeVirtVersion)
+	if providedRegistry == "" && providedTag == "" {
+		operatorImage = imageString
 	} else {
-		// operator image name has unexpected syntax.
-		if tag == "" {
-			tag = kubeVirtVersion
+		if providedRegistry != "" {
+			registry = providedRegistry
 		}
+		if providedTag != "" {
+			tag = providedTag
+		}
+		operatorImagePrefix := imagePrefix
+		if !useStoredImagePrefix {
+			operatorImagePrefix = ""
+		}
+		version := fmt.Sprintf(":%s", tag)
+		operatorImage = fmt.Sprintf("%s/%s%s", registry, fmt.Sprintf("%s%s", operatorImagePrefix, "virt-operator"), version)
 	}
 
 	passthroughEnv := GetPassthroughEnv()
 
-	operatorImage := GetOperatorImageWithEnvVarManager(envVarManager)
 	apiImage := envVarManager.Getenv(VirtApiImageEnvName)
 	controllerImage := envVarManager.Getenv(VirtControllerImageEnvName)
 	handlerImage := envVarManager.Getenv(VirtHandlerImageEnvName)
@@ -346,26 +322,32 @@ func GetPassthroughEnvWithEnvVarManager(envVarManager EnvVarManager) map[string]
 
 func newDeploymentConfigWithTag(registry, imagePrefix, tag, namespace, operatorImage, apiImage, controllerImage, handlerImage, launcherImage, exportProxyImage, exportServerImage, synchronizationControllerImage, gsImage, prHelperImage, sidecarShimImage string, kvSpec, passthroughEnv map[string]string) *KubeVirtDeploymentConfig {
 	c := &KubeVirtDeploymentConfig{
-		Registry:                           registry,
-		ImagePrefix:                        imagePrefix,
-		KubeVirtVersion:                    tag,
-		VirtOperatorImage:                  operatorImage,
-		VirtApiImage:                       apiImage,
-		VirtControllerImage:                controllerImage,
-		VirtHandlerImage:                   handlerImage,
-		VirtLauncherImage:                  launcherImage,
-		VirtExportProxyImage:               exportProxyImage,
-		VirtExportServerImage:              exportServerImage,
-		VirtSynchronizationControllerImage: synchronizationControllerImage,
-		GsImage:                            gsImage,
-		PrHelperImage:                      prHelperImage,
-		SidecarShimImage:                   sidecarShimImage,
-		Namespace:                          namespace,
-		AdditionalProperties:               kvSpec,
-		PassthroughEnvVars:                 passthroughEnv,
+		Registry:        registry,
+		ImagePrefix:     imagePrefix,
+		KubeVirtVersion: tag,
+		ComponentImages: ComponentImages{
+			VirtOperatorImage:                  operatorImage,
+			VirtApiImage:                       apiImage,
+			VirtControllerImage:                controllerImage,
+			VirtHandlerImage:                   handlerImage,
+			VirtLauncherImage:                  launcherImage,
+			VirtExportProxyImage:               exportProxyImage,
+			VirtExportServerImage:              exportServerImage,
+			VirtSynchronizationControllerImage: synchronizationControllerImage,
+			GsImage:                            gsImage,
+			PrHelperImage:                      prHelperImage,
+			SidecarShimImage:                   sidecarShimImage,
+		},
+		Namespace:            namespace,
+		AdditionalProperties: kvSpec,
+		PassthroughEnvVars:   passthroughEnv,
 	}
 	c.generateInstallStrategyID()
 	return c
+}
+
+func (c *KubeVirtDeploymentConfig) GetComponentImages() ComponentImages {
+	return c.ComponentImages
 }
 
 func (c *KubeVirtDeploymentConfig) GetOperatorVersion() string {
@@ -465,7 +447,7 @@ func (c *KubeVirtDeploymentConfig) SetTargetDeploymentConfig(kv *v1.KubeVirt) er
 	return err
 }
 
-func (c *KubeVirtDeploymentConfig) SetDefaultArchitecture(kv *v1.KubeVirt) error {
+func SetDefaultArchitecture(kv *v1.KubeVirt) {
 	if kv.Spec.Configuration.ArchitectureConfiguration != nil && kv.Spec.Configuration.ArchitectureConfiguration.DefaultArchitecture != "" {
 		kv.Status.DefaultArchitecture = kv.Spec.Configuration.ArchitectureConfiguration.DefaultArchitecture
 	} else {
@@ -474,8 +456,6 @@ func (c *KubeVirtDeploymentConfig) SetDefaultArchitecture(kv *v1.KubeVirt) error
 			kv.Status.DefaultArchitecture = runtime.GOARCH
 		}
 	}
-
-	return nil
 }
 
 func (c *KubeVirtDeploymentConfig) SetObservedDeploymentConfig(kv *v1.KubeVirt) error {
@@ -656,14 +636,14 @@ func (c *KubeVirtDeploymentConfig) GetJson() (string, error) {
 	return string(json), nil
 }
 
-func NewEnvVarMap(envMap map[string]string) *[]k8sv1.EnvVar {
+func NewEnvVarMap(envMap map[string]string) []k8sv1.EnvVar {
 	env := []k8sv1.EnvVar{}
 
 	for k, v := range envMap {
 		env = append(env, k8sv1.EnvVar{Name: k, Value: v})
 	}
 
-	return &env
+	return env
 }
 
 func IsValidLabel(label string) bool {

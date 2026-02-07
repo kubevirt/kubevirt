@@ -27,6 +27,8 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
 	clientset "kubevirt.io/client-go/kubevirt"
+	backupv1alpha1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
+	fakebackupv1alpha1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1/fake"
 	clonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1"
 	fakeclonev1alpha1 "kubevirt.io/client-go/kubevirt/typed/clone/v1alpha1/fake"
 	clonev1beta1 "kubevirt.io/client-go/kubevirt/typed/clone/v1beta1"
@@ -37,16 +39,14 @@ import (
 	fakeexportv1alpha1 "kubevirt.io/client-go/kubevirt/typed/export/v1alpha1/fake"
 	exportv1beta1 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
 	fakeexportv1beta1 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1/fake"
-	instancetypev1alpha1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1alpha1"
-	fakeinstancetypev1alpha1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1alpha1/fake"
-	instancetypev1alpha2 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1alpha2"
-	fakeinstancetypev1alpha2 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1alpha2/fake"
 	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 	fakeinstancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1/fake"
 	migrationsv1alpha1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	fakemigrationsv1alpha1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1/fake"
 	poolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1"
 	fakepoolv1alpha1 "kubevirt.io/client-go/kubevirt/typed/pool/v1alpha1/fake"
+	poolv1beta1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
+	fakepoolv1beta1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1/fake"
 	snapshotv1alpha1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1alpha1"
 	fakesnapshotv1alpha1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1alpha1/fake"
 	snapshotv1beta1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
@@ -107,6 +107,11 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
+// BackupV1alpha1 retrieves the BackupV1alpha1Client
+func (c *Clientset) BackupV1alpha1() backupv1alpha1.BackupV1alpha1Interface {
+	return &fakebackupv1alpha1.FakeBackupV1alpha1{Fake: &c.Fake}
+}
+
 // CloneV1alpha1 retrieves the CloneV1alpha1Client
 func (c *Clientset) CloneV1alpha1() clonev1alpha1.CloneV1alpha1Interface {
 	return &fakeclonev1alpha1.FakeCloneV1alpha1{Fake: &c.Fake}
@@ -132,16 +137,6 @@ func (c *Clientset) ExportV1beta1() exportv1beta1.ExportV1beta1Interface {
 	return &fakeexportv1beta1.FakeExportV1beta1{Fake: &c.Fake}
 }
 
-// InstancetypeV1alpha1 retrieves the InstancetypeV1alpha1Client
-func (c *Clientset) InstancetypeV1alpha1() instancetypev1alpha1.InstancetypeV1alpha1Interface {
-	return &fakeinstancetypev1alpha1.FakeInstancetypeV1alpha1{Fake: &c.Fake}
-}
-
-// InstancetypeV1alpha2 retrieves the InstancetypeV1alpha2Client
-func (c *Clientset) InstancetypeV1alpha2() instancetypev1alpha2.InstancetypeV1alpha2Interface {
-	return &fakeinstancetypev1alpha2.FakeInstancetypeV1alpha2{Fake: &c.Fake}
-}
-
 // InstancetypeV1beta1 retrieves the InstancetypeV1beta1Client
 func (c *Clientset) InstancetypeV1beta1() instancetypev1beta1.InstancetypeV1beta1Interface {
 	return &fakeinstancetypev1beta1.FakeInstancetypeV1beta1{Fake: &c.Fake}
@@ -155,6 +150,11 @@ func (c *Clientset) MigrationsV1alpha1() migrationsv1alpha1.MigrationsV1alpha1In
 // PoolV1alpha1 retrieves the PoolV1alpha1Client
 func (c *Clientset) PoolV1alpha1() poolv1alpha1.PoolV1alpha1Interface {
 	return &fakepoolv1alpha1.FakePoolV1alpha1{Fake: &c.Fake}
+}
+
+// PoolV1beta1 retrieves the PoolV1beta1Client
+func (c *Clientset) PoolV1beta1() poolv1beta1.PoolV1beta1Interface {
+	return &fakepoolv1beta1.FakePoolV1beta1{Fake: &c.Fake}
 }
 
 // SnapshotV1alpha1 retrieves the SnapshotV1alpha1Client

@@ -21,9 +21,9 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -39,31 +39,32 @@ type PodMonitorsGetter interface {
 
 // PodMonitorInterface has methods to work with PodMonitor resources.
 type PodMonitorInterface interface {
-	Create(ctx context.Context, podMonitor *v1.PodMonitor, opts metav1.CreateOptions) (*v1.PodMonitor, error)
-	Update(ctx context.Context, podMonitor *v1.PodMonitor, opts metav1.UpdateOptions) (*v1.PodMonitor, error)
+	Create(ctx context.Context, podMonitor *monitoringv1.PodMonitor, opts metav1.CreateOptions) (*monitoringv1.PodMonitor, error)
+	Update(ctx context.Context, podMonitor *monitoringv1.PodMonitor, opts metav1.UpdateOptions) (*monitoringv1.PodMonitor, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.PodMonitor, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.PodMonitorList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*monitoringv1.PodMonitor, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*monitoringv1.PodMonitorList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.PodMonitor, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *monitoringv1.PodMonitor, err error)
 	PodMonitorExpansion
 }
 
 // podMonitors implements PodMonitorInterface
 type podMonitors struct {
-	*gentype.ClientWithList[*v1.PodMonitor, *v1.PodMonitorList]
+	*gentype.ClientWithList[*monitoringv1.PodMonitor, *monitoringv1.PodMonitorList]
 }
 
 // newPodMonitors returns a PodMonitors
 func newPodMonitors(c *MonitoringV1Client, namespace string) *podMonitors {
 	return &podMonitors{
-		gentype.NewClientWithList[*v1.PodMonitor, *v1.PodMonitorList](
+		gentype.NewClientWithList[*monitoringv1.PodMonitor, *monitoringv1.PodMonitorList](
 			"podmonitors",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.PodMonitor { return &v1.PodMonitor{} },
-			func() *v1.PodMonitorList { return &v1.PodMonitorList{} }),
+			func() *monitoringv1.PodMonitor { return &monitoringv1.PodMonitor{} },
+			func() *monitoringv1.PodMonitorList { return &monitoringv1.PodMonitorList{} },
+		),
 	}
 }

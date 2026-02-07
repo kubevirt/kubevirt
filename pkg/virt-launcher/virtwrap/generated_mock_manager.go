@@ -14,6 +14,7 @@ import (
 	time "time"
 
 	gomock "go.uber.org/mock/gomock"
+	v1alpha1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
 	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -44,6 +45,20 @@ func NewMockDomainManager(ctrl *gomock.Controller) *MockDomainManager {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockDomainManager) EXPECT() *MockDomainManagerMockRecorder {
 	return m.recorder
+}
+
+// BackupVirtualMachine mocks base method.
+func (m *MockDomainManager) BackupVirtualMachine(arg0 *v1.VirtualMachineInstance, arg1 *v1alpha1.BackupOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BackupVirtualMachine", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BackupVirtualMachine indicates an expected call of BackupVirtualMachine.
+func (mr *MockDomainManagerMockRecorder) BackupVirtualMachine(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackupVirtualMachine", reflect.TypeOf((*MockDomainManager)(nil).BackupVirtualMachine), arg0, arg1)
 }
 
 // CancelVMIMigration mocks base method.
@@ -234,6 +249,21 @@ func (mr *MockDomainManagerMockRecorder) GetSEVInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSEVInfo", reflect.TypeOf((*MockDomainManager)(nil).GetSEVInfo))
 }
 
+// GetScreenshot mocks base method.
+func (m *MockDomainManager) GetScreenshot(vmi *v1.VirtualMachineInstance) (*v10.ScreenshotResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetScreenshot", vmi)
+	ret0, _ := ret[0].(*v10.ScreenshotResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetScreenshot indicates an expected call of GetScreenshot.
+func (mr *MockDomainManagerMockRecorder) GetScreenshot(vmi any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetScreenshot", reflect.TypeOf((*MockDomainManager)(nil).GetScreenshot), vmi)
+}
+
 // GetUsers mocks base method.
 func (m *MockDomainManager) GetUsers() []v1.VirtualMachineInstanceGuestOSUser {
 	m.ctrl.T.Helper()
@@ -399,6 +429,21 @@ func (m *MockDomainManager) PrepareMigrationTarget(arg0 *v1.VirtualMachineInstan
 func (mr *MockDomainManagerMockRecorder) PrepareMigrationTarget(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareMigrationTarget", reflect.TypeOf((*MockDomainManager)(nil).PrepareMigrationTarget), arg0, arg1, arg2)
+}
+
+// RedefineCheckpoint mocks base method.
+func (m *MockDomainManager) RedefineCheckpoint(arg0 *v1.VirtualMachineInstance, arg1 *v1alpha1.BackupCheckpoint) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RedefineCheckpoint", arg0, arg1)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RedefineCheckpoint indicates an expected call of RedefineCheckpoint.
+func (mr *MockDomainManagerMockRecorder) RedefineCheckpoint(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RedefineCheckpoint", reflect.TypeOf((*MockDomainManager)(nil).RedefineCheckpoint), arg0, arg1)
 }
 
 // ResetVMI mocks base method.

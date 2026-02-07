@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -71,7 +70,6 @@ type SubresourceAPIApp struct {
 	consoleServerPort       int
 	profilerComponentPort   int
 	handlerTLSConfiguration *tls.Config
-	credentialsLock         *sync.Mutex
 	clusterConfig           *virtconfig.ClusterConfig
 	instancetypeExpander    instancetypeVMExpander
 	handlerHttpClient       *http.Client
@@ -100,7 +98,6 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 		virtCli:                 virtCli,
 		consoleServerPort:       consoleServerPort,
 		profilerComponentPort:   defaultProfilerComponentPort,
-		credentialsLock:         &sync.Mutex{},
 		handlerTLSConfiguration: tlsConfiguration,
 		clusterConfig:           clusterConfig,
 		instancetypeExpander:    instancetypeExpander,
@@ -166,7 +163,7 @@ func (app *SubresourceAPIApp) putRequestHandlerWithErrorPostProcessing(request *
 
 	vmi, url, conn, statusErr := app.prepareConnection(request, preValidate, getVirtHandlerURL)
 	if statusErr != nil {
-		err := errorPostProcessing(vmi, fmt.Errorf(statusErr.ErrStatus.Message))
+		err := errorPostProcessing(vmi, fmt.Errorf("%s", statusErr.ErrStatus.Message))
 		statusErr.ErrStatus.Message = err.Error()
 		writeError(statusErr, response)
 		return
@@ -191,7 +188,7 @@ func (app *SubresourceAPIApp) httpGetRequestHandler(request *restful.Request, re
 		return
 	}
 
-	resp, conErr := conn.Get(url)
+	resp, conErr := conn.Get(url, restful.MIME_JSON)
 	if conErr != nil {
 		log.Log.Errorf(getRequestErrFmt, conErr.Error())
 		response.WriteError(http.StatusInternalServerError, conErr)
@@ -205,6 +202,31 @@ func (app *SubresourceAPIApp) httpGetRequestHandler(request *restful.Request, re
 	}
 
 	response.WriteEntity(v)
+}
+
+func (app *SubresourceAPIApp) httpGetRequestBinaryHandler(request *restful.Request, response *restful.Response, validate validation, getURL URLResolver) {
+	_, url, conn, err := app.prepareConnection(request, validate, getURL)
+	if err != nil {
+		log.Log.Errorf(prepConnectionErrFmt, err.Error())
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	resp, conErr := conn.Get(url, "")
+	if conErr != nil {
+		log.Log.Errorf(getRequestErrFmt, conErr.Error())
+		response.WriteError(http.StatusInternalServerError, conErr)
+		return
+	}
+
+	if nbytes, err := response.Write([]byte(resp)); err != nil {
+		log.Log.Reason(err).Error("Failed to write response")
+		response.WriteError(http.StatusInternalServerError, err)
+	} else if nbytes != len(resp) {
+		err = fmt.Errorf("Failed to write full response: %d of %d written", nbytes, len(resp))
+		log.Log.Reason(err).Error("Incomplete message written")
+		response.WriteError(http.StatusInternalServerError, err)
+	}
 }
 
 func (app *SubresourceAPIApp) fetchVirtualMachine(name string, namespace string) (*v1.VirtualMachine, *errors.StatusError) {

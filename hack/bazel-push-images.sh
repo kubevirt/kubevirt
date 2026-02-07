@@ -34,6 +34,7 @@ default_targets="
     virt-exportproxy
     virt-synchronization-controller
     alpine-container-disk-demo
+    alpine-with-test-tooling-container-disk
     fedora-with-test-tooling-container-disk
     vm-killer
     sidecar-shim
@@ -53,7 +54,6 @@ if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]
         cirros-custom-container-disk-demo
         virtio-container-disk
         alpine-ext-kernel-boot-demo
-        alpine-with-test-tooling-container-disk
         fedora-realtime-container-disk
         winrmcli
         network-slirp-binding
@@ -69,10 +69,7 @@ for tag in ${docker_tag} ${docker_tag_alt}; do
 
         bazel run \
             --config=${ARCHITECTURE} \
-            --define container_prefix=${docker_prefix} \
-            --define image_prefix=${image_prefix} \
-            --define container_tag=${tag} \
-            //:push-${target}
+            //:push-${target} -- --repository ${docker_prefix}/${image_prefix}${target} --tag ${tag}
 
     done
 done
@@ -83,10 +80,7 @@ if [[ $image_prefix_alt ]]; then
 
         bazel run \
             --config=${ARCHITECTURE} \
-            --define container_prefix=${docker_prefix} \
-            --define image_prefix=${image_prefix_alt} \
-            --define container_tag=${docker_tag} \
-            //:push-${target}
+            //:push-${target} -- --repository ${docker_prefix}/${image_prefix_alt}${target} --tag ${docker_tag}
 
     done
 fi
@@ -94,8 +88,8 @@ fi
 rm -rf ${DIGESTS_DIR}/${ARCHITECTURE}
 mkdir -p ${DIGESTS_DIR}/${ARCHITECTURE}
 
-for f in $(find bazel-bin/ -name '*.digest'); do
-    dir=${DIGESTS_DIR}/${ARCHITECTURE}/$(dirname $f)
+for target in ${PUSH_TARGETS[@]}; do
+    dir=${DIGESTS_DIR}/${ARCHITECTURE}/${target}
     mkdir -p ${dir}
-    cp -f ${f} ${dir}/$(basename ${f})
+    touch ${dir}/${target}.image
 done

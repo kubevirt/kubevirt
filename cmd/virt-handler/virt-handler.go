@@ -30,15 +30,15 @@ import (
 	"syscall"
 	"time"
 
-	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
-	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
-	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
-	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
-	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
-
 	"github.com/emicklei/go-restful/v3"
 	flag "github.com/spf13/pflag"
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"libvirt.org/go/libvirtxml"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	k8coresv1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -46,23 +46,21 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
-	"libvirt.org/go/libvirtxml"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 
 	"kubevirt.io/kubevirt/pkg/util/ratelimiter"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/domainstats/downwardmetrics"
+	scraper "kubevirt.io/kubevirt/pkg/downwardmetrics/scraper"
 
 	"kubevirt.io/kubevirt/pkg/healthz"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 
+	virtwait "kubevirt.io/kubevirt/pkg/apimachinery/wait"
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -75,16 +73,20 @@ import (
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/util"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	dmetricsmanager "kubevirt.io/kubevirt/pkg/virt-handler/dmetrics-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+	launcherclients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	nodelabeller "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller"
 	"kubevirt.io/kubevirt/pkg/virt-handler/rest"
+	"kubevirt.io/kubevirt/pkg/virt-handler/seccomp"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
+	"kubevirt.io/kubevirt/pkg/virt-handler/vsock"
 )
 
 const (
@@ -117,10 +119,18 @@ const (
 	defaultCAConfigMapName = "kubevirt-ca"
 
 	// Default certificate and key paths
-	defaultClientCertFilePath = "/etc/virt-handler/clientcertificates/tls.crt"
-	defaultClientKeyFilePath  = "/etc/virt-handler/clientcertificates/tls.key"
-	defaultTlsCertFilePath    = "/etc/virt-handler/servercertificates/tls.crt"
-	defaultTlsKeyFilePath     = "/etc/virt-handler/servercertificates/tls.key"
+	defaultClientCertFilePath      = "/etc/virt-handler/clientcertificates/tls.crt"
+	defaultClientKeyFilePath       = "/etc/virt-handler/clientcertificates/tls.key"
+	defaultVsockClientCertFilePath = "/etc/virt-handler/vsockclientcertificates/tls.crt"
+	defaultVsockClientKeyFilePath  = "/etc/virt-handler/vsockclientcertificates/tls.key"
+	defaultTlsCertFilePath         = "/etc/virt-handler/servercertificates/tls.crt"
+	defaultTlsKeyFilePath          = "/etc/virt-handler/servercertificates/tls.key"
+	defaultMigrationCertFilePath   = "/etc/virt-handler/migrationservercertificates/tls.crt"
+	defaultMigrationKeyFilePath    = "/etc/virt-handler/migrationservercertificates/tls.key"
+)
+
+var (
+	defaultCNTypes = []string{"virt-handler", "migration"}
 )
 
 type virtHandlerApp struct {
@@ -136,27 +146,36 @@ type virtHandlerApp struct {
 	MaxRequestsInFlight       int
 	domainResyncPeriodSeconds int
 	gracefulShutdownSeconds   int
+	migrationCNTypes          []string
 
-	caConfigMapName    string
-	clientCertFilePath string
-	clientKeyFilePath  string
-	serverCertFilePath string
-	serverKeyFilePath  string
-	externallyManaged  bool
+	caConfigMapName         string
+	clientCertFilePath      string
+	clientKeyFilePath       string
+	vsockClientCertFilePath string
+	vsockClientKeyFilePath  string
+	serverCertFilePath      string
+	serverKeyFilePath       string
+	migrationCertFilePath   string
+	migrationKeyFilePath    string
+	externallyManaged       bool
 
 	virtCli   kubecli.KubevirtClient
 	namespace string
 
-	serverTLSConfig       *tls.Config
-	clientTLSConfig       *tls.Config
-	consoleServerPort     int
-	clientcertmanager     certificate.Manager
-	servercertmanager     certificate.Manager
-	promTLSConfig         *tls.Config
-	clusterConfig         *virtconfig.ClusterConfig
-	reloadableRateLimiter *ratelimiter.ReloadableRateLimiter
-	caManager             kvtls.ClientCAManager
-	enableNodeLabeller    bool
+	migrationServerTLSConfig    *tls.Config
+	serverTLSConfig             *tls.Config
+	migrationOldClientTLSConfig *tls.Config
+	migrationClientTLSConfig    *tls.Config
+	consoleServerPort           int
+	clientcertmanager           certificate.Manager
+	vsockClientCertManager      certificate.Manager
+	servercertmanager           certificate.Manager
+	migrationCertManager        certificate.Manager
+	promTLSConfig               *tls.Config
+	clusterConfig               *virtconfig.ClusterConfig
+	reloadableRateLimiter       *ratelimiter.ReloadableRateLimiter
+	caManager                   kvtls.ClientCAManager
+	enableNodeLabeller          bool
 }
 
 var (
@@ -166,7 +185,9 @@ var (
 
 func (app *virtHandlerApp) prepareCertManager() (err error) {
 	app.clientcertmanager = bootstrap.NewFileCertificateManager(app.clientCertFilePath, app.clientKeyFilePath)
+	app.vsockClientCertManager = bootstrap.NewFileCertificateManager(app.vsockClientCertFilePath, app.vsockClientKeyFilePath)
 	app.servercertmanager = bootstrap.NewFileCertificateManager(app.serverCertFilePath, app.serverKeyFilePath)
+	app.migrationCertManager = bootstrap.NewFileCertificateManager(app.migrationCertFilePath, app.migrationKeyFilePath)
 	return
 }
 
@@ -239,12 +260,10 @@ func (app *virtHandlerApp) Run() {
 	vmiInformer := factory.VMI()
 	vmiSourceInformer := factory.VMISourceHost(app.HostOverride)
 	vmiTargetInformer := factory.VMITargetHost(app.HostOverride)
+	backupTrackerInformer := factory.VirtualMachineBackupTracker()
 
 	// Wire Domain controller
 	domainSharedInformer := virtcache.NewSharedInformer(app.VirtShareDir, int(app.WatchdogTimeoutDuration.Seconds()), recorder, vmiInformer.GetStore(), time.Duration(app.domainResyncPeriodSeconds)*time.Second)
-	if err != nil {
-		panic(err)
-	}
 
 	checkpointPath := filepath.Join(app.VirtPrivateDir, "ghost-records")
 	err = util.MkdirAllWithNosec(checkpointPath)
@@ -273,13 +292,6 @@ func (app *virtHandlerApp) Run() {
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeLogVerbosity)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldChangeRateLimiter)
 	app.clusterConfig.SetConfigModifiedCallback(app.shouldInstallKubevirtSeccompProfile)
-	go func() {
-		forceUpdateKSM := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, true) }
-		handleKSMUpdate := func() { virthandler.HandleKSMUpdate(app.HostOverride, app.virtCli.CoreV1(), app.clusterConfig, false) }
-
-		forceUpdateKSM()
-		app.clusterConfig.SetConfigModifiedCallback(handleKSMUpdate)
-	}()
 
 	if err := app.setupTLS(factory); err != nil {
 		logger.Criticalf("Error constructing migration tls config: %v", err)
@@ -297,10 +309,23 @@ func (app *virtHandlerApp) Run() {
 
 	app.clusterConfig.SetConfigModifiedCallback(vsockConfigCallback)
 
-	migrationProxy := migrationproxy.NewMigrationProxyManager(app.serverTLSConfig, app.clientTLSConfig, app.clusterConfig)
+	migrationProxy := migrationproxy.NewMigrationProxyManager(app.migrationServerTLSConfig, app.migrationOldClientTLSConfig, app.migrationClientTLSConfig, app.clusterConfig)
 
 	stop := make(chan struct{})
 	defer close(stop)
+
+	// Create a ListWatch filtered to only the local node
+	listWatch := cache.NewListWatchFromClient(
+		app.virtCli.CoreV1().RESTClient(),
+		"nodes",
+		metav1.NamespaceAll,
+		fields.OneTermEqualSelector("metadata.name", app.HostOverride),
+	)
+
+	nodeInformer := cache.NewSharedInformer(listWatch, &k8sv1.Node{}, controller.ResyncPeriod(12*time.Hour))
+
+	ksmHandler := ksm.NewHandler(app.HostOverride, app.virtCli.CoreV1(), nodeInformer.GetStore(), app.clusterConfig)
+
 	var capabilities libvirtxml.Caps
 	var hostCpuModel string
 
@@ -318,6 +343,7 @@ func (app *virtHandlerApp) Run() {
 	nodeLabellerrecorder := broadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: "node-labeller", Host: app.HostOverride})
 	nodeLabellerController, err := nodelabeller.NewNodeLabeller(app.clusterConfig,
 		app.virtCli.CoreV1().Nodes(),
+		nodeInformer.GetStore(),
 		app.HostOverride,
 		nodeLabellerrecorder,
 		capabilities.Host.CPU.Counter,
@@ -330,7 +356,7 @@ func (app *virtHandlerApp) Run() {
 	hostCpuModel = nodeLabellerController.GetHostCpuModel().Name
 
 	if app.enableNodeLabeller {
-		go nodeLabellerController.Run(10, stop)
+		go nodeLabellerController.Run(stop)
 	}
 
 	migrationIpAddress := app.PodIpAddress
@@ -389,9 +415,12 @@ func (app *virtHandlerApp) Run() {
 		panic(err)
 	}
 
+	cbtHandler := virthandler.NewCBTHandler(app.virtCli, backupTrackerInformer)
+
 	vmController, err := virthandler.NewVirtualMachineController(
 		recorder,
 		app.virtCli,
+		nodeInformer.GetStore(),
 		app.HostOverride,
 		app.VirtPrivateDir,
 		app.KubeletPodsDir,
@@ -408,6 +437,7 @@ func (app *virtHandlerApp) Run() {
 		hostCpuModel,
 		netConf,
 		netStat,
+		cbtHandler,
 	)
 	if err != nil {
 		panic(err)
@@ -424,11 +454,14 @@ func (app *virtHandlerApp) Run() {
 
 	go app.clientcertmanager.Start()
 	go app.servercertmanager.Start()
+	go app.migrationCertManager.Start()
+	go app.vsockClientCertManager.Start()
 
 	// Bootstrapping. From here on the startup order matters
 
 	factory.Start(stop)
 	go domainSharedInformer.Run(stop)
+	go nodeInformer.Run(stop)
 
 	se, exists, err := selinux.NewSELinux()
 	if err == nil && exists {
@@ -459,19 +492,22 @@ func (app *virtHandlerApp) Run() {
 		domainSharedInformer.HasSynced,
 		factory.CRD().HasSynced,
 		factory.KubeVirt().HasSynced,
+		nodeInformer.HasSynced,
+		backupTrackerInformer.HasSynced,
 	)
 
-	if err := metrics.SetupMetrics(app.VirtShareDir, app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
+	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)
 	}
 
-	if err := downwardmetrics.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector); err != nil {
+	if err := scraper.RunDownwardMetricsCollector(context.Background(), app.HostOverride, vmiSourceInformer, podIsolationDetector); err != nil {
 		panic(fmt.Errorf("failed to set up the downwardMetrics collector: %v", err))
 	}
 
 	go migrationSourceController.Run(5, stop)
 	go migrationTargetController.Run(5, stop)
 	go vmController.Run(10, stop)
+	go ksmHandler.Run(stop)
 
 	doneCh := make(chan string)
 	defer close(doneCh)
@@ -479,7 +515,7 @@ func (app *virtHandlerApp) Run() {
 	consoleHandler := rest.NewConsoleHandler(
 		podIsolationDetector,
 		vmiSourceInformer.GetStore(),
-		app.clientcertmanager,
+		app.vsockClientCertManager,
 	)
 
 	errCh := make(chan error)
@@ -591,7 +627,10 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console").To(consoleHandler.SerialHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc").To(consoleHandler.VNCHandler).
 		Param(restful.QueryParameter("preserveSession", "Connect only if ongoing session is not disturbed")))
+	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/vnc/screenshot").To(lifecycleHandler.ScreenshotRequestHandler))
 	ws.Route(ws.GET("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/usbredir").To(consoleHandler.USBRedirHandler))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/backup").To(lifecycleHandler.BackupHandler))
+	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint").To(lifecycleHandler.RedefineCheckpointHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/pause").To(lifecycleHandler.PauseHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/unpause").To(lifecycleHandler.UnpauseHandler))
 	ws.Route(ws.PUT("/v1/namespaces/{namespace}/virtualmachineinstances/{name}/freeze").To(lifecycleHandler.FreezeHandler).Reads(v1.FreezeUnfreezeTimeout{}))
@@ -651,6 +690,12 @@ func (app *virtHandlerApp) AddFlags() {
 	flag.StringVar(&app.clientKeyFilePath, "client-key-file", defaultClientKeyFilePath,
 		"Private key for the client certificate used to prove the identity of the virt-handler when it must call out during a request")
 
+	flag.StringVar(&app.migrationCertFilePath, "migration-client-cert-file", defaultMigrationCertFilePath,
+		"Client certificate used to prove the identity of the virt-handler when it must call out during a request")
+
+	flag.StringVar(&app.migrationKeyFilePath, "migration-client-key-file", defaultMigrationKeyFilePath,
+		"Private key for the client certificate used to prove the identity of the virt-handler when it must call out during a request")
+
 	flag.StringVar(&app.serverCertFilePath, "tls-cert-file", defaultTlsCertFilePath,
 		"File containing the default x509 Certificate for HTTPS")
 
@@ -683,19 +728,28 @@ func (app *virtHandlerApp) AddFlags() {
 
 	flag.BoolVar(&app.enableNodeLabeller, "enable-node-labeller", true,
 		"Enable Node Labeller controller.")
+	flag.StringArrayVar(&app.migrationCNTypes, "migration-cn-types", defaultCNTypes, "The Common Name types that should be asserted for migration connections")
+
+	flag.StringVar(&app.vsockClientCertFilePath, "vsock-client-cert-file", defaultVsockClientCertFilePath,
+		"Client certificate used to prove the identity of the virt-handler to in-guest vsock agent")
+
+	flag.StringVar(&app.vsockClientKeyFilePath, "vsock-client-key-file", defaultVsockClientKeyFilePath,
+		"Private key for the client certificate used to prove the identity of the virt-handler to in-guest vsock agent")
 }
 
 func (app *virtHandlerApp) setupTLS(factory controller.KubeInformerFactory) error {
 	kubevirtCAConfigInformer := factory.KubeVirtCAConfigMap()
 	kubevirtCAConfigInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
-		cache.DefaultWatchErrorHandler(r, err)
+		cache.DefaultWatchErrorHandler(context.TODO(), r, err)
 	})
 	app.caManager = kvtls.NewCAManager(kubevirtCAConfigInformer.GetStore(), app.namespace, app.caConfigMapName)
 
 	app.promTLSConfig = kvtls.SetupPromTLS(app.servercertmanager, app.clusterConfig)
-	app.serverTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig)
-	app.clientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
+	app.serverTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, []string{"virt-handler"})
+	app.migrationServerTLSConfig = kvtls.SetupTLSForVirtHandlerServer(app.caManager, app.servercertmanager, app.externallyManaged, app.clusterConfig, app.migrationCNTypes)
+	app.migrationOldClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.clientcertmanager, app.externallyManaged)
+	app.migrationClientTLSConfig = kvtls.SetupTLSForVirtHandlerClients(app.caManager, app.migrationCertManager, app.externallyManaged)
 
 	return nil
 }

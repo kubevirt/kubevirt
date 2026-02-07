@@ -42,6 +42,15 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
+const (
+	// requestedByAnnotation is an annotation set by the descheduler on the eviction requests whose value
+	// will be the component the eviction request is originated from.
+	requestedByAnnotation = "requested-by"
+	// requestedByDeschedulerValue is the value of the `requested-by` annotation set by the descheduler on the eviction requests
+	// Ref: https://github.com/kubernetes-sigs/descheduler/pull/1753
+	requestedByDeschedulerValue = "sigs.k8s.io/descheduler"
+)
+
 type PodEvictionAdmitter struct {
 	clusterConfig *virtconfig.ClusterConfig
 	kubeClient    kubernetes.Interface
@@ -56,18 +65,22 @@ func NewPodEvictionAdmitter(clusterConfig *virtconfig.ClusterConfig, kubeClient 
 	}
 }
 
-func isDryRun(ar *admissionv1.AdmissionReview) bool {
+func isDryRun(ar *admissionv1.AdmissionReview, evictionObject *policyv1.Eviction) bool {
 	dryRun := ar.Request.DryRun != nil && *ar.Request.DryRun == true
 
 	if !dryRun {
-		evictionObject := policyv1.Eviction{}
-		if err := json.Unmarshal(ar.Request.Object.Raw, &evictionObject); err == nil {
-			if evictionObject.DeleteOptions != nil && len(evictionObject.DeleteOptions.DryRun) > 0 {
-				dryRun = evictionObject.DeleteOptions.DryRun[0] == metav1.DryRunAll
-			}
+		if evictionObject.DeleteOptions != nil && len(evictionObject.DeleteOptions.DryRun) > 0 {
+			dryRun = evictionObject.DeleteOptions.DryRun[0] == metav1.DryRunAll
 		}
 	}
 	return dryRun
+}
+
+func isDeschedulerEviction(evictionObject *policyv1.Eviction) bool {
+	if value, exists := evictionObject.GetAnnotations()[requestedByAnnotation]; exists && value == requestedByDeschedulerValue {
+		return true
+	}
+	return false
 }
 
 func (admitter *PodEvictionAdmitter) Admit(ctx context.Context, ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
@@ -156,7 +169,12 @@ func (admitter *PodEvictionAdmitter) admitLauncherPod(ctx context.Context, ar *a
 	if vmi.Status.NodeName != pod.Spec.NodeName {
 		return denied("Eviction request for target Pod")
 	}
-	err = admitter.markVMI(ctx, vmi.Namespace, vmi.Name, pod.Spec.NodeName, isDryRun(ar))
+	evictionObject := policyv1.Eviction{}
+	if err := json.Unmarshal(ar.Request.Object.Raw, &evictionObject); err != nil {
+		denied(fmt.Sprintf("failed to parse the eviction object: %v", err))
+	}
+	descEviction := isDeschedulerEviction(&evictionObject)
+	err = admitter.markVMI(ctx, vmi, pod.Spec.NodeName, isDryRun(ar, &evictionObject), descEviction)
 	if err != nil {
 		// As with the previous case, it is up to the user to issue a retry.
 		return denied(fmt.Sprintf("kubevirt failed marking the vmi for eviction: %v", err))
@@ -164,8 +182,17 @@ func (admitter *PodEvictionAdmitter) admitLauncherPod(ctx context.Context, ar *a
 	return denied(fmt.Sprintf(evictionFmt, vmi.Namespace, vmi.Name))
 }
 
-func (admitter *PodEvictionAdmitter) markVMI(ctx context.Context, vmiNamespace, vmiName, nodeName string, dryRun bool) error {
-	patchBytes, err := patch.New(patch.WithAdd("/status/evacuationNodeName", nodeName)).GeneratePayload()
+func (admitter *PodEvictionAdmitter) markVMI(ctx context.Context, vmi *virtv1.VirtualMachineInstance, nodeName string, dryRun, deschedulerEviction bool) error {
+	patchSet := patch.New(patch.WithAdd("/status/evacuationNodeName", nodeName))
+	if deschedulerEviction {
+		if len(vmi.Annotations) == 0 {
+			patchSet.AddOption(patch.WithAdd("/metadata/annotations", map[string]string{patch.EscapeJSONPointer(virtv1.EvictionSourceAnnotation): "descheduler"}))
+		} else {
+			patchSet.AddOption(patch.WithReplace(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(virtv1.EvictionSourceAnnotation)), "descheduler"))
+		}
+	}
+
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
 		return err
 	}
@@ -178,9 +205,9 @@ func (admitter *PodEvictionAdmitter) markVMI(ctx context.Context, vmiNamespace, 
 	_, err = admitter.
 		virtClient.
 		KubevirtV1().
-		VirtualMachineInstances(vmiNamespace).
+		VirtualMachineInstances(vmi.Namespace).
 		Patch(ctx,
-			vmiName,
+			vmi.Name,
 			types.JSONPatchType,
 			patchBytes,
 			patchOptions,

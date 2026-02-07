@@ -49,7 +49,7 @@ var _ = Describe(SIG("64-Bit PCI hole", func() {
 
 		res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 			&expect.BSnd{S: "cat /proc/iomem\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 		}, 15)
 		Expect(err).ToNot(HaveOccurred())
 

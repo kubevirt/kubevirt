@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -72,6 +73,7 @@ func (lh *LifecycleHandler) PauseHandler(request *restful.Request, response *res
 		return
 	}
 
+	lh.recorder.Eventf(vmi, k8sv1.EventTypeNormal, "Paused", "VirtualMachineInstance paused")
 	response.WriteHeader(http.StatusAccepted)
 }
 
@@ -89,6 +91,7 @@ func (lh *LifecycleHandler) UnpauseHandler(request *restful.Request, response *r
 		return
 	}
 
+	lh.recorder.Eventf(vmi, k8sv1.EventTypeNormal, "Unpaused", "VirtualMachineInstance unpaused")
 	response.WriteHeader(http.StatusAccepted)
 }
 
@@ -342,4 +345,78 @@ func (lh *LifecycleHandler) SEVInjectLaunchSecretHandler(request *restful.Reques
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) BackupHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	if request.Request.Body == nil {
+		log.Log.Object(vmi).Reason(err).Error("Request with no body: Backup parameters are required")
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to retrieve Backup parameters from request"))
+		return
+	}
+
+	opts := &backupv1.BackupOptions{}
+	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		log.Log.Object(vmi).Reason(err).Error("Failed to decode Backup parameters")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+
+	err = client.VirtualMachineBackup(vmi, opts)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed backing up VM")
+		response.WriteError(http.StatusBadRequest, err)
+		lh.recorder.Eventf(vmi, k8sv1.EventTypeWarning, "BackupError", "%s: %s", "Failed backing up VM", err.Error())
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
+func (lh *LifecycleHandler) RedefineCheckpointHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	if request.Request.Body == nil {
+		log.Log.Object(vmi).Error("Request with no body: checkpoint info is required")
+		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to retrieve checkpoint info from request"))
+		return
+	}
+
+	checkpoint := &backupv1.BackupCheckpoint{}
+	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(checkpoint)
+	switch err {
+	case io.EOF, nil:
+		break
+	default:
+		log.Log.Object(vmi).Reason(err).Error("Failed to decode checkpoint info")
+		response.WriteError(http.StatusBadRequest, err)
+		return
+	}
+
+	checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to redefine checkpoint %s", checkpoint.Name)
+		if checkpointInvalid {
+			// Checkpoint bitmap is corrupt/invalid - use 422 Unprocessable Entity
+			// This tells the caller the checkpoint cannot be processed and should be cleared
+			response.WriteError(http.StatusUnprocessableEntity, err)
+		} else {
+			// Transient error - use 503 Service Unavailable to indicate retry
+			response.WriteError(http.StatusServiceUnavailable, err)
+		}
+		return
+	}
+
+	response.WriteHeader(http.StatusOK)
 }

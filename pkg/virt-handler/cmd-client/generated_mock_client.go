@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
+	v1alpha1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
 	v10 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -250,6 +251,21 @@ func (mr *MockLauncherClientMockRecorder) GetSEVInfo() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSEVInfo", reflect.TypeOf((*MockLauncherClient)(nil).GetSEVInfo))
 }
 
+// GetScreenshot mocks base method.
+func (m *MockLauncherClient) GetScreenshot(arg0 *v1.VirtualMachineInstance) (*v10.ScreenshotResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetScreenshot", arg0)
+	ret0, _ := ret[0].(*v10.ScreenshotResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetScreenshot indicates an expected call of GetScreenshot.
+func (mr *MockLauncherClientMockRecorder) GetScreenshot(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetScreenshot", reflect.TypeOf((*MockLauncherClient)(nil).GetScreenshot), arg0)
+}
+
 // GetUsers mocks base method.
 func (m *MockLauncherClient) GetUsers() (v1.VirtualMachineInstanceGuestOSUserList, error) {
 	m.ctrl.T.Helper()
@@ -361,6 +377,21 @@ func (m *MockLauncherClient) Ping() error {
 func (mr *MockLauncherClientMockRecorder) Ping() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockLauncherClient)(nil).Ping))
+}
+
+// RedefineCheckpoint mocks base method.
+func (m *MockLauncherClient) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *v1alpha1.BackupCheckpoint) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RedefineCheckpoint", vmi, checkpoint)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RedefineCheckpoint indicates an expected call of RedefineCheckpoint.
+func (mr *MockLauncherClientMockRecorder) RedefineCheckpoint(vmi, checkpoint any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RedefineCheckpoint", reflect.TypeOf((*MockLauncherClient)(nil).RedefineCheckpoint), vmi, checkpoint)
 }
 
 // ResetVirtualMachine mocks base method.
@@ -501,6 +532,20 @@ func (m *MockLauncherClient) UnpauseVirtualMachine(vmi *v1.VirtualMachineInstanc
 func (mr *MockLauncherClientMockRecorder) UnpauseVirtualMachine(vmi any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnpauseVirtualMachine", reflect.TypeOf((*MockLauncherClient)(nil).UnpauseVirtualMachine), vmi)
+}
+
+// VirtualMachineBackup mocks base method.
+func (m *MockLauncherClient) VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *v1alpha1.BackupOptions) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VirtualMachineBackup", vmi, options)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// VirtualMachineBackup indicates an expected call of VirtualMachineBackup.
+func (mr *MockLauncherClientMockRecorder) VirtualMachineBackup(vmi, options any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtualMachineBackup", reflect.TypeOf((*MockLauncherClient)(nil).VirtualMachineBackup), vmi, options)
 }
 
 // VirtualMachineMemoryDump mocks base method.

@@ -29,12 +29,10 @@ import (
 
 	vishnetlink "github.com/vishvananda/netlink"
 
-	nlfake "kubevirt.io/kubevirt/pkg/network/driver/netlink/fake"
-	"kubevirt.io/kubevirt/pkg/network/driver/nmstate"
-	psfake "kubevirt.io/kubevirt/pkg/network/driver/procsys/fake"
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/client-go/testutils"
+
+	nlfake "kubevirt.io/kubevirt/pkg/network/driver/netlink/fake"
+	psfake "kubevirt.io/kubevirt/pkg/network/driver/procsys/fake"
 )
 
 const (
@@ -50,20 +48,6 @@ func TestNMState(t *testing.T) {
 type testAdapter struct {
 	nlfake.NetLink
 	psfake.ProcSys
-	txChecksum map[string]*bool
-}
-
-func (t *testAdapter) ReadTXChecksum(name string) (bool, error) {
-	if txChecksum, exists := t.txChecksum[name]; exists && txChecksum != nil {
-		return *txChecksum, nil
-	}
-	// By default, TX checksum is usually enabled by default.
-	return true, nil
-}
-
-func (t *testAdapter) TXChecksumOff(name string) error {
-	t.txChecksum[name] = pointer.P(false)
-	return nil
 }
 
 func (t *testAdapter) AddTapDeviceWithSELinuxLabel(name string, mtu int, queues int, ownerID int, pid int) error {
@@ -87,8 +71,4 @@ func (t *testAdapter) setIPConfigOnLink(linkIndex int, ipAddresses ...string) er
 		}
 	}
 	return nil
-}
-
-func defaultEthtool() nmstate.Ethtool {
-	return nmstate.Ethtool{Feature: nmstate.Feature{TxChecksum: pointer.P(true)}}
 }

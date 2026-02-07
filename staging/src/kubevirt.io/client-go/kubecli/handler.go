@@ -20,19 +20,22 @@ import (
 )
 
 const (
-	consoleTemplateURI        = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
-	usbredirTemplateURI       = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/usbredir"
-	vncTemplateURI            = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
-	vsockTemplateURI          = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vsock"
-	pauseTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
-	unpauseTemplateURI        = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
-	freezeTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/freeze"
-	unfreezeTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unfreeze"
-	resetTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/reset"
-	softRebootTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/softreboot"
-	guestInfoTemplateURI      = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
-	userListTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
-	filesystemListTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
+	consoleTemplateURI            = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/console"
+	usbredirTemplateURI           = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/usbredir"
+	vncTemplateURI                = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
+	vsockTemplateURI              = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vsock"
+	pauseTemplateURI              = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
+	unpauseTemplateURI            = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
+	backupTemplateURI             = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/backup"
+	redefineCheckpointTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/redefine-checkpoint"
+	freezeTemplateURI             = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/freeze"
+	unfreezeTemplateURI           = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unfreeze"
+	resetTemplateURI              = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/reset"
+	softRebootTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/softreboot"
+	guestInfoTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/guestosinfo"
+	userListTemplateURI           = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/userlist"
+	filesystemListTemplateURI     = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/filesystemlist"
+	screenshotTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc/screenshot"
 
 	sevFetchCertChainTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/fetchcertchain"
 	sevQueryLaunchMeasurementTemplateURI = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/sev/querylaunchmeasurement"
@@ -59,6 +62,7 @@ type VirtHandlerConn interface {
 	ConsoleURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	USBRedirURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	VNCURI(vmi *virtv1.VirtualMachineInstance, preserveSession bool) (string, error)
+	ScreenshotURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error)
 	PauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -71,10 +75,12 @@ type VirtHandlerConn interface {
 	SEVInjectLaunchSecretURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	Pod() (pod *v1.Pod, err error)
 	Put(url string, body io.ReadCloser) error
-	Get(url string) (string, error)
+	Get(url, contentType string) (string, error)
 	GuestInfoURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UserListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FilesystemListURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	BackupURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	RedefineCheckpointURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 }
 
 type virtHandler struct {
@@ -200,12 +206,24 @@ func (v *virtHandlerConn) VNCURI(vmi *virtv1.VirtualMachineInstance, preserveSes
 	return u.String(), nil
 }
 
+func (v *virtHandlerConn) ScreenshotURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(screenshotTemplateURI, vmi)
+}
+
 func (v *virtHandlerConn) VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error) {
 	baseURI, err := v.formatURI(vsockTemplateURI, vmi)
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("%s?port=%s&tls=%s", baseURI, port, tls), nil
+}
+
+func (v *virtHandlerConn) BackupURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(backupTemplateURI, vmi)
+}
+
+func (v *virtHandlerConn) RedefineCheckpointURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(redefineCheckpointTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
@@ -277,13 +295,15 @@ func (v *virtHandlerConn) Put(url string, body io.ReadCloser) error {
 	return nil
 }
 
-func (v *virtHandlerConn) Get(url string) (string, error) {
+func (v *virtHandlerConn) Get(url, contentType string) (string, error) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
 
-	req.Header.Add("Accept", "application/json")
+	if contentType != "" {
+		req.Header.Add("Accept", contentType)
+	}
 	response, err := v.doRequest(req)
 	if err != nil {
 		return "", err

@@ -71,8 +71,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/healthz"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
-	poolv1 "kubevirt.io/api/pool/v1alpha1"
+	poolv1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -86,6 +87,7 @@ import (
 	clientmetrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/service"
+	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -123,6 +125,7 @@ const (
 
 	defaultControllerThreads         = 3
 	defaultSnapshotControllerThreads = 6
+	defaultBackupControllerThreads   = 6
 	defaultVMIControllerThreads      = 10
 
 	defaultLauncherSubGid                 = 107
@@ -218,6 +221,10 @@ type VirtControllerApp struct {
 	vmCloneInformer   cache.SharedIndexInformer
 	vmCloneController *clonecontroller.VMCloneController
 
+	vmBackupInformer        cache.SharedIndexInformer
+	vmBackupTrackerInformer cache.SharedIndexInformer
+	vmBackupController      *backup.VMBackupController
+
 	instancetypeInformer        cache.SharedIndexInformer
 	clusterInstancetypeInformer cache.SharedIndexInformer
 	preferenceInformer          cache.SharedIndexInformer
@@ -264,8 +271,10 @@ type VirtControllerApp struct {
 	restoreControllerThreads          int
 	snapshotControllerResyncPeriod    time.Duration
 	cloneControllerThreads            int
+	additionalLauncherAnnotationsSync []string
+	additionalLauncherLabelsSync      []string
+	backupControllerThreads           int
 
-	caConfigMapName          string
 	promCertFilePath         string
 	promKeyFilePath          string
 	nodeTopologyUpdater      topology.NodeTopologyUpdater
@@ -284,6 +293,7 @@ func init() {
 	utilruntime.Must(exportv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(poolv1.AddToScheme(scheme.Scheme))
 	utilruntime.Must(clone.AddToScheme(scheme.Scheme))
+	utilruntime.Must(backupv1.AddToScheme(scheme.Scheme))
 }
 
 func Execute() {
@@ -335,7 +345,7 @@ func Execute() {
 
 	if err := app.kubeVirtInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
-		cache.DefaultWatchErrorHandler(r, err)
+		cache.DefaultWatchErrorHandler(context.TODO(), r, err)
 	}); err != nil {
 		golog.Fatalf("failed to set the watch error handler: %v", err)
 	}
@@ -397,6 +407,8 @@ func Execute() {
 
 	app.controllerRevisionInformer = app.informerFactory.ControllerRevision()
 
+	app.vmBackupInformer = app.informerFactory.VirtualMachineBackup()
+	app.vmBackupTrackerInformer = app.informerFactory.VirtualMachineBackupTracker()
 	app.vmExportInformer = app.informerFactory.VirtualMachineExport()
 	app.vmSnapshotInformer = app.informerFactory.VirtualMachineSnapshot()
 	app.vmSnapshotContentInformer = app.informerFactory.VirtualMachineSnapshotContent()
@@ -487,6 +499,7 @@ func Execute() {
 	app.initExportController()
 	app.initWorkloadUpdaterController()
 	app.initCloneController()
+	app.initBackupController()
 	go app.Run()
 
 	<-app.reInitChan
@@ -633,6 +646,11 @@ func (vca *VirtControllerApp) onStartedLeading() func(ctx context.Context) {
 				log.Log.Warningf("error running the clone controller: %v", err)
 			}
 		}()
+		go func() {
+			if err := vca.vmBackupController.Run(vca.backupControllerThreads, stop); err != nil {
+				log.Log.Warningf("error running the backup controller: %v", err)
+			}
+		}()
 
 		cache.WaitForCacheSync(stop, vca.persistentVolumeClaimInformer.HasSynced, vca.namespaceInformer.HasSynced, vca.resourceQuotaInformer.HasSynced)
 		close(vca.readyChan)
@@ -705,6 +723,8 @@ func (vca *VirtControllerApp) initCommon() {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
 		},
 		netmigration.NewEvaluator(),
+		vca.additionalLauncherAnnotationsSync,
+		vca.additionalLauncherLabelsSync,
 	)
 	if err != nil {
 		panic(err)
@@ -748,6 +768,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.vmiRecorder,
 		clientSet,
 		vca.clusterConfig,
+		netAnnotationsGenerator,
 	)
 	if err != nil {
 		panic(err)
@@ -772,6 +793,8 @@ func (vca *VirtControllerApp) initPool() {
 		vca.vmiInformer,
 		vca.vmInformer,
 		vca.poolInformer,
+		vca.persistentVolumeClaimInformer,
+		vca.dataVolumeInformer,
 		vca.controllerRevisionInformer,
 		recorder,
 		controller.BurstReplicas)
@@ -789,7 +812,8 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 		vca.vmInformer,
 		vca.dataVolumeInformer,
 		vca.dataSourceInformer,
-		vca.namespaceStore,
+		vca.kubeVirtInformer,
+		vca.namespaceInformer,
 		vca.persistentVolumeClaimInformer,
 		vca.controllerRevisionInformer,
 		recorder,
@@ -809,6 +833,8 @@ func (vca *VirtControllerApp) initVirtualMachines() {
 			vca.clusterConfig,
 			recorder,
 		),
+		vca.additionalLauncherAnnotationsSync,
+		vca.additionalLauncherLabelsSync,
 	)
 	if err != nil {
 		panic(err)
@@ -955,6 +981,17 @@ func (vca *VirtControllerApp) initCloneController() {
 	}
 }
 
+func (vca *VirtControllerApp) initBackupController() {
+	var err error
+	recorder := vca.newRecorder(k8sv1.NamespaceAll, "backup-controller")
+	vca.vmBackupController, err = backup.NewVMBackupController(
+		vca.clientSet, vca.vmBackupInformer, vca.vmBackupTrackerInformer, vca.vmInformer, vca.vmiInformer, vca.persistentVolumeClaimInformer, recorder,
+	)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (vca *VirtControllerApp) leaderProbe(_ *restful.Request, response *restful.Response) {
 	res := map[string]interface{}{}
 
@@ -1063,6 +1100,15 @@ func (vca *VirtControllerApp) AddFlags() {
 
 	flag.IntVar(&vca.cloneControllerThreads, "clone-controller-threads", defaultControllerThreads,
 		"Number of goroutines to run for clone controller")
+
+	flag.StringSliceVar(&vca.additionalLauncherAnnotationsSync, "additional-launcher-annotations-sync", []string{},
+		"Comma separated list of annotation keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
+
+	flag.StringSliceVar(&vca.additionalLauncherLabelsSync, "additional-launcher-labels-sync", []string{},
+		"Comma separated list of labels keys which if present on the VM template and so VMI, will be sync to the virt-launcher pod. Note, it is unidirectional from VM.spec.template.metadata -> VMI and VMI -> virt-launcher pod")
+
+	flag.IntVar(&vca.backupControllerThreads, "backup-controller-threads", defaultBackupControllerThreads,
+		"Number of goroutines to run for backup controller")
 }
 
 func (vca *VirtControllerApp) setupLeaderElector() (err error) {

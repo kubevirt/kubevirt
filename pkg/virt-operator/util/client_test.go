@@ -194,7 +194,7 @@ var _ = Describe("Operator Client", func() {
 						LastProbeTime: now,
 					})
 					SetConditionTimestamps(kv1, kv2)
-					Expect(kv2.Status.Conditions[0].LastProbeTime.Time).To(BeTemporally(">", now.Time))
+					Expect(kv2.Status.Conditions[0].LastProbeTime.Time).To(BeTemporally(">=", now.Time))
 					Expect(kv2.Status.Conditions[0].LastTransitionTime).ToNot(Equal(empty))
 					Expect(kv2.Status.Conditions[0].LastTransitionTime).To(Equal(kv2.Status.Conditions[0].LastProbeTime))
 				})

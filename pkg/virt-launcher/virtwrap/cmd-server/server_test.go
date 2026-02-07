@@ -30,6 +30,9 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
@@ -335,6 +338,71 @@ var _ = Describe("Virt remote commands", func() {
 			vmi := v1.NewVMIReferenceFromName("testvmi")
 			domainManager.EXPECT().UpdateGuestMemory(vmi).Return(nil)
 			Expect(client.SyncVirtualMachineMemory(vmi, &cmdv1.VirtualMachineOptions{})).To(Succeed())
+		})
+
+		Context("RedefineCheckpoint", func() {
+			var vmi *v1.VirtualMachineInstance
+			var checkpoint *backupv1.BackupCheckpoint
+
+			BeforeEach(func() {
+				vmi = v1.NewVMIReferenceFromName("testvmi")
+				vmi.Status.ChangedBlockTracking = &v1.ChangedBlockTrackingStatus{
+					State: v1.ChangedBlockTrackingEnabled,
+				}
+				creationTime := metav1.Unix(1234567890, 0)
+				checkpoint = &backupv1.BackupCheckpoint{
+					Name:         "checkpoint-1",
+					CreationTime: &creationTime,
+					Volumes: []backupv1.BackupVolumeInfo{
+						{VolumeName: "disk1", DiskTarget: "vda"},
+						{VolumeName: "disk2", DiskTarget: "vdb"},
+					},
+				}
+			})
+
+			It("should redefine checkpoint successfully", func() {
+				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(vmiArg *v1.VirtualMachineInstance, cpArg *backupv1.BackupCheckpoint) (bool, error) {
+						Expect(vmiArg.Name).To(Equal("testvmi"))
+						Expect(cpArg.Name).To(Equal("checkpoint-1"))
+						Expect(cpArg.Volumes).To(HaveLen(2))
+						Expect(cpArg.Volumes[0].VolumeName).To(Equal("disk1"))
+						Expect(cpArg.Volumes[0].DiskTarget).To(Equal("vda"))
+						Expect(cpArg.CreationTime.Unix()).To(Equal(int64(1234567890)))
+						return false, nil
+					})
+
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(checkpointInvalid).To(BeFalse())
+			})
+
+			It("should return error when redefinition fails", func() {
+				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(false, errors.New("redefinition failed"))
+
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("redefinition failed"))
+				Expect(checkpointInvalid).To(BeFalse())
+			})
+
+			It("should return checkpointInvalid=true when checkpoint is corrupt", func() {
+				domainManager.EXPECT().RedefineCheckpoint(gomock.Any(), gomock.Any()).Return(true, errors.New("bitmap invalid"))
+
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("bitmap invalid"))
+				Expect(checkpointInvalid).To(BeTrue())
+			})
+
+			It("should fail when CBT is not enabled", func() {
+				vmi.Status.ChangedBlockTracking = nil
+
+				checkpointInvalid, err := client.RedefineCheckpoint(vmi, checkpoint)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("ChangedBlockTracking is not enabled"))
+				Expect(checkpointInvalid).To(BeFalse())
+			})
 		})
 
 		Context("exec & guestPing", func() {

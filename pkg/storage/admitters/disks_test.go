@@ -527,7 +527,42 @@ var _ = Describe("Disk Validation", func() {
 				causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
 				Expect(causes).To(BeEmpty())
 			})
+
+			It("Should deny SATA disks with a custom logical block size bigger than 512", func() {
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "blockdisk",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: v1.DiskBusSATA,
+						},
+					},
+					BlockSize: &v1.BlockSize{
+						Custom: &v1.CustomBlockSize{
+							Logical:  4096,
+							Physical: 4096,
+						},
+					},
+				})
+				causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Field).To(Equal("fake[0].blockSize.custom.logical"))
+			})
+
+			It("Should deny disks with custom discard granularity that isn't a multiple of the logical block size", func() {
+				vmi.Spec.Domain.Devices.Disks = append(vmi.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "blockdisk",
+					BlockSize: &v1.BlockSize{
+						Custom: &v1.CustomBlockSize{
+							Logical:            4096,
+							Physical:           4096,
+							DiscardGranularity: pointer.P[uint](512),
+						},
+					},
+				})
+				causes := ValidateDisks(k8sfield.NewPath("fake"), vmi.Spec.Domain.Devices.Disks)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Field).To(Equal("fake[0].blockSize.custom.discardGranularity"))
+			})
 		})
 	})
-
 })

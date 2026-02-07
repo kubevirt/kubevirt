@@ -21,9 +21,9 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -39,31 +39,32 @@ type ServiceMonitorsGetter interface {
 
 // ServiceMonitorInterface has methods to work with ServiceMonitor resources.
 type ServiceMonitorInterface interface {
-	Create(ctx context.Context, serviceMonitor *v1.ServiceMonitor, opts metav1.CreateOptions) (*v1.ServiceMonitor, error)
-	Update(ctx context.Context, serviceMonitor *v1.ServiceMonitor, opts metav1.UpdateOptions) (*v1.ServiceMonitor, error)
+	Create(ctx context.Context, serviceMonitor *monitoringv1.ServiceMonitor, opts metav1.CreateOptions) (*monitoringv1.ServiceMonitor, error)
+	Update(ctx context.Context, serviceMonitor *monitoringv1.ServiceMonitor, opts metav1.UpdateOptions) (*monitoringv1.ServiceMonitor, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.ServiceMonitor, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.ServiceMonitorList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*monitoringv1.ServiceMonitor, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*monitoringv1.ServiceMonitorList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.ServiceMonitor, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *monitoringv1.ServiceMonitor, err error)
 	ServiceMonitorExpansion
 }
 
 // serviceMonitors implements ServiceMonitorInterface
 type serviceMonitors struct {
-	*gentype.ClientWithList[*v1.ServiceMonitor, *v1.ServiceMonitorList]
+	*gentype.ClientWithList[*monitoringv1.ServiceMonitor, *monitoringv1.ServiceMonitorList]
 }
 
 // newServiceMonitors returns a ServiceMonitors
 func newServiceMonitors(c *MonitoringV1Client, namespace string) *serviceMonitors {
 	return &serviceMonitors{
-		gentype.NewClientWithList[*v1.ServiceMonitor, *v1.ServiceMonitorList](
+		gentype.NewClientWithList[*monitoringv1.ServiceMonitor, *monitoringv1.ServiceMonitorList](
 			"servicemonitors",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.ServiceMonitor { return &v1.ServiceMonitor{} },
-			func() *v1.ServiceMonitorList { return &v1.ServiceMonitorList{} }),
+			func() *monitoringv1.ServiceMonitor { return &monitoringv1.ServiceMonitor{} },
+			func() *monitoringv1.ServiceMonitorList { return &monitoringv1.ServiceMonitorList{} },
+		),
 	}
 }

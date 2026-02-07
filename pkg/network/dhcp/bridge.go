@@ -36,14 +36,14 @@ type BridgeConfigGenerator struct {
 	handler          netdriver.NetworkHandler
 	podInterfaceName string
 	cacheCreator     cacheCreator
-	launcherPID      string
 	vmiSpecIfaces    []v1.Interface
 	vmiSpecIface     *v1.Interface
 	subdomain        string
 }
 
 func (d *BridgeConfigGenerator) Generate() (*cache.DHCPConfig, error) {
-	dhcpConfig, err := cache.ReadDHCPInterfaceCache(d.cacheCreator, d.launcherPID, d.podInterfaceName)
+	const launcherPID = "self"
+	dhcpConfig, err := cache.ReadDHCPInterfaceCache(d.cacheCreator, launcherPID, d.podInterfaceName)
 	if err != nil {
 		return nil, err
 	}

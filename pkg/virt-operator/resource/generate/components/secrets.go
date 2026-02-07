@@ -28,6 +28,8 @@ const (
 	KubeVirtExportCASecretName                        = "kubevirt-export-ca"
 	VirtHandlerCertSecretName                         = "kubevirt-virt-handler-certs"
 	VirtHandlerServerCertSecretName                   = "kubevirt-virt-handler-server-certs"
+	VirtHandlerMigrationClientCertSecretName          = "kubevirt-virt-handler-migration-client-certs"
+	VirtHandlerVsockClientCertSecretName              = "kubevirt-virt-handler-vsock-client-certs"
 	VirtOperatorCertSecretName                        = "kubevirt-operator-certs"
 	VirtApiCertSecretName                             = "kubevirt-virt-api-certs"
 	VirtControllerCertSecretName                      = "kubevirt-controller-certs"
@@ -37,6 +39,7 @@ const (
 	CABundleKey                                       = "ca-bundle"
 	LocalPodDNStemplateString                         = "%s.%s.pod.cluster.local"
 	CaClusterLocal                                    = "cluster.local"
+	maxCertificatesInBundle                           = 50
 )
 
 type CertificateCreationCallback func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey)
@@ -113,6 +116,32 @@ var populationStrategy = map[string]CertificateCreationCallback{
 			secret.Namespace,
 			CaClusterLocal,
 			nil,
+			nil,
+			duration,
+		)
+		return keyPair.Cert, keyPair.Key
+	},
+	VirtHandlerMigrationClientCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
+		caKeyPair := &triple.KeyPair{
+			Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
+			Cert: caCert.Leaf,
+		}
+		keyPair, _ := triple.NewClientKeyPair(
+			caKeyPair,
+			"kubevirt.io:system:client:migration",
+			nil,
+			duration,
+		)
+		return keyPair.Cert, keyPair.Key
+	},
+	VirtHandlerVsockClientCertSecretName: func(secret *k8sv1.Secret, caCert *tls.Certificate, duration time.Duration) (cert *x509.Certificate, key *ecdsa.PrivateKey) {
+		caKeyPair := &triple.KeyPair{
+			Key:  caCert.PrivateKey.(*ecdsa.PrivateKey),
+			Cert: caCert.Leaf,
+		}
+		keyPair, _ := triple.NewClientKeyPair(
+			caKeyPair,
+			"kubevirt.io:system:client:vsock",
 			nil,
 			duration,
 		)
@@ -339,6 +368,34 @@ func NewCertSecrets(installNamespace string, operatorNamespace string) []*k8sv1.
 				APIVersion: "v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
+				Name:      VirtHandlerMigrationClientCertSecretName,
+				Namespace: installNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      VirtHandlerVsockClientCertSecretName,
+				Namespace: installNamespace,
+				Labels: map[string]string{
+					v1.ManagedByLabel: v1.ManagedByLabelOperatorValue,
+				},
+			},
+			Type: k8sv1.SecretTypeTLS,
+		},
+		{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Secret",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      VirtHandlerCertSecretName,
 				Namespace: installNamespace,
 				Labels: map[string]string{
@@ -464,6 +521,28 @@ func LoadCertificates(secret *k8sv1.Secret) (serverCrt *tls.Certificate, err err
 	return &crt, nil
 }
 
+// filterValidCertificates filters out certificates that are not valid and sorts them by age.
+// If there are more than maxCount, it truncates the list to maxCount
+func filterValidCertificates(certs []*x509.Certificate, now time.Time, maxCount int) []*x509.Certificate {
+	validCerts := make([]*x509.Certificate, 0, len(certs))
+	for _, crt := range certs {
+		if !crt.NotAfter.Before(now) {
+			validCerts = append(validCerts, crt)
+		}
+	}
+
+	sort.SliceStable(validCerts, func(i, j int) bool {
+		return validCerts[i].NotBefore.Unix() > validCerts[j].NotBefore.Unix()
+	})
+
+	if len(validCerts) > maxCount {
+		log.Log.Warningf("more than %d CA certificates found in the CA bundle, truncating to %d", maxCount, maxCount)
+		return validCerts[:maxCount]
+	}
+
+	return validCerts
+}
+
 func MergeCABundle(currentCert *tls.Certificate, currentBundle []byte, overlapDuration time.Duration) ([]byte, int, error) {
 	current := cert.EncodeCertPEM(currentCert.Leaf)
 	certs, err := cert.ParseCertsPEM(currentBundle)
@@ -471,40 +550,24 @@ func MergeCABundle(currentCert *tls.Certificate, currentBundle []byte, overlapDu
 		return nil, 0, err
 	}
 
-	// ensure that no one does something nasty and adds thousands of certs
-	if len(certs) > 50 {
-		log.Log.Warningf("more than 50 CA certificates found in the CA bundle, truncating to 50")
-		certs = certs[:50]
-	}
-
 	now := time.Now()
+	validCerts := filterValidCertificates(certs, now, maxCertificatesInBundle)
+
 	var newBundle []byte
-
-	// To ensure that no one messes this up, sort
-	// We want the newest certs first
-	sort.SliceStable(certs, func(i, j int) bool {
-		return certs[i].NotBefore.Unix() > certs[j].NotBefore.Unix()
-	})
-
 	certCount := 0
 	// we check for every cert i > 0, if in context to the certificate i-1 it existed already longer than the overlap
 	// duration. We check the certificate i = 0 against the current certificate.
-	for i, crt := range certs {
+	for i, crt := range validCerts {
 		if i == 0 {
 			if currentCert.Leaf.NotBefore.Add(overlapDuration).Before(now) {
 				log.DefaultLogger().Infof("Kept old CA certificates for a duration of at least %v, dropping them now.", overlapDuration)
 				break
 			}
 		} else {
-			if certs[i-1].NotBefore.Add(overlapDuration).Before(now) {
+			if validCerts[i-1].NotBefore.Add(overlapDuration).Before(now) {
 				log.DefaultLogger().Infof("Kept old CA certificates for a duration of at least %v, dropping them now.", overlapDuration)
 				break
 			}
-		}
-
-		// drop expired CAs
-		if crt.NotAfter.Before(now) {
-			continue
 		}
 
 		certBytes := cert.EncodeCertPEM(crt)

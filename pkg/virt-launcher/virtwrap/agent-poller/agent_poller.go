@@ -31,6 +31,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
 // AgentCommand is a command executable on guest agent
@@ -45,6 +46,8 @@ const (
 	GetFSFreezeStatus AgentCommand = "guest-fsfreeze-status"
 
 	pollInitialInterval = 10 * time.Second
+
+	repeatingLogLevel = 3
 )
 
 // AgentUpdatedEvent fire up when data is changes in the store
@@ -118,17 +121,10 @@ func (s *AsyncAgentStore) GetSysInfo() api.DomainSysInfo {
 		timezone = data.(api.Timezone)
 	}
 
-	data, ok = s.store.Load(libvirt.DOMAIN_GUEST_INFO_LOAD)
-	load := api.Load{}
-	if ok {
-		load = data.(api.Load)
-	}
-
 	return api.DomainSysInfo{
 		Hostname: hostname,
 		OSInfo:   osinfo,
 		Timezone: timezone,
-		Load:     load,
 	}
 }
 
@@ -212,6 +208,18 @@ func (s *AsyncAgentStore) GetUsers(limit int) []api.User {
 	limitedUsers := make([]api.User, limit)
 	copy(limitedUsers, users[:limit])
 	return limitedUsers
+}
+
+func (s *AsyncAgentStore) GetLoad() *stats.DomainStatsLoad {
+	data, ok := s.store.Load(libvirt.DOMAIN_GUEST_INFO_LOAD)
+
+	load := stats.DomainStatsLoad{}
+	if !ok {
+		return &load
+	}
+
+	load = data.(stats.DomainStatsLoad)
+	return &load
 }
 
 // PollerWorker collects the data from the guest agent
@@ -402,7 +410,7 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 // GET_AGENT - According to libvirt engineers this command shouldn't be used
 // by KubeVirt, because it provides irrelevant information (version and supported commands).
 func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
-	log.Log.Infof("Polling command: %v", commands)
+	log.Log.V(repeatingLogLevel).Infof("Polling command: %v", commands)
 
 	for _, command := range commands {
 		cmdResult, err := agentPoller.Connection.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, agentPoller.domainName)
@@ -552,10 +560,11 @@ func convertToTimezone(guestInfo *libvirt.DomainGuestInfo) api.Timezone {
 	return timezone
 }
 
-func convertToLoad(guestInfo *libvirt.DomainGuestInfo) api.Load {
-	load := api.Load{}
+func convertToLoad(guestInfo *libvirt.DomainGuestInfo) stats.DomainStatsLoad {
+	load := stats.DomainStatsLoad{}
+
 	if guestInfo.Load != nil {
-		load = api.Load{
+		load = stats.DomainStatsLoad{
 			Load1mSet:  guestInfo.Load.Load1MSet,
 			Load1m:     guestInfo.Load.Load1M,
 			Load5mSet:  guestInfo.Load.Load5MSet,

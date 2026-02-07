@@ -30,7 +30,6 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -86,7 +85,6 @@ var _ = Describe("Cluster Profiler Subresources", func() {
 		flag.Set("kubeconfig", "")
 		flag.Set("master", server.URL())
 		app.virtCli, _ = kubecli.GetKubevirtClientFromFlags(server.URL(), "")
-		app.credentialsLock = &sync.Mutex{}
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config
 		app.profilerComponentPort = backendPort

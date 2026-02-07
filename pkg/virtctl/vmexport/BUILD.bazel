@@ -35,6 +35,7 @@ go_test(
         "vmexport_suite_test.go",
         "vmexport_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/virtctl/testing:go_default_library",

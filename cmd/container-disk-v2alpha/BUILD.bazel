@@ -20,6 +20,7 @@ go_test(
         "$(location //cmd/container-disk-v2alpha:container-disk)",
     ],
     data = ["//cmd/container-disk-v2alpha:container-disk"],
+    race = "on",
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

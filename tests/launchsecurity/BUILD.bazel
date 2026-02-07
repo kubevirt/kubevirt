@@ -2,7 +2,10 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["sev.go"],
+    srcs = [
+        "secure-execution.go",
+        "sev.go",
+    ],
     importpath = "kubevirt.io/kubevirt/tests/launchsecurity",
     visibility = ["//visibility:public"],
     deps = [
@@ -15,6 +18,7 @@ go_library(
         "//tests/exec:go_default_library",
         "//tests/framework/kubevirt:go_default_library",
         "//tests/framework/matcher:go_default_library",
+        "//tests/libconfigmap:go_default_library",
         "//tests/libdomain:go_default_library",
         "//tests/libkubevirt/config:go_default_library",
         "//tests/libnode:go_default_library",

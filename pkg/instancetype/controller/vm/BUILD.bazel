@@ -4,7 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "controller.go",
-        "mock.go",
+        "stub.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/instancetype/controller/vm",
     visibility = ["//visibility:public"],
@@ -39,6 +39,7 @@ go_test(
         "controller_test.go",
         "vm_suite_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/instancetype/revision:go_default_library",
@@ -49,8 +50,6 @@ go_test(
         "//pkg/virt-controller/watch/common:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
-        "//staging/src/kubevirt.io/api/instancetype/v1alpha1:go_default_library",
-        "//staging/src/kubevirt.io/api/instancetype/v1alpha2:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubevirt/fake:go_default_library",

@@ -22,6 +22,7 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -33,10 +34,15 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	libdv "kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
+	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libsecret"
+	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -88,13 +94,18 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					libvmi.WithPersistentVolumeClaim("disk0", pvc.Name),
 					libvmi.WithAccessCredentialUserPassword(secret.Name),
+					libvmi.WithMemoryRequest("100M"),
+					libvmi.WithTPM(true),
 				),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
 			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
+			By("Waiting for VMI to start")
+			Eventually(ThisVMIWith(vm.Namespace, vm.Name), 120*time.Second, 1*time.Second).Should(BeRunning())
 		})
 
-		It("should return object graph for VM with PVC and Secret", func() {
+		It("should return object graph for VM with PVC, backend storage PVC and Secret", func() {
 			By("Getting the object graph for the VM")
 			objectGraph, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).ObjectGraph(context.Background(), vm.Name, &v1.ObjectGraphOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -105,12 +116,16 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 			Expect(objectGraph.ObjectReference.Kind).To(Equal("VirtualMachine"))
 
 			By("Verifying dependencies are included")
-			Expect(objectGraph.Children).To(HaveLen(2))
+			Expect(objectGraph.Children).To(HaveLen(4)) // Includes VMI too
 			pvcFound := false
 			secretFound := false
+			tpmFound := false
 			for _, child := range objectGraph.Children {
 				if child.ObjectReference.Kind == "PersistentVolumeClaim" && child.ObjectReference.Name == pvc.Name {
 					pvcFound = true
+				}
+				if child.ObjectReference.Kind == "PersistentVolumeClaim" && strings.HasPrefix(child.ObjectReference.Name, fmt.Sprintf("persistent-state-for-%s", vm.Name)) {
+					tpmFound = true
 				}
 				if child.ObjectReference.Kind == "Secret" && child.ObjectReference.Name == secret.Name {
 					secretFound = true
@@ -118,6 +133,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 			}
 			Expect(pvcFound).To(BeTrue())
 			Expect(secretFound).To(BeTrue())
+			Expect(tpmFound).To(BeTrue())
 		})
 
 		It("should filter dependencies using label selector", func() {
@@ -136,6 +152,128 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 				Expect(child.Labels["kubevirt.io/dependency-type"]).To(Equal("storage"))
 			}
 		})
+
+		It("should detect hotplugged disks in the object graph", func() {
+			By("Hotplugging a disk")
+			hotplugPVC := libstorage.NewPVC("hotplug-pvc", "1Gi", "")
+			hotplugPVC, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotplugPVC, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			hotplugOptions := &v1.AddVolumeOptions{
+				Name: hotplugPVC.Name,
+				Disk: &v1.Disk{
+					DiskDevice: v1.DiskDevice{},
+					Serial:     hotplugPVC.Name,
+				},
+				VolumeSource: &v1.HotplugVolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: hotplugPVC.Name,
+						},
+					},
+				},
+				DryRun: nil,
+			}
+
+			Eventually(func() error {
+				return virtClient.VirtualMachine(vm.Namespace).AddVolume(context.Background(), vm.Name, hotplugOptions)
+			}, 3*time.Second, 1*time.Second).Should(Succeed())
+
+			// Wait for hotplug volume to be added
+			Eventually(func() bool {
+				updatedVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+				if err != nil {
+					return false
+				}
+				for _, volume := range updatedVM.Spec.Template.Spec.Volumes {
+					if volume.Name == hotplugPVC.Name {
+						return true
+					}
+				}
+				return false
+			}, 90*time.Second, 1*time.Second).Should(BeTrue())
+
+			By("Getting the object graph for the VM")
+			objectGraph, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).ObjectGraph(context.Background(), vm.Name, &v1.ObjectGraphOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(objectGraph).ToNot(BeNil())
+
+			By("Verifying the hotplugged PVC is included")
+			hotplugFound := false
+			for _, child := range objectGraph.Children {
+				if child.ObjectReference.Kind == "PersistentVolumeClaim" && child.ObjectReference.Name == hotplugPVC.Name {
+					hotplugFound = true
+				}
+			}
+			Expect(hotplugFound).To(BeTrue())
+		})
+
+		It("Object Graph should detect newly added resources", func() {
+			By("Creating DataVolume")
+			dv := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros)),
+				libdv.WithStorage(),
+				libdv.WithForceBindAnnotation(),
+			)
+			dv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			libstorage.EventuallyDV(dv, 240, HaveSucceeded())
+
+			By("Getting the initial object graph for the VM")
+			initialObjectGraph, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).ObjectGraph(context.Background(), vm.Name, &v1.ObjectGraphOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(initialObjectGraph).ToNot(BeNil())
+			initialDependencyCount := len(initialObjectGraph.Children)
+
+			By("Verifying the DataVolume is not included in the original graph")
+			dvFound := false
+			for _, child := range initialObjectGraph.Children {
+				if child.ObjectReference.Kind == "DataVolume" && child.ObjectReference.Name == dv.Name {
+					dvFound = true
+					break
+				}
+			}
+			// DV shouldn't be part of the initial graph
+			Expect(dvFound).To(BeFalse())
+
+			vm = libvmops.StopVirtualMachine(vm)
+
+			By("Adding the DataVolume to the VM")
+			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+				Name: "test-datavolume",
+				VolumeSource: v1.VolumeSource{
+					DataVolume: &v1.DataVolumeSource{
+						Name: dv.Name,
+					},
+				},
+			})
+			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+				Name: "test-datavolume",
+				DiskDevice: v1.DiskDevice{
+					Disk: &v1.DiskTarget{
+						Bus: "virtio",
+					},
+				},
+			})
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			vm = libvmops.StartVirtualMachine(vm)
+
+			By("Getting the updated object graph for the VM")
+			updatedObjectGraph, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).ObjectGraph(context.Background(), vm.Name, &v1.ObjectGraphOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(updatedObjectGraph.Children)).To(BeNumerically(">", initialDependencyCount))
+
+			By("Verifying the DataVolume is included in the updated object graph")
+			for _, child := range updatedObjectGraph.Children {
+				if child.ObjectReference.Kind == "DataVolume" && child.ObjectReference.Name == dv.Name {
+					dvFound = true
+					break
+				}
+			}
+			Expect(dvFound).To(BeTrue())
+		})
 	})
 
 	Context("with VMI", func() {
@@ -144,7 +282,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 		BeforeEach(func() {
 			By("Creating and starting a VMI")
 			vmi = libvmi.New(
-				libvmi.WithResourceMemory("128Mi"),
+				libvmi.WithMemoryRequest("128Mi"),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)

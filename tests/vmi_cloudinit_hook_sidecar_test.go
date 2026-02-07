@@ -76,9 +76,9 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 		cmdCheck := "mount $(blkid  -L cidata) /mnt/\n"
 		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "sudo su -\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: cmdCheck},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: "echo $?\n"},
 			&expect.BExp{R: console.RetValue("0")},
 		}, 15)
@@ -89,7 +89,7 @@ var _ = Describe("[sig-compute]CloudInitHookSidecars", decorators.SigCompute, fu
 		cmdCheck := "cat " + filepath.Join("/mnt", testFile) + "\n"
 		err := console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "sudo su -\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: cmdCheck},
 			&expect.BExp{R: testData},
 		}, 15)

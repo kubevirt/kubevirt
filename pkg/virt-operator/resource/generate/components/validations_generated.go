@@ -237,15 +237,13 @@ var CRDsValidation map[string]string = map[string]string{
                 volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                 If specified, the CSI driver will create or update the volume with the attributes defined
                 in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                will be set by the persistentvolume controller if it exists.
+                it can be changed after the claim is created. An empty string or nil value indicates that no
+                VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                this field can be reset to its previous value (including nil) to cancel the modification.
                 If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                 set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                 exists.
                 More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
               type: string
             volumeMode:
               description: |-
@@ -358,6 +356,14 @@ var CRDsValidation map[string]string = map[string]string{
                 imageStream:
                   description: ImageStream is the name of image stream for import
                   type: string
+                platform:
+                  description: Platform describes the minimum runtime requirements
+                    of the image
+                  properties:
+                    architecture:
+                      description: Architecture specifies the image target CPU architecture
+                      type: string
+                  type: object
                 pullMethod:
                   description: PullMethod can be either "pod" (default import), or
                     "node" (node docker cache based import)
@@ -415,6 +421,10 @@ var CRDsValidation map[string]string = map[string]string{
                 backingFile:
                   description: BackingFile is the path to the virtual hard disk to
                     migrate from vCenter/ESXi
+                  type: string
+                extraArgs:
+                  description: ExtraArgs is a reference to a ConfigMap containing
+                    extra arguments to pass directly to the VDDK library
                   type: string
                 initImageURL:
                   description: InitImageURL is an optional URL to an image containing
@@ -840,6 +850,107 @@ var CRDsValidation map[string]string = map[string]string{
                   type: object
               type: object
               x-kubernetes-map-type: atomic
+            changedBlockTrackingLabelSelectors:
+              description: |-
+                ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.
+                Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
+              nullable: true
+              properties:
+                namespaceLabelSelector:
+                  description: NamespaceSelector will enable changedBlockTracking
+                    on all VMs running inside namespaces that match the label selector.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: |-
+                          A label selector requirement is a selector that contains values, a key, and an operator that
+                          relates the key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: |-
+                              operator represents a key's relationship to a set of values.
+                              Valid operators are In, NotIn, Exists and DoesNotExist.
+                            type: string
+                          values:
+                            description: |-
+                              values is an array of string values. If the operator is In or NotIn,
+                              the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                              the values array must be empty. This array is replaced during a strategic
+                              merge patch.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                        map is equivalent to an element of matchExpressions, whose key field is "key", the
+                        operator is "In", and the values array contains only "value". The requirements are ANDed.
+                      type: object
+                  type: object
+                  x-kubernetes-map-type: atomic
+                virtualMachineLabelSelector:
+                  description: VirtualMachineSelector will enable changedBlockTracking
+                    on all VMs that match the label selector.
+                  properties:
+                    matchExpressions:
+                      description: matchExpressions is a list of label selector requirements.
+                        The requirements are ANDed.
+                      items:
+                        description: |-
+                          A label selector requirement is a selector that contains values, a key, and an operator that
+                          relates the key and values.
+                        properties:
+                          key:
+                            description: key is the label key that the selector applies
+                              to.
+                            type: string
+                          operator:
+                            description: |-
+                              operator represents a key's relationship to a set of values.
+                              Valid operators are In, NotIn, Exists and DoesNotExist.
+                            type: string
+                          values:
+                            description: |-
+                              values is an array of string values. If the operator is In or NotIn,
+                              the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                              the values array must be empty. This array is replaced during a strategic
+                              merge patch.
+                            items:
+                              type: string
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                        - key
+                        - operator
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    matchLabels:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                        map is equivalent to an element of matchExpressions, whose key field is "key", the
+                        operator is "In", and the values array contains only "value". The requirements are ANDed.
+                      type: object
+                  type: object
+                  x-kubernetes-map-type: atomic
+              type: object
             commonInstancetypesDeployment:
               description: CommonInstancetypesDeployment controls the deployment of
                 common-instancetypes resources
@@ -910,6 +1021,14 @@ var CRDsValidation map[string]string = map[string]string{
                     https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio
                     Defaults to 10
                   type: integer
+                disabledFeatureGates:
+                  description: |-
+                    DisabledFeatureGates specifies a list of experimental feature gates to disable.
+                    A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
                 diskVerification:
                   description: DiskVerification holds container disks verification
                     limits
@@ -924,11 +1043,13 @@ var CRDsValidation map[string]string = map[string]string{
                   - memoryLimit
                   type: object
                 featureGates:
-                  description: FeatureGates is the list of experimental features to
-                    enable. Defaults to none
+                  description: |-
+                    FeatureGates specifies a list of experimental feature gates to enable. Defaults to none.
+                    A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
                   items:
                     type: string
                   type: array
+                  x-kubernetes-list-type: atomic
                 logVerbosity:
                   description: LogVerbosity sets log verbosity level of  various components
                   properties:
@@ -958,6 +1079,7 @@ var CRDsValidation map[string]string = map[string]string{
                     "see" 2% more memory than its parent pod. Values under 100 are effectively "undercommits".
                     Overcommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.
                     Defaults to 100
+                  minimum: 10
                   type: integer
                 minimumClusterTSCFrequency:
                   description: |-
@@ -1033,6 +1155,25 @@ var CRDsValidation map[string]string = map[string]string{
                       type: object
                   type: object
               type: object
+            hypervisors:
+              description: Hypervisors holds information regarding the hypervisor
+                configurations supported on this cluster.
+              items:
+                description: HypervisorConfiguration holds information regarding the
+                  hypervisor present on cluster nodes.
+                properties:
+                  name:
+                    description: |-
+                      Name is the name of the hypervisor.
+                      Supported values are: "kvm", "hyperv-direct".
+                    enum:
+                    - kvm
+                    - hyperv-direct
+                    type: string
+                type: object
+              maxItems: 1
+              type: array
+              x-kubernetes-list-type: atomic
             imagePullPolicy:
               description: PullPolicy describes a policy for if/when to pull a container
                 image
@@ -1144,6 +1285,12 @@ var CRDsValidation map[string]string = map[string]string{
               description: MediatedDevicesConfiguration holds information about MDEV
                 types to be defined, if available
               properties:
+                enabled:
+                  description: |-
+                    Enable the creation and removal of mediated devices by virt-handler
+                    Replaces the deprecated DisableMDEVConfiguration feature gate
+                    Defaults to true
+                  type: boolean
                 mediatedDeviceTypes:
                   items:
                     type: string
@@ -1276,8 +1423,16 @@ var CRDsValidation map[string]string = map[string]string{
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
                     indicates the migration will be unsafe to the guest. Defaults to false
                   type: boolean
+                utilityVolumesTimeout:
+                  description: |-
+                    UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+                    for utility volumes to be detached. If utility volumes are still present after this timeout,
+                    the migration will be marked as Failed. Defaults to 150
+                  format: int64
+                  type: integer
               type: object
             minCPUModel:
+              description: deprecated
               type: string
             network:
               description: NetworkConfiguration holds network options
@@ -2002,7 +2157,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -2017,7 +2171,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -2184,7 +2337,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -2199,7 +2351,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -2293,8 +2444,8 @@ var CRDsValidation map[string]string = map[string]string{
                             most preferred is the one with the greatest sum of weights, i.e.
                             for each node that meets all of the scheduling requirements (resource
                             request, requiredDuringScheduling anti-affinity expressions, etc.),
-                            compute a sum by iterating through the elements of this field and adding
-                            "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                            compute a sum by iterating through the elements of this field and subtracting
+                            "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                             node(s) with the highest sum are the most preferred.
                           items:
                             description: The weights of all of the matched WeightedPodAffinityTerm
@@ -2364,7 +2515,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -2379,7 +2529,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -2546,7 +2695,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -2561,7 +2709,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -3076,7 +3223,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -3091,7 +3237,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -3258,7 +3403,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -3273,7 +3417,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -3367,8 +3510,8 @@ var CRDsValidation map[string]string = map[string]string{
                             most preferred is the one with the greatest sum of weights, i.e.
                             for each node that meets all of the scheduling requirements (resource
                             request, requiredDuringScheduling anti-affinity expressions, etc.),
-                            compute a sum by iterating through the elements of this field and adding
-                            "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                            compute a sum by iterating through the elements of this field and subtracting
+                            "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                             node(s) with the highest sum are the most preferred.
                           items:
                             description: The weights of all of the matched WeightedPodAffinityTerm
@@ -3438,7 +3581,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -3453,7 +3595,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -3620,7 +3761,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -3635,7 +3775,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -4211,15 +4350,13 @@ var CRDsValidation map[string]string = map[string]string{
                           volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                           If specified, the CSI driver will create or update the volume with the attributes defined
                           in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                          it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                          will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                          If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                          will be set by the persistentvolume controller if it exists.
+                          it can be changed after the claim is created. An empty string or nil value indicates that no
+                          VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                          this field can be reset to its previous value (including nil) to cancel the modification.
                           If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                           set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                           exists.
                           More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                          (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                         type: string
                       volumeMode:
                         description: |-
@@ -4335,6 +4472,15 @@ var CRDsValidation map[string]string = map[string]string{
                             description: ImageStream is the name of image stream for
                               import
                             type: string
+                          platform:
+                            description: Platform describes the minimum runtime requirements
+                              of the image
+                            properties:
+                              architecture:
+                                description: Architecture specifies the image target
+                                  CPU architecture
+                                type: string
+                            type: object
                           pullMethod:
                             description: PullMethod can be either "pod" (default import),
                               or "node" (node docker cache based import)
@@ -4392,6 +4538,10 @@ var CRDsValidation map[string]string = map[string]string{
                           backingFile:
                             description: BackingFile is the path to the virtual hard
                               disk to migrate from vCenter/ESXi
+                            type: string
+                          extraArgs:
+                            description: ExtraArgs is a reference to a ConfigMap containing
+                              extra arguments to pass directly to the VDDK library
                             type: string
                           initImageURL:
                             description: InitImageURL is an optional URL to an image
@@ -4669,6 +4819,12 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             Running state indicates the requested running state of the VirtualMachineInstance
             mutually exclusive with Running
+            Following are allowed values:
+            - "Always": VMI should always be running.
+            - "Halted": VMI should never be running.
+            - "Manual": VMI can be started/stopped using API endpoints.
+            - "RerunOnFailure": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.
+            - "Once": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.
           type: string
         running:
           description: |-
@@ -5078,7 +5234,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -5093,7 +5248,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -5260,7 +5414,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -5275,7 +5428,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -5369,8 +5521,8 @@ var CRDsValidation map[string]string = map[string]string{
                             most preferred is the one with the greatest sum of weights, i.e.
                             for each node that meets all of the scheduling requirements (resource
                             request, requiredDuringScheduling anti-affinity expressions, etc.),
-                            compute a sum by iterating through the elements of this field and adding
-                            "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                            compute a sum by iterating through the elements of this field and subtracting
+                            "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                             node(s) with the highest sum are the most preferred.
                           items:
                             description: The weights of all of the matched WeightedPodAffinityTerm
@@ -5440,7 +5592,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -5455,7 +5606,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -5622,7 +5772,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -5637,7 +5786,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -6044,13 +6192,12 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: CustomBlockSize represents the desired
                                       logical and physical block size for a VM disk.
                                     properties:
+                                      discardGranularity:
+                                        type: integer
                                       logical:
                                         type: integer
                                       physical:
                                         type: integer
-                                    required:
-                                    - logical
-                                    - physical
                                     type: object
                                   matchVolume:
                                     description: Represents if a feature is enabled
@@ -6099,6 +6246,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       Defaults to closed.
                                     type: string
                                 type: object
+                              changedBlockTracking:
+                                description: |-
+                                  ChangedBlockTracking indicates this disk should have CBT option
+                                  Defaults to false.
+                                type: boolean
                               dedicatedIOThread:
                                 description: |-
                                   dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -6728,6 +6880,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       type: boolean
                                   type: object
                                 enabled:
+                                  description: |-
+                                    Enabled determines if the feature should be enabled or disabled on the guest.
+                                    Defaults to true.
                                   type: boolean
                               type: object
                             tlbflush:
@@ -6735,11 +6890,33 @@ var CRDsValidation map[string]string = map[string]string{
                                 TLBFlush improves performances in overcommited environments. Requires vpindex.
                                 Defaults to the machine type setting.
                               properties:
+                                direct:
+                                  description: |-
+                                    Direct allows sending the TLB flush command directly to the hypervisor.
+                                    It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                                  properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled determines if the feature should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
                                 enabled:
                                   description: |-
                                     Enabled determines if the feature should be enabled or disabled on the guest.
                                     Defaults to true.
                                   type: boolean
+                                extended:
+                                  description: Extended allows the guest to execute
+                                    partial TLB flushes. It can be helpful for general
+                                    purpose workloads.
+                                  properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled determines if the feature should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
                               type: object
                             vapic:
                               description: |-
@@ -6962,6 +7139,12 @@ var CRDsValidation map[string]string = map[string]string{
                             session:
                               description: Base64 encoded session blob.
                               type: string
+                          type: object
+                        snp:
+                          description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                          type: object
+                        tdx:
+                          description: Intel Trust Domain Extensions (TDX).
                           type: object
                       type: object
                     machine:
@@ -7631,7 +7814,6 @@ var CRDsValidation map[string]string = map[string]string{
                           - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
                           If this value is nil, the behavior is equivalent to the Honor policy.
-                          This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                         type: string
                       nodeTaintsPolicy:
                         description: |-
@@ -7642,7 +7824,6 @@ var CRDsValidation map[string]string = map[string]string{
                           - Ignore: node taints are ignored. All nodes are included.
 
                           If this value is nil, the behavior is equivalent to the Ignore policy.
-                          This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                         type: string
                       topologyKey:
                         description: |-
@@ -7687,6 +7868,40 @@ var CRDsValidation map[string]string = map[string]string{
                   x-kubernetes-list-map-keys:
                   - topologyKey
                   - whenUnsatisfiable
+                  x-kubernetes-list-type: map
+                utilityVolumes:
+                  description: |-
+                    List of utility volumes that can be mounted to the vmi virt-launcher pod
+                    without having a matching disk in the domain.
+                    Used to collect data for various operational workflows.
+                  items:
+                    properties:
+                      claimName:
+                        description: |-
+                          claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                        type: string
+                      name:
+                        description: |-
+                          UtilityVolume's name.
+                          Must be unique within the vmi, including regular Volumes.
+                        type: string
+                      readOnly:
+                        description: |-
+                          readOnly Will force the ReadOnly setting in VolumeMounts.
+                          Default false.
+                        type: boolean
+                      type:
+                        description: Type represents the type of the utility volume.
+                        type: string
+                    required:
+                    - claimName
+                    - name
+                    type: object
+                  maxItems: 256
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
                   x-kubernetes-list-type: map
                 volumes:
                   description: List of volumes that can be mounted by disks belonging
@@ -8162,6 +8377,63 @@ var CRDsValidation map[string]string = map[string]string{
         Status holds the current state of the controller and brief information
         about its associated VirtualMachineInstance
       properties:
+        changedBlockTracking:
+          description: ChangedBlockTracking represents the status of the changedBlockTracking
+          nullable: true
+          properties:
+            backupStatus:
+              description: BackupStatus represents the status of vmi backup
+              nullable: true
+              properties:
+                backupMsg:
+                  description: |-
+                    BackupMsg resturns any relevant information like failure reason
+                    unfreeze failed etc...
+                  type: string
+                backupName:
+                  description: BackupName is the name of the executed backup
+                  type: string
+                checkpointName:
+                  description: CheckpointName is the name of the checkpoint created
+                    for the backup
+                  type: string
+                completed:
+                  description: Completed indicates the backup completed
+                  type: boolean
+                endTimestamp:
+                  description: EndTimestamp is the timestamp when the backup ended
+                  format: date-time
+                  type: string
+                startTimestamp:
+                  description: StartTimestamp is the timestamp when the backup started
+                  format: date-time
+                  type: string
+                volumes:
+                  description: Volumes lists the volumes included in the backup
+                  items:
+                    description: BackupVolumeInfo contains information about a volume
+                      included in a backup
+                    properties:
+                      diskTarget:
+                        description: DiskTarget is the disk target device name at
+                          backup time
+                        type: string
+                      volumeName:
+                        description: VolumeName is the volume name from VMI spec
+                        type: string
+                    required:
+                    - diskTarget
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
+              type: object
+            state:
+              description: State represents the current CBT state
+              type: string
+          required:
+          - state
+          type: object
         conditions:
           description: Hold the state information of the VirtualMachine and its VirtualMachineInstance
           items:
@@ -8385,13 +8657,12 @@ var CRDsValidation map[string]string = map[string]string{
                             description: CustomBlockSize represents the desired logical
                               and physical block size for a VM disk.
                             properties:
+                              discardGranularity:
+                                type: integer
                               logical:
                                 type: integer
                               physical:
                                 type: integer
-                            required:
-                            - logical
-                            - physical
                             type: object
                           matchVolume:
                             description: Represents if a feature is enabled or disabled.
@@ -8439,6 +8710,11 @@ var CRDsValidation map[string]string = map[string]string{
                               Defaults to closed.
                             type: string
                         type: object
+                      changedBlockTracking:
+                        description: |-
+                          ChangedBlockTracking indicates this disk should have CBT option
+                          Defaults to false.
+                        type: boolean
                       dedicatedIOThread:
                         description: |-
                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -8754,6 +9030,260 @@ var CRDsValidation map[string]string = map[string]string{
   - spec
   type: object
 `,
+	"virtualmachinebackup": `openAPIV3Schema:
+  description: VirtualMachineBackup defines the operation of backing up a VM
+  properties:
+    apiVersion:
+      description: |-
+        APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      type: string
+    kind:
+      description: |-
+        Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated.
+        In CamelCase.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      type: string
+    metadata:
+      type: object
+    spec:
+      description: VirtualMachineBackupSpec is the spec for a VirtualMachineBackup
+        resource
+      properties:
+        forceFullBackup:
+          description: ForceFullBackup indicates that a full backup is desired
+          type: boolean
+        mode:
+          description: Mode specifies the way the backup output will be recieved
+          enum:
+          - Push
+          type: string
+        pvcName:
+          description: |-
+            PvcName required in push mode. Specifies the name of the PVC
+            where the backup output will be stored
+          type: string
+        skipQuiesce:
+          description: SkipQuiesce indicates whether the VM's filesystem shoule not
+            be quiesced before the backup
+          type: boolean
+        source:
+          description: |-
+            Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker.
+            When Kind is VirtualMachine: performs a backup of the specified VM.
+            When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM
+            and the base checkpoint for incremental backup. The tracker will be updated
+            with the new checkpoint after backup completion.
+          properties:
+            apiGroup:
+              description: |-
+                APIGroup is the group for the resource being referenced.
+                If APIGroup is not specified, the specified Kind must be in the core API group.
+                For any other third-party types, APIGroup is required.
+              type: string
+            kind:
+              description: Kind is the type of resource being referenced
+              type: string
+            name:
+              description: Name is the name of resource being referenced
+              type: string
+          required:
+          - kind
+          - name
+          type: object
+          x-kubernetes-map-type: atomic
+          x-kubernetes-validations:
+          - message: apiGroup is required
+            rule: has(self.apiGroup)
+          - message: apiGroup must be kubevirt.io or backup.kubevirt.io
+            rule: '!has(self.apiGroup) || self.apiGroup == ''kubevirt.io'' || self.apiGroup
+              == ''backup.kubevirt.io'''
+          - message: kind must be VirtualMachine for kubevirt.io or VirtualMachineBackupTracker
+              for backup.kubevirt.io
+            rule: '!has(self.apiGroup) || (self.apiGroup == ''kubevirt.io'' && self.kind
+              == ''VirtualMachine'') || (self.apiGroup == ''backup.kubevirt.io'' &&
+              self.kind == ''VirtualMachineBackupTracker'')'
+          - message: name is required
+            rule: self.name != ''
+      required:
+      - source
+      type: object
+      x-kubernetes-validations:
+      - message: spec is immutable after creation
+        rule: self == oldSelf
+      - message: pvcName must be provided when mode is unset or Push
+        rule: (has(self.mode) && self.mode != 'Push') || (has(self.pvcName) && self.pvcName
+          != "")
+    status:
+      description: VirtualMachineBackupStatus is the status for a VirtualMachineBackup
+        resource
+      properties:
+        checkpointName:
+          description: CheckpointName the name of the checkpoint created for the current
+            backup
+          type: string
+        conditions:
+          items:
+            description: Condition defines conditions
+            properties:
+              lastProbeTime:
+                format: date-time
+                nullable: true
+                type: string
+              lastTransitionTime:
+                format: date-time
+                nullable: true
+                type: string
+              message:
+                type: string
+              reason:
+                type: string
+              status:
+                type: string
+              type:
+                description: ConditionType is the const type for Conditions
+                type: string
+            required:
+            - status
+            - type
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
+        includedVolumes:
+          description: IncludedVolumes lists the volumes that were included in the
+            backup
+          items:
+            description: BackupVolumeInfo contains information about a volume included
+              in a backup
+            properties:
+              diskTarget:
+                description: DiskTarget is the disk target device name at backup time
+                type: string
+              volumeName:
+                description: VolumeName is the volume name from VMI spec
+                type: string
+            required:
+            - diskTarget
+            - volumeName
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
+        type:
+          description: Type indicates if the backup was full or incremental
+          type: string
+      type: object
+  required:
+  - spec
+  type: object
+`,
+	"virtualmachinebackuptracker": `openAPIV3Schema:
+  description: |-
+    VirtualMachineBackupTracker defines the way to track the latest checkpoint of
+    a backup solution for a vm
+  properties:
+    apiVersion:
+      description: |-
+        APIVersion defines the versioned schema of this representation of an object.
+        Servers should convert recognized schemas to the latest internal value, and
+        may reject unrecognized values.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+      type: string
+    kind:
+      description: |-
+        Kind is a string value representing the REST resource this object represents.
+        Servers may infer this from the endpoint the client submits requests to.
+        Cannot be updated.
+        In CamelCase.
+        More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+      type: string
+    metadata:
+      type: object
+    spec:
+      description: VirtualMachineBackupTrackerSpec is the spec for a VirtualMachineBackupTracker
+        resource
+      properties:
+        source:
+          description: Source specifies the VM that this backupTracker is associated
+            with
+          properties:
+            apiGroup:
+              description: |-
+                APIGroup is the group for the resource being referenced.
+                If APIGroup is not specified, the specified Kind must be in the core API group.
+                For any other third-party types, APIGroup is required.
+              type: string
+            kind:
+              description: Kind is the type of resource being referenced
+              type: string
+            name:
+              description: Name is the name of resource being referenced
+              type: string
+          required:
+          - kind
+          - name
+          type: object
+          x-kubernetes-map-type: atomic
+          x-kubernetes-validations:
+          - message: apiGroup must be kubevirt.io
+            rule: has(self.apiGroup) && self.apiGroup == 'kubevirt.io'
+          - message: kind must be VirtualMachine
+            rule: self.kind == 'VirtualMachine'
+          - message: name is required
+            rule: self.name != ''
+      required:
+      - source
+      type: object
+      x-kubernetes-validations:
+      - message: spec is immutable after creation
+        rule: self == oldSelf
+    status:
+      properties:
+        checkpointRedefinitionRequired:
+          description: |-
+            CheckpointRedefinitionRequired is set to true by virt-handler when the VM
+            restarts and has a checkpoint that needs to be redefined in libvirt.
+            virt-controller will process this flag, attempt redefinition, and clear it.
+          type: boolean
+        latestCheckpoint:
+          description: |-
+            LatestCheckpoint is the metadata of the checkpoint of
+            the latest performed backup
+          properties:
+            creationTime:
+              format: date-time
+              type: string
+            name:
+              type: string
+            volumes:
+              description: Volumes lists volumes and their disk targets at backup
+                time
+              items:
+                description: BackupVolumeInfo contains information about a volume
+                  included in a backup
+                properties:
+                  diskTarget:
+                    description: DiskTarget is the disk target device name at backup
+                      time
+                    type: string
+                  volumeName:
+                    description: VolumeName is the volume name from VMI spec
+                    type: string
+                required:
+                - diskTarget
+                - volumeName
+                type: object
+              type: array
+              x-kubernetes-list-type: atomic
+          type: object
+      type: object
+  required:
+  - spec
+  type: object
+`,
 	"virtualmachineclone": `openAPIV3Schema:
   description: VirtualMachineClone is a CRD that clones one VM into another.
   properties:
@@ -8883,6 +9413,12 @@ var CRDsValidation map[string]string = map[string]string{
               type: array
               x-kubernetes-list-type: atomic
           type: object
+        volumeNamePolicy:
+          description: VolumeNamePolicy defines how to handle volume naming during
+            the clone operation
+          enum:
+          - RandomizeNames
+          type: string
       required:
       - source
       type: object
@@ -9099,6 +9635,16 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        ioThreads:
+          description: Optionally specifies the IOThreads options to be used by the
+            instancetype.
+          properties:
+            supplementalPoolThreadCount:
+              description: SupplementalPoolThreadCount specifies how many iothreads
+                are allocated for the supplementalPool policy.
+              format: int32
+              type: integer
+          type: object
         ioThreadsPolicy:
           description: Optionally defines the IOThreadsPolicy to be used by the instancetype.
           type: string
@@ -9128,6 +9674,12 @@ var CRDsValidation map[string]string = map[string]string{
                 session:
                   description: Base64 encoded session blob.
                   type: string
+              type: object
+            snp:
+              description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              type: object
+            tdx:
+              description: Intel Trust Domain Extensions (TDX).
               type: object
           type: object
         memory:
@@ -9420,13 +9972,12 @@ var CRDsValidation map[string]string = map[string]string{
                   description: CustomBlockSize represents the desired logical and
                     physical block size for a VM disk.
                   properties:
+                    discardGranularity:
+                      type: integer
                     logical:
                       type: integer
                     physical:
                       type: integer
-                  required:
-                  - logical
-                  - physical
                   type: object
                 matchVolume:
                   description: Represents if a feature is enabled or disabled.
@@ -9685,6 +10236,9 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                     enabled:
+                      description: |-
+                        Enabled determines if the feature should be enabled or disabled on the guest.
+                        Defaults to true.
                       type: boolean
                   type: object
                 tlbflush:
@@ -9692,11 +10246,32 @@ var CRDsValidation map[string]string = map[string]string{
                     TLBFlush improves performances in overcommited environments. Requires vpindex.
                     Defaults to the machine type setting.
                   properties:
+                    direct:
+                      description: |-
+                        Direct allows sending the TLB flush command directly to the hypervisor.
+                        It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                      properties:
+                        enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
+                          type: boolean
+                      type: object
                     enabled:
                       description: |-
                         Enabled determines if the feature should be enabled or disabled on the guest.
                         Defaults to true.
                       type: boolean
+                    extended:
+                      description: Extended allows the guest to execute partial TLB
+                        flushes. It can be helpful for general purpose workloads.
+                      properties:
+                        enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
+                          type: boolean
+                      type: object
                   type: object
                 vapic:
                   description: |-
@@ -9823,6 +10398,10 @@ var CRDsValidation map[string]string = map[string]string{
             between cores and sockets, it defaults to 2.
           format: int32
           type: integer
+        preferredArchitecture:
+          description: PreferredArchitecture defines a prefeerred architecture for
+            the VirtualMachine
+          type: string
         preferredSubdomain:
           description: Subdomain of the VirtualMachineInstance
           type: string
@@ -9835,6 +10414,9 @@ var CRDsValidation map[string]string = map[string]string{
           description: Requirements defines the minium amount of instance type defined
             resources required by a set of preferences
           properties:
+            architecture:
+              description: Required Architecture of the VM referencing this preference
+              type: string
             cpu:
               description: Required CPU related attributes of the instancetype.
               properties:
@@ -10548,7 +11130,6 @@ var CRDsValidation map[string]string = map[string]string{
                               pod labels will be ignored. The default value is empty.
                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                             items:
                               type: string
                             type: array
@@ -10563,7 +11144,6 @@ var CRDsValidation map[string]string = map[string]string{
                               pod labels will be ignored. The default value is empty.
                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                             items:
                               type: string
                             type: array
@@ -10728,7 +11308,6 @@ var CRDsValidation map[string]string = map[string]string{
                           pod labels will be ignored. The default value is empty.
                           The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                           Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                         items:
                           type: string
                         type: array
@@ -10743,7 +11322,6 @@ var CRDsValidation map[string]string = map[string]string{
                           pod labels will be ignored. The default value is empty.
                           The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                           Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                         items:
                           type: string
                         type: array
@@ -10835,8 +11413,8 @@ var CRDsValidation map[string]string = map[string]string{
                     most preferred is the one with the greatest sum of weights, i.e.
                     for each node that meets all of the scheduling requirements (resource
                     request, requiredDuringScheduling anti-affinity expressions, etc.),
-                    compute a sum by iterating through the elements of this field and adding
-                    "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                    compute a sum by iterating through the elements of this field and subtracting
+                    "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                     node(s) with the highest sum are the most preferred.
                   items:
                     description: The weights of all of the matched WeightedPodAffinityTerm
@@ -10904,7 +11482,6 @@ var CRDsValidation map[string]string = map[string]string{
                               pod labels will be ignored. The default value is empty.
                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                             items:
                               type: string
                             type: array
@@ -10919,7 +11496,6 @@ var CRDsValidation map[string]string = map[string]string{
                               pod labels will be ignored. The default value is empty.
                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                             items:
                               type: string
                             type: array
@@ -11084,7 +11660,6 @@ var CRDsValidation map[string]string = map[string]string{
                           pod labels will be ignored. The default value is empty.
                           The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                           Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                         items:
                           type: string
                         type: array
@@ -11099,7 +11674,6 @@ var CRDsValidation map[string]string = map[string]string{
                           pod labels will be ignored. The default value is empty.
                           The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                           Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                         items:
                           type: string
                         type: array
@@ -11498,13 +12072,12 @@ var CRDsValidation map[string]string = map[string]string{
                             description: CustomBlockSize represents the desired logical
                               and physical block size for a VM disk.
                             properties:
+                              discardGranularity:
+                                type: integer
                               logical:
                                 type: integer
                               physical:
                                 type: integer
-                            required:
-                            - logical
-                            - physical
                             type: object
                           matchVolume:
                             description: Represents if a feature is enabled or disabled.
@@ -11552,6 +12125,11 @@ var CRDsValidation map[string]string = map[string]string{
                               Defaults to closed.
                             type: string
                         type: object
+                      changedBlockTracking:
+                        description: |-
+                          ChangedBlockTracking indicates this disk should have CBT option
+                          Defaults to false.
+                        type: boolean
                       dedicatedIOThread:
                         description: |-
                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -12174,6 +12752,9 @@ var CRDsValidation map[string]string = map[string]string{
                               type: boolean
                           type: object
                         enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
                           type: boolean
                       type: object
                     tlbflush:
@@ -12181,11 +12762,32 @@ var CRDsValidation map[string]string = map[string]string{
                         TLBFlush improves performances in overcommited environments. Requires vpindex.
                         Defaults to the machine type setting.
                       properties:
+                        direct:
+                          description: |-
+                            Direct allows sending the TLB flush command directly to the hypervisor.
+                            It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                          properties:
+                            enabled:
+                              description: |-
+                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                Defaults to true.
+                              type: boolean
+                          type: object
                         enabled:
                           description: |-
                             Enabled determines if the feature should be enabled or disabled on the guest.
                             Defaults to true.
                           type: boolean
+                        extended:
+                          description: Extended allows the guest to execute partial
+                            TLB flushes. It can be helpful for general purpose workloads.
+                          properties:
+                            enabled:
+                              description: |-
+                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                Defaults to true.
+                              type: boolean
+                          type: object
                       type: object
                     vapic:
                       description: |-
@@ -12403,6 +13005,12 @@ var CRDsValidation map[string]string = map[string]string{
                     session:
                       description: Base64 encoded session blob.
                       type: string
+                  type: object
+                snp:
+                  description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                  type: object
+                tdx:
+                  description: Intel Trust Domain Extensions (TDX).
                   type: object
               type: object
             machine:
@@ -13069,7 +13677,6 @@ var CRDsValidation map[string]string = map[string]string{
                   - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
                   If this value is nil, the behavior is equivalent to the Honor policy.
-                  This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                 type: string
               nodeTaintsPolicy:
                 description: |-
@@ -13080,7 +13687,6 @@ var CRDsValidation map[string]string = map[string]string{
                   - Ignore: node taints are ignored. All nodes are included.
 
                   If this value is nil, the behavior is equivalent to the Ignore policy.
-                  This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                 type: string
               topologyKey:
                 description: |-
@@ -13125,6 +13731,40 @@ var CRDsValidation map[string]string = map[string]string{
           x-kubernetes-list-map-keys:
           - topologyKey
           - whenUnsatisfiable
+          x-kubernetes-list-type: map
+        utilityVolumes:
+          description: |-
+            List of utility volumes that can be mounted to the vmi virt-launcher pod
+            without having a matching disk in the domain.
+            Used to collect data for various operational workflows.
+          items:
+            properties:
+              claimName:
+                description: |-
+                  claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                  More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                type: string
+              name:
+                description: |-
+                  UtilityVolume's name.
+                  Must be unique within the vmi, including regular Volumes.
+                type: string
+              readOnly:
+                description: |-
+                  readOnly Will force the ReadOnly setting in VolumeMounts.
+                  Default false.
+                type: boolean
+              type:
+                description: Type represents the type of the utility volume.
+                type: string
+            required:
+            - claimName
+            - name
+            type: object
+          maxItems: 256
+          type: array
+          x-kubernetes-list-map-keys:
+          - name
           x-kubernetes-list-type: map
         volumes:
           description: List of volumes that can be mounted by disks belonging to the
@@ -13592,6 +14232,63 @@ var CRDsValidation map[string]string = map[string]string{
           description: |-
             ActivePods is a mapping of pod UID to node name.
             It is possible for multiple pods to be running for a single VMI during migration.
+          type: object
+        changedBlockTracking:
+          description: ChangedBlockTracking represents the status of the changedBlockTracking
+          nullable: true
+          properties:
+            backupStatus:
+              description: BackupStatus represents the status of vmi backup
+              nullable: true
+              properties:
+                backupMsg:
+                  description: |-
+                    BackupMsg resturns any relevant information like failure reason
+                    unfreeze failed etc...
+                  type: string
+                backupName:
+                  description: BackupName is the name of the executed backup
+                  type: string
+                checkpointName:
+                  description: CheckpointName is the name of the checkpoint created
+                    for the backup
+                  type: string
+                completed:
+                  description: Completed indicates the backup completed
+                  type: boolean
+                endTimestamp:
+                  description: EndTimestamp is the timestamp when the backup ended
+                  format: date-time
+                  type: string
+                startTimestamp:
+                  description: StartTimestamp is the timestamp when the backup started
+                  format: date-time
+                  type: string
+                volumes:
+                  description: Volumes lists the volumes included in the backup
+                  items:
+                    description: BackupVolumeInfo contains information about a volume
+                      included in a backup
+                    properties:
+                      diskTarget:
+                        description: DiskTarget is the disk target device name at
+                          backup time
+                        type: string
+                      volumeName:
+                        description: VolumeName is the volume name from VMI spec
+                        type: string
+                    required:
+                    - diskTarget
+                    - volumeName
+                    type: object
+                  type: array
+                  x-kubernetes-list-type: atomic
+              type: object
+            state:
+              description: State represents the current CBT state
+              type: string
+          required:
+          - state
           type: object
         conditions:
           description: Conditions are specific points in VirtualMachineInstance's
@@ -14103,6 +14800,13 @@ var CRDsValidation map[string]string = map[string]string{
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
                     indicates the migration will be unsafe to the guest. Defaults to false
                   type: boolean
+                utilityVolumesTimeout:
+                  description: |-
+                    UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+                    for utility volumes to be detached. If utility volumes are still present after this timeout,
+                    the migration will be marked as Failed. Defaults to 150
+                  format: int64
+                  type: integer
               type: object
             migrationNetworkType:
               description: The type of migration network, either 'pod' or 'migration'
@@ -14521,6 +15225,10 @@ var CRDsValidation map[string]string = map[string]string{
             are going to be preserved to ensure that addedNodeSelector
             can only restrict but not bypass constraints already set on the VM object.
           type: object
+        priority:
+          description: Priority of the migration. This can be one of 'system-critical',
+            'user-triggered', 'system-maintenance'.
+          type: string
         receive:
           description: If receieve is specified, this VirtualMachineInstanceMigration
             will be considered the target
@@ -14685,6 +15393,13 @@ var CRDsValidation map[string]string = map[string]string{
                     UnsafeMigrationOverride allows live migrations to occur even if the compatibility check
                     indicates the migration will be unsafe to the guest. Defaults to false
                   type: boolean
+                utilityVolumesTimeout:
+                  description: |-
+                    UtilityVolumesTimeout is the maximum number of seconds a migration can wait in Pending state
+                    for utility volumes to be detached. If utility volumes are still present after this timeout,
+                    the migration will be marked as Failed. Defaults to 150
+                  format: int64
+                  type: integer
               type: object
             migrationNetworkType:
               description: The type of migration network, either 'pod' or 'migration'
@@ -15197,13 +15912,12 @@ var CRDsValidation map[string]string = map[string]string{
                             description: CustomBlockSize represents the desired logical
                               and physical block size for a VM disk.
                             properties:
+                              discardGranularity:
+                                type: integer
                               logical:
                                 type: integer
                               physical:
                                 type: integer
-                            required:
-                            - logical
-                            - physical
                             type: object
                           matchVolume:
                             description: Represents if a feature is enabled or disabled.
@@ -15251,6 +15965,11 @@ var CRDsValidation map[string]string = map[string]string{
                               Defaults to closed.
                             type: string
                         type: object
+                      changedBlockTracking:
+                        description: |-
+                          ChangedBlockTracking indicates this disk should have CBT option
+                          Defaults to false.
+                        type: boolean
                       dedicatedIOThread:
                         description: |-
                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -15873,6 +16592,9 @@ var CRDsValidation map[string]string = map[string]string{
                               type: boolean
                           type: object
                         enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
                           type: boolean
                       type: object
                     tlbflush:
@@ -15880,11 +16602,32 @@ var CRDsValidation map[string]string = map[string]string{
                         TLBFlush improves performances in overcommited environments. Requires vpindex.
                         Defaults to the machine type setting.
                       properties:
+                        direct:
+                          description: |-
+                            Direct allows sending the TLB flush command directly to the hypervisor.
+                            It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                          properties:
+                            enabled:
+                              description: |-
+                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                Defaults to true.
+                              type: boolean
+                          type: object
                         enabled:
                           description: |-
                             Enabled determines if the feature should be enabled or disabled on the guest.
                             Defaults to true.
                           type: boolean
+                        extended:
+                          description: Extended allows the guest to execute partial
+                            TLB flushes. It can be helpful for general purpose workloads.
+                          properties:
+                            enabled:
+                              description: |-
+                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                Defaults to true.
+                              type: boolean
+                          type: object
                       type: object
                     vapic:
                       description: |-
@@ -16102,6 +16845,12 @@ var CRDsValidation map[string]string = map[string]string{
                     session:
                       description: Base64 encoded session blob.
                       type: string
+                  type: object
+                snp:
+                  description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                  type: object
+                tdx:
+                  description: Intel Trust Domain Extensions (TDX).
                   type: object
               type: object
             machine:
@@ -16714,7 +17463,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -16729,7 +17477,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -16896,7 +17643,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -16911,7 +17657,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -17005,8 +17750,8 @@ var CRDsValidation map[string]string = map[string]string{
                             most preferred is the one with the greatest sum of weights, i.e.
                             for each node that meets all of the scheduling requirements (resource
                             request, requiredDuringScheduling anti-affinity expressions, etc.),
-                            compute a sum by iterating through the elements of this field and adding
-                            "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                            compute a sum by iterating through the elements of this field and subtracting
+                            "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                             node(s) with the highest sum are the most preferred.
                           items:
                             description: The weights of all of the matched WeightedPodAffinityTerm
@@ -17076,7 +17821,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                       Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -17091,7 +17835,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       pod labels will be ignored. The default value is empty.
                                       The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                       Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                      This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                     items:
                                       type: string
                                     type: array
@@ -17258,7 +18001,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -17273,7 +18015,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   pod labels will be ignored. The default value is empty.
                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                 items:
                                   type: string
                                 type: array
@@ -17680,13 +18421,12 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: CustomBlockSize represents the desired
                                       logical and physical block size for a VM disk.
                                     properties:
+                                      discardGranularity:
+                                        type: integer
                                       logical:
                                         type: integer
                                       physical:
                                         type: integer
-                                    required:
-                                    - logical
-                                    - physical
                                     type: object
                                   matchVolume:
                                     description: Represents if a feature is enabled
@@ -17735,6 +18475,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       Defaults to closed.
                                     type: string
                                 type: object
+                              changedBlockTracking:
+                                description: |-
+                                  ChangedBlockTracking indicates this disk should have CBT option
+                                  Defaults to false.
+                                type: boolean
                               dedicatedIOThread:
                                 description: |-
                                   dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -18364,6 +19109,9 @@ var CRDsValidation map[string]string = map[string]string{
                                       type: boolean
                                   type: object
                                 enabled:
+                                  description: |-
+                                    Enabled determines if the feature should be enabled or disabled on the guest.
+                                    Defaults to true.
                                   type: boolean
                               type: object
                             tlbflush:
@@ -18371,11 +19119,33 @@ var CRDsValidation map[string]string = map[string]string{
                                 TLBFlush improves performances in overcommited environments. Requires vpindex.
                                 Defaults to the machine type setting.
                               properties:
+                                direct:
+                                  description: |-
+                                    Direct allows sending the TLB flush command directly to the hypervisor.
+                                    It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                                  properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled determines if the feature should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
                                 enabled:
                                   description: |-
                                     Enabled determines if the feature should be enabled or disabled on the guest.
                                     Defaults to true.
                                   type: boolean
+                                extended:
+                                  description: Extended allows the guest to execute
+                                    partial TLB flushes. It can be helpful for general
+                                    purpose workloads.
+                                  properties:
+                                    enabled:
+                                      description: |-
+                                        Enabled determines if the feature should be enabled or disabled on the guest.
+                                        Defaults to true.
+                                      type: boolean
+                                  type: object
                               type: object
                             vapic:
                               description: |-
@@ -18598,6 +19368,12 @@ var CRDsValidation map[string]string = map[string]string{
                             session:
                               description: Base64 encoded session blob.
                               type: string
+                          type: object
+                        snp:
+                          description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+                          type: object
+                        tdx:
+                          description: Intel Trust Domain Extensions (TDX).
                           type: object
                       type: object
                     machine:
@@ -19267,7 +20043,6 @@ var CRDsValidation map[string]string = map[string]string{
                           - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
                           If this value is nil, the behavior is equivalent to the Honor policy.
-                          This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                         type: string
                       nodeTaintsPolicy:
                         description: |-
@@ -19278,7 +20053,6 @@ var CRDsValidation map[string]string = map[string]string{
                           - Ignore: node taints are ignored. All nodes are included.
 
                           If this value is nil, the behavior is equivalent to the Ignore policy.
-                          This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                         type: string
                       topologyKey:
                         description: |-
@@ -19323,6 +20097,40 @@ var CRDsValidation map[string]string = map[string]string{
                   x-kubernetes-list-map-keys:
                   - topologyKey
                   - whenUnsatisfiable
+                  x-kubernetes-list-type: map
+                utilityVolumes:
+                  description: |-
+                    List of utility volumes that can be mounted to the vmi virt-launcher pod
+                    without having a matching disk in the domain.
+                    Used to collect data for various operational workflows.
+                  items:
+                    properties:
+                      claimName:
+                        description: |-
+                          claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                          More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                        type: string
+                      name:
+                        description: |-
+                          UtilityVolume's name.
+                          Must be unique within the vmi, including regular Volumes.
+                        type: string
+                      readOnly:
+                        description: |-
+                          readOnly Will force the ReadOnly setting in VolumeMounts.
+                          Default false.
+                        type: boolean
+                      type:
+                        description: Type represents the type of the utility volume.
+                        type: string
+                    required:
+                    - claimName
+                    - name
+                    type: object
+                  maxItems: 256
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
                   x-kubernetes-list-type: map
                 volumes:
                   description: List of volumes that can be mounted by disks belonging
@@ -20003,6 +20811,16 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        ioThreads:
+          description: Optionally specifies the IOThreads options to be used by the
+            instancetype.
+          properties:
+            supplementalPoolThreadCount:
+              description: SupplementalPoolThreadCount specifies how many iothreads
+                are allocated for the supplementalPool policy.
+              format: int32
+              type: integer
+          type: object
         ioThreadsPolicy:
           description: Optionally defines the IOThreadsPolicy to be used by the instancetype.
           type: string
@@ -20032,6 +20850,12 @@ var CRDsValidation map[string]string = map[string]string{
                 session:
                   description: Base64 encoded session blob.
                   type: string
+              type: object
+            snp:
+              description: AMD SEV-SNP flags defined by the SEV-SNP specifications.
+              type: object
+            tdx:
+              description: Intel Trust Domain Extensions (TDX).
               type: object
           type: object
         memory:
@@ -20125,6 +20949,24 @@ var CRDsValidation map[string]string = map[string]string{
       type: object
     spec:
       properties:
+        autohealing:
+          description: Autohealing specifies when a VMpool should replace a failing
+            VM with a reprovisioned instance
+          properties:
+            minFailingToStartDuration:
+              description: |-
+                MinFailingToStartDuration is the minimum time a VM must be in a failing status (applies to status conditions like CrashLoopBackOff, Unschedulable) before being replaced.
+                It measures the duration since the VM's Ready condition transitioned to False.
+                Defaults to 5 minutes
+              type: string
+            startUpFailureThreshold:
+              description: |-
+                StartUpFailureThreshold is the number of consecutive VMI start failures (it tracks the value of Status.StartFailure.ConsecutiveFailCount field) before replacing the VM.
+                Defaults to 3
+              format: int32
+              minimum: 1
+              type: integer
+          type: object
         maxUnavailable:
           anyOf:
           - type: integer
@@ -20149,11 +20991,29 @@ var CRDsValidation map[string]string = map[string]string{
             Number of desired pods. This is a pointer to distinguish between explicit
             zero and not specified. Defaults to 1.
           format: int32
+          minimum: 0
           type: integer
         scaleInStrategy:
           description: ScaleInStrategy specifies how the VMPool controller manages
             scaling in VMs within a VMPool
           properties:
+            opportunistic:
+              description: |-
+                Opportunistic scale-in is a strategy when vms are deleted by some other means than the scale-in action.
+                For example, when the VM is deleted by the user or when the VM is deleted by the node that is hosting the VM.
+              properties:
+                statePreservation:
+                  description: |-
+                    Specifies if and how to preserve the state of the VMs selected during scale-in.
+                    Disabled - (Default) all state for VMs selected for scale-in will be deleted.
+                    Offline - PVCs for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning time during scale out).
+                    Online - PVCs and memory for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning and boot time during scale out).
+                  enum:
+                  - Disabled
+                  - Offline
+                  - Online
+                  type: string
+              type: object
             proactive:
               description: Proactive scale-in by forcing VMs to shutdown during scale-in
                 (Default)
@@ -20163,13 +21023,115 @@ var CRDsValidation map[string]string = map[string]string{
                     SelectionPolicy defines the priority in which VM instances are selected for proactive scale-in
                     Defaults to "Random" base policy when no SelectionPolicy is configured
                   properties:
-                    basePolicy:
-                      description: BasePolicy is a catch-all policy [Random|DescendingOrder]
+                    selectors:
+                      description: Selectors is a list of selection policies.
+                      properties:
+                        labelSelector:
+                          description: LabelSelector is a list of label selector for
+                            VMs.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        nodeSelectorRequirementMatcher:
+                          description: NodeSelectorRequirementMatcher is a list of
+                            node selector requirement for VMs.
+                          items:
+                            description: |-
+                              A node selector requirement is a selector that contains values, a key, and an operator
+                              that relates the key and values.
+                            properties:
+                              key:
+                                description: The label key that the selector applies
+                                  to.
+                                type: string
+                              operator:
+                                description: |-
+                                  Represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                type: string
+                              values:
+                                description: |-
+                                  An array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. If the operator is Gt or Lt, the values
+                                  array must have a single element, which will be interpreted as an integer.
+                                  This array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                      type: object
+                    sortPolicy:
+                      description: SortPolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]
                       enum:
-                      - Random
+                      - AscendingOrder
                       - DescendingOrder
+                      - Newest
+                      - Oldest
+                      - Random
                       type: string
                   type: object
+                statePreservation:
+                  description: |-
+                    Specifies if and how to preserve the state of the VMs selected during scale-in.
+                    Disabled - (Default) all state for VMs selected for scale-in will be deleted.
+                    Offline - PVCs for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning time during scale out).
+                    Online - PVCs and memory for VMs selected for scale-in will be preserved and reused on scale-out (decreases provisioning and boot time during scale out).
+                  enum:
+                  - Disabled
+                  - Offline
+                  - Online
+                  type: string
+              type: object
+            unmanaged:
+              description: The VM is never touched after creation. Users are responsible
+                for scaling in the pool manually.
               type: object
           type: object
         selector:
@@ -20219,6 +21181,124 @@ var CRDsValidation map[string]string = map[string]string{
               type: object
           type: object
           x-kubernetes-map-type: atomic
+        updateStrategy:
+          description: UpdateStrategy specifies how the VMPool controller manages
+            updating VMs within a VMPool
+          properties:
+            opportunistic:
+              description: Opportunistic update only gets applied to the VM, VMI is
+                updated naturally upon the restart. Whereas proactive it applies both
+                the VM and VMI right away.
+              type: object
+            proactive:
+              description: Proactive update by forcing the VMs to restart during update
+              properties:
+                selectionPolicy:
+                  description: |-
+                    SelectionPolicy defines the priority in which VM instances are selected for proactive update
+                    Defaults to "Random" base policy when no SelectionPolicy is configured
+                  properties:
+                    selectors:
+                      description: Selectors is a list of selection policies.
+                      properties:
+                        labelSelector:
+                          description: LabelSelector is a list of label selector for
+                            VMs.
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        nodeSelectorRequirementMatcher:
+                          description: NodeSelectorRequirementMatcher is a list of
+                            node selector requirement for VMs.
+                          items:
+                            description: |-
+                              A node selector requirement is a selector that contains values, a key, and an operator
+                              that relates the key and values.
+                            properties:
+                              key:
+                                description: The label key that the selector applies
+                                  to.
+                                type: string
+                              operator:
+                                description: |-
+                                  Represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                type: string
+                              values:
+                                description: |-
+                                  An array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. If the operator is Gt or Lt, the values
+                                  array must have a single element, which will be interpreted as an integer.
+                                  This array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                      type: object
+                    sortPolicy:
+                      description: SortPolicy is a catch-all policy [AscendingOrder|DescendingOrder|Newest|Oldest|Random]
+                      enum:
+                      - AscendingOrder
+                      - DescendingOrder
+                      - Newest
+                      - Oldest
+                      - Random
+                      type: string
+                  type: object
+              type: object
+            unmanaged:
+              description: Unmanaged indicates that no automatic update of VMs within
+                a VMPool is performed. When this is set, the VMPool controller will
+                not update the VMs within the pool.
+              type: object
+          type: object
         virtualMachineTemplate:
           description: Template describes the VM that will be created.
           properties:
@@ -20479,15 +21559,13 @@ var CRDsValidation map[string]string = map[string]string{
                                   volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                                   If specified, the CSI driver will create or update the volume with the attributes defined
                                   in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                                  it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                                  will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                                  If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                                  will be set by the persistentvolume controller if it exists.
+                                  it can be changed after the claim is created. An empty string or nil value indicates that no
+                                  VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                                  this field can be reset to its previous value (including nil) to cancel the modification.
                                   If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                                   set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                   exists.
                                   More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                  (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                                 type: string
                               volumeMode:
                                 description: |-
@@ -20609,6 +21687,15 @@ var CRDsValidation map[string]string = map[string]string{
                                     description: ImageStream is the name of image
                                       stream for import
                                     type: string
+                                  platform:
+                                    description: Platform describes the minimum runtime
+                                      requirements of the image
+                                    properties:
+                                      architecture:
+                                        description: Architecture specifies the image
+                                          target CPU architecture
+                                        type: string
+                                    type: object
                                   pullMethod:
                                     description: PullMethod can be either "pod" (default
                                       import), or "node" (node docker cache based
@@ -20668,6 +21755,11 @@ var CRDsValidation map[string]string = map[string]string{
                                   backingFile:
                                     description: BackingFile is the path to the virtual
                                       hard disk to migrate from vCenter/ESXi
+                                    type: string
+                                  extraArgs:
+                                    description: ExtraArgs is a reference to a ConfigMap
+                                      containing extra arguments to pass directly
+                                      to the VDDK library
                                     type: string
                                   initImageURL:
                                     description: InitImageURL is an optional URL to
@@ -20953,6 +22045,12 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     Running state indicates the requested running state of the VirtualMachineInstance
                     mutually exclusive with Running
+                    Following are allowed values:
+                    - "Always": VMI should always be running.
+                    - "Halted": VMI should never be running.
+                    - "Manual": VMI can be started/stopped using API endpoints.
+                    - "RerunOnFailure": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.
+                    - "Once": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.
                   type: string
                 running:
                   description: |-
@@ -21367,7 +22465,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -21382,7 +22479,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -21550,7 +22646,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           pod labels will be ignored. The default value is empty.
                                           The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                           Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                         items:
                                           type: string
                                         type: array
@@ -21565,7 +22660,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           pod labels will be ignored. The default value is empty.
                                           The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                           Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                         items:
                                           type: string
                                         type: array
@@ -21659,8 +22753,8 @@ var CRDsValidation map[string]string = map[string]string{
                                     most preferred is the one with the greatest sum of weights, i.e.
                                     for each node that meets all of the scheduling requirements (resource
                                     request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                    compute a sum by iterating through the elements of this field and adding
-                                    "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                    compute a sum by iterating through the elements of this field and subtracting
+                                    "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                     node(s) with the highest sum are the most preferred.
                                   items:
                                     description: The weights of all of the matched
@@ -21731,7 +22825,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -21746,7 +22839,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -21914,7 +23006,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           pod labels will be ignored. The default value is empty.
                                           The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                           Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                         items:
                                           type: string
                                         type: array
@@ -21929,7 +23020,6 @@ var CRDsValidation map[string]string = map[string]string{
                                           pod labels will be ignored. The default value is empty.
                                           The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                           Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                          This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                         items:
                                           type: string
                                         type: array
@@ -22342,13 +23432,12 @@ var CRDsValidation map[string]string = map[string]string{
                                               the desired logical and physical block
                                               size for a VM disk.
                                             properties:
+                                              discardGranularity:
+                                                type: integer
                                               logical:
                                                 type: integer
                                               physical:
                                                 type: integer
-                                            required:
-                                            - logical
-                                            - physical
                                             type: object
                                           matchVolume:
                                             description: Represents if a feature is
@@ -22398,6 +23487,11 @@ var CRDsValidation map[string]string = map[string]string{
                                               Defaults to closed.
                                             type: string
                                         type: object
+                                      changedBlockTracking:
+                                        description: |-
+                                          ChangedBlockTracking indicates this disk should have CBT option
+                                          Defaults to false.
+                                        type: boolean
                                       dedicatedIOThread:
                                         description: |-
                                           dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -23042,6 +24136,9 @@ var CRDsValidation map[string]string = map[string]string{
                                               type: boolean
                                           type: object
                                         enabled:
+                                          description: |-
+                                            Enabled determines if the feature should be enabled or disabled on the guest.
+                                            Defaults to true.
                                           type: boolean
                                       type: object
                                     tlbflush:
@@ -23049,11 +24146,33 @@ var CRDsValidation map[string]string = map[string]string{
                                         TLBFlush improves performances in overcommited environments. Requires vpindex.
                                         Defaults to the machine type setting.
                                       properties:
+                                        direct:
+                                          description: |-
+                                            Direct allows sending the TLB flush command directly to the hypervisor.
+                                            It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                                          properties:
+                                            enabled:
+                                              description: |-
+                                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                                Defaults to true.
+                                              type: boolean
+                                          type: object
                                         enabled:
                                           description: |-
                                             Enabled determines if the feature should be enabled or disabled on the guest.
                                             Defaults to true.
                                           type: boolean
+                                        extended:
+                                          description: Extended allows the guest to
+                                            execute partial TLB flushes. It can be
+                                            helpful for general purpose workloads.
+                                          properties:
+                                            enabled:
+                                              description: |-
+                                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                                Defaults to true.
+                                              type: boolean
+                                          type: object
                                       type: object
                                     vapic:
                                       description: |-
@@ -23282,6 +24401,13 @@ var CRDsValidation map[string]string = map[string]string{
                                     session:
                                       description: Base64 encoded session blob.
                                       type: string
+                                  type: object
+                                snp:
+                                  description: AMD SEV-SNP flags defined by the SEV-SNP
+                                    specifications.
+                                  type: object
+                                tdx:
+                                  description: Intel Trust Domain Extensions (TDX).
                                   type: object
                               type: object
                             machine:
@@ -23956,7 +25082,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
                                   If this value is nil, the behavior is equivalent to the Honor policy.
-                                  This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                 type: string
                               nodeTaintsPolicy:
                                 description: |-
@@ -23967,7 +25092,6 @@ var CRDsValidation map[string]string = map[string]string{
                                   - Ignore: node taints are ignored. All nodes are included.
 
                                   If this value is nil, the behavior is equivalent to the Ignore policy.
-                                  This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                 type: string
                               topologyKey:
                                 description: |-
@@ -24012,6 +25136,41 @@ var CRDsValidation map[string]string = map[string]string{
                           x-kubernetes-list-map-keys:
                           - topologyKey
                           - whenUnsatisfiable
+                          x-kubernetes-list-type: map
+                        utilityVolumes:
+                          description: |-
+                            List of utility volumes that can be mounted to the vmi virt-launcher pod
+                            without having a matching disk in the domain.
+                            Used to collect data for various operational workflows.
+                          items:
+                            properties:
+                              claimName:
+                                description: |-
+                                  claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                                  More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                                type: string
+                              name:
+                                description: |-
+                                  UtilityVolume's name.
+                                  Must be unique within the vmi, including regular Volumes.
+                                type: string
+                              readOnly:
+                                description: |-
+                                  readOnly Will force the ReadOnly setting in VolumeMounts.
+                                  Default false.
+                                type: boolean
+                              type:
+                                description: Type represents the type of the utility
+                                  volume.
+                                type: string
+                            required:
+                            - claimName
+                            - name
+                            type: object
+                          maxItems: 256
+                          type: array
+                          x-kubernetes-list-map-keys:
+                          - name
                           x-kubernetes-list-type: map
                         volumes:
                           description: List of volumes that can be mounted by disks
@@ -24760,13 +25919,12 @@ var CRDsValidation map[string]string = map[string]string{
                   description: CustomBlockSize represents the desired logical and
                     physical block size for a VM disk.
                   properties:
+                    discardGranularity:
+                      type: integer
                     logical:
                       type: integer
                     physical:
                       type: integer
-                  required:
-                  - logical
-                  - physical
                   type: object
                 matchVolume:
                   description: Represents if a feature is enabled or disabled.
@@ -25025,6 +26183,9 @@ var CRDsValidation map[string]string = map[string]string{
                           type: boolean
                       type: object
                     enabled:
+                      description: |-
+                        Enabled determines if the feature should be enabled or disabled on the guest.
+                        Defaults to true.
                       type: boolean
                   type: object
                 tlbflush:
@@ -25032,11 +26193,32 @@ var CRDsValidation map[string]string = map[string]string{
                     TLBFlush improves performances in overcommited environments. Requires vpindex.
                     Defaults to the machine type setting.
                   properties:
+                    direct:
+                      description: |-
+                        Direct allows sending the TLB flush command directly to the hypervisor.
+                        It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                      properties:
+                        enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
+                          type: boolean
+                      type: object
                     enabled:
                       description: |-
                         Enabled determines if the feature should be enabled or disabled on the guest.
                         Defaults to true.
                       type: boolean
+                    extended:
+                      description: Extended allows the guest to execute partial TLB
+                        flushes. It can be helpful for general purpose workloads.
+                      properties:
+                        enabled:
+                          description: |-
+                            Enabled determines if the feature should be enabled or disabled on the guest.
+                            Defaults to true.
+                          type: boolean
+                      type: object
                   type: object
                 vapic:
                   description: |-
@@ -25163,6 +26345,10 @@ var CRDsValidation map[string]string = map[string]string{
             between cores and sockets, it defaults to 2.
           format: int32
           type: integer
+        preferredArchitecture:
+          description: PreferredArchitecture defines a prefeerred architecture for
+            the VirtualMachine
+          type: string
         preferredSubdomain:
           description: Subdomain of the VirtualMachineInstance
           type: string
@@ -25175,6 +26361,9 @@ var CRDsValidation map[string]string = map[string]string{
           description: Requirements defines the minium amount of instance type defined
             resources required by a set of preferences
           properties:
+            architecture:
+              description: Required Architecture of the VM referencing this preference
+              type: string
             cpu:
               description: Required CPU related attributes of the instancetype.
               properties:
@@ -25480,6 +26669,8 @@ var CRDsValidation map[string]string = map[string]string{
               type: string
           type: object
         indications:
+          description: 'Deprecated: Use SourceIndications instead. This field will
+            be removed in a future version.'
           items:
             description: Indication is a way to indicate the state of the vm when
               taking the snapshot
@@ -25506,6 +26697,23 @@ var CRDsValidation map[string]string = map[string]string{
               type: array
               x-kubernetes-list-type: set
           type: object
+        sourceIndications:
+          items:
+            description: SourceIndication provides an indication of the source VM
+              with its description message
+            properties:
+              indication:
+                description: Indication is the indication type
+                type: string
+              message:
+                description: Message provides a description message of the indication
+                type: string
+            required:
+            - indication
+            - message
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         sourceUID:
           description: |-
             UID is a type that holds unique ID values, including UUIDs.  Because we
@@ -25806,15 +27014,13 @@ var CRDsValidation map[string]string = map[string]string{
                                       volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                                       If specified, the CSI driver will create or update the volume with the attributes defined
                                       in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                                      it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                                      will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                                      If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                                      will be set by the persistentvolume controller if it exists.
+                                      it can be changed after the claim is created. An empty string or nil value indicates that no
+                                      VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                                      this field can be reset to its previous value (including nil) to cancel the modification.
                                       If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                                       set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                       exists.
                                       More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                      (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                                     type: string
                                   volumeMode:
                                     description: |-
@@ -25941,6 +27147,15 @@ var CRDsValidation map[string]string = map[string]string{
                                         description: ImageStream is the name of image
                                           stream for import
                                         type: string
+                                      platform:
+                                        description: Platform describes the minimum
+                                          runtime requirements of the image
+                                        properties:
+                                          architecture:
+                                            description: Architecture specifies the
+                                              image target CPU architecture
+                                            type: string
+                                        type: object
                                       pullMethod:
                                         description: PullMethod can be either "pod"
                                           (default import), or "node" (node docker
@@ -26004,6 +27219,11 @@ var CRDsValidation map[string]string = map[string]string{
                                       backingFile:
                                         description: BackingFile is the path to the
                                           virtual hard disk to migrate from vCenter/ESXi
+                                        type: string
+                                      extraArgs:
+                                        description: ExtraArgs is a reference to a
+                                          ConfigMap containing extra arguments to
+                                          pass directly to the VDDK library
                                         type: string
                                       initImageURL:
                                         description: InitImageURL is an optional URL
@@ -26291,6 +27511,12 @@ var CRDsValidation map[string]string = map[string]string{
                       description: |-
                         Running state indicates the requested running state of the VirtualMachineInstance
                         mutually exclusive with Running
+                        Following are allowed values:
+                        - "Always": VMI should always be running.
+                        - "Halted": VMI should never be running.
+                        - "Manual": VMI can be started/stopped using API endpoints.
+                        - "RerunOnFailure": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.
+                        - "Once": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.
                       type: string
                     running:
                       description: |-
@@ -26712,7 +27938,6 @@ var CRDsValidation map[string]string = map[string]string{
                                                   pod labels will be ignored. The default value is empty.
                                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                                 items:
                                                   type: string
                                                 type: array
@@ -26727,7 +27952,6 @@ var CRDsValidation map[string]string = map[string]string{
                                                   pod labels will be ignored. The default value is empty.
                                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                                 items:
                                                   type: string
                                                 type: array
@@ -26897,7 +28121,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -26912,7 +28135,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -27007,8 +28229,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         most preferred is the one with the greatest sum of weights, i.e.
                                         for each node that meets all of the scheduling requirements (resource
                                         request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                        compute a sum by iterating through the elements of this field and adding
-                                        "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                        compute a sum by iterating through the elements of this field and subtracting
+                                        "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                         node(s) with the highest sum are the most preferred.
                                       items:
                                         description: The weights of all of the matched
@@ -27081,7 +28303,6 @@ var CRDsValidation map[string]string = map[string]string{
                                                   pod labels will be ignored. The default value is empty.
                                                   The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                                   Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                                 items:
                                                   type: string
                                                 type: array
@@ -27096,7 +28317,6 @@ var CRDsValidation map[string]string = map[string]string{
                                                   pod labels will be ignored. The default value is empty.
                                                   The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                                   Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                                  This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                                 items:
                                                   type: string
                                                 type: array
@@ -27266,7 +28486,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                               Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -27281,7 +28500,6 @@ var CRDsValidation map[string]string = map[string]string{
                                               pod labels will be ignored. The default value is empty.
                                               The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                               Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                              This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                             items:
                                               type: string
                                             type: array
@@ -27697,13 +28915,12 @@ var CRDsValidation map[string]string = map[string]string{
                                                   the desired logical and physical
                                                   block size for a VM disk.
                                                 properties:
+                                                  discardGranularity:
+                                                    type: integer
                                                   logical:
                                                     type: integer
                                                   physical:
                                                     type: integer
-                                                required:
-                                                - logical
-                                                - physical
                                                 type: object
                                               matchVolume:
                                                 description: Represents if a feature
@@ -27753,6 +28970,11 @@ var CRDsValidation map[string]string = map[string]string{
                                                   Defaults to closed.
                                                 type: string
                                             type: object
+                                          changedBlockTracking:
+                                            description: |-
+                                              ChangedBlockTracking indicates this disk should have CBT option
+                                              Defaults to false.
+                                            type: boolean
                                           dedicatedIOThread:
                                             description: |-
                                               dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -28404,6 +29626,9 @@ var CRDsValidation map[string]string = map[string]string{
                                                   type: boolean
                                               type: object
                                             enabled:
+                                              description: |-
+                                                Enabled determines if the feature should be enabled or disabled on the guest.
+                                                Defaults to true.
                                               type: boolean
                                           type: object
                                         tlbflush:
@@ -28411,11 +29636,34 @@ var CRDsValidation map[string]string = map[string]string{
                                             TLBFlush improves performances in overcommited environments. Requires vpindex.
                                             Defaults to the machine type setting.
                                           properties:
+                                            direct:
+                                              description: |-
+                                                Direct allows sending the TLB flush command directly to the hypervisor.
+                                                It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+                                              properties:
+                                                enabled:
+                                                  description: |-
+                                                    Enabled determines if the feature should be enabled or disabled on the guest.
+                                                    Defaults to true.
+                                                  type: boolean
+                                              type: object
                                             enabled:
                                               description: |-
                                                 Enabled determines if the feature should be enabled or disabled on the guest.
                                                 Defaults to true.
                                               type: boolean
+                                            extended:
+                                              description: Extended allows the guest
+                                                to execute partial TLB flushes. It
+                                                can be helpful for general purpose
+                                                workloads.
+                                              properties:
+                                                enabled:
+                                                  description: |-
+                                                    Enabled determines if the feature should be enabled or disabled on the guest.
+                                                    Defaults to true.
+                                                  type: boolean
+                                              type: object
                                           type: object
                                         vapic:
                                           description: |-
@@ -28645,6 +29893,13 @@ var CRDsValidation map[string]string = map[string]string{
                                         session:
                                           description: Base64 encoded session blob.
                                           type: string
+                                      type: object
+                                    snp:
+                                      description: AMD SEV-SNP flags defined by the
+                                        SEV-SNP specifications.
+                                      type: object
+                                    tdx:
+                                      description: Intel Trust Domain Extensions (TDX).
                                       type: object
                                   type: object
                                 machine:
@@ -29322,7 +30577,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
                                       If this value is nil, the behavior is equivalent to the Honor policy.
-                                      This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                     type: string
                                   nodeTaintsPolicy:
                                     description: |-
@@ -29333,7 +30587,6 @@ var CRDsValidation map[string]string = map[string]string{
                                       - Ignore: node taints are ignored. All nodes are included.
 
                                       If this value is nil, the behavior is equivalent to the Ignore policy.
-                                      This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                                     type: string
                                   topologyKey:
                                     description: |-
@@ -29378,6 +30631,41 @@ var CRDsValidation map[string]string = map[string]string{
                               x-kubernetes-list-map-keys:
                               - topologyKey
                               - whenUnsatisfiable
+                              x-kubernetes-list-type: map
+                            utilityVolumes:
+                              description: |-
+                                List of utility volumes that can be mounted to the vmi virt-launcher pod
+                                without having a matching disk in the domain.
+                                Used to collect data for various operational workflows.
+                              items:
+                                properties:
+                                  claimName:
+                                    description: |-
+                                      claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
+                                      More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
+                                    type: string
+                                  name:
+                                    description: |-
+                                      UtilityVolume's name.
+                                      Must be unique within the vmi, including regular Volumes.
+                                    type: string
+                                  readOnly:
+                                    description: |-
+                                      readOnly Will force the ReadOnly setting in VolumeMounts.
+                                      Default false.
+                                    type: boolean
+                                  type:
+                                    description: Type represents the type of the utility
+                                      volume.
+                                    type: string
+                                required:
+                                - claimName
+                                - name
+                                type: object
+                              maxItems: 256
+                              type: array
+                              x-kubernetes-list-map-keys:
+                              - name
                               x-kubernetes-list-type: map
                             volumes:
                               description: List of volumes that can be mounted by
@@ -29871,6 +31159,69 @@ var CRDsValidation map[string]string = map[string]string{
                     Status holds the current state of the controller and brief information
                     about its associated VirtualMachineInstance
                   properties:
+                    changedBlockTracking:
+                      description: ChangedBlockTracking represents the status of the
+                        changedBlockTracking
+                      nullable: true
+                      properties:
+                        backupStatus:
+                          description: BackupStatus represents the status of vmi backup
+                          nullable: true
+                          properties:
+                            backupMsg:
+                              description: |-
+                                BackupMsg resturns any relevant information like failure reason
+                                unfreeze failed etc...
+                              type: string
+                            backupName:
+                              description: BackupName is the name of the executed
+                                backup
+                              type: string
+                            checkpointName:
+                              description: CheckpointName is the name of the checkpoint
+                                created for the backup
+                              type: string
+                            completed:
+                              description: Completed indicates the backup completed
+                              type: boolean
+                            endTimestamp:
+                              description: EndTimestamp is the timestamp when the
+                                backup ended
+                              format: date-time
+                              type: string
+                            startTimestamp:
+                              description: StartTimestamp is the timestamp when the
+                                backup started
+                              format: date-time
+                              type: string
+                            volumes:
+                              description: Volumes lists the volumes included in the
+                                backup
+                              items:
+                                description: BackupVolumeInfo contains information
+                                  about a volume included in a backup
+                                properties:
+                                  diskTarget:
+                                    description: DiskTarget is the disk target device
+                                      name at backup time
+                                    type: string
+                                  volumeName:
+                                    description: VolumeName is the volume name from
+                                      VMI spec
+                                    type: string
+                                required:
+                                - diskTarget
+                                - volumeName
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                          type: object
+                        state:
+                          description: State represents the current CBT state
+                          type: string
+                      required:
+                      - state
+                      type: object
                     conditions:
                       description: Hold the state information of the VirtualMachine
                         and its VirtualMachineInstance
@@ -30103,13 +31454,12 @@ var CRDsValidation map[string]string = map[string]string{
                                           desired logical and physical block size
                                           for a VM disk.
                                         properties:
+                                          discardGranularity:
+                                            type: integer
                                           logical:
                                             type: integer
                                           physical:
                                             type: integer
-                                        required:
-                                        - logical
-                                        - physical
                                         type: object
                                       matchVolume:
                                         description: Represents if a feature is enabled
@@ -30159,6 +31509,11 @@ var CRDsValidation map[string]string = map[string]string{
                                           Defaults to closed.
                                         type: string
                                     type: object
+                                  changedBlockTracking:
+                                    description: |-
+                                      ChangedBlockTracking indicates this disk should have CBT option
+                                      Defaults to false.
+                                    type: boolean
                                   dedicatedIOThread:
                                     description: |-
                                       dedicatedIOThread indicates this disk should have an exclusive IO Thread.
@@ -30673,15 +32028,13 @@ var CRDsValidation map[string]string = map[string]string{
                           volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim.
                           If specified, the CSI driver will create or update the volume with the attributes defined
                           in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName,
-                          it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass
-                          will be applied to the claim but it's not allowed to reset this field to empty string once it is set.
-                          If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass
-                          will be set by the persistentvolume controller if it exists.
+                          it can be changed after the claim is created. An empty string or nil value indicates that no
+                          VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state,
+                          this field can be reset to its previous value (including nil) to cancel the modification.
                           If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be
                           set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                           exists.
                           More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                          (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                         type: string
                       volumeMode:
                         description: |-

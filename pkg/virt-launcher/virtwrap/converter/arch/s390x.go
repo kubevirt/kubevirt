@@ -17,12 +17,7 @@
 package arch
 
 import (
-	"fmt"
-
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 // Ensure that there is a compile error should the struct not implement the archConverter interface anymore.
@@ -34,31 +29,8 @@ func (converterS390X) GetArchitecture() string {
 	return s390x
 }
 
-func (converterS390X) AddGraphicsDevice(_ *v1.VirtualMachineInstance, domain *api.Domain, _ bool) {
-	domain.Spec.Devices.Video = []api.Video{
-		{
-			Model: api.VideoModel{
-				Type:  v1.VirtIO,
-				Heads: pointer.P(graphicsDeviceDefaultHeads),
-			},
-		},
-	}
-
-	domain.Spec.Devices.Inputs = append(domain.Spec.Devices.Inputs,
-		api.Input{
-			Bus:  "virtio",
-			Type: "keyboard",
-		},
-	)
-}
-
-func (converterS390X) ScsiController(_ string, driver *api.ControllerDriver) api.Controller {
-	return api.Controller{
-		Type:   "scsi",
-		Index:  "0",
-		Model:  "virtio-scsi",
-		Driver: driver,
-	}
+func (converterS390X) SCSIControllerModel(_ string) string {
+	return "virtio-scsi"
 }
 
 func (converterS390X) IsUSBNeeded(_ *v1.VirtualMachineInstance) bool {
@@ -97,22 +69,6 @@ func (converterS390X) HasVMPort() bool {
 	return false
 }
 
-func (converterS390X) ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error {
-	watchdog.Alias = api.NewUserDefinedAlias(source.Name)
-	if source.Diag288 != nil {
-		watchdog.Model = "diag288"
-		watchdog.Action = string(source.Diag288.Action)
-		return nil
-	}
-	return fmt.Errorf("watchdog %s can't be mapped, no watchdog type specified", source.Name)
-}
-
 func (converterS390X) SupportPCIHole64Disabling() bool {
 	return false
-}
-
-func (converterS390X) LaunchSecurity(vmi *v1.VirtualMachineInstance) *api.LaunchSecurity {
-	// We would want to set launchsecurity with type "s390-pv" here, but this does not work in privileged pod.
-	// Instead virt-launcher will set iommu=on for all devices manually, which is the same action as what libvirt would do when the launchsecurity type is set.
-	return nil
 }

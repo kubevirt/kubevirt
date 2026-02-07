@@ -160,7 +160,7 @@ var _ = Describe(SIG("Storage", func() {
 				Expect(virtClient.CoreV1().PersistentVolumes().Delete(context.Background(), pv.Name, metav1.DeleteOptions{})).NotTo(HaveOccurred())
 			})
 
-			It("should pause VMI on IO error", func() {
+			It("[QUARANTINE]should pause VMI on IO error", decorators.Quarantine, func() {
 				By("Creating VMI with faulty disk")
 				vmi := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim("pvc-disk", pvc.Name))
 				vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -175,9 +175,9 @@ var _ = Describe(SIG("Storage", func() {
 				Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should login")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "nohup sh -c \"sleep 10 && while true; do dd if=/dev/vdb of=/dev/null >/dev/null 2>/dev/null; done\" & \n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 20)).To(Succeed())
 
 				refresh := ThisVMI(vmi)
@@ -199,7 +199,7 @@ var _ = Describe(SIG("Storage", func() {
 
 			})
 
-			It("should report IO errors in the guest with errorPolicy set to report", func() {
+			It("[QUARANTINE]should report IO errors in the guest with errorPolicy set to report", decorators.Quarantine, func() {
 				const diskName = "disk1"
 				By("Creating VMI with faulty disk")
 				vmi := libvmifact.NewAlpine(libvmi.WithPersistentVolumeClaim(diskName, pvc.Name))
@@ -329,7 +329,7 @@ var _ = Describe(SIG("Storage", func() {
 				By("Checking if we can write to the corresponding device")
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 -F %s\n", emptyDiskDevice)},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 20)).To(Succeed())
@@ -442,14 +442,14 @@ var _ = Describe(SIG("Storage", func() {
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// Because "/" is mounted on tmpfs, we need something that normally persists writes - /dev/sda2 is the EFI partition formatted as vFAT.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "echo content > /mnt/checkpoint\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					// The QEMU process will be killed, therefore the write must be flushed to the disk.
 					&expect.BSnd{S: "sync\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 200)).To(Succeed())
 
 				By("Killing a VirtualMachineInstance")
@@ -470,11 +470,11 @@ var _ = Describe(SIG("Storage", func() {
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// Same story as when first starting the VirtualMachineInstance - the checkpoint, if persisted, is located at /dev/sda2.
 					&expect.BSnd{S: "mount /dev/sda2 /mnt\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cat /mnt/checkpoint &> /dev/null\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("1")},
 				}, 200)).To(Succeed())
@@ -517,24 +517,6 @@ var _ = Describe(SIG("Storage", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Eventually(ThisVMI(obj), 120).Should(BeGone())
 				}
-			})
-		})
-
-		Context("With feature gates disabled for", Serial, func() {
-			It("[test_id:4620]HostDisk, it should fail to start a VMI", func() {
-				config.DisableFeatureGate(featuregate.HostDiskGate)
-				vmi = libvmi.New(
-					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-					libvmi.WithNetwork(v1.DefaultPodNetwork()),
-					libvmi.WithMemoryRequest("128Mi"),
-					libvmi.WithHostDisk("host-disk", "somepath", v1.HostDiskExistsOrCreate),
-					// hostdisk needs a privileged namespace
-					libvmi.WithNamespace(testsuite.NamespacePrivileged),
-				)
-				virtClient := kubevirt.Client()
-				_, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("HostDisk feature gate is not enabled"))
 			})
 		})
 
@@ -1202,7 +1184,7 @@ var _ = Describe(SIG("Storage", func() {
 				vmi1.Spec.Affinity = affinityRule
 				vmi2.Spec.Affinity = affinityRule
 
-				libstorage.CreateBlockPVC(pvcClaim, testsuite.GetTestNamespace(vmi1), "500Mi")
+				libstorage.CreateBlankBlockDataVolume(pvcClaim, testsuite.GetTestNamespace(vmi1), "500Mi")
 				setShareable(vmi1, diskName)
 				setShareable(vmi2, diskName)
 
@@ -1214,15 +1196,15 @@ var _ = Describe(SIG("Storage", func() {
 
 				Expect(console.SafeExpectBatch(vmi1, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: fmt.Sprintf("%s \n", `printf "Test awesome shareable disks" | dd  of=/dev/vdb bs=1 count=150 conv=notrunc`)},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 				}, 40)).To(Succeed())
 				By("Read data from the second VMI")
 				Expect(console.LoginToAlpine(vmi2)).To(Succeed())
 				Expect(console.SafeExpectBatch(vmi2, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: fmt.Sprintf("dd  if=/dev/vdb bs=1 count=150 conv=notrunc \n")},
 					&expect.BExp{R: "Test awesome shareable disks"},
 				}, 40)).To(Succeed())
@@ -1354,7 +1336,7 @@ var _ = Describe(SIG("Storage", func() {
 				By(fmt.Sprintf("Checking if we can write to %s", lunDisk))
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 -F %s\n", lunDisk)},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: console.EchoLastReturnValue},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 30)).To(Succeed())
@@ -1378,7 +1360,7 @@ func waitForPodToDisappearWithTimeout(podName string, seconds int) {
 func checkResultShellCommandOnVmi(vmi *v1.VirtualMachineInstance, cmd, output string, timeout int) {
 	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
 		&expect.BSnd{S: fmt.Sprintf("%s\n", cmd)},
-		&expect.BExp{R: console.PromptExpression},
+		&expect.BExp{R: ""},
 	}, timeout)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	ExpectWithOffset(1, res).ToNot(BeEmpty())

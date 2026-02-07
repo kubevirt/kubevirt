@@ -27,6 +27,9 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
 // ValidateVirtualMachineInstanceAmd64Setting is a validation function for validating-webhook on Amd64
@@ -71,4 +74,102 @@ func validateWatchdogAmd64(field *k8sfield.Path, spec *v1.VirtualMachineInstance
 
 func isOnlyI6300ESBWatchdog(watchdog *v1.Watchdog) bool {
 	return watchdog.WatchdogDevice.I6300ESB != nil && watchdog.WatchdogDevice.Diag288 == nil
+}
+
+func ValidateLaunchSecurityAmd64(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+	launchSecurity := spec.Domain.LaunchSecurity
+
+	fg := ""
+	var selectedTypes []string
+	if launchSecurity.SEV != nil {
+		selectedTypes = append(selectedTypes, "SEV")
+		fg = featuregate.WorkloadEncryptionSEV
+	}
+	if launchSecurity.SNP != nil {
+		selectedTypes = append(selectedTypes, "SNP")
+		fg = featuregate.WorkloadEncryptionSEV
+	}
+	if launchSecurity.TDX != nil {
+		selectedTypes = append(selectedTypes, "TDX")
+		fg = featuregate.WorkloadEncryptionTDX
+	}
+
+	// We always get a valid launchSecurity type after this check
+	if len(selectedTypes) != 1 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeForbidden,
+			Message: "One and only one launchSecurity type can be set",
+			Field:   field.Child("launchSecurity").String(),
+		})
+	} else if ((launchSecurity.SEV != nil || launchSecurity.SNP != nil) && !config.WorkloadEncryptionSEVEnabled()) ||
+		(launchSecurity.TDX != nil && !config.WorkloadEncryptionTDXEnabled()) {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", fg),
+			Field:   field.Child("launchSecurity").String(),
+		})
+	} else {
+		features := spec.Domain.Features
+		if launchSecurity.TDX != nil &&
+			(features != nil && features.SMM != nil && (features.SMM.Enabled == nil || *features.SMM.Enabled)) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "TDX does not work along with SMM",
+				Field:   field.Child("launchSecurity").String(),
+			})
+		}
+
+		firmware := spec.Domain.Firmware
+		if firmware == nil || firmware.Bootloader == nil || firmware.Bootloader.EFI == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("%s requires OVMF (UEFI)", selectedTypes[0]),
+				Field:   field.Child("launchSecurity").String(),
+			})
+		} else {
+			efi := firmware.Bootloader.EFI
+			if (launchSecurity.SEV != nil || launchSecurity.SNP != nil) &&
+				(efi.SecureBoot == nil || *efi.SecureBoot) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s does not work along with SecureBoot", selectedTypes[0]),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+
+			if (launchSecurity.SNP != nil || launchSecurity.TDX != nil) &&
+				(efi.Persistent != nil && *efi.Persistent) {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s does not work along with Persistent EFI variables", selectedTypes[0]),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
+
+		startStrategy := spec.StartStrategy
+		if launchSecurity.SEV != nil &&
+			(startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
+			if launchSecurity.SEV.Attestation != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
+
+		for _, iface := range spec.Domain.Devices.Interfaces {
+			if iface.BootOrder != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("%s does not work with bootable NICs: %s", selectedTypes[0], iface.Name),
+					Field:   field.Child("launchSecurity").String(),
+				})
+			}
+		}
+	}
+
+	return causes
 }

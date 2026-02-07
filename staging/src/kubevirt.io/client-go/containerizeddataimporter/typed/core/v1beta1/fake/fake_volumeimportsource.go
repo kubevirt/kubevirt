@@ -21,129 +21,34 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
+	corev1beta1 "kubevirt.io/client-go/containerizeddataimporter/typed/core/v1beta1"
 	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-// FakeVolumeImportSources implements VolumeImportSourceInterface
-type FakeVolumeImportSources struct {
+// fakeVolumeImportSources implements VolumeImportSourceInterface
+type fakeVolumeImportSources struct {
+	*gentype.FakeClientWithList[*v1beta1.VolumeImportSource, *v1beta1.VolumeImportSourceList]
 	Fake *FakeCdiV1beta1
-	ns   string
 }
 
-var volumeimportsourcesResource = v1beta1.SchemeGroupVersion.WithResource("volumeimportsources")
-
-var volumeimportsourcesKind = v1beta1.SchemeGroupVersion.WithKind("VolumeImportSource")
-
-// Get takes name of the volumeImportSource, and returns the corresponding volumeImportSource object, and an error if there is any.
-func (c *FakeVolumeImportSources) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.VolumeImportSource, err error) {
-	emptyResult := &v1beta1.VolumeImportSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(volumeimportsourcesResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeVolumeImportSources(fake *FakeCdiV1beta1, namespace string) corev1beta1.VolumeImportSourceInterface {
+	return &fakeVolumeImportSources{
+		gentype.NewFakeClientWithList[*v1beta1.VolumeImportSource, *v1beta1.VolumeImportSourceList](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("volumeimportsources"),
+			v1beta1.SchemeGroupVersion.WithKind("VolumeImportSource"),
+			func() *v1beta1.VolumeImportSource { return &v1beta1.VolumeImportSource{} },
+			func() *v1beta1.VolumeImportSourceList { return &v1beta1.VolumeImportSourceList{} },
+			func(dst, src *v1beta1.VolumeImportSourceList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.VolumeImportSourceList) []*v1beta1.VolumeImportSource {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1beta1.VolumeImportSourceList, items []*v1beta1.VolumeImportSource) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.VolumeImportSource), err
-}
-
-// List takes label and field selectors, and returns the list of VolumeImportSources that match those selectors.
-func (c *FakeVolumeImportSources) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.VolumeImportSourceList, err error) {
-	emptyResult := &v1beta1.VolumeImportSourceList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(volumeimportsourcesResource, volumeimportsourcesKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.VolumeImportSourceList{ListMeta: obj.(*v1beta1.VolumeImportSourceList).ListMeta}
-	for _, item := range obj.(*v1beta1.VolumeImportSourceList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested volumeImportSources.
-func (c *FakeVolumeImportSources) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(volumeimportsourcesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a volumeImportSource and creates it.  Returns the server's representation of the volumeImportSource, and an error, if there is any.
-func (c *FakeVolumeImportSources) Create(ctx context.Context, volumeImportSource *v1beta1.VolumeImportSource, opts v1.CreateOptions) (result *v1beta1.VolumeImportSource, err error) {
-	emptyResult := &v1beta1.VolumeImportSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(volumeimportsourcesResource, c.ns, volumeImportSource, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VolumeImportSource), err
-}
-
-// Update takes the representation of a volumeImportSource and updates it. Returns the server's representation of the volumeImportSource, and an error, if there is any.
-func (c *FakeVolumeImportSources) Update(ctx context.Context, volumeImportSource *v1beta1.VolumeImportSource, opts v1.UpdateOptions) (result *v1beta1.VolumeImportSource, err error) {
-	emptyResult := &v1beta1.VolumeImportSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(volumeimportsourcesResource, c.ns, volumeImportSource, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VolumeImportSource), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVolumeImportSources) UpdateStatus(ctx context.Context, volumeImportSource *v1beta1.VolumeImportSource, opts v1.UpdateOptions) (result *v1beta1.VolumeImportSource, err error) {
-	emptyResult := &v1beta1.VolumeImportSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(volumeimportsourcesResource, "status", c.ns, volumeImportSource, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VolumeImportSource), err
-}
-
-// Delete takes name of the volumeImportSource and deletes it. Returns an error if one occurs.
-func (c *FakeVolumeImportSources) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(volumeimportsourcesResource, c.ns, name, opts), &v1beta1.VolumeImportSource{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVolumeImportSources) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(volumeimportsourcesResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.VolumeImportSourceList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched volumeImportSource.
-func (c *FakeVolumeImportSources) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VolumeImportSource, err error) {
-	emptyResult := &v1beta1.VolumeImportSource{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(volumeimportsourcesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VolumeImportSource), err
 }

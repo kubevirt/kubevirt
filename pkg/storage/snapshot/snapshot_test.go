@@ -749,6 +749,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -783,10 +784,21 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				if vmiExists {
 					updatedSnapshot.Status.Indications = []snapshotv1.Indication{
 						snapshotv1.VMSnapshotNoGuestAgentIndication,
 						snapshotv1.VMSnapshotOnlineSnapshotIndication,
+					}
+					updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+						{
+							Indication: snapshotv1.VMSnapshotNoGuestAgentIndication,
+							Message:    IndicationMessage(snapshotv1.VMSnapshotNoGuestAgentIndication),
+						},
+						{
+							Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+							Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+						},
 					}
 				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
@@ -799,39 +811,14 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("when vm not running", false),
 			)
 
-			DescribeTable("should not lock source if volume PVCs", func(createPVCs, boundPVCs bool, expectedReason string) {
+			DescribeTable("should not lock source if volume PVCs", func(setupPVC func(*corev1.PersistentVolumeClaim), expectedReason string) {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
 				vmSource.Add(vm)
 
 				pvcs := createPersistentVolumeClaims()
 				for i := range pvcs {
-					if createPVCs {
-						if !boundPVCs {
-							pvcs[i].Status.Phase = corev1.ClaimPending
-						} else {
-							dv := &cdiv1.DataVolume{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:      pvcs[i].Name,
-									Namespace: pvcs[i].Namespace,
-								},
-								Status: cdiv1.DataVolumeStatus{
-									Phase: cdiv1.WaitForFirstConsumer,
-								},
-							}
-							dvSource.Add(dv)
-							pvcs[i].OwnerReferences = []metav1.OwnerReference{
-								*metav1.NewControllerRef(dv, schema.GroupVersionKind{
-									Group:   cdiv1.SchemeGroupVersion.Group,
-									Version: cdiv1.SchemeGroupVersion.Version,
-									Kind:    "DataVolume",
-								}),
-							}
-						}
-						pvcSource.Add(&pvcs[i])
-					} else {
-						pvcSource.Delete(&pvcs[i])
-					}
+					setupPVC(&pvcs[i])
 				}
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
@@ -842,15 +829,44 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
 				controller.processVMSnapshotWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
 			},
-				Entry("doesnt exist", false, false, "volume doesnt exist"),
-				Entry("are not bound", true, false, "volume not bound"),
-				Entry("are not populated", true, true, "volume not populated"),
+				Entry("doesnt exist", func(pvc *corev1.PersistentVolumeClaim) {
+					pvcSource.Delete(pvc)
+				}, "volume doesnt exist"),
+				Entry("are not bound", func(pvc *corev1.PersistentVolumeClaim) {
+					pvc.Status.Phase = corev1.ClaimPending
+					pvcSource.Add(pvc)
+				}, "volume not bound"),
+				Entry("are not populated", func(pvc *corev1.PersistentVolumeClaim) {
+					dv := &cdiv1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      pvc.Name,
+							Namespace: pvc.Namespace,
+						},
+						Status: cdiv1.DataVolumeStatus{
+							Phase: cdiv1.WaitForFirstConsumer,
+						},
+					}
+					dvSource.Add(dv)
+					pvc.OwnerReferences = []metav1.OwnerReference{
+						*metav1.NewControllerRef(dv, schema.GroupVersionKind{
+							Group:   cdiv1.SchemeGroupVersion.Group,
+							Version: cdiv1.SchemeGroupVersion.Version,
+							Kind:    "DataVolume",
+						}),
+					}
+					pvcSource.Add(pvc)
+				}, "volume not populated"),
+				Entry("are being deleted", func(pvc *corev1.PersistentVolumeClaim) {
+					pvc.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+					pvcSource.Add(pvc)
+				}, "volume is being deleted"),
 			)
 
 			It("should not lock source if pods using PVCs when vm not running", func() {
@@ -868,6 +884,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -909,6 +926,7 @@ var _ = Describe("Snapshot controlleer", func() {
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
 				}
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				addVirtualMachineSnapshot(vmSnapshot)
@@ -1001,6 +1019,16 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
+				}
+				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotNoGuestAgentIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotNoGuestAgentIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
 				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
@@ -1097,6 +1125,16 @@ var _ = Describe("Snapshot controlleer", func() {
 					snapshotv1.VMSnapshotNoGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 				}
+				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotNoGuestAgentIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotNoGuestAgentIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
+				}
 				updateStatusCalls := expectVMSnapshotUpdateStatus(vmSnapshotClient, updatedSnapshot)
 
 				controller.processVMSnapshotWorkItem()
@@ -1117,6 +1155,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.ReadyToUse = pointer.P(true)
 				updatedSnapshot.Status.Phase = snapshotv1.Succeeded
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
 					newReadyCondition(corev1.ConditionTrue, "Ready"),
@@ -1159,6 +1198,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.ReadyToUse = pointer.P(true)
 				updatedSnapshot.Status.Phase = snapshotv1.Succeeded
 				updatedSnapshot.Status.Indications = nil
+				updatedSnapshot.Status.SourceIndications = nil
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "Operation complete"),
 					newReadyCondition(corev1.ConditionTrue, "Ready"),
@@ -1477,7 +1517,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				volumeSnapshotClass := createVolumeSnapshotClasses()[0]
 				addVolumeSnapshotClass(volumeSnapshotClass)
 
-				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(fmt.Errorf(errorMessage)).Times(1)
+				vmiInterface.EXPECT().Freeze(context.Background(), vm.Name, 0*time.Second).Return(fmt.Errorf("%s", errorMessage)).Times(1)
 				updateStatusCalls := expectVMSnapshotContentUpdateStatus(vmSnapshotClient, updatedContent)
 
 				controller.processVMSnapshotContentWorkItem()
@@ -1512,6 +1552,20 @@ var _ = Describe("Snapshot controlleer", func() {
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					snapshotv1.VMSnapshotQuiesceFailedIndication,
 				}
+				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotGuestAgentIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotGuestAgentIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotQuiesceFailedIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceFailedIndication),
+					},
+				}
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionFalse, "In error state"),
 					newReadyCondition(corev1.ConditionFalse, "Not ready"),
@@ -1545,6 +1599,20 @@ var _ = Describe("Snapshot controlleer", func() {
 					snapshotv1.VMSnapshotGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
 					snapshotv1.VMSnapshotQuiesceFailedIndication,
+				}
+				vmSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
+					{
+						Indication: snapshotv1.VMSnapshotGuestAgentIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotGuestAgentIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotOnlineSnapshotIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
+					},
+					{
+						Indication: snapshotv1.VMSnapshotQuiesceFailedIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceFailedIndication),
+					},
 				}
 				addVirtualMachineSnapshot(vmSnapshot)
 
@@ -1675,6 +1743,16 @@ var _ = Describe("Snapshot controlleer", func() {
 					updatedSnapshot.ResourceVersion = "1"
 					updatedSnapshot.Status.VirtualMachineSnapshotContentName = &vmSnapshotContent.Name
 					updatedSnapshot.Status.Indications = expectedIndications
+
+					// Convert indications to sourceIndications with messages
+					var expectedSourceIndications []snapshotv1.SourceIndication
+					for _, indication := range expectedIndications {
+						expectedSourceIndications = append(expectedSourceIndications, snapshotv1.SourceIndication{
+							Indication: indication,
+							Message:    IndicationMessage(indication),
+						})
+					}
+					updatedSnapshot.Status.SourceIndications = expectedSourceIndications
 					updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
 						newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
 						newReadyCondition(corev1.ConditionFalse, "Not ready"),

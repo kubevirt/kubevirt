@@ -121,20 +121,9 @@ var _ = Describe("Apply Apps", func() {
 			virtApiConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
 				KubeVirtVersion: Version,
+				Namespace:       Namespace,
 			}
-			deployment = components.NewApiServerDeployment(
-				Namespace,
-				virtApiConfig.GetImageRegistry(),
-				virtApiConfig.GetImagePrefix(),
-				virtApiConfig.GetApiVersion(),
-				"",
-				"",
-				"",
-				virtApiConfig.VirtApiImage,
-				virtApiConfig.GetImagePullPolicy(),
-				virtApiConfig.GetImagePullSecrets(),
-				virtApiConfig.GetVerbosity(),
-				virtApiConfig.GetExtraEnv())
+			deployment = components.NewApiServerDeployment(virtApiConfig, "", "", "")
 
 			cachedPodDisruptionBudget = components.NewPodDisruptionBudgetForDeployment(deployment)
 		})
@@ -326,30 +315,12 @@ var _ = Describe("Apply Apps", func() {
 			virtHandlerConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
 				KubeVirtVersion: Version,
+				Namespace:       Namespace,
 			}
-			daemonSet = components.NewHandlerDaemonSet(
-				Namespace,
-				virtHandlerConfig.GetImageRegistry(),
-				virtHandlerConfig.GetImagePrefix(),
-				virtHandlerConfig.GetHandlerVersion(),
-				"",
-				"",
-				"",
-				"",
-				virtHandlerConfig.GetLauncherVersion(),
-				virtHandlerConfig.GetPrHelperVersion(),
-				virtHandlerConfig.VirtHandlerImage,
-				virtHandlerConfig.VirtLauncherImage,
-				virtHandlerConfig.PrHelperImage,
-				virtHandlerConfig.SidecarShimImage,
-				virtHandlerConfig.GetImagePullPolicy(),
-				virtHandlerConfig.GetImagePullSecrets(),
-				nil,
-				virtHandlerConfig.GetVerbosity(),
-				virtHandlerConfig.GetExtraEnv(),
-				false)
+			daemonSet = components.NewHandlerDaemonSet(virtHandlerConfig, "", "", "")
 			markHandlerReady(daemonSet)
 			daemonSet.UID = "random-id"
+			daemonSet.Generation = 1
 		})
 
 		Context("setting virt-handler maxDevices flag", func() {
@@ -528,7 +499,6 @@ var _ = Describe("Apply Apps", func() {
 					expectedDone bool,
 					expectingError bool,
 					expectingPatch bool) {
-					patched := false
 
 					r := &Reconciler{
 						clientset:    clientset,
@@ -542,43 +512,19 @@ var _ = Describe("Apply Apps", func() {
 					mockDSCacheStore.get = daemonSet
 					SetGeneration(&kv.Status.Generations, currentDs)
 
-					dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
-						a, ok := action.(testing.PatchAction)
-						Expect(ok).To(BeTrue())
-						patched = true
-
-						patches := []patch.PatchOperation{}
-						json.Unmarshal(a.GetPatch(), &patches)
-
-						var annotations map[string]string
-						var dsSpec appsv1.DaemonSetSpec
-						for _, v := range patches {
-							if v.Path == "/spec" {
-								template, err := json.Marshal(v.Value)
-								Expect(err).ToNot(HaveOccurred())
-								json.Unmarshal(template, &dsSpec)
-							}
-							if v.Path == "/metadata/annotations" {
-								template, err := json.Marshal(v.Value)
-								Expect(err).ToNot(HaveOccurred())
-								json.Unmarshal(template, &annotations)
-							}
-						}
-
-						patchedDs := &appsv1.DaemonSet{
-							ObjectMeta: v12.ObjectMeta{
-								Annotations: annotations,
-							},
-							Spec: dsSpec,
-						}
-
-						dsCheck(kv, patchedDs)
-						return true, patchedDs, nil
-					})
+					_, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Create(context.TODO(), currentDs, v12.CreateOptions{})
+					Expect(err).ToNot(HaveOccurred())
 
 					done, err, status := r.processCanaryUpgrade(currentDs, newDs, false)
 
+					patched := false
+					for _, action := range dsClient.Fake.Actions() {
+						if action.GetVerb() == "patch" && action.GetResource().Resource == "daemonsets" {
+							patched = true
+						}
+					}
 					Expect(patched).To(Equal(expectingPatch))
+
 					Expect(done).To(Equal(expectedDone))
 					Expect(status).To(Equal(expectedStatus))
 					if expectingError {
@@ -586,6 +532,11 @@ var _ = Describe("Apply Apps", func() {
 					} else {
 						Expect(err).ToNot(HaveOccurred())
 					}
+
+					patchedDs, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Get(context.TODO(), currentDs.Name, v12.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					dsCheck(kv, patchedDs)
+
 				},
 				Entry("should start canary upgrade with MaxUnavailable 1",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -672,7 +623,7 @@ var _ = Describe("Apply Apps", func() {
 				),
 				Entry("should complete rollout",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
-						maxUnavailable := intstr.FromString("10%")
+						maxUnavailable := intstr.FromInt(1)
 						newDs := daemonSet.DeepCopy()
 						addCustomTargetDeployment(kv, newDs)
 						addCustomTargetDeployment(kv, currentDs)
@@ -680,6 +631,10 @@ var _ = Describe("Apply Apps", func() {
 						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
 							MaxUnavailable: &maxUnavailable,
 						}
+						currentDs.Spec.Template.Spec.Containers[0].Args = append(currentDs.Spec.Template.Spec.Containers[0].Args,
+							"--migration-cn-types",
+						)
+						unattachCertificateSecret(&currentDs.Spec.Template.Spec, components.VirtHandlerCertSecretName)
 						return currentDs, newDs
 					},
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
@@ -689,7 +644,57 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
 						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
 					},
+					CanaryUpgradeStatusSuccessful, true, false, false,
+				),
+
+				Entry("should unattach secret before complete rollout",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						maxUnavailable := intstr.FromInt(1)
+						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+							MaxUnavailable: &maxUnavailable,
+						}
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerReady(daemonSet)
+
+						currentDs.Spec.Template.Spec.Containers[0].Args = append(currentDs.Spec.Template.Spec.Containers[0].Args,
+							"--migration-cn-types",
+						)
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
+						Expect(rollingUpdate).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
+						hasCertificateSecret(&daemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName)
+					},
 					CanaryUpgradeStatusSuccessful, true, false, true,
+				),
+				Entry("should switch to tls rollout",
+					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
+						maxUnavailable := intstr.FromInt(1)
+						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+							MaxUnavailable: &maxUnavailable,
+						}
+						newDs := daemonSet.DeepCopy()
+						addCustomTargetDeployment(kv, newDs)
+						addCustomTargetDeployment(kv, currentDs)
+						markHandlerReady(daemonSet)
+
+						return currentDs, newDs
+					},
+					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {
+						Expect(util.DaemonSetIsUpToDate(kv, daemonSet)).To(BeTrue())
+						rollingUpdate := daemonSet.Spec.UpdateStrategy.RollingUpdate
+						Expect(rollingUpdate).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
+						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
+						Expect(daemonSet.Spec.Template.Spec.Containers[0].Args).To(ContainElements("--migration-cn-types", "migration"))
+					},
+					CanaryUpgradeStatusWaitingDaemonSetRollout, false, false, true,
 				),
 			)
 		})
@@ -1200,27 +1205,10 @@ var _ = Describe("Apply Apps", func() {
 			virtControllerConfig := &util.KubeVirtDeploymentConfig{
 				Registry:        Registry,
 				KubeVirtVersion: Version,
+				Namespace:       Namespace,
 			}
 			var err error
-			strategyDeployment = components.NewControllerDeployment(
-				Namespace,
-				virtControllerConfig.GetImageRegistry(),
-				virtControllerConfig.GetImagePrefix(),
-				virtControllerConfig.GetControllerVersion(),
-				virtControllerConfig.GetLauncherVersion(),
-				virtControllerConfig.GetExportServerVersion(),
-				"",
-				"",
-				"",
-				"",
-				virtControllerConfig.VirtControllerImage,
-				virtControllerConfig.VirtLauncherImage,
-				virtControllerConfig.VirtExportServerImage,
-				virtControllerConfig.SidecarShimImage,
-				virtControllerConfig.GetImagePullPolicy(),
-				virtControllerConfig.GetImagePullSecrets(),
-				virtControllerConfig.GetVerbosity(),
-				virtControllerConfig.GetExtraEnv())
+			strategyDeployment = components.NewControllerDeployment(virtControllerConfig, "", "", "")
 
 			cachedDeployment = strategyDeployment.DeepCopy()
 			cachedDeployment.Generation = 2
@@ -1233,19 +1221,7 @@ var _ = Describe("Apply Apps", func() {
 
 			stores = util.Stores{DeploymentCache: &MockStore{get: cachedDeployment}}
 
-			virtAPIDeployment = components.NewApiServerDeployment(
-				Namespace,
-				virtControllerConfig.GetImageRegistry(),
-				virtControllerConfig.GetImagePrefix(),
-				virtControllerConfig.GetApiVersion(),
-				"",
-				"",
-				"",
-				virtControllerConfig.VirtApiImage,
-				virtControllerConfig.GetImagePullPolicy(),
-				virtControllerConfig.GetImagePullSecrets(),
-				virtControllerConfig.GetVerbosity(),
-				virtControllerConfig.GetExtraEnv())
+			virtAPIDeployment = components.NewApiServerDeployment(virtControllerConfig, "", "", "")
 
 			virtAPIDeployment.Generation = 2
 			virtAPIDeployment.Annotations = map[string]string{
@@ -1279,8 +1255,8 @@ var _ = Describe("Apply Apps", func() {
 			Expect(updatedDeploy.Annotations).ToNot(HaveKey(fakeAnnotation))
 		})
 
-		DescribeTable("should calculate correct replicas for deployments based on node count", func(nodesCount int, expectedReplicas int) {
-			createFakeNodes(dpClient, nodesCount)
+		DescribeTable("should calculate correct replicas for deployments based on node count", func(schedulableNodesCount, unschedulableNodeCount, expectedReplicas int) {
+			createFakeNodes(dpClient, schedulableNodesCount, unschedulableNodeCount)
 
 			r := &Reconciler{
 				clientset:    clientset,
@@ -1293,20 +1269,31 @@ var _ = Describe("Apply Apps", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*updatedDeployment.Spec.Replicas).To(BeEquivalentTo(expectedReplicas))
 		},
-			Entry("Single-node cluster", 1, 1),
-			Entry("Small cluster with 5 nodes", 5, 2),
-			Entry("Medium cluster with 50 nodes", 50, 5),
+			Entry("Single-node cluster", 1, 0, 1),
+			Entry("Small cluster with 5 nodes", 5, 0, 2),
+			Entry("Small cluster with 1 schedulable node", 1, 4, 1),
+			Entry("Medium cluster with 50 nodes", 50, 0, 5),
+			Entry("Medium cluster with 10 schedulable nodes", 10, 40, 2),
+			Entry("large cluster with 1000 nodes", 1000, 0, 100),
+			Entry("large cluster with 10 schedulable nodes", 10, 990, 2),
 		)
 	})
 })
 
-func createFakeNodes(client *fake.Clientset, count int) {
-	for i := range count {
-		_, err := client.CoreV1().Nodes().Create(context.TODO(), &corev1.Node{
+func createFakeNodes(client *fake.Clientset, schedulableNodesCount, unschedulableNodeCount int) {
+	totalNodeCount := schedulableNodesCount + unschedulableNodeCount
+	for i := range totalNodeCount {
+		node := &corev1.Node{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: fmt.Sprintf("node-%d", i),
 			},
-		}, metav1.CreateOptions{})
+		}
+		if i < schedulableNodesCount {
+			node.Labels = map[string]string{
+				v1.NodeSchedulable: "true",
+			}
+		}
+		_, err := client.CoreV1().Nodes().Create(context.TODO(), node, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
 	}
 }

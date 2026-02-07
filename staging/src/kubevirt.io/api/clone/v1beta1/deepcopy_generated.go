@@ -148,6 +148,11 @@ func (in *VirtualMachineCloneSpec) DeepCopyInto(out *VirtualMachineCloneSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.VolumeNamePolicy != nil {
+		in, out := &in.VolumeNamePolicy, &out.VolumeNamePolicy
+		*out = new(VolumeNamePolicy)
+		**out = **in
+	}
 	return
 }
 

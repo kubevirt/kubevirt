@@ -25,11 +25,8 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
-
-	"kubevirt.io/kubevirt/pkg/storage/utils"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	k8sv1 "k8s.io/api/core/v1"
@@ -47,7 +44,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	storageadmitters "kubevirt.io/kubevirt/pkg/storage/admitters"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
-	"kubevirt.io/kubevirt/pkg/storage/types"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+
 	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -197,7 +195,6 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateRealtime(field, spec)...)
 	causes = append(causes, validateSpecAffinity(field, spec)...)
 	causes = append(causes, validateSpecTopologySpreadConstraints(field, spec)...)
-	causes = append(causes, validateArchitecture(field, spec, config)...)
 
 	netValidator := netadmitter.NewValidator(field, spec, config)
 	causes = append(causes, netValidator.Validate()...)
@@ -207,6 +204,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateBootOrder(field, spec, config)...)
 
 	causes = append(causes, validateInputDevices(field, spec)...)
+
 	causes = append(causes, validateIOThreadsPolicy(field, spec)...)
 	causes = append(causes, validateProbe(field.Child("readinessProbe"), spec.ReadinessProbe)...)
 	causes = append(causes, validateProbe(field.Child("livenessProbe"), spec.LivenessProbe)...)
@@ -219,6 +217,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateDomainSpec(field.Child("domain"), &spec.Domain)...)
 	causes = append(causes, validateVolumes(field.Child("volumes"), spec.Volumes, config)...)
 	causes = append(causes, storageadmitters.ValidateContainerDisks(field, spec)...)
+	causes = append(causes, storageadmitters.ValidateUtilityVolumesNotPresentOnCreation(field, spec)...)
 
 	causes = append(causes, validateAccessCredentials(field.Child("accessCredentials"), spec.AccessCredentials, spec.Volumes)...)
 
@@ -246,7 +245,7 @@ func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.Virtu
 		return causes
 	}
 
-	volumes := types.GetVolumesByName(spec)
+	volumes := storagetypes.GetVolumesByName(spec)
 
 	for _, fs := range spec.Domain.Devices.Filesystems {
 		volume, ok := volumes[fs.Name]
@@ -254,14 +253,7 @@ func validateFilesystemsWithVirtIOFSEnabled(field *k8sfield.Path, spec *v1.Virtu
 			continue
 		}
 
-		switch {
-		case utils.IsConfigVolume(volume) && (!config.VirtiofsConfigVolumesEnabled() && !config.OldVirtiofsEnabled()):
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for config volumes",
-				Field:   field.Child("domain", "devices", "filesystems").String(),
-			})
-		case utils.IsStorageVolume(volume) && (!config.VirtiofsStorageEnabled() && !config.OldVirtiofsEnabled()):
+		if storagetypes.IsStorageVolume(volume) && (!config.VirtiofsStorageEnabled()) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "virtiofs is not allowed: virtiofs feature gate is not enabled for PVC",
@@ -560,54 +552,21 @@ func validateLaunchSecurity(field *k8sfield.Path, spec *v1.VirtualMachineInstanc
 	if launchSecurity == nil {
 		return causes
 	}
-	if !config.SecureExecutionEnabled() && webhooks.IsS390X(spec) {
+
+	arch := spec.Architecture
+	switch arch {
+	case "amd64":
+		causes = append(causes, webhooks.ValidateLaunchSecurityAmd64(field, spec, config)...)
+	case "s390x":
+		causes = append(causes, webhooks.ValidateLaunchSecurityS390x(field, spec, config)...)
+	default:
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.SecureExecution),
-			Field:   field.Child("launchSecurity").String(),
+			Message: fmt.Sprintf("No launchSecurity support for architecture: %s", arch),
+			Field:   field.Child("architecture").String(),
 		})
 	}
-	if !config.WorkloadEncryptionSEVEnabled() && launchSecurity.SEV != nil {
-		causes = append(causes, metav1.StatusCause{
-			Type:    metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config", featuregate.WorkloadEncryptionSEV),
-			Field:   field.Child("launchSecurity").String(),
-		})
-	} else if launchSecurity.SEV != nil {
-		firmware := spec.Domain.Firmware
-		if !efiBootEnabled(firmware) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "SEV requires OVMF (UEFI)",
-				Field:   field.Child("launchSecurity").String(),
-			})
-		} else if secureBootEnabled(firmware) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "SEV does not work along with SecureBoot",
-				Field:   field.Child("launchSecurity").String(),
-			})
-		}
 
-		startStrategy := spec.StartStrategy
-		if launchSecurity.SEV.Attestation != nil && (startStrategy == nil || *startStrategy != v1.StartStrategyPaused) {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: fmt.Sprintf("SEV attestation requires VMI StartStrategy '%s'", v1.StartStrategyPaused),
-				Field:   field.Child("launchSecurity").String(),
-			})
-		}
-
-		for _, iface := range spec.Domain.Devices.Interfaces {
-			if iface.BootOrder != nil {
-				causes = append(causes, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueInvalid,
-					Message: fmt.Sprintf("SEV does not work with bootable NICs: %s", iface.Name),
-					Field:   field.Child("launchSecurity").String(),
-				})
-			}
-		}
-	}
 	return causes
 }
 
@@ -719,7 +678,7 @@ func validateCPUIsolatorThread(field *k8sfield.Path, spec *v1.VirtualMachineInst
 func validateCpuPinning(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	if spec.Domain.CPU != nil && spec.Domain.CPU.DedicatedCPUPlacement {
-		causes = append(causes, validateMemoryLimitAndRequestProvided(field, spec)...)
+		causes = append(causes, validateMemoryIsProvided(field, spec)...)
 		causes = append(causes, validateCPURequestIsInteger(field, spec)...)
 		causes = append(causes, validateCPULimitIsInteger(field, spec)...)
 		causes = append(causes, validateMemoryRequestsAndLimits(field, spec)...)
@@ -916,19 +875,41 @@ func validateCPURequestIsInteger(field *k8sfield.Path, spec *v1.VirtualMachineIn
 	return causes
 }
 
-func validateMemoryLimitAndRequestProvided(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if spec.Domain.Resources.Limits.Memory().Value() == 0 && spec.Domain.Resources.Requests.Memory().Value() == 0 {
-		causes = append(causes, metav1.StatusCause{
+func validateMemoryIsProvided(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
+	generateErrorCause := func() []metav1.StatusCause {
+		return []metav1.StatusCause{{
 			Type: metav1.CauseTypeFieldValueInvalid,
-			Message: fmt.Sprintf("%s or %s should be provided",
+			Message: fmt.Sprintf("%s, %s, %s or %s should be provided",
 				field.Child("domain", "resources", "requests", "memory").String(),
 				field.Child("domain", "resources", "limits", "memory").String(),
+				field.Child("domain", "memory", "hugepages").String(),
+				field.Child("domain", "memory", "guest").String(),
 			),
 			Field: field.Child("domain", "resources", "limits", "memory").String(),
-		})
+		}}
 	}
-	return causes
+
+	if !spec.Domain.Resources.Limits.Memory().IsZero() {
+		return nil
+	}
+
+	if !spec.Domain.Resources.Requests.Memory().IsZero() {
+		return nil
+	}
+
+	if spec.Domain.Memory == nil {
+		return generateErrorCause()
+	}
+
+	if spec.Domain.Memory.Hugepages != nil {
+		return nil
+	}
+
+	if spec.Domain.Memory.Guest == nil || spec.Domain.Memory.Guest.IsZero() {
+		return generateErrorCause()
+	}
+
+	return nil
 }
 
 func validateCpuRequestDoesNotExceedLimit(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
@@ -1035,22 +1016,28 @@ func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachi
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s '%s': %s",
-				field.Child("domain", "hugepages", "size").String(),
+				field.Child("domain", "memory", "hugepages", "pageSize").String(),
 				spec.Domain.Memory.Hugepages.PageSize,
 				resource.ErrFormatWrong,
 			),
-			Field: field.Child("domain", "hugepages", "size").String(),
+			Field: field.Child("domain", "memory", "hugepages", "pageSize").String(),
 		})
 		return causes
 	}
 	vmMemory := spec.Domain.Resources.Requests.Memory().Value()
-	if vmMemory < hugepagesSize.Value() {
+	if vmMemory == 0 && spec.Domain.Memory != nil {
+		vmMemory = spec.Domain.Memory.Guest.Value()
+	}
+	if vmMemory == 0 {
+		vmMemory = spec.Domain.Resources.Limits.Memory().Value()
+	}
+	if vmMemory != 0 && vmMemory < hugepagesSize.Value() {
 		causes = append(causes, metav1.StatusCause{
 			Type: metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s '%s' must be equal to or larger than page size %s '%s'",
 				field.Child("domain", "resources", "requests", "memory").String(),
 				spec.Domain.Resources.Requests.Memory(),
-				field.Child("domain", "hugepages", "size").String(),
+				field.Child("domain", "memory", "hugepages", "pageSize").String(),
 				spec.Domain.Memory.Hugepages.PageSize,
 			),
 			Field: field.Child("domain", "resources", "requests", "memory").String(),
@@ -1061,7 +1048,7 @@ func validateHugepagesMemoryRequests(field *k8sfield.Path, spec *v1.VirtualMachi
 			Message: fmt.Sprintf("%s '%s' is not a multiple of the page size %s '%s'",
 				field.Child("domain", "resources", "requests", "memory").String(),
 				spec.Domain.Resources.Requests.Memory(),
-				field.Child("domain", "hugepages", "size").String(),
+				field.Child("domain", "memory", "hugepages", "pageSize").String(),
 				spec.Domain.Memory.Hugepages.PageSize,
 			),
 			Field: field.Child("domain", "resources", "requests", "memory").String(),
@@ -1154,20 +1141,6 @@ func validateRealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec)
 	return causes
 }
 
-func validateArchitecture(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
-	var causes []metav1.StatusCause
-	if spec.Architecture != "" && spec.Architecture != runtime.GOARCH && !config.MultiArchitectureEnabled() {
-		causes = append(causes, metav1.StatusCause{
-			Type: metav1.CauseTypeFieldValueRequired,
-			Message: fmt.Sprintf("%s feature gate is not enabled in kubevirt-config, invalid entry %s", featuregate.MultiArchitecture,
-				field.Child("architecture").String()),
-			Field: field.Child("architecture").String(),
-		})
-
-	}
-	return causes
-}
-
 func validateCPURealtime(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	if !spec.Domain.CPU.DedicatedCPUPlacement {
@@ -1223,7 +1196,7 @@ func ValidateVirtualMachineInstanceMandatoryFields(field *k8sfield.Path, spec *v
 			Type: metav1.CauseTypeFieldValueRequired,
 			Message: fmt.Sprintf("no memory requested, at least one of '%s', '%s' or '%s' must be set",
 				field.Child("domain", "memory", "guest").String(),
-				field.Child("domain", "memory", "hugepages", "size").String(),
+				field.Child("domain", "memory", "hugepages", "pageSize").String(),
 				field.Child("domain", "resources", "requests", "memory").String()),
 		})
 	}

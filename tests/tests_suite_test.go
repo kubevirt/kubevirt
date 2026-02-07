@@ -71,6 +71,8 @@ func TestTests(t *testing.T) {
 	flags.NormalizeFlags()
 	testsuite.CalculateNamespaces()
 	maxFails := getMaxFailsFromEnv()
+	alwaysCollect := getAlwaysCollectFromEnv()
+
 	artifactsPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter")
 	junitOutput := filepath.Join(flags.ArtifactsDir, "junit.functest.xml")
 	if qe_reporters.JunitOutput != "" {
@@ -91,7 +93,7 @@ func TestTests(t *testing.T) {
 		afterSuiteReporters = append(afterSuiteReporters, &qe_reporters.Polarion)
 	}
 
-	k8sReporter = reporter.NewKubernetesReporter(artifactsPath, maxFails)
+	k8sReporter = reporter.NewKubernetesReporter(artifactsPath, maxFails, alwaysCollect)
 	k8sReporter.Cleanup()
 
 	vmsgeneratorutils.DockerPrefix = flags.KubeVirtUtilityRepoPrefix
@@ -142,9 +144,24 @@ func getMaxFailsFromEnv() int {
 	return maxFails
 }
 
+func getAlwaysCollectFromEnv() bool {
+	alwaysCollectStr := os.Getenv("KUBEVIRT_COLLECT_LOGS")
+	if alwaysCollectStr == "" {
+		return false
+	}
+
+	alwaysCollect, err := strconv.ParseBool(alwaysCollectStr)
+	if err != nil {
+		fmt.Printf("Invalid KUBEVIRT_COLLECT_LOGS value %q, defaulting to false\n", alwaysCollectStr)
+		return false
+	}
+
+	return alwaysCollect
+}
+
 var _ = ReportAfterSuite("Collect cluster data", func(report Report) {
 	artifactPath := filepath.Join(flags.ArtifactsDir, "k8s-reporter", "suite")
-	kvReport := reporter.NewKubernetesReporter(artifactPath, 1)
+	kvReport := reporter.NewKubernetesReporter(artifactPath, 1, false)
 	kvReport.Cleanup()
 
 	kvReport.Report(report)

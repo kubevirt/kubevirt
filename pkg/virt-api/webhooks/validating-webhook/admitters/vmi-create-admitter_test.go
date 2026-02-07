@@ -86,7 +86,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	updateDefaultArchitecture := func(defaultArchitecture string) {
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.MultiArchitecture}
 		kvConfig.Status.DefaultArchitecture = defaultArchitecture
 
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, kvConfig)
@@ -154,8 +153,8 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 	It("should allow Clock without Timer", func() {
 		const offsetSeconds = 5
-		vmi := newBaseVmi(withDomainClock(
-			&v1.Clock{
+		vmi := newBaseVmi(libvmi.WithClock(
+			v1.Clock{
 				ClockOffset: v1.ClockOffset{
 					UTC: &v1.ClockOffsetUTC{
 						OffsetSeconds: pointer.P(offsetSeconds),
@@ -487,8 +486,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			vmi = api.NewMinimalVMI("testvmi")
 		})
 		DescribeTable("should accept valid machine type", func(arch string, machineType string) {
-			enableFeatureGates(featuregate.MultiArchitecture)
-
 			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 
@@ -501,8 +498,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 
 		DescribeTable("should reject invalid machine type", func(arch string, machineType string) {
-			enableFeatureGates(featuregate.MultiArchitecture)
-
 			vmi.Spec.Architecture = arch
 			vmi.Spec.Domain.Machine = &v1.Machine{Type: machineType}
 
@@ -868,11 +863,35 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.hugepages.size"))
+			Expect(causes[0].Field).To(Equal("fake.domain.memory.hugepages.pageSize"))
 		})
 
 		It("should reject greater hugepages.size than requests.memory", func() {
 			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
+			}
+			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "1Gi"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
+
+		It("should reject greater hugepages.size than guest memory", func() {
+			vmi.Spec.Domain.Memory = &v1.Memory{
+				Guest:     pointer.P(resource.MustParse("64Mi")),
+				Hugepages: &v1.Hugepages{},
+			}
+			vmi.Spec.Domain.Memory.Hugepages.PageSize = "1Gi"
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
+		})
+
+		It("should reject greater hugepages.size than requests.limit", func() {
+			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse("64Mi"),
 			}
 			vmi.Spec.Domain.Memory = &v1.Memory{Hugepages: &v1.Hugepages{}}
@@ -990,7 +1009,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 			Expect(causes[0].Message).To(Equal("fake.domain.resources.requests.memory '64Mi' " +
-				"is not a multiple of the page size fake.domain.hugepages.size '10Mi'"))
+				"is not a multiple of the page size fake.domain.memory.hugepages.pageSize '10Mi'"))
 		})
 
 		It("should allow setting guest memory and hugepages", func() {
@@ -1233,14 +1252,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		},
 			Entry("PVC should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemPVC("sharedtestdisk")),
 			Entry("PVC should be accepted when feature gate is enabled", featuregate.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
-
 			Entry("DV should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemDV("sharedtestdisk")),
 			Entry("DV should be accepted when feature gate is enabled", featuregate.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemDV("sharedtestdisk")),
-			Entry("configmap should be rejected when the feature gate is disabled", "", false, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
-			Entry("configmap should be accepted when the feature gate is enabled", featuregate.VirtIOFSConfigVolumesGate, true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
-			Entry("PVC should be accepted when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
-			Entry("DV should be accepted when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, true, libvmi.WithFilesystemDV("sharedtestdisk")),
-			Entry("config map should be accepted when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
+			Entry("configmap should be accepted when the feature gate is disabled", "", true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
+			Entry("PVC should be rejected when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, false, libvmi.WithFilesystemPVC("sharedtestdisk")),
+			Entry("DV should be rejected when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, false, libvmi.WithFilesystemDV("sharedtestdisk")),
 		)
 
 		It("should reject host devices when feature gate is disabled", func() {
@@ -1443,7 +1459,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			})
 
 			It("should reject panic devices on s390x architecture", func() {
-				enableFeatureGates(featuregate.MultiArchitecture, featuregate.PanicDevicesGate)
+				enableFeatureGates(featuregate.PanicDevicesGate)
 				vmi := api.NewMinimalVMI("testvm")
 				vmi.Spec.Architecture = "s390x"
 				vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Isa)}}
@@ -1587,7 +1603,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should reject vmi with threads > 1 for arm64 arch", func() {
-			enableFeatureGates(featuregate.MultiArchitecture)
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "arm64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -1601,7 +1616,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept vmi with threads == 1 for arm64 arch", func() {
-			enableFeatureGates(featuregate.MultiArchitecture)
 			vmi.Spec.Domain.CPU.Threads = 1
 			vmi.Spec.Architecture = "arm64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -1609,7 +1623,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept vmi with threads > 1 for amd64 arch", func() {
-			enableFeatureGates(featuregate.MultiArchitecture)
 			vmi.Spec.Domain.CPU.Threads = 2
 			vmi.Spec.Architecture = "amd64"
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
@@ -1702,18 +1715,6 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(Equal("fake.domain.cpu.dedicatedCpuPlacement"))
-		})
-
-		It("should reject specs without a memory specification", func() {
-			vmi.Spec.Domain.Resources.Limits = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("4"),
-			}
-			vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
-				k8sv1.ResourceCPU: resource.MustParse("4"),
-			}
-			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.resources.limits.memory"))
 		})
 
 		It("should reject specs with inconsistent memory specification", func() {
@@ -2094,6 +2095,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("HostDisk feature gate is not enabled"))
 		})
 
 		It("should accept hostDisk volumes if the feature gate is enabled", func() {
@@ -2111,6 +2113,24 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject VMI creation with utility volumes in spec", func() {
+			vmi.Spec.UtilityVolumes = []v1.UtilityVolume{
+				{
+					Name: "test-utility-volume",
+					PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "test-pvc",
+					},
+				},
+			}
+
+			ar, err := newAdmissionReviewForVMICreation(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			response := vmiCreateAdmitter.Admit(context.Background(), ar)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Message).To(ContainSubstring("cannot create VMI with utility volumes in spec"))
 		})
 
 		It("should accept sysprep volumes", func() {
@@ -2506,6 +2526,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					},
 				},
 			}
+			vmi.Spec.Architecture = "amd64"
 			enableFeatureGates(featuregate.WorkloadEncryptionSEV)
 		})
 
@@ -2576,6 +2597,55 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Field).To(ContainSubstring("launchSecurity"))
 		})
+
+		Context("with AMD SEV-SNP LaunchSecurity", func() {
+			BeforeEach(func() {
+				vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+					SNP: &v1.SEVSNP{},
+				}
+			})
+
+			It("should accept when the feature gate is enabled and OVMF is configured", func() {
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should reject when both SEV and SNP are configured", func() {
+				vmi.Spec.Domain.LaunchSecurity.SEV = &v1.SEV{}
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeForbidden))
+				Expect(causes[0].Message).To(ContainSubstring("One and only one launchSecurity type can be set"))
+			})
+
+			It("should reject when the feature gate is disabled", func() {
+				disableFeatureGates()
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionSEV)))
+			})
+
+			It("should reject when persistent EFI variables are enabled", func() {
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(HaveLen(1))
+				Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+				Expect(causes[0].Message).To(ContainSubstring("SNP does not work along with Persistent EFI variables"))
+				Expect(causes[0].Field).To(Equal("fake.launchSecurity"))
+			})
+
+			It("should accept when persistent EFI variables are disabled", func() {
+				vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(false)
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+
+			It("should accept when persistent EFI variables are not specified", func() {
+				// persistent field is nil by default
+				causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+				Expect(causes).To(BeEmpty())
+			})
+		})
 	})
 
 	Context("with Secure Execution LaunchSecurity", func() {
@@ -2588,17 +2658,118 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		})
 
 		It("should accept when the feature gate is enabled", func() {
-			enableFeatureGates(featuregate.MultiArchitecture, featuregate.SecureExecution)
+			enableFeatureGates(featuregate.SecureExecution)
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(BeEmpty())
 		})
 
 		It("should reject when the feature gate is disabled", func() {
-			enableFeatureGates(featuregate.MultiArchitecture)
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
 			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.SecureExecution)))
+		})
+	})
+
+	Context("with Intel TDX LaunchSecurity", func() {
+		var vmi *v1.VirtualMachineInstance
+
+		BeforeEach(func() {
+			vmi = api.NewMinimalVMI("testvmi")
+			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+				TDX: &v1.TDX{},
+			}
+			vmi.Spec.Domain.Firmware = &v1.Firmware{
+				Bootloader: &v1.Bootloader{
+					EFI: &v1.EFI{
+						SecureBoot: pointer.P(false),
+					},
+				},
+			}
+			vmi.Spec.Architecture = "amd64"
+			enableFeatureGates(featuregate.WorkloadEncryptionTDX)
+		})
+
+		It("should reject when SMM is enabled", func() {
+			vmi.Spec.Domain.Features = &v1.Features{
+				SMM: &v1.FeatureState{
+					Enabled: pointer.P(true),
+				},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("TDX does not work along with SMM"))
+		})
+
+		It("should reject when SEV is set", func() {
+			vmi.Spec.Domain.LaunchSecurity.SEV = &v1.SEV{}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("One and only one launchSecurity type can be set"))
+		})
+
+		It("should reject when SNP is set", func() {
+			vmi.Spec.Domain.LaunchSecurity.SNP = &v1.SEVSNP{}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("One and only one launchSecurity type can be set"))
+		})
+
+		It("should accept when the feature gate is enabled and OVMF is configured", func() {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject when the feature gate is disabled", func() {
+			disableFeatureGates()
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring(fmt.Sprintf("%s feature gate is not enabled", featuregate.WorkloadEncryptionTDX)))
+		})
+
+		It("should reject when UEFI is not configured", func() {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI = nil
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("TDX requires OVMF"))
+			vmi.Spec.Domain.Firmware.Bootloader = nil
+			causes = ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("TDX requires OVMF"))
+			vmi.Spec.Domain.Firmware = nil
+			causes = ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("TDX requires OVMF"))
+		})
+
+		It("should reject when there are bootable NICs", func() {
+			vmi.Spec.Networks = []v1.Network{*v1.DefaultPodNetwork()}
+			bootOrder := uint(1)
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: vmi.Spec.Networks[0].Name, BootOrder: &bootOrder},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(len(vmi.Spec.Domain.Devices.Interfaces)))
+		})
+
+		It("should reject when persistent EFI variables are enabled", func() {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(true)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(ContainSubstring("TDX does not work along with Persistent EFI variables"))
+			Expect(causes[0].Field).To(Equal("fake.launchSecurity"))
+		})
+
+		It("should accept when persistent EFI variables are disabled", func() {
+			vmi.Spec.Domain.Firmware.Bootloader.EFI.Persistent = pointer.P(false)
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should accept when persistent EFI variables are not specified", func() {
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
 		})
 	})
 
@@ -3956,7 +4127,7 @@ var _ = Describe("additional tests", func() {
 					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.P(true),
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 				},
 			},
 		}
@@ -3979,7 +4150,7 @@ var _ = Describe("additional tests", func() {
 					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.P(true),
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 				},
 			},
 		}
@@ -4013,12 +4184,6 @@ func newAdmissionReviewForVMICreation(vmi *v1.VirtualMachineInstance) (*admissio
 			Operation: admissionv1.Create,
 		},
 	}, err
-}
-
-func withDomainClock(clock *v1.Clock) libvmi.Option {
-	return func(vmi *v1.VirtualMachineInstance) {
-		vmi.Spec.Domain.Clock = clock
-	}
 }
 
 func withReadinessProbe(probe *v1.Probe) libvmi.Option {

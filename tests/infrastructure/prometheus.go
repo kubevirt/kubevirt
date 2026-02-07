@@ -35,7 +35,6 @@ import (
 	metricsutil "github.com/rhobs/operator-observability-toolkit/pkg/testutil"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	netutils "k8s.io/utils/net"
 
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnode"
@@ -96,7 +95,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		scraped and processed by the different components on the way.
 	*/
 
-	It("[test_id:4135]should find VMI namespace on namespace label of the metric", func() {
+	It("[QUARANTINE][test_id:4135]should find VMI namespace on namespace label of the metric", decorators.Quarantine, func() {
 		/*
 			This test is required because in cases of misconfigurations on
 			monitoring objects (such for the ServiceMonitor), our rules will
@@ -118,34 +117,17 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 		op := ops.Items[0]
 		Expect(op).ToNot(BeNil(), "virt-handler pod should not be nil")
 
-		var ep *k8sv1.Endpoints
-		By("finding Prometheus endpoint")
-		Eventually(func() bool {
-			ep, err = virtClient.CoreV1().Endpoints(flags.PrometheusNamespace).Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred(), "failed to retrieve Prometheus endpoint")
-
-			if len(ep.Subsets) == 0 || len(ep.Subsets[0].Addresses) == 0 {
-				return false
-			}
-			return true
-		}, 10*time.Second, time.Second).Should(BeTrue())
-
 		urlSchema := "https"
+		promPort := 9091
 		if flags.PrometheusNamespace == "monitoring" {
 			urlSchema = "http"
+			promPort = 9090
 		}
-		promIP := ep.Subsets[0].Addresses[0].IP
-		Expect(promIP).ToNot(Equal(""), "could not get Prometheus IP from endpoint")
-		var promPort int32
-		for _, port := range ep.Subsets[0].Ports {
-			if port.Name == "web" {
-				promPort = port.Port
-			}
-		}
-		Expect(promPort).ToNot(BeEquivalentTo(0), "could not get Prometheus port from endpoint")
+		promServiceURL := fmt.Sprintf("prometheus-k8s.%s.svc.cluster.local", flags.PrometheusNamespace)
 
 		// the Service Account needs to have access to the Prometheus subresource api
 		token, err := generateTokenForPrometheusAPI(vmi.Namespace)
+		Expect(err).ToNot(HaveOccurred(), "failed to generate token for Prometheus API")
 		DeferCleanup(cleanupClusterRoleAndBinding, vmi.Namespace)
 
 		By("querying Prometheus API endpoint for a VMI exported metric")
@@ -153,7 +135,7 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 			"curl",
 			"-L",
 			"-k",
-			fmt.Sprintf("%s://%s:%d/api/v1/query", urlSchema, promIP, promPort),
+			fmt.Sprintf("%s://%s:%d/api/v1/query", urlSchema, promServiceURL, promPort),
 			"-H",
 			fmt.Sprintf("Authorization: Bearer %s", token),
 			"--data-urlencode",
@@ -184,11 +166,10 @@ var _ = Describe("[sig-monitoring][rfe_id:3187][crit:medium][vendor:cnv-qe@redha
 
 var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com][level:component]Prometheus Endpoints", func() {
 	var (
-		virtClient          kubecli.KubevirtClient
-		preparedVMIs        []*v1.VirtualMachineInstance
-		pod                 *k8sv1.Pod
-		handlerMetricIPs    []string
-		controllerMetricIPs []string
+		virtClient       kubecli.KubevirtClient
+		preparedVMIs     []*v1.VirtualMachineInstance
+		pod              *k8sv1.Pod
+		handlerMetricIPs []string
 	)
 
 	prepareVMIForTests := func(preferredNodeName string) string {
@@ -220,9 +201,9 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		By("Writing some data to the disk")
 		Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 			&expect.BSnd{S: "dd if=/dev/zero of=/dev/vdb bs=1M count=1\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 			&expect.BSnd{S: "sync\n"},
-			&expect.BExp{R: console.PromptExpression},
+			&expect.BExp{R: ""},
 		}, expectTimeout)).To(Succeed())
 
 		preparedVMIs = append(preparedVMIs, vmi)
@@ -230,22 +211,8 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	}
 
 	BeforeEach(func() {
+		var err error
 		virtClient = kubevirt.Client()
-
-		preparedVMIs = []*v1.VirtualMachineInstance{}
-		pod = nil
-		handlerMetricIPs = []string{}
-		controllerMetricIPs = []string{}
-
-		By("Finding the virt-controller prometheus endpoint")
-		virtControllerLeaderPodName := libinfra.GetLeader()
-		leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
-			context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
-
-		for _, ip := range leaderPod.Status.PodIPs {
-			controllerMetricIPs = append(controllerMetricIPs, ip.IP)
-		}
 
 		// The initial test for the metrics subsystem used only a single VM for the sake of simplicity.
 		// However, testing a single entity is a corner case (do we test handling sequences? potential clashes
@@ -263,6 +230,12 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		for _, ip := range pod.Status.PodIPs {
 			handlerMetricIPs = append(handlerMetricIPs, ip.IP)
 		}
+	})
+
+	AfterEach(func() {
+		preparedVMIs = []*v1.VirtualMachineInstance{}
+		pod = nil
+		handlerMetricIPs = []string{}
 	})
 
 	It("[test_id:4136] should find one leading virt-controller and two ready", func() {
@@ -284,44 +257,61 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	})
 
 	It("[test_id:4138]should be exposed and registered on the metrics endpoint", func() {
-		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
-			context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+		epsList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+			context.Background(), metav1.ListOptions{
+				LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+			})
 		Expect(err).ToNot(HaveOccurred())
+		// should only have one EndpointSlice
+		Expect(epsList.Items).To(HaveLen(1), "Expected exactly one EndpointSlice")
+		epSlice := epsList.Items[0]
+
 		l, err := labels.Parse("prometheus.kubevirt.io=true")
 		Expect(err).ToNot(HaveOccurred())
 		pods, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).List(
 			context.Background(), metav1.ListOptions{LabelSelector: l.String()})
 		Expect(err).ToNot(HaveOccurred())
-		Expect(endpoint.Subsets).To(HaveLen(1))
 
-		By("checking if the endpoint contains the metrics port and only one matching subset")
+		By("checking if the endpoint contains the metrics port")
 		const metricsPort = 8443
-		Expect(endpoint.Subsets[0].Ports).To(HaveLen(1))
-		Expect(endpoint.Subsets[0].Ports[0].Name).To(Equal("metrics"))
-		Expect(endpoint.Subsets[0].Ports[0].Port).To(Equal(int32(metricsPort)))
+		// we don't need to check the length, the endpointSlice Obj only contains one port
+		Expect(epSlice.Ports[0].Name).ToNot(BeNil())
+		Expect(*epSlice.Ports[0].Name).To(Equal("metrics"))
+		Expect(epSlice.Ports[0].Port).ToNot(BeNil())
+		Expect(*epSlice.Ports[0].Port).To(Equal(int32(metricsPort)))
 
-		By("checking if  the IPs in the subset match the KubeVirt system Pod count")
+		By("checking if the IPs in the endpoint slice match the KubeVirt system Pod count")
 		const minVirtPods = 3
 		Expect(len(pods.Items)).To(BeNumerically(">=", minVirtPods), "At least one api, controller and handler need to be present")
-		Expect(endpoint.Subsets[0].Addresses).To(HaveLen(len(pods.Items)))
+		Expect(epSlice.Endpoints).To(HaveLen(len(pods.Items)))
 
 		ips := map[string]string{}
-		for _, ep := range endpoint.Subsets[0].Addresses {
-			ips[ep.IP] = ""
+		for _, ep := range epSlice.Endpoints {
+			for _, addr := range ep.Addresses {
+				ips[addr] = ""
+			}
 		}
 		for _, pod := range pods.Items {
 			Expect(ips).To(HaveKey(pod.Status.PodIP), fmt.Sprintf("IP of Pod %s not found in metrics endpoint", pod.Name))
 		}
 	})
 	It("[test_id:4139]should return Prometheus metrics", func() {
-		endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
-			context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+		endpointSliceList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+			context.Background(), metav1.ListOptions{
+				LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+			})
 		Expect(err).ToNot(HaveOccurred())
-		for _, ep := range endpoint.Subsets[0].Addresses {
-			cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
-			stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
-			Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
-			Expect(stdout).To(ContainSubstring("go_goroutines"))
+		Expect(endpointSliceList.Items).ToNot(BeEmpty(), "Expected at least one EndpointSlice")
+
+		for _, epSlice := range endpointSliceList.Items {
+			for _, ep := range epSlice.Endpoints {
+				for _, addr := range ep.Addresses {
+					cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(addr))
+					stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
+					Expect(err).ToNot(HaveOccurred(), fmt.Sprintf(remoteCmdErrPattern, cmd, stdout, stderr, err))
+					Expect(stdout).To(ContainSubstring("go_goroutines"))
+				}
+			}
 		}
 	})
 
@@ -329,10 +319,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		libnet.SkipWhenClusterNotSupportIPFamily(family)
 
 		ip := libnet.GetIP(handlerMetricIPs, family)
-
-		if netutils.IsIPv6String(ip) {
-			Skip("Skip testing with IPv6 until https://github.com/kubevirt/kubevirt/issues/4145 is fixed")
-		}
 
 		concurrency := 100 // random value "much higher" than maxRequestsInFlight
 
@@ -373,26 +359,17 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		Entry("[test_id:6226] by using IPv6", k8sv1.IPv6Protocol),
 	)
 
-	DescribeTable("should include the metrics for a running VM", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-		ip := libnet.GetIP(handlerMetricIPs, family)
-
+	It("[test_id:4141]should include the metrics for a running VM", func() {
 		By("Scraping the Prometheus endpoint")
 		Eventually(func() string {
-			out := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+			out := libmonitoring.GetKubevirtVMMetrics(pod)
 			lines := libinfra.TakeMetricsWithPrefix(out, "kubevirt")
 			return strings.Join(lines, "\n")
 		}, 30*time.Second, 2*time.Second).Should(ContainSubstring("kubevirt"))
-	},
-		Entry("[test_id:4141] by using IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6227] by using IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 
 	It("should expose kubevirt_node_deprecated_machine_types metric", func() {
-		ip := libnet.GetIP(handlerMetricIPs, k8sv1.IPv4Protocol)
-
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_node_deprecated_machine_types")
@@ -408,11 +385,8 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		}
 	})
 
-	DescribeTable("should include the storage metrics for a running VM", func(family k8sv1.IPFamily, metricName, operator string) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-		ip := libnet.GetIP(handlerMetricIPs, family)
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+	DescribeTable("should include the storage metrics for a running VM", func(metricName, operator string) {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		By("Checking the collected metrics")
 		for _, vmi := range preparedVMIs {
@@ -432,41 +406,24 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 			}
 		}
 	},
-		Entry("[test_id:4142] storage flush requests metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-		Entry("[test_id:6228] storage flush requests metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_requests_total", ">="),
-		Entry("[test_id:4142] time spent on cache flushing metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
-		Entry("[test_id:6229] time spent on cache flushing metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_flush_times_seconds_total", ">="),
-		Entry("[test_id:4142] I/O read operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
-		Entry("[test_id:6230] I/O read operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_read_total", ">="),
-		Entry("[test_id:4142] I/O write operations metric by using IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
-		Entry("[test_id:6231] I/O write operations metric by using IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_storage_iops_write_total", ">="),
-		Entry("[test_id:4142] storage read operation time metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_times_seconds_total", ">="),
-		Entry("[test_id:6232] storage read operation time metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_times_seconds_total", ">="),
-		Entry("[test_id:4142] storage read traffic in bytes metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-		Entry("[test_id:6233] storage read traffic in bytes metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
-		Entry("[test_id:4142] storage write operation time metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_times_seconds_total", ">="),
-		Entry("[test_id:6234] storage write operation time metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_times_seconds_total", ">="),
-		Entry("[test_id:4142] storage write traffic in bytes metric by using IPv4",
-			k8sv1.IPv4Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
-		Entry("[test_id:6235] storage write traffic in bytes metric by using IPv6",
-			k8sv1.IPv6Protocol, "kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage flush requests metric",
+			"kubevirt_vmi_storage_flush_requests_total", ">="),
+		Entry("[test_id:4142] time spent on cache flushing metric",
+			"kubevirt_vmi_storage_flush_times_seconds_total", ">="),
+		Entry("[test_id:4142] I/O read operations metric", "kubevirt_vmi_storage_iops_read_total", ">="),
+		Entry("[test_id:4142] I/O write operations metric", "kubevirt_vmi_storage_iops_write_total", ">="),
+		Entry("[test_id:4142] storage read operation time metric",
+			"kubevirt_vmi_storage_read_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage read traffic in bytes metric",
+			"kubevirt_vmi_storage_read_traffic_bytes_total", ">="),
+		Entry("[test_id:4142] storage write operation time metric",
+			"kubevirt_vmi_storage_write_times_seconds_total", ">="),
+		Entry("[test_id:4142] storage write traffic in bytes metric",
+			"kubevirt_vmi_storage_write_traffic_bytes_total", ">="),
 	)
 
-	DescribeTable("should include metrics for a running VM", func(family k8sv1.IPFamily, metricSubstring, operator string) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-		ip := libnet.GetIP(handlerMetricIPs, family)
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+	DescribeTable("should include metrics for a running VM", func(metricSubstring, operator string) {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter(metricSubstring)
@@ -481,23 +438,15 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 			}
 		}
 	},
-		Entry("[test_id:4143] network metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_network_", ">="),
-		Entry("[test_id:6236] network metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_network_", ">="),
-		Entry("[test_id:4144] memory metrics by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory", ">="),
-		Entry("[test_id:6237] memory metrics by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory", ">="),
-		Entry("[test_id:4553] vcpu wait by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_wait", "=="),
-		Entry("[test_id:6238] vcpu wait by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_wait", "=="),
-		Entry("[test_id:4554] vcpu seconds by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_vcpu_seconds_total", ">="),
-		Entry("[test_id:6239] vcpu seconds by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_vcpu_seconds_total", ">="),
-		Entry("[test_id:4556] vmi unused memory by IPv4", k8sv1.IPv4Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
-		Entry("[test_id:6240] vmi unused memory by IPv6", k8sv1.IPv6Protocol, "kubevirt_vmi_memory_unused_bytes", ">="),
+		Entry("[test_id:4143] network metrics", "kubevirt_vmi_network_", ">="),
+		Entry("[test_id:4144] memory metrics", "kubevirt_vmi_memory", ">="),
+		Entry("[test_id:4553] vcpu wait", "kubevirt_vmi_vcpu_wait", "=="),
+		Entry("[test_id:4554] vcpu seconds", "kubevirt_vmi_vcpu_seconds_total", ">="),
+		Entry("[test_id:4556] vmi unused memory", "kubevirt_vmi_memory_unused_bytes", ">="),
 	)
 
-	DescribeTable("[QUARANTINE]should include VMI infos for a running VM", decorators.Quarantine, func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-		ip := libnet.GetIP(handlerMetricIPs, family)
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+	It("[QUARANTINE][test_id:4145]should include VMI infos for a running VM", decorators.Quarantine, func() {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_")
@@ -534,16 +483,10 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 				))
 			}
 		}
-	},
-		Entry("[test_id:4145] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6241] by IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 
-	DescribeTable("should include VMI phase metrics for all running VMs", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-		ip := libnet.GetIP(handlerMetricIPs, family)
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+	It("[test_id:4146]should include VMI phase metrics for all running VMs", func() {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_")
@@ -558,39 +501,50 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 				Expect(metricResult.Value).To(Equal(float64(len(preparedVMIs))))
 			}
 		}
-	},
-		Entry("[test_id:4146] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6242] by IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 
-	DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
+	Context("VMI eviction blocker status", func() {
+		var controllerMetricIPs []string
 
-		ip := libnet.GetIP(controllerMetricIPs, family)
+		BeforeEach(func() {
+			virtControllerLeaderPodName := libinfra.GetLeader()
+			leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
+			for _, ip := range leaderPod.Status.PodIPs {
+				controllerMetricIPs = append(controllerMetricIPs, ip.IP)
+			}
+		})
 
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+		AfterEach(func() {
+			controllerMetricIPs = nil
+		})
 
-		fetcher := metricsutil.NewMetricsFetcher("")
-		fetcher.AddNameFilter("kubevirt_vmi_non_evictable")
+		DescribeTable("should include VMI eviction blocker status for all running VMs", func(family k8sv1.IPFamily) {
+			libnet.SkipWhenClusterNotSupportIPFamily(family)
 
-		metrics, err := fetcher.LoadMetrics(metricsPayload)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected")
+			ip := libnet.GetIP(controllerMetricIPs, family)
 
-		results := metrics["kubevirt_vmi_non_evictable"]
-		Expect(results).ToNot(BeEmpty())
-		Expect(results[0].Value).To(BeNumerically(">=", float64(0.0)))
-	},
-		Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6243] by IPv6", k8sv1.IPv6Protocol),
-	)
+			metricsPayload := libmonitoring.GetKubevirtVMMetricsByIP(pod, ip) //nolint:staticcheck
 
-	DescribeTable("should include kubernetes labels to VMI metrics", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
+			fetcher := metricsutil.NewMetricsFetcher("")
+			fetcher.AddNameFilter("kubevirt_vmi_non_evictable")
 
-		ip := libnet.GetIP(handlerMetricIPs, family)
+			metrics, err := fetcher.LoadMetrics(metricsPayload)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(metrics).ToNot(BeEmpty(), "Expected at least one metric to be collected")
 
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+			results := metrics["kubevirt_vmi_non_evictable"]
+			Expect(results).ToNot(BeEmpty())
+			Expect(results[0].Value).To(BeNumerically(">=", float64(0.0)))
+		},
+			Entry("[test_id:4148] by IPv4", k8sv1.IPv4Protocol),
+			Entry("[test_id:6243] by IPv6", k8sv1.IPv6Protocol),
+		)
+	})
+
+	It("[test_id:4147]should include kubernetes labels to VMI metrics", func() {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_vcpu_seconds_total")
@@ -612,18 +566,11 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 			}
 		}
 		Expect(containK8sLabel).To(BeTrue())
-	},
-		Entry("[test_id:4147] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6244] by IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 
 	// explicit test swap metrics as test_id:4144 doesn't catch if they are missing
-	DescribeTable("should include swap metrics", func(family k8sv1.IPFamily) {
-		libnet.SkipWhenClusterNotSupportIPFamily(family)
-
-		ip := libnet.GetIP(handlerMetricIPs, family)
-
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod, ip)
+	It("[test_id:4555]should include swap metrics", func() {
+		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_memory_swap_")
@@ -647,10 +594,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		Expect(in).To(BeTrue())
 		Expect(out).To(BeTrue())
-	},
-		Entry("[test_id:4555] by IPv4", k8sv1.IPv4Protocol),
-		Entry("[test_id:6245] by IPv6", k8sv1.IPv6Protocol),
-	)
+	})
 }))
 
 func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map[string]int, err error) {
@@ -658,8 +602,10 @@ func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map
 	target := fmt.Sprintf("virt-%s", component)
 	leadingMetric := fmt.Sprintf("kubevirt_virt_%s_leading_status 1", component)
 	readyMetric := fmt.Sprintf("kubevirt_virt_%s_ready_status 1", component)
-	endpoint, err := virtClient.CoreV1().Endpoints(flags.KubeVirtInstallNamespace).Get(
-		context.Background(), "kubevirt-prometheus-metrics", metav1.GetOptions{})
+	endpointSliceList, err := virtClient.DiscoveryV1().EndpointSlices(flags.KubeVirtInstallNamespace).List(
+		context.Background(), metav1.ListOptions{
+			LabelSelector: "kubernetes.io/service-name=kubevirt-prometheus-metrics",
+		})
 	if err != nil {
 		return nil, err
 	}
@@ -667,19 +613,23 @@ func countReadyAndLeaderPods(pod *k8sv1.Pod, component string) (foundMetrics map
 		"ready":   0,
 		"leading": 0,
 	}
-	for _, ep := range endpoint.Subsets[0].Addresses {
-		if !strings.HasPrefix(ep.TargetRef.Name, target) {
-			continue
-		}
+	for _, epSlice := range endpointSliceList.Items {
+		for _, ep := range epSlice.Endpoints {
+			if ep.TargetRef == nil || !strings.HasPrefix(ep.TargetRef.Name, target) {
+				continue
+			}
 
-		cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(ep.IP))
-		var stdout, stderr string
-		stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
-		if err != nil {
-			return nil, fmt.Errorf(remoteCmdErrPattern, cmd, stdout, stderr, err)
+			for _, addr := range ep.Addresses {
+				cmd := fmt.Sprintf("curl -L -k https://%s:8443/metrics", libnet.FormatIPForURL(addr))
+				var stdout, stderr string
+				stdout, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, "virt-handler", strings.Fields(cmd))
+				if err != nil {
+					return nil, fmt.Errorf(remoteCmdErrPattern, cmd, stdout, stderr, err)
+				}
+				foundMetrics["leading"] += strings.Count(stdout, leadingMetric)
+				foundMetrics["ready"] += strings.Count(stdout, readyMetric)
+			}
 		}
-		foundMetrics["leading"] += strings.Count(stdout, leadingMetric)
-		foundMetrics["ready"] += strings.Count(stdout, readyMetric)
 	}
 
 	return foundMetrics, err

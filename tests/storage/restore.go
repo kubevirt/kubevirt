@@ -9,7 +9,6 @@ import (
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -45,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -223,15 +221,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			err = nil
 		}
 		Expect(err).ToNot(HaveOccurred())
-	}
-
-	deletePVC := func(pvc *corev1.PersistentVolumeClaim) {
-		err := virtClient.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(context.Background(), pvc.Name, metav1.DeleteOptions{})
-		if errors.IsNotFound(err) {
-			err = nil
-		}
-		Expect(err).ToNot(HaveOccurred())
-		pvc = nil
 	}
 
 	getMacAddressCloningPatch := func(sourceVM *v1.VirtualMachine) string {
@@ -770,13 +759,13 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					if device != "" {
 						batch = append(batch, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf("sudo mkfs.ext4 -F %s\n", device)},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: makeTestDirectoryCmd},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: fmt.Sprintf(mountTestDirectoryCmd, device)},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 						}...)
@@ -784,39 +773,39 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 					batch = append(batch, []expect.Batcher{
 						&expect.BSnd{S: makeTestDataDirectoryCmd},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: chmodTestDataDirectoryCmd},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: fmt.Sprintf("echo '%s' > /test/data/message\n", vm.UID)},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: catTestDataMessageCmd},
 						&expect.BExp{R: string(vm.UID)},
 						&expect.BSnd{S: syncName},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: syncName},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 					}...)
 
 					if tpm {
 						batch = append(batch, []expect.Batcher{
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_createprimary -C o -c %s.ctx\n", "/dev/tpm0")},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvdefine -C o -s %d 1\n", len(string(vm.UID))+1)},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvwrite -C o -i /test/data/message 1\n")},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 
@@ -825,9 +814,9 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: syncName},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: syncName},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 						}...)
 					}
 
@@ -846,9 +835,9 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					if !onlineSnapshot && device != "" {
 						batch = append(batch, []expect.Batcher{
 							&expect.BSnd{S: makeTestDirectoryCmd},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: fmt.Sprintf(mountTestDirectoryCmd, device)},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 						}...)
@@ -856,25 +845,25 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 					batch = append(batch, []expect.Batcher{
 						&expect.BSnd{S: makeTestDataDirectoryCmd},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: chmodTestDataDirectoryCmd},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: catTestDataMessageCmd},
 						&expect.BExp{R: string(vm.UID)},
 						&expect.BSnd{S: fmt.Sprintf("echo '%s' > /test/data/message\n", snapshot.UID)},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: catTestDataMessageCmd},
 						&expect.BExp{R: string(snapshot.UID)},
 						&expect.BSnd{S: syncName},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: syncName},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 					}...)
 
 					if tpm {
@@ -884,13 +873,13 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: fmt.Sprintf("sudo tpm2_nvwrite -C o -i /test/data/message 1\n")},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: syncName},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: syncName},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 						}...)
 					}
 
@@ -910,9 +899,9 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					if device != "" {
 						batch = append(batch, []expect.Batcher{
 							&expect.BSnd{S: makeTestDirectoryCmd},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: fmt.Sprintf(mountTestDirectoryCmd, device)},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 						}...)
@@ -920,11 +909,11 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 					batch = append(batch, []expect.Batcher{
 						&expect.BSnd{S: makeTestDataDirectoryCmd},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: chmodTestDataDirectoryCmd},
-						&expect.BExp{R: console.PromptExpression},
+						&expect.BExp{R: ""},
 						&expect.BSnd{S: console.EchoLastReturnValue},
 						&expect.BExp{R: console.RetValue("0")},
 						&expect.BSnd{S: catTestDataMessageCmd},
@@ -940,9 +929,9 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 							&expect.BSnd{S: console.EchoLastReturnValue},
 							&expect.BExp{R: console.RetValue("0")},
 							&expect.BSnd{S: syncName},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 							&expect.BSnd{S: syncName},
-							&expect.BExp{R: console.PromptExpression},
+							&expect.BExp{R: ""},
 						}...)
 					}
 
@@ -1284,7 +1273,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Entry("to a new VM", true),
 			)
 
-			DescribeTable("should restore a vm that boots from a PVC", func(restoreToNewVM bool) {
+			DescribeTable("should restore a vm that boots from a PVC", func(restoreToNewVM, ownedByVM bool) {
 				dv := libdv.NewDataVolume(
 					libdv.WithName("restore-pvc-"+rand.String(12)),
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
@@ -1300,10 +1289,26 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				if checks.IsARM64(testsuite.Arch) {
 					memory = "256Mi"
 				}
-				vmi = libstorage.RenderVMIWithDataVolume(originalPVCName, testsuite.GetTestNamespace(nil),
+				vmi = libstorage.RenderVMIWithPVC(originalPVCName, testsuite.GetTestNamespace(nil),
 					libvmi.WithMemoryRequest(memory), libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()))
 				vm, vmi = createAndStartVM(libvmi.NewVirtualMachine(vmi))
-
+				By("Ensuring the PVC is owned by the VM")
+				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), originalPVCName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				if ownedByVM {
+					pvc.OwnerReferences = []metav1.OwnerReference{
+						{
+							APIVersion: v1.GroupVersion.String(),
+							Kind:       "VirtualMachine",
+							Name:       vm.Name,
+							UID:        vm.UID,
+						},
+					}
+				} else {
+					pvc.OwnerReferences = nil
+				}
+				_, err = virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 				doRestore("", console.LoginToCirros, offlineSnaphot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
@@ -1318,23 +1323,28 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				targetVM, err = virtClient.VirtualMachine(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
-				if !restoreToNewVM {
-					for _, v := range targetVM.Spec.Template.Spec.Volumes {
-						if v.PersistentVolumeClaim != nil {
-							Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
-							pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
-							Expect(err).ToNot(HaveOccurred())
+				for _, v := range targetVM.Spec.Template.Spec.Volumes {
+					if v.PersistentVolumeClaim != nil {
+						Expect(v.PersistentVolumeClaim.ClaimName).ToNot(Equal(originalPVCName))
+						pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), v.PersistentVolumeClaim.ClaimName, metav1.GetOptions{})
+						Expect(err).ToNot(HaveOccurred())
+						if ownedByVM {
+							Expect(pvc.OwnerReferences).ToNot(BeEmpty())
 							Expect(pvc.OwnerReferences[0].APIVersion).To(Equal(v1.GroupVersion.String()))
 							Expect(pvc.OwnerReferences[0].Kind).To(Equal("VirtualMachine"))
-							Expect(pvc.OwnerReferences[0].Name).To(Equal(vm.Name))
-							Expect(pvc.OwnerReferences[0].UID).To(Equal(vm.UID))
-							Expect(pvc.Labels["restore.kubevirt.io/source-vm-name"]).To(Equal(vm.Name))
+							Expect(pvc.OwnerReferences[0].Name).To(Equal(targetVM.Name))
+							Expect(pvc.OwnerReferences[0].UID).To(Equal(targetVM.UID))
+						} else {
+							Expect(pvc.OwnerReferences).To(BeEmpty())
 						}
+						Expect(pvc.Labels["restore.kubevirt.io/source-vm-name"]).To(Equal(vm.Name))
+						Expect(pvc.Annotations).ToNot(HaveKey("restore.kubevirt.io/owned-by-vm"))
 					}
 				}
 			},
-				Entry("[test_id:5262] to the same VM", false),
-				Entry("to a new VM", true),
+				Entry("[test_id:5262] to the same VM", false, true),
+				Entry("to a new VM", true, true),
+				Entry("to a new VM, pvc not owned by VM", true, false),
 			)
 
 			DescribeTable("should restore a vm with containerdisk and blank datavolume", func(restoreToNewVM bool) {
@@ -1642,24 +1652,13 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.Restores).To(HaveLen(1))
 			})
 
-			DescribeTable("should restore vm with hot plug disks", func(restoreToNewVM, withEphemeralHotplug bool) {
-				if withEphemeralHotplug {
-					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
-					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
-				}
-
+			DescribeTable("should restore vm with hot plug disks", func(restoreToNewVM bool) {
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
-
-				var tempVolName string
-				if withEphemeralHotplug {
-					By("Add temporary hotplug disk")
-					tempVolName = AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
-				}
+				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm)
 
 				doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(2))
@@ -1672,20 +1671,15 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(targetVMI.Spec.Volumes).To(HaveLen(2))
 				foundHotPlug := false
-				foundTempHotPlug := false
 				for _, volume := range targetVMI.Spec.Volumes {
 					if volume.Name == persistVolName {
 						foundHotPlug = true
-					} else if volume.Name == tempVolName {
-						foundTempHotPlug = true
 					}
 				}
 				Expect(foundHotPlug).To(BeTrue())
-				Expect(foundTempHotPlug).To(BeFalse())
 			},
-				Entry("[test_id:7425] to the same VM", false, false),
-				Entry("to a new VM", true, false),
-				Entry("to the same VM with ephemeral", Serial, false, false),
+				Entry("[test_id:7425] to the same VM", false),
+				Entry("to a new VM", true),
 			)
 
 			It("should override VM during restore", func() {
@@ -1882,7 +1876,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 
 			It("should restore with volume restore policy InPlace and PVC as disk", func() {
 				pvcName := "standalone-pvc"
-				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass)
+				pvc := libstorage.NewPVC(pvcName, "2Gi", snapshotStorageClass, libstorage.WithStorageProfile())
 				pvc, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), pvc, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
@@ -2005,25 +1999,6 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			})
 
 			Context("with memory dump", func() {
-				var memoryDumpPVC *corev1.PersistentVolumeClaim
-				var memoryDumpPVCName string
-
-				BeforeEach(func() {
-					memoryDumpPVCName = "fs-pvc" + rand.String(5)
-					memoryDumpPVC = libstorage.NewPVC(memoryDumpPVCName, "1.5Gi", snapshotStorageClass)
-					volumeMode := corev1.PersistentVolumeFilesystem
-					memoryDumpPVC.Spec.VolumeMode = &volumeMode
-					var err error
-					memoryDumpPVC, err = virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), memoryDumpPVC, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred())
-				})
-
-				AfterEach(func() {
-					if memoryDumpPVC != nil {
-						deletePVC(memoryDumpPVC)
-					}
-				})
-
 				getMemoryDump := func(vmName, namespace, claimName string) {
 					Eventually(func() error {
 						memoryDumpRequest := &v1.VirtualMachineMemoryDumpRequest{
@@ -2052,6 +2027,8 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 					By("Get VM memory dump")
+					memoryDumpPVCName := "fs-pvc"
+					libstorage.CreateFSPVC(memoryDumpPVCName, testsuite.GetTestNamespace(nil), "1.5Gi", libstorage.WithStorageClass(snapshotStorageClass), libstorage.WithStorageProfile())
 					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
 					waitMemoryDumpCompletion(vm)
 

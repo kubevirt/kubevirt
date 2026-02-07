@@ -21,129 +21,34 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 	v1beta1 "kubevirt.io/api/snapshot/v1beta1"
+	snapshotv1beta1 "kubevirt.io/client-go/kubevirt/typed/snapshot/v1beta1"
 )
 
-// FakeVirtualMachineRestores implements VirtualMachineRestoreInterface
-type FakeVirtualMachineRestores struct {
+// fakeVirtualMachineRestores implements VirtualMachineRestoreInterface
+type fakeVirtualMachineRestores struct {
+	*gentype.FakeClientWithList[*v1beta1.VirtualMachineRestore, *v1beta1.VirtualMachineRestoreList]
 	Fake *FakeSnapshotV1beta1
-	ns   string
 }
 
-var virtualmachinerestoresResource = v1beta1.SchemeGroupVersion.WithResource("virtualmachinerestores")
-
-var virtualmachinerestoresKind = v1beta1.SchemeGroupVersion.WithKind("VirtualMachineRestore")
-
-// Get takes name of the virtualMachineRestore, and returns the corresponding virtualMachineRestore object, and an error if there is any.
-func (c *FakeVirtualMachineRestores) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.VirtualMachineRestore, err error) {
-	emptyResult := &v1beta1.VirtualMachineRestore{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(virtualmachinerestoresResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeVirtualMachineRestores(fake *FakeSnapshotV1beta1, namespace string) snapshotv1beta1.VirtualMachineRestoreInterface {
+	return &fakeVirtualMachineRestores{
+		gentype.NewFakeClientWithList[*v1beta1.VirtualMachineRestore, *v1beta1.VirtualMachineRestoreList](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("virtualmachinerestores"),
+			v1beta1.SchemeGroupVersion.WithKind("VirtualMachineRestore"),
+			func() *v1beta1.VirtualMachineRestore { return &v1beta1.VirtualMachineRestore{} },
+			func() *v1beta1.VirtualMachineRestoreList { return &v1beta1.VirtualMachineRestoreList{} },
+			func(dst, src *v1beta1.VirtualMachineRestoreList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.VirtualMachineRestoreList) []*v1beta1.VirtualMachineRestore {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1beta1.VirtualMachineRestoreList, items []*v1beta1.VirtualMachineRestore) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.VirtualMachineRestore), err
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineRestores that match those selectors.
-func (c *FakeVirtualMachineRestores) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.VirtualMachineRestoreList, err error) {
-	emptyResult := &v1beta1.VirtualMachineRestoreList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(virtualmachinerestoresResource, virtualmachinerestoresKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.VirtualMachineRestoreList{ListMeta: obj.(*v1beta1.VirtualMachineRestoreList).ListMeta}
-	for _, item := range obj.(*v1beta1.VirtualMachineRestoreList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineRestores.
-func (c *FakeVirtualMachineRestores) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(virtualmachinerestoresResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a virtualMachineRestore and creates it.  Returns the server's representation of the virtualMachineRestore, and an error, if there is any.
-func (c *FakeVirtualMachineRestores) Create(ctx context.Context, virtualMachineRestore *v1beta1.VirtualMachineRestore, opts v1.CreateOptions) (result *v1beta1.VirtualMachineRestore, err error) {
-	emptyResult := &v1beta1.VirtualMachineRestore{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(virtualmachinerestoresResource, c.ns, virtualMachineRestore, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VirtualMachineRestore), err
-}
-
-// Update takes the representation of a virtualMachineRestore and updates it. Returns the server's representation of the virtualMachineRestore, and an error, if there is any.
-func (c *FakeVirtualMachineRestores) Update(ctx context.Context, virtualMachineRestore *v1beta1.VirtualMachineRestore, opts v1.UpdateOptions) (result *v1beta1.VirtualMachineRestore, err error) {
-	emptyResult := &v1beta1.VirtualMachineRestore{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(virtualmachinerestoresResource, c.ns, virtualMachineRestore, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VirtualMachineRestore), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualMachineRestores) UpdateStatus(ctx context.Context, virtualMachineRestore *v1beta1.VirtualMachineRestore, opts v1.UpdateOptions) (result *v1beta1.VirtualMachineRestore, err error) {
-	emptyResult := &v1beta1.VirtualMachineRestore{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(virtualmachinerestoresResource, "status", c.ns, virtualMachineRestore, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VirtualMachineRestore), err
-}
-
-// Delete takes name of the virtualMachineRestore and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualMachineRestores) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualmachinerestoresResource, c.ns, name, opts), &v1beta1.VirtualMachineRestore{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualMachineRestores) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(virtualmachinerestoresResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.VirtualMachineRestoreList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched virtualMachineRestore.
-func (c *FakeVirtualMachineRestores) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VirtualMachineRestore, err error) {
-	emptyResult := &v1beta1.VirtualMachineRestore{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(virtualmachinerestoresResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.VirtualMachineRestore), err
 }

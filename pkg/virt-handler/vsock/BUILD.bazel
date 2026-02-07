@@ -11,7 +11,7 @@ go_library(
         "//pkg/vsock/system/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/mdlayher/vsock:go_default_library",
+        "//vendor/google.golang.org/grpc:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/wait:go_default_library",
-        "@org_golang_google_grpc//:go_default_library",
     ],
 )

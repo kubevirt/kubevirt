@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8svalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
@@ -64,7 +65,7 @@ type WorkloadUpdateController struct {
 	queue                 workqueue.TypedRateLimitingInterface[string]
 	vmiStore              cache.Store
 	podIndexer            cache.Indexer
-	migrationStore        cache.Store
+	migrationIndexer      cache.Indexer
 	recorder              record.EventRecorder
 	migrationExpectations *controller.UIDTrackingControllerExpectations
 	kubeVirtStore         cache.Store
@@ -108,7 +109,7 @@ func NewWorkloadUpdateController(
 		),
 		vmiStore:              vmiInformer.GetStore(),
 		podIndexer:            podInformer.GetIndexer(),
-		migrationStore:        migrationInformer.GetStore(),
+		migrationIndexer:      migrationInformer.GetIndexer(),
 		kubeVirtStore:         kubeVirtInformer.GetStore(),
 		recorder:              recorder,
 		clientset:             clientset,
@@ -346,7 +347,7 @@ func (c *WorkloadUpdateController) doesRequireMigration(vmi *virtv1.VirtualMachi
 }
 
 func (c *WorkloadUpdateController) shouldAbortMigration(vmi *virtv1.VirtualMachineInstance) bool {
-	numMig := len(migrationutils.ListWorkloadUpdateMigrations(c.migrationStore, vmi.Name, vmi.Namespace))
+	numMig := len(migrationutils.ListWorkloadUpdateMigrations(c.migrationIndexer, vmi.Name, vmi.Namespace))
 	if metav1.HasAnnotation(vmi.ObjectMeta, virtv1.WorkloadUpdateMigrationAbortionAnnotation) {
 		return numMig > 0
 	}
@@ -367,7 +368,7 @@ func (c *WorkloadUpdateController) getUpdateData(kv *virtv1.KubeVirt) *updateDat
 
 	lookup := make(map[string]bool)
 
-	migrations := migrationutils.ListUnfinishedMigrations(c.migrationStore)
+	migrations := migrationutils.ListUnfinishedMigrations(c.migrationIndexer)
 
 	for _, migration := range migrations {
 		lookup[migration.Namespace+"/"+migration.Spec.VMIName] = true
@@ -560,9 +561,13 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 			if isVolumesUpdateInProgress(vmi) {
 				labels = make(map[string]string)
 				labels[virtv1.VolumesUpdateMigration] = vmi.Name
+				if len(vmi.Name) > k8svalidation.DNS1035LabelMaxLength {
+					// Labels are limited to 63 characters, fall back to UID, remain backwards compatible otherwise
+					labels[virtv1.VolumesUpdateMigration] = string(vmi.UID)
+				}
 			}
 			defer wg.Done()
-			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), &virtv1.VirtualMachineInstanceMigration{
+			wuMigration := &virtv1.VirtualMachineInstanceMigration{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						virtv1.WorkloadUpdateMigrationAnnotation: "",
@@ -573,7 +578,16 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 				Spec: virtv1.VirtualMachineInstanceMigrationSpec{
 					VMIName: vmi.Name,
 				},
-			}, metav1.CreateOptions{})
+			}
+			if c.clusterConfig.MigrationPriorityQueueEnabled() {
+				// default is upgrade
+				priority := v1.PrioritySystemCritical
+				if isHotplugInProgress(vmi) || isVolumesUpdateInProgress(vmi) {
+					priority = v1.PriorityUserTriggered
+				}
+				wuMigration.Spec.Priority = &priority
+			}
+			createdMigration, err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Create(context.Background(), wuMigration, metav1.CreateOptions{})
 			if err != nil {
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to migrate vmi as part of workload update")
 				c.migrationExpectations.CreationObserved(key)
@@ -622,7 +636,7 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 	for _, vmi := range data.abortChangeVMIs {
 		go func(vmi *virtv1.VirtualMachineInstance) {
 			defer wg.Done()
-			migList := migrationutils.ListWorkloadUpdateMigrations(c.migrationStore, vmi.Name, vmi.Namespace)
+			migList := migrationutils.ListWorkloadUpdateMigrations(c.migrationIndexer, vmi.Name, vmi.Namespace)
 			for _, mig := range migList {
 				err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
 				if err != nil && !errors.IsNotFound(err) {

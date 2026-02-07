@@ -59,6 +59,7 @@ var (
 	ErrVolumeDoesntExist  = errors.New("volume doesnt exist")
 	ErrVolumeNotBound     = errors.New("volume not bound")
 	ErrVolumeNotPopulated = errors.New("volume not populated")
+	ErrVolumeBeingDeleted = errors.New("volume is being deleted")
 )
 
 type snapshotSource interface {
@@ -157,7 +158,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	err = s.verifyVolumes(pvcNames.List())
 	if err != nil {
 		switch errors.Unwrap(err) {
-		case ErrVolumeDoesntExist, ErrVolumeNotBound, ErrVolumeNotPopulated:
+		case ErrVolumeDoesntExist, ErrVolumeNotBound, ErrVolumeNotPopulated, ErrVolumeBeingDeleted:
 			s.state.lockMsg += fmt.Sprintf(" source %s/%s %s", s.vm.Namespace, s.vm.Name, err.Error())
 			log.Log.Error(s.state.lockMsg)
 			return false, nil
@@ -259,6 +260,9 @@ func (s *vmSnapshotSource) verifyVolumes(pvcNames []string) error {
 		}
 
 		pvc := obj.(*corev1.PersistentVolumeClaim).DeepCopy()
+		if pvc.DeletionTimestamp != nil {
+			return fmt.Errorf("%w: %s", ErrVolumeBeingDeleted, pvcName)
+		}
 		if pvc.Status.Phase != corev1.ClaimBound {
 			return fmt.Errorf("%w: %s", ErrVolumeNotBound, pvcName)
 		}
@@ -455,7 +459,7 @@ func (s *vmSnapshotSource) Freeze() error {
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
 		formattedErr := fmt.Errorf("%s %s: %v", failedFreezeMsg, s.vm.Name, err)
-		log.Log.Errorf(formattedErr.Error())
+		log.Log.Errorf("%s", formattedErr.Error())
 		return formattedErr
 	}
 	s.state.frozen = true

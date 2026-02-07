@@ -21,6 +21,7 @@ package vmi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -30,8 +31,10 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/trace"
@@ -44,6 +47,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -179,7 +183,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 	if !isTempPod(pod) && controller.IsPodReady(pod) {
 		newAnnotations := map[string]string{descheduler.EvictOnlyAnnotation: ""}
 		maps.Copy(newAnnotations, c.netAnnotationsGenerator.GenerateFromActivePod(vmi, pod))
-		patchedPod, err := c.syncPodAnnotations(pod, newAnnotations)
+		patchedPod, err := controller.SyncPodAnnotations(c.clientset, pod, newAnnotations)
 		if err != nil {
 			return common.NewSyncError(err, controller.FailedPodPatchReason), pod
 		}
@@ -200,7 +204,7 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 		pod = patchedPod
 
-		hotplugVolumes := controller.GetHotplugVolumes(vmi, pod)
+		hotplugVolumes := storagetypes.GetHotplugVolumes(vmi, pod)
 		hotplugAttachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
 		if err != nil {
 			return common.NewSyncError(fmt.Errorf("failed to get attachment pods: %v", err), controller.FailedHotplugSyncReason), pod
@@ -222,6 +226,22 @@ func (c *Controller) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod, da
 		}
 	}
 	return nil, pod
+}
+
+func (c *Controller) getOwnerVM(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {
+	controllerRef := v1.GetControllerOf(vmi)
+	if controllerRef == nil || controllerRef.Kind != virtv1.VirtualMachineGroupVersionKind.Kind {
+		return nil
+	}
+	obj, exists, _ := c.vmStore.GetByKey(controller.NamespacedKey(vmi.Namespace, controllerRef.Name))
+	if !exists {
+		return nil
+	}
+	ownerVM := obj.(*virtv1.VirtualMachine)
+	if controllerRef.UID == ownerVM.UID {
+		return ownerVM.DeepCopy()
+	}
+	return nil
 }
 
 // updateStatus handles the VMI's lifecycle status updates.
@@ -461,8 +481,20 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 		c.syncMigrationRequiredCondition(vmiCopy)
 
+		c.checkEphemeralHotplugVolumes(vmiCopy)
+
 	case vmi.IsScheduled():
 		if !vmiPodExists {
+			if vmiCopy.IsDecentralizedMigration() && vmiCopy.IsMigrationTarget() {
+				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduled because pod does not exist")
+				vmiCopy.Status.Phase = virtv1.WaitingForSync
+				if vmiCopy.Status.MigrationState != nil {
+					vmiCopy.Status.MigrationState.Failed = true
+					vmiCopy.Status.MigrationState.Completed = true
+					vmiCopy.Status.MigrationState.EndTimestamp = pointer.P(metav1.Now())
+				}
+				break
+			}
 			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while scheduled because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
 			break
@@ -487,6 +519,22 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		}
 	default:
 		return fmt.Errorf("unknown vmi phase %v", vmi.Status.Phase)
+	}
+
+	if vmiCopy.IsMarkedForEviction() {
+		if !conditionManager.HasConditionWithStatus(vmiCopy, virtv1.VirtualMachineInstanceEvictionRequested, k8sv1.ConditionTrue) {
+			now := v1.Now()
+			conditionManager.UpdateCondition(vmiCopy, &virtv1.VirtualMachineInstanceCondition{
+				Type:               virtv1.VirtualMachineInstanceEvictionRequested,
+				Status:             k8sv1.ConditionTrue,
+				Reason:             virtv1.VirtualMachineInstanceReasonEvictionRequested,
+				Message:            "VMI is marked for eviction",
+				LastProbeTime:      now,
+				LastTransitionTime: now,
+			})
+		}
+	} else {
+		conditionManager.RemoveCondition(vmiCopy, virtv1.VirtualMachineInstanceEvictionRequested)
 	}
 
 	// VMI is owned by virt-handler, so patch instead of update
@@ -597,6 +645,17 @@ func prepareVMIPatch(oldVMI, newVMI *virtv1.VirtualMachineInstance) *patch.Patch
 		}
 	}
 
+	if !equality.Semantic.DeepEqual(oldVMI.Annotations, newVMI.Annotations) {
+		if oldVMI.Annotations == nil {
+			patchSet.AddOption(patch.WithAdd("/metadata/annotations", newVMI.Annotations))
+		} else {
+			patchSet.AddOption(
+				patch.WithTest("/metadata/annotations", oldVMI.Annotations),
+				patch.WithReplace("/metadata/annotations", newVMI.Annotations),
+			)
+		}
+	}
+
 	// Sort network interfaces by name to ensure that the order does not affect the equality check.
 	// Prior to this an API patch flood would occur - see: https://github.com/kubevirt/kubevirt/issues/14442
 	cmpFunc := func(a, b virtv1.VirtualMachineInstanceNetworkInterface) int {
@@ -657,13 +716,18 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 		}
 	}
 
+	dynamicLabels := []string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel}
+	dynamicLabels = append(dynamicLabels, c.additionalLauncherLabelsSync...)
+	dynamicAnnotations := []string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction}
+	dynamicAnnotations = append(dynamicAnnotations, c.additionalLauncherAnnotationsSync...)
+
 	syncMap(
-		[]string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel},
+		dynamicLabels,
 		vmi.Labels, newPodLabels, pod.ObjectMeta.Labels, "labels",
 	)
 
 	syncMap(
-		[]string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction},
+		dynamicAnnotations,
 		vmi.Annotations, newPodAnnotations, pod.ObjectMeta.Annotations, "annotations",
 	)
 
@@ -685,30 +749,6 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 	}
 
 	return updatedPod, nil
-}
-
-func (c *Controller) syncPodAnnotations(pod *k8sv1.Pod, newAnnotations map[string]string) (*k8sv1.Pod, error) {
-	patchSet := patch.New()
-	for key, newValue := range newAnnotations {
-		if podAnnotationValue, keyExist := pod.Annotations[key]; !keyExist || podAnnotationValue != newValue {
-			patchSet.AddOption(
-				patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(key)), newValue),
-			)
-		}
-	}
-	if patchSet.IsEmpty() {
-		return pod, nil
-	}
-	patchBytes, err := patchSet.GeneratePayload()
-	if err != nil {
-		return pod, fmt.Errorf("failed to generate patch payload: %w", err)
-	}
-	patchedPod, err := c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
-	if err != nil {
-		log.Log.Object(pod).Errorf("failed to sync pod annotations during sync: %v", err)
-		return nil, err
-	}
-	return patchedPod, nil
 }
 
 func (c *Controller) setLauncherContainerInfo(vmi *virtv1.VirtualMachineInstance, curPodImage string) *virtv1.VirtualMachineInstance {
@@ -791,14 +831,14 @@ func (c *Controller) syncReadyConditionFromPod(vmi *virtv1.VirtualMachineInstanc
 	}
 }
 
-func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) error {
+func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance, originalPod *k8sv1.Pod) error {
 	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
 	podConditions := controller.NewPodConditionManager()
-	podCopy := pod.DeepCopy()
+	newPod := originalPod.DeepCopy()
 	now := v1.Now()
 	if vmiConditions.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstancePaused, k8sv1.ConditionTrue) {
-		if podConditions.HasConditionWithStatus(pod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
-			podConditions.UpdateCondition(podCopy, &k8sv1.PodCondition{
+		if podConditions.HasConditionWithStatus(originalPod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
+			podConditions.UpdateCondition(newPod, &k8sv1.PodCondition{
 				Type:               virtv1.VirtualMachineUnpaused,
 				Status:             k8sv1.ConditionFalse,
 				Reason:             "Paused",
@@ -808,8 +848,8 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 			})
 		}
 	} else {
-		if !podConditions.HasConditionWithStatus(pod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
-			podConditions.UpdateCondition(podCopy, &k8sv1.PodCondition{
+		if !podConditions.HasConditionWithStatus(originalPod, virtv1.VirtualMachineUnpaused, k8sv1.ConditionTrue) {
+			podConditions.UpdateCondition(newPod, &k8sv1.PodCondition{
 				Type:               virtv1.VirtualMachineUnpaused,
 				Status:             k8sv1.ConditionTrue,
 				Reason:             "NotPaused",
@@ -819,21 +859,25 @@ func (c *Controller) syncPausedConditionToPod(vmi *virtv1.VirtualMachineInstance
 			})
 		}
 	}
-	patchSet := preparePodPatch(pod, podCopy)
-	if patchSet.IsEmpty() {
+	if podConditions.ConditionsEqual(originalPod, newPod) {
 		return nil
 	}
-	patchBytes, err := patchSet.GeneratePayload()
+	originalBytes, err := json.Marshal(originalPod)
+	if err != nil {
+		return fmt.Errorf("could not serialize original object: %v", err)
+	}
+	modifiedBytes, err := json.Marshal(newPod)
+	patchBytes, err := strategicpatch.CreateTwoWayMergePatch(originalBytes, modifiedBytes, k8sv1.Pod{})
 	if err != nil {
 		return fmt.Errorf("error preparing pod patch: %v", err)
 	}
-	log.Log.V(3).Object(pod).Infof("Patching pod conditions")
-	_, err = c.clientset.CoreV1().Pods(pod.Namespace).Patch(context.TODO(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}, "status")
+	log.Log.V(3).Object(originalPod).Infof("Patching pod conditions")
+	_, err = c.clientset.CoreV1().Pods(originalPod.Namespace).Patch(context.TODO(), originalPod.Name, types.StrategicMergePatchType, patchBytes, v1.PatchOptions{}, "status")
 	// We could not retry if the "test" fails but we have no sane way to detect that right now:
 	// https://github.com/kubernetes/kubernetes/issues/68202 for details
 	// So just retry like with any other errors
 	if err != nil {
-		log.Log.Object(pod).Errorf("Patching of pod conditions failed: %v", err)
+		log.Log.Object(originalPod).Errorf("Patching of pod conditions failed: %v", err)
 		return fmt.Errorf("patching of pod conditions failed: %v", err)
 	}
 	return nil
@@ -849,7 +893,7 @@ func checkForContainerImageError(pod *k8sv1.Pod) common.SyncError {
 		}
 		reason := containerStatus.State.Waiting.Reason
 		if reason == controller.ErrImagePullReason || reason == controller.ImagePullBackOffReason {
-			return common.NewSyncError(fmt.Errorf(containerStatus.State.Waiting.Message), reason)
+			return common.NewSyncError(fmt.Errorf("%s", containerStatus.State.Waiting.Message), reason)
 		}
 	}
 	return nil
@@ -862,7 +906,7 @@ func (c *Controller) deleteAllMatchingPods(vmi *virtv1.VirtualMachineInstance) e
 	}
 	vmiKey := controller.VirtualMachineInstanceKey(vmi)
 	for _, pod := range pods {
-		if pod.DeletionTimestamp != nil && !isPodFinal(pod) || !controller.IsControlledBy(pod, vmi) {
+		if pod.DeletionTimestamp != nil && !isPodFinal(pod) || !v1.IsControlledBy(pod, vmi) {
 			continue
 		}
 		if err = c.deletePod(vmiKey, pod, v1.DeleteOptions{}); err != nil {
@@ -899,7 +943,7 @@ func (c *Controller) setActivePods(vmi *virtv1.VirtualMachineInstance) (*virtv1.
 	activePods := make(map[types.UID]string)
 	count := 0
 	for _, pod := range pods {
-		if !controller.IsControlledBy(pod, vmi) {
+		if !v1.IsControlledBy(pod, vmi) {
 			continue
 		}
 		count++
@@ -918,7 +962,7 @@ func (c *Controller) allPodsDeleted(vmi *virtv1.VirtualMachineInstance) (bool, e
 		return false, err
 	}
 	for _, pod := range pods {
-		if controller.IsControlledBy(pod, vmi) {
+		if v1.IsControlledBy(pod, vmi) {
 			return false, nil
 		}
 	}
@@ -997,10 +1041,10 @@ func (c *Controller) waitForFirstConsumerTemporaryPods(vmi *virtv1.VirtualMachin
 		if !isTempPod(pod) {
 			continue
 		}
-		if controller.IsControlledBy(pod, vmi) {
+		if v1.IsControlledBy(pod, vmi) {
 			temporaryPods = append(temporaryPods, pod)
 		}
-		if ownerRef := controller.GetControllerOf(pod); ownerRef != nil && ownerRef.UID == virtLauncherPod.UID {
+		if v1.IsControlledBy(pod, virtLauncherPod) {
 			temporaryPods = append(temporaryPods, pod)
 		}
 	}
@@ -1089,15 +1133,4 @@ func newMigrationRequiredCondition(status k8sv1.ConditionStatus) *virtv1.Virtual
 		Reason:             reason,
 		Message:            "",
 	}
-}
-
-func preparePodPatch(oldPod, newPod *k8sv1.Pod) *patch.PatchSet {
-	podConditions := controller.NewPodConditionManager()
-	if podConditions.ConditionsEqual(oldPod, newPod) {
-		return patch.New()
-	}
-	return patch.New(
-		patch.WithTest("/status/conditions", oldPod.Status.Conditions),
-		patch.WithReplace("/status/conditions", newPod.Status.Conditions),
-	)
 }

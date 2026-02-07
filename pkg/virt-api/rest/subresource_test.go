@@ -30,7 +30,6 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/emicklei/go-restful/v3"
@@ -136,7 +135,6 @@ var _ = Describe("VirtualMachineInstance Subresources", func() {
 		Expect(err).ToNot(HaveOccurred())
 		app.consoleServerPort = backendPort
 		app.virtCli = virtClient
-		app.credentialsLock = &sync.Mutex{}
 		app.handlerTLSConfiguration = &tls.Config{InsecureSkipVerify: true}
 		app.clusterConfig = config
 		app.handlerHttpClient = &http.Client{

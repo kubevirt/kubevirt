@@ -33,6 +33,7 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 
+	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/find"
 	preferencefind "kubevirt.io/kubevirt/pkg/instancetype/preference/find"
@@ -621,6 +622,77 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(metrics).To(BeEmpty())
 		})
 	})
+
+	Context("VMI Launcher Memory Overhead", func() {
+		It("should collect kubevirt_vmi_launcher_memory_overhead_bytes metric for a VMI", func() {
+			vmi := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-vmi",
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						Resources: k6tv1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("1Gi"),
+							},
+						},
+					},
+				},
+			}
+
+			metric := collectVMILauncherMemoryOverhead(vmi)
+
+			Expect(metric).ToNot(BeNil())
+			Expect(metric.Metric.GetOpts().Name).To(Equal("kubevirt_vmi_launcher_memory_overhead_bytes"))
+			Expect(metric.Labels).To(Equal([]string{"test-ns", "test-vmi"}))
+			Expect(metric.Value).To(BeNumerically(">", 0))
+		})
+
+		It("should calculate different overhead for different VMI configurations", func() {
+			vmi1 := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-vmi-1",
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						Resources: k6tv1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("10Gi"),
+							},
+						},
+					},
+				},
+			}
+
+			vmi2 := &k6tv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "test-ns",
+					Name:      "test-vmi-2",
+				},
+				Spec: k6tv1.VirtualMachineInstanceSpec{
+					Domain: k6tv1.DomainSpec{
+						Resources: k6tv1.ResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceMemory: resource.MustParse("100Gi"),
+							},
+						},
+					},
+				},
+			}
+
+			metric1 := collectVMILauncherMemoryOverhead(vmi1)
+			metric2 := collectVMILauncherMemoryOverhead(vmi2)
+
+			Expect(metric1.Metric.GetOpts().Name).To(Equal("kubevirt_vmi_launcher_memory_overhead_bytes"))
+			Expect(metric1.Value).To(BeNumerically(">", 0))
+			Expect(metric2.Metric.GetOpts().Name).To(Equal("kubevirt_vmi_launcher_memory_overhead_bytes"))
+			Expect(metric2.Value).To(BeNumerically(">", 0))
+
+			Expect(metric1.Value).To(BeNumerically("<", metric2.Value))
+		})
+	})
 })
 
 func interfacesFor(values [][]string) []k6tv1.VirtualMachineInstanceNetworkInterface {
@@ -734,7 +806,7 @@ func setupTestCollector() {
 	})
 
 	// VMI Migration informer
-	vmiMigrationInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstanceMigration{})
+	vmiMigrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&k6tv1.VirtualMachineInstanceMigration{}, virtcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
 	indexers.VMIMigration = vmiMigrationInformer.GetIndexer()
 
 	_ = indexers.VMIMigration.Add(&k6tv1.VirtualMachineInstanceMigration{

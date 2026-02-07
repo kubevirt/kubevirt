@@ -43,6 +43,11 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const (
+	vmiReadyTimeoutPasst      = 180
+	vmiReadyTimeoutManagedTap = 30
+)
+
 var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
 	Context("with CNI and Sidecar", func() {
 		const passtNetAttDefName = "netbindingpasst"
@@ -52,7 +57,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			passtSidecarImage := libregistry.GetUtilityImageFromRegistry("network-passt-binding")
 
 			err := config.RegisterKubevirtConfigChange(
-				config.WithNetBindingPlugin(passtBindingName, v1.InterfaceBindingPlugin{
+				config.WithNetBindingPluginIfNotPresent(passtBindingName, v1.InterfaceBindingPlugin{
 					SidecarImage:                passtSidecarImage,
 					NetworkAttachmentDefinition: passtNetAttDefName,
 				}),
@@ -86,7 +91,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				vmi,
 				console.LoginToAlpine,
 				libwait.WithFailOnWarnings(false),
-				libwait.WithTimeout(180),
+				libwait.WithTimeout(vmiReadyTimeoutPasst),
 			)
 
 			Expect(vmi.Status.Interfaces).To(HaveLen(1))
@@ -111,7 +116,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 		BeforeEach(func() {
 			err := config.RegisterKubevirtConfigChange(
-				config.WithNetBindingPlugin(macvtapBindingName, v1.InterfaceBindingPlugin{
+				config.WithNetBindingPluginIfNotPresent(macvtapBindingName, v1.InterfaceBindingPlugin{
 					DomainAttachmentType: v1.Tap,
 				}),
 			)
@@ -135,7 +140,9 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 					*libvmi.InterfaceWithMac(&macvtapIface, chosenMAC)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, macvtapNetworkName)))
 
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			namespace := testsuite.GetTestNamespace(nil)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+				context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(
 				vmi,
@@ -154,7 +161,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 
 		BeforeEach(func() {
 			err := config.RegisterKubevirtConfigChange(
-				config.WithNetBindingPlugin(bindingName, v1.InterfaceBindingPlugin{
+				config.WithNetBindingPluginIfNotPresent(bindingName, v1.InterfaceBindingPlugin{
 					DomainAttachmentType: v1.ManagedTap,
 				}),
 			)
@@ -172,9 +179,11 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			namespace := testsuite.GetTestNamespace(nil)
+			vmi, err := kubevirt.Client().VirtualMachineInstance(namespace).Create(
+				context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine, libwait.WithTimeout(30))
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine, libwait.WithTimeout(vmiReadyTimeoutManagedTap))
 
 			Expect(vmi.Status.Interfaces).To(HaveLen(1))
 			Expect(vmi.Status.Interfaces[0].Name).To(Equal(primaryIface.Name))

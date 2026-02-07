@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -64,7 +65,6 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/flags"
-	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
@@ -92,9 +92,10 @@ const (
 
 	certificates = "certificates"
 
-	pvcNotFoundReason = "PVCNotFound"
-	podReadyReason    = "PodReady"
-	inUseReason       = "InUse"
+	pvcNotFoundReason         = "PVCNotFound"
+	podReadyReason            = "PodReady"
+	inUseReason               = "InUse"
+	volumesNotPopulatedReason = "VolumesNotPopulated"
 
 	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
 
@@ -572,8 +573,22 @@ var _ = Describe(SIG("Export", func() {
 		}
 		By(fmt.Sprintf("Downloading from URL: %s", downloadUrl))
 		Eventually(ThisPod(downloadPod), 30*time.Second, 1*time.Second).Should(HaveConditionTrue(k8sv1.PodReady))
-		out, stderr, err := exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
-		Expect(err).ToNot(HaveOccurred(), "out: %s stderr: %s", out, stderr)
+		var out, stderr string
+		// Eventual consistency will bail us out in the unlikely event that the proxy certs rotate mid test
+		// And take some time to reload in the download pod
+		var regenOnce sync.Once
+		Eventually(func() error {
+			out, stderr, err = exec.ExecuteCommandOnPodWithResults(downloadPod, downloadPod.Spec.Containers[0].Name, command)
+			if err != nil {
+				regenOnce.Do(func() {
+					By("Regenerating the CA bundle so download pod will pick up the new certs")
+					caBundleGenerator("export-cacerts", targetPvc.Namespace, export)
+				})
+			}
+			return err
+		}, 5*time.Minute, 1*time.Second).Should(Succeed(), func() string {
+			return fmt.Sprintf("download command should succeed; out: %s stderr: %s\n", out, stderr)
+		})
 
 		verifyFunction(fileName, comparison, downloadPod, volumeMode)
 	},
@@ -590,6 +605,48 @@ var _ = Describe(SIG("Export", func() {
 		Entry("with archive tarred gzipped content type PROXY", populateArchiveContent, verifyArchiveGzContent, libstorage.GetRWOFileSystemStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.ArchiveGz, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeFilesystem),
 		Entry("with RAW kubevirt content type block PROXY", decorators.RequiresBlockStorage, populateKubeVirtContent, verifyKubeVirtRawContent, libstorage.GetRWOBlockStorageClass, createCaConfigMapProxy, urlGeneratorProxy, exportv1.KubeVirtRaw, kubevirtcontentUrlTemplate, k8sv1.PersistentVolumeBlock),
 	)
+
+	It("should make sure PVC export is Ready when source pod is Completed", func() {
+		sc, exists := libstorage.GetRWOFileSystemStorageClass()
+		if !exists {
+			Fail("Fail test when right storage is not present")
+		}
+		By("Creating source DV with a pod that retain after completion")
+		dv := libdv.NewDataVolume(
+			libdv.WithAnnotation("cdi.kubevirt.io/storage.pod.retainAfterCompletion", "true"),
+			libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskCirros), cdiv1.RegistryPullNode),
+			libdv.WithStorage(libdv.StorageWithStorageClass(sc), libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem)),
+			libdv.WithForceBindAnnotation(),
+		)
+
+		dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating the export token, we can export volumes using this token")
+		// For testing the token is the name of the source pvc.
+		token := createExportTokenSecret(dv.Name, dv.Namespace)
+
+		vmExport := &exportv1.VirtualMachineExport{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("test-export-%s", rand.String(12)),
+				Namespace: dv.Namespace,
+			},
+			Spec: exportv1.VirtualMachineExportSpec{
+				TokenSecretRef: &token.Name,
+				Source: k8sv1.TypedLocalObjectReference{
+					APIGroup: &k8sv1.SchemeGroupVersion.Group,
+					Kind:     "PersistentVolumeClaim",
+					Name:     dv.Name,
+				},
+			},
+		}
+		By("Creating VMExport we can start exporting the volume")
+		export, err := virtClient.VirtualMachineExport(dv.Namespace).Create(context.Background(), vmExport, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		export = waitForReadyExport(export)
+		Expect(export).ToNot(BeNil())
+		checkExportSecretRef(export)
+	})
 
 	verifyArchiveContainsDirectories := func(archivePath string, expectedDirs []string, pod *k8sv1.Pod) {
 		command := append([]string{"/usr/bin/tar", "-xvzf", archivePath, "-C", "./data"}, expectedDirs...)
@@ -920,7 +977,7 @@ var _ = Describe(SIG("Export", func() {
 			Type:    exportv1.ConditionPVC,
 			Status:  k8sv1.ConditionFalse,
 			Reason:  pvcNotFoundReason,
-			Message: fmt.Sprintf("pvc %s/%s not found", testsuite.GetTestNamespace(nil), name),
+			Message: fmt.Sprintf("PersistentVolumeClaim %s/%s not found", testsuite.GetTestNamespace(nil), name),
 		})
 
 		Eventually(func() []exportv1.Condition {
@@ -1179,7 +1236,7 @@ var _ = Describe(SIG("Export", func() {
 		})
 	})
 
-	Context("Route", func() {
+	Context("Route", decorators.OpenShift, func() {
 		getExportRoute := func() *routev1.Route {
 			route, err := virtClient.RouteClient().Routes(flags.KubeVirtInstallNamespace).Get(context.Background(), components.VirtExportProxyServiceName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
@@ -1190,9 +1247,6 @@ var _ = Describe(SIG("Export", func() {
 			sc, exists := libstorage.GetRWOFileSystemStorageClass()
 			if !exists {
 				Fail("Fail test when Filesystem storage is not present")
-			}
-			if !checks.IsOpenShift() {
-				Skip("Not on openshift")
 			}
 			vmExport := createRunningPVCExport(sc, k8sv1.PersistentVolumeFilesystem)
 			checkExportSecretRef(vmExport)
@@ -1495,7 +1549,7 @@ var _ = Describe(SIG("Export", func() {
 			Type:    exportv1.ConditionReady,
 			Status:  k8sv1.ConditionFalse,
 			Reason:  inUseReason,
-			Message: fmt.Sprintf("pvc %s/%s is in use", namespace, name),
+			Message: fmt.Sprintf("PersistentVolumeClaim %s/%s is in use", namespace, name),
 		})
 	}
 
@@ -1503,7 +1557,7 @@ var _ = Describe(SIG("Export", func() {
 		return MatchConditionIgnoreTimeStamp(exportv1.Condition{
 			Type:    exportv1.ConditionReady,
 			Status:  k8sv1.ConditionFalse,
-			Reason:  inUseReason,
+			Reason:  volumesNotPopulatedReason,
 			Message: fmt.Sprintf("Not all volumes in the Virtual Machine %s/%s are populated", namespace, name),
 		})
 	}

@@ -21,6 +21,7 @@ go_test(
         "masquerade_suite_test.go",
         "masquerade_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/network/driver/nft:go_default_library",

@@ -13,12 +13,10 @@ go_library(
         "prepared.go",
         "proxy.go",
         "server.go",
-        "tls_handshake.go",
-        "tls_handshake_116.go",
         "util.go",
-        "x_net_proxy.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/gorilla/websocket",
     importpath = "github.com/gorilla/websocket",
     visibility = ["//visibility:public"],
+    deps = ["//vendor/golang.org/x/net/proxy:go_default_library"],
 )

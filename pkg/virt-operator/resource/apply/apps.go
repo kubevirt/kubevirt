@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
@@ -64,7 +65,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 	} else if deployment.Name == components.VirtAPIName && !replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtAPIName) {
 		replicas, err := getDesiredApiReplicas(r.clientset)
 		if err != nil {
-			log.Log.Object(deployment).Warningf(err.Error())
+			log.Log.Object(deployment).Warningf("%s", err.Error())
 		} else {
 			deployment.Spec.Replicas = pointer.P(replicas)
 		}
@@ -193,6 +194,15 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 	var status CanaryUpgradeStatus
 	done := false
 
+	if hasTLS(cachedDaemonSet) && !hasTLS(newDS) {
+		insertTLS(newDS)
+	}
+	if !hasCertificateSecret(&cachedDaemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName) &&
+		hasCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName) {
+		unattachCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName)
+	}
+	log := log.Log.With("resource", fmt.Sprintf("ds/%s", cachedDaemonSet.Name))
+
 	isDaemonSetUpdated := util.DaemonSetIsUpToDate(r.kv, cachedDaemonSet) && !forceUpdate
 	desiredReadyPods := cachedDaemonSet.Status.DesiredNumberScheduled
 	if isDaemonSetUpdated {
@@ -208,6 +218,7 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			if err != nil {
 				return false, fmt.Errorf("unable to start canary upgrade for daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
 			}
+			log.V(2).Infof("daemonSet %v started upgrade", newDS.GetName())
 		} else {
 			// check for a crashed canary pod
 			canaryPods := r.getCanaryPods(cachedDaemonSet)
@@ -228,26 +239,101 @@ func (r *Reconciler) processCanaryUpgrade(cachedDaemonSet, newDS *appsv1.DaemonS
 			if err != nil {
 				return false, fmt.Errorf("unable to update daemonset %+v: %v", newDS, err), CanaryUpgradeStatusFailed
 			}
-			log.Log.V(2).Infof("daemonSet %v updated", newDS.GetName())
+			log.V(2).Infof("daemonSet %v updated", newDS.GetName())
 			status = CanaryUpgradeStatusUpgradingDaemonSet
 		} else {
-			log.Log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
+			log.V(4).Infof("waiting for all pods of daemonSet %v to be ready", newDS.GetName())
 			status = CanaryUpgradeStatusWaitingDaemonSetRollout
 		}
 		done = false
 	case updatedAndReadyPods > 0 && updatedAndReadyPods == desiredReadyPods:
+
 		// rollout has completed and all virt-handlers are ready
-		// revert maxUnavailable to default value
-		setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
-		newDS, err := r.patchDaemonSet(cachedDaemonSet, newDS)
-		if err != nil {
-			return false, err, CanaryUpgradeStatusFailed
+		if !daemonHasDefaultRolloutStrategy(cachedDaemonSet) {
+			// revert maxUnavailable to default value
+			setMaxUnavailable(newDS, daemonSetDefaultMaxUnavailable)
+			var err error
+			newDS, err = r.patchDaemonSet(cachedDaemonSet, newDS)
+			if err != nil {
+				return false, err, CanaryUpgradeStatusFailed
+			}
+			log.V(2).Infof("daemonSet %v updated back to default", newDS.GetName())
+			SetGeneration(&r.kv.Status.Generations, newDS)
+			return false, nil, CanaryUpgradeStatusWaitingDaemonSetRollout
 		}
-		SetGeneration(&r.kv.Status.Generations, newDS)
-		log.Log.V(2).Infof("daemonSet %v is ready", newDS.GetName())
+
+		if supportsTLS(cachedDaemonSet) {
+			if !hasTLS(cachedDaemonSet) {
+				insertTLS(newDS)
+				_, err := r.patchDaemonSet(cachedDaemonSet, newDS)
+				log.V(2).Infof("daemonSet %v updated to default CN TLS", newDS.GetName())
+				SetGeneration(&r.kv.Status.Generations, newDS)
+				return false, err, CanaryUpgradeStatusWaitingDaemonSetRollout
+			}
+			if hasCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName) {
+				unattachCertificateSecret(&newDS.Spec.Template.Spec, components.VirtHandlerCertSecretName)
+				var err error
+				cachedDaemonSet, err = r.patchDaemonSet(cachedDaemonSet, newDS)
+				if err != nil {
+					return false, err, CanaryUpgradeStatusFailed
+				}
+				log.V(2).Infof("daemonSet %v updated to secure certificates", newDS.GetName())
+			}
+		}
+
+		SetGeneration(&r.kv.Status.Generations, cachedDaemonSet)
+		log.V(2).Infof("daemonSet %v is ready", newDS.GetName())
 		done, status = true, CanaryUpgradeStatusSuccessful
 	}
 	return done, nil, status
+}
+
+func supportsTLS(daemonSet *appsv1.DaemonSet) bool {
+	if daemonSet.Labels == nil {
+		return false
+	}
+	value, ok := daemonSet.Labels[components.SupportsMigrationCNsValidation]
+	return ok && value == "true"
+}
+
+func insertTLS(daemonSet *appsv1.DaemonSet) {
+	daemonSet.Spec.Template.Spec.Containers[0].Args = append(daemonSet.Spec.Template.Spec.Containers[0].Args, "--migration-cn-types", "migration")
+}
+
+func hasTLS(daemonSet *appsv1.DaemonSet) bool {
+	container := &daemonSet.Spec.Template.Spec.Containers[0]
+	for _, arg := range container.Args {
+		if strings.Contains(arg, "migration-cn-types") {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCertificateSecret(spec *corev1.PodSpec, secretName string) bool {
+	for _, volume := range spec.Volumes {
+		if volume.Name == secretName {
+			return true
+		}
+	}
+	return false
+}
+
+func unattachCertificateSecret(spec *corev1.PodSpec, secretName string) {
+	newVolumes := []corev1.Volume{}
+	for _, volume := range spec.Volumes {
+		if volume.Name != secretName {
+			newVolumes = append(newVolumes, volume)
+		}
+	}
+	spec.Volumes = newVolumes
+	newVolumeMounts := []corev1.VolumeMount{}
+	for _, volumeMount := range spec.Containers[0].VolumeMounts {
+		if volumeMount.Name != secretName {
+			newVolumeMounts = append(newVolumeMounts, volumeMount)
+		}
+	}
+	spec.Containers[0].VolumeMounts = newVolumeMounts
 }
 
 func getMaxUnavailable(daemonSet *appsv1.DaemonSet) int {
@@ -283,6 +369,11 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 
 	if !exists {
 		r.expectations.DaemonSet.RaiseExpectations(r.kvKey, 1, 0)
+		if supportsTLS(daemonSet) && !hasTLS(daemonSet) {
+			insertTLS(daemonSet)
+			unattachCertificateSecret(&daemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName)
+		}
+
 		daemonSet, err := apps.DaemonSets(kv.Namespace).Create(context.Background(), daemonSet, metav1.CreateOptions{})
 		if err != nil {
 			r.expectations.DaemonSet.LowerExpectations(r.kvKey, 1, 0)
@@ -391,7 +482,9 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 }
 
 func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, err error) {
-	nodeList, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{})
+	nodeList, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", v1.NodeSchedulable, "true"),
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to get number of nodes to determine virt-api replicas: %v", err)
 	}
@@ -423,13 +516,13 @@ func replicasAlreadyPatched(patches []v1.CustomizeComponentsPatch, deploymentNam
 		}
 		decodedPatch, err := jsonpatch.DecodePatch([]byte(patch.Patch))
 		if err != nil {
-			log.Log.Warningf(err.Error())
+			log.Log.Warningf("%s", err.Error())
 			continue
 		}
 		for _, operation := range decodedPatch {
 			path, err := operation.Path()
 			if err != nil {
-				log.Log.Warningf(err.Error())
+				log.Log.Warningf("%s", err.Error())
 				continue
 			}
 			op := operation.Kind()

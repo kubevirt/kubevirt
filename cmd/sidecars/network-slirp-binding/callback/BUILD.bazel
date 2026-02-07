@@ -14,6 +14,7 @@ go_test(
         "callback_suite_test.go",
         "callback_test.go",
     ],
+    race = "on",
     deps = [
         ":go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",

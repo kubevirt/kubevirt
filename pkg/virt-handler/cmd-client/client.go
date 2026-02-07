@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/json"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -110,6 +111,9 @@ type LauncherClient interface {
 	InjectLaunchSecret(*v1.VirtualMachineInstance, *v1.SEVSecretOptions) error
 	SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	GetDomainDirtyRateStats() (dirtyRateMbps int64, err error)
+	GetScreenshot(*v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error)
+	VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *backupv1.BackupOptions) error
+	RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error)
 }
 
 type VirtLauncherClient struct {
@@ -677,6 +681,24 @@ func (c *VirtLauncherClient) GuestPing(domainName string, timeoutSeconds int32) 
 	return err
 }
 
+func (c *VirtLauncherClient) GetScreenshot(vmi *v1.VirtualMachineInstance) (*cmdv1.ScreenshotResponse, error) {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return nil, err
+	}
+
+	request := &cmdv1.VMIRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
+	defer cancel()
+
+	return c.v1client.GetScreenshot(ctx, request)
+}
+
 func (c *VirtLauncherClient) GetSEVInfo() (*v1.SEVPlatformInfo, error) {
 	request := &cmdv1.EmptyRequest{}
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
@@ -753,4 +775,62 @@ func (c *VirtLauncherClient) InjectLaunchSecret(vmi *v1.VirtualMachineInstance, 
 
 func (c *VirtLauncherClient) SyncVirtualMachineMemory(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error {
 	return c.genericSendVMICmd("SyncVirtualMachineMemory", c.v1client.SyncVirtualMachineMemory, vmi, options)
+}
+
+func (c *VirtLauncherClient) VirtualMachineBackup(vmi *v1.VirtualMachineInstance, options *backupv1.BackupOptions) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	optionsJson, err := json.Marshal(options)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.BackupRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Options: optionsJson,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.BackupVirtualMachine(ctx, request)
+
+	err = handleError(err, "Backup", response)
+	return err
+}
+
+func (c *VirtLauncherClient) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return false, err
+	}
+
+	checkpointJson, err := json.Marshal(checkpoint)
+	if err != nil {
+		return false, err
+	}
+
+	request := &cmdv1.RedefineCheckpointRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		Checkpoint: checkpointJson,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.RedefineCheckpoint(ctx, request)
+	if err != nil {
+		return false, fmt.Errorf("RedefineCheckpoint call failed: %v", err)
+	}
+
+	if response.Response != nil && !response.Response.Success {
+		return response.CheckpointInvalid, fmt.Errorf("RedefineCheckpoint failed: %s", response.Response.Message)
+	}
+
+	return false, nil
 }

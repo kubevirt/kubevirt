@@ -19,16 +19,34 @@
 package alerts
 
 import (
+	"fmt"
+
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 )
 
-var (
-	fiftyMB = resource.MustParse("50Mi")
+// excludedFilesystemTypesRegex contains filesystem types that should be ignored by space-usage alerts.
+// Rationale:
+// - Read-only image filesystems often appear 100% used and are not actionable for capacity (iso9660/CDFS, udf, squashfs, cramfs).
+// - Pseudo/kernel/ephemeral filesystems are not meaningful indicators of guest disk pressure (e.g., tmpfs, proc, sysfs, cgroup*, overlay, fuse.*).
+// Keep this list aligned with common node_exporter exclusions to minimize noise in alerts.
+const excludedFilesystemTypesRegex = "CDFS|iso9660|udf|squashfs|cramfs|tmpfs|devtmpfs|proc|sysfs|selinuxfs|securityfs|pstore|debugfs|tracefs|configfs|binfmt_misc|bpf|devpts|mqueue|nsfs|rpc_pipefs|ramfs|rootfs|overlay|cgroup.*|fuse\\\\..*|fusectl"
 
+var (
 	vmsAlerts = []promv1.Rule{
+		{
+			Alert: "VirtLauncherPodsStuckFailed",
+			Expr:  intstr.FromString("sum(kube_pod_status_phase{phase='Failed', pod=~'virt-launcher-.*'}) >= 200"),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				"summary": "At least 200 virt-launcher pods are stuck in Failed state and not deleted for 10 minutes.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "critical",
+			},
+		},
 		{
 			Alert: "OrphanedVirtualMachineInstances",
 			Expr:  intstr.FromString("(((max by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} * on(pod) group_left(node) max by(pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) or (count by (node)( kube_pod_info{pod=~'virt-launcher.*',node!=''})*0)) == 0"),
@@ -125,6 +143,69 @@ var (
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "GuestFilesystemAlmostOutOfSpace",
+			Expr:  intstr.FromString(fmt.Sprintf("(kubevirt_vmi_filesystem_used_bytes{file_system_type!~'%s',mount_point!='System Reserved'} / kubevirt_vmi_filesystem_capacity_bytes{file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 85 < 95", excludedFilesystemTypesRegex, excludedFilesystemTypesRegex)),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				"summary":     "Guest filesystem is running out of space",
+				"description": "VirtualMachineInstance {{ $labels.name }} in namespace {{ $labels.namespace }} has filesystem {{ $labels.disk_name }} ({{ $labels.mount_point }}) usage above 85% (current: {{ $value }}%).",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "KubeVirtVMGuestMemoryPressure",
+			Expr:  intstr.FromString("(((vmi:kubevirt_vmi_memory_headroom_ratio:sum < 0.05) and (vmi:kubevirt_vmi_pgmajfaults:rate5m > 5 or (vmi:kubevirt_vmi_swap_traffic_bytes:rate5m > 1048576)) and (vmi:kubevirt_vmi_memory_available_bytes:sum > 0)) * on(name, namespace) group_left(vm) label_replace(label_replace(kubevirt_vmi_info{phase='running'}, 'vm', '$1', 'name', '(.+)'), 'name', '$1', 'vmi_pod', '(.+)'))"),
+			For:   ptr.To(promv1.Duration("5m")),
+			Annotations: map[string]string{
+				"description": "VirtualMachine {{ $labels.vm }} in namespace {{ $labels.namespace }} is under memory pressure: low usable memory with elevated major faults and/or swap IO.",
+				"summary":     "The VirtualMachine is under memory pressure (possible thrashing)",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "GuestFilesystemAlmostOutOfSpace",
+			Expr:  intstr.FromString(fmt.Sprintf("(kubevirt_vmi_filesystem_used_bytes{file_system_type!~'%s',mount_point!='System Reserved'} / kubevirt_vmi_filesystem_capacity_bytes{file_system_type!~'%s',mount_point!='System Reserved'})*100 >= 95", excludedFilesystemTypesRegex, excludedFilesystemTypesRegex)),
+			Annotations: map[string]string{
+				"summary":     "Guest filesystem is critically low on space",
+				"description": "VirtualMachineInstance {{ $labels.name }} in namespace {{ $labels.namespace }} has filesystem {{ $labels.disk_name }} ({{ $labels.mount_point }}) usage above 95% (current: {{ $value }}%).",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "VirtualMachineInstanceHasEphemeralHotplugVolume",
+			Expr:  intstr.FromString("kubevirt_vmi_contains_ephemeral_hotplug_volume == 1"),
+			Annotations: map[string]string{
+				"summary":     "Virtual Machine Instance has Ephemeral Hotplug Volume(s). Ephemeral Hotplugs are deprecated and must be converted to persistent volumes! In a future release, feature gate `DeclarativeHotplugVolumes` will replace `HotplugVolumes` and as a result, any remaining ephemeral hotplug volumes will be automatically unplugged",
+				"description": "Virtual Machine Instance {{ $labels.name }} in namespace {{ $labels.namespace }} has ephemeral hotplug volume(s) {{ $labels.volume_name }}.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "none",
+			},
+		},
+		{
+			Alert: "KubeVirtVMGuestMemoryAvailableLow",
+			Expr:  intstr.FromString("(((vmi:kubevirt_vmi_memory_headroom_ratio:sum < 0.03) and (vmi:kubevirt_vmi_swap_traffic_bytes:rate30m < 2048) and (vmi:kubevirt_vmi_pgmajfaults:rate30m < 1) and (vmi:kubevirt_vmi_memory_available_bytes:sum > 0)) * on(name, namespace) group_left(vm) label_replace(label_replace(kubevirt_vmi_info{phase='running'}, 'vm', '$1', 'name', '(.+)'), 'name', '$1', 'vmi_pod', '(.+)'))"),
+			For:   ptr.To(promv1.Duration("30m")),
+			Annotations: map[string]string{
+				"description": "VirtualMachine {{ $labels.vm }} in namespace {{ $labels.namespace }} has very low available memory (<3% headroom) for 30 minutes with no meaningful swap IO (likely no swap).",
+				"summary":     "The VirtualMachine has low available memory without swap",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "info",
 				operatorHealthImpactLabelKey: "none",
 			},
 		},

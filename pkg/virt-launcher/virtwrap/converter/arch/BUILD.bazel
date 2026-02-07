@@ -11,11 +11,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/pointer:go_default_library",
-        "//pkg/util:go_default_library",
-        "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
-        "//pkg/virt-launcher/virtwrap/launchsecurity:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
     ],
@@ -28,7 +24,10 @@ go_test(
         "converter_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
+        "//pkg/libvmi:go_default_library",
+        "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

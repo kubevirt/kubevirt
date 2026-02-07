@@ -191,7 +191,13 @@
             "enabled": true
           },
           "tlbflush": {
-            "enabled": true
+            "enabled": true,
+            "direct": {
+              "enabled": true
+            },
+            "extended": {
+              "enabled": true
+            }
           },
           "ipi": {
             "enabled": true
@@ -240,14 +246,16 @@
             "blockSize": {
               "custom": {
                 "logical": 18446744073709551609,
-                "physical": 18446744073709551608
+                "physical": 18446744073709551608,
+                "discardGranularity": 18446744073709551598
               },
               "matchVolume": {
                 "enabled": true
               }
             },
             "shareable": true,
-            "errorPolicy": "errorPolicyValue"
+            "errorPolicy": "errorPolicyValue",
+            "changedBlockTracking": true
           }
         ],
         "watchdog": {
@@ -387,7 +395,9 @@
           "attestation": {},
           "session": "sessionValue",
           "dhCert": "dhCertValue"
-        }
+        },
+        "snp": {},
+        "tdx": {}
       }
     },
     "nodeSelector": {
@@ -893,6 +903,14 @@
         "resourceClaimName": "resourceClaimNameValue",
         "resourceClaimTemplateName": "resourceClaimTemplateNameValue"
       }
+    ],
+    "utilityVolumes": [
+      {
+        "name": "nameValue",
+        "claimName": "claimNameValue",
+        "readOnly": true,
+        "type": "typeValue"
+      }
     ]
   },
   "status": {
@@ -970,6 +988,7 @@
         "bandwidthPerMigration": "0",
         "completionTimeoutPerGiB": -23,
         "progressTimeout": -15,
+        "utilityVolumesTimeout": -21,
         "unsafeMigrationOverride": true,
         "allowPostCopy": true,
         "allowWorkloadDisruption": true,
@@ -1158,6 +1177,23 @@
           }
         }
       ]
+    },
+    "changedBlockTracking": {
+      "state": "stateValue",
+      "backupStatus": {
+        "backupName": "backupNameValue",
+        "startTimestamp": "1986-01-01T01:01:01Z",
+        "endTimestamp": "1988-01-01T01:01:01Z",
+        "completed": true,
+        "backupMsg": "backupMsgValue",
+        "checkpointName": "checkpointNameValue",
+        "volumes": [
+          {
+            "volumeName": "volumeNameValue",
+            "diskTarget": "diskTargetValue"
+          }
+        ]
+      }
     }
   }
 }

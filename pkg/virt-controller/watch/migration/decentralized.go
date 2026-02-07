@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -147,5 +148,25 @@ func (c *Controller) updateVMIMigrationSourceWithPodInfo(migration *v1.VirtualMa
 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("failed to set migration SourceState in VMI status. :%v", err))
 		return err
 	}
+	return nil
+}
+
+func (c *Controller) handlePostHandoffMigrationCancel(migration *v1.VirtualMachineInstanceMigration, vmi *v1.VirtualMachineInstance) error {
+	if !vmi.IsDecentralizedMigration() {
+		// Do not delete the pod if it is not a decentralized migration
+		return nil
+	}
+	pod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
+	if err != nil {
+		return err
+	}
+	c.podExpectations.ExpectDeletions(controller.MigrationKey(migration), []string{controller.PodKey(pod)})
+	if err := c.clientset.CoreV1().Pods(vmi.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{}); err != nil {
+		c.podExpectations.DeletionObserved(controller.MigrationKey(migration), controller.PodKey(pod))
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Error deleting canceled migration target pod: %v", err)
+		return err
+	}
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, "Deleted canceled target pod %s for migration %s", pod.Name, migration.Name)
+	log.Log.Object(vmi).Infof("Deleted canceled target pod %s for migration %s", pod.Name, migration.Name)
 	return nil
 }

@@ -21,13 +21,13 @@ Copyright The KubeVirt Authors.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
-	v1alpha1 "kubevirt.io/api/clone/v1alpha1"
+	clonev1alpha1 "kubevirt.io/api/clone/v1alpha1"
 	scheme "kubevirt.io/client-go/kubevirt/scheme"
 )
 
@@ -39,33 +39,34 @@ type VirtualMachineClonesGetter interface {
 
 // VirtualMachineCloneInterface has methods to work with VirtualMachineClone resources.
 type VirtualMachineCloneInterface interface {
-	Create(ctx context.Context, virtualMachineClone *v1alpha1.VirtualMachineClone, opts v1.CreateOptions) (*v1alpha1.VirtualMachineClone, error)
-	Update(ctx context.Context, virtualMachineClone *v1alpha1.VirtualMachineClone, opts v1.UpdateOptions) (*v1alpha1.VirtualMachineClone, error)
+	Create(ctx context.Context, virtualMachineClone *clonev1alpha1.VirtualMachineClone, opts v1.CreateOptions) (*clonev1alpha1.VirtualMachineClone, error)
+	Update(ctx context.Context, virtualMachineClone *clonev1alpha1.VirtualMachineClone, opts v1.UpdateOptions) (*clonev1alpha1.VirtualMachineClone, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, virtualMachineClone *v1alpha1.VirtualMachineClone, opts v1.UpdateOptions) (*v1alpha1.VirtualMachineClone, error)
+	UpdateStatus(ctx context.Context, virtualMachineClone *clonev1alpha1.VirtualMachineClone, opts v1.UpdateOptions) (*clonev1alpha1.VirtualMachineClone, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.VirtualMachineClone, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.VirtualMachineCloneList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*clonev1alpha1.VirtualMachineClone, error)
+	List(ctx context.Context, opts v1.ListOptions) (*clonev1alpha1.VirtualMachineCloneList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.VirtualMachineClone, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *clonev1alpha1.VirtualMachineClone, err error)
 	VirtualMachineCloneExpansion
 }
 
 // virtualMachineClones implements VirtualMachineCloneInterface
 type virtualMachineClones struct {
-	*gentype.ClientWithList[*v1alpha1.VirtualMachineClone, *v1alpha1.VirtualMachineCloneList]
+	*gentype.ClientWithList[*clonev1alpha1.VirtualMachineClone, *clonev1alpha1.VirtualMachineCloneList]
 }
 
 // newVirtualMachineClones returns a VirtualMachineClones
 func newVirtualMachineClones(c *CloneV1alpha1Client, namespace string) *virtualMachineClones {
 	return &virtualMachineClones{
-		gentype.NewClientWithList[*v1alpha1.VirtualMachineClone, *v1alpha1.VirtualMachineCloneList](
+		gentype.NewClientWithList[*clonev1alpha1.VirtualMachineClone, *clonev1alpha1.VirtualMachineCloneList](
 			"virtualmachineclones",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.VirtualMachineClone { return &v1alpha1.VirtualMachineClone{} },
-			func() *v1alpha1.VirtualMachineCloneList { return &v1alpha1.VirtualMachineCloneList{} }),
+			func() *clonev1alpha1.VirtualMachineClone { return &clonev1alpha1.VirtualMachineClone{} },
+			func() *clonev1alpha1.VirtualMachineCloneList { return &clonev1alpha1.VirtualMachineCloneList{} },
+		),
 	}
 }

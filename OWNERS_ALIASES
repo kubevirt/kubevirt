@@ -45,6 +45,7 @@ aliases:
     - enp0s3
     - xpivarc
     - 0xFelix
+    - orelmisan
   sig-test-approvers:
     - akalenyu
     - kbidarkar
@@ -53,6 +54,7 @@ aliases:
     - xpivarc
     - dhiller
     - 0xFelix
+    - orelmisan
   sig-test-emeritus_approvers:
     - AlonaKaplan
 
@@ -119,6 +121,7 @@ aliases:
     - vladikr
     - enp0s3
     - xpivarc
+    - orelmisan
   sig-compute-reviewers:
     - victortoso
     - fossedihelm
@@ -126,6 +129,7 @@ aliases:
     - 0xFelix
     - Barakmor1
     - dasionov
+    - orelmisan
 
   # SIG Compute Instance types sub project
   # Responsible the overall instance type feature set within SIG Compute

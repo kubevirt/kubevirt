@@ -139,6 +139,13 @@ func getHypervFeatureDependencies(field *k8sfield.Path, spec *v1.VirtualMachineI
 		syNICTimer.Enabled = hyperv.SyNICTimer.Enabled
 	}
 
+	var tlbFlushFeatureState *v1.FeatureState
+	if hyperv.TLBFlush != nil {
+		tlbFlushFeatureState = &v1.FeatureState{
+			Enabled: hyperv.TLBFlush.Enabled,
+		}
+	}
+
 	features := []HypervFeature{
 		// keep in REVERSE order: leaves first.
 		{
@@ -152,7 +159,7 @@ func getHypervFeatureDependencies(field *k8sfield.Path, spec *v1.VirtualMachineI
 			Requires: &vpindex,
 		},
 		{
-			State:    &hyperv.TLBFlush,
+			State:    &tlbFlushFeatureState,
 			Field:    hypervField.Child("tlbflush"),
 			Requires: &vpindex,
 		},

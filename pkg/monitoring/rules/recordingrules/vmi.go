@@ -31,7 +31,7 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 			Help: "Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`].",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("sum by (node, phase, os, workload, flavor, instance_type, preference, guest_os_kernel_release, guest_os_machine, guest_os_arch, guest_os_name, guest_os_version_id, vmi_pod) (kubevirt_vmi_info)"),
+		Expr:       intstr.FromString("sum by (node, phase, os, workload, flavor, instance_type, preference, guest_os_kernel_release, guest_os_machine, guest_os_arch, guest_os_name, guest_os_version_id) (kubevirt_vmi_info)"),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -43,7 +43,7 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_vcpu_count",
+			Name: "vmi:kubevirt_vmi_vcpu:count",
 			Help: "The number of the VMI vCPUs.",
 		},
 		MetricType: operatormetrics.GaugeType,
@@ -55,6 +55,62 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 			Help: "Guest queue length.",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("clamp_min(kubevirt_vmi_guest_load_1m - kubevirt_vmi_vcpu_count, 0)"),
+		Expr:       intstr.FromString("clamp_min(kubevirt_vmi_guest_load_1m - vmi:kubevirt_vmi_vcpu:count, 0)"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "vmi:kubevirt_vmi_memory_headroom_ratio:sum",
+			Help: "Usable memory to available memory ratio per VMI (aggregated by name, namespace).",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("sum by (name, namespace) (kubevirt_vmi_memory_usable_bytes) / sum by (name, namespace) (kubevirt_vmi_memory_available_bytes)"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "vmi:kubevirt_vmi_pgmajfaults:rate5m",
+			Help: "Rate of major page faults over 5 minutes per VMI (aggregated by name, namespace).",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("sum by (name, namespace) (rate(kubevirt_vmi_memory_pgmajfault_total[5m]))"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "vmi:kubevirt_vmi_swap_traffic_bytes:rate5m",
+			Help: "Total swap I/O traffic rate over 5 minutes per VMI (swap in + swap out, aggregated by name, namespace).",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_in_traffic_bytes[5m])) + sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_out_traffic_bytes[5m]))"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "vmi:kubevirt_vmi_memory_available_bytes:sum",
+			Help: "Sum of available memory bytes per VMI (aggregated by name, namespace).",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("sum by (name, namespace) (kubevirt_vmi_memory_available_bytes)"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "vmi:kubevirt_vmi_pgmajfaults:rate30m",
+			Help: "Rate of major page faults over 30 minutes per VMI (aggregated by name, namespace).",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("sum by (name, namespace) (rate(kubevirt_vmi_memory_pgmajfault_total[30m]))"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "vmi:kubevirt_vmi_swap_traffic_bytes:rate30m",
+			Help: "Total swap I/O traffic rate over 30 minutes per VMI (swap in + swap out, aggregated by name, namespace).",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_in_traffic_bytes[30m])) + sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_out_traffic_bytes[30m]))"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_migration_data_total_bytes",
+			Help: "[Deprecated] Replaced by kubevirt_vmi_migration_data_bytes_total.",
+		},
+		MetricType: operatormetrics.CounterType,
+		Expr:       intstr.FromString("kubevirt_vmi_migration_data_bytes_total"),
 	},
 }

@@ -33,12 +33,13 @@ function podman_push_manifest() {
     echo ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
     ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
     for ARCH in ${BUILD_ARCH//,/ }; do
-        FORMATED_ARCH=$(format_archname ${ARCH})
-        if [ ! -f ${DIGESTS_DIR}/${FORMATED_ARCH}/bazel-bin/push-$image.digest ]; then
-            continue
+        FORMATTED_ARCH=$(format_archname ${ARCH} tag)
+        TAGGED_IMAGE="${DOCKER_PREFIX}/${image}:${DOCKER_TAG}-${FORMATTED_ARCH}"
+        if skopeo inspect docker://${TAGGED_IMAGE} &>/dev/null; then
+            ${KUBEVIRT_CRI} manifest add ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${TAGGED_IMAGE}
+        else
+            echo "Warning: Image ${TAGGED_IMAGE} does not exist, skipping"
         fi
-        digest=$(cat ${DIGESTS_DIR}/${FORMATED_ARCH}/bazel-bin/push-$image.digest)
-        ${KUBEVIRT_CRI} manifest add ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}@${digest}
     done
     ${KUBEVIRT_CRI} manifest push --all ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${DOCKER_PREFIX}/${image}:${DOCKER_TAG}
 }
@@ -47,12 +48,13 @@ function docker_push_manifest() {
     image=$1
     MANIFEST_IMAGES=""
     for ARCH in ${BUILD_ARCH//,/ }; do
-        FORMATED_ARCH=$(format_archname ${ARCH})
-        if [ ! -f ${DIGESTS_DIR}/${FORMATED_ARCH}/bazel-bin/push-$image.digest ]; then
-            continue
+        FORMATTED_ARCH=$(format_archname ${ARCH} tag)
+        TAGGED_IMAGE="${DOCKER_PREFIX}/${image}:${DOCKER_TAG}-${FORMATTED_ARCH}"
+        if skopeo inspect docker://${TAGGED_IMAGE} &>/dev/null; then
+            MANIFEST_IMAGES="${MANIFEST_IMAGES} --amend ${TAGGED_IMAGE}"
+        else
+            echo "Warning: Image ${TAGGED_IMAGE} does not exist, skipping"
         fi
-        digest=$(cat ${DIGESTS_DIR}/${FORMATED_ARCH}/bazel-bin/push-$image.digest)
-        MANIFEST_IMAGES="${MANIFEST_IMAGES} --amend ${DOCKER_PREFIX}/${image}@${digest}"
     done
     echo ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${MANIFEST_IMAGES}
     ${KUBEVIRT_CRI} manifest create ${DOCKER_PREFIX}/${image}:${DOCKER_TAG} ${MANIFEST_IMAGES}
@@ -60,7 +62,7 @@ function docker_push_manifest() {
 }
 
 export DOCKER_CLI_EXPERIMENTAL=enabled
-for image in $(find ${DIGESTS_DIR}/*/bazel-bin/ -name '*.digest' -printf '%f\n' | sed s/^push-//g | sed s/\.digest$//g | sort -u); do
+for image in $(find ${DIGESTS_DIR} -name '*.image' -printf '%f\n' | sed s/\.image$//g | sort -u); do
     if [ "${KUBEVIRT_CRI}" = "podman" ]; then
         podman_push_manifest $image
     else

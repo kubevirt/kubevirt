@@ -21,9 +21,9 @@ Copyright The KubeVirt Authors.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
+	volumesnapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v4/apis/volumesnapshot/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -39,33 +39,36 @@ type VolumeSnapshotContentsGetter interface {
 
 // VolumeSnapshotContentInterface has methods to work with VolumeSnapshotContent resources.
 type VolumeSnapshotContentInterface interface {
-	Create(ctx context.Context, volumeSnapshotContent *v1.VolumeSnapshotContent, opts metav1.CreateOptions) (*v1.VolumeSnapshotContent, error)
-	Update(ctx context.Context, volumeSnapshotContent *v1.VolumeSnapshotContent, opts metav1.UpdateOptions) (*v1.VolumeSnapshotContent, error)
+	Create(ctx context.Context, volumeSnapshotContent *volumesnapshotv1.VolumeSnapshotContent, opts metav1.CreateOptions) (*volumesnapshotv1.VolumeSnapshotContent, error)
+	Update(ctx context.Context, volumeSnapshotContent *volumesnapshotv1.VolumeSnapshotContent, opts metav1.UpdateOptions) (*volumesnapshotv1.VolumeSnapshotContent, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, volumeSnapshotContent *v1.VolumeSnapshotContent, opts metav1.UpdateOptions) (*v1.VolumeSnapshotContent, error)
+	UpdateStatus(ctx context.Context, volumeSnapshotContent *volumesnapshotv1.VolumeSnapshotContent, opts metav1.UpdateOptions) (*volumesnapshotv1.VolumeSnapshotContent, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.VolumeSnapshotContent, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.VolumeSnapshotContentList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*volumesnapshotv1.VolumeSnapshotContent, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*volumesnapshotv1.VolumeSnapshotContentList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.VolumeSnapshotContent, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *volumesnapshotv1.VolumeSnapshotContent, err error)
 	VolumeSnapshotContentExpansion
 }
 
 // volumeSnapshotContents implements VolumeSnapshotContentInterface
 type volumeSnapshotContents struct {
-	*gentype.ClientWithList[*v1.VolumeSnapshotContent, *v1.VolumeSnapshotContentList]
+	*gentype.ClientWithList[*volumesnapshotv1.VolumeSnapshotContent, *volumesnapshotv1.VolumeSnapshotContentList]
 }
 
 // newVolumeSnapshotContents returns a VolumeSnapshotContents
 func newVolumeSnapshotContents(c *SnapshotV1Client) *volumeSnapshotContents {
 	return &volumeSnapshotContents{
-		gentype.NewClientWithList[*v1.VolumeSnapshotContent, *v1.VolumeSnapshotContentList](
+		gentype.NewClientWithList[*volumesnapshotv1.VolumeSnapshotContent, *volumesnapshotv1.VolumeSnapshotContentList](
 			"volumesnapshotcontents",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			"",
-			func() *v1.VolumeSnapshotContent { return &v1.VolumeSnapshotContent{} },
-			func() *v1.VolumeSnapshotContentList { return &v1.VolumeSnapshotContentList{} }),
+			func() *volumesnapshotv1.VolumeSnapshotContent { return &volumesnapshotv1.VolumeSnapshotContent{} },
+			func() *volumesnapshotv1.VolumeSnapshotContentList {
+				return &volumesnapshotv1.VolumeSnapshotContentList{}
+			},
+		),
 	}
 }

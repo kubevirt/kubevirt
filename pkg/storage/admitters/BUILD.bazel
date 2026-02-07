@@ -4,6 +4,7 @@ go_test(
     name = "go_default_test",
     srcs = [
         "admit_suite_test.go",
+        "backup_test.go",
         "disks_test.go",
         "storagehotplug_test.go",
         "vm-storage-admitter_test.go",
@@ -12,6 +13,7 @@ go_test(
         "vmsnapshot_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/apimachinery/patch:go_default_library",
         "//pkg/pointer:go_default_library",
@@ -20,6 +22,7 @@ go_test(
         "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
+        "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/export/v1beta1:go_default_library",
         "//staging/src/kubevirt.io/api/snapshot/v1beta1:go_default_library",
@@ -40,6 +43,7 @@ go_test(
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/validation/field:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
+        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
     ],
 )
@@ -47,6 +51,7 @@ go_test(
 go_library(
     name = "go_default_library",
     srcs = [
+        "backup.go",
         "data-volume-template.go",
         "disks.go",
         "storagehotplug.go",
@@ -60,9 +65,11 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/storage/backend-storage:go_default_library",
+        "//pkg/storage/cbt:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/webhooks:go_default_library",
         "//pkg/virt-config:go_default_library",
+        "//staging/src/kubevirt.io/api/backup/v1alpha1:go_default_library",
         "//staging/src/kubevirt.io/api/core:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/export/v1beta1:go_default_library",

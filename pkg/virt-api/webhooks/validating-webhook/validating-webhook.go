@@ -74,8 +74,8 @@ func ServeVMIPreset(resp http.ResponseWriter, req *http.Request) {
 	validating_webhooks.Serve(resp, req, &admitters.VMIPresetAdmitter{})
 }
 
-func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient) {
-	validating_webhooks.Serve(resp, req, admitters.NewMigrationCreateAdmitter(virtCli.GeneratedKubeVirtClient(), clusterConfig))
+func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, kubeVirtServiceAccounts map[string]struct{}) {
+	validating_webhooks.Serve(resp, req, admitters.NewMigrationCreateAdmitter(virtCli.GeneratedKubeVirtClient(), clusterConfig, kubeVirtServiceAccounts))
 }
 
 func ServeMigrationUpdate(resp http.ResponseWriter, req *http.Request) {
@@ -88,6 +88,14 @@ func ServeVMSnapshots(resp http.ResponseWriter, req *http.Request, clusterConfig
 
 func ServeVMRestores(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
 	validating_webhooks.Serve(resp, req, storageadmitters.NewVMRestoreAdmitter(clusterConfig, virtCli, informers.VMRestoreInformer))
+}
+
+func ServeVMBackups(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, virtCli kubecli.KubevirtClient, informers *webhooks.Informers) {
+	validating_webhooks.Serve(resp, req, storageadmitters.NewVMBackupAdmitter(clusterConfig, virtCli, informers.VMBackupInformer))
+}
+
+func ServeVMBackupTrackers(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {
+	validating_webhooks.Serve(resp, req, storageadmitters.NewVMBackupTrackerAdmitter(clusterConfig))
 }
 
 func ServeVMExports(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig) {

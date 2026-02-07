@@ -153,7 +153,6 @@ var _ = Describe("Domain informer", func() {
 		var informer cache.SharedInformer
 		var stopChan chan struct{}
 		var wg *sync.WaitGroup
-		var ctrl *gomock.Controller
 		var domainManager *virtwrap.MockDomainManager
 		var socketPath string
 
@@ -178,8 +177,12 @@ var _ = Describe("Domain informer", func() {
 			informer = NewSharedInformer(shareDir, 10, nil, nil, time.Duration(resyncPeriod)*time.Second)
 			Expect(err).ToNot(HaveOccurred())
 
-			ctrl = gomock.NewController(GinkgoT())
+			ctrl := gomock.NewController(GinkgoT())
 			domainManager = virtwrap.NewMockDomainManager(ctrl)
+			// mimic pipe
+			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
+			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
+			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 		})
 
 		AfterEach(func() {

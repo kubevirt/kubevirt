@@ -510,6 +510,7 @@ func NewHealthyPodForVirtualMachine(podName string, vmi *v1.VirtualMachineInstan
 				v1.CreatedByLabel: string(vmi.UID),
 				v1.AppLabel:       "virt-launcher",
 			},
+			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(vmi, v1.VirtualMachineInstanceGroupVersionKind)},
 		},
 		Spec: k8sv1.PodSpec{NodeName: vmi.Status.NodeName},
 		Status: k8sv1.PodStatus{

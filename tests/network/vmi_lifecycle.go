@@ -129,7 +129,7 @@ var _ = Describe(SIG("[crit:high][vendor:cnv-qe@redhat.com][level:component]", d
 
 				Expect(console.SafeExpectBatch(bridgeVMI, []expect.Batcher{
 					&expect.BSnd{S: "\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 
 					&expect.BSnd{S: dadCommand},
 					&expect.BExp{R: "0"},

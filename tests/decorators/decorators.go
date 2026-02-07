@@ -21,17 +21,19 @@ var (
 
 	/* HW */
 
-	GPU         = Label("GPU")
-	VGPU        = Label("VGPU")
-	SEV         = Label("SEV")
-	SEVES       = Label("SEVES")
-	SRIOV       = Label("SRIOV")
-	StorageReq  = Label("storage-req")
-	Multus      = Label("Multus")
-	Macvtap     = Label("Macvtap")
-	Invtsc      = Label("Invtsc")
-	KSMRequired = Label("KSM-required")
-	ACPI        = Label("ACPI")
+	GPU             = Label("GPU")
+	VGPU            = Label("VGPU")
+	SEV             = Label("SEV")
+	SEVES           = Label("SEVES")
+	SEVSNP          = Label("SEVSNP")
+	SecureExecution = Label("secure-execution")
+	SRIOV           = Label("SRIOV")
+	StorageReq      = Label("storage-req")
+	Multus          = Label("Multus")
+	Macvtap         = Label("Macvtap")
+	Invtsc          = Label("Invtsc")
+	KSMRequired     = Label("KSM-required")
+	ACPI            = Label("ACPI")
 
 	/* Deployment */
 
@@ -59,6 +61,7 @@ var (
 	NetCustomBindingPlugins              = Label("netCustomBindingPlugins")
 	RequiresTwoSchedulableNodes          = Label("requires-two-schedulable-nodes")
 	RequiresThreeSchedulableNodes        = Label("requires-three-schedulable-nodes")
+	RequiresDedicatedWorkerNodes         = Label("requires-dedicated-worker-nodes")
 	VMLiveUpdateRolloutStrategy          = Label("VMLiveUpdateRolloutStrategy")
 	USB                                  = Label("USB")
 	RequiresTwoWorkerNodesWithCPUManager = Label("requires-two-worker-nodes-with-cpu-manager")
@@ -67,9 +70,13 @@ var (
 	RequiresHugepages2Mi                 = Label("requireHugepages2Mi")
 	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
 	GuestAgentProbes                     = Label("guest-agent-probes")
+	Passt                                = Label("passt")
+	ImageVolume                          = Label("ImageVolume")
 
 	/* Storage classes */
 
+	// RequiresRWXFilesystemStorage requires a storage class with ReadWriteMany Filesystem storage support
+	RequiresRWXFilesystemStorage = Label("rwxfs")
 	// RequiresSnapshotStorageClass requires a storage class with support for snapshots
 	RequiresSnapshotStorageClass = Label("RequiresSnapshotStorageClass")
 	// RequiresWFFCStorageClass requires a storage class with support for WFFC bindingMode
@@ -127,6 +134,9 @@ var (
 	// Currently, in pilot mode, restricted to SIG-Network and virtctl only.
 	OncePerOrderedCleanup = Label("OncePerOrderedCleanup")
 
-	// Swap decorator is used in case a swap is required on a node.
-	Swap = Label("SwapTest")
+	/* Platform */
+
+	// OpenShift decorator is used for tests that can only run on OpenShift clusters
+	// (e.g., tests requiring SecurityContextConstraints, Routes)
+	OpenShift = Label("OpenShift")
 )

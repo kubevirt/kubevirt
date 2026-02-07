@@ -64,7 +64,7 @@ var _ = Describe("Install Strategy", func() {
 	Context("monitoring detection", func() {
 		DescribeTable("should", func(expectedNS string, objects ...runtime.Object) {
 			client := fake.NewSimpleClientset(objects...)
-			ns, err := getMonitorNamespace(client.CoreV1(), config)
+			ns, err := getMonitorNamespace(client.CoreV1(), config.GetPotentialMonitorNamespaces(), config.GetMonitorServiceAccountName())
 			Expect(ns).To(Equal(expectedNS))
 			Expect(err).ToNot(HaveOccurred())
 		},
@@ -294,6 +294,73 @@ var _ = Describe("Install Strategy", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
+
+	Describe("Config json with default value", func() {
+		It("should be parsed", func() {
+			envVarManager := &util.EnvVarManagerMock{}
+
+			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","additionalProperties":{"ImagePullPolicy":"IfNotPresent"}}`
+			envVarManager.Setenv(util.TargetDeploymentConfig, json)
+			parsedConfig, err := getConfigFromEnvWithEnvVarManager(envVarManager)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(parsedConfig.GetPotentialMonitorNamespaces()).To(ConsistOf("openshift-monitoring", "monitoring"))
+			Expect(parsedConfig.GetMonitorServiceAccountName()).To(Equal("prometheus-k8s"))
+		})
+	})
+
+	createConfig := func(registry, version string) *util.KubeVirtDeploymentConfig {
+		return &util.KubeVirtDeploymentConfig{
+			Registry:        registry,
+			KubeVirtVersion: version,
+		}
+	}
+
+	DescribeTable("Parse image", func(image string, config *util.KubeVirtDeploymentConfig) {
+		envVarManager := &util.EnvVarManagerMock{}
+		envVarManager.Setenv(util.OldOperatorImageEnvName, image)
+
+		// Mimic generateInstallStrategyJob
+		// TODO: Refactor
+		envVars := util.NewEnvVarMap(config.GetExtraEnv())
+		for _, envVar := range envVars {
+			envVarManager.Setenv(envVar.Name, envVar.Value)
+		}
+		deploymentConfigJson, err := config.GetJson()
+		Expect(err).ToNot(HaveOccurred())
+		envVarManager.Setenv(util.TargetDeploymentConfig, deploymentConfigJson)
+
+		parsedConfig, err := getConfigFromEnvWithEnvVarManager(envVarManager)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(parsedConfig.GetImageRegistry()).To(Equal(config.GetImageRegistry()), "registry should match")
+		Expect(parsedConfig.GetKubeVirtVersion()).To(Equal(config.GetKubeVirtVersion()), "tag should match")
+	},
+		Entry("without registry", "kubevirt/virt-operator:v123", createConfig("kubevirt", "v123")),
+		Entry("with registry", "reg/kubevirt/virt-operator:v123", createConfig("reg/kubevirt", "v123")),
+		Entry("with registry with port", "reg:1234/kubevirt/virt-operator:latest", createConfig("reg:1234/kubevirt", "latest")),
+		Entry("without tag", "kubevirt/virt-operator", createConfig("kubevirt", "latest")),
+		Entry("with shasum", "kubevirt/virt-operator@sha256:abcdef", createConfig("kubevirt", "latest")),
+	)
+
+	Describe("Config json from env var", func() {
+		It("should be parsed", func() {
+			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","namespace":"kubevirt","registry":"registry:5000/kubevirt","imagePrefix":"somePrefix","kubeVirtVersion":"devel","additionalProperties":{"ImagePullPolicy":"IfNotPresent", "MonitorNamespace":"non-default-monitor-namespace", "MonitorAccount":"non-default-prometheus-k8s"}}`
+			envVarManager := &util.EnvVarManagerMock{}
+			envVarManager.Setenv(util.TargetDeploymentConfig, json)
+
+			parsedConfig, err := getConfigFromEnvWithEnvVarManager(envVarManager)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(parsedConfig.GetDeploymentID()).To(Equal("9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59"))
+			Expect(parsedConfig.GetNamespace()).To(Equal("kubevirt"))
+			Expect(parsedConfig.GetImageRegistry()).To(Equal("registry:5000/kubevirt"))
+			Expect(parsedConfig.GetImagePrefix()).To(Equal("somePrefix"))
+			Expect(parsedConfig.GetKubeVirtVersion()).To(Equal("devel"))
+			Expect(parsedConfig.GetImagePullPolicy()).To(Equal(corev1.PullIfNotPresent))
+			Expect(parsedConfig.GetPotentialMonitorNamespaces()).To(ConsistOf("non-default-monitor-namespace"))
+			Expect(parsedConfig.GetMonitorServiceAccountName()).To(Equal("non-default-prometheus-k8s"))
+		})
+	})
+
 })
 
 func newSA(namespace string, name string) *corev1.ServiceAccount {

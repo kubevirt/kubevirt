@@ -52,8 +52,8 @@ const (
 var (
 	ShellSuccess       = RetValue("0")
 	ShellFail          = RetValue("[1-9].*")
-	ShellSuccessRegexp = regexp.MustCompile(ShellSuccess)
-	ShellFailRegexp    = regexp.MustCompile(ShellFail)
+	ShellSuccessRegexp = regexp.MustCompile(RetValueWithPrompt("0"))
+	ShellFailRegexp    = regexp.MustCompile(RetValueWithPrompt("[1-9].*"))
 )
 
 // ExpectBatch runs the batch from `expected` connecting to the `vmi` console and
@@ -77,7 +77,8 @@ func ExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, time
 
 // SafeExpectBatch runs the batch from `expected`, connecting to a VMI's console and
 // waiting `wait` seconds for the batch to return.
-// It validates that the commands arrive to the console.
+// It validates that the commands arrive to the console and ensures a return to prompt between each send.
+// It should only be used for regular shell purposes, after a successful login.
 // NOTE: This functions heritage limitations from `ExpectBatchWithValidatedSend` refer to it to check them.
 func SafeExpectBatch(vmi *v1.VirtualMachineInstance, expected []expect.Batcher, wait int) error {
 	_, err := SafeExpectBatchWithResponse(vmi, expected, wait)
@@ -160,30 +161,6 @@ func RunCommandAndStoreOutput(vmi *v1.VirtualMachineInstance, command string, ti
 
 func skipInput(scanner *bufio.Scanner) bool {
 	return scanner.Scan()
-}
-
-// SecureBootExpecter should be called on a VMI that has EFI enabled
-// It will parse the kernel output (dmesg) and succeed if it finds that Secure boot is enabled
-// The VMI was just created and may not be running yet. This is because we want to catch early boot logs.
-func SecureBootExpecter(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
-	virtClient := kubevirt.Client()
-	expecter, _, err := NewExpecter(virtClient, vmi, consoleConnectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer expecter.Close()
-
-	b := []expect.Batcher{&expect.BExp{R: "secureboot: Secure boot enabled"}}
-	expectBatchTimeout := 180 * time.Second
-	if len(timeout) > 0 {
-		expectBatchTimeout = timeout[0]
-	}
-	res, err := expecter.ExpectBatch(b, expectBatchTimeout)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Infof("Kernel: %+v", res)
-	}
-
-	return err
 }
 
 // NetBootExpecter should be called on a VMI that has BIOS serial logging enabled
@@ -297,7 +274,7 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 
 			// Remove the \n since it is translated by the console to \r\n.
 			previousSend = strings.TrimSuffix(previousSend, "\n")
-			bExp.R = fmt.Sprintf("%s%s%s", previousSend, "((?s).*)", bExp.R)
+			bExp.R = fmt.Sprintf("%s%s%s%s%s", previousSend, "((?s).*)", bExp.R, "((?s).*)", PromptExpression)
 		case expect.BatchSend:
 			if sendFlag {
 				return nil, fmt.Errorf("two sequential expect.BSend are not allowed")
@@ -316,6 +293,11 @@ func ExpectBatchWithValidatedSend(expecter expect.Expecter, batch []expect.Batch
 	return res, err
 }
 
+func RetValueWithPrompt(retcode string) string {
+	// Allow for escape sequences and different newline types
+	return `[\r\n]` + retcode + CRLF + ".*" + PromptExpression
+}
+
 func RetValue(retcode string) string {
-	return "\n" + retcode + CRLF + ".*" + PromptExpression
+	return `[\r\n]` + retcode + CRLF
 }

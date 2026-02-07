@@ -324,7 +324,9 @@ var _ = Describe("Restore controller", func() {
 				Expect(action).To(BeNil())
 				return true, nil, nil
 			})
-
+			k8sClient.Fake.PrependReactor("get", "persistentvolumeclaims", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+				return true, nil, nil
+			})
 			currentTime = timeFunc
 		})
 
@@ -995,6 +997,80 @@ var _ = Describe("Restore controller", func() {
 
 				controller.processVMRestoreWorkItem()
 				Expect(*createPVCCalls).To(Equal(1)) // New PVC got created in place of the original
+			})
+
+			It("PrefixTargetName policy creates volume name from target VM and volume name", func() {
+				r := createRestoreWithOwner()
+				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName)
+				r.Spec.Target.Name = "my-vm"
+
+				volumeName := "disk1"
+				claimName := "original-pvc"
+
+				expectedName := "my-vm-disk1"
+				actualName := restoreVolumeName(r, volumeName, claimName)
+
+				Expect(actualName).To(Equal(expectedName))
+			})
+
+			It("PrefixTargetName policy handles long names correctly", func() {
+				r := createRestoreWithOwner()
+				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName)
+
+				// Create a name that would exceed DNS1035LabelMaxLength (63 chars)
+				longVMName := "very-long-virtual-machine-name-that-exceeds-limits"
+				longVolumeName := "very-long-volume-name-disk"
+				r.Spec.Target.Name = longVMName
+
+				actualName := restoreVolumeName(r, longVolumeName, "original-pvc")
+
+				// Should be truncated to 63 characters (DNS1035LabelMaxLength)
+				Expect(len(actualName)).To(BeNumerically("<=", 63))
+			})
+
+			It("PrefixTargetName policy respects VolumeRestoreOverride", func() {
+				r := createRestoreWithOwner()
+				r.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName)
+				r.Spec.Target.Name = "my-vm"
+
+				volumeName := "disk1"
+				customName := "custom-override-name"
+
+				r.Spec.VolumeRestoreOverrides = []snapshotv1.VolumeRestoreOverride{
+					{
+						VolumeName:  volumeName,
+						RestoreName: customName,
+					},
+				}
+
+				actualName := restoreVolumeName(r, volumeName, "original-pvc")
+
+				// Override should take precedence
+				Expect(actualName).To(Equal(customName))
+			})
+
+			It("PrefixTargetName policy creates different names for different target VMs", func() {
+				volumeName := "disk1"
+				claimName := "original-pvc"
+
+				// First restore to vm1
+				r1 := createRestoreWithOwner()
+				r1.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName)
+				r1.Spec.Target.Name = "vm1"
+
+				name1 := restoreVolumeName(r1, volumeName, claimName)
+				Expect(name1).To(Equal("vm1-disk1"))
+
+				// Second restore to vm2
+				r2 := createRestoreWithOwner()
+				r2.Spec.VolumeRestorePolicy = pointer.P(snapshotv1.VolumeRestorePolicyPrefixTargetName)
+				r2.Spec.Target.Name = "vm2"
+
+				name2 := restoreVolumeName(r2, volumeName, claimName)
+				Expect(name2).To(Equal("vm2-disk1"))
+
+				// Names should be different
+				Expect(name1).ToNot(Equal(name2))
 			})
 
 			It("can change the name of a destination volume", func() {
@@ -2388,7 +2464,7 @@ func expectVMCreateFailure(client *kubevirtfake.Clientset, failureMsg string) *i
 
 		calls++
 
-		return true, nil, fmt.Errorf(failureMsg)
+		return true, nil, fmt.Errorf("%s", failureMsg)
 	})
 	return &calls
 }
@@ -2596,6 +2672,9 @@ func expectPVCUpdates(client *k8sfake.Clientset, vmRestore *snapshotv1.VirtualMa
 
 		updateObj := update.GetObject().(*corev1.PersistentVolumeClaim)
 		found := false
+		if updateObj.Name == "" {
+			return true, nil, nil
+		}
 		for _, vr := range vmRestore.Status.Restores {
 			if vr.DataVolumeName != nil && *vr.DataVolumeName == updateObj.Annotations["cdi.kubevirt.io/storage.populatedFor"] {
 				found = true

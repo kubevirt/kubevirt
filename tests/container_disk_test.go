@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	k8sversion "k8s.io/apimachinery/pkg/version"
-
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -35,6 +33,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sversion "k8s.io/apimachinery/pkg/version"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -71,7 +70,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:1463] should success multiple times", decorators.Conformance, func() {
 				By("Creating the VirtualMachine")
-				vm := libvmi.NewVirtualMachine(libvmifact.NewCirros())
+				vm := libvmi.NewVirtualMachine(libvmifact.NewAlpine())
 				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.TODO(), vm, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				for range 5 {
@@ -85,7 +84,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 					By("Expecting to be able to login")
 					vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.TODO(), vm.Name, metav1.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(console.LoginToCirros(vmi)).To(Succeed())
+					Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 					By("Stopping the VirtualMachine")
 					err = virtClient.VirtualMachine(vm.Namespace).Stop(context.TODO(), vm.Name, &v1.StopOptions{})
@@ -109,7 +108,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				config.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
 
 				By("Starting the VirtualMachineInstance")
-				vmi := libvmifact.NewCirros()
+				vmi := libvmifact.NewAlpine()
 				_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 				By("Checking that the VMI failed")
@@ -129,6 +128,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting from custom image location", func() {
 		Context("with disk at /custom-disk/downloaded", func() {
+			// Skip on s390x to avoid building and deploying an additional alpine image
 			It("[test_id:1466]should boot normally", func() {
 				By("Starting the VirtualMachineInstance")
 				vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewCirros(overrideCustomLocation), libvmops.StartupTimeoutSecondsSmall)
@@ -154,13 +154,13 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
 					// mount virtio cdrom and check files are there
 					&expect.BSnd{S: "mount -t iso9600 /dev/cdrom\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 					&expect.BSnd{S: "cd /media/cdrom\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "ls virtio-win_license.txt guest-agent\n"},
-					&expect.BExp{R: console.PromptExpression},
+					&expect.BExp{R: ""},
 					&expect.BSnd{S: "echo $?\n"},
 					&expect.BExp{R: console.RetValue("0")},
 				}, 200)).To(Succeed(), "expected virtio files to be mounted properly")
@@ -221,26 +221,27 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, func() {
+	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, decorators.ImageVolume, decorators.NoFlakeCheck, func() {
 		BeforeEach(func() {
 			v, err := getKubernetesVersion()
 			Expect(err).ToNot(HaveOccurred())
 			if v < "1.35" {
-				// Skip the test if the Kubernetes version is lower than 1.33
+				// Fail the test if the Kubernetes version is lower than 1.33
 				// ImageVolume won't work for versions < 1.33 because of this bug:
 				// https://github.com/kubernetes/kubernetes/pull/130394
 				// Additionally there is currently no way to enable k8s ImageVolume FG
 				// through kubevirtci. It is enabled by default since 1.35.
-				Skip("this test requires Kubernetes version >= 1.35")
+				Fail("this test requires Kubernetes version >= 1.35")
 			}
 		})
 
-		DescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when ", func(vmi *v1.VirtualMachineInstance) {
+		DescribeTable("Migration from a source launcher with the bind mount workaround to a target launcher without the bind mount workaround should succeed when", func(vmi *v1.VirtualMachineInstance) {
 			config.DisableFeatureGate(featuregate.ImageVolume)
 			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsSmall)
 			By("Fetching virt-launcher pod without ImageVolume")
 			sourcePod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
-			Expect(sourcePod.Spec.InitContainers).ToNot(BeEmpty(), "without ImageVolume should include container-disk-binary init container to copy the container-disk binary")
+			Expect(sourcePod.Spec.InitContainers).To(ContainElement(HaveField("Name", "container-disk-binary")),
+				"without ImageVolume should include container-disk-binary init container to copy the container-disk binary")
 			config.EnableFeatureGate(featuregate.ImageVolume)
 			By("Starting new migration and waiting for it to succeed")
 			migration := libmigration.New(vmi.Name, vmi.Namespace)
@@ -254,26 +255,27 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			Expect(err).ToNot(HaveOccurred())
 			targetPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(targetPod.Spec.InitContainers).To(BeEmpty(), "with ImageVolume should not include container-disk-binary init container")
+			Expect(targetPod.Spec.InitContainers).ToNot(ContainElement(HaveField("Name", "container-disk-binary")),
+				"with ImageVolume should not include container-disk-binary init container")
 
 			By("Expecting to be able to login")
-			Expect(console.LoginToCirros(vmi)).To(Succeed())
+			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 		},
-			Entry("using simple Cirros vmi",
-				libvmifact.NewCirros(
+			Entry("using simple Alpine vmi",
+				libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				),
 			),
-			Entry("using  Cirros vmi with custom location", decorators.Periodic,
-				libvmifact.NewCirros(
+			Entry("using  Alpine vmi with custom location", decorators.Periodic,
+				libvmifact.NewAlpine(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 					libvmi.WithNetwork(v1.DefaultPodNetwork()),
 					overrideCustomLocation,
 				),
 			),
-			Entry("using  Cirros vmi with kernel boot", decorators.Periodic,
-				newCirrosWithKernelBoot(),
+			Entry("using  Alpine vmi with kernel boot", decorators.Periodic,
+				newAlpineWithKernelBoot(),
 			),
 		)
 	})
@@ -284,8 +286,8 @@ func overrideCustomLocation(vmi *v1.VirtualMachineInstance) {
 	vmi.Spec.Volumes[0].ContainerDisk.Path = "/custom-disk/downloaded"
 }
 
-func newCirrosWithKernelBoot() *v1.VirtualMachineInstance {
-	vmi := libvmifact.NewCirros(
+func newAlpineWithKernelBoot() *v1.VirtualMachineInstance {
+	vmi := libvmifact.NewAlpine(
 		libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)

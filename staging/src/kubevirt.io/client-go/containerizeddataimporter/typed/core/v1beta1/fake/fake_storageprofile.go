@@ -21,120 +21,34 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
+	corev1beta1 "kubevirt.io/client-go/containerizeddataimporter/typed/core/v1beta1"
 	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-// FakeStorageProfiles implements StorageProfileInterface
-type FakeStorageProfiles struct {
+// fakeStorageProfiles implements StorageProfileInterface
+type fakeStorageProfiles struct {
+	*gentype.FakeClientWithList[*v1beta1.StorageProfile, *v1beta1.StorageProfileList]
 	Fake *FakeCdiV1beta1
 }
 
-var storageprofilesResource = v1beta1.SchemeGroupVersion.WithResource("storageprofiles")
-
-var storageprofilesKind = v1beta1.SchemeGroupVersion.WithKind("StorageProfile")
-
-// Get takes name of the storageProfile, and returns the corresponding storageProfile object, and an error if there is any.
-func (c *FakeStorageProfiles) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.StorageProfile, err error) {
-	emptyResult := &v1beta1.StorageProfile{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetActionWithOptions(storageprofilesResource, name, options), emptyResult)
-	if obj == nil {
-		return emptyResult, err
+func newFakeStorageProfiles(fake *FakeCdiV1beta1) corev1beta1.StorageProfileInterface {
+	return &fakeStorageProfiles{
+		gentype.NewFakeClientWithList[*v1beta1.StorageProfile, *v1beta1.StorageProfileList](
+			fake.Fake,
+			"",
+			v1beta1.SchemeGroupVersion.WithResource("storageprofiles"),
+			v1beta1.SchemeGroupVersion.WithKind("StorageProfile"),
+			func() *v1beta1.StorageProfile { return &v1beta1.StorageProfile{} },
+			func() *v1beta1.StorageProfileList { return &v1beta1.StorageProfileList{} },
+			func(dst, src *v1beta1.StorageProfileList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.StorageProfileList) []*v1beta1.StorageProfile {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1beta1.StorageProfileList, items []*v1beta1.StorageProfile) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.StorageProfile), err
-}
-
-// List takes label and field selectors, and returns the list of StorageProfiles that match those selectors.
-func (c *FakeStorageProfiles) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.StorageProfileList, err error) {
-	emptyResult := &v1beta1.StorageProfileList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListActionWithOptions(storageprofilesResource, storageprofilesKind, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.StorageProfileList{ListMeta: obj.(*v1beta1.StorageProfileList).ListMeta}
-	for _, item := range obj.(*v1beta1.StorageProfileList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested storageProfiles.
-func (c *FakeStorageProfiles) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchActionWithOptions(storageprofilesResource, opts))
-}
-
-// Create takes the representation of a storageProfile and creates it.  Returns the server's representation of the storageProfile, and an error, if there is any.
-func (c *FakeStorageProfiles) Create(ctx context.Context, storageProfile *v1beta1.StorageProfile, opts v1.CreateOptions) (result *v1beta1.StorageProfile, err error) {
-	emptyResult := &v1beta1.StorageProfile{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateActionWithOptions(storageprofilesResource, storageProfile, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.StorageProfile), err
-}
-
-// Update takes the representation of a storageProfile and updates it. Returns the server's representation of the storageProfile, and an error, if there is any.
-func (c *FakeStorageProfiles) Update(ctx context.Context, storageProfile *v1beta1.StorageProfile, opts v1.UpdateOptions) (result *v1beta1.StorageProfile, err error) {
-	emptyResult := &v1beta1.StorageProfile{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateActionWithOptions(storageprofilesResource, storageProfile, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.StorageProfile), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeStorageProfiles) UpdateStatus(ctx context.Context, storageProfile *v1beta1.StorageProfile, opts v1.UpdateOptions) (result *v1beta1.StorageProfile, err error) {
-	emptyResult := &v1beta1.StorageProfile{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceActionWithOptions(storageprofilesResource, "status", storageProfile, opts), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.StorageProfile), err
-}
-
-// Delete takes name of the storageProfile and deletes it. Returns an error if one occurs.
-func (c *FakeStorageProfiles) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(storageprofilesResource, name, opts), &v1beta1.StorageProfile{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeStorageProfiles) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionActionWithOptions(storageprofilesResource, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.StorageProfileList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched storageProfile.
-func (c *FakeStorageProfiles) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.StorageProfile, err error) {
-	emptyResult := &v1beta1.StorageProfile{}
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceActionWithOptions(storageprofilesResource, name, pt, data, opts, subresources...), emptyResult)
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.StorageProfile), err
 }

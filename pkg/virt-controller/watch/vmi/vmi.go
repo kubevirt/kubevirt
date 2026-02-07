@@ -70,6 +70,8 @@ func NewController(templateService templateService,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
 	netMigrationEvaluator migrationEvaluator,
+	additionalLauncherAnnotationsSync []string,
+	additionalLauncherLabelsSync []string,
 ) (*Controller, error) {
 
 	c := &Controller{
@@ -78,27 +80,29 @@ func NewController(templateService templateService,
 			workqueue.DefaultTypedControllerRateLimiter[string](),
 			workqueue.TypedRateLimitingQueueConfig[string]{Name: "virt-controller-vmi"},
 		),
-		vmiIndexer:              vmiInformer.GetIndexer(),
-		vmStore:                 vmInformer.GetStore(),
-		podIndexer:              podInformer.GetIndexer(),
-		pvcIndexer:              pvcInformer.GetIndexer(),
-		migrationIndexer:        migrationInformer.GetIndexer(),
-		recorder:                recorder,
-		clientset:               clientset,
-		podExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		vmiExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		pvcExpectations:         controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
-		dataVolumeIndexer:       dataVolumeInformer.GetIndexer(),
-		cdiStore:                cdiInformer.GetStore(),
-		cdiConfigStore:          cdiConfigInformer.GetStore(),
-		clusterConfig:           clusterConfig,
-		topologyHinter:          topologyHinter,
-		cidsMap:                 vsock.NewCIDsMap(),
-		backendStorage:          backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
-		netAnnotationsGenerator: netAnnotationsGenerator,
-		updateNetworkStatus:     netStatusUpdater,
-		validateNetworkSpec:     netSpecValidator,
-		netMigrationEvaluator:   netMigrationEvaluator,
+		vmiIndexer:                        vmiInformer.GetIndexer(),
+		vmStore:                           vmInformer.GetStore(),
+		podIndexer:                        podInformer.GetIndexer(),
+		pvcIndexer:                        pvcInformer.GetIndexer(),
+		migrationIndexer:                  migrationInformer.GetIndexer(),
+		recorder:                          recorder,
+		clientset:                         clientset,
+		podExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		vmiExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		pvcExpectations:                   controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
+		dataVolumeIndexer:                 dataVolumeInformer.GetIndexer(),
+		cdiStore:                          cdiInformer.GetStore(),
+		cdiConfigStore:                    cdiConfigInformer.GetStore(),
+		clusterConfig:                     clusterConfig,
+		topologyHinter:                    topologyHinter,
+		cidsMap:                           vsock.NewCIDsMap(),
+		backendStorage:                    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
+		netAnnotationsGenerator:           netAnnotationsGenerator,
+		updateNetworkStatus:               netStatusUpdater,
+		validateNetworkSpec:               netSpecValidator,
+		netMigrationEvaluator:             netMigrationEvaluator,
+		additionalLauncherAnnotationsSync: additionalLauncherAnnotationsSync,
+		additionalLauncherLabelsSync:      additionalLauncherLabelsSync,
 	}
 
 	c.hasSynced = func() bool {
@@ -137,6 +141,15 @@ func NewController(templateService templateService,
 	_, err = pvcInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addPVC,
 		UpdateFunc: c.updatePVC,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// NOTE: this is temporary to support ephemeral hotplug volume metrics
+	// will be removed once DeclarativeHotplugVolumes feature gate is enabled by default
+	_, err = vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateVM,
 	})
 	if err != nil {
 		return nil, err
@@ -189,30 +202,32 @@ type migrationEvaluator interface {
 }
 
 type Controller struct {
-	templateService         templateService
-	clientset               kubecli.KubevirtClient
-	Queue                   workqueue.TypedRateLimitingInterface[string]
-	vmiIndexer              cache.Indexer
-	vmStore                 cache.Store
-	podIndexer              cache.Indexer
-	pvcIndexer              cache.Indexer
-	migrationIndexer        cache.Indexer
-	topologyHinter          topology.Hinter
-	recorder                record.EventRecorder
-	podExpectations         *controller.UIDTrackingControllerExpectations
-	vmiExpectations         *controller.UIDTrackingControllerExpectations
-	pvcExpectations         *controller.UIDTrackingControllerExpectations
-	dataVolumeIndexer       cache.Indexer
-	cdiStore                cache.Store
-	cdiConfigStore          cache.Store
-	clusterConfig           *virtconfig.ClusterConfig
-	cidsMap                 vsock.Allocator
-	backendStorage          *backendstorage.BackendStorage
-	hasSynced               func() bool
-	netAnnotationsGenerator annotationsGenerator
-	updateNetworkStatus     statusUpdater
-	validateNetworkSpec     specValidator
-	netMigrationEvaluator   migrationEvaluator
+	templateService                   templateService
+	clientset                         kubecli.KubevirtClient
+	Queue                             workqueue.TypedRateLimitingInterface[string]
+	vmiIndexer                        cache.Indexer
+	vmStore                           cache.Store
+	podIndexer                        cache.Indexer
+	pvcIndexer                        cache.Indexer
+	migrationIndexer                  cache.Indexer
+	topologyHinter                    topology.Hinter
+	recorder                          record.EventRecorder
+	podExpectations                   *controller.UIDTrackingControllerExpectations
+	vmiExpectations                   *controller.UIDTrackingControllerExpectations
+	pvcExpectations                   *controller.UIDTrackingControllerExpectations
+	dataVolumeIndexer                 cache.Indexer
+	cdiStore                          cache.Store
+	cdiConfigStore                    cache.Store
+	clusterConfig                     *virtconfig.ClusterConfig
+	cidsMap                           vsock.Allocator
+	backendStorage                    *backendstorage.BackendStorage
+	hasSynced                         func() bool
+	netAnnotationsGenerator           annotationsGenerator
+	updateNetworkStatus               statusUpdater
+	validateNetworkSpec               specValidator
+	netMigrationEvaluator             migrationEvaluator
+	additionalLauncherAnnotationsSync []string
+	additionalLauncherLabelsSync      []string
 }
 
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
@@ -351,7 +366,7 @@ func (c *Controller) addPod(obj interface{}) {
 		return
 	}
 
-	controllerRef := controller.GetControllerOf(pod)
+	controllerRef := v1.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -388,8 +403,8 @@ func (c *Controller) updatePod(old, cur interface{}) {
 		return
 	}
 
-	curControllerRef := controller.GetControllerOf(curPod)
-	oldControllerRef := controller.GetControllerOf(oldPod)
+	curControllerRef := v1.GetControllerOf(curPod)
+	oldControllerRef := v1.GetControllerOf(oldPod)
 	controllerRefChanged := !equality.Semantic.DeepEqual(curControllerRef, oldControllerRef)
 	if controllerRefChanged {
 		// The ControllerRef was changed. Sync the old controller, if any.
@@ -428,7 +443,7 @@ func (c *Controller) onPodDelete(obj interface{}) {
 		}
 	}
 
-	controllerRef := controller.GetControllerOf(pod)
+	controllerRef := v1.GetControllerOf(pod)
 	vmi := c.resolveControllerRef(pod.Namespace, controllerRef)
 	if vmi == nil {
 		return
@@ -506,7 +521,7 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *v1.Ow
 			return nil
 		}
 		pod, _ := obj.(*k8sv1.Pod)
-		controllerRef = controller.GetControllerOf(pod)
+		controllerRef = v1.GetControllerOf(pod)
 	}
 	// We can't look up by UID, so look up by Name and then verify UID.
 	// Don't even try to look up by Name if it is nil or the wrong Kind.

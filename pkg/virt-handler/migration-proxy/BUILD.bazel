@@ -21,6 +21,7 @@ go_test(
         "migration_proxy_suite_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//pkg/certificates:go_default_library",
         "//pkg/ephemeral-disk-utils:go_default_library",

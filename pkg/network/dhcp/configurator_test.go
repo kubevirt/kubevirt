@@ -40,7 +40,6 @@ var _ = Describe("DHCP configurator", func() {
 		advertisingCIDR    = "10.10.10.0/24"
 		bridgeName         = "br0"
 		ifaceName          = "eth0"
-		launcherPID        = "self"
 		fakeDhcpStartedDir = "/tmp/dhcpStartedPath"
 	)
 
@@ -57,7 +56,7 @@ var _ = Describe("DHCP configurator", func() {
 	})
 
 	newBridgeConfigurator := func(advertisingIfaceName string) *configurator {
-		configurator := NewBridgeConfigurator(&cacheCreator, launcherPID, advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())), "", nil, nil, "")
+		configurator := NewBridgeConfigurator(&cacheCreator, advertisingIfaceName, netdriver.NewMockNetworkHandler(gomock.NewController(GinkgoT())), "", nil, nil, "")
 		configurator.dhcpStartedDirectory = fakeDhcpStartedDir
 		return configurator
 	}

@@ -21,14 +21,14 @@ Copyright The KubeVirt Authors.
 package v1beta1
 
 import (
-	"context"
+	context "context"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	gentype "k8s.io/client-go/gentype"
 	scheme "kubevirt.io/client-go/containerizeddataimporter/scheme"
-	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	corev1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 // VolumeCloneSourcesGetter has a method to return a VolumeCloneSourceInterface.
@@ -39,31 +39,32 @@ type VolumeCloneSourcesGetter interface {
 
 // VolumeCloneSourceInterface has methods to work with VolumeCloneSource resources.
 type VolumeCloneSourceInterface interface {
-	Create(ctx context.Context, volumeCloneSource *v1beta1.VolumeCloneSource, opts v1.CreateOptions) (*v1beta1.VolumeCloneSource, error)
-	Update(ctx context.Context, volumeCloneSource *v1beta1.VolumeCloneSource, opts v1.UpdateOptions) (*v1beta1.VolumeCloneSource, error)
+	Create(ctx context.Context, volumeCloneSource *corev1beta1.VolumeCloneSource, opts v1.CreateOptions) (*corev1beta1.VolumeCloneSource, error)
+	Update(ctx context.Context, volumeCloneSource *corev1beta1.VolumeCloneSource, opts v1.UpdateOptions) (*corev1beta1.VolumeCloneSource, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1beta1.VolumeCloneSource, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1beta1.VolumeCloneSourceList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1beta1.VolumeCloneSource, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1beta1.VolumeCloneSourceList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.VolumeCloneSource, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1beta1.VolumeCloneSource, err error)
 	VolumeCloneSourceExpansion
 }
 
 // volumeCloneSources implements VolumeCloneSourceInterface
 type volumeCloneSources struct {
-	*gentype.ClientWithList[*v1beta1.VolumeCloneSource, *v1beta1.VolumeCloneSourceList]
+	*gentype.ClientWithList[*corev1beta1.VolumeCloneSource, *corev1beta1.VolumeCloneSourceList]
 }
 
 // newVolumeCloneSources returns a VolumeCloneSources
 func newVolumeCloneSources(c *CdiV1beta1Client, namespace string) *volumeCloneSources {
 	return &volumeCloneSources{
-		gentype.NewClientWithList[*v1beta1.VolumeCloneSource, *v1beta1.VolumeCloneSourceList](
+		gentype.NewClientWithList[*corev1beta1.VolumeCloneSource, *corev1beta1.VolumeCloneSourceList](
 			"volumeclonesources",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1beta1.VolumeCloneSource { return &v1beta1.VolumeCloneSource{} },
-			func() *v1beta1.VolumeCloneSourceList { return &v1beta1.VolumeCloneSourceList{} }),
+			func() *corev1beta1.VolumeCloneSource { return &corev1beta1.VolumeCloneSource{} },
+			func() *corev1beta1.VolumeCloneSourceList { return &corev1beta1.VolumeCloneSourceList{} },
+		),
 	}
 }

@@ -18,7 +18,7 @@ func main() {
 	pflag.Parse()
 
 	// Hardcoding maxFails to 1 since the purpouse here is just to dump the state once
-	reporter := reporter.NewKubernetesReporter(os.Getenv("ARTIFACTS"), 1)
+	reporter := reporter.NewKubernetesReporter(os.Getenv("ARTIFACTS"), 1, false)
 	reporter.Cleanup()
 	reporter.DumpTestObjects(duration)
 }

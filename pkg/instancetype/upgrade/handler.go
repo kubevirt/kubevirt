@@ -80,10 +80,13 @@ func (u *upgrader) Upgrade(vm *virtv1.VirtualMachine) error {
 		return err
 	}
 
-	if _, err := u.virtClient.VirtualMachine(vm.Namespace).PatchStatus(
-		context.Background(), vm.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{}); err != nil {
+	patchedVM, err := u.virtClient.VirtualMachine(vm.Namespace).PatchStatus(
+		context.Background(), vm.Name, types.JSONPatchType, patchPayload, metav1.PatchOptions{})
+	if err != nil {
 		return err
 	}
+	// Update the local vm ObjectMeta with the response to ensure ResourceVersion and other server-side fields are current
+	vm.ObjectMeta = patchedVM.ObjectMeta
 
 	if newInstancetypeCR != nil {
 		if err := u.virtClient.AppsV1().ControllerRevisions(vm.Namespace).Delete(

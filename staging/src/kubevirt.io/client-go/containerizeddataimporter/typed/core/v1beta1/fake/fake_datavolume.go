@@ -21,129 +21,32 @@ Copyright The KubeVirt Authors.
 package fake
 
 import (
-	"context"
-
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
+	corev1beta1 "kubevirt.io/client-go/containerizeddataimporter/typed/core/v1beta1"
 	v1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
-// FakeDataVolumes implements DataVolumeInterface
-type FakeDataVolumes struct {
+// fakeDataVolumes implements DataVolumeInterface
+type fakeDataVolumes struct {
+	*gentype.FakeClientWithList[*v1beta1.DataVolume, *v1beta1.DataVolumeList]
 	Fake *FakeCdiV1beta1
-	ns   string
 }
 
-var datavolumesResource = v1beta1.SchemeGroupVersion.WithResource("datavolumes")
-
-var datavolumesKind = v1beta1.SchemeGroupVersion.WithKind("DataVolume")
-
-// Get takes name of the dataVolume, and returns the corresponding dataVolume object, and an error if there is any.
-func (c *FakeDataVolumes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1beta1.DataVolume, err error) {
-	emptyResult := &v1beta1.DataVolume{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(datavolumesResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeDataVolumes(fake *FakeCdiV1beta1, namespace string) corev1beta1.DataVolumeInterface {
+	return &fakeDataVolumes{
+		gentype.NewFakeClientWithList[*v1beta1.DataVolume, *v1beta1.DataVolumeList](
+			fake.Fake,
+			namespace,
+			v1beta1.SchemeGroupVersion.WithResource("datavolumes"),
+			v1beta1.SchemeGroupVersion.WithKind("DataVolume"),
+			func() *v1beta1.DataVolume { return &v1beta1.DataVolume{} },
+			func() *v1beta1.DataVolumeList { return &v1beta1.DataVolumeList{} },
+			func(dst, src *v1beta1.DataVolumeList) { dst.ListMeta = src.ListMeta },
+			func(list *v1beta1.DataVolumeList) []*v1beta1.DataVolume { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1beta1.DataVolumeList, items []*v1beta1.DataVolume) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1beta1.DataVolume), err
-}
-
-// List takes label and field selectors, and returns the list of DataVolumes that match those selectors.
-func (c *FakeDataVolumes) List(ctx context.Context, opts v1.ListOptions) (result *v1beta1.DataVolumeList, err error) {
-	emptyResult := &v1beta1.DataVolumeList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(datavolumesResource, datavolumesKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1beta1.DataVolumeList{ListMeta: obj.(*v1beta1.DataVolumeList).ListMeta}
-	for _, item := range obj.(*v1beta1.DataVolumeList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested dataVolumes.
-func (c *FakeDataVolumes) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(datavolumesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a dataVolume and creates it.  Returns the server's representation of the dataVolume, and an error, if there is any.
-func (c *FakeDataVolumes) Create(ctx context.Context, dataVolume *v1beta1.DataVolume, opts v1.CreateOptions) (result *v1beta1.DataVolume, err error) {
-	emptyResult := &v1beta1.DataVolume{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(datavolumesResource, c.ns, dataVolume, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.DataVolume), err
-}
-
-// Update takes the representation of a dataVolume and updates it. Returns the server's representation of the dataVolume, and an error, if there is any.
-func (c *FakeDataVolumes) Update(ctx context.Context, dataVolume *v1beta1.DataVolume, opts v1.UpdateOptions) (result *v1beta1.DataVolume, err error) {
-	emptyResult := &v1beta1.DataVolume{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(datavolumesResource, c.ns, dataVolume, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.DataVolume), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeDataVolumes) UpdateStatus(ctx context.Context, dataVolume *v1beta1.DataVolume, opts v1.UpdateOptions) (result *v1beta1.DataVolume, err error) {
-	emptyResult := &v1beta1.DataVolume{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(datavolumesResource, "status", c.ns, dataVolume, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.DataVolume), err
-}
-
-// Delete takes name of the dataVolume and deletes it. Returns an error if one occurs.
-func (c *FakeDataVolumes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(datavolumesResource, c.ns, name, opts), &v1beta1.DataVolume{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeDataVolumes) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(datavolumesResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1beta1.DataVolumeList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched dataVolume.
-func (c *FakeDataVolumes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1beta1.DataVolume, err error) {
-	emptyResult := &v1beta1.DataVolume{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(datavolumesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1beta1.DataVolume), err
 }

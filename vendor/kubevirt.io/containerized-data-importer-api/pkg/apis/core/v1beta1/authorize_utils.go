@@ -45,11 +45,12 @@ func newCloneSourceHandler(dataVolume *DataVolume, dsGet dsGetFunc) (CloneSource
 		if err != nil {
 			return CloneSourceHandler{}, err
 		}
-		if dataSource.Spec.Source.PVC != nil {
-			pvcSource = dataSource.Spec.Source.PVC
-		} else if dataSource.Spec.Source.Snapshot != nil {
-			snapshotSource = dataSource.Spec.Source.Snapshot
-		}
+		pvcSource = dataSource.Spec.Source.PVC
+		snapshotSource = dataSource.Spec.Source.Snapshot
+		if dataSource.Spec.Source.DataSource != nil {
+			pvcSource = dataSource.Status.Source.PVC
+			snapshotSource = dataSource.Status.Source.Snapshot
+		} 
 	}
 
 	switch {

@@ -725,12 +725,17 @@ type Disk struct {
 	// If specified, it can change the default error policy (stop) for the disk
 	// +optional
 	ErrorPolicy *DiskErrorPolicy `json:"errorPolicy,omitempty"`
+	// ChangedBlockTracking indicates this disk should have CBT option
+	// Defaults to false.
+	// +optional
+	ChangedBlockTracking *bool `json:"changedBlockTracking,omitempty"`
 }
 
 // CustomBlockSize represents the desired logical and physical block size for a VM disk.
 type CustomBlockSize struct {
-	Logical  uint `json:"logical"`
-	Physical uint `json:"physical"`
+	Logical            uint  `json:"logical,omitempty"`
+	Physical           uint  `json:"physical,omitempty"`
+	DiscardGranularity *uint `json:"discardGranularity,omitempty"`
 }
 
 // BlockSize provides the option to change the block size presented to the VM for a disk.
@@ -775,6 +780,11 @@ type DiskTarget struct {
 type LaunchSecurity struct {
 	// AMD Secure Encrypted Virtualization (SEV).
 	SEV *SEV `json:"sev,omitempty"`
+	// AMD SEV-SNP flags defined by the SEV-SNP specifications.
+	// +optional
+	SNP *SEVSNP `json:"snp,omitempty"`
+	// Intel Trust Domain Extensions (TDX).
+	TDX *TDX `json:"tdx,omitempty"`
 }
 
 type SEV struct {
@@ -797,7 +807,13 @@ type SEVPolicy struct {
 	EncryptedState *bool `json:"encryptedState,omitempty"`
 }
 
+type SEVSNP struct {
+}
+
 type SEVAttestation struct {
+}
+
+type TDX struct {
 }
 
 type LunTarget struct {
@@ -979,6 +995,28 @@ type ContainerDiskSource struct {
 	ImagePullPolicy v1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
+type UtilityVolumeType string
+
+const (
+	// MemoryDump represents a utility volume which will be used to collect memory dump
+	MemoryDump UtilityVolumeType = "MemoryDump"
+
+	// Backup represents a utility volume which will be used to collect backup output
+	Backup UtilityVolumeType = "Backup"
+)
+
+type UtilityVolume struct {
+	// UtilityVolume's name.
+	// Must be unique within the vmi, including regular Volumes.
+	Name string `json:"name"`
+	// PersistentVolumeClaimVolumeSource defines the PVC
+	// that is hotplugged to virt-launcher
+	v1.PersistentVolumeClaimVolumeSource `json:",inline"`
+	// Type represents the type of the utility volume.
+	// +optional
+	Type *UtilityVolumeType `json:"type,omitempty"`
+}
+
 // Exactly one of its members must be set.
 type ClockOffset struct {
 	// UTC sets the guest clock to UTC on each boot. If an offset is specified,
@@ -1156,8 +1194,10 @@ type Features struct {
 }
 
 type SyNICTimer struct {
-	Enabled *bool         `json:"enabled,omitempty"`
-	Direct  *FeatureState `json:"direct,omitempty"`
+	FeatureState `json:",inline"`
+
+	// +optional
+	Direct *FeatureState `json:"direct,omitempty"`
 }
 
 // Represents if a feature is enabled or disabled.
@@ -1169,10 +1209,8 @@ type FeatureState struct {
 }
 
 type FeatureAPIC struct {
-	// Enabled determines if the feature should be enabled or disabled on the guest.
-	// Defaults to true.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	FeatureState `json:",inline"`
+
 	// EndOfInterrupt enables the end of interrupt notification in the guest.
 	// Defaults to false.
 	// +optional
@@ -1180,10 +1218,8 @@ type FeatureAPIC struct {
 }
 
 type FeatureSpinlocks struct {
-	// Enabled determines if the feature should be enabled or disabled on the guest.
-	// Defaults to true.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	FeatureState `json:",inline"`
+
 	// Retries indicates the number of retries.
 	// Must be a value greater or equal 4096.
 	// Defaults to 4096.
@@ -1192,13 +1228,23 @@ type FeatureSpinlocks struct {
 }
 
 type FeatureVendorID struct {
-	// Enabled determines if the feature should be enabled or disabled on the guest.
-	// Defaults to true.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
+	FeatureState `json:",inline"`
+
 	// VendorID sets the hypervisor vendor id, visible to the vmi.
 	// String up to twelve characters.
 	VendorID string `json:"vendorid,omitempty"`
+}
+
+type TLBFlush struct {
+	FeatureState `json:",inline"`
+
+	// Direct allows sending the TLB flush command directly to the hypervisor.
+	// It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.
+	// +optional
+	Direct *FeatureState `json:"direct,omitempty"`
+	// Extended allows the guest to execute partial TLB flushes. It can be helpful for general purpose workloads.
+	// +optional
+	Extended *FeatureState `json:"extended,omitempty"`
 }
 
 // Hyperv specific features.
@@ -1249,7 +1295,7 @@ type FeatureHyperv struct {
 	// TLBFlush improves performances in overcommited environments. Requires vpindex.
 	// Defaults to the machine type setting.
 	// +optional
-	TLBFlush *FeatureState `json:"tlbflush,omitempty"`
+	TLBFlush *TLBFlush `json:"tlbflush,omitempty"`
 	// IPI improves performances in overcommited environments. Requires vpindex.
 	// Defaults to the machine type setting.
 	// +optional
