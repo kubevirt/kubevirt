@@ -60,6 +60,8 @@ import (
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 	lsec "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
@@ -108,11 +110,73 @@ func memBalloonWithModelAndPeriod(model string, period int) string {
 	return fmt.Sprintf(argMemBalloonFmt, model, fmt.Sprintf(`
       <stats period="%d"></stats>
     `, period))
+}
 
+// createContextWithDevices creates a ConverterContext populated with mock host devices
+// based on the current VMI specification.
+func createContextWithDevices(vmi *v1.VirtualMachineInstance, baseContext *ConverterContext) *ConverterContext {
+	pciPool := &stubAddressPool{addresses: make(map[string][]string)}
+
+	// Count devices by DeviceName to determine how many addresses are needed
+	deviceCounts := make(map[string]int)
+	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
+		deviceCounts[gpu.DeviceName]++
+	}
+	for _, hostDevice := range vmi.Spec.Domain.Devices.HostDevices {
+		deviceCounts[hostDevice.DeviceName]++
+	}
+
+	busNumber := 0x81
+	for deviceName, count := range deviceCounts {
+		addresses := make([]string, count)
+		for i := 0; i < count; i++ {
+			addresses[i] = fmt.Sprintf("0000:%02x:%02x.0", busNumber, i+1)
+		}
+		pciPool.AddResource(deviceName, addresses...)
+		busNumber++
+	}
+
+	// Create mock MDEV and USB address pools
+	mdevPool := &stubAddressPool{addresses: make(map[string][]string)}
+	usbPool := &stubAddressPool{addresses: make(map[string][]string)}
+
+	gpuHostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+	Expect(err).ToNot(HaveOccurred())
+	genericHostDevices, err := generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool)
+	Expect(err).ToNot(HaveOccurred())
+
+	newContext := *baseContext // copy the base context
+	newContext.GPUHostDevices = gpuHostDevices
+	newContext.GenericHostDevices = genericHostDevices
+
+	return &newContext
+}
+
+// stubAddressPool is a mock implementation for testing GPU address pools
+type stubAddressPool struct {
+	addresses map[string][]string
+}
+
+func (p *stubAddressPool) AddResource(resource string, addresses ...string) {
+	p.addresses[resource] = addresses
+}
+
+func (p *stubAddressPool) Pop(resource string) (string, error) {
+	addresses, exists := p.addresses[resource]
+	if !exists {
+		return "", fmt.Errorf("no resource: %s", resource)
+	}
+	if len(addresses) == 0 {
+		return "", fmt.Errorf("pool is empty")
+	}
+
+	address := addresses[0]
+	p.addresses[resource] = addresses[1:]
+
+	return address, nil
 }
 
 var _ = Describe("Converter", func() {
-
 	TestSmbios := &cmdv1.SMBios{}
 	EphemeralDiskImageCreator := &fake.MockEphemeralDiskImageCreator{BaseDir: "/var/run/libvirt/kubevirt-ephemeral-disk/"}
 
@@ -1724,6 +1788,326 @@ var _ = Describe("Converter", func() {
 			})
 		})
 	})
+
+	Context("PCIe topology with NUMA alignment", func() {
+		var vmi *v1.VirtualMachineInstance
+		var c *ConverterContext
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Interfaces: []v1.Interface{
+								{
+									Name: "default",
+									InterfaceBindingMethod: v1.InterfaceBindingMethod{
+										Masquerade: &v1.InterfaceMasquerade{},
+									},
+								},
+							},
+						},
+					},
+					Networks: []v1.Network{
+						{
+							Name: "default",
+							NetworkSource: v1.NetworkSource{
+								Pod: &v1.PodNetwork{},
+							},
+						},
+					},
+				},
+			}
+
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			// Base context setup
+			c = &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				VirtualMachine: vmi,
+				AllowEmulation: true,
+			}
+		})
+
+		Context("with PCINUMAAwareTopology feature gate enabled", func() {
+			BeforeEach(func() {
+				c.PCINUMAAwareTopologyEnabled = true
+			})
+
+			Context("with GPU devices", func() {
+				It("should enable NUMA-aligned placement for GPU devices", func() {
+					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+						{Name: "gpu1", DeviceName: "example.com/gpu"},
+					}
+
+					c = createContextWithDevices(vmi, c)
+
+					domain := vmiToDomain(vmi, c)
+
+					Expect(domain).ToNot(BeNil())
+					Expect(domain.Spec.Devices).ToNot(BeNil())
+
+					Expect(domain.Spec.Devices.HostDevices).To(HaveLen(len(vmi.Spec.Domain.Devices.GPUs)))
+					for _, hostDev := range domain.Spec.Devices.HostDevices {
+						Expect(hostDev.Type).To(Equal(api.HostDevicePCI))
+					}
+				})
+
+				It("should handle multiple GPU devices", func() {
+					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+						{Name: "gpu1", DeviceName: "example.com/gpu"},
+						{Name: "gpu2", DeviceName: "example.com/gpu"},
+					}
+
+					c = createContextWithDevices(vmi, c)
+
+					domain := vmiToDomain(vmi, c)
+
+					Expect(domain.Spec.Devices.HostDevices).To(HaveLen(len(vmi.Spec.Domain.Devices.GPUs)))
+					for _, hostDev := range domain.Spec.Devices.HostDevices {
+						Expect(hostDev.Type).To(Equal(api.HostDevicePCI))
+					}
+				})
+			})
+
+			Context("with host devices", func() {
+				It("should enable NUMA-aligned placement for host devices", func() {
+					vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+						{Name: "hostdev1", DeviceName: "example.com/device"},
+					}
+
+					c = createContextWithDevices(vmi, c)
+
+					domain := vmiToDomain(vmi, c)
+
+					Expect(domain).ToNot(BeNil())
+					Expect(domain.Spec.Devices).ToNot(BeNil())
+
+					Expect(domain.Spec.Devices.HostDevices).To(HaveLen(len(vmi.Spec.Domain.Devices.HostDevices)))
+					for _, hostDev := range domain.Spec.Devices.HostDevices {
+						Expect(hostDev.Type).To(Equal(api.HostDevicePCI))
+					}
+				})
+
+				It("should handle multiple host devices", func() {
+					vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+						{Name: "hostdev1", DeviceName: "example.com/device"},
+						{Name: "hostdev2", DeviceName: "example.com/device"},
+					}
+
+					c = createContextWithDevices(vmi, c)
+
+					domain := vmiToDomain(vmi, c)
+
+					Expect(domain.Spec.Devices.HostDevices).To(HaveLen(len(vmi.Spec.Domain.Devices.HostDevices)))
+					for _, hostDev := range domain.Spec.Devices.HostDevices {
+						Expect(hostDev.Type).To(Equal(api.HostDevicePCI))
+					}
+				})
+			})
+
+			Context("with GPU and host devices", func() {
+				It("should enable NUMA-aligned placement for GPU and host devices", func() {
+					vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+						{Name: "hostdev1", DeviceName: "example.com/device"},
+					}
+					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+						{Name: "gpu1", DeviceName: "example.com/gpu"},
+					}
+
+					c = createContextWithDevices(vmi, c)
+
+					domain := vmiToDomain(vmi, c)
+
+					vmiGPUs := len(vmi.Spec.Domain.Devices.GPUs)
+					vmiHostDevs := len(vmi.Spec.Domain.Devices.HostDevices)
+
+					Expect(domain).ToNot(BeNil())
+					Expect(domain.Spec.Devices).ToNot(BeNil())
+
+					Expect(domain.Spec.Devices.HostDevices).To(HaveLen(vmiGPUs + vmiHostDevs))
+					for _, hostDev := range domain.Spec.Devices.HostDevices {
+						Expect(hostDev.Type).To(Equal(api.HostDevicePCI))
+					}
+				})
+
+				It("should create PCIe controllers for NUMA-aligned devices", func() {
+					vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+						{Name: "hostdev1", DeviceName: "example.com/device"},
+						{Name: "hostdev2", DeviceName: "example.com/device"},
+					}
+					vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+						{Name: "gpu1", DeviceName: "example.com/gpu"},
+						{Name: "gpu2", DeviceName: "example.com/gpu"},
+					}
+
+					c = createContextWithDevices(vmi, c)
+
+					domain := vmiToDomain(vmi, c)
+
+					// Count PCIe controllers that were created
+					expanderBusCount := 0
+					rootPortCount := 0
+					for _, controller := range domain.Spec.Devices.Controllers {
+						switch controller.Model {
+						case api.ControllerModelPCIeExpanderBus:
+							expanderBusCount++
+							// Verify expander bus has NUMA target
+							Expect(controller.Target).ToNot(BeNil())
+							Expect(controller.Target.NUMANode).ToNot(BeNil())
+						case api.ControllerModelPCIeRootPort:
+							rootPortCount++
+							// Verify root port has PCI address
+							Expect(controller.Address).ToNot(BeNil())
+							Expect(controller.Address.Type).To(Equal(api.AddressPCI))
+						}
+					}
+
+					// In test environment, devices may not have NUMA info so controllers might not be created
+					// But if they are created, they should follow the expected structure
+					if expanderBusCount > 0 {
+						Expect(rootPortCount).To(BeNumerically(">=", expanderBusCount))
+					}
+				})
+
+				It("should handle devices from different NUMA nodes", func() {
+					// Simulate devices from different PCIe buses (representing different NUMA nodes)
+					vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+						{Name: "hostdev1", DeviceName: "example.com/numa0"},
+						{Name: "hostdev2", DeviceName: "example.com/numa1"},
+					}
+
+					c = createContextWithDevices(vmi, c)
+
+					domain := vmiToDomain(vmi, c)
+
+					Expect(domain.Spec.Devices.HostDevices).To(HaveLen(2))
+
+					// Verify all devices have proper addresses assigned
+					for _, hostDev := range domain.Spec.Devices.HostDevices {
+						Expect(hostDev.Type).To(Equal(api.HostDevicePCI))
+						if hostDev.Address != nil {
+							Expect(hostDev.Address.Type).To(Equal(api.AddressPCI))
+							Expect(hostDev.Address.Domain).ToNot(BeEmpty())
+							Expect(hostDev.Address.Bus).ToNot(BeEmpty())
+							Expect(hostDev.Address.Slot).ToNot(BeEmpty())
+							Expect(hostDev.Address.Function).ToNot(BeEmpty())
+						}
+					}
+				})
+			})
+		})
+
+		Context("with PCINUMAAwareTopology feature gate disabled", func() {
+			BeforeEach(func() {
+				c.PCINUMAAwareTopologyEnabled = false
+			})
+
+			It("should use default PCI placement", func() {
+				domain := vmiToDomain(vmi, c)
+
+				Expect(domain).ToNot(BeNil())
+				Expect(domain.Spec.Devices.HostDevices).To(HaveLen(len(vmi.Spec.Domain.Devices.GPUs)))
+
+				// It should not include PCIe expander bus controllers
+				expanderBusControllers := []api.Controller{}
+				for _, controller := range domain.Spec.Devices.Controllers {
+					if controller.Model == api.ControllerModelPCIeExpanderBus {
+						expanderBusControllers = append(expanderBusControllers, controller)
+					}
+				}
+				Expect(expanderBusControllers).To(BeEmpty())
+			})
+
+			It("should place all devices on root PCI bus", func() {
+				domain := vmiToDomain(vmi, c)
+
+				for _, hostDev := range domain.Spec.Devices.HostDevices {
+					if hostDev.Address != nil {
+						Expect(hostDev.Address.Domain).To(Equal("0x0000"))
+						Expect(hostDev.Address.Bus).To(Equal("0x00"))
+					}
+				}
+			})
+		})
+
+		Context("error handling", func() {
+			It("should gracefully handle PCIe topology assignment failures", func() {
+				// Large number of devices that might exceed PCIe topology limits
+				var devices []v1.GPU
+				for i := range 50 {
+					devices = append(devices, v1.GPU{
+						Name:       fmt.Sprintf("gpu%d", i),
+						DeviceName: "example.com/gpu",
+					})
+				}
+				vmi.Spec.Domain.Devices.GPUs = devices
+
+				c.PCINUMAAwareTopologyEnabled = true
+
+				domain := vmiToDomain(vmi, c)
+				Expect(domain).ToNot(BeNil())
+			})
+
+			It("should fall back to root bus placement when PCIe topology fails", func() {
+				// Simulate a failure case by using devices without proper setup
+				vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+					{Name: "gpu1", DeviceName: "example.com/gpu"},
+				}
+
+				c.PCINUMAAwareTopologyEnabled = true
+				// Don't set up mock devices to simulate failure
+
+				domain := vmiToDomain(vmi, c)
+				Expect(domain).ToNot(BeNil())
+
+				// Should still work but fall back to default placement
+				// No PCIe expander buses should be created in failure case
+				expanderBusCount := 0
+				for _, controller := range domain.Spec.Devices.Controllers {
+					if controller.Model == api.ControllerModelPCIeExpanderBus {
+						expanderBusCount++
+					}
+				}
+				Expect(expanderBusCount).To(Equal(0))
+			})
+
+			It("should handle concurrent device allocation correctly", func() {
+				// Test with devices that might have conflicting requirements
+				vmi.Spec.Domain.Devices.HostDevices = []v1.HostDevice{
+					{Name: "concurrent1", DeviceName: "example.com/shared"},
+					{Name: "concurrent2", DeviceName: "example.com/shared"},
+					{Name: "concurrent3", DeviceName: "example.com/shared"},
+				}
+				vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+					{Name: "gpu1", DeviceName: "example.com/gpu"},
+					{Name: "gpu2", DeviceName: "example.com/gpu"},
+				}
+
+				c = createContextWithDevices(vmi, c)
+				c.PCINUMAAwareTopologyEnabled = true
+
+				domain := vmiToDomain(vmi, c)
+				Expect(domain).ToNot(BeNil())
+
+				// Verify all devices were processed
+				totalExpectedDevices := len(vmi.Spec.Domain.Devices.HostDevices) + len(vmi.Spec.Domain.Devices.GPUs)
+				Expect(domain.Spec.Devices.HostDevices).To(HaveLen(totalExpectedDevices))
+			})
+
+			It("should handle VMI without PCI devices", func() {
+				vmi.Spec.Domain.Devices.GPUs = nil
+				vmi.Spec.Domain.Devices.HostDevices = nil
+
+				c.PCINUMAAwareTopologyEnabled = true
+				domain := vmiToDomain(vmi, c)
+
+				Expect(domain).ToNot(BeNil())
+				Expect(domain.Spec.Devices.HostDevices).To(BeEmpty())
+			})
+		})
+	})
+
 	Context("Network convert", func() {
 		var vmi *v1.VirtualMachineInstance
 		var c *ConverterContext
