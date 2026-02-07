@@ -1,0 +1,40 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["create.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/virtctl/template/create",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/virtctl/clientconfig:go_default_library",
+        "//pkg/virtctl/templates:go_default_library",
+        "//vendor/github.com/spf13/cobra:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/kubevirt.io/virt-template-api/core:go_default_library",
+        "//vendor/kubevirt.io/virt-template-api/core/v1alpha1:go_default_library",
+        "//vendor/kubevirt.io/virt-template-client-go/virttemplate:go_default_library",
+    ],
+)
+
+go_test(
+    name = "go_default_test",
+    srcs = [
+        "create_suite_test.go",
+        "create_test.go",
+    ],
+    race = "on",
+    deps = [
+        ":go_default_library",
+        "//pkg/virtctl/testing:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
+        "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
+        "//vendor/k8s.io/client-go/rest:go_default_library",
+        "//vendor/k8s.io/client-go/testing:go_default_library",
+        "//vendor/kubevirt.io/virt-template-client-go/virttemplate:go_default_library",
+        "//vendor/kubevirt.io/virt-template-client-go/virttemplate/fake:go_default_library",
+    ],
+)
