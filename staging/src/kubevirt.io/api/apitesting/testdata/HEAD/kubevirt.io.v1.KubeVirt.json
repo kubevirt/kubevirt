@@ -412,6 +412,9 @@
             }
           ]
         }
+      },
+      "persistentReservationConfiguration": {
+        "enabled": true
       }
     },
     "infra": {
