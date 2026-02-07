@@ -23,17 +23,20 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
 
 type VolumeRendererOption func(renderer *VolumeRenderer) error
 
+type imagePullPolicyGetter interface {
+	GetImagePullPolicy() k8sv1.PullPolicy
+}
+
 type VolumeRenderer struct {
 	useImageVolumes       bool
 	launcherImage         string
 	imageIDs              map[string]string
-	clusterConfig         *virtconfig.ClusterConfig
+	imagePullPolicyGetter imagePullPolicyGetter
 	containerDiskDir      string
 	ephemeralDiskDir      string
 	virtShareDir          string
@@ -44,16 +47,16 @@ type VolumeRenderer struct {
 	volumeDevices         []k8sv1.VolumeDevice
 }
 
-func NewVolumeRenderer(clusterConfig *virtconfig.ClusterConfig, imageVolumeFeatureGateEnabled bool, launcherImage string, imageIDs map[string]string, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
+func NewVolumeRenderer(imagePullPolicyGetter imagePullPolicyGetter, imageVolumeFeatureGateEnabled bool, launcherImage string, imageIDs map[string]string, namespace string, ephemeralDisk string, containerDiskDir string, virtShareDir string, volumeOptions ...VolumeRendererOption) (*VolumeRenderer, error) {
 	volumeRenderer := &VolumeRenderer{
-		useImageVolumes:  imageVolumeFeatureGateEnabled,
-		launcherImage:    launcherImage,
-		imageIDs:         imageIDs,
-		clusterConfig:    clusterConfig,
-		containerDiskDir: containerDiskDir,
-		ephemeralDiskDir: ephemeralDisk,
-		namespace:        namespace,
-		virtShareDir:     virtShareDir,
+		useImageVolumes:       imageVolumeFeatureGateEnabled,
+		launcherImage:         launcherImage,
+		imageIDs:              imageIDs,
+		imagePullPolicyGetter: imagePullPolicyGetter,
+		containerDiskDir:      containerDiskDir,
+		ephemeralDiskDir:      ephemeralDisk,
+		namespace:             namespace,
+		virtShareDir:          virtShareDir,
 	}
 	for _, volumeOption := range volumeOptions {
 		if err := volumeOption(volumeRenderer); err != nil {
@@ -798,7 +801,7 @@ func (vr *VolumeRenderer) addLauncherBinaryVolume() {
 		VolumeSource: k8sv1.VolumeSource{
 			Image: &k8sv1.ImageVolumeSource{
 				Reference:  vr.launcherImage,
-				PullPolicy: vr.clusterConfig.GetImagePullPolicy(),
+				PullPolicy: vr.imagePullPolicyGetter.GetImagePullPolicy(),
 			},
 		},
 	})
