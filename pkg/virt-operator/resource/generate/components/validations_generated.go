@@ -5871,6 +5871,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Specifies the architecture of the vm guest you are
                     attempting to run. Defaults to the compiled architecture of the
                     KubeVirt components
+                  pattern: ^(|amd64|arm64|s390x)$
                   type: string
                 dnsConfig:
                   description: |-
@@ -6216,6 +6217,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   Lower values take precedence.
                                   Each disk or interface that has a boot order must have a unique value.
                                   Disks without a boot order are not tried if a disk with a boot order exists.
+                                minimum: 1
                                 type: integer
                               cache:
                                 description: |-
@@ -6283,7 +6285,7 @@ var CRDsValidation map[string]string = map[string]string{
                               io:
                                 description: |-
                                   IO specifies which QEMU disk IO mode should be used.
-                                  Supported values are: native, default, threads.
+                                  Supported values are: native, threads.
                                 type: string
                               lun:
                                 description: Attach a volume as a LUN to the vmi.
@@ -6482,6 +6484,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   Lower values take precedence.
                                   Each interface or disk that has a boot order must have a unique value.
                                   Interfaces without a boot order are not tried.
+                                minimum: 1
                                 type: integer
                               bridge:
                                 description: InterfaceBridge connects to a given network
@@ -6584,6 +6587,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         Number of port to expose for the virtual machine.
                                         This must be a valid port number, 0 < x < 65536.
                                       format: int32
+                                      maximum: 65535
+                                      minimum: 1
                                       type: integer
                                     protocol:
                                       description: |-
@@ -6661,6 +6666,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 We only support ich9 or ac97.
                                 If SoundDevice is not set: No sound card is emulated.
                                 If SoundDevice is set but Model is not: ich9
+                              pattern: ^(|ich9|ac97)$
                               type: string
                             name:
                               description: User's defined name for this sound device
@@ -7051,7 +7057,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Settings to set the kernel for booting.
                           properties:
                             container:
-                              description: Container defines the container that containes
+                              description: Container defines the container that contains
                                 kernel artifacts
                               properties:
                                 image:
@@ -7103,6 +7109,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: SupplementalPoolThreadCount specifies how many
                             iothreads are allocated for the supplementalPool policy.
                           format: int32
+                          minimum: 1
                           type: integer
                       type: object
                     ioThreadsPolicy:
@@ -7648,6 +7655,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Grace period observed after signalling a VirtualMachineInstance
                     to stop after which the VirtualMachineInstance is force terminated.
                   format: int64
+                  minimum: 0
                   type: integer
                 tolerations:
                   description: If toleration is specified, obey all the toleration
@@ -8680,6 +8688,7 @@ var CRDsValidation map[string]string = map[string]string{
                           Lower values take precedence.
                           Each disk or interface that has a boot order must have a unique value.
                           Disks without a boot order are not tried if a disk with a boot order exists.
+                        minimum: 1
                         type: integer
                       cache:
                         description: |-
@@ -8747,7 +8756,7 @@ var CRDsValidation map[string]string = map[string]string{
                       io:
                         description: |-
                           IO specifies which QEMU disk IO mode should be used.
-                          Supported values are: native, default, threads.
+                          Supported values are: native, threads.
                         type: string
                       lun:
                         description: Attach a volume as a LUN to the vmi.
@@ -9643,6 +9652,7 @@ var CRDsValidation map[string]string = map[string]string{
               description: SupplementalPoolThreadCount specifies how many iothreads
                 are allocated for the supplementalPool policy.
               format: int32
+              minimum: 1
               type: integer
           type: object
         ioThreadsPolicy:
@@ -11757,6 +11767,7 @@ var CRDsValidation map[string]string = map[string]string{
         architecture:
           description: Specifies the architecture of the vm guest you are attempting
             to run. Defaults to the compiled architecture of the KubeVirt components
+          pattern: ^(|amd64|arm64|s390x)$
           type: string
         dnsConfig:
           description: |-
@@ -12095,6 +12106,7 @@ var CRDsValidation map[string]string = map[string]string{
                           Lower values take precedence.
                           Each disk or interface that has a boot order must have a unique value.
                           Disks without a boot order are not tried if a disk with a boot order exists.
+                        minimum: 1
                         type: integer
                       cache:
                         description: |-
@@ -12162,7 +12174,7 @@ var CRDsValidation map[string]string = map[string]string{
                       io:
                         description: |-
                           IO specifies which QEMU disk IO mode should be used.
-                          Supported values are: native, default, threads.
+                          Supported values are: native, threads.
                         type: string
                       lun:
                         description: Attach a volume as a LUN to the vmi.
@@ -12358,6 +12370,7 @@ var CRDsValidation map[string]string = map[string]string{
                           Lower values take precedence.
                           Each interface or disk that has a boot order must have a unique value.
                           Interfaces without a boot order are not tried.
+                        minimum: 1
                         type: integer
                       bridge:
                         description: InterfaceBridge connects to a given network via
@@ -12460,6 +12473,8 @@ var CRDsValidation map[string]string = map[string]string{
                                 Number of port to expose for the virtual machine.
                                 This must be a valid port number, 0 < x < 65536.
                               format: int32
+                              maximum: 65535
+                              minimum: 1
                               type: integer
                             protocol:
                               description: |-
@@ -12535,6 +12550,7 @@ var CRDsValidation map[string]string = map[string]string{
                         We only support ich9 or ac97.
                         If SoundDevice is not set: No sound card is emulated.
                         If SoundDevice is set but Model is not: ich9
+                      pattern: ^(|ich9|ac97)$
                       type: string
                     name:
                       description: User's defined name for this sound device
@@ -12920,8 +12936,8 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Settings to set the kernel for booting.
                   properties:
                     container:
-                      description: Container defines the container that containes
-                        kernel artifacts
+                      description: Container defines the container that contains kernel
+                        artifacts
                       properties:
                         image:
                           description: Image that contains initrd / kernel files.
@@ -12970,6 +12986,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: SupplementalPoolThreadCount specifies how many iothreads
                     are allocated for the supplementalPool policy.
                   format: int32
+                  minimum: 1
                   type: integer
               type: object
             ioThreadsPolicy:
@@ -13512,6 +13529,7 @@ var CRDsValidation map[string]string = map[string]string{
           description: Grace period observed after signalling a VirtualMachineInstance
             to stop after which the VirtualMachineInstance is force terminated.
           format: int64
+          minimum: 0
           type: integer
         tolerations:
           description: If toleration is specified, obey all the toleration rules.
@@ -15935,6 +15953,7 @@ var CRDsValidation map[string]string = map[string]string{
                           Lower values take precedence.
                           Each disk or interface that has a boot order must have a unique value.
                           Disks without a boot order are not tried if a disk with a boot order exists.
+                        minimum: 1
                         type: integer
                       cache:
                         description: |-
@@ -16002,7 +16021,7 @@ var CRDsValidation map[string]string = map[string]string{
                       io:
                         description: |-
                           IO specifies which QEMU disk IO mode should be used.
-                          Supported values are: native, default, threads.
+                          Supported values are: native, threads.
                         type: string
                       lun:
                         description: Attach a volume as a LUN to the vmi.
@@ -16198,6 +16217,7 @@ var CRDsValidation map[string]string = map[string]string{
                           Lower values take precedence.
                           Each interface or disk that has a boot order must have a unique value.
                           Interfaces without a boot order are not tried.
+                        minimum: 1
                         type: integer
                       bridge:
                         description: InterfaceBridge connects to a given network via
@@ -16300,6 +16320,8 @@ var CRDsValidation map[string]string = map[string]string{
                                 Number of port to expose for the virtual machine.
                                 This must be a valid port number, 0 < x < 65536.
                               format: int32
+                              maximum: 65535
+                              minimum: 1
                               type: integer
                             protocol:
                               description: |-
@@ -16375,6 +16397,7 @@ var CRDsValidation map[string]string = map[string]string{
                         We only support ich9 or ac97.
                         If SoundDevice is not set: No sound card is emulated.
                         If SoundDevice is set but Model is not: ich9
+                      pattern: ^(|ich9|ac97)$
                       type: string
                     name:
                       description: User's defined name for this sound device
@@ -16760,8 +16783,8 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Settings to set the kernel for booting.
                   properties:
                     container:
-                      description: Container defines the container that containes
-                        kernel artifacts
+                      description: Container defines the container that contains kernel
+                        artifacts
                       properties:
                         image:
                           description: Image that contains initrd / kernel files.
@@ -16810,6 +16833,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: SupplementalPoolThreadCount specifies how many iothreads
                     are allocated for the supplementalPool policy.
                   format: int32
+                  minimum: 1
                   type: integer
               type: object
             ioThreadsPolicy:
@@ -18100,6 +18124,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Specifies the architecture of the vm guest you are
                     attempting to run. Defaults to the compiled architecture of the
                     KubeVirt components
+                  pattern: ^(|amd64|arm64|s390x)$
                   type: string
                 dnsConfig:
                   description: |-
@@ -18445,6 +18470,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   Lower values take precedence.
                                   Each disk or interface that has a boot order must have a unique value.
                                   Disks without a boot order are not tried if a disk with a boot order exists.
+                                minimum: 1
                                 type: integer
                               cache:
                                 description: |-
@@ -18512,7 +18538,7 @@ var CRDsValidation map[string]string = map[string]string{
                               io:
                                 description: |-
                                   IO specifies which QEMU disk IO mode should be used.
-                                  Supported values are: native, default, threads.
+                                  Supported values are: native, threads.
                                 type: string
                               lun:
                                 description: Attach a volume as a LUN to the vmi.
@@ -18711,6 +18737,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   Lower values take precedence.
                                   Each interface or disk that has a boot order must have a unique value.
                                   Interfaces without a boot order are not tried.
+                                minimum: 1
                                 type: integer
                               bridge:
                                 description: InterfaceBridge connects to a given network
@@ -18813,6 +18840,8 @@ var CRDsValidation map[string]string = map[string]string{
                                         Number of port to expose for the virtual machine.
                                         This must be a valid port number, 0 < x < 65536.
                                       format: int32
+                                      maximum: 65535
+                                      minimum: 1
                                       type: integer
                                     protocol:
                                       description: |-
@@ -18890,6 +18919,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 We only support ich9 or ac97.
                                 If SoundDevice is not set: No sound card is emulated.
                                 If SoundDevice is set but Model is not: ich9
+                              pattern: ^(|ich9|ac97)$
                               type: string
                             name:
                               description: User's defined name for this sound device
@@ -19280,7 +19310,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Settings to set the kernel for booting.
                           properties:
                             container:
-                              description: Container defines the container that containes
+                              description: Container defines the container that contains
                                 kernel artifacts
                               properties:
                                 image:
@@ -19332,6 +19362,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: SupplementalPoolThreadCount specifies how many
                             iothreads are allocated for the supplementalPool policy.
                           format: int32
+                          minimum: 1
                           type: integer
                       type: object
                     ioThreadsPolicy:
@@ -19877,6 +19908,7 @@ var CRDsValidation map[string]string = map[string]string{
                   description: Grace period observed after signalling a VirtualMachineInstance
                     to stop after which the VirtualMachineInstance is force terminated.
                   format: int64
+                  minimum: 0
                   type: integer
                 tolerations:
                   description: If toleration is specified, obey all the toleration
@@ -20819,6 +20851,7 @@ var CRDsValidation map[string]string = map[string]string{
               description: SupplementalPoolThreadCount specifies how many iothreads
                 are allocated for the supplementalPool policy.
               format: int32
+              minimum: 1
               type: integer
           type: object
         ioThreadsPolicy:
@@ -23105,6 +23138,7 @@ var CRDsValidation map[string]string = map[string]string{
                           description: Specifies the architecture of the vm guest
                             you are attempting to run. Defaults to the compiled architecture
                             of the KubeVirt components
+                          pattern: ^(|amd64|arm64|s390x)$
                           type: string
                         dnsConfig:
                           description: |-
@@ -23456,6 +23490,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           Lower values take precedence.
                                           Each disk or interface that has a boot order must have a unique value.
                                           Disks without a boot order are not tried if a disk with a boot order exists.
+                                        minimum: 1
                                         type: integer
                                       cache:
                                         description: |-
@@ -23526,7 +23561,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       io:
                                         description: |-
                                           IO specifies which QEMU disk IO mode should be used.
-                                          Supported values are: native, default, threads.
+                                          Supported values are: native, threads.
                                         type: string
                                       lun:
                                         description: Attach a volume as a LUN to the
@@ -23730,6 +23765,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           Lower values take precedence.
                                           Each interface or disk that has a boot order must have a unique value.
                                           Interfaces without a boot order are not tried.
+                                        minimum: 1
                                         type: integer
                                       bridge:
                                         description: InterfaceBridge connects to a
@@ -23837,6 +23873,8 @@ var CRDsValidation map[string]string = map[string]string{
                                                 Number of port to expose for the virtual machine.
                                                 This must be a valid port number, 0 < x < 65536.
                                               format: int32
+                                              maximum: 65535
+                                              minimum: 1
                                               type: integer
                                             protocol:
                                               description: |-
@@ -23916,6 +23954,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         We only support ich9 or ac97.
                                         If SoundDevice is not set: No sound card is emulated.
                                         If SoundDevice is set but Model is not: ich9
+                                      pattern: ^(|ich9|ac97)$
                                       type: string
                                     name:
                                       description: User's defined name for this sound
@@ -24311,7 +24350,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   properties:
                                     container:
                                       description: Container defines the container
-                                        that containes kernel artifacts
+                                        that contains kernel artifacts
                                       properties:
                                         image:
                                           description: Image that contains initrd
@@ -24364,6 +24403,7 @@ var CRDsValidation map[string]string = map[string]string{
                                     how many iothreads are allocated for the supplementalPool
                                     policy.
                                   format: int32
+                                  minimum: 1
                                   type: integer
                               type: object
                             ioThreadsPolicy:
@@ -24915,6 +24955,7 @@ var CRDsValidation map[string]string = map[string]string{
                             to stop after which the VirtualMachineInstance is force
                             terminated.
                           format: int64
+                          minimum: 0
                           type: integer
                         tolerations:
                           description: If toleration is specified, obey all the toleration
@@ -28586,6 +28627,7 @@ var CRDsValidation map[string]string = map[string]string{
                               description: Specifies the architecture of the vm guest
                                 you are attempting to run. Defaults to the compiled
                                 architecture of the KubeVirt components
+                              pattern: ^(|amd64|arm64|s390x)$
                               type: string
                             dnsConfig:
                               description: |-
@@ -28939,6 +28981,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               Lower values take precedence.
                                               Each disk or interface that has a boot order must have a unique value.
                                               Disks without a boot order are not tried if a disk with a boot order exists.
+                                            minimum: 1
                                             type: integer
                                           cache:
                                             description: |-
@@ -29010,7 +29053,7 @@ var CRDsValidation map[string]string = map[string]string{
                                           io:
                                             description: |-
                                               IO specifies which QEMU disk IO mode should be used.
-                                              Supported values are: native, default, threads.
+                                              Supported values are: native, threads.
                                             type: string
                                           lun:
                                             description: Attach a volume as a LUN
@@ -29219,6 +29262,7 @@ var CRDsValidation map[string]string = map[string]string{
                                               Lower values take precedence.
                                               Each interface or disk that has a boot order must have a unique value.
                                               Interfaces without a boot order are not tried.
+                                            minimum: 1
                                             type: integer
                                           bridge:
                                             description: InterfaceBridge connects
@@ -29326,6 +29370,8 @@ var CRDsValidation map[string]string = map[string]string{
                                                     Number of port to expose for the virtual machine.
                                                     This must be a valid port number, 0 < x < 65536.
                                                   format: int32
+                                                  maximum: 65535
+                                                  minimum: 1
                                                   type: integer
                                                 protocol:
                                                   description: |-
@@ -29406,6 +29452,7 @@ var CRDsValidation map[string]string = map[string]string{
                                             We only support ich9 or ac97.
                                             If SoundDevice is not set: No sound card is emulated.
                                             If SoundDevice is set but Model is not: ich9
+                                          pattern: ^(|ich9|ac97)$
                                           type: string
                                         name:
                                           description: User's defined name for this
@@ -29803,7 +29850,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       properties:
                                         container:
                                           description: Container defines the container
-                                            that containes kernel artifacts
+                                            that contains kernel artifacts
                                           properties:
                                             image:
                                               description: Image that contains initrd
@@ -29856,6 +29903,7 @@ var CRDsValidation map[string]string = map[string]string{
                                         how many iothreads are allocated for the supplementalPool
                                         policy.
                                       format: int32
+                                      minimum: 1
                                       type: integer
                                   type: object
                                 ioThreadsPolicy:
@@ -30410,6 +30458,7 @@ var CRDsValidation map[string]string = map[string]string{
                                 a VirtualMachineInstance to stop after which the VirtualMachineInstance
                                 is force terminated.
                               format: int64
+                              minimum: 0
                               type: integer
                             tolerations:
                               description: If toleration is specified, obey all the
@@ -31478,6 +31527,7 @@ var CRDsValidation map[string]string = map[string]string{
                                       Lower values take precedence.
                                       Each disk or interface that has a boot order must have a unique value.
                                       Disks without a boot order are not tried if a disk with a boot order exists.
+                                    minimum: 1
                                     type: integer
                                   cache:
                                     description: |-
@@ -31548,7 +31598,7 @@ var CRDsValidation map[string]string = map[string]string{
                                   io:
                                     description: |-
                                       IO specifies which QEMU disk IO mode should be used.
-                                      Supported values are: native, default, threads.
+                                      Supported values are: native, threads.
                                     type: string
                                   lun:
                                     description: Attach a volume as a LUN to the vmi.
