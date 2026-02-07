@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["buffer.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/common/runes",
+    importpath = "github.com/google/cel-go/common/runes",
+    visibility = ["//visibility:public"],
+)
