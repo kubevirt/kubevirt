@@ -49,7 +49,9 @@ import (
 
 const (
 	sourceFinalizer = "snapshot.kubevirt.io/snapshot-source-protection"
-	failedFreezeMsg = "Failed freezing vm"
+	// VSSFreezeLimitReached is the error substring returned by the QEMU guest agent
+	// when Windows VSS cannot hold the freeze long enough (10-second VSS limitation).
+	VSSFreezeLimitReached = "fsfreeze is limited"
 )
 
 type snapshotSource interface {
@@ -384,9 +386,8 @@ func (s *vmSnapshotSource) Freeze() error {
 	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
-		formattedErr := fmt.Errorf("%s %s: %v", failedFreezeMsg, s.vm.Name, err)
-		log.Log.Errorf(formattedErr.Error())
-		return formattedErr
+		log.Log.Errorf("Failed freezing vm %s: %v", s.vm.Name, err)
+		return err
 	}
 
 	return nil
@@ -415,6 +416,7 @@ func (s *vmSnapshotSource) Unfreeze() error {
 	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", s.vm.Name))
 	err = s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
 	if err != nil {
+		log.Log.Errorf("Failed unfreezing vm %s: %v", s.vm.Name, err)
 		return err
 	}
 
