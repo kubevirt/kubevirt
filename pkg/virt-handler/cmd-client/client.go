@@ -121,8 +121,9 @@ type VirtLauncherClient struct {
 }
 
 const (
-	shortTimeout time.Duration = 5 * time.Second
-	longTimeout  time.Duration = 20 * time.Second
+	shortTimeout    time.Duration = 5 * time.Second
+	longTimeout     time.Duration = 20 * time.Second
+	extendedTimeout time.Duration = 60 * time.Second
 )
 
 func SetBaseDir(dir string) {
@@ -331,7 +332,8 @@ func (c *VirtLauncherClient) FreezeVirtualMachine(vmi *v1.VirtualMachineInstance
 		UnfreezeTimeoutSeconds: unfreezeTimeoutSeconds,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	// Use extended timeout as Windows VSS can take up to 60 seconds
+	ctx, cancel := context.WithTimeout(context.Background(), extendedTimeout)
 	defer cancel()
 	response, err := c.v1client.FreezeVirtualMachine(ctx, request)
 
