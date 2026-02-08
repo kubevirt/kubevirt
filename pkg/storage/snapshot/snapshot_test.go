@@ -1502,12 +1502,11 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
 				errorMessage := "Guest agent is not responding"
-				formatedErr := fmt.Sprintf("%s %s: %v", failedFreezeMsg, vm.Name, errorMessage)
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					ReadyToUse: pointer.P(false),
 					Error: &snapshotv1.Error{
 						Time:    timeFunc(),
-						Message: &formatedErr,
+						Message: &errorMessage,
 					},
 				}
 
@@ -1521,7 +1520,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should set QuiesceFailed indication if error in content says failed freeze vm", func() {
+			It("should set QuiesceTimeout indication if error contains VSS freeze timeout", func() {
 				vm := createLockedVM()
 				vmSource.Add(vm)
 				vmi := createVMI(vm)
@@ -1533,9 +1532,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 				vmiSource.Add(vmi)
 
-				errorMessage := "Guest agent is not responding"
-				formatedErr := fmt.Sprintf("%s %s: %v", failedFreezeMsg, vm.Name, errorMessage)
-				vmSnapshotContent := createErrorVMSnapshotContent(formatedErr)
+				// VSS timeout error during unfreeze - this should trigger QuiesceTimeout
+				vmSnapshotContent := createErrorVMSnapshotContent(VSSFreezeLimitReached)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vmSnapshot := createVMSnapshotInProgress()
@@ -1547,7 +1545,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
 					snapshotv1.VMSnapshotGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
-					snapshotv1.VMSnapshotQuiesceFailedIndication,
+					snapshotv1.VMSnapshotQuiesceTimeoutIndication,
 				}
 				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
 					{
@@ -1559,8 +1557,8 @@ var _ = Describe("Snapshot controlleer", func() {
 						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
 					},
 					{
-						Indication: snapshotv1.VMSnapshotQuiesceFailedIndication,
-						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceFailedIndication),
+						Indication: snapshotv1.VMSnapshotQuiesceTimeoutIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceTimeoutIndication),
 					},
 				}
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
@@ -1575,7 +1573,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should not unset QuiesceFailed indication if freeze succeeded afterwards", func() {
+			It("should not unset QuiesceTimeout indication once set", func() {
 				vm := createLockedVM()
 				vmSource.Add(vm)
 				vmi := createVMI(vm)
@@ -1587,6 +1585,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 				vmiSource.Add(vmi)
 
+				// Snapshot already has QuiesceTimeout from a previous VSS timeout error
 				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
@@ -1595,7 +1594,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot.Status.Indications = []snapshotv1.Indication{
 					snapshotv1.VMSnapshotGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
-					snapshotv1.VMSnapshotQuiesceFailedIndication,
+					snapshotv1.VMSnapshotQuiesceTimeoutIndication,
 				}
 				vmSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
 					{
@@ -1607,8 +1606,8 @@ var _ = Describe("Snapshot controlleer", func() {
 						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
 					},
 					{
-						Indication: snapshotv1.VMSnapshotQuiesceFailedIndication,
-						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceFailedIndication),
+						Indication: snapshotv1.VMSnapshotQuiesceTimeoutIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceTimeoutIndication),
 					},
 				}
 				addVirtualMachineSnapshot(vmSnapshot)
