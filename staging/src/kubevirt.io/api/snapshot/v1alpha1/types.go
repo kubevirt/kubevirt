@@ -80,6 +80,7 @@ const (
 	VMSnapshotOnlineSnapshotIndication Indication = "Online"
 	VMSnapshotNoGuestAgentIndication   Indication = "NoGuestAgent"
 	VMSnapshotGuestAgentIndication     Indication = "GuestAgent"
+	VMSnapshotQuiesceTimeoutIndication Indication = "QuiesceTimeout"
 )
 
 // VirtualMachineSnapshotPhase is the current phase of the VirtualMachineSnapshot
