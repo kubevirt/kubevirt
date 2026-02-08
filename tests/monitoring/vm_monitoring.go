@@ -30,10 +30,11 @@ import (
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
+	"github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
-	"github.com/onsi/gomega/types"
 
 	expect "github.com/google/goexpect"
 	corev1 "k8s.io/api/core/v1"
@@ -70,14 +71,17 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 	Context("Cluster VM metrics", func() {
 		It("kubevirt_number_of_vms should reflect the number of VMs", func() {
-			for i := 0; i < 5; i++ {
+			const expectedVMCount = 5
+			for i := 0; i < expectedVMCount; i++ {
 				vmi := libvmifact.NewGuestless()
-				vm := libvmi.NewVirtualMachine(vmi)
-				_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+				newVM := libvmi.NewVirtualMachine(vmi)
+				_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+					context.Background(), newVM, metav1.CreateOptions{},
+				)
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", 5)
+			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", expectedVMCount)
 		})
 	})
 
@@ -104,69 +108,92 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 	})
 
 	Context("VM status metrics", func() {
-		var cpuMetrics = []string{
+		cpuMetrics := []string{
 			"kubevirt_vmi_cpu_system_usage_seconds_total",
 			"kubevirt_vmi_cpu_usage_seconds_total",
 			"kubevirt_vmi_cpu_user_usage_seconds_total",
 		}
 
-		checkMetricTo := func(metric string, labels map[string]string, matcher types.GomegaMatcher, description string) {
+		checkMetricTo := func(metric string, labels map[string]string, m types.GomegaMatcher, description string) {
 			EventuallyWithOffset(1, func() float64 {
-				i, err := libmonitoring.GetMetricValueWithLabels(virtClient, metric, labels)
-				if err != nil {
+				i, metricErr := libmonitoring.GetMetricValueWithLabels(virtClient, metric, labels)
+				if metricErr != nil {
 					return -1
 				}
 				return i
-			}, 3*time.Minute, 20*time.Second).Should(matcher, description)
+			}, 3*time.Minute, 20*time.Second).Should(m, description)
 		}
 
 		It("Should be available for a running VM", func() {
+			const vmReadyTimeout = 300 * time.Second
 
 			By("Create a running VirtualMachine")
 			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(
+				context.Background(), vm, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(vmReadyTimeout).WithPolling(time.Second).Should(
+				matcher.BeReady(),
+			)
 
 			By("Checking that the VM metrics are available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
 			for _, metric := range cpuMetrics {
-				checkMetricTo(metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a running VM")
+				checkMetricTo(
+					metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a running VM",
+				)
 			}
 		})
 
 		It("Should be available for a paused VM", func() {
+			const (
+				vmReadyTimeout       = 300 * time.Second
+				prometheusScrapeWait = 35 * time.Second
+			)
 
 			By("Create a running VirtualMachine")
 			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(
+				context.Background(), vm, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(vmReadyTimeout).WithPolling(time.Second).Should(
+				matcher.BeReady(),
+			)
 
 			By("Pausing the VM")
-			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			pauseErr := virtClient.VirtualMachineInstance(vm.Namespace).Pause(
+				context.Background(), vm.Name, &v1.PauseOptions{},
+			)
+			Expect(pauseErr).ToNot(HaveOccurred())
 
 			By("Waiting until next Prometheus scrape")
-			time.Sleep(35 * time.Second)
+			time.Sleep(prometheusScrapeWait)
 
 			By("Checking that the VM metrics are available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
 			for _, metric := range cpuMetrics {
-				checkMetricTo(metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a paused VM")
+				checkMetricTo(
+					metric, metricLabels, BeNumerically(">=", 0), "VM metrics should be available for a paused VM",
+				)
 			}
 		})
 
 		It("Should not be available for a stopped VM", func() {
 			By("Create a stopped VirtualMachine")
 			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(
+				context.Background(), vm, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Checking that the VM metrics are not available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
 			for _, metric := range cpuMetrics {
-				checkMetricTo(metric, metricLabels, BeNumerically("==", -1), "VM metrics should not be available for a stopped VM")
+				checkMetricTo(
+					metric, metricLabels, BeNumerically("==", -1), "VM metrics should not be available for a stopped VM",
+				)
 			}
 		})
 	})
@@ -202,11 +229,19 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
 
 			By("Delete VMIs")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
+				context.Background(), vmi.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			const vmiDisappearTimeout = 240
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, vmiDisappearTimeout)
 		})
 
 		It("Should correctly update metrics on failing VMIM", func() {
+			const (
+				pollInterval           = 5 * time.Second
+				migrationFailedTimeout = 2 * time.Minute
+			)
+
 			By("Creating VMIs")
 			vmi := libvmifact.NewFedora(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -224,15 +259,20 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
 			migration = libmigration.RunMigration(virtClient, migration)
 
-			Eventually(matcher.ThisMigration(migration)).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
+			Eventually(matcher.ThisMigration(migration)).WithTimeout(migrationFailedTimeout).WithPolling(pollInterval).Should(
+				matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail",
+			)
 
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
 			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_unset_phase", 0)
 			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_failed", 1, labels, 1)
 
 			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
+				context.Background(), vmi.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			const vmiDisappearTimeout = 240
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, vmiDisappearTimeout)
 		})
 	})
 
@@ -240,33 +280,41 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		quantity, _ := resource.ParseQuantity("500Mi")
 
 		createSimplePVCWithRestoreLabels := func(name string) {
-			_, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Create(context.Background(), &corev1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: name,
-					Labels: map[string]string{
-						"restore.kubevirt.io/source-vm-name":      "simple-vm",
-						"restore.kubevirt.io/source-vm-namespace": testsuite.NamespaceTestDefault,
-					},
-				},
-				Spec: corev1.PersistentVolumeClaimSpec{
-					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-					Resources: corev1.VolumeResourceRequirements{
-						Requests: corev1.ResourceList{
-							"storage": quantity,
+			_, pvcErr := virtClient.CoreV1().PersistentVolumeClaims(testsuite.NamespaceTestDefault).Create(
+				context.Background(), &corev1.PersistentVolumeClaim{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: name,
+						Labels: map[string]string{
+							"restore.kubevirt.io/source-vm-name":      "simple-vm",
+							"restore.kubevirt.io/source-vm-namespace": testsuite.NamespaceTestDefault,
 						},
 					},
-				},
-			}, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						Resources: corev1.VolumeResourceRequirements{
+							Requests: corev1.ResourceList{
+								"storage": quantity,
+							},
+						},
+					},
+				}, metav1.CreateOptions{},
+			)
+			Expect(pvcErr).ToNot(HaveOccurred())
 		}
 
-		It("[test_id:8639]Number of disks restored and total restored bytes metric values should be correct", func() {
-			totalMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source{vm_name='simple-vm',vm_namespace='%s'}", testsuite.NamespaceTestDefault)
-			bytesMetric := fmt.Sprintf("kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}", testsuite.NamespaceTestDefault)
+		It("[test_id:8639]Number of disks restored metric values should be correct", func() {
+			totalMetric := fmt.Sprintf(
+				"kubevirt_vmsnapshot_disks_restored_from_source{vm_name='simple-vm',vm_namespace='%s'}",
+				testsuite.NamespaceTestDefault,
+			)
+			bytesMetric := fmt.Sprintf(
+				"kubevirt_vmsnapshot_disks_restored_from_source_bytes{vm_name='simple-vm',vm_namespace='%s'}",
+				testsuite.NamespaceTestDefault,
+			)
 			numPVCs := 2.0
 
 			for i := 1.0; i < numPVCs+1; i++ {
-				// Create dummy PVC that is labelled as "restored" from VM snapshot
+				// Create dummy PVC that is labeled as "restored" from VM snapshot
 				createSimplePVCWithRestoreLabels(fmt.Sprintf("vmsnapshot-restored-pvc-%f", i))
 				// Metric values increases per restored disk
 				libmonitoring.WaitForMetricValue(virtClient, totalMetric, i)
@@ -278,25 +326,31 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			virtClient = kubevirt.Client()
 			By("Creating a Virtual Machine")
 			vmi := libvmifact.NewGuestless()
-			vm = libvmi.NewVirtualMachine(vmi)
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			snapshotVM := libvmi.NewVirtualMachine(vmi)
+			snapshotVM, createErr := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(
+				context.Background(), snapshotVM, metav1.CreateOptions{},
+			)
+			Expect(createErr).ToNot(HaveOccurred())
 
 			By("Starting the Virtual Machine")
-			libvmops.StartVirtualMachine(vm)
+			libvmops.StartVirtualMachine(snapshotVM)
 
 			By("Creating a snapshot of the Virtual Machine")
-			snapshot := libstorage.NewSnapshot(vm.Name, vm.Namespace)
-			_, err = virtClient.VirtualMachineSnapshot(vm.Namespace).Create(context.Background(), snapshot, metav1.CreateOptions{})
+			snapshot := libstorage.NewSnapshot(snapshotVM.Name, snapshotVM.Namespace)
+			_, err = virtClient.VirtualMachineSnapshot(snapshotVM.Namespace).Create(
+				context.Background(), snapshot, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
-			libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
+			libstorage.WaitSnapshotSucceeded(virtClient, snapshotVM.Namespace, snapshot.Name)
 
 			labels := map[string]string{
 				"name":          snapshot.Spec.Source.Name,
 				"snapshot_name": snapshot.Name,
 				"namespace":     snapshot.Namespace,
 			}
-			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_vmsnapshot_succeeded_timestamp_seconds", labels, 0, ">", 0)
+			libmonitoring.WaitForMetricValueWithLabelsToBe(
+				virtClient, "kubevirt_vmsnapshot_succeeded_timestamp_seconds", labels, 0, ">", 0,
+			)
 		})
 	})
 
@@ -334,12 +388,17 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			initialMetricValue := validateLastConnectionMetricValue(vmi, 0)
 
 			By("Deleting the VirtualMachineInstance")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(
+				context.Background(), vmi.Name, metav1.DeleteOptions{},
+			)).To(Succeed())
+			const vmiDisappearTimeout = 240
+			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, vmiDisappearTimeout)
 
 			By("Starting the same VirtualMachineInstance")
 			vmi = libvmifact.NewAlpine()
-			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(
+				context.Background(), vmi, metav1.CreateOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
 
@@ -369,7 +428,9 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			By("delete virt-handler daemonset")
-			err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{})
+			err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(
+				context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{},
+			)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("waiting for OrphanedVirtualMachineInstances alert")
@@ -380,11 +441,15 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
 			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
 
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			vmi, createErr := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(
+				context.Background(), vmi, metav1.CreateOptions{},
+			)
+			Expect(createErr).ToNot(HaveOccurred())
 
 			Eventually(func() v1.VirtualMachineInstancePhase {
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(
+					context.Background(), vmi.Name, metav1.GetOptions{},
+				)
 				Expect(err).ToNot(HaveOccurred())
 
 				return vmi.Status.Phase
@@ -419,36 +484,60 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		}
 
 		It("should ensure a running VM has dirty rate metrics", func() {
+			const vmReadyTimeout = 100 * time.Second
+
 			By("Create a running VirtualMachine")
 			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(100 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			vm, createErr := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(
+				context.Background(), vm, metav1.CreateOptions{},
+			)
+			Expect(createErr).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVM(vm)).WithTimeout(vmReadyTimeout).WithPolling(time.Second).Should(
+				matcher.BeReady(),
+			)
 
 			By("Checking that the VM metrics are available")
 			getDirtyRateMetricValue(vm)
 		})
 
 		It("[QUARANTINE] should ensure a stress VM has high dirty rate than a stale VM", decorators.Quarantine, func() {
+			const (
+				vmReadyTimeout    = 100 * time.Second
+				agentConnTimeout  = 3 * time.Minute
+				randStrLen        = 5
+				stressTestTimeout = 15
+			)
+
 			createVM := func(vmName string) *v1.VirtualMachine {
 				By(fmt.Sprintf("Creating a VirtualMachine: %s", vmName))
-				vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithName(vmName)), libvmi.WithRunStrategy(v1.RunStrategyOnce))
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
+				newVM := libvmi.NewVirtualMachine(
+					libvmifact.NewFedora(libvmi.WithName(vmName)), libvmi.WithRunStrategy(v1.RunStrategyOnce),
+				)
+				newVM, createErr := virtClient.VirtualMachine(testsuite.GetTestNamespace(newVM)).Create(
+					context.Background(), newVM, metav1.CreateOptions{},
+				)
+				Expect(createErr).ToNot(HaveOccurred())
 
 				By("Waiting for the VirtualMachine to be ready")
-				Eventually(matcher.ThisVM(vm)).WithTimeout(100 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+				Eventually(matcher.ThisVM(newVM)).WithTimeout(vmReadyTimeout).WithPolling(time.Second).Should(
+					matcher.BeReady(),
+				)
 
-				return vm
+				return newVM
 			}
 
-			staleVM := createVM("stale-vm-" + rand.String(5))
-			stressedVM := createVM("stressed-vm-" + rand.String(5))
+			staleVM := createVM("stale-vm-" + rand.String(randStrLen))
+			stressedVM := createVM("stressed-vm-" + rand.String(randStrLen))
 
 			By("Logging in the stressed VM's guest agent")
-			stressedVMI, err := virtClient.VirtualMachineInstance(stressedVM.Namespace).Get(context.Background(), stressedVM.Name, metav1.GetOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVMI(stressedVMI)).WithTimeout(3 * time.Minute).WithPolling(2 * time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			stressedVMI, getErr := virtClient.VirtualMachineInstance(stressedVM.Namespace).Get(
+				context.Background(), stressedVM.Name, metav1.GetOptions{},
+			)
+			Expect(getErr).ToNot(HaveOccurred())
+			const pollInterval = 5 * time.Second
+			Eventually(matcher.ThisVMI(stressedVMI)).WithTimeout(agentConnTimeout).WithPolling(pollInterval).Should(
+				matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected),
+			)
 			Expect(console.LoginToFedora(stressedVMI)).To(Succeed())
 
 			By("Stressing the VM")
@@ -458,39 +547,51 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 				&expect.BExp{R: ""},
 				&expect.BSnd{S: stressCmd},
 				&expect.BExp{R: ""},
-			}, 15)).To(Succeed(), "should run a stress test")
+			}, stressTestTimeout)).To(Succeed(), "should run a stress test")
 
 			By("Validating that the stressed VM's dirty rate is higher than the stale VM's dirty rate")
+			const consistencyTimeout = 30 * time.Second
 			dirtyRateValidationFunc := func() error {
 				staleDirtyRate := getDirtyRateMetricValue(staleVM)
 				stressedDirtyRate := getDirtyRateMetricValue(stressedVM)
-
 				if stressedDirtyRate <= staleDirtyRate {
-					return fmt.Errorf("stressed VM dirty rate %f should be greater than stale VM dirty rate %f", stressedDirtyRate, staleDirtyRate)
+					return fmt.Errorf(
+						"stressed VM dirty rate %f should be greater than stale VM dirty rate %f",
+						stressedDirtyRate, staleDirtyRate,
+					)
 				}
-
 				return nil
 			}
-			Eventually(dirtyRateValidationFunc).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
-			Consistently(dirtyRateValidationFunc).WithTimeout(30 * time.Second).WithPolling(5 * time.Second).Should(Succeed())
+			Eventually(dirtyRateValidationFunc).WithTimeout(time.Minute).WithPolling(pollInterval).Should(Succeed())
+			Consistently(dirtyRateValidationFunc).WithTimeout(consistencyTimeout).WithPolling(pollInterval).Should(
+				Succeed(),
+			)
 		})
 	})
 })
 
 func createAgentVMI() *v1.VirtualMachineInstance {
 	virtClient := kubevirt.Client()
-	vmiAgentConnectedConditionMatcher := MatchFields(IgnoreExtras, Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})
+	vmiAgentConnectedConditionMatcher := gstruct.MatchFields(
+		gstruct.IgnoreExtras, gstruct.Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)},
+	)
 	vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(libnet.WithMasqueradeNetworking()), libvmops.StartupTimeoutSecondsXLarge)
 
 	var err error
 	var agentVMI *v1.VirtualMachineInstance
 
+	const agentConnTimeout = 240 * time.Second
+
 	By("VMI has the guest agent connected condition")
 	Eventually(func() []v1.VirtualMachineInstanceCondition {
-		agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+		agentVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Get(
+			context.Background(), vmi.Name, metav1.GetOptions{},
+		)
 		Expect(err).ToNot(HaveOccurred())
 		return agentVMI.Status.Conditions
-	}, 240*time.Second, 1*time.Second).Should(ContainElement(vmiAgentConnectedConditionMatcher), "Should have agent connected condition")
+	}, agentConnTimeout, 1*time.Second).Should(
+		ContainElement(vmiAgentConnectedConditionMatcher), "Should have agent connected condition",
+	)
 
 	return agentVMI
 }

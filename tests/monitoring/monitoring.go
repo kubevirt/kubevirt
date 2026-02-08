@@ -59,7 +59,8 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 	Context("Kubevirt alert rules", func() {
 		BeforeEach(func() {
 			monv1 := virtClient.PrometheusClient().MonitoringV1()
-			prometheusRule, err = monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), "prometheus-kubevirt-rules", metav1.GetOptions{})
+			prometheusRule, err = monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), "prometheus-kubevirt-rules", metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -85,30 +86,32 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 	})
 
 	Context("Migration Alerts", decorators.SigComputeMigrations, func() {
-		PIt("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times during the last 24 hours", func() {
-			By("Starting the VirtualMachineInstance")
-			vmi := libvmi.New(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("2Mi"))
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+		PIt("KubeVirtVMIExcessiveMigrations should be triggered when a VMI has been migrated more than 12 times during the last 24 hours", //nolint:lll
+			func() {
+				By("Starting the VirtualMachineInstance")
+				vmi := libvmi.New(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest("2Mi"))
+				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
-			By("Migrating the VMI 13 times")
-			for i := 0; i < 13; i++ {
-				migration := libmigration.New(vmi.Name, vmi.Namespace)
-				migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+				By("Migrating the VMI 13 times")
+				for i := 0; i < 13; i++ {
+					migration := libmigration.New(vmi.Name, vmi.Namespace)
+					migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
 
-				// check VMI, confirm migration state
-				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-			}
+					// check VMI, confirm migration state
+					libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+				}
 
-			By("Verifying KubeVirtVMIExcessiveMigration alert exists")
-			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtVMIExcessiveMigrations")
+				By("Verifying KubeVirtVMIExcessiveMigration alert exists")
+				libmonitoring.VerifyAlertExist(virtClient, "KubeVirtVMIExcessiveMigrations")
 
-			// delete VMI
-			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
+				// delete VMI
+				By("Deleting the VMI")
+				Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
 
-			By("Waiting for VMI to disappear")
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-		})
+				By("Waiting for VMI to disappear")
+				const vmiDisappearTimeout = 240
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, vmiDisappearTimeout)
+			})
 	})
 
 	Context("System Alerts", func() {
@@ -129,7 +132,8 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			}
 
 			By("Waiting for alert to appear")
-			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtNoAvailableNodesToRunVMs", 10*time.Minute)
+			const alertTimeout = 10
+			libmonitoring.VerifyAlertExistWithCustomTime(virtClient, "KubeVirtNoAvailableNodesToRunVMs", alertTimeout*time.Minute)
 		})
 	})
 
@@ -139,17 +143,17 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 			vmi := libvmifact.NewCirros()
 			vmi.APIVersion = "v1alpha3"
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			_, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, "KubeVirtDeprecatedAPIRequested")
 
 			By("Verifying the alert disappears")
-			libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(virtClient, 15*time.Minute, "KubeVirtDeprecatedAPIRequested")
+			const alertDisappearTimeout = 15
+			libmonitoring.WaitUntilAlertDoesNotExistWithCustomTime(virtClient, alertDisappearTimeout*time.Minute, "KubeVirtDeprecatedAPIRequested")
 		})
 	})
-
 })
 
 func checkRequiredAnnotations(rule promv1.Rule) {
@@ -160,8 +164,11 @@ func checkRequiredAnnotations(rule promv1.Rule) {
 	ExpectWithOffset(1, rule.Annotations).To(HaveKeyWithValue("runbook_url", ContainSubstring(rule.Alert)),
 		"%s runbook_url doesn't include alert name", rule.Alert)
 
-	resp, err := http.Head(rule.Annotations["runbook_url"])
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodHead, rule.Annotations["runbook_url"], http.NoBody)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook request creation failed", rule.Alert))
+	resp, err := http.DefaultClient.Do(req)
 	ExpectWithOffset(1, err).ToNot(HaveOccurred(), fmt.Sprintf("%s runbook is not available", rule.Alert))
+	defer resp.Body.Close()
 	ExpectWithOffset(1, resp.StatusCode).Should(Equal(http.StatusOK), fmt.Sprintf("%s runbook is not available", rule.Alert))
 }
 
