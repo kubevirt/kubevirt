@@ -392,6 +392,66 @@ var _ = Describe("Container spec renderer", func() {
 			Expect(vsr.Mounts()).To(ContainElement(expectedMount))
 		})
 	})
+
+	Context("with hugepages", func() {
+		BeforeEach(func() {
+			var err error
+			vsr, err = NewVolumeRenderer(config, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withHugepages())
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("should create a single hugepages volume with HugePages medium", func() {
+			volumes := vsr.Volumes()
+
+			// Find hugepages volume
+			var hugepagesVolume *k8sv1.Volume
+			for i := range volumes {
+				if volumes[i].Name == "hugepages" {
+					hugepagesVolume = &volumes[i]
+					break
+				}
+			}
+
+			Expect(hugepagesVolume).NotTo(BeNil(), "hugepages volume should exist")
+			Expect(hugepagesVolume.VolumeSource.EmptyDir).NotTo(BeNil())
+			Expect(hugepagesVolume.VolumeSource.EmptyDir.Medium).To(Equal(k8sv1.StorageMediumHugePages))
+		})
+
+		It("should mount hugepages at /dev/hugepages", func() {
+			mounts := vsr.Mounts()
+
+			// Find hugepages mount
+			var hugepagesMount *k8sv1.VolumeMount
+			for i := range mounts {
+				if mounts[i].Name == "hugepages" {
+					hugepagesMount = &mounts[i]
+					break
+				}
+			}
+
+			Expect(hugepagesMount).NotTo(BeNil(), "hugepages mount should exist")
+			Expect(hugepagesMount.MountPath).To(Equal("/dev/hugepages"))
+		})
+
+		It("should not create a second hugetblfs-dir volume", func() {
+			volumes := vsr.Volumes()
+
+			// Verify no hugetblfs-dir volume exists
+			for i := range volumes {
+				Expect(volumes[i].Name).NotTo(Equal("hugetblfs-dir"), "hugetblfs-dir volume should not exist")
+			}
+		})
+
+		It("should not create a mount at /dev/hugepages/libvirt/qemu", func() {
+			mounts := vsr.Mounts()
+
+			// Verify no mount at /dev/hugepages/libvirt/qemu
+			for i := range mounts {
+				Expect(mounts[i].MountPath).NotTo(Equal("/dev/hugepages/libvirt/qemu"),
+					"mount at /dev/hugepages/libvirt/qemu should not exist")
+			}
+		})
+	})
 })
 
 func vmiDiskPath(volumeName string) string {

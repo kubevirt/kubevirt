@@ -460,6 +460,17 @@ func configureQemuConf(qemuFilename string) (err error) {
 	_, err = os.Stat("/dev/hugepages")
 	if err == nil {
 		_, err = qemuConf.WriteString("hugetlbfs_mount = \"/dev/hugepages\"\n")
+		if err != nil {
+			return err
+		}
+
+		// Ensure the directory libvirt/qemu needs for memory backing files exists
+		// on the hugetlbfs mount. This directory is needed when memfd is disabled
+		// and libvirt needs to create memory backing files on hugetlbfs.
+		hugepagesQemuDir := "/dev/hugepages/libvirt/qemu"
+		if err := os.MkdirAll(hugepagesQemuDir, 0755); err != nil {
+			return fmt.Errorf("failed to create hugepages qemu directory %s: %v", hugepagesQemuDir, err)
+		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
