@@ -35,7 +35,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
-	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -49,9 +48,8 @@ const (
 	backupTimeXMLFormat               = "2006-01-02_15-04-05"
 	freezeFailedMsg                   = "Failed freezing guest filesystem: %s"
 	unfreezeFailedMsg                 = "Failed to unfreeze filesystem after backup completion"
+	qmpQueryBlockNodesCmd             = `{"execute":"query-named-block-nodes"}`
 )
-
-var getDiskInfoWithForceShare = osdisk.GetDiskInfoWithForceShare
 
 func (m *StorageManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
 	logger := log.Log.With("backupName", backupOptions.BackupName)
@@ -471,6 +469,11 @@ func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*a
 		return nil, nil, fmt.Errorf("failed to get domain disks: %v", err)
 	}
 
+	bitmapsByFile, err := queryBitmaps(dom)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to query bitmaps: %v", err)
+	}
+
 	checkpointDisks := &api.CheckpointDisks{}
 	var disksWithoutBitmap []string
 
@@ -483,12 +486,7 @@ func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*a
 			continue
 		}
 
-		diskInfo, err := getDiskInfoWithForceShare(disk.Source.File)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to get disk info for %s at %s: %v", disk.Target.Device, disk.Source.File, err)
-		}
-
-		if diskInfo.HasBitmap(checkpointName) {
+		if hasBitmap(bitmapsByFile, disk.Source.File, checkpointName) {
 			checkpointDisks.Disks = append(checkpointDisks.Disks, api.CheckpointDisk{
 				Name:       disk.Target.Device,
 				Checkpoint: "bitmap",
@@ -499,4 +497,55 @@ func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*a
 	}
 
 	return checkpointDisks, disksWithoutBitmap, nil
+}
+
+func hasBitmap(bitmapsByFile map[string][]qmpBitmapInfo, filePath, bitmapName string) bool {
+	bitmaps, ok := bitmapsByFile[filePath]
+	if !ok {
+		return false
+	}
+	for _, bm := range bitmaps {
+		if bm.Name == bitmapName {
+			return true
+		}
+	}
+	return false
+}
+
+type qmpBitmapInfo struct {
+	Name string `json:"name"`
+}
+
+type qmpBlockNodeInfo struct {
+	File         string          `json:"file,omitempty"`
+	DirtyBitmaps []qmpBitmapInfo `json:"dirty-bitmaps,omitempty"`
+}
+
+type qmpQueryBlockNodesResponse struct {
+	Return []qmpBlockNodeInfo `json:"return"`
+}
+
+// queryBitmaps queries QEMU for bitmap information via QMP.
+// Returns a map of file path to list of bitmaps on that file.
+// This is used instead of qemu-img info because qemu-img info doesn't see
+// updated bitmap state unless the VM was shutdown.
+var queryBitmaps = func(dom cli.VirDomain) (map[string][]qmpBitmapInfo, error) {
+	output, err := dom.QemuMonitorCommand(qmpQueryBlockNodesCmd, libvirt.DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute QMP query-named-block-nodes: %w", err)
+	}
+
+	var resp qmpQueryBlockNodesResponse
+	if err := json.Unmarshal([]byte(output), &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse QMP response: %w", err)
+	}
+
+	result := make(map[string][]qmpBitmapInfo)
+	for _, node := range resp.Return {
+		if node.File != "" && len(node.DirtyBitmaps) > 0 {
+			result[node.File] = append(result[node.File], node.DirtyBitmaps...)
+		}
+	}
+
+	return result, nil
 }
