@@ -6778,6 +6778,11 @@ func (in *VirtualMachineStatus) DeepCopyInto(out *VirtualMachineStatus) {
 		*out = new(ChangedBlockTrackingStatus)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.PersistentStateVolume != nil {
+		in, out := &in.PersistentStateVolume, &out.PersistentStateVolume
+		*out = new(VolumeStatus)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.InstancetypeRef != nil {
 		in, out := &in.InstancetypeRef, &out.InstancetypeRef
 		*out = new(InstancetypeStatusRef)

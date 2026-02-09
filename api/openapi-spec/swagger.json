@@ -19631,6 +19631,10 @@
       "type": "integer",
       "format": "int64"
      },
+     "persistentStateVolume": {
+      "description": "PersistentStateVolume tracks the backend storage PVC status containing persistent VM state (UEFI, TPM, CBT)",
+      "$ref": "#/definitions/v1.VolumeStatus"
+     },
      "preferenceRef": {
       "description": "PreferenceRef captures the state of any referenced preference from the VirtualMachine",
       "$ref": "#/definitions/v1.InstancetypeStatusRef"
