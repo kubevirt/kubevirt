@@ -54,6 +54,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -999,6 +1000,11 @@ func (c *MigrationTargetController) finalizeMigration(vmi *v1.VirtualMachineInst
 	if err := client.FinalizeVirtualMachineMigration(vmi, options); err != nil {
 		c.logger.Object(vmi).Reason(err).Error(errorMessage)
 		return fmt.Errorf("%s: %v", errorMessage, err)
+	}
+
+	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
+		cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
+		c.logger.Object(vmi).Info("Set CBT to Initializing after migration for checkpoint redefinition")
 	}
 
 	vmi.Status.MigrationState.Completed = true
