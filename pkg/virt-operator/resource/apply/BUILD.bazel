@@ -30,6 +30,7 @@ go_library(
         "//pkg/controller:go_default_library",
         "//pkg/network/multus:go_default_library",
         "//pkg/pointer:go_default_library",
+        "//pkg/util/tls:go_default_library",
         "//pkg/virt-config/featuregate:go_default_library",
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//pkg/virt-operator/resource/generate/install:go_default_library",
