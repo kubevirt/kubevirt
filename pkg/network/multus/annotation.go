@@ -148,3 +148,95 @@ func newBindingPluginAnnotationData(
 		},
 	}, nil
 }
+
+// MergeMultusAnnotations merges existing Multus annotations with new ones, preserving all fields
+// that may have been added by CNI plugins after the initial annotation was set.
+func MergeMultusAnnotations(existingAnnotation, newAnnotation string) (string, error) {
+	if existingAnnotation == "" {
+		return newAnnotation, nil
+	}
+	if newAnnotation == "" {
+		return existingAnnotation, nil
+	}
+
+	var existingNetworks, newNetworks []map[string]interface{}
+
+	// Parse existing annotation as generic JSON
+	if err := json.Unmarshal([]byte(existingAnnotation), &existingNetworks); err != nil {
+		return "", fmt.Errorf("failed to parse existing multus annotation: %w", err)
+	}
+
+	// Parse new annotation as generic JSON
+	if err := json.Unmarshal([]byte(newAnnotation), &newNetworks); err != nil {
+		return "", fmt.Errorf("failed to parse new multus annotation: %w", err)
+	}
+
+	// Create a map of existing networks by name for quick lookup
+	existingNetworksMap := make(map[string]map[string]interface{})
+	for _, network := range existingNetworks {
+		name, _ := network["name"].(string)
+		namespace, _ := network["namespace"].(string)
+		if name != "" {
+			key := fmt.Sprintf("%s/%s", namespace, name)
+			existingNetworksMap[key] = network
+		}
+	}
+
+	// Merge networks, preserving existing fields
+	mergedNetworks := make([]map[string]interface{}, 0, len(newNetworks))
+	for _, newNetwork := range newNetworks {
+		name, _ := newNetwork["name"].(string)
+		namespace, _ := newNetwork["namespace"].(string)
+		if name == "" {
+			continue
+		}
+
+		key := fmt.Sprintf("%s/%s", namespace, name)
+		if existingNetwork, exists := existingNetworksMap[key]; exists {
+			// Merge the networks, preserving existing fields
+			mergedNetwork := mergeNetworkMaps(existingNetwork, newNetwork)
+			mergedNetworks = append(mergedNetworks, mergedNetwork)
+		} else {
+			// New network, add as-is
+			mergedNetworks = append(mergedNetworks, newNetwork)
+		}
+	}
+
+	// Marshal the merged result
+	mergedAnnotation, err := json.Marshal(mergedNetworks)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal merged multus annotation: %w", err)
+	}
+
+	return string(mergedAnnotation), nil
+}
+
+// mergeNetworkMaps merges two network maps, preserving fields from existing while updating with new
+// This approach treats the network as a generic JSON object and preserves all fields that KubeVirt doesn't explicitly manage
+func mergeNetworkMaps(existing, newMap map[string]interface{}) map[string]interface{} {
+	merged := make(map[string]interface{})
+
+	// Start with the new network as base
+	for key, value := range newMap {
+		merged[key] = value
+	}
+
+	// Preserve existing fields that aren't in new, or merge nested objects
+	for key, existingValue := range existing {
+		if newValue, exists := merged[key]; exists {
+			// Field exists in both, check if we need to deep merge
+			if existingMap, existingIsMap := existingValue.(map[string]interface{}); existingIsMap {
+				if newMap, newIsMap := newValue.(map[string]interface{}); newIsMap {
+					// Both are maps, deep merge them
+					merged[key] = mergeNetworkMaps(existingMap, newMap)
+				}
+			}
+			// If not maps, new value takes precedence (already set above)
+		} else {
+			// Field only exists in existing, preserve it
+			merged[key] = existingValue
+		}
+	}
+
+	return merged
+}
