@@ -481,7 +481,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyBackupTargetPVCOutput(virtClient, secondBackupPVC, vm.Name, 1, []int64{expectedDiskSize.Value()})
 	})
 
-	It("[QUARANTINE] Checkpoint redefinition succeeds after hotplug volume removal", func() {
+	It("[QUARANTINE] Checkpoint redefinition succeeds after hotplug volume removal", decorators.Quarantine, func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
