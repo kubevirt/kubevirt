@@ -47,7 +47,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
+	cbt "kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 
 	"kubevirt.io/kubevirt/tests/console"
@@ -58,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
+	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
 	"kubevirt.io/kubevirt/tests/libvmifact"
@@ -84,7 +85,7 @@ var _ = Describe(SIG("Backup", func() {
 			),
 		)
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
-			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
 
@@ -127,7 +128,7 @@ var _ = Describe(SIG("Backup", func() {
 			),
 		)
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
-			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
 
@@ -215,7 +216,7 @@ var _ = Describe(SIG("Backup", func() {
 		)
 
 		vm = libstorage.RenderVMWithDataVolumeTemplate(bootDv,
-			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
 
@@ -307,7 +308,7 @@ var _ = Describe(SIG("Backup", func() {
 			),
 		)
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
-			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
 
@@ -412,7 +413,7 @@ var _ = Describe(SIG("Backup", func() {
 			),
 		)
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
-			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
 
@@ -505,7 +506,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Creating VM with boot disk and CBT enabled")
 		vm = libstorage.RenderVMWithDataVolumeTemplate(bootDv,
-			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
 
@@ -663,7 +664,7 @@ var _ = Describe(SIG("Backup", func() {
 			),
 		)
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
-			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
 
@@ -803,6 +804,160 @@ func getPodByVMI(vmi *v1.VirtualMachineInstance) *corev1.Pod {
 	ExpectWithOffset(1, pod).ToNot(BeNil())
 	return pod
 }
+
+var _ = Describe("Backup with migration", func() {
+	var (
+		err        error
+		virtClient kubecli.KubevirtClient
+		vm         *v1.VirtualMachine
+	)
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+	})
+
+	DescribeTable("should preserve checkpoints and perform incremental backup after live migration",
+		func(backendStorageAccessMode corev1.PersistentVolumeAccessMode) {
+			const (
+				testDataSizeMB    = 50
+				testDataSizeBytes = testDataSizeMB * 1024 * 1024
+			)
+
+			var sc string
+			var foundSC bool
+			var volumeMode corev1.PersistentVolumeMode
+
+			// Select storage class based on desired backend storage access mode
+			if backendStorageAccessMode == corev1.ReadWriteMany {
+				sc, foundSC = libstorage.GetRWXFileSystemStorageClass()
+				if !foundSC {
+					Fail("RWXFilesystem storage class not found")
+				}
+				volumeMode = corev1.PersistentVolumeFilesystem
+			} else {
+				sc, foundSC = libstorage.GetRWXBlockStorageClass()
+				if !foundSC {
+					Fail("RWXBlock storage class not found")
+				}
+				volumeMode = corev1.PersistentVolumeBlock
+			}
+
+			By("Creating VM with CBT label")
+			dv := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskFedoraTestTooling)),
+				libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libdv.WithStorage(
+					libdv.StorageWithStorageClass(sc),
+					libdv.StorageWithVolumeMode(volumeMode),
+					libdv.StorageWithReadWriteManyAccessMode(),
+					libdv.StorageWithVolumeSize(cd.FedoraVolumeSize),
+				),
+			)
+
+			vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+				libvmi.WithLabels(cbt.CBTLabel),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			)
+
+			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to Fedora VM")
+
+			By("Ensuring backend storage has expected access mode")
+			pvcs, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: backendstorage.PVCPrefix + "=" + vm.Name,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pvcs.Items).To(HaveLen(1))
+			Expect(pvcs.Items[0].Status.AccessModes).To(HaveLen(1))
+			Expect(pvcs.Items[0].Status.AccessModes[0]).To(Equal(backendStorageAccessMode),
+				"Expected backend storage access mode to be %s", backendStorageAccessMode)
+
+			By("Verifying CBT is enabled")
+			libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+			fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc-"+rand.String(5), testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.FedoraVolumeSize), libstorage.WithStorageProfile())
+			incrementalBackupPVC := libstorage.CreateFSPVC("incr-backup-pvc-"+rand.String(5), testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.FedoraVolumeSize), libstorage.WithStorageProfile())
+
+			By("Creating BackupTracker")
+			tracker := createBackupTracker(virtClient, vm)
+
+			By("Creating first full backup with tracker reference")
+			fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupSucceeded)
+			Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
+			Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
+
+			By("Verifying BackupTracker was updated with first checkpoint")
+			tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			firstCheckpoint := tracker.Status.LatestCheckpoint
+			Expect(firstCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after first backup")
+			Expect(firstCheckpoint.Name).To(Equal(*fullBackup.Status.CheckpointName), "First checkpoint should match backup checkpoint")
+			Expect(firstCheckpoint.Volumes).ToNot(BeEmpty(), "Checkpoint should have disk info for redefinition")
+
+			By("Verifying checkpoint exists in libvirt before migration")
+			checkpointsBefore := listDomainCheckpoints(vmi)
+			Expect(checkpointsBefore).To(HaveLen(1), "libvirt should have exactly 1 checkpoint before migration")
+			checkpointName := checkpointsBefore[0]
+			Expect(checkpointName).ToNot(BeEmpty(), "checkpoint should have a name")
+
+			By(fmt.Sprintf("Writing %dMB of data to VM disk before migration", testDataSizeMB))
+			err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/root/testfile bs=1M count=%d && sync", testDataSizeMB), 2*time.Minute)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Performing live migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+			By("Waiting for CBT to return to Enabled state (checkpoint redefinition)")
+			// After migration, CBT is set to Initializing to trigger checkpoint redefinition.
+			// Once redefinition completes, CBT should return to Enabled state.
+			libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+			By("Verifying checkpoint is redefined in libvirt after migration")
+			// Re-fetch VMI to get updated pod info after migration
+			vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			checkpointsAfter := listDomainCheckpoints(vmi)
+			Expect(checkpointsAfter).To(HaveLen(1), "libvirt should have exactly 1 checkpoint after migration")
+			Expect(checkpointsAfter[0]).To(Equal(checkpointName), "checkpoint name should be preserved after migration")
+
+			By("Verifying BackupTracker still has the checkpoint after migration")
+			tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil(), "Tracker should still have checkpoint after migration")
+			Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(firstCheckpoint.Name), "Checkpoint should be the same after migration")
+
+			By("Creating second backup after migration - this should be incremental")
+			incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name, waitBackupSucceeded)
+			Expect(incrementalBackup.Status.Type).To(Equal(backupv1.Incremental),
+				"Backup after migration should be Incremental (checkpoint was redefined)")
+			Expect(incrementalBackup.Status.CheckpointName).ToNot(BeNil())
+			Expect(incrementalBackup.Status.IncludedVolumes).To(HaveLen(1), "Should have one included disk")
+
+			By("Verifying BackupTracker was updated with new checkpoint")
+			tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after second backup")
+			Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(*incrementalBackup.Status.CheckpointName), "Second checkpoint should match backup checkpoint")
+			Expect(tracker.Status.LatestCheckpoint.Name).ToNot(Equal(firstCheckpoint.Name), "Second checkpoint should have a different name")
+
+			By("Verifying incremental backup size matches the amount of data written (not full disk size)")
+			verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
+		},
+		Entry("[sig-compute-migrations] RWX backend storage", decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWXFsVMStateStorageClass,
+			corev1.ReadWriteMany),
+		// Currently there is a bug in libvirt where the bitmap migration fails when using RWO block storage.
+		// Will remove the skip once the bug fix is released. (it passed locally with custom libvirt patch)
+		// Bug: https://issues.redhat.com/browse/RHEL-145770
+		PEntry("[sig-storage] RWO backend storage", decorators.SigStorage, decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWOFsVMStateStorageClass, decorators.RequiresRWXBlock,
+			corev1.ReadWriteOnce),
+	)
+})
 
 func backupName(vmName string) string {
 	return "vmbackup-" + vmName + rand.String(5)
