@@ -179,12 +179,12 @@ type vmiMountTargetRecord struct {
 }
 
 func (r *vmiMountTargetRecord) appendPath(path string) {
-    for _, entry := range r.MountTargetEntries {
-        if entry.TargetFile == path {
-            return // skip appending if already present
-        }
-    }
-    r.MountTargetEntries = append(r.MountTargetEntries, vmiMountTargetEntry{TargetFile: path})
+	for _, entry := range r.MountTargetEntries {
+		if entry.TargetFile == path {
+			return // skip appending if already present
+		}
+	}
+	r.MountTargetEntries = append(r.MountTargetEntries, vmiMountTargetEntry{TargetFile: path})
 }
 
 // NewVolumeMounter creates a new VolumeMounter
