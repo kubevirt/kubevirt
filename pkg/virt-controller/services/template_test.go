@@ -481,7 +481,7 @@ var _ = Describe("Template", func() {
 					Controller:         &trueVar,
 					BlockOwnerDeletion: &trueVar,
 				}}))
-				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
+				Expect(pod.ObjectMeta.GenerateName).To(Equal("d8v-vm-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					v1.NodeSchedulable:    "true",
 					k8sv1.LabelArchStable: arch,
@@ -1061,7 +1061,7 @@ var _ = Describe("Template", func() {
 					v1.VirtualMachineNameLabel: "testvmi",
 					v1.HeritageLabel:           v1.HeritageValue,
 				}))
-				Expect(pod.ObjectMeta.GenerateName).To(Equal("virt-launcher-testvmi-"))
+				Expect(pod.ObjectMeta.GenerateName).To(Equal("d8v-vm-testvmi-"))
 				Expect(pod.Spec.NodeSelector).To(Equal(map[string]string{
 					k8sv1.LabelHostname:   "master",
 					v1.NodeSchedulable:    "true",

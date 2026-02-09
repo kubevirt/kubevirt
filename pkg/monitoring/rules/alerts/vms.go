@@ -31,7 +31,7 @@ var (
 	vmsAlerts = []promv1.Rule{
 		{
 			Alert: "OrphanedVirtualMachineInstances",
-			Expr:  intstr.FromString("(((max by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} * on(pod) group_left(node) max by(pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) or (count by (node)( kube_pod_info{pod=~'virt-launcher.*',node!=''})*0)) == 0"),
+			Expr:  intstr.FromString("(((max by (node) (kube_pod_status_ready{condition='true',pod=~'virt-handler.*'} * on(pod) group_left(node) max by(pod,node)(kube_pod_info{pod=~'virt-handler.*',node!=''})) ) == 1) or (count by (node)( kube_pod_info{pod=~'d8v-vm.*',node!=''})*0)) == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "No ready virt-handler pod detected on node {{ $labels.node }} with running vmis for more than 10 minutes",

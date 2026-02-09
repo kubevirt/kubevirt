@@ -276,7 +276,7 @@ var _ = Describe("Object Graph", func() {
 				return true, &k8sv1.PodList{Items: []k8sv1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "virt-launcher-test-vmi",
+							Name:      "d8v-vm-test-vmi",
 							Namespace: "test-namespace",
 							Labels: map[string]string{
 								"kubevirt.io": "virt-launcher",
@@ -296,7 +296,7 @@ var _ = Describe("Object Graph", func() {
 			Expect(graphNodes.Children[0].ObjectReference.Name).To(Equal("test-vm"))
 			// Child nodes of the VMI
 			Expect(graphNodes.Children[0].Children).To(HaveLen(1))
-			Expect(graphNodes.Children[0].Children[0].ObjectReference.Name).To(Equal("virt-launcher-test-vmi"))
+			Expect(graphNodes.Children[0].Children[0].ObjectReference.Name).To(Equal("d8v-vm-test-vmi"))
 
 			Expect(graphNodes.Children[1].ObjectReference.Name).To(Equal("test-ssh-secret"))
 			Expect(graphNodes.Children[2].ObjectReference.Name).To(Equal("test-root-disk-pvc"))
@@ -345,7 +345,7 @@ var _ = Describe("Object Graph", func() {
 				return true, &k8sv1.PodList{Items: []k8sv1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "virt-launcher-test-vmi-pod",
+							Name:      "d8v-vm-test-vmi-pod",
 							Namespace: "test-namespace",
 							Labels: map[string]string{
 								"kubevirt.io": "virt-launcher",
@@ -371,8 +371,8 @@ var _ = Describe("Object Graph", func() {
 				childMap[child.ObjectReference.Name] = child.ObjectReference.Kind
 			}
 
-			Expect(childMap).To(HaveKey("virt-launcher-test-vmi-pod"))
-			Expect(childMap["virt-launcher-test-vmi-pod"]).To(Equal("Pod"))
+			Expect(childMap).To(HaveKey("d8v-vm-test-vmi-pod"))
+			Expect(childMap["d8v-vm-test-vmi-pod"]).To(Equal("Pod"))
 			Expect(childMap).To(HaveKey("vmi-ssh-secret"))
 			Expect(childMap["vmi-ssh-secret"]).To(Equal("Secret"))
 			Expect(childMap).To(HaveKey("vmi-root-pvc"))
@@ -572,7 +572,7 @@ var _ = Describe("Object Graph", func() {
 				return true, &k8sv1.PodList{Items: []k8sv1.Pod{
 					{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      "virt-launcher-pod-ownerref",
+							Name:      "d8v-vm-pod-ownerref",
 							Namespace: "test-namespace",
 							Labels: map[string]string{
 								"kubevirt.io": "virt-launcher",
@@ -593,7 +593,7 @@ var _ = Describe("Object Graph", func() {
 
 			vmiChild := graphNodes.Children[0]
 			Expect(vmiChild.Children).To(HaveLen(1))
-			Expect(vmiChild.Children[0].ObjectReference.Name).To(Equal("virt-launcher-pod-ownerref"))
+			Expect(vmiChild.Children[0].ObjectReference.Name).To(Equal("d8v-vm-pod-ownerref"))
 		})
 
 		It("should handle pod not found", func() {

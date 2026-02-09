@@ -522,7 +522,7 @@ func newVirtLauncherPodWithPhase(namespace, vmiName, nodeName string, phase k8sv
 }
 
 func newHotplugPod(virtLauncherPod *k8sv1.Pod) *k8sv1.Pod {
-	podName := "hp-volume-" + virtLauncherPod.Name
+	podName := "d8v-hp-" + virtLauncherPod.Name
 	hotplugPod := newPod(virtLauncherPod.Namespace, podName, virtLauncherPod.Spec.NodeName)
 	hotplugPod.SetOwnerReferences([]metav1.OwnerReference{
 		{

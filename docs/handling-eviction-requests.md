@@ -43,7 +43,7 @@ The webhook has the ability to:
 
 The webhook admits eviction requests **before** `kube-api` checks them against [Pod Distribution Budget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#pod-disruption-budgets) objects.
 
-In case the pod is not a `virt-launcher` or a `hp-volume-` pod - the eviction request is approved. Otherwise, depending on the VMI's eviction strategy and whether it is migratable - the webhook will potentially mark the VMI for evacuation and approve or deny the eviction request: 
+In case the pod is not a `d8v-vm` or a `d8v-hp` pod - the eviction request is approved. Otherwise, depending on the VMI's eviction strategy and whether it is migratable - the webhook will potentially mark the VMI for evacuation and approve or deny the eviction request: 
 
 | Eviction Strategy     | Is VMI migratable | Is VMI marked for evacuation | Does Webhook approve eviction | Webhook Response                                 |
 |-----------------------|-------------------|------------------------------|-------------------------------|--------------------------------------------------|

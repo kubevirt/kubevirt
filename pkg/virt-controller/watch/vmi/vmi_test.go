@@ -179,7 +179,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			ContainElement(
 				WithTransform(func(pod k8sv1.Pod) string {
 					return pod.GenerateName
-				}, Equal("hp-volume-")),
+				}, Equal("d8v-hp-testvmi-")),
 			),
 		)
 	}
@@ -2638,7 +2638,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			}
 			pod, err := controller.createAttachmentPodTemplate(vmi, virtlauncherPod, []*virtv1.Volume{volume})
 			Expect(err).ToNot(HaveOccurred())
-			Expect(pod.GenerateName).To(Equal("hp-volume-"))
+			Expect(pod.GenerateName).To(Equal("d8v-hp-testvmi-"))
 			found := false
 			for _, podVolume := range pod.Spec.Volumes {
 				if volume.Name == podVolume.Name {
@@ -3337,7 +3337,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Name:   "hotplug",
 					Target: "",
 					HotplugVolume: &virtv1.HotplugVolumeStatus{
-						AttachPodName: "hp-volume-hotplug",
+						AttachPodName: "d8v-hp-hotplug",
 						AttachPodUID:  "abcd",
 					},
 				},
@@ -3372,7 +3372,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					},
 				},
 			})
-			hpPod := newPodForVirtlauncher(virtlauncherPod, "hp-volume-hotplug", "abcd", k8sv1.PodRunning)
+			hpPod := newPodForVirtlauncher(virtlauncherPod, "d8v-hp-hotplug", "abcd", k8sv1.PodRunning)
 			hpPod.Spec.Volumes = append(hpPod.Spec.Volumes, k8sv1.Volume{
 				Name: "hotplug",
 				VolumeSource: k8sv1.VolumeSource{
@@ -3403,7 +3403,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 					Target: "",
 					Phase:  virtv1.HotplugVolumeDetaching,
 					HotplugVolume: &virtv1.HotplugVolumeStatus{
-						AttachPodName: "hp-volume-hotplug",
+						AttachPodName: "d8v-hp-hotplug",
 						AttachPodUID:  "abcd",
 					},
 				},

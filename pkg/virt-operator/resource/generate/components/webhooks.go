@@ -357,7 +357,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "only-vms",
-						Expression: `object.metadata.name.startsWith("virt-launcher")`,
+						Expression: `object.metadata.name.startsWith("d8v-vm-") || object.metadata.name.startsWith("virt-launcher-")`,
 					},
 				},
 			},
@@ -388,7 +388,7 @@ func NewVirtAPIValidatingWebhookConfiguration(installNamespace string) *admissio
 				MatchConditions: []admissionregistrationv1.MatchCondition{
 					{
 						Name:       "only-hotplug-pods",
-						Expression: `object.metadata.name.startsWith("hp-volume-")`,
+						Expression: `object.metadata.name.startsWith("d8v-hp-") || object.metadata.name.startsWith("hp-volume-")`,
 					},
 				},
 			},

@@ -1807,7 +1807,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				}
 			}
 			By("Checking hotplug attachment pod ratios")
-			Expect(attachmentPod.Name).To(ContainSubstring("hp-volume-"))
+			Expect(attachmentPod.Name).To(ContainSubstring("d8v-hp-"))
 			memLimit := attachmentPod.Spec.Containers[0].Resources.Limits.Memory().Value()
 			memRequest := attachmentPod.Spec.Containers[0].Resources.Requests.Memory().Value()
 			Expect(float64(memRequest) * memRatio).To(BeNumerically(">=", float64(memLimit)))

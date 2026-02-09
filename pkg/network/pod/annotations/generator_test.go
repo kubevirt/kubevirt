@@ -768,7 +768,7 @@ func newMultusDefaultPodNetwork(name, networkAttachmentDefinitionName string) *v
 func newStubVirtLauncherPod(vmi *v1.VirtualMachineInstance, podAnnotations map[string]string) *k8Scorev1.Pod {
 	return &k8Scorev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "virt-launcher-" + vmi.Name,
+			Name:        "d8v-vm-" + vmi.Name,
 			Namespace:   vmi.Namespace,
 			Annotations: podAnnotations,
 		},

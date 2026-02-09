@@ -115,19 +115,19 @@ tests:
         values: '1 1 1 1 1 1 1 1 1 1 1'
       - series: 'kube_pod_status_ready{pod="virt-handler-asdf", condition="true"}'
         values: '0 0 0 0 0 0 0 0 0 0 0'
-      - series: 'kube_pod_info{pod="virt-launcher-testvm-123", node="node01"}'
+      - series: 'kube_pod_info{pod="d8v-vm-testvm-123", node="node01"}'
         values: '1 1 1 1 1 1 1 1 1 1 1'
       - series: 'kube_pod_info{pod="virt-handler-asdfg", node="node02"}'
         values: '1 1 1 1 1 1 1 1 1 1 1'
       - series: 'kube_pod_status_ready{pod="virt-handler-asdfg", condition="true"}'
         values: '1 1 1 1 1 1 1 1 1 1 1'
-      - series: 'kube_pod_info{pod="virt-launcher-vmi", node="node02"}'
+      - series: 'kube_pod_info{pod="d8v-vm-vmi", node="node02"}'
         values: '1 1 1 1 1 1 1 1 1 1 1'
       - series: 'kube_pod_info{pod="virt-handler-abcd", node="node03"}'
         values: '1 1 1 1 1 1 1 1 1 1 1'
       - series: 'kube_pod_status_ready{pod="virt-handler-abcd", condition="true"}'
         values: '0 0 0 0 0 0 0 0 0 0 0'
-      - series: 'kube_pod_info{pod="virt-launcher-novmi", node="node03"}'
+      - series: 'kube_pod_info{pod="d8v-vm-novmi", node="node03"}'
         values: '_ _ _ _ _ _ _ _ _ _ _'
 
     alert_rule_test:
@@ -156,19 +156,19 @@ tests:
         values: '_ _ _ _ _ _ _ _ _ _ _'
       - series: 'kube_pod_status_ready{pod="virt-handler-asdf", condition="true"}'
         values: '_ _ _ _ _ _ _ _ _ _ _'
-      - series: 'kube_pod_info{pod="virt-launcher-testvm-123", node="node01"}'
+      - series: 'kube_pod_info{pod="d8v-vm-testvm-123", node="node01"}'
         values: '1 1 1 1 1 1 1 1 1 1 1'
       - series: 'kube_pod_info{pod="virt-handler-asdfg", node="node02"}'
         values: '1 1 1 1 1 1 1 1 1 1 1'
       - series: 'kube_pod_status_ready{pod="virt-handler-asdfg", condition="true"}'
         values: '1 1 1 1 1 1 1 1 1 1 1'
-      - series: 'kube_pod_info{pod="virt-launcher-vmi", node="node02"}'
+      - series: 'kube_pod_info{pod="d8v-vm-vmi", node="node02"}'
         values: '1 1 1 1 1 1 1 1 1 1 1'
       - series: 'kube_pod_info{pod="virt-handler-abcd", node="node03"}'
         values: '_ _ _ _ _ _ _ _ _ _ _'
       - series: 'kube_pod_status_ready{pod="virt-handler-abcd", condition="true"}'
         values: '_ _ _ _ _ _ _ _ _ _ _'
-      - series: 'kube_pod_info{pod="virt-launcher-novmi", node="node03"}'
+      - series: 'kube_pod_info{pod="d8v-vm-novmi", node="node03"}'
         values: '_ _ _ _ _ _ _ _ _ _ _'
 
 
@@ -510,25 +510,25 @@ tests:
   # Test recording rule
   - interval: 1m
     input_series:
-      - series: 'kube_pod_container_resource_requests{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute", resource="memory"}'
+      - series: 'kube_pod_container_resource_requests{pod="d8v-vm-example-1", namespace="namespace-example-1",container="compute", resource="memory"}'
         # time:  0          1          2          3
         values: "1376882688 1376882688 1376882688 1376882688"
-      - series: 'container_memory_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute", resource="memory", prometheus_replica="prometheus-k8s-0"}'
+      - series: 'container_memory_working_set_bytes{pod="d8v-vm-example-1", namespace="namespace-example-1",container="compute", resource="memory", prometheus_replica="prometheus-k8s-0"}'
         # time:  0          1          2          3
         values: "1073176576 1073176576 1073176576 1273176576"
-      - series: 'container_memory_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute", resource="memory", prometheus_replica="prometheus-k8s-1"}'
+      - series: 'container_memory_working_set_bytes{pod="d8v-vm-example-1", namespace="namespace-example-1",container="compute", resource="memory", prometheus_replica="prometheus-k8s-1"}'
         # time:  0          1          2          3
         values: "1073176576 1073176576 1073176576 1273176576"
     promql_expr_test:
       - expr: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes'
         eval_time: 1m
         exp_samples:
-          - labels: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
+          - labels: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes{pod="d8v-vm-example-1", namespace="namespace-example-1",container="compute"}'
             value: 303706112
       - expr: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes'
         eval_time: 3m
         exp_samples:
-          - labels: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes{pod="virt-launcher-example-1", namespace="namespace-example-1",container="compute"}'
+          - labels: 'kubevirt_vm_container_free_memory_bytes_based_on_working_set_bytes{pod="d8v-vm-example-1", namespace="namespace-example-1",container="compute"}'
             value: 103706112
   # VM eviction strategy is set but vm is not migratable
   - interval: 1m

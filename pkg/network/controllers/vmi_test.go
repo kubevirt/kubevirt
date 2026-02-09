@@ -504,7 +504,7 @@ var _ = Describe("Status Update", func() {
 func newPodFromVMI(vmi *v1.VirtualMachineInstance, annotations map[string]string) *k8scorev1.Pod {
 	return &k8scorev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "virt-launcher-" + vmi.Name,
+			Name:        "d8v-vm-" + vmi.Name,
 			Namespace:   vmi.Namespace,
 			Annotations: annotations,
 		},
