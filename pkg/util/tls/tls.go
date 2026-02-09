@@ -4,16 +4,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/client-go/tools/cache"
-
-	v1 "kubevirt.io/api/core/v1"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"k8s.io/client-go/util/certificate"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const noSrvCertMessage = "No server certificate, server is not yet ready to receive traffic"
@@ -256,6 +256,22 @@ func SetupTLSForClients(caManager ClientCAManager, certManager certificate.Manag
 			}
 			return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageServerAuth, "node", []string{commonNameType})
 		},
+	}
+}
+
+func InjectVirtTemplateTLSConfig(kv *v1.KubeVirt, deployment *appsv1.Deployment) {
+	tlsConfig := getTLSConfiguration(kv)
+	if len(tlsConfig.Ciphers) > 0 {
+		deployment.Spec.Template.Spec.Containers[0].Args = append(
+			deployment.Spec.Template.Spec.Containers[0].Args,
+			"--tls-cipher-suites", strings.Join(tlsConfig.Ciphers, ","),
+		)
+	}
+	if tlsConfig.MinTLSVersion != "" {
+		deployment.Spec.Template.Spec.Containers[0].Args = append(
+			deployment.Spec.Template.Spec.Containers[0].Args,
+			"--tls-min-version", string(tlsConfig.MinTLSVersion),
+		)
 	}
 }
 
