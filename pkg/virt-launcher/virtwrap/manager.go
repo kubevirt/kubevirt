@@ -609,6 +609,10 @@ func (l *LibvirtDomainManager) Exec(domainName, command string, args []string, t
 }
 
 func (l *LibvirtDomainManager) GuestPing(domainName string) error {
+	if l.storageManager.IsFreezeInProgress() {
+		log.Log.V(1).Infof("Skipping GuestPing for %s: freeze in progress", domainName)
+		return nil
+	}
 	pingCmd := `{"execute":"guest-ping"}`
 	_, err := l.virConn.QemuAgentCommand(pingCmd, domainName)
 	return err
