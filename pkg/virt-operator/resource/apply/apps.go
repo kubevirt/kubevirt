@@ -13,12 +13,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/placement"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
@@ -70,6 +72,17 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 			log.Log.Object(deployment).Warningf("%s", err.Error())
 		} else {
 			deployment.Spec.Replicas = pointer.P(replicas)
+		}
+	}
+
+	switch deployment.Name {
+	case components.VirtTemplateApiserverDeploymentName:
+		if err := kvtls.InjectTLSConfigIntoDeployment(kv, deployment, components.VirtTemplateApiserverContainerName); err != nil {
+			return nil, err
+		}
+	case components.VirtTemplateControllerDeploymentName:
+		if err := kvtls.InjectTLSConfigIntoDeployment(kv, deployment, components.VirtTemplateControllerContainerName); err != nil {
+			return nil, err
 		}
 	}
 

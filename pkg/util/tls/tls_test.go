@@ -10,22 +10,21 @@ import (
 	"strings"
 	"time"
 
-	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
-
-	"k8s.io/client-go/tools/cache"
-
-	v12 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/testutils"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	appsv1 "k8s.io/api/apps/v1"
 	k8sv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/certificate"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
+	"kubevirt.io/kubevirt/pkg/testutils"
+	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -90,11 +89,11 @@ var _ = Describe("TLS", func() {
 		}
 
 		secrets := components.NewCertSecrets("install_namespace", "operator_namespace")
-		Expect(components.PopulateSecretWithCertificate(caSecret, nil, &v1.Duration{Duration: 1 * time.Hour})).To(Succeed())
+		Expect(components.PopulateSecretWithCertificate(caSecret, nil, &metav1.Duration{Duration: 1 * time.Hour})).To(Succeed())
 		caCert, err := components.LoadCertificates(caSecret)
 		Expect(err).ToNot(HaveOccurred())
 		for _, secret := range secrets {
-			Expect(components.PopulateSecretWithCertificate(secret, caCert, &v1.Duration{Duration: 1 * time.Hour})).To(Succeed())
+			Expect(components.PopulateSecretWithCertificate(secret, caCert, &metav1.Duration{Duration: 1 * time.Hour})).To(Succeed())
 			crt, err := components.LoadCertificates(secret)
 			certmanagers[secret.Name] = &mockCertManager{crt: crt}
 			Expect(err).ToNot(HaveOccurred())
@@ -102,14 +101,14 @@ var _ = Describe("TLS", func() {
 		caBundle := cert.EncodeCertPEM(caCert.Leaf)
 		caManager = &mockCAManager{caBundle: caBundle}
 
-		kv := &v12.KubeVirt{
-			ObjectMeta: v1.ObjectMeta{
+		kv := &v1.KubeVirt{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "kubevirt",
 				Namespace: "kubevirt",
 			},
-			Spec: v12.KubeVirtSpec{
-				Configuration: v12.KubeVirtConfiguration{
-					DeveloperConfiguration: &v12.DeveloperConfiguration{},
+			Spec: v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{},
 				},
 			},
 		}
@@ -357,7 +356,7 @@ var _ = Describe("TLS", func() {
 
 		kv := clusterConfig.GetConfigFromKubeVirtCR()
 		kvConfig := kv.DeepCopy()
-		kvConfig.Spec.Configuration.TLSConfiguration = &v12.TLSConfiguration{
+		kvConfig.Spec.Configuration.TLSConfiguration = &v1.TLSConfiguration{
 			MinTLSVersion: "VersionTLS13",
 		}
 		testutils.UpdateFakeKubeVirtClusterConfig(kubeVirtStore, kvConfig)
@@ -392,4 +391,93 @@ var _ = Describe("TLS", func() {
 			},
 		),
 	)
+
+	Describe("InjectTLSConfigIntoDeployment", func() {
+		const (
+			containerName      = "test-container"
+			existingArg        = "--existing-arg"
+			existingArgValue   = "value"
+			tlsCipherSuitesArg = "--tls-cipher-suites"
+			tlsMinVersionArg   = "--tls-min-version"
+		)
+
+		var deployment *appsv1.Deployment
+
+		BeforeEach(func() {
+			deployment = &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: k8sv1.PodTemplateSpec{
+						Spec: k8sv1.PodSpec{
+							Containers: []k8sv1.Container{
+								{
+									Name: containerName,
+									Args: []string{existingArg, existingArgValue},
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		It("should inject default TLS min version when KubeVirt has no TLS config", func() {
+			kv := &v1.KubeVirt{}
+			Expect(kvtls.InjectTLSConfigIntoDeployment(kv, deployment, containerName)).To(Succeed())
+
+			args := deployment.Spec.Template.Spec.Containers[0].Args
+			Expect(args).To(ContainElements(existingArg, existingArgValue))
+			Expect(args).To(ContainElements(tlsMinVersionArg, string(v1.VersionTLS12)))
+			Expect(args).NotTo(ContainElement(tlsCipherSuitesArg))
+		})
+
+		It("should inject custom TLS configuration from KubeVirt", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						TLSConfiguration: &v1.TLSConfiguration{
+							MinTLSVersion: v1.VersionTLS13,
+							Ciphers:       []string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+						},
+					},
+				},
+			}
+			Expect(kvtls.InjectTLSConfigIntoDeployment(kv, deployment, containerName)).To(Succeed())
+
+			args := deployment.Spec.Template.Spec.Containers[0].Args
+			Expect(args).To(ContainElements(existingArg, existingArgValue))
+			Expect(args).To(ContainElements(tlsCipherSuitesArg, "TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384"))
+			Expect(args).To(ContainElements(tlsMinVersionArg, string(v1.VersionTLS13)))
+		})
+
+		It("should only inject min version when ciphers are empty", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						TLSConfiguration: &v1.TLSConfiguration{
+							MinTLSVersion: v1.VersionTLS13,
+							Ciphers:       []string{},
+						},
+					},
+				},
+			}
+			Expect(kvtls.InjectTLSConfigIntoDeployment(kv, deployment, containerName)).To(Succeed())
+
+			args := deployment.Spec.Template.Spec.Containers[0].Args
+			Expect(args).To(ContainElements(tlsMinVersionArg, string(v1.VersionTLS13)))
+			Expect(args).NotTo(ContainElement(tlsCipherSuitesArg))
+		})
+
+		It("should work with nil KubeVirt and inject default min version", func() {
+			Expect(kvtls.InjectTLSConfigIntoDeployment(nil, deployment, containerName)).To(Succeed())
+
+			args := deployment.Spec.Template.Spec.Containers[0].Args
+			Expect(args).To(ContainElements(tlsMinVersionArg, string(v1.VersionTLS12)))
+			Expect(args).NotTo(ContainElement(tlsCipherSuitesArg))
+		})
+
+		It("should return error when container is not found", func() {
+			Expect(kvtls.InjectTLSConfigIntoDeployment(&v1.KubeVirt{}, deployment, "nonexistent")).
+				To(MatchError(ContainSubstring("not found in deployment")))
+		})
+	})
 })

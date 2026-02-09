@@ -48,7 +48,9 @@ import (
 
 const (
 	VirtTemplateApiserverDeploymentName  = "virt-template-apiserver"
+	VirtTemplateApiserverContainerName   = "apiserver"
 	VirtTemplateControllerDeploymentName = "virt-template-controller"
+	VirtTemplateControllerContainerName  = "manager"
 )
 
 //go:embed data/virt-template/install-virt-operator.yaml

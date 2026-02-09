@@ -4,16 +4,18 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"slices"
+	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
-
-	v1 "kubevirt.io/api/core/v1"
-
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-
 	"k8s.io/client-go/util/certificate"
 
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 const noSrvCertMessage = "No server certificate, server is not yet ready to receive traffic"
@@ -257,6 +259,30 @@ func SetupTLSForClients(caManager ClientCAManager, certManager certificate.Manag
 			return verifyPeerCert(rawCerts, externallyManaged, certPool, x509.ExtKeyUsageServerAuth, "node", []string{commonNameType})
 		},
 	}
+}
+
+func InjectTLSConfigIntoDeployment(kv *v1.KubeVirt, deployment *appsv1.Deployment, containerName string) error {
+	idx := slices.IndexFunc(deployment.Spec.Template.Spec.Containers, func(c k8sv1.Container) bool {
+		return c.Name == containerName
+	})
+	if idx == -1 {
+		return fmt.Errorf("container %q not found in deployment %q", containerName, deployment.Name)
+	}
+
+	tlsConfig := getTLSConfiguration(kv)
+	if len(tlsConfig.Ciphers) > 0 {
+		deployment.Spec.Template.Spec.Containers[idx].Args = append(
+			deployment.Spec.Template.Spec.Containers[idx].Args,
+			"--tls-cipher-suites", strings.Join(tlsConfig.Ciphers, ","),
+		)
+	}
+	if tlsConfig.MinTLSVersion != "" {
+		deployment.Spec.Template.Spec.Containers[idx].Args = append(
+			deployment.Spec.Template.Spec.Containers[idx].Args,
+			"--tls-min-version", string(tlsConfig.MinTLSVersion),
+		)
+	}
+	return nil
 }
 
 func getTLSConfiguration(kubevirt *v1.KubeVirt) *v1.TLSConfiguration {
