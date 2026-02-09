@@ -3651,6 +3651,14 @@ rpm(
 )
 
 rpm(
+    name = "glibc-langpack-fo-0__2.39-99.el10.s390x",
+    sha256 = "e78a7b207a4d9f16e33146a9a82b6c8a03307435bcc8c3f389d73671f7d0130d",
+    urls = [
+        "http://mirror.stream.centos.org/10-stream/BaseOS/s390x/os/Packages/glibc-langpack-fo-2.39-99.el10.s390x.rpm",
+    ],
+)
+
+rpm(
     name = "glibc-langpack-fy-0__2.39-99.el10.s390x",
     sha256 = "5e3aba50a85ce9a9f31ec65dec07157a610177481b90f5ab941dc504c744deeb",
     urls = [
