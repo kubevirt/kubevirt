@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
@@ -146,9 +147,16 @@ func AdjustKubeVirtResource() {
 	Expect(err).ToNot(HaveOccurred())
 	KubeVirtDefaultConfig = adjustedKV.Spec.Configuration
 	if checks.HasFeature(featuregate.CPUManager) {
-		// CPUManager is not enabled in the control-plane node(s)
+		// CPUManager is typically not enabled in the control-plane node(s)
 		nodes, err := virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "!node-role.kubernetes.io/control-plane"})
 		Expect(err).NotTo(HaveOccurred())
+		// This case could happen in the case of single node clusters (like OpenShift SNO)
+		if len(nodes.Items) == 0 {
+			log.Log.Info("No non-control-plane nodes found. This shouldn't happen unless this is a single-node cluster. Falling back to listing nodes labeled as `worker`.")
+			nodes, err = virtClient.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{LabelSelector: "node-role.kubernetes.io/worker"})
+			Expect(err).NotTo(HaveOccurred())
+		}
+		Expect(nodes.Items).ToNot(BeEmpty())
 		waitForSchedulableNodesWithCPUManager(len(nodes.Items))
 	}
 }
