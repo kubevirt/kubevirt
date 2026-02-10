@@ -86,23 +86,9 @@ func decodeControllerRevisionObject(revision *appsv1.ControllerRevision) error {
 		return fmt.Errorf("failed to decode object in ControllerRevision: %w", err)
 	}
 
-	// Convert to v1 if needed using direct conversion
-	var convertedObj runtime.Object
-	switch obj := decodedObj.(type) {
-	case *v1beta1.VirtualMachineInstancetype:
-		convertedObj = convertInstancetype(obj)
-	case *v1beta1.VirtualMachineClusterInstancetype:
-		convertedObj = convertClusterInstancetype(obj)
-	case *v1beta1.VirtualMachinePreference:
-		convertedObj = convertPreference(obj)
-	case *v1beta1.VirtualMachineClusterPreference:
-		convertedObj = convertClusterPreference(obj)
-	case *v1.VirtualMachineInstancetype, *v1.VirtualMachineClusterInstancetype,
-		*v1.VirtualMachinePreference, *v1.VirtualMachineClusterPreference:
-		// Already v1, no conversion needed
-		convertedObj = decodedObj
-	default:
-		return fmt.Errorf("unexpected type in ControllerRevision: %T", decodedObj)
+	convertedObj, err := ConvertToV1(decodedObj)
+	if err != nil {
+		return fmt.Errorf("failed to convert object in ControllerRevision: %w", err)
 	}
 
 	revision.Data.Object = convertedObj
@@ -275,31 +261,31 @@ func convertSpreadOptions(in *v1beta1.SpreadOptions) *v1.SpreadOptions {
 
 func convertDevicePreferences(in *v1beta1.DevicePreferences) *v1.DevicePreferences {
 	return &v1.DevicePreferences{
-		PreferredAutoattachGraphicsDevice:       in.PreferredAutoattachGraphicsDevice,
-		PreferredAutoattachMemBalloon:           in.PreferredAutoattachMemBalloon,
-		PreferredAutoattachPodInterface:         in.PreferredAutoattachPodInterface,
-		PreferredAutoattachSerialConsole:        in.PreferredAutoattachSerialConsole,
-		PreferredAutoattachInputDevice:          in.PreferredAutoattachInputDevice,
-		PreferredDisableHotplug:                 in.PreferredDisableHotplug,
-		PreferredVirtualGPUOptions:              in.PreferredVirtualGPUOptions,
-		PreferredSoundModel:                     in.PreferredSoundModel,
-		PreferredUseVirtioTransitional:          in.PreferredUseVirtioTransitional,
-		PreferredInputBus:                       in.PreferredInputBus,
-		PreferredInputType:                      in.PreferredInputType,
-		PreferredDiskBus:                        in.PreferredDiskBus,
-		PreferredLunBus:                         in.PreferredLunBus,
-		PreferredCdromBus:                       in.PreferredCdromBus,
-		PreferredDiskDedicatedIoThread:          in.PreferredDiskDedicatedIoThread,
-		PreferredDiskCache:                      in.PreferredDiskCache,
-		PreferredDiskIO:                         in.PreferredDiskIO,
-		PreferredDiskBlockSize:                  in.PreferredDiskBlockSize,
-		PreferredInterfaceModel:                 in.PreferredInterfaceModel,
-		PreferredRng:                            in.PreferredRng,
-		PreferredBlockMultiQueue:                in.PreferredBlockMultiQueue,
-		PreferredNetworkInterfaceMultiQueue:     in.PreferredNetworkInterfaceMultiQueue,
-		PreferredTPM:                            in.PreferredTPM,
-		PreferredInterfaceMasquerade:            in.PreferredInterfaceMasquerade,
-		PreferredPanicDeviceModel:               in.PreferredPanicDeviceModel,
+		PreferredAutoattachGraphicsDevice:   in.PreferredAutoattachGraphicsDevice,
+		PreferredAutoattachMemBalloon:       in.PreferredAutoattachMemBalloon,
+		PreferredAutoattachPodInterface:     in.PreferredAutoattachPodInterface,
+		PreferredAutoattachSerialConsole:    in.PreferredAutoattachSerialConsole,
+		PreferredAutoattachInputDevice:      in.PreferredAutoattachInputDevice,
+		PreferredDisableHotplug:             in.PreferredDisableHotplug,
+		PreferredVirtualGPUOptions:          in.PreferredVirtualGPUOptions,
+		PreferredSoundModel:                 in.PreferredSoundModel,
+		PreferredUseVirtioTransitional:      in.PreferredUseVirtioTransitional,
+		PreferredInputBus:                   in.PreferredInputBus,
+		PreferredInputType:                  in.PreferredInputType,
+		PreferredDiskBus:                    in.PreferredDiskBus,
+		PreferredLunBus:                     in.PreferredLunBus,
+		PreferredCdromBus:                   in.PreferredCdromBus,
+		PreferredDiskDedicatedIoThread:      in.PreferredDiskDedicatedIoThread,
+		PreferredDiskCache:                  in.PreferredDiskCache,
+		PreferredDiskIO:                     in.PreferredDiskIO,
+		PreferredDiskBlockSize:              in.PreferredDiskBlockSize,
+		PreferredInterfaceModel:             in.PreferredInterfaceModel,
+		PreferredRng:                        in.PreferredRng,
+		PreferredBlockMultiQueue:            in.PreferredBlockMultiQueue,
+		PreferredNetworkInterfaceMultiQueue: in.PreferredNetworkInterfaceMultiQueue,
+		PreferredTPM:                        in.PreferredTPM,
+		PreferredInterfaceMasquerade:        in.PreferredInterfaceMasquerade,
+		PreferredPanicDeviceModel:           in.PreferredPanicDeviceModel,
 	}
 }
 

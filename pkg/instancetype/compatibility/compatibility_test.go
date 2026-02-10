@@ -145,7 +145,7 @@ var _ = Describe("compatibility", func() {
 		It("decode ControllerRevision fails due to unknown object", func() {
 			_, err := GetInstancetypeSpec(generateUnknownObjectControllerRevision())
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unexpected type in ControllerRevision"))
+			Expect(err.Error()).To(ContainSubstring("failed to convert object in ControllerRevision"))
 		})
 	})
 
@@ -154,10 +154,9 @@ var _ = Describe("compatibility", func() {
 
 		BeforeEach(func() {
 			// After conversion from v1beta1, deprecated values should be converted to new values
-			preferredCPUTopology := instancetypev1.Cores
 			expectedPreferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
 				CPU: &instancetypev1.CPUPreferences{
-					PreferredCPUTopology: &preferredCPUTopology,
+					PreferredCPUTopology: pointer.P(instancetypev1.Cores),
 				},
 			}
 		})
@@ -222,7 +221,7 @@ var _ = Describe("compatibility", func() {
 		It("decode ControllerRevision fails due to unknown object", func() {
 			_, err := GetPreferenceSpec(generateUnknownObjectControllerRevision())
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unexpected type in ControllerRevision"))
+			Expect(err.Error()).To(ContainSubstring("failed to convert object in ControllerRevision"))
 		})
 	})
 })
