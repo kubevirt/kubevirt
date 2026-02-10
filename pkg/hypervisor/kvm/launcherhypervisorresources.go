@@ -40,7 +40,9 @@ const (
 	VirtqemudOverhead           = "40Mi"  // The `ps` RSS for virtqemud
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 
-	kvmHypervisorDevice = "kvm"
+	KvmHypervisorDevice = "kvm"
+
+	pageSize = 512 // Hardware-defined page size in bytes for pagetable calculations
 )
 
 type KvmLauncherHypervisorResources struct{}
@@ -50,7 +52,7 @@ func NewKvmLauncherHypervisorResources() *KvmLauncherHypervisorResources {
 }
 
 func (k *KvmLauncherHypervisorResources) GetHypervisorDevice() string {
-	return kvmHypervisorDevice
+	return KvmHypervisorDevice
 }
 
 // GetMemoryOverhead computes the estimation of total
@@ -60,7 +62,11 @@ func (k *KvmLauncherHypervisorResources) GetHypervisorDevice() string {
 // The return value is overhead memory quantity
 //
 // Note: The overhead memory is a calculated estimation, the values are not to be assumed accurate.
-func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string) resource.Quantity {
+//
+//nolint:gocyclo // complexity is inherent to memory overhead calculation
+func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(
+	vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string,
+) resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
@@ -68,7 +74,7 @@ func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(vmi *v1.VirtualMachin
 
 	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
 	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
-	pagetableMemory.Set(pagetableMemory.Value() / 512)
+	pagetableMemory.Set(pagetableMemory.Value() / pageSize)
 	overhead.Add(*pagetableMemory)
 
 	// Add fixed overhead for KubeVirt components, as seen in a random run, rounded up to the nearest MiB
@@ -110,7 +116,7 @@ func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(vmi *v1.VirtualMachin
 	overhead.Add(resource.MustParse("8Mi"))
 
 	// Add video RAM overhead
-	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
+	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice {
 		overhead.Add(resource.MustParse("32Mi"))
 	}
 

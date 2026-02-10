@@ -23,18 +23,16 @@ import (
 	"fmt"
 	"strconv"
 
-	"kubevirt.io/client-go/api"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/api"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("GetMemoryOverhead calculation", func() {
@@ -133,7 +131,6 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			Entry("based on the limits if both requests and limits are provided", "3", "5", 5),
 			Entry("based on the requests if only requests are provided", "3", "", 3),
 		)
-
 	})
 
 	When("the vmi does not require auto attach graphics device", func() {
@@ -178,7 +175,12 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		},
 			Entry("with hostDEV", v1.Devices{HostDevices: []v1.HostDevice{{Name: "test"}}}),
 			Entry("with GPU", v1.Devices{GPUs: []v1.GPU{{Name: "test"}}}),
-			Entry("with SRIOV", v1.Devices{Interfaces: []v1.Interface{{Name: "test", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}}}}),
+			Entry("with SRIOV", v1.Devices{
+				Interfaces: []v1.Interface{{
+					Name:                   "test",
+					InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}},
+				}},
+			}),
 		)
 	})
 
@@ -212,9 +214,18 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			overhead := NewKvmLauncherHypervisorResources().GetMemoryOverhead(vmi, "amd64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		},
-			Entry("with livenessProbe only", &v1.Probe{Handler: v1.Handler{Exec: &k8sv1.ExecAction{}}}, nil, resource.MustParse("110Mi")),
-			Entry("with readinessProbe only", nil, &v1.Probe{Handler: v1.Handler{Exec: &k8sv1.ExecAction{}}}, resource.MustParse("110Mi")),
-			Entry("with both readinessProbe adn livenessProbe", &v1.Probe{Handler: v1.Handler{Exec: &k8sv1.ExecAction{}}}, &v1.Probe{Handler: v1.Handler{Exec: &k8sv1.ExecAction{}}}, resource.MustParse("120Mi")),
+			Entry("with livenessProbe only",
+				&v1.Probe{Handler: v1.Handler{Exec: &k8sv1.ExecAction{}}},
+				nil,
+				resource.MustParse("110Mi")),
+			Entry("with readinessProbe only",
+				nil,
+				&v1.Probe{Handler: v1.Handler{Exec: &k8sv1.ExecAction{}}},
+				resource.MustParse("110Mi")),
+			Entry("with both readinessProbe and livenessProbe",
+				&v1.Probe{Handler: v1.Handler{Exec: &k8sv1.ExecAction{}}},
+				&v1.Probe{Handler: v1.Handler{Exec: &k8sv1.ExecAction{}}},
+				resource.MustParse("120Mi")),
 		)
 	})
 

@@ -35,8 +35,9 @@ type LauncherHypervisorResources interface {
 
 func NewLauncherHypervisorResources(hypervisor string) LauncherHypervisorResources {
 	switch hypervisor {
-	// Other hypervisors can be added here
-	default:
+	case kvm.KvmHypervisorDevice, "":
 		return kvm.NewKvmLauncherHypervisorResources()
+	default:
+		panic("unsupported hypervisor: " + hypervisor)
 	}
 }
