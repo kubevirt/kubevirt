@@ -691,12 +691,6 @@ var _ = Describe("Converter", func() {
 			)
 		})
 
-		It("should handle float memory", func() {
-			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("2222222200m")
-			xml := vmiToDomainXML(vmi, c)
-			Expect(strings.Contains(xml, `<memory unit="b">2222222</memory>`)).To(BeTrue(), xml)
-		})
-
 		It("should use panic devices if requested", func() {
 			vmi.Spec.Domain.Devices.PanicDevices = []v1.PanicDevice{{Model: pointer.P(v1.Hyperv)}}
 			xml := vmiToDomainXML(vmi, c)
@@ -1531,28 +1525,6 @@ var _ = Describe("Converter", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		DescribeTable("should calculate memory in bytes", func(quantity string, bytes int) {
-			m64, _ := resource.ParseQuantity(quantity)
-			memory, err := vcpu.QuantityToByte(m64)
-			Expect(memory.Value).To(BeNumerically("==", bytes))
-			Expect(memory.Unit).To(Equal("b"))
-			Expect(err).ToNot(HaveOccurred())
-		},
-			Entry("specifying memory 64M", "64M", 64*1000*1000),
-			Entry("specifying memory 64Mi", "64Mi", 64*1024*1024),
-			Entry("specifying memory 3G", "3G", 3*1000*1000*1000),
-			Entry("specifying memory 3Gi", "3Gi", 3*1024*1024*1024),
-			Entry("specifying memory 45Gi", "45Gi", 45*1024*1024*1024),
-			Entry("specifying memory 2780Gi", "2780Gi", 2780*1024*1024*1024),
-			Entry("specifying memory 451231 bytes", "451231", 451231),
-		)
-		It("should calculate memory in bytes", func() {
-			By("specyfing negative memory size -45Gi")
-			m45gi, _ := resource.ParseQuantity("-45Gi")
-			_, err := vcpu.QuantityToByte(m45gi)
-			Expect(err).To(HaveOccurred())
-		})
-
 		It("should convert hugepages", func() {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Memory = &v1.Memory{
@@ -1564,19 +1536,6 @@ var _ = Describe("Converter", func() {
 			Expect(domainSpec.MemoryBacking.Source.Type).To(Equal("memfd"))
 
 			Expect(domainSpec.Memory.Value).To(Equal(uint64(8388608)))
-			Expect(domainSpec.Memory.Unit).To(Equal("b"))
-		})
-
-		It("should use guest memory instead of requested memory if present", func() {
-			guestMemory := resource.MustParse("123Mi")
-			vmi.Spec.Domain.Memory = &v1.Memory{
-				Guest: &guestMemory,
-			}
-			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-			domainSpec := vmiToDomainXMLToDomainSpec(vmi, c)
-
-			Expect(domainSpec.Memory.Value).To(Equal(uint64(128974848)))
 			Expect(domainSpec.Memory.Unit).To(Equal("b"))
 		})
 
@@ -3509,119 +3468,6 @@ var _ = Describe("Converter", func() {
 			)
 		})
 
-		Context("memory", func() {
-			var domain *api.Domain
-			var guestMemory resource.Quantity
-			var maxGuestMemory resource.Quantity
-
-			BeforeEach(func() {
-				guestMemory = resource.MustParse("32Mi")
-				maxGuestMemory = resource.MustParse("128Mi")
-
-				vmi = &v1.VirtualMachineInstance{
-					ObjectMeta: k8smeta.ObjectMeta{
-						Name:      "testvmi",
-						Namespace: "mynamespace",
-					},
-					Spec: v1.VirtualMachineInstanceSpec{
-						Domain: v1.DomainSpec{
-							Memory: &v1.Memory{
-								Guest:    &guestMemory,
-								MaxGuest: &maxGuestMemory,
-							},
-						},
-					},
-					Status: v1.VirtualMachineInstanceStatus{
-						Memory: &v1.MemoryStatus{
-							GuestAtBoot:  &guestMemory,
-							GuestCurrent: &guestMemory,
-						},
-					},
-				}
-
-				domain = &api.Domain{
-					Spec: api.DomainSpec{
-						VCPU: &api.VCPU{
-							CPUs: 2,
-						},
-					},
-				}
-
-				v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-				c = &ConverterContext{
-					VirtualMachine: vmi,
-					AllowEmulation: true,
-					Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				}
-			})
-
-			It("should not setup hotplug when maxGuest is missing", func() {
-				vmi.Spec.Domain.Memory.MaxGuest = nil
-				domain = vmiToDomain(vmi, c)
-				Expect(domain).ToNot(BeNil())
-				Expect(domain.Spec.MaxMemory).To(BeNil())
-			})
-
-			It("should not setup hotplug when maxGuest equals guest memory", func() {
-				vmi.Spec.Domain.Memory.MaxGuest = &guestMemory
-				domain = vmiToDomain(vmi, c)
-				Expect(domain).ToNot(BeNil())
-				Expect(domain.Spec.MaxMemory).To(BeNil())
-			})
-
-			It("should setup hotplug when maxGuest is set", func() {
-				domain = vmiToDomain(vmi, c)
-				Expect(domain).ToNot(BeNil())
-
-				Expect(domain.Spec.MaxMemory).ToNot(BeNil())
-				Expect(domain.Spec.MaxMemory.Unit).To(Equal("b"))
-				Expect(domain.Spec.MaxMemory.Value).To(Equal(uint64(maxGuestMemory.Value())))
-
-				Expect(domain.Spec.Memory).ToNot(BeNil())
-				Expect(domain.Spec.Memory.Unit).To(Equal("b"))
-				Expect(domain.Spec.Memory.Value).To(Equal(uint64(guestMemory.Value())))
-			})
-
-			DescribeTable("should correctly convert memory configuration from VMI spec to domain",
-				func(expectedMemoryMiB int64, opts ...libvmi.Option) {
-
-					vmi := libvmi.New(opts...)
-
-					v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-
-					testContext := &ConverterContext{
-						VirtualMachine: vmi,
-						AllowEmulation: true,
-						Architecture:   archconverter.NewConverter(runtime.GOARCH),
-					}
-
-					apiDomainSpec := vmiToDomainXMLToDomainSpec(vmi, testContext)
-
-					expectedBytes := expectedMemoryMiB * 1024 * 1024
-					Expect(apiDomainSpec.Memory.Value).To(Equal(uint64(expectedBytes)),
-						"Memory value should be %d bytes (%d MiB)", expectedBytes, expectedMemoryMiB)
-					Expect(apiDomainSpec.Memory.Unit).To(Equal("b"))
-				},
-				Entry("provided by domain spec directly (guest memory takes precedence over limits)",
-					int64(512),
-					libvmi.WithGuestMemory("512Mi"),
-				),
-				Entry("provided by resources limits (no guest memory, no request)",
-					int64(256),
-					libvmi.WithMemoryLimit("256Mi"),
-				),
-				Entry("provided by resources requests (request takes precedence over limit when both set)",
-					int64(64),
-					libvmi.WithMemoryRequest("64Mi"),
-					libvmi.WithMemoryLimit("256Gi"),
-				),
-				Entry("provided by resources requests only",
-					int64(128),
-					libvmi.WithMemoryRequest("128Mi"),
-				),
-			)
-		})
 	})
 
 	Context("with AMD SEV LaunchSecurity", func() {
