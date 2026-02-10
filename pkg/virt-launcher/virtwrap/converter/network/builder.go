@@ -35,3 +35,9 @@ func newDomainInterface(name, modelType string, options ...builderOption) api.In
 
 	return iface
 }
+
+func withDriver(driver *api.InterfaceDriver) builderOption {
+	return func(iface *api.Interface) {
+		iface.Driver = driver
+	}
+}
