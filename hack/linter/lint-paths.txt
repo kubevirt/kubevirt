@@ -49,6 +49,7 @@ pkg/virtctl/create/vm
 pkg/virtctl/credentials
 pkg/virtctl/scp
 pkg/virtctl/ssh
+pkg/virtctl/template
 pkg/virtctl/testing
 pkg/virtctl/version
 pkg/virt-handler/cgroup/constants
