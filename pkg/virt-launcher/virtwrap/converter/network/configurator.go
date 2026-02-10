@@ -120,12 +120,11 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		builderOptions = append(builderOptions, withROMDisabled())
 	}
 
-	domainIface := newDomainInterface(iface.Name, modelType, builderOptions...)
-
 	if iface.State == v1.InterfaceStateLinkDown {
-		domainIface.LinkState = &api.LinkState{State: "down"}
+		builderOptions = append(builderOptions, withLinkStateDown())
 	}
-	return domainIface, nil
+
+	return newDomainInterface(iface.Name, modelType, builderOptions...), nil
 }
 
 func WithDomainAttachmentByInterfaceName(domainAttachmentByInterfaceName map[string]string) option {

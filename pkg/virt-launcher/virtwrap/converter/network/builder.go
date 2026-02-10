@@ -71,3 +71,9 @@ func withROMDisabled() builderOption {
 		iface.Rom = &api.Rom{Enabled: "no"}
 	}
 }
+
+func withLinkStateDown() builderOption {
+	return func(iface *api.Interface) {
+		iface.LinkState = &api.LinkState{State: "down"}
+	}
+}
