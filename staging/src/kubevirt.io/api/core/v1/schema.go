@@ -1655,8 +1655,9 @@ type Network struct {
 // Represents the source resource that will be connected to the vm.
 // Only one of its members may be specified.
 type NetworkSource struct {
-	Pod    *PodNetwork    `json:"pod,omitempty"`
-	Multus *MultusNetwork `json:"multus,omitempty"`
+	Pod           *PodNetwork    `json:"pod,omitempty"`
+	Multus        *MultusNetwork `json:"multus,omitempty"`
+	ResourceClaim *ClaimRequest  `json:"resourceClaim,omitempty"`
 }
 
 // Represents the stock pod network interface.

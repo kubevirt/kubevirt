@@ -41,27 +41,56 @@ import (
 )
 
 func CreateHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	SRIOVInterfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+	var hostDevices []api.HostDevice
+
+	// Handle Multus-based SR-IOV
+	multusHostDevs, err := createMultusSRIOVHostDevices(vmi)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Multus SR-IOV host devices: %v", err)
+	}
+	hostDevices = append(hostDevices, multusHostDevs...)
+
+	// Handle DRA-based SR-IOV
+	draHostDevs, err := createDRASRIOVHostDevices(vmi)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DRA SR-IOV host devices: %v", err)
+	}
+	hostDevices = append(hostDevices, draHostDevs...)
+
+	return hostDevices, nil
+}
+
+// createMultusSRIOVHostDevices creates SR-IOV host devices for Multus-based networks
+func createMultusSRIOVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+	// Filter Multus-based SR-IOV interfaces
+	multusInterfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		if iface.SRIOV == nil {
 			return false
 		}
+		network := findNetworkByName(vmi, iface.Name)
+		if network == nil || network.Multus == nil {
+			return false
+		}
+		// Only process Multus interfaces that have InfoSourceMultusStatus
 		ifaceStatus := vmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, iface.Name)
 		return ifaceStatus != nil && vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus)
 	})
-	if len(SRIOVInterfaces) == 0 {
+
+	if len(multusInterfaces) == 0 {
 		return []api.HostDevice{}, nil
 	}
+
 	netStatusPath := path.Join(downwardapi.MountPath, downwardapi.NetworkInfoVolumePath)
 	pciAddressPoolWithNetworkStatus, err := newPCIAddressPoolWithNetworkStatusFromFile(netStatusPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SR-IOV hostdevices: %v", err)
+		return nil, fmt.Errorf("failed to create Multus SR-IOV hostdevices: %v", err)
 	}
 	if pciAddressPoolWithNetworkStatus.Len() == 0 {
-		log.Log.Object(vmi).Warningf("found no SR-IOV networks to PCI-Address mapping.")
-		return nil, fmt.Errorf("found no SR-IOV networks to PCI-Address mapping")
+		log.Log.Object(vmi).Warningf("found no Multus SR-IOV networks to PCI-Address mapping.")
+		return nil, fmt.Errorf("found no Multus SR-IOV networks to PCI-Address mapping")
 	}
 
-	return CreateHostDevicesFromIfacesAndPool(SRIOVInterfaces, pciAddressPoolWithNetworkStatus)
+	return CreateHostDevicesFromIfacesAndPool(multusInterfaces, pciAddressPoolWithNetworkStatus)
 }
 
 // newPCIAddressPoolWithNetworkStatusFromFile polls the given file path until populated, then uses it to create the
@@ -155,4 +184,157 @@ func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.Doma
 	sriovHostDevicesToAttach := hostdevice.DifferenceHostDevicesByAlias(sriovDevices, currentAttachedSRIOVHostDevices)
 
 	return sriovHostDevicesToAttach, nil
+}
+
+// createDRASRIOVHostDevices creates host devices for DRA-based SR-IOV networks
+func createDRASRIOVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+	// Filter DRA-based SR-IOV interfaces
+	draInterfaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
+		if iface.SRIOV == nil {
+			return false
+		}
+		network := findNetworkByName(vmi, iface.Name)
+		return network != nil && network.ResourceClaim != nil
+	})
+
+	if len(draInterfaces) == 0 {
+		return []api.HostDevice{}, nil
+	}
+
+	var hostDevices []api.HostDevice
+
+	for _, iface := range draInterfaces {
+		network := findNetworkByName(vmi, iface.Name)
+		if network == nil || network.ResourceClaim == nil {
+			continue
+		}
+
+		// Find device status entry by network name
+		deviceStatus := findDeviceStatusByName(vmi, network.Name)
+		if deviceStatus == nil {
+			return nil, fmt.Errorf("device status not found for DRA network %s", network.Name)
+		}
+
+		if deviceStatus.DeviceResourceClaimStatus == nil {
+			return nil, fmt.Errorf("device resource claim status not populated for network %s", network.Name)
+		}
+
+		if deviceStatus.DeviceResourceClaimStatus.Attributes == nil {
+			return nil, fmt.Errorf("device attributes not populated for network %s", network.Name)
+		}
+
+		// Extract PCI address
+		pciAddress := deviceStatus.DeviceResourceClaimStatus.Attributes.PCIAddress
+		if pciAddress == nil || *pciAddress == "" {
+			return nil, fmt.Errorf("PCI address not found for DRA network %s", network.Name)
+		}
+
+		// Parse PCI address (format: 0000:05:00.1)
+		address, err := parsePCIAddress(*pciAddress)
+		if err != nil {
+			return nil, fmt.Errorf("invalid PCI address %s for network %s: %v", *pciAddress, network.Name, err)
+		}
+
+		// Create hostdev with DRA-specific alias
+		hostDev := api.HostDevice{
+			Alias: api.NewUserDefinedAlias(deviceinfo.DraSRIOVAliasPrefix + iface.Name),
+			Source: api.HostDeviceSource{
+				Address: &api.Address{
+					Type:     "pci",
+					Domain:   address.Domain,
+					Bus:      address.Bus,
+					Slot:     address.Slot,
+					Function: address.Function,
+				},
+			},
+			Type:    "pci",
+			Managed: "no",
+		}
+
+		// Apply additional decorations (boot order, guest PCI address)
+		decorateHook := newDecorateHook(iface)
+		if err := decorateHook(&hostDev); err != nil {
+			return nil, fmt.Errorf("failed to decorate DRA SR-IOV host device for %s: %v", iface.Name, err)
+		}
+
+		hostDevices = append(hostDevices, hostDev)
+	}
+
+	return hostDevices, nil
+}
+
+// Helper functions
+
+func findNetworkByName(vmi *v1.VirtualMachineInstance, name string) *v1.Network {
+	for i := range vmi.Spec.Networks {
+		if vmi.Spec.Networks[i].Name == name {
+			return &vmi.Spec.Networks[i]
+		}
+	}
+	return nil
+}
+
+func findDeviceStatusByName(vmi *v1.VirtualMachineInstance, name string) *v1.DeviceStatusInfo {
+	if vmi.Status.DeviceStatus == nil {
+		return nil
+	}
+
+	for i := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+		if vmi.Status.DeviceStatus.HostDeviceStatuses[i].Name == name {
+			return &vmi.Status.DeviceStatus.HostDeviceStatuses[i]
+		}
+	}
+	return nil
+}
+
+// PCIAddress represents parsed PCI address components
+type PCIAddress struct {
+	Domain   string
+	Bus      string
+	Slot     string
+	Function string
+}
+
+// parsePCIAddress parses PCI address string (format: 0000:05:00.1)
+func parsePCIAddress(addr string) (*PCIAddress, error) {
+	// Split by colon
+	parts := []string{}
+	current := ""
+	for _, char := range addr {
+		if char == ':' {
+			parts = append(parts, current)
+			current = ""
+		} else {
+			current += string(char)
+		}
+	}
+	parts = append(parts, current)
+
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid PCI address format: %s (expected format: 0000:05:00.1)", addr)
+	}
+
+	// Split last part by dot
+	slotFunc := []string{}
+	current = ""
+	for _, char := range parts[2] {
+		if char == '.' {
+			slotFunc = append(slotFunc, current)
+			current = ""
+		} else {
+			current += string(char)
+		}
+	}
+	slotFunc = append(slotFunc, current)
+
+	if len(slotFunc) != 2 {
+		return nil, fmt.Errorf("invalid PCI address format: %s (expected slot.function)", addr)
+	}
+
+	return &PCIAddress{
+		Domain:   "0x" + parts[0],
+		Bus:      "0x" + parts[1],
+		Slot:     "0x" + slotFunc[0],
+		Function: "0x" + slotFunc[1],
+	}, nil
 }

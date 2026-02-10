@@ -430,6 +430,23 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *v1.V
 		}
 	}
 
+	// Sync network devices (they use hostDeviceStatuses array)
+	if c.clusterConfig.NetworkDevicesWithDRAEnabled() {
+		networkDeviceInfo, err := c.getNetworkDevicesFromVMISpec(vmi)
+		if err != nil {
+			return err
+		}
+
+		if len(networkDeviceInfo) > 0 {
+			networkDeviceStatuses, err := c.getNetworkDeviceStatuses(networkDeviceInfo, pod)
+			if err != nil {
+				return err
+			}
+			// Append network statuses to hostDeviceStatuses
+			hostDeviceStatuses = append(hostDeviceStatuses, networkDeviceStatuses...)
+		}
+	}
+
 	newDeviceStatus := &v1.DeviceStatus{}
 	if gpuStatuses != nil {
 		newDeviceStatus.GPUStatuses = gpuStatuses
@@ -708,4 +725,71 @@ func (c *DRAStatusController) getHostDeviceStatus(hostDeviceInfo DeviceInfo, pod
 	hostDeviceStatus.DeviceResourceClaimStatus.Attributes = &attrs
 
 	return hostDeviceStatus, nil
+}
+
+func (c *DRAStatusController) getNetworkDevicesFromVMISpec(vmi *v1.VirtualMachineInstance) ([]DeviceInfo, error) {
+	var networkDevices []DeviceInfo
+	for _, network := range vmi.Spec.Networks {
+		if network.ResourceClaim == nil {
+			continue
+		}
+		if network.ResourceClaim.ClaimName == nil || network.ResourceClaim.RequestName == nil {
+			continue
+		}
+		networkDevices = append(networkDevices, DeviceInfo{
+			VMISpecClaimName:   *network.ResourceClaim.ClaimName,
+			VMISpecRequestName: *network.ResourceClaim.RequestName,
+			DeviceStatusInfo: &v1.DeviceStatusInfo{
+				Name:                      network.Name,
+				DeviceResourceClaimStatus: nil,
+			},
+		})
+	}
+	return networkDevices, nil
+}
+
+func (c *DRAStatusController) getNetworkDeviceStatuses(networkDeviceInfos []DeviceInfo, pod *k8sv1.Pod) ([]v1.DeviceStatusInfo, error) {
+	statuses := make([]v1.DeviceStatusInfo, 0, len(networkDeviceInfos))
+	for _, info := range networkDeviceInfos {
+		st, err := c.getNetworkDeviceStatus(info, pod)
+		if err != nil {
+			return nil, err
+		}
+		statuses = append(statuses, st)
+	}
+	return statuses, nil
+}
+
+func (c *DRAStatusController) getNetworkDeviceStatus(networkDeviceInfo DeviceInfo, pod *k8sv1.Pod) (v1.DeviceStatusInfo, error) {
+	networkDeviceStatus := v1.DeviceStatusInfo{
+		Name: networkDeviceInfo.Name,
+		DeviceResourceClaimStatus: &v1.DeviceResourceClaimStatus{
+			ResourceClaimName: getResourceClaimNameForDevice(networkDeviceInfo.VMISpecClaimName, pod),
+		},
+	}
+
+	if networkDeviceStatus.DeviceResourceClaimStatus.ResourceClaimName == nil {
+		return networkDeviceStatus, nil
+	}
+
+	device, err := c.getAllocatedDevice(pod.Namespace, *networkDeviceStatus.DeviceResourceClaimStatus.ResourceClaimName, networkDeviceInfo.VMISpecRequestName)
+	if err != nil {
+		return networkDeviceStatus, err
+	}
+	if device == nil {
+		return networkDeviceStatus, nil
+	}
+
+	networkDeviceStatus.DeviceResourceClaimStatus.Name = &device.Device
+	pciAddress, _, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
+	if err != nil {
+		return networkDeviceStatus, err
+	}
+	attrs := v1.DeviceAttribute{}
+	if pciAddress != "" {
+		attrs.PCIAddress = &pciAddress
+	}
+	networkDeviceStatus.DeviceResourceClaimStatus.Attributes = &attrs
+
+	return networkDeviceStatus, nil
 }

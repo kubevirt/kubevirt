@@ -311,6 +311,62 @@ func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
 	return fmt.Sprintf("%ds", timeout)
 }
 
+// renderNetworkResourceClaims adds network DRA resource claims to pod spec
+func renderNetworkResourceClaims(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, clusterConfig *virtconfig.ClusterConfig) {
+	if !clusterConfig.NetworkDevicesWithDRAEnabled() {
+		return
+	}
+
+	if len(vmi.Spec.Networks) == 0 {
+		return
+	}
+
+	// Collect unique claim names referenced by networks
+	networkClaimNames := make(map[string]bool)
+	for _, network := range vmi.Spec.Networks {
+		if network.ResourceClaim != nil {
+			if network.ResourceClaim.ClaimName != nil {
+				networkClaimNames[*network.ResourceClaim.ClaimName] = true
+			}
+		}
+	}
+
+	if len(networkClaimNames) == 0 {
+		return
+	}
+
+	// Note: pod.Spec.ResourceClaims is already populated from vmi.Spec.ResourceClaims at pod creation time (line 735)
+	// We only need to add container-level references here
+
+	// Add resource claims to container resources
+	if pod.Spec.Containers == nil || len(pod.Spec.Containers) == 0 {
+		return
+	}
+
+	// Find compute container
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == "compute" {
+			if pod.Spec.Containers[i].Resources.Claims == nil {
+				pod.Spec.Containers[i].Resources.Claims = []k8sv1.ResourceClaim{}
+			}
+
+			// Add claim references to container
+			for _, network := range vmi.Spec.Networks {
+				if network.ResourceClaim != nil && network.ResourceClaim.ClaimName != nil && network.ResourceClaim.RequestName != nil {
+					pod.Spec.Containers[i].Resources.Claims = append(
+						pod.Spec.Containers[i].Resources.Claims,
+						k8sv1.ResourceClaim{
+							Name:    *network.ResourceClaim.ClaimName,
+							Request: *network.ResourceClaim.RequestName,
+						},
+					)
+				}
+			}
+			break
+		}
+	}
+}
+
 func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.SeccompProfile) *k8sv1.PodSecurityContext {
 	psc := &k8sv1.PodSecurityContext{}
 
@@ -695,6 +751,9 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	pod.Spec.Volumes = append(pod.Spec.Volumes, sidecarVolumes...)
+
+	// Add network resource claims to pod
+	renderNetworkResourceClaims(vmi, &pod, t.clusterConfig)
 
 	return &pod, nil
 }

@@ -19,4 +19,7 @@
 
 package deviceinfo
 
-const SRIOVAliasPrefix = "sriov-"
+const (
+	SRIOVAliasPrefix    = "sriov-"
+	DraSRIOVAliasPrefix = "dra-sriov-"
+)
