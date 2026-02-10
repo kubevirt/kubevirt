@@ -115,20 +115,15 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		return vm
 	}
 
-	deleteMigration := func(migration *virtv1.VirtualMachineInstanceMigration) error {
-		err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})
-		if k8serrors.IsNotFound(err) {
-			return nil
+	deleteMigration := func(migration *virtv1.VirtualMachineInstanceMigration) {
+		if migration == nil {
+			return
 		}
-		// Verify migration is gone
-		Eventually(func() *virtv1.VirtualMachineInstanceMigration {
-			migration, err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get(context.Background(), migration.Name, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				return nil
-			}
-			return migration
-		}, 30*time.Second, 1*time.Second).Should(BeNil())
-		return nil
+		err := virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			Expect(err).ToNot(HaveOccurred(), "failed to delete migration")
+		}
+		Expect(libwait.WaitForMigrationToDisappearWithTimeout(migration, time.Second*30)).To(Succeed())
 	}
 
 	deleteVM := func(vm *v1.VirtualMachine) {
@@ -215,10 +210,8 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				sourceMigration, targetMigration = libmigration.RunDecentralizedMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, sourceMigration, targetMigration)
 				libmigration.ConfirmVMIPostMigration(virtClient, expectedVMI, targetMigration)
 				updateRunStrategy(targetVM, sourceRunStrategy)
-				err = deleteMigration(sourceMigration)
-				Expect(err).ToNot(HaveOccurred())
-				err = deleteMigration(targetMigration)
-				Expect(err).ToNot(HaveOccurred())
+				deleteMigration(sourceMigration)
+				deleteMigration(targetMigration)
 				By("Checking that the VirtualMachineInstance console has expected output")
 				Expect(console.LoginToAlpine(expectedVMI)).To(Succeed())
 
@@ -827,10 +820,8 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				By("ensuring the runStrategy is properly updated to be what the source was")
 				updateRunStrategy(targetVM, sourceRunStrategy)
 				By("cleaning up migration resources")
-				err = deleteMigration(sourceMigration)
-				Expect(err).ToNot(HaveOccurred())
-				err = deleteMigration(targetMigration)
-				Expect(err).ToNot(HaveOccurred())
+				deleteMigration(sourceMigration)
+				deleteMigration(targetMigration)
 
 				By(fmt.Sprintf("deleting source VM %s/%s", sourceVM.Namespace, sourceVM.Name))
 				deleteVM(sourceVM)
