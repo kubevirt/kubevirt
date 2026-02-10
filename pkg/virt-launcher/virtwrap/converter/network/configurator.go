@@ -89,12 +89,7 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		modelType = d.virtioModel
 	}
 
-	domainIface := api.Interface{
-		Model: &api.Model{
-			Type: modelType,
-		},
-		Alias: api.NewUserDefinedAlias(iface.Name),
-	}
+	domainIface := newDomainInterface(iface.Name, modelType)
 
 	if queueCount := uint(calculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
 		domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
