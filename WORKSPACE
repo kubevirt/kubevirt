@@ -410,6 +410,10 @@ oci_pull(
     image = "registry.k8s.io/busybox",
 )
 
+load("//images/virt-template:deps.bzl", "virt_template_images")
+
+virt_template_images()
+
 http_archive(
     name = "io_bazel_rules_container_rpm",
     sha256 = "151261f1b81649de6e36f027c945722bff31176f1340682679cade2839e4b1e1",

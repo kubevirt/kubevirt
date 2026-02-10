@@ -503,3 +503,17 @@ func (mr *MockStrategyInterfaceMockRecorder) ValidatingWebhookConfigurations() *
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidatingWebhookConfigurations", reflect.TypeOf((*MockStrategyInterface)(nil).ValidatingWebhookConfigurations))
 }
+
+// VirtTemplateDeployments mocks base method.
+func (m *MockStrategyInterface) VirtTemplateDeployments() []*v13.Deployment {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VirtTemplateDeployments")
+	ret0, _ := ret[0].([]*v13.Deployment)
+	return ret0
+}
+
+// VirtTemplateDeployments indicates an expected call of VirtTemplateDeployments.
+func (mr *MockStrategyInterfaceMockRecorder) VirtTemplateDeployments() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VirtTemplateDeployments", reflect.TypeOf((*MockStrategyInterface)(nil).VirtTemplateDeployments))
+}
