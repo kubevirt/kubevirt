@@ -2,6 +2,17 @@
 
 set -xeo pipefail
 
+# Default values for env vars, can be overridden by user input
+KVM_HYPERVISOR_DEVICE="kvm"
+KVM_VIRTTYPE="kvm"
+
+if [ -z "$HYPERVISOR_DEVICE" ] || [ -z "$PREFERRED_VIRTTYPE" ]; then
+    echo "Warning: Env vars HYPERVISOR_DEVICE or PREFERRED_VIRTTYPE not set. Defaulting to KVM values for both vars"
+    echo "Currently specified values: HYPERVISOR_DEVICE='$HYPERVISOR_DEVICE', PREFERRED_VIRTTYPE='$PREFERRED_VIRTTYPE'"
+    HYPERVISOR_DEVICE="$KVM_HYPERVISOR_DEVICE"
+    PREFERRED_VIRTTYPE="$KVM_VIRTTYPE"
+fi
+
 ARCH=$(uname -m)
 MACHINE=q35
 if [ "$ARCH" == "aarch64" ]; then
@@ -14,19 +25,19 @@ fi
 
 set +o pipefail
 
-KVM_MINOR=$(grep -w 'kvm' /proc/misc | cut -f 1 -d' ')
+HYPERVISOR_DEV_PATH="/dev/${HYPERVISOR_DEVICE}"
+HYPERVISOR_DEV_MINOR=$(grep -w ${HYPERVISOR_DEVICE} /proc/misc | cut -f 1 -d' ')
 set -o pipefail
 
 VIRTTYPE=qemu
 
-
-if [ ! -e /dev/kvm ] && [ -n "$KVM_MINOR" ]; then
-  mknod /dev/kvm c 10 $KVM_MINOR
+if [ ! -e "$HYPERVISOR_DEV_PATH" ] && [ -n "$HYPERVISOR_DEV_MINOR" ]; then
+  mknod "$HYPERVISOR_DEV_PATH" c 10 "$HYPERVISOR_DEV_MINOR"
 fi
 
-if [ -e /dev/kvm ]; then
-    chmod o+rw /dev/kvm
-    VIRTTYPE=kvm
+if [ -e "$HYPERVISOR_DEV_PATH" ]; then
+    chmod o+rw "$HYPERVISOR_DEV_PATH"
+    VIRTTYPE=${PREFERRED_VIRTTYPE}
 fi
 
 if [ -e /dev/sev ]; then
