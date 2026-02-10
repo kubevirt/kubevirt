@@ -68,6 +68,7 @@ import (
 	storagehotplug "kubevirt.io/kubevirt/pkg/storage/hotplug"
 	"kubevirt.io/kubevirt/pkg/storage/memorydump"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/velero"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
@@ -3082,6 +3083,7 @@ func (c *Controller) syncVMAnnotationsToVMI(vm *virtv1.VirtualMachine, vmi *virt
 	annotationsToSync := []string{
 		descheduler.EvictPodAnnotationKeyAlpha,
 		descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction,
+		velero.SkipHooksAnnotation,
 	}
 
 	newVMIAnnotations := map[string]string{}
