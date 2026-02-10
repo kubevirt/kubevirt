@@ -41,3 +41,9 @@ func withDriver(driver *api.InterfaceDriver) builderOption {
 		iface.Driver = driver
 	}
 }
+
+func withPCIAddress(pciAddress *api.Address) builderOption {
+	return func(iface *api.Interface) {
+		iface.Address = pciAddress
+	}
+}

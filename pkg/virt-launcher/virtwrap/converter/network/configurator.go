@@ -94,16 +94,15 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		builderOptions = append(builderOptions, withDriver(newVirtioDriver(vmi, useLaunchSecurity)))
 	}
 
-	domainIface := newDomainInterface(iface.Name, modelType, builderOptions...)
-
-	// Add a pciAddress if specified
 	if iface.PciAddress != "" {
 		addr, err := device.NewPciAddressField(iface.PciAddress)
 		if err != nil {
-			return domainIface, fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
+			return api.Interface{}, fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
 		}
-		domainIface.Address = addr
+		builderOptions = append(builderOptions, withPCIAddress(addr))
 	}
+
+	domainIface := newDomainInterface(iface.Name, modelType, builderOptions...)
 
 	if iface.ACPIIndex > 0 {
 		domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
