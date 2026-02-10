@@ -21,6 +21,7 @@ package annotations
 
 import (
 	"fmt"
+	"strconv"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -30,6 +31,14 @@ import (
 type Generator struct{}
 
 func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
+	if vmi.Annotations != nil {
+		if skip := vmi.Annotations[velero.SkipHooksAnnotation]; skip != "" {
+			if shouldSkip, _ := strconv.ParseBool(skip); shouldSkip {
+				return map[string]string{}, nil
+			}
+		}
+	}
+
 	const computeContainerName = "compute"
 
 	return map[string]string{
