@@ -53,3 +53,21 @@ func withACPIIndex(acpiIndex uint) builderOption {
 		iface.ACPI = &api.ACPI{Index: acpiIndex}
 	}
 }
+
+func withIfaceType(ifaceType string) builderOption {
+	return func(iface *api.Interface) {
+		iface.Type = ifaceType
+	}
+}
+
+func withBootOrder(bootOrder uint) builderOption {
+	return func(iface *api.Interface) {
+		iface.BootOrder = &api.BootOrder{Order: bootOrder}
+	}
+}
+
+func withROMDisabled() builderOption {
+	return func(iface *api.Interface) {
+		iface.Rom = &api.Rom{Enabled: "no"}
+	}
+}

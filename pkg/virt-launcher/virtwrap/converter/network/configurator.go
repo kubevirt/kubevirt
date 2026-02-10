@@ -106,25 +106,21 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		builderOptions = append(builderOptions, withACPIIndex(uint(iface.ACPIIndex)))
 	}
 
-	domainIface := newDomainInterface(iface.Name, modelType, builderOptions...)
-
-	if d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap) {
+	isTap := d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap)
+	if isTap {
 		// use "ethernet" interface type, since we're using pre-configured tap devices
 		// https://libvirt.org/formatdomain.html#elementsNICSEthernet
-		domainIface.Type = "ethernet"
+		builderOptions = append(builderOptions, withIfaceType("ethernet"))
 		if iface.BootOrder != nil {
-			domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-		} else if d.isROMTuningSupported {
-			domainIface.Rom = &api.Rom{Enabled: "no"}
+			builderOptions = append(builderOptions, withBootOrder(*iface.BootOrder))
 		}
 	}
 
-	if useLaunchSecurity {
-		if d.isROMTuningSupported {
-			// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
-			domainIface.Rom = &api.Rom{Enabled: "no"}
-		}
+	if d.isROMTuningSupported && ((isTap && iface.BootOrder == nil) || useLaunchSecurity) {
+		builderOptions = append(builderOptions, withROMDisabled())
 	}
+
+	domainIface := newDomainInterface(iface.Name, modelType, builderOptions...)
 
 	if iface.State == v1.InterfaceStateLinkDown {
 		domainIface.LinkState = &api.LinkState{State: "down"}
