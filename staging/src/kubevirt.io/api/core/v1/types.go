@@ -354,8 +354,6 @@ const (
 
 	ShutdownReason                          VirtualMachineInstanceReason = "Shutdown"
 	CrashedReason                           VirtualMachineInstanceReason = "Crashed"
-	PodDeletedReason                        VirtualMachineInstanceReason = "PodDeleted"
-	StopRequestedReason                     VirtualMachineInstanceReason = "StopRequested"
 	UnknownReason                           VirtualMachineInstanceReason = "Unknown"
 	VirtLauncherUnresponsiveReason          VirtualMachineInstanceReason = "VirtLauncherUnresponsive"
 	MigratedReason                          VirtualMachineInstanceReason = "Migrated"
