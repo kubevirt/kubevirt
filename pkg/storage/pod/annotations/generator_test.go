@@ -46,6 +46,7 @@ var _ = Describe("Annotations Generator", func() {
 		expectedAnnotations := map[string]string{
 			"pre.hook.backup.velero.io/container":  "compute",
 			"pre.hook.backup.velero.io/command":    expectedPreHookBackupCommand,
+			"pre.hook.backup.velero.io/timeout":    "60s",
 			"post.hook.backup.velero.io/container": "compute",
 			"post.hook.backup.velero.io/command":   expectedPostHookBackupCommand,
 		}
