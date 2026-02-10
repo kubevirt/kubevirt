@@ -727,6 +727,11 @@ k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738/go.mod h1:OLgZIPagt7ERELqWJFomSt
 k8s.io/utils v0.0.0-20241210054802-24370beab758/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 kubevirt.io/containerized-data-importer-api v1.63.0-alpha.0 h1:fxhXZCD6tFvFxo16gVYaIqJ63QomqoEMxjcf5QbbKHE=
 kubevirt.io/containerized-data-importer-api v1.63.0-alpha.0/go.mod h1:VGp35wxpLXU18b7cnEpmcThI3AjcZUSfg/Zfql44U4o=
+kubevirt.io/virt-template-api v0.1.5 h1:oN7b08cSrluulePPQKiV1VC+VS4vh8aSmI/d2oYfw/k=
+kubevirt.io/virt-template-api v0.1.5/go.mod h1:UnIPcXaGR0J0rNWL30GygXQ9TIJ2IBZIFcSrygUu9Fo=
+kubevirt.io/virt-template-client-go v0.1.5 h1:XjFpbfYZ7w9puQpjWlEw43Ury1Hjzw1Xhvv0Itn7pNs=
+kubevirt.io/virt-template-client-go v0.1.5/go.mod h1:6QNDNzxxFRs3Pizm7SaLnvUrSULqGt10HnLckBFFOw4=
+kubevirt.io/virt-template-engine v0.0.0-20260210010243-67c146572479/go.mod h1:SzgkHUvkMDjXUdNfif/4eUHavluJYAbopDeWcgm7cXI=
 lukechampine.com/uint128 v1.3.0 h1:cDdUVfRwDUDovz610ABgFD17nXD4/uDgVHl2sC3+sbo=
 modernc.org/cc/v3 v3.40.0 h1:P3g79IUS/93SYhtoeaHW+kRCIrYaxJ27MFPv+7kaTOw=
 modernc.org/ccgo/v3 v3.16.13 h1:Mkgdzl46i5F/CNR/Kj80Ri59hC8TKAhZrYSaqvkwzUw=
