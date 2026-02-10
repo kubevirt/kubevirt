@@ -47,3 +47,9 @@ func withPCIAddress(pciAddress *api.Address) builderOption {
 		iface.Address = pciAddress
 	}
 }
+
+func withACPIIndex(acpiIndex uint) builderOption {
+	return func(iface *api.Interface) {
+		iface.ACPI = &api.ACPI{Index: acpiIndex}
+	}
+}
