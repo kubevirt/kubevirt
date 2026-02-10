@@ -334,7 +334,8 @@
       "vmStateStorageClass": "vmStateStorageClassValue",
       "virtualMachineOptions": {
         "disableFreePageReporting": {},
-        "disableSerialConsoleLog": {}
+        "disableSerialConsoleLog": {},
+        "disableVeleroHooks": {}
       },
       "ksmConfiguration": {
         "nodeLabelSelector": {

@@ -404,6 +404,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Diag288Watchdog":                                                         schema_kubevirtio_api_core_v1_Diag288Watchdog(ref),
 		"kubevirt.io/api/core/v1.DisableFreePageReporting":                                                schema_kubevirtio_api_core_v1_DisableFreePageReporting(ref),
 		"kubevirt.io/api/core/v1.DisableSerialConsoleLog":                                                 schema_kubevirtio_api_core_v1_DisableSerialConsoleLog(ref),
+		"kubevirt.io/api/core/v1.DisableVeleroHooks":                                                      schema_kubevirtio_api_core_v1_DisableVeleroHooks(ref),
 		"kubevirt.io/api/core/v1.Disk":                                                                    schema_kubevirtio_api_core_v1_Disk(ref),
 		"kubevirt.io/api/core/v1.DiskDevice":                                                              schema_kubevirtio_api_core_v1_DiskDevice(ref),
 		"kubevirt.io/api/core/v1.DiskIOThreads":                                                           schema_kubevirtio_api_core_v1_DiskIOThreads(ref),
@@ -20538,6 +20539,16 @@ func schema_kubevirtio_api_core_v1_DisableSerialConsoleLog(ref common.ReferenceC
 	}
 }
 
+func schema_kubevirtio_api_core_v1_DisableVeleroHooks(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_core_v1_Disk(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -29404,11 +29415,17 @@ func schema_kubevirtio_api_core_v1_VirtualMachineOptions(ref common.ReferenceCal
 							Ref:         ref("kubevirt.io/api/core/v1.DisableSerialConsoleLog"),
 						},
 					},
+					"disableVeleroHooks": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DisableVeleroHooks disables the automatic addition of Velero backup hook annotations to virt-launcher pods. If not set, Velero hooks are automatically added (default behavior).",
+							Ref:         ref("kubevirt.io/api/core/v1.DisableVeleroHooks"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.DisableFreePageReporting", "kubevirt.io/api/core/v1.DisableSerialConsoleLog"},
+			"kubevirt.io/api/core/v1.DisableFreePageReporting", "kubevirt.io/api/core/v1.DisableSerialConsoleLog", "kubevirt.io/api/core/v1.DisableVeleroHooks"},
 	}
 }
 

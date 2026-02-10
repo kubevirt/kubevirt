@@ -27,9 +27,21 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 )
 
-type Generator struct{}
+type Generator struct {
+	clusterConfig *v1.KubeVirtConfiguration
+}
+
+func NewGenerator(clusterConfig *v1.KubeVirtConfiguration) Generator {
+	return Generator{clusterConfig: clusterConfig}
+}
 
 func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
+	if g.clusterConfig != nil &&
+		g.clusterConfig.VirtualMachineOptions != nil &&
+		g.clusterConfig.VirtualMachineOptions.DisableVeleroHooks != nil {
+		return map[string]string{}, nil
+	}
+
 	const computeContainerName = "compute"
 
 	return map[string]string{

@@ -257,6 +257,7 @@ spec:
     virtualMachineOptions:
       disableFreePageReporting: {}
       disableSerialConsoleLog: {}
+      disableVeleroHooks: {}
     vmRolloutStrategy: vmRolloutStrategyValue
     vmStateStorageClass: vmStateStorageClassValue
     webhookConfiguration:

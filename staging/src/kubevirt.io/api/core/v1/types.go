@@ -3262,11 +3262,20 @@ type VirtualMachineOptions struct {
 	// If not set, serial console logs will be written to a file and then streamed from a container named `guest-console-log`.
 	// The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.
 	DisableSerialConsoleLog *DisableSerialConsoleLog `json:"disableSerialConsoleLog,omitempty"`
+
+	// DisableVeleroHooks disables the automatic addition of Velero backup hook
+	// annotations to virt-launcher pods. If not set, Velero hooks are automatically added (default behavior).
+	DisableVeleroHooks *DisableVeleroHooks `json:"disableVeleroHooks,omitempty"`
 }
 
 type DisableFreePageReporting struct{}
 
 type DisableSerialConsoleLog struct{}
+
+type DisableVeleroHooks struct {
+	// Currently empty struct to work as a boolean,
+	// but can be extended in the future to include options such as label selector.
+}
 
 // TLSConfiguration holds TLS options
 type TLSConfiguration struct {
