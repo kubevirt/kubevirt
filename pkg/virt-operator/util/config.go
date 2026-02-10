@@ -585,19 +585,22 @@ func (c *KubeVirtDeploymentConfig) generateInstallStrategyID() {
 
 // use KubeVirtDeploymentConfig by value because we modify sth just for the ID
 func getStringFromFields(c KubeVirtDeploymentConfig) string {
-	result := ""
-
 	// image prefix might be empty. In order to get the same ID for missing and empty, remove an empty one
 	if prefix, ok := c.AdditionalProperties[ImagePrefixKey]; ok && prefix == "" {
 		delete(c.AdditionalProperties, ImagePrefixKey)
 	}
 
-	v := reflect.ValueOf(c)
+	return fieldsToString(reflect.ValueOf(c))
+}
+
+func fieldsToString(v reflect.Value) string {
+	result := ""
 	for i := 0; i < v.NumField(); i++ {
 		fieldName := v.Type().Field(i).Name
 		result += fieldName
 		field := v.Field(i)
-		if field.Type().Kind() == reflect.Map {
+		switch field.Type().Kind() {
+		case reflect.Map:
 			keys := field.MapKeys()
 			nameKeys := make(map[string]reflect.Value, len(keys))
 			names := make([]string, 0, len(keys))
@@ -616,9 +619,12 @@ func getStringFromFields(c KubeVirtDeploymentConfig) string {
 				result += name
 				result += val
 			}
-		} else {
-			value := v.Field(i).String()
-			result += value
+		case reflect.Struct:
+			result += fieldsToString(field)
+		case reflect.String:
+			result += field.String()
+		default:
+			panic(fmt.Sprintf("fieldsToString unable to handle field %s", fieldName))
 		}
 	}
 	return result
