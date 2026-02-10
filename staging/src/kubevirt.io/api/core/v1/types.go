@@ -352,16 +352,18 @@ const (
 	// an action was taken because virt-handler became unresponsive.
 	NodeUnresponsiveReason VirtualMachineInstanceReason = "NodeUnresponsive"
 
-	ShutdownReason                          VirtualMachineInstanceReason = "Shutdown"
-	CrashedReason                           VirtualMachineInstanceReason = "Crashed"
-	UnknownReason                           VirtualMachineInstanceReason = "Unknown"
+	ShutdownReason VirtualMachineInstanceReason = "Shutdown"
+	CrashedReason  VirtualMachineInstanceReason = "Crashed"
+	UnknownReason  VirtualMachineInstanceReason = "Unknown"
+
+	MigratedReason         VirtualMachineInstanceReason = "Migrated"
+	MigrationTimeoutReason VirtualMachineInstanceReason = "MigrationTimeout"
+	MigrationFailedReason  VirtualMachineInstanceReason = "MigrationFailedReason"
+
 	VirtLauncherUnresponsiveReason          VirtualMachineInstanceReason = "VirtLauncherUnresponsive"
-	MigratedReason                          VirtualMachineInstanceReason = "Migrated"
-	MigrationTimeoutReason                  VirtualMachineInstanceReason = "MigrationTimeout"
 	VirtLauncherCrashedReason               VirtualMachineInstanceReason = "VirtLauncherCrashed"
 	VirtLauncherSecureBootUnsupportedReason VirtualMachineInstanceReason = "VirtLauncherSecureBootUnsupported"
 	VirtLauncherIrrecoverableReason         VirtualMachineInstanceReason = "VirtLauncherIrrecoverableReason"
-	MigrationFailedReason                   VirtualMachineInstanceReason = "MigrationFailedReason"
 )
 
 // VirtualMachineInstanceShutdownReason indicated the reason for initiating shutdown.
