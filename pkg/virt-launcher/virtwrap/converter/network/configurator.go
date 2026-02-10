@@ -118,36 +118,51 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 
 	switch {
 	case d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap):
-		// use "ethernet" interface type, since we're using pre-configured tap devices
-		// https://libvirt.org/formatdomain.html#elementsNICSEthernet
-		builderOptions = append(builderOptions, withIfaceType("ethernet"))
-		if iface.BootOrder != nil {
-			builderOptions = append(builderOptions, withBootOrder(*iface.BootOrder))
-		}
-
-		if d.isROMTuningSupported && (iface.BootOrder == nil || useLaunchSecurity) {
-			builderOptions = append(builderOptions, withROMDisabled())
-		}
-
-		if iface.State == v1.InterfaceStateLinkDown {
-			builderOptions = append(builderOptions, withLinkStateDown())
-		}
+		builderOptions = append(builderOptions, d.tapBindingOptions(iface, useLaunchSecurity)...)
 
 	case iface.PasstBinding != nil:
-		ifaceStatus := netvmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, iface.Name)
-		if ifaceStatus == nil || ifaceStatus.PodInterfaceName == "" {
-			return api.Interface{}, fmt.Errorf("pod interface name not found in vmi %s status, for interface %s",
-				vmi.Name, iface.Name)
+		passtOpts, err := d.passtBindingOptions(iface, vmi)
+		if err != nil {
+			return api.Interface{}, err
 		}
-		builderOptions = append(builderOptions,
-			withIfaceType("vhostuser"),
-			withSource(api.InterfaceSource{Device: ifaceStatus.PodInterfaceName}),
-			withBackend(api.InterfaceBackend{Type: passtBackendPasst, LogFile: passtLogFilePath}),
-			withPortForward(generatePasstPortForward(iface, vmi)),
-		)
+		builderOptions = append(builderOptions, passtOpts...)
 	}
 
 	return newDomainInterface(iface.Name, modelType, builderOptions...), nil
+}
+
+func (d DomainConfigurator) tapBindingOptions(iface *v1.Interface, useLaunchSecurity bool) []builderOption {
+	// use "ethernet" interface type, since we're using pre-configured tap devices
+	// https://libvirt.org/formatdomain.html#elementsNICSEthernet
+	opts := []builderOption{withIfaceType("ethernet")}
+
+	if iface.BootOrder != nil {
+		opts = append(opts, withBootOrder(*iface.BootOrder))
+	}
+
+	if d.isROMTuningSupported && (iface.BootOrder == nil || useLaunchSecurity) {
+		opts = append(opts, withROMDisabled())
+	}
+
+	if iface.State == v1.InterfaceStateLinkDown {
+		opts = append(opts, withLinkStateDown())
+	}
+
+	return opts
+}
+
+func (d DomainConfigurator) passtBindingOptions(iface *v1.Interface, vmi *v1.VirtualMachineInstance) ([]builderOption, error) {
+	ifaceStatus := netvmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, iface.Name)
+	if ifaceStatus == nil || ifaceStatus.PodInterfaceName == "" {
+		return nil, fmt.Errorf("pod interface name not found in vmi %s status, for interface %s",
+			vmi.Name, iface.Name)
+	}
+	return []builderOption{
+		withIfaceType("vhostuser"),
+		withSource(api.InterfaceSource{Device: ifaceStatus.PodInterfaceName}),
+		withBackend(api.InterfaceBackend{Type: passtBackendPasst, LogFile: passtLogFilePath}),
+		withPortForward(generatePasstPortForward(iface, vmi)),
+	}, nil
 }
 
 func WithDomainAttachmentByInterfaceName(domainAttachmentByInterfaceName map[string]string) option {
