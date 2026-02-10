@@ -212,3 +212,7 @@ func (config *ClusterConfig) MigrationPriorityQueueEnabled() bool {
 func (config *ClusterConfig) PodSecondaryInterfaceNamingUpgradeEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PodSecondaryInterfaceNamingUpgrade)
 }
+
+func (config *ClusterConfig) ShouldDisableNADResourceInjection() bool {
+	return config.isFeatureGateEnabled(featuregate.DisableNADResourceInjection)
+}

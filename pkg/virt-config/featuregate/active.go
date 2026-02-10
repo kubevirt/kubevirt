@@ -171,6 +171,12 @@ const (
 	// Owner: SIG network
 	// Beta: v1.8
 	PodSecondaryInterfaceNamingUpgrade = "PodSecondaryInterfaceNamingUpgrade"
+
+	// DisableNADResourceInjection disables the VMI controller query of NetworkAttachmentDefinition objects and
+	// the deployment of related RBAC rules by virt-operator.
+	// Owner: SIG network
+	// Beta: v1.8.0
+	DisableNADResourceInjection = "DisableNADResourceInjection"
 )
 
 func init() {
@@ -209,4 +215,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: DisableNADResourceInjection, State: Beta})
 }
