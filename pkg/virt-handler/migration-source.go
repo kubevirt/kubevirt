@@ -236,6 +236,7 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 	if migrationHost == "" {
 		// migrated to unknown host.
 		vmi.Status.Phase = v1.Failed
+		vmi.Status.Reason = v1.MigratedReason
 		vmi.Status.MigrationState.Completed = true
 		vmi.Status.MigrationState.Failed = true
 		if vmi.Status.MigrationState.EndTimestamp == nil {
@@ -247,6 +248,7 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 	} else if !targetNodeDetectedDomain {
 		if timeLeft <= 0 {
 			vmi.Status.Phase = v1.Failed
+			vmi.Status.Reason = v1.MigrationTimeoutReason
 			vmi.Status.MigrationState.Completed = true
 			vmi.Status.MigrationState.Failed = true
 			if vmi.Status.MigrationState.EndTimestamp == nil {
@@ -269,6 +271,7 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 		c.logger.Object(vmi).V(2).Infof("decentralized migration completed successfully, marking VMI as succeeded")
 		// this is a decentralized migration, and the migration completed successfully, we need to mark the VMI as succeeded
 		vmi.Status.Phase = v1.Succeeded
+		vmi.Status.Reason = v1.MigratedReason
 	}
 
 	return nil

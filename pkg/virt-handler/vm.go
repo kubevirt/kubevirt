@@ -1051,7 +1051,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 	return nil
 }
 
-func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineInstanceStatus, vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error) (err error) {
+func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineInstanceStatus, vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error, shutdownReason v1.VirtualMachineInstanceShutdownReason) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
 	// Don't update the VirtualMachineInstance if it is already in a final state
@@ -1069,6 +1069,10 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 	err = c.setVmPhaseForStatusReason(domain, vmi)
 	if err != nil {
 		return err
+	}
+
+	if shutdownReason != "" && oldStatus.ShutdownReason == "" {
+		vmi.Status.ShutdownReason = shutdownReason
 	}
 
 	// Update conditions on VMI Status
@@ -1117,15 +1121,18 @@ func (c *VirtualMachineController) handleSyncError(vmi *v1.VirtualMachineInstanc
 	if goerror.As(syncError, &criticalNetErr) {
 		c.logger.Errorf("virt-launcher crashed due to a network error. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
+		vmi.Status.Reason = v1.VirtLauncherCrashedReason
 	}
 	if _, ok := syncError.(*virtLauncherCriticalSecurebootError); ok {
 		c.logger.Errorf("virt-launcher does not support the Secure Boot setting. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
+		vmi.Status.Reason = v1.VirtLauncherSecureBootUnsupportedReason
 	}
 
 	if _, ok := syncError.(*vmiIrrecoverableError); ok {
 		c.logger.Errorf("virt-launcher reached an irrecoverable error. Updating VMI %s status to Failed", vmi.Name)
 		vmi.Status.Phase = v1.Failed
+		vmi.Status.Reason = v1.VirtLauncherIrrecoverableReason
 	}
 	condManager.CheckFailure(vmi, syncError, "Synchronizing with the Domain failed.")
 }
@@ -1362,6 +1369,8 @@ func (c *VirtualMachineController) sync(key string,
 
 	// set to true when domain needs to be shutdown.
 	shouldShutdown := false
+	// set Status.ShutdownReason
+	shutdownReason := v1.VmiShutdownReasonUnset
 	// set to true when domain needs to be removed from libvirt.
 	shouldDelete := false
 	// set to true when VirtualMachineInstance is active or about to become active.
@@ -1393,6 +1402,8 @@ func (c *VirtualMachineController) sync(key string,
 	if gracefulShutdown && vmi.IsRunning() {
 		if domainAlive {
 			c.logger.Object(vmi).V(3).Info("Shutting down due to graceful shutdown signal.")
+			// Domain is marked for graceful shutdown when the pod is deleted
+			shutdownReason = v1.PodDeletedShutdownReason
 			shouldShutdown = true
 		} else {
 			shouldDelete = true
@@ -1405,6 +1416,7 @@ func (c *VirtualMachineController) sync(key string,
 			// The VirtualMachineInstance is deleted on the cluster, and domain is alive,
 			// then shut down the domain.
 			c.logger.Object(vmi).V(3).Info("Shutting down domain for deleted VirtualMachineInstance object.")
+			// There is no point of setting shutdownReason here because the vmi doesn't exist.
 			shouldShutdown = true
 		} else {
 			// The VirtualMachineInstance is deleted on the cluster, and domain is not alive
@@ -1418,6 +1430,7 @@ func (c *VirtualMachineController) sync(key string,
 	if vmiExists && vmi.ObjectMeta.DeletionTimestamp != nil {
 		if domainAlive {
 			c.logger.Object(vmi).V(3).Info("Shutting down domain for VirtualMachineInstance with deletion timestamp.")
+			shutdownReason = v1.VMIDeletedShutdownReason
 			shouldShutdown = true
 		} else {
 			c.logger.Object(vmi).V(3).Info("Deleting domain for VirtualMachineInstance with deletion timestamp.")
@@ -1441,7 +1454,7 @@ func (c *VirtualMachineController) sync(key string,
 	if vmiExists && !vmi.IsFinal() {
 		// requiring the phase of the domain and VirtualMachineInstance to be in sync is an
 		// optimization that prevents unnecessary re-processing VMIs during the start flow.
-		phase, err := c.calculateVmPhaseForStatusReason(domain, vmi)
+		phase, _, err := c.calculateVmPhaseForStatusReason(domain, vmi)
 		if err != nil {
 			return err
 		}
@@ -1495,7 +1508,7 @@ func (c *VirtualMachineController) sync(key string,
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
 	if vmiExists {
 		vmi.Spec = *oldSpec
-		if err := c.updateVMIStatus(oldStatus, vmi, domain, syncErr); err != nil {
+		if err := c.updateVMIStatus(oldStatus, vmi, domain, syncErr, shutdownReason); err != nil {
 			c.logger.Object(vmi).Reason(err).Error("Updating the VirtualMachineInstance status failed.")
 			return err
 		}
@@ -2275,11 +2288,12 @@ func (c *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 }
 
 func (c *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) error {
-	phase, err := c.calculateVmPhaseForStatusReason(domain, vmi)
+	phase, reason, err := c.calculateVmPhaseForStatusReason(domain, vmi)
 	if err != nil {
 		return err
 	}
 	vmi.Status.Phase = phase
+	vmi.Status.Reason = reason
 	return nil
 }
 
@@ -2302,7 +2316,7 @@ func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 		domain.Spec.Features.ACPI != nil
 }
 
-func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) (v1.VirtualMachineInstancePhase, error) {
+func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) (v1.VirtualMachineInstancePhase, v1.VirtualMachineInstanceReason, error) {
 
 	if domain == nil {
 		switch {
@@ -2310,60 +2324,62 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			isUnresponsive, isInitialized, err := c.launcherClients.IsLauncherClientUnresponsive(vmi)
 
 			if err != nil {
-				return vmi.Status.Phase, err
+				return vmi.Status.Phase, vmi.Status.Reason, err
 			}
 			if !isInitialized {
 				c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-				return vmi.Status.Phase, err
+				return vmi.Status.Phase, vmi.Status.Reason, err
 			} else if isUnresponsive {
 				// virt-launcher is gone and VirtualMachineInstance never transitioned
 				// from scheduled to Running.
-				return v1.Failed, nil
+				return v1.Failed, v1.VirtLauncherUnresponsiveReason, nil
 			}
-			return v1.Scheduled, nil
+			return v1.Scheduled, v1.VmiReasonUnset, nil
 		case !vmi.IsRunning() && !vmi.IsFinal():
-			return v1.Scheduled, nil
+			return v1.Scheduled, v1.VmiReasonUnset, nil
 		case !vmi.IsFinal():
 			// That is unexpected. We should not be able to delete a VirtualMachineInstance before we stop it.
 			// However, if someone directly interacts with libvirt it is possible
-			return v1.Failed, nil
+			return v1.Failed, v1.UnknownReason, nil
 		}
 	} else {
 		switch domain.Status.Status {
 		case api.Shutoff, api.Crashed:
 			switch domain.Status.Reason {
 			case api.ReasonCrashed, api.ReasonPanicked:
-				return v1.Failed, nil
+				return v1.Failed, v1.CrashedReason, nil
 			case api.ReasonDestroyed:
 				if isACPIEnabled(vmi, domain) {
 					// When ACPI is available, the domain was tried to be shutdown,
 					// and destroyed means that the domain was destroyed after the graceperiod expired.
 					// Without ACPI a destroyed domain is ok.
-					return v1.Failed, nil
+					return v1.Failed, v1.UnknownReason, nil
 				}
 				if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Failed && vmi.Status.MigrationState.Mode == v1.MigrationPostCopy {
 					// A VMI that failed a post-copy migration should never succeed
-					return v1.Failed, nil
+					return v1.Failed, v1.UnknownReason, nil
 				}
-				return v1.Succeeded, nil
-			case api.ReasonShutdown, api.ReasonSaved, api.ReasonFromSnapshot:
-				return v1.Succeeded, nil
+				return v1.Succeeded, v1.UnknownReason, nil
+			case api.ReasonSaved, api.ReasonFromSnapshot:
+				return v1.Succeeded, v1.UnknownReason, nil
+			case api.ReasonShutdown:
+				return v1.Succeeded, v1.ShutdownReason, nil
 			case api.ReasonMigrated:
 				// if the domain migrated, we no longer know the phase.
-				return vmi.Status.Phase, nil
+				return vmi.Status.Phase, vmi.Status.Reason, nil
 			}
 		case api.Paused:
 			switch domain.Status.Reason {
 			case api.ReasonPausedPostcopyFailed:
-				return v1.Failed, nil
+				return v1.Failed, v1.VmiReasonUnset, nil
 			default:
-				return v1.Running, nil
+				return v1.Running, v1.VmiReasonUnset, nil
 			}
 		case api.Running, api.Blocked, api.PMSuspended:
-			return v1.Running, nil
+			return v1.Running, v1.VmiReasonUnset, nil
 		}
 	}
-	return vmi.Status.Phase, nil
+	return vmi.Status.Phase, vmi.Status.Reason, nil
 }
 
 func (c *VirtualMachineController) addDeleteFunc(obj interface{}) {
