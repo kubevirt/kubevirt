@@ -34,6 +34,7 @@ var (
 	Invtsc          = Label("Invtsc")
 	KSMRequired     = Label("KSM-required")
 	ACPI            = Label("ACPI")
+	CCA             = Label("CCA")
 
 	/* Deployment */
 
