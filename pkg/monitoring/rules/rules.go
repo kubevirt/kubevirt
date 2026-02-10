@@ -36,13 +36,15 @@ const (
 	kubevirtLabelValue = "kubevirt"
 )
 
+var registry = operatorrules.NewRegistry()
+
 func SetupRules(namespace string) error {
-	err := recordingrules.Register(namespace)
+	err := recordingrules.Register(registry, namespace)
 	if err != nil {
 		return err
 	}
 
-	err = alerts.Register(namespace)
+	err = alerts.Register(registry, namespace)
 	if err != nil {
 		return err
 	}
@@ -51,7 +53,7 @@ func SetupRules(namespace string) error {
 }
 
 func BuildPrometheusRule(namespace string) (*promv1.PrometheusRule, error) {
-	rules, err := operatorrules.BuildPrometheusRule(
+	rules, err := registry.BuildPrometheusRule(
 		kubevirtPrometheusRuleName,
 		namespace,
 		map[string]string{
@@ -67,9 +69,9 @@ func BuildPrometheusRule(namespace string) (*promv1.PrometheusRule, error) {
 }
 
 func ListRecordingRules() []operatorrules.RecordingRule {
-	return operatorrules.ListRecordingRules()
+	return registry.ListRecordingRules()
 }
 
 func ListAlerts() []promv1.Rule {
-	return operatorrules.ListAlerts()
+	return registry.ListAlerts()
 }

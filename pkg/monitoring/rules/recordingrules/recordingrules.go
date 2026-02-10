@@ -20,8 +20,8 @@ package recordingrules
 
 import "github.com/rhobs/operator-observability-toolkit/pkg/operatorrules"
 
-func Register(namespace string) error {
-	return operatorrules.RegisterRecordingRules(
+func Register(registry *operatorrules.Registry, namespace string) error {
+	return registry.RegisterRecordingRules(
 		apiRecordingRules,
 		nodesRecordingRules,
 		operatorRecordingRules,

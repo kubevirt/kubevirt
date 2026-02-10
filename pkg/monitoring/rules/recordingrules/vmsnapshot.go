@@ -31,7 +31,13 @@ var vmsnapshotRecordingRules = []operatorrules.RecordingRule{
 			Help: "Returns the labels of the persistent volume claims that are used for restoring virtual machines.",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("label_replace(label_replace(kube_persistentvolumeclaim_labels{label_restore_kubevirt_io_source_vm_name!='', label_restore_kubevirt_io_source_vm_namespace!=''} == 1, 'vm_namespace', '$1', 'label_restore_kubevirt_io_source_vm_namespace', '(.*)'), 'vm_name', '$1', 'label_restore_kubevirt_io_source_vm_name', '(.*)')"),
+		Expr: intstr.FromString(
+			"label_replace(label_replace(" +
+				"kube_persistentvolumeclaim_labels" +
+				"{label_restore_kubevirt_io_source_vm_name!='', label_restore_kubevirt_io_source_vm_namespace!=''} == 1," +
+				"'vm_namespace', '$1', 'label_restore_kubevirt_io_source_vm_namespace', '(.*)'), " +
+				"'vm_name', '$1', 'label_restore_kubevirt_io_source_vm_name', '(.*)')",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -47,6 +53,8 @@ var vmsnapshotRecordingRules = []operatorrules.RecordingRule{
 			Help: "Returns the amount of space in bytes restored from the source virtual machine.",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("sum by(vm_name, vm_namespace) (kube_persistentvolumeclaim_resource_requests_storage_bytes * on(persistentvolumeclaim, namespace) group_left(vm_name, vm_namespace) kubevirt_vmsnapshot_persistentvolumeclaim_labels)"),
+		Expr: intstr.FromString(
+			"sum by(vm_name, vm_namespace) (kube_persistentvolumeclaim_resource_requests_storage_bytes * " +
+				"on(persistentvolumeclaim, namespace) group_left(vm_name, vm_namespace) kubevirt_vmsnapshot_persistentvolumeclaim_labels)"),
 	},
 }

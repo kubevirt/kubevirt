@@ -28,10 +28,16 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_phase_count",
-			Help: "Sum of VMIs per phase and node. `phase` can be one of the following: [`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`].",
+			Help: "Sum of VMIs per phase and node. `phase` can be one of the following: " +
+				"[`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`].",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("sum by (node, phase, os, workload, flavor, instance_type, preference, guest_os_kernel_release, guest_os_machine, guest_os_arch, guest_os_name, guest_os_version_id) (kubevirt_vmi_info)"),
+		Expr: intstr.FromString(
+			"sum by " +
+				"(node, phase, os, workload, flavor, instance_type, preference, " +
+				"guest_os_kernel_release, guest_os_machine, guest_os_arch, guest_os_name, guest_os_version_id) " +
+				"(kubevirt_vmi_info)",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -63,7 +69,9 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 			Help: "Usable memory to available memory ratio per VMI (aggregated by name, namespace).",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("sum by (name, namespace) (kubevirt_vmi_memory_usable_bytes) / sum by (name, namespace) (kubevirt_vmi_memory_available_bytes)"),
+		Expr: intstr.FromString(
+			"sum by (name, namespace) (kubevirt_vmi_memory_usable_bytes) / sum by (name, namespace) (kubevirt_vmi_memory_available_bytes)",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -79,7 +87,10 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 			Help: "Total swap I/O traffic rate over 5 minutes per VMI (swap in + swap out, aggregated by name, namespace).",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_in_traffic_bytes[5m])) + sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_out_traffic_bytes[5m]))"),
+		Expr: intstr.FromString(
+			"sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_in_traffic_bytes[5m])) + " +
+				"sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_out_traffic_bytes[5m]))",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -103,7 +114,10 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 			Help: "Total swap I/O traffic rate over 30 minutes per VMI (swap in + swap out, aggregated by name, namespace).",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_in_traffic_bytes[30m])) + sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_out_traffic_bytes[30m]))"),
+		Expr: intstr.FromString(
+			"sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_in_traffic_bytes[30m])) + " +
+				" sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_out_traffic_bytes[30m]))",
+		),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
