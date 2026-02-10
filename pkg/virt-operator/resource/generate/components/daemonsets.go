@@ -11,7 +11,6 @@ import (
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 
-	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor"
@@ -139,7 +138,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 	pod.ServiceAccountName = HandlerServiceAccountName
 	pod.HostPID = true
 
-	hypervisorNodeInfo := hypervisor.NewHypervisorNodeInformation(v1.KvmHypervisorName)
+	hypervisorNodeInfo := hypervisor.NewHypervisorNodeInformation(config.GetHypervisorName())
 
 	// nodelabeller currently only support x86. The arch check will be done in node-labller.sh
 	pod.InitContainers = []corev1.Container{
