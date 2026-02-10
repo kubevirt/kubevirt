@@ -42,8 +42,7 @@ func (converterARM64) SupportCPUHotplug() bool {
 }
 
 func (converterARM64) IsSMBiosNeeded() bool {
-	// ARM64 use UEFI boot by default, set SMBios is unnecessary.
-	return false
+	return true
 }
 
 func (converterARM64) TransitionalModelType(useVirtioTransitional bool) string {
