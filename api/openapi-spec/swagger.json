@@ -22391,6 +22391,10 @@
       "description": "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine",
       "type": "string"
      },
+     "preferredLaunchSecurity": {
+      "description": "Optionally defines the preferred LaunchSecurity",
+      "$ref": "#/definitions/v1.LaunchSecurity"
+     },
      "preferredSubdomain": {
       "description": "Subdomain of the VirtualMachineInstance",
       "type": "string"
