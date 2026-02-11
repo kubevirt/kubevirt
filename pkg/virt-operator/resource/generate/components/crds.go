@@ -46,8 +46,6 @@ import (
 	poolv1beta1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1alpha1 "kubevirt.io/api/snapshot/v1alpha1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
-
-	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 const (
@@ -59,7 +57,6 @@ const (
 var (
 	VIRTUALMACHINE                   = "virtualmachines." + virtv1.VirtualMachineInstanceGroupVersionKind.Group
 	VIRTUALMACHINEINSTANCE           = "virtualmachineinstances." + virtv1.VirtualMachineInstanceGroupVersionKind.Group
-	VIRTUALMACHINEINSTANCEPRESET     = "virtualmachineinstancepresets." + virtv1.VirtualMachineInstancePresetGroupVersionKind.Group
 	VIRTUALMACHINEINSTANCEREPLICASET = "virtualmachineinstancereplicasets." + virtv1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group
 	VIRTUALMACHINEINSTANCEMIGRATION  = "virtualmachineinstancemigrations." + virtv1.VirtualMachineInstanceMigrationGroupVersionKind.Group
 	KUBEVIRT                         = "kubevirts." + virtv1.KubeVirtGroupVersionKind.Group
@@ -212,47 +209,6 @@ func NewVirtualMachineCrd() (*extv1.CustomResourceDefinition, error) {
 	}
 
 	if err = patchValidationForAllVersions(crd); err != nil {
-		return nil, err
-	}
-	return crd, nil
-}
-
-func NewPresetCrd() (*extv1.CustomResourceDefinition, error) {
-	crd := newBlankCrd()
-
-	crd.ObjectMeta.Name = VIRTUALMACHINEINSTANCEPRESET
-	crd.Spec = extv1.CustomResourceDefinitionSpec{
-		Group: virtv1.VirtualMachineInstancePresetGroupVersionKind.Group,
-		Versions: []extv1.CustomResourceDefinitionVersion{
-			{
-				Name:               "v1",
-				Served:             true,
-				Storage:            false,
-				Deprecated:         true,
-				DeprecationWarning: pointer.P("kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
-			},
-			{
-				Name:               "v1alpha3",
-				Served:             true,
-				Storage:            true,
-				Deprecated:         true,
-				DeprecationWarning: pointer.P("kubevirt.io/v1alpha3 VirtualMachineInstancePresets is now deprecated and will be removed in v2."),
-			},
-		},
-		Scope: "Namespaced",
-
-		Names: extv1.CustomResourceDefinitionNames{
-			Plural:     "virtualmachineinstancepresets",
-			Singular:   "virtualmachineinstancepreset",
-			Kind:       virtv1.VirtualMachineInstancePresetGroupVersionKind.Kind,
-			ShortNames: []string{"vmipreset", "vmipresets"},
-			Categories: []string{
-				"all",
-			},
-		},
-	}
-
-	if err := patchValidationForAllVersions(crd); err != nil {
 		return nil, err
 	}
 	return crd, nil

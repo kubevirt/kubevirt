@@ -363,9 +363,8 @@ disk:
 ### Device Naming
 
 Every device has a mandatory name field. Amongst other benefits, this allows
-easy tracking of the devices for management applications and users, simplifies
-declarative hotplug and allows VirtualMachineInstancePresets to detect conflicts based
-on device names.
+easy tracking of the devices for management applications and users and simplifies
+declarative hotplug.
 
 ### Specification changes
 
@@ -375,9 +374,7 @@ libvirt on the node. A specification reflects the requirement from the user and
 will only be changed by the system by the apiserver on creation time or by
 initializers. After the VirtualMachine is accepted by the system and was
 processed by all initializers, controllers will ever only change `status` and
-`metadata` fields. VirtualMachineInstancePresets are an example of an initializer which
-can manipulate the spec, before the VirtualMachine is fully accepted by the
-system.
+`metadata` fields.
 
 ### Devices inherited from the machine type
 They are normally not visible on the VirtualMachine specification. If there

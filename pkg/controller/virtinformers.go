@@ -117,9 +117,6 @@ type KubeInformerFactory interface {
 	// Watches for VirtualMachinePool objects
 	VMPool() cache.SharedIndexInformer
 
-	// Watches for VirtualMachineInstancePreset objects
-	VirtualMachinePreset() cache.SharedIndexInformer
-
 	// Watches for pods related only to kubevirt
 	KubeVirtPod() cache.SharedIndexInformer
 
@@ -526,13 +523,6 @@ func (f *kubeInformerFactory) VMPool() cache.SharedIndexInformer {
 	return f.getInformer("vmpool", func() cache.SharedIndexInformer {
 		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().PoolV1beta1().RESTClient(), "virtualmachinepools", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &poolv1.VirtualMachinePool{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
-	})
-}
-
-func (f *kubeInformerFactory) VirtualMachinePreset() cache.SharedIndexInformer {
-	return f.getInformer("vmiPresetInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.restClient, "virtualmachineinstancepresets", k8sv1.NamespaceAll, fields.Everything())
-		return cache.NewSharedIndexInformer(lw, &kubev1.VirtualMachineInstancePreset{}, f.defaultResync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	})
 }
 

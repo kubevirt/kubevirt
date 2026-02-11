@@ -22,7 +22,6 @@ package testsuite
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -67,9 +66,7 @@ var TestNamespaces = []string{NamespaceTestDefault, NamespaceTestAlternative, Na
 type IgnoreDeprecationWarningsLogger struct{}
 
 func (IgnoreDeprecationWarningsLogger) HandleWarningHeader(code int, agent string, message string) {
-	if !strings.Contains(message, "VirtualMachineInstancePresets is now deprecated and will be removed in v2") {
-		log.Log.Warning(message)
-	}
+	log.Log.Warning(message)
 }
 
 func CleanNamespaces() {
@@ -211,8 +208,6 @@ func CleanNamespaces() {
 			),
 		).To(Succeed())
 
-		// Remove all VirtualMachineInstance Presets
-		Expect(virtCli.RestClient().Delete().Namespace(namespace).Resource("virtualmachineinstancepresets").Do(context.Background()).Error()).To(Succeed())
 		// Remove all limit ranges
 		Expect(virtCli.CoreV1().RESTClient().Delete().Namespace(namespace).Resource("limitranges").Do(context.Background()).Error()).To(Succeed())
 

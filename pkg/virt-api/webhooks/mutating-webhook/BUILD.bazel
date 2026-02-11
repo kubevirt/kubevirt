@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/util/webhooks:go_default_library",
-        "//pkg/virt-api/webhooks:go_default_library",
         "//pkg/virt-api/webhooks/mutating-webhook/mutators:go_default_library",
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",

@@ -31,7 +31,6 @@ import (
 	"kubevirt.io/client-go/log"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
-	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks/mutating-webhook/mutators"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
@@ -79,8 +78,8 @@ func ServeVMs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtco
 	serve(resp, req, mutators.NewVMsMutator(clusterConfig, virtCli))
 }
 
-func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, informers *webhooks.Informers, kubeVirtServiceAccounts map[string]struct{}) {
-	serve(resp, req, &mutators.VMIsMutator{ClusterConfig: clusterConfig, VMIPresetInformer: informers.VMIPresetInformer, KubeVirtServiceAccounts: kubeVirtServiceAccounts})
+func ServeVMIs(resp http.ResponseWriter, req *http.Request, clusterConfig *virtconfig.ClusterConfig, kubeVirtServiceAccounts map[string]struct{}) {
+	serve(resp, req, &mutators.VMIsMutator{ClusterConfig: clusterConfig, KubeVirtServiceAccounts: kubeVirtServiceAccounts})
 }
 
 func ServeMigrationCreate(resp http.ResponseWriter, req *http.Request) {

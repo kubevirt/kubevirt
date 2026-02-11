@@ -46,7 +46,6 @@ const (
 	apiKubevirts          = "kubevirts"
 	apiVM                 = "virtualmachines"
 	apiVMInstances        = "virtualmachineinstances"
-	apiVMIPresets         = "virtualmachineinstancepresets"
 	apiVMIReplicasets     = "virtualmachineinstancereplicasets"
 	apiVMIMigrations      = "virtualmachineinstancemigrations"
 	apiVMSnapshots        = "virtualmachinesnapshots"
@@ -285,7 +284,6 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					apiVM,
 					apiVMInstances,
-					apiVMIPresets,
 					apiVMIReplicasets,
 				},
 				Verbs: []string{
@@ -494,7 +492,6 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					apiVM,
 					apiVMInstances,
-					apiVMIPresets,
 					apiVMIReplicasets,
 				},
 				Verbs: []string{
@@ -710,7 +707,6 @@ func newViewClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					apiVM,
 					apiVMInstances,
-					apiVMIPresets,
 					apiVMIReplicasets,
 					apiVMIMigrations,
 				},

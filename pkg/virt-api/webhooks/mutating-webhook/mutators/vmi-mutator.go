@@ -21,14 +21,11 @@ package mutators
 
 import (
 	"fmt"
-	"net/http"
-	"strings"
 	"time"
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -43,11 +40,8 @@ import (
 
 type VMIsMutator struct {
 	ClusterConfig           *virtconfig.ClusterConfig
-	VMIPresetInformer       cache.SharedIndexInformer
 	KubeVirtServiceAccounts map[string]struct{}
 }
-
-const presetDeprecationWarning = "kubevirt.io/v1 VirtualMachineInstancePresets is now deprecated and will be removed in v2."
 
 // ApplyNewVMIMutations applies all VMI mutations to a VMI object.
 func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virtconfig.ClusterConfig) error {
@@ -94,17 +88,6 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 	// Patch the spec, metadata and status with defaults if we deal with a create operation
 	if ar.Request.Operation == admissionv1.Create {
-		// Apply presets
-		err = applyPresets(newVMI, mutator.VMIPresetInformer)
-		if err != nil {
-			return &admissionv1.AdmissionResponse{
-				Result: &metav1.Status{
-					Message: err.Error(),
-					Code:    http.StatusUnprocessableEntity,
-				},
-			}
-		}
-
 		if err := ApplyNewVMIMutations(newVMI, mutator.ClusterConfig); err != nil {
 			return webhookutils.ToAdmissionResponseError(err)
 		}
@@ -150,20 +133,11 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 		return webhookutils.ToAdmissionResponseError(err)
 	}
 
-	response := &admissionv1.AdmissionResponse{
+	return &admissionv1.AdmissionResponse{
 		Allowed:   true,
 		Patch:     patchBytes,
 		PatchType: kvpointer.P(admissionv1.PatchTypeJSONPatch),
 	}
-	// If newVMI has been annotated with presets include a deprecation warning in the response
-	for annotation := range newVMI.Annotations {
-		if strings.Contains(annotation, "virtualmachinepreset") {
-			response.Warnings = []string{presetDeprecationWarning}
-			break
-		}
-	}
-
-	return response
 }
 
 func markAsNonroot(vmi *v1.VirtualMachineInstance) {

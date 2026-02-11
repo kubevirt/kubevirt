@@ -428,26 +428,6 @@ func (VirtualMachineInstanceMigrationStatus) SwaggerDoc() map[string]string {
 	}
 }
 
-func (VirtualMachineInstancePreset) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"":     "Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.\n\nVirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector\nMore info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+genclient",
-		"spec": "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
-	}
-}
-
-func (VirtualMachineInstancePresetList) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"": "VirtualMachineInstancePresetList is a list of VirtualMachinePresets\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
-	}
-}
-
-func (VirtualMachineInstancePresetSpec) SwaggerDoc() map[string]string {
-	return map[string]string{
-		"selector": "Selector is a label query over a set of VMIs.\nRequired.",
-		"domain":   "Domain is the same object type as contained in VirtualMachineInstanceSpec",
-	}
-}
-
 func (VirtualMachine) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":       "VirtualMachine handles the VirtualMachines that are not running\nor are in a stopped state\nThe VirtualMachine contains the template to create the\nVirtualMachineInstance. It also mirrors the running state of the created\nVirtualMachineInstance in its status.\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object\n+genclient",

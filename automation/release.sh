@@ -61,7 +61,6 @@ function update_github_release() {
     fi
 
     gh release upload --repo "$GITHUB_REPOSITORY" --clobber "$DOCKER_TAG" _out/cmd/virtctl/virtctl-v* \
-        _out/manifests/release/demo-content.yaml \
         _out/manifests/release/kubevirt-operator.yaml \
         _out/manifests/release/kubevirt-cr.yaml \
         _out/manifests/release/kubevirt-network-policies.yaml \

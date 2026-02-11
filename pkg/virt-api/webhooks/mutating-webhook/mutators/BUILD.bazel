@@ -5,7 +5,6 @@ go_library(
     srcs = [
         "clone-create-mutator.go",
         "migration-create-mutator.go",
-        "preset.go",
         "vm-mutator.go",
         "vmi-mutator.go",
     ],
@@ -21,7 +20,6 @@ go_library(
         "//pkg/virt-config:go_default_library",
         "//staging/src/kubevirt.io/api/clone:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1beta1:go_default_library",
-        "//staging/src/kubevirt.io/api/core:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/kubecli:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
@@ -30,11 +28,8 @@ go_library(
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/equality:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/util/errors:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
-        "//vendor/k8s.io/client-go/tools/cache:go_default_library",
     ],
 )
 
@@ -44,7 +39,6 @@ go_test(
         "clone-create-mutator_test.go",
         "migration-create-mutator_test.go",
         "mutators_suite_test.go",
-        "preset_test.go",
         "vm-mutator_test.go",
         "vmi-mutator_test.go",
     ],
@@ -62,7 +56,6 @@ go_test(
         "//pkg/virt-operator/resource/generate/components:go_default_library",
         "//staging/src/kubevirt.io/api/clone:go_default_library",
         "//staging/src/kubevirt.io/api/clone/v1beta1:go_default_library",
-        "//staging/src/kubevirt.io/api/core:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype:go_default_library",
         "//staging/src/kubevirt.io/api/instancetype/v1beta1:go_default_library",

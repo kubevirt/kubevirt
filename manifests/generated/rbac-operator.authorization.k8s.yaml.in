@@ -403,13 +403,6 @@ rules:
   - watch
   - patch
 - apiGroups:
-  - kubevirt.io
-  resources:
-  - virtualmachineinstancepresets
-  verbs:
-  - watch
-  - list
-- apiGroups:
   - ""
   resources:
   - configmaps
@@ -1043,7 +1036,6 @@ rules:
   resources:
   - virtualmachines
   - virtualmachineinstances
-  - virtualmachineinstancepresets
   - virtualmachineinstancereplicasets
   verbs:
   - get
@@ -1217,7 +1209,6 @@ rules:
   resources:
   - virtualmachines
   - virtualmachineinstances
-  - virtualmachineinstancepresets
   - virtualmachineinstancereplicasets
   verbs:
   - get
@@ -1359,7 +1350,6 @@ rules:
   resources:
   - virtualmachines
   - virtualmachineinstances
-  - virtualmachineinstancepresets
   - virtualmachineinstancereplicasets
   - virtualmachineinstancemigrations
   verbs:
