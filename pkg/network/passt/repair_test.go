@@ -35,83 +35,36 @@ import (
 )
 
 var _ = Describe("Passt Repair Handler", func() {
-	clusterConfigPasst := stubClusterConfig{
-		registeredPlugins: map[string]v1.InterfaceBindingPlugin{
-			"passt": {
-				SidecarImage:                "passt:latest",
-				NetworkAttachmentDefinition: "default/passt-network",
-			},
-		},
-	}
 
-	DescribeTable("Should not run passt repair", func(vmi *v1.VirtualMachineInstance) {
-		clusterConfigMultiPlugin := stubClusterConfig{
-			registeredPlugins: map[string]v1.InterfaceBindingPlugin{
-				"passt": {
-					SidecarImage:                "passt:latest",
-					NetworkAttachmentDefinition: "default/passt-network",
-				},
-				"tap": {
-					DomainAttachmentType: v1.Tap,
-				},
-				"managedTap": {
-					DomainAttachmentType: v1.ManagedTap,
-				},
-			},
-		}
-
-		passtRepairCalled := false
-		fakeCommandWithCallCounter := func(s string, instance *v1.VirtualMachineInstance, f func(instance *v1.VirtualMachineInstance)) {
-			passtRepairCalled = true
-		}
-
-		handler := passt.NewRepairManagerWithOptions(
-			clusterConfigMultiPlugin,
-			stubFindRepairSocketInDir,
-			fakeCommandWithCallCounter,
-			newActiveVMs(),
-		)
-
-		Expect(handler.HandleMigrationSource(vmi, stubSocketDir)).To(Succeed())
-		Expect(passtRepairCalled).To(BeFalse())
-
-		Expect(handler.HandleMigrationTarget(vmi, stubSocketDir)).To(Succeed())
-		Expect(passtRepairCalled).To(BeFalse())
-	},
-		Entry("When there are no networks",
-			libvmi.New(libvmi.WithAutoAttachPodInterface(false)),
-		),
-		Entry("When an iface connected to pod network uses masquerade binding",
-			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			),
-		),
-		Entry("When an iface connected to pod network uses bridge binding",
-			libvmi.New(
+	Context("should not run passt repair", func() {
+		var vmi *v1.VirtualMachineInstance
+		BeforeEach(func() {
+			vmi = libvmi.New(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("default")),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			),
-		),
-		Entry("When an iface connected to pod network uses tap attachment",
-			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin("default", v1.PluginBinding{Name: "tap"})),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			),
-		),
-		Entry("When an iface connected to pod network uses managedTap attachment",
-			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceWithBindingPlugin("default", v1.PluginBinding{Name: "managedTap"})),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-			),
-		),
-		Entry("When there is no iface connected to pod network",
-			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("secondary")),
-				libvmi.WithNetwork(libvmi.MultusNetwork("secondary", "secondary-nad")),
-			),
-		),
-	)
+			)
+		})
+
+		It("when binding is not core passt binding", func() {
+			passtRepairCalled := false
+			fakeCommandWithCallCounter := func(s string, instance *v1.VirtualMachineInstance, f func(instance *v1.VirtualMachineInstance)) {
+				passtRepairCalled = true
+			}
+
+			handler := passt.NewRepairManagerWithOptions(
+				stubClusterConfig{},
+				stubFindRepairSocketInDir,
+				fakeCommandWithCallCounter,
+				newActiveVMs(),
+			)
+
+			Expect(handler.HandleMigrationSource(vmi, stubSocketDir)).To(Succeed())
+			Expect(passtRepairCalled).To(BeFalse())
+
+			Expect(handler.HandleMigrationTarget(vmi, stubSocketDir)).To(Succeed())
+			Expect(passtRepairCalled).To(BeFalse())
+		})
+	})
 
 	DescribeTable("Should run passt repair on migration source", func(vmi *v1.VirtualMachineInstance) {
 		passtRepairCalled := false
@@ -120,7 +73,7 @@ var _ = Describe("Passt Repair Handler", func() {
 		}
 
 		handler := passt.NewRepairManagerWithOptions(
-			clusterConfigPasst,
+			stubClusterConfig{},
 			stubFindRepairSocketInDir,
 			fakeCommandWithCallCounter,
 			newActiveVMs(),
@@ -128,15 +81,15 @@ var _ = Describe("Passt Repair Handler", func() {
 		Expect(handler.HandleMigrationSource(vmi, stubSocketDir)).To(Succeed())
 		Expect(passtRepairCalled).To(BeTrue())
 	},
-		Entry("When an iface is connected to pod network using passt binding plugin",
+		Entry("When an iface is connected to pod network using passt binding",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 		),
-		Entry("When an iface is connected to Multus default network using passt binding plugin",
+		Entry("When an iface is connected to Multus default network using passt binding",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
 				libvmi.WithNetwork(&v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
@@ -157,7 +110,7 @@ var _ = Describe("Passt Repair Handler", func() {
 		}
 
 		handler := passt.NewRepairManagerWithOptions(
-			clusterConfigPasst,
+			stubClusterConfig{},
 			stubFindRepairSocketInDir,
 			fakeCommandWithCallCounter,
 			newActiveVMs(),
@@ -166,15 +119,15 @@ var _ = Describe("Passt Repair Handler", func() {
 		Expect(handler.HandleMigrationTarget(vmi, stubSocketDir)).To(Succeed())
 		Expect(passtRepairCalled).To(BeTrue())
 	},
-		Entry("When an iface is connected to pod network using passt binding plugin",
+		Entry("When an iface is connected to pod network using passt binding",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			),
 		),
-		Entry("When an iface is connected to Multus default network using passt binding plugin",
+		Entry("When an iface is connected to Multus default network using passt binding",
 			libvmi.New(
-				libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
 				libvmi.WithNetwork(&v1.Network{
 					Name: "default",
 					NetworkSource: v1.NetworkSource{
@@ -189,7 +142,7 @@ var _ = Describe("Passt Repair Handler", func() {
 	)
 
 	vmi := libvmi.New(
-		libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+		libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()),
 	)
 
@@ -206,7 +159,7 @@ var _ = Describe("Passt Repair Handler", func() {
 		dirFunc func(_ *v1.VirtualMachineInstance) (string, error),
 	) {
 		handler := passt.NewRepairManagerWithOptions(
-			clusterConfigPasst,
+			stubClusterConfig{},
 			findRepairSocketFunc,
 			stubCommand,
 			newActiveVMs(),
@@ -228,7 +181,7 @@ var _ = Describe("Passt Repair Handler", func() {
 
 	It("HandleMigrationTarget should return error when dirFunc fails", func() {
 		handler := passt.NewRepairManagerWithOptions(
-			clusterConfigPasst,
+			stubClusterConfig{},
 			stubFindRepairSocketInDir,
 			stubCommand,
 			newActiveVMs(),
@@ -238,7 +191,7 @@ var _ = Describe("Passt Repair Handler", func() {
 
 	It("Should not run HandleMigrationSource because it is already running", func() {
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
@@ -248,7 +201,7 @@ var _ = Describe("Passt Repair Handler", func() {
 		}
 
 		handler := passt.NewRepairManagerWithOptions(
-			clusterConfigPasst,
+			stubClusterConfig{},
 			stubFindRepairSocketInDir,
 			fakeCommandWithCallCounter,
 			newActiveVMs(),
@@ -268,12 +221,12 @@ var _ = Describe("Passt Repair Handler", func() {
 		}
 
 		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceWithPasstBindingPlugin()),
+			libvmi.WithInterface(libvmi.InterfaceDeviceWithPasstBinding("default")),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
 
 		handler := passt.NewRepairManagerWithOptions(
-			clusterConfigPasst,
+			stubClusterConfig{},
 			stubFindRepairSocketInDir,
 			fakeCommandWithCallCounter,
 			newActiveVMs(),
