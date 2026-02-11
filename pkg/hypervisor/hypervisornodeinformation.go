@@ -33,6 +33,6 @@ func NewHypervisorNodeInformation(hypervisor string) HypervisorNodeInformation {
 	switch hypervisor {
 	// Other hypervisors can be added here
 	default:
-		return kvm.NewKvmLauncherHypervisorResources()
+		return kvm.NewKvmHypervisorBackend()
 	}
 }

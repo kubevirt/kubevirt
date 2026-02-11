@@ -31,6 +31,6 @@ var _ = DescribeTable("Test NewLauncherHypervisorResources", func(hypervisorType
 	renderer := NewLauncherHypervisorResources(hypervisorType)
 	Expect(renderer).To(BeAssignableToTypeOf(expectedType))
 },
-	Entry("should return KVM renderer for unknown hypervisor", "unknownHypervisor", (*kvm.KvmLauncherHypervisorResources)(nil)),
-	Entry("should return KVM renderer for KVM hypervisor", v1.KvmHypervisorName, (*kvm.KvmLauncherHypervisorResources)(nil)),
+	Entry("should return KVM renderer for unknown hypervisor", "unknownHypervisor", (*kvm.KvmHypervisorBackend)(nil)),
+	Entry("should return KVM renderer for KVM hypervisor", v1.KvmHypervisorName, (*kvm.KvmHypervisorBackend)(nil)),
 )
