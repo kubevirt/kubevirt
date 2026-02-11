@@ -325,7 +325,10 @@ var _ = SIGMigrationDescribe("VM Live Migration", func() {
 		})
 		Context("with a Alpine disk", func() {
 			It("[test_id:6969]should be successfully migrate with a tablet device", func() {
-				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
+				vmi := libvmifact.NewAlpineWithTestTooling(
+					libvmi.WithName("migration-test-for-a-vmi-with-a-tablet-and-a-very-long-name"),
+					libnet.WithMasqueradeNetworking(),
+				)
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
 						Name: "tablet0",
