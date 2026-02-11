@@ -37,6 +37,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -109,6 +110,7 @@ type BaseController struct {
 	netStat                     netstat
 	recorder                    record.EventRecorder
 	hasSynced                   func() bool
+	hypervisorNodeInfo          hypervisor.HypervisorNodeInformation
 }
 
 func NewBaseController(
@@ -125,6 +127,7 @@ func NewBaseController(
 	migrationProxy migrationproxy.ProxyManager,
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
+	hypervisorNodeInfo hypervisor.HypervisorNodeInformation,
 ) (*BaseController, error) {
 
 	c := &BaseController{
@@ -142,6 +145,7 @@ func NewBaseController(
 		virtLauncherFSRunDirPattern: virtLauncherFSRunDirPattern,
 		netStat:                     netStat,
 		hasSynced:                   func() bool { return domainInformer.HasSynced() && vmiInformer.HasSynced() },
+		hypervisorNodeInfo:          hypervisorNodeInfo,
 	}
 
 	return c, nil
