@@ -88,6 +88,15 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 		vmiSpec.Domain.Devices.TPM = preferenceSpec.Devices.PreferredTPM.DeepCopy()
 	}
 
+	if preferenceSpec.Devices.PreferredVideoType != nil {
+		if vmiSpec.Domain.Devices.Video == nil {
+			vmiSpec.Domain.Devices.Video = &virtv1.VideoDevice{}
+		}
+		if vmiSpec.Domain.Devices.Video.Type == "" {
+			vmiSpec.Domain.Devices.Video.Type = *preferenceSpec.Devices.PreferredVideoType
+		}
+	}
+
 	ApplyAutoAttachPreferences(preferenceSpec, vmiSpec)
 	applyDiskPreferences(preferenceSpec, vmiSpec)
 	applyInterfacePreferences(preferenceSpec, vmiSpec)

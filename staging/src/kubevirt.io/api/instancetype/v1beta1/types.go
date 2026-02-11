@@ -533,6 +533,11 @@ type DevicePreferences struct {
 	//
 	// +optional
 	PreferredPanicDeviceModel *v1.PanicDeviceModel `json:"preferredPanicDeviceModel,omitempty"`
+
+	// PreferredVideoType optionally defines the preferred type for Video devices.
+	//
+	// +optional
+	PreferredVideoType *string `json:"preferredVideoType,omitempty"`
 }
 
 // FeaturePreferences contains various optional defaults for Features.

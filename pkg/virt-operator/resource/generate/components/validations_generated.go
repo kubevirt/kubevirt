@@ -10071,6 +10071,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredUseVirtioTransitional optionally defines the preferred
                 value of UseVirtioTransitional
               type: boolean
+            preferredVideoType:
+              description: PreferredVideoType optionally defines the preferred type
+                for Video devices.
+              type: string
             preferredVirtualGPUOptions:
               description: PreferredVirtualGPUOptions optionally defines the preferred
                 value of VirtualGPUOptions
@@ -26062,6 +26066,10 @@ var CRDsValidation map[string]string = map[string]string{
               description: PreferredUseVirtioTransitional optionally defines the preferred
                 value of UseVirtioTransitional
               type: boolean
+            preferredVideoType:
+              description: PreferredVideoType optionally defines the preferred type
+                for Video devices.
+              type: string
             preferredVirtualGPUOptions:
               description: PreferredVirtualGPUOptions optionally defines the preferred
                 value of VirtualGPUOptions
