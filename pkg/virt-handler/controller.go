@@ -204,7 +204,7 @@ func (c *BaseController) claimDeviceOwnership(virtLauncherRootMount *safepath.Pa
 	softwareEmulation := c.clusterConfig.AllowEmulation()
 	devicePath, err := safepath.JoinNoFollow(virtLauncherRootMount, filepath.Join("dev", deviceName))
 	if err != nil {
-		if softwareEmulation && deviceName == "kvm" {
+		if softwareEmulation && deviceName == c.hypervisorNodeInfo.GetHypervisorDevice() {
 			return nil
 		}
 		return err
@@ -264,9 +264,9 @@ func (c *BaseController) setupDevicesOwnerships(vmi *v1.VirtualMachineInstance, 
 		return err
 	}
 
-	err = c.claimDeviceOwnership(virtLauncherRootMount, "kvm")
-	if err != nil {
-		return fmt.Errorf("failed to set up file ownership for /dev/kvm: %v", err)
+	hypervisorDevice := c.hypervisorNodeInfo.GetHypervisorDevice()
+	if err := c.claimDeviceOwnership(virtLauncherRootMount, hypervisorDevice); err != nil {
+		return fmt.Errorf("failed to set up file ownership for /dev/%s: %v", hypervisorDevice, err)
 	}
 
 	if util.IsAutoAttachVSOCK(vmi) {
