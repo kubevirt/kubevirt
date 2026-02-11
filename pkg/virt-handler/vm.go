@@ -233,7 +233,7 @@ func NewVirtualMachineController(
 		c.host,
 		maxDevices,
 		permissions,
-		deviceManager.PermanentHostDevicePlugins(maxDevices, permissions),
+		deviceManager.PermanentHostDevicePlugins(c.hypervisorNodeInfo.GetHypervisorDevice(), maxDevices, permissions),
 		clusterConfig,
 		nodeStore)
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
