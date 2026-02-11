@@ -237,8 +237,8 @@ type VirtualMachineInstanceStatus struct {
 	// A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'
 	// +optional
 	Reason VirtualMachineInstanceReason `json:"reason,omitempty"`
-	// A brief CamelCase message indicating details about why the machine shutdown was initiated.
-	ShutdownReason VirtualMachineInstanceShutdownReason `json:"shutdownReason,omitempty"`
+	// A brief CamelCase message indicating details about how the machine shutdown was initiated.
+	ShutdownInitiatedBy VirtualMachineInstanceShutdownInitiatedBy `json:"shutdownInitiatedBy,omitempty"`
 	// Conditions are specific points in VirtualMachineInstance's pod runtime.
 	Conditions []VirtualMachineInstanceCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.
@@ -366,17 +366,17 @@ const (
 	VirtLauncherIrrecoverableReason         VirtualMachineInstanceReason = "VirtLauncherIrrecoverableReason"
 )
 
-// VirtualMachineInstanceShutdownReason indicated the reason for initiating shutdown.
-type VirtualMachineInstanceShutdownReason string
+// VirtualMachineInstanceShutdownInitiatedBy indicated the reason for initiating shutdown.
+type VirtualMachineInstanceShutdownInitiatedBy string
 
-// These are the valid shutdown reasons of vmis.
+// These are the valid shutdown initiation sources of vmis.
 const (
-	// When a VirtualMachineInstance Object is first initialized and no shutdown reason is present,
+	// When a VirtualMachineInstance Object is first initialized,
 	// or when the shutdown is initiated by the user.
-	VmiShutdownReasonUnset VirtualMachineInstanceShutdownReason = ""
+	VmiShutdownInitiatedByUnset VirtualMachineInstanceShutdownInitiatedBy = ""
 
-	PodDeletedShutdownReason VirtualMachineInstanceShutdownReason = "PodDeleted"
-	VMIDeletedShutdownReason VirtualMachineInstanceShutdownReason = "VMIDeleted"
+	PodDeletionShutdownInitiatedBy VirtualMachineInstanceShutdownInitiatedBy = "PodDeletion"
+	VMIDeletionShutdownInitiatedBy VirtualMachineInstanceShutdownInitiatedBy = "VMIDeletionS"
 )
 
 // DeviceStatus has the information of all devices allocated spec.domain.devices

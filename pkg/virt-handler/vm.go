@@ -1051,7 +1051,7 @@ func (c *VirtualMachineController) updateVMIConditions(vmi *v1.VirtualMachineIns
 	return nil
 }
 
-func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineInstanceStatus, vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error, shutdownReason v1.VirtualMachineInstanceShutdownReason) (err error) {
+func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineInstanceStatus, vmi *v1.VirtualMachineInstance, domain *api.Domain, syncError error, shutdownInitiatedBy v1.VirtualMachineInstanceShutdownInitiatedBy) (err error) {
 	condManager := controller.NewVirtualMachineInstanceConditionManager()
 
 	// Don't update the VirtualMachineInstance if it is already in a final state
@@ -1071,8 +1071,8 @@ func (c *VirtualMachineController) updateVMIStatus(oldStatus *v1.VirtualMachineI
 		return err
 	}
 
-	if shutdownReason != "" && oldStatus.ShutdownReason == "" {
-		vmi.Status.ShutdownReason = shutdownReason
+	if shutdownInitiatedBy != "" && oldStatus.ShutdownInitiatedBy == "" {
+		vmi.Status.ShutdownInitiatedBy = shutdownInitiatedBy
 	}
 
 	// Update conditions on VMI Status
@@ -1369,8 +1369,8 @@ func (c *VirtualMachineController) sync(key string,
 
 	// set to true when domain needs to be shutdown.
 	shouldShutdown := false
-	// set Status.ShutdownReason
-	shutdownReason := v1.VmiShutdownReasonUnset
+	// set Status.ShutdownInitiatedBy
+	shutdownInitiatedBy := v1.VmiShutdownInitiatedByUnset
 	// set to true when domain needs to be removed from libvirt.
 	shouldDelete := false
 	// set to true when VirtualMachineInstance is active or about to become active.
@@ -1403,7 +1403,7 @@ func (c *VirtualMachineController) sync(key string,
 		if domainAlive {
 			c.logger.Object(vmi).V(3).Info("Shutting down due to graceful shutdown signal.")
 			// Domain is marked for graceful shutdown when the pod is deleted
-			shutdownReason = v1.PodDeletedShutdownReason
+			shutdownInitiatedBy = v1.PodDeletionShutdownInitiatedBy
 			shouldShutdown = true
 		} else {
 			shouldDelete = true
@@ -1416,7 +1416,7 @@ func (c *VirtualMachineController) sync(key string,
 			// The VirtualMachineInstance is deleted on the cluster, and domain is alive,
 			// then shut down the domain.
 			c.logger.Object(vmi).V(3).Info("Shutting down domain for deleted VirtualMachineInstance object.")
-			// There is no point of setting shutdownReason here because the vmi doesn't exist.
+			// There is no point of setting ShutdownInitiatedBy here because the vmi doesn't exist.
 			shouldShutdown = true
 		} else {
 			// The VirtualMachineInstance is deleted on the cluster, and domain is not alive
@@ -1430,7 +1430,7 @@ func (c *VirtualMachineController) sync(key string,
 	if vmiExists && vmi.ObjectMeta.DeletionTimestamp != nil {
 		if domainAlive {
 			c.logger.Object(vmi).V(3).Info("Shutting down domain for VirtualMachineInstance with deletion timestamp.")
-			shutdownReason = v1.VMIDeletedShutdownReason
+			shutdownInitiatedBy = v1.VMIDeletionShutdownInitiatedBy
 			shouldShutdown = true
 		} else {
 			c.logger.Object(vmi).V(3).Info("Deleting domain for VirtualMachineInstance with deletion timestamp.")
@@ -1508,7 +1508,7 @@ func (c *VirtualMachineController) sync(key string,
 	// Update the VirtualMachineInstance status, if the VirtualMachineInstance exists
 	if vmiExists {
 		vmi.Spec = *oldSpec
-		if err := c.updateVMIStatus(oldStatus, vmi, domain, syncErr, shutdownReason); err != nil {
+		if err := c.updateVMIStatus(oldStatus, vmi, domain, syncErr, shutdownInitiatedBy); err != nil {
 			c.logger.Object(vmi).Reason(err).Error("Updating the VirtualMachineInstance status failed.")
 			return err
 		}
