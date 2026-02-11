@@ -3729,6 +3729,35 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 	})
 
+	Context("with RebootPolicy", func() {
+		It("should accept rebootPolicy when feature gate is enabled", func() {
+			enableFeatureGates(featuregate.RebootPolicy)
+			vmi := libvmi.New(
+				libvmi.WithArchitecture(runtime.GOARCH),
+				libvmi.WithResourceMemory("128M"),
+			)
+			vmi.Spec.Domain.RebootPolicy = pointer.P(v1.RebootPolicyTerminate)
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept rebootPolicy when feature gate is enabled")
+		})
+
+		It("should reject rebootPolicy when feature gate is disabled", func() {
+			disableFeatureGates()
+			vmi := libvmi.New(
+				libvmi.WithArchitecture(runtime.GOARCH),
+				libvmi.WithResourceMemory("128M"),
+			)
+			vmi.Spec.Domain.RebootPolicy = pointer.P(v1.RebootPolicyTerminate)
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", featuregate.RebootPolicy)))
+			Expect(causes[0].Field).To(Equal("fake.domain.rebootPolicy"))
+		})
+	})
+
 	Context("with DRA GPUs", func() {
 		It("Should require deviceName without DRA", func() {
 			vmi := libvmi.New(

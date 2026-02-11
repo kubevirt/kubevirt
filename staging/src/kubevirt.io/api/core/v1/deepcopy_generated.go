@@ -1571,6 +1571,11 @@ func (in *DomainSpec) DeepCopyInto(out *DomainSpec) {
 		*out = new(LaunchSecurity)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.RebootPolicy != nil {
+		in, out := &in.RebootPolicy, &out.RebootPolicy
+		*out = new(RebootPolicy)
+		**out = **in
+	}
 	return
 }
 

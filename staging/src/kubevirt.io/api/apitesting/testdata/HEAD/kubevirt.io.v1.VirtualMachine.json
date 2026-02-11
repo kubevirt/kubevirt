@@ -458,7 +458,8 @@
             },
             "snp": {},
             "tdx": {}
-          }
+          },
+          "rebootPolicy": "rebootPolicyValue"
         },
         "nodeSelector": {
           "nodeSelectorKey": "nodeSelectorValue"

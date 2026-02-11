@@ -177,6 +177,14 @@ const (
 	// Owner: SIG network
 	// Beta: v1.8.0
 	DisableNADResourceInjection = "DisableNADResourceInjection"
+
+	// Owner: sig-compute / @MarSik
+	// Alpha: v1.8.0
+	//
+	// RebootPolicy enables setting the RebootPolicy field on VMI's DomainSpec
+	// which allows terminating the VMI on guest reboot instead of silently rebooting,
+	// enabling the VM controller to recreate the VMI with updated configuration.
+	RebootPolicy = "RebootPolicy"
 )
 
 func init() {
@@ -216,4 +224,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: DisableNADResourceInjection, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
 }
