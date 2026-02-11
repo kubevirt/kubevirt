@@ -111,6 +111,7 @@ func (VirtualMachinePreferenceSpec) SwaggerDoc() map[string]string {
 		"annotations":                            "Optionally defines preferred Annotations to be applied to the VirtualMachineInstance\n\n+optional",
 		"preferSpreadSocketToCoreRatio":          "PreferSpreadSocketToCoreRatio defines the ratio to spread vCPUs between cores and sockets, it defaults to 2.\n\n+optional",
 		"preferredArchitecture":                  "PreferredArchitecture defines a prefeerred architecture for the VirtualMachine\n\n+optional",
+		"launchSecurity":                         "Optionally defines the preferred LaunchSecurity\n\n+optional",
 	}
 }
 

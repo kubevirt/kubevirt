@@ -22360,6 +22360,10 @@
       "description": "Firmware optionally defines preferences associated with the Firmware attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1beta1.FirmwarePreferences"
      },
+     "launchSecurity": {
+      "description": "Optionally defines the preferred LaunchSecurity",
+      "$ref": "#/definitions/v1.LaunchSecurity"
+     },
      "machine": {
       "description": "Machine optionally defines preferences associated with the Machine attribute of a VirtualMachineInstance DomainSpec",
       "$ref": "#/definitions/v1beta1.MachinePreferences"

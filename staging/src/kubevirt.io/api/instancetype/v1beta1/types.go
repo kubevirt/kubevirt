@@ -307,6 +307,11 @@ type VirtualMachinePreferenceSpec struct {
 	//
 	//+optional
 	PreferredArchitecture *string `json:"preferredArchitecture,omitempty"`
+
+	// Optionally defines the preferred LaunchSecurity
+	//
+	// +optional
+	LaunchSecurity *v1.LaunchSecurity `json:"launchSecurity,omitempty"`
 }
 
 type VolumePreferences struct {

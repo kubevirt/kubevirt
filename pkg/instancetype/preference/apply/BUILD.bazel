@@ -12,6 +12,7 @@ go_library(
         "features.go",
         "firmware.go",
         "interface.go",
+        "launchsecurity.go",
         "machine.go",
         "subdomain.go",
         "termination.go",
