@@ -1,0 +1,72 @@
+---
+status: success
+component: std-orchestrator
+jira_id: CNV-61263
+phase: phase1
+stp_file: tests/CNV-61263/CNV-61263_test_plan.md
+output_dir: tests/CNV-61263/
+
+execution_summary:
+  total_stp_scenarios: 7
+  tier_1_scenarios: 2
+  tier_2_scenarios: 5
+  std_file_generated: "CNV-61263_test_description.yaml"
+  scenarios_in_std: 7
+
+code_generation:
+  phase: phase1
+  go_tests:
+    file_count: 1
+    test_count: 2
+    output_file: "go-tests/cpu_hotplug_max_sockets_test.go"
+    status: "stubs_generated"
+    scenarios:
+      - "TS-CNV61263-003: MaxSockets calculation with 512 vCPU limit"
+      - "TS-CNV61263-006: Standard CPU hotplug regression"
+  python_tests:
+    file_count: 1
+    test_count: 5
+    output_file: "python-tests/test_cpu_hotplug_vcpu_limit.py"
+    status: "stubs_generated"
+    scenarios:
+      - "TS-CNV61263-001: VM with 216 cores starts successfully"
+      - "TS-CNV61263-002: VM with 100 sockets starts successfully"
+      - "TS-CNV61263-004: CPU hotplug with capped MaxSockets"
+      - "TS-CNV61263-005: Explicit maxSockets override"
+      - "TS-CNV61263-007: NUMA-aware high-vCPU VM"
+
+validation_results:
+  std_file:
+    file: CNV-61263_test_description.yaml
+    status: valid
+    yaml_syntax: passed
+    required_sections:
+      - document_metadata: present
+      - code_generation_config: present
+      - common_preconditions: present
+      - scenarios: present
+    scenarios_count: 7
+  go_stubs:
+    file: go-tests/cpu_hotplug_max_sockets_test.go
+    status: valid
+    test_count: 2
+    pending_its: 2
+    skip_calls: 2
+  python_stubs:
+    file: python-tests/test_cpu_hotplug_vcpu_limit.py
+    status: valid
+    test_count: 5
+    test_disabled: true
+    pass_bodies: 5
+
+errors: []
+warnings:
+  - "Go imports will only resolve in kubevirt test suite context"
+
+notes:
+  - "STD YAML generated as v2.1-enhanced internal format"
+  - "Go stubs use PendingIt() with Skip() - excluded from test execution"
+  - "Python stubs use __test__ = False - excluded from pytest collection"
+  - "Ready for design review"
+  - "Use /generate-go-tests or /generate-python-tests for Phase 2 implementation"
+---

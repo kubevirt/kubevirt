@@ -1,0 +1,1089 @@
+---
+# CNV-61263 Software Test Description (STD) v2.1-enhanced
+# CPU Hotplug vCPU Limit Enforcement
+
+document_metadata:
+  std_version: "2.1-enhanced"
+  generated_date: "2026-02-10"
+  jira_issue: "CNV-61263"
+  jira_summary: "[CLOSED LOOP for] CPU hotplug logic still going over the limits"
+  source_bugs:
+    - "CNV-57352"
+    - "CNV-48124"
+  stp_reference:
+    file: "tests/CNV-61263/CNV-61263_test_plan.md"
+    version: "v1"
+    sections_covered: "Section III - Requirements-to-Tests Mapping"
+
+  related_prs:
+    - repo: "kubevirt/kubevirt"
+      pr_number: 14338
+      url: "https://github.com/kubevirt/kubevirt/pull/14338"
+      title: "defaults: Limit MaxSockets based on maximum of vcpus"
+      merged: true
+    - repo: "kubevirt/kubevirt"
+      pr_number: 14511
+      url: "https://github.com/kubevirt/kubevirt/pull/14511"
+      title: "[release-1.5] defaults: Limit MaxSockets based on maximum of vcpus"
+      merged: true
+
+  owning_sig: "sig-compute"
+  participating_sigs: []
+
+  total_scenarios: 7
+  tier_1_count: 2
+  tier_2_count: 5
+  p0_count: 0
+  p1_count: 4
+  p2_count: 3
+
+code_generation_config:
+  std_version: "2.1-enhanced"
+  framework: "ginkgo-v2"
+  assertion_library: "gomega"
+  language: "go"
+  package_name: "compute"
+
+  context_init:
+    - statement: "ctx := context.Background()"
+      variable: "ctx"
+      type: "context.Context"
+    - statement: "namespace := testsuite.GetTestNamespace(nil)"
+      variable: "namespace"
+      type: "string"
+
+  imports:
+    dot_imports:
+      - "github.com/onsi/ginkgo/v2"
+      - "github.com/onsi/gomega"
+    standard:
+      - "context"
+      - "time"
+    k8s_core:
+      - path: "k8s.io/api/core/v1"
+        alias: "k8sv1"
+      - path: "k8s.io/apimachinery/pkg/apis/meta/v1"
+        alias: "metav1"
+    kubevirt_base:
+      - "kubevirt.io/kubevirt/tests/decorators"
+      - "kubevirt.io/kubevirt/tests/framework/kubevirt"
+      - "kubevirt.io/kubevirt/tests/testsuite"
+      - "kubevirt.io/kubevirt/tests/libvmi"
+    kubevirt_api:
+      - path: "kubevirt.io/api/core/v1"
+        alias: "v1"
+
+  timeout_constants:
+    tiny: "StartupTimeoutSecondsTiny"
+    small: "StartupTimeoutSecondsSmall"
+    medium: "StartupTimeoutSecondsMedium"
+    large: "StartupTimeoutSecondsLarge"
+    xlarge: "StartupTimeoutSecondsXLarge"
+    huge: "StartupTimeoutSecondsHuge"
+    xhuge: "StartupTimeoutSecondsXHuge"
+
+  helper_library_imports:
+    libvmifact: "kubevirt.io/kubevirt/tests/libvmifact"
+    libwait: "kubevirt.io/kubevirt/tests/libwait"
+    libvmops: "kubevirt.io/kubevirt/tests/libvmops"
+    console: "kubevirt.io/kubevirt/tests/console"
+    matcher: "kubevirt.io/kubevirt/tests/framework/matcher"
+
+common_preconditions:
+  infrastructure:
+    - name: "OpenShift cluster"
+      requirement: "OCP 4.16+ with sufficient CPU resources"
+      validation: "oc version"
+
+    - name: "OpenShift Virtualization"
+      requirement: "CNV 4.16.7+ or 4.19.0+ with PR #14338 fix"
+      validation: "oc get csv -n openshift-cnv | grep kubevirt-hyperconverged"
+
+    - name: "High CPU Host"
+      requirement: "Host with 200+ CPUs for Tier 2 tests"
+      validation: "oc get nodes -o jsonpath='{.items[*].status.capacity.cpu}'"
+
+  operators:
+    - name: "OpenShift Virtualization"
+      namespace: "openshift-cnv"
+      validation: "oc get csv -n openshift-cnv | grep kubevirt-hyperconverged"
+
+  cluster_configuration:
+    topology: "Multi-node"
+    cpu_virtualization: "Standard"
+    storage: "Any storage class"
+    network: "Pod networking (masquerade)"
+
+  rbac_requirements:
+    - permission: "create, delete VirtualMachineInstance"
+      scope: "Namespace"
+      validation: "oc auth can-i create virtualmachineinstances"
+
+scenarios:
+  # ============================================================================
+  # TIER 1 SCENARIOS - Unit/Integration Tests (Go/Ginkgo)
+  # ============================================================================
+
+  - scenario_id: "3"
+    test_id: "TS-CNV61263-003"
+    tier: "Tier 1"
+    priority: "P1"
+    mvp: true
+    requirement_id: "REQ-003"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "validation-001"
+      helpers_required:
+        - name: "libvmi"
+          functions: ["NewVMI"]
+          purpose: "Create VMI with specific CPU topology"
+        - name: "defaults"
+          functions: ["setupCPUHotplug"]
+          purpose: "Test MaxSockets calculation"
+      decorators:
+        - "decorators.Tier1"
+        - "decorators.SigCompute"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeEach"
+          used_in: ["BeforeEach", "It"]
+          comment: "Context for API calls"
+        - name: "vmi"
+          type: "*v1.VirtualMachineInstance"
+          initialized_in: "It"
+          used_in: ["It"]
+          comment: "VMI with high CPU topology"
+        - name: "clusterConfig"
+          type: "*virtconfig.ClusterConfig"
+          initialized_in: "BeforeEach"
+          used_in: ["It"]
+          comment: "Cluster configuration for hotplug ratio"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "CPU Hotplug MaxSockets Calculation"
+        decorators:
+          - "decorators.SigCompute"
+      context:
+        description: "MaxSockets must not exceed 512 vCPU limit"
+        decorators:
+          - "Ordered"
+      it:
+        description: "should calculate MaxSockets with upper bound 512 when topology exceeds limit"
+        test_id_format: "[test_id:TS-CNV61263-003]"
+
+    test_objective:
+      title: "Verify MaxSockets calculation with 32 sockets, 2 cores, 3 threads (expected: 85)"
+      what: |
+        This test validates that the setupCPUHotplug function correctly calculates
+        MaxSockets when the default 4x hotplug ratio would exceed the 512 vCPU limit.
+        With 32 sockets * 2 cores * 3 threads = 192 vCPUs, the 4x ratio would yield 768 vCPUs.
+        The fix should cap MaxSockets to 85 (512 / (2*3) = 85).
+      why: |
+        The CPU hotplug logic multiplies configured sockets by 4 to reserve headroom
+        for hotplugging additional CPUs. This test ensures the fix correctly limits
+        MaxSockets to prevent exceeding the 512 vCPU upper bound.
+      acceptance_criteria:
+        - "MaxSockets is calculated as 85 (512 / 6 = 85)"
+        - "Total potential vCPUs (85 * 2 * 3 = 510) stays under 512"
+        - "MaxSockets is at least equal to configured sockets (85 >= 32)"
+
+    classification:
+      test_type: "Unit"
+      scope: "Single-component"
+      automation_approach: "Go/Ginkgo unit test"
+
+    specific_preconditions:
+      - name: "Cluster config mock"
+        requirement: "Mock cluster config with MaxHotplugRatio = 4"
+        validation: "N/A (unit test)"
+
+    test_data:
+      resource_definitions:
+        - name: "high-topology-vmi"
+          type: "VirtualMachineInstance"
+          yaml: |
+            apiVersion: kubevirt.io/v1
+            kind: VirtualMachineInstance
+            spec:
+              domain:
+                cpu:
+                  sockets: 32
+                  cores: 2
+                  threads: 3
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VMI spec with 32 sockets, 2 cores, 3 threads"
+          pattern_id: "factory-001"
+          code_template: |
+            vmi = &v1.VirtualMachineInstance{
+              Spec: v1.VirtualMachineInstanceSpec{
+                Domain: v1.DomainSpec{
+                  CPU: &v1.CPU{
+                    Sockets: 32,
+                    Cores:   2,
+                    Threads: 3,
+                  },
+                },
+              },
+            }
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Call setupCPUHotplug to calculate MaxSockets"
+          pattern_id: "validation-001"
+          code_template: |
+            setupCPUHotplug(clusterConfig, vmi)
+            ExpectWithOffset(1, vmi.Spec.Domain.CPU.MaxSockets).To(Equal(uint32(85)))
+
+      cleanup: []
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "MaxSockets is capped at 85"
+        condition: "vmi.Spec.Domain.CPU.MaxSockets == 85"
+        failure_impact: "High CPU count VMs would fail to start"
+
+    dependencies:
+      kubernetes_resources: []
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "6"
+    test_id: "TS-CNV61263-006"
+    tier: "Tier 1"
+    priority: "P1"
+    mvp: true
+    requirement_id: "REQ-006"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "validation-001"
+      helpers_required:
+        - name: "libvmi"
+          functions: ["NewVMI"]
+          purpose: "Create VMI with standard CPU topology"
+      decorators:
+        - "decorators.Tier1"
+        - "decorators.SigCompute"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeEach"
+          used_in: ["BeforeEach", "It"]
+          comment: "Context for API calls"
+        - name: "vmi"
+          type: "*v1.VirtualMachineInstance"
+          initialized_in: "It"
+          used_in: ["It"]
+          comment: "VMI with standard CPU topology"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "CPU Hotplug Regression"
+        decorators:
+          - "decorators.SigCompute"
+      context:
+        description: "Standard CPU hotplug regression"
+        decorators:
+          - "Ordered"
+      it:
+        description: "should calculate MaxSockets as 4x configured sockets for standard topology"
+        test_id_format: "[test_id:TS-CNV61263-006]"
+
+    test_objective:
+      title: "Verify standard CPU hotplug (4 sockets, 2 cores) still works"
+      what: |
+        This regression test validates that the MaxSockets fix does not break
+        standard CPU hotplug behavior for VMs with low CPU counts.
+        With 4 sockets * 2 cores * 1 thread = 8 vCPUs, the 4x ratio yields 32 vCPUs.
+        Since 32 < 512, MaxSockets should be 16 (4 * 4 = 16).
+      why: |
+        The fix must preserve backward compatibility for VMs with standard CPU
+        configurations that do not exceed the 512 vCPU limit.
+      acceptance_criteria:
+        - "MaxSockets equals 4x configured sockets (16)"
+        - "Standard 4x hotplug ratio is maintained"
+
+    classification:
+      test_type: "Unit"
+      scope: "Single-component"
+      automation_approach: "Go/Ginkgo unit test"
+
+    specific_preconditions: []
+
+    test_data:
+      resource_definitions:
+        - name: "standard-topology-vmi"
+          type: "VirtualMachineInstance"
+          yaml: |
+            apiVersion: kubevirt.io/v1
+            kind: VirtualMachineInstance
+            spec:
+              domain:
+                cpu:
+                  sockets: 4
+                  cores: 2
+                  threads: 1
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VMI spec with 4 sockets, 2 cores, 1 thread"
+          pattern_id: "factory-001"
+          code_template: |
+            vmi = &v1.VirtualMachineInstance{
+              Spec: v1.VirtualMachineInstanceSpec{
+                Domain: v1.DomainSpec{
+                  CPU: &v1.CPU{
+                    Sockets: 4,
+                    Cores:   2,
+                    Threads: 1,
+                  },
+                },
+              },
+            }
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Call setupCPUHotplug and verify MaxSockets is 16"
+          pattern_id: "validation-001"
+          code_template: |
+            setupCPUHotplug(clusterConfig, vmi)
+            ExpectWithOffset(1, vmi.Spec.Domain.CPU.MaxSockets).To(Equal(uint32(16)))
+
+      cleanup: []
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "MaxSockets equals 4x sockets for standard topology"
+        condition: "vmi.Spec.Domain.CPU.MaxSockets == 16"
+        failure_impact: "Regression in standard CPU hotplug behavior"
+
+    dependencies:
+      kubernetes_resources: []
+      external_tools: []
+      scenario_specific_rbac: []
+
+  # ============================================================================
+  # TIER 2 SCENARIOS - End-to-End Tests (Python/pytest)
+  # ============================================================================
+
+  - scenario_id: "1"
+    test_id: "TS-CNV61263-001"
+    tier: "Tier 2"
+    priority: "P1"
+    mvp: true
+    requirement_id: "REQ-001"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "wait-002"
+      helpers_required:
+        - name: "VirtualMachineForTests"
+          functions: ["__init__", "start", "wait_for_status"]
+          purpose: "Create and manage VM lifecycle"
+      decorators:
+        - "polarion-testcase-id(CNV-61263-001)"
+        - "pytest.mark.tier2"
+
+    variables:
+      closure_scope:
+        - name: "vm"
+          type: "VirtualMachineForTests"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "VM with 216 cores"
+        - name: "namespace"
+          type: "Namespace"
+          initialized_in: "fixture"
+          used_in: ["fixture", "test"]
+          comment: "Test namespace"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "class"
+        description: "TestCPUHotplugVCPULimit"
+        decorators:
+          - "@pytest.mark.tier2"
+      context:
+        description: "VM with 216 cores startup"
+        decorators: []
+      it:
+        description: "test_vm_216_cores_starts_successfully"
+        test_id_format: "CNV-61263-001"
+
+    test_objective:
+      title: "Create and start VM with 216 cores, 1 socket, 1 thread"
+      what: |
+        This end-to-end test validates that a VM with 216 cores can start successfully
+        after the MaxSockets fix. The VM is configured with 216 cores * 1 socket * 1 thread.
+        Without the fix, the 4x ratio would yield 864 vCPUs, exceeding the 710 limit.
+      why: |
+        This is the exact reproduction case from the bug report. The customer was
+        unable to start VMs with 216 cores because libvirt rejected the configuration.
+      acceptance_criteria:
+        - "VM starts without 'Maximum CPUs greater than specified machine type limit' error"
+        - "VM reaches Running status"
+        - "virt-launcher pod shows successful sync"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "High CPU host"
+        requirement: "Worker node with 216+ CPUs available"
+        validation: "oc get nodes -l node-role.kubernetes.io/worker -o jsonpath='{.items[0].status.capacity.cpu}'"
+
+    test_data:
+      resource_definitions:
+        - name: "vm-216-cores"
+          type: "VirtualMachine"
+          yaml: |
+            apiVersion: kubevirt.io/v1
+            kind: VirtualMachine
+            metadata:
+              name: vm-216-cores
+            spec:
+              running: true
+              template:
+                spec:
+                  domain:
+                    cpu:
+                      cores: 216
+                      sockets: 1
+                      threads: 1
+                    memory:
+                      guest: 10Gi
+                    devices:
+                      disks:
+                        - disk:
+                            bus: virtio
+                          name: containerdisk
+                      interfaces:
+                        - masquerade: {}
+                          name: default
+                  networks:
+                    - name: default
+                      pod: {}
+                  volumes:
+                    - containerDisk:
+                        image: quay.io/kubevirt/fedora-container-disk-images:35
+                      name: containerdisk
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create namespace for test"
+          code_template: |
+            namespace = Namespace(name=f"test-{shortuuid.uuid()}")
+            namespace.create()
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Create VM with 216 cores"
+          code_template: |
+            vm = VirtualMachineForTests(
+                name="vm-216-cores",
+                namespace=namespace.name,
+                cpu_cores=216,
+                cpu_sockets=1,
+                cpu_threads=1,
+                memory_guest="10Gi",
+            )
+            vm.create()
+
+        - step_id: "TEST-02"
+          action: "Start VM and wait for Running status"
+          code_template: |
+            vm.start(wait=True, timeout=300)
+            assert vm.vmi.status.phase == "Running"
+
+        - step_id: "TEST-03"
+          action: "Verify no vCPU limit error in events"
+          code_template: |
+            events = vm.vmi.events
+            for event in events:
+                assert "Maximum CPUs greater than specified machine type limit" not in event.message
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM and namespace"
+          code_template: |
+            vm.delete(wait=True)
+            namespace.delete(wait=True)
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "VM reaches Running status"
+        condition: "vm.vmi.status.phase == 'Running'"
+        failure_impact: "High CPU VMs cannot start"
+
+      - assertion_id: "ASSERT-02"
+        priority: "P1"
+        description: "No vCPU limit exceeded error"
+        condition: "No 'Maximum CPUs' error in events"
+        failure_impact: "Bug not fixed"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: vm-216-cores"
+        - "Namespace: test namespace"
+      external_tools:
+        - "kubectl/oc CLI"
+      scenario_specific_rbac:
+        - "create/delete VirtualMachines"
+
+  - scenario_id: "2"
+    test_id: "TS-CNV61263-002"
+    tier: "Tier 2"
+    priority: "P1"
+    mvp: true
+    requirement_id: "REQ-002"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "wait-002"
+      helpers_required:
+        - name: "VirtualMachineForTests"
+          functions: ["__init__", "start", "wait_for_status"]
+          purpose: "Create and manage VM lifecycle"
+      decorators:
+        - "polarion-testcase-id(CNV-61263-002)"
+        - "pytest.mark.tier2"
+
+    variables:
+      closure_scope:
+        - name: "vm"
+          type: "VirtualMachineForTests"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "VM with 100 sockets"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "class"
+        description: "TestCPUHotplugVCPULimit"
+        decorators:
+          - "@pytest.mark.tier2"
+      context:
+        description: "VM with 100 sockets startup"
+        decorators: []
+      it:
+        description: "test_vm_100_sockets_starts_successfully"
+        test_id_format: "CNV-61263-002"
+
+    test_objective:
+      title: "Create and start VM with 1 core, 100 sockets, 1 thread"
+      what: |
+        This test validates that a VM with 100 sockets can start successfully.
+        This was the original reported case from CNV-48124 that broke with CPU hotplug.
+      why: |
+        With 100 sockets, the 4x ratio yields 400 vCPUs. Before the eim fix,
+        this exceeded 255. The fix ensures MaxSockets is capped appropriately.
+      acceptance_criteria:
+        - "VM starts successfully"
+        - "VM reaches Running status"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "High CPU host"
+        requirement: "Worker node with 100+ CPUs available"
+        validation: "oc get nodes -l node-role.kubernetes.io/worker"
+
+    test_data:
+      resource_definitions:
+        - name: "vm-100-sockets"
+          type: "VirtualMachine"
+          yaml: |
+            apiVersion: kubevirt.io/v1
+            kind: VirtualMachine
+            metadata:
+              name: vm-100-sockets
+            spec:
+              running: true
+              template:
+                spec:
+                  domain:
+                    cpu:
+                      cores: 1
+                      sockets: 100
+                      threads: 1
+                    memory:
+                      guest: 10Gi
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create namespace for test"
+          code_template: |
+            namespace = Namespace(name=f"test-{shortuuid.uuid()}")
+            namespace.create()
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Create and start VM with 100 sockets"
+          code_template: |
+            vm = VirtualMachineForTests(
+                name="vm-100-sockets",
+                namespace=namespace.name,
+                cpu_cores=1,
+                cpu_sockets=100,
+                cpu_threads=1,
+                memory_guest="10Gi",
+            )
+            vm.create()
+            vm.start(wait=True, timeout=300)
+
+        - step_id: "TEST-02"
+          action: "Verify VM is running"
+          code_template: |
+            assert vm.vmi.status.phase == "Running"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM and namespace"
+          code_template: |
+            vm.delete(wait=True)
+            namespace.delete(wait=True)
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "VM with 100 sockets reaches Running status"
+        condition: "vm.vmi.status.phase == 'Running'"
+        failure_impact: "Original bug not fixed"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: vm-100-sockets"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "4"
+    test_id: "TS-CNV61263-004"
+    tier: "Tier 2"
+    priority: "P2"
+    mvp: false
+    requirement_id: "REQ-004"
+
+    patterns:
+      primary: "cpu-hotplug-001"
+      secondary:
+        - "factory-001"
+        - "wait-002"
+      helpers_required:
+        - name: "VirtualMachineForTests"
+          functions: ["hotplug_cpu"]
+          purpose: "Hotplug CPUs to running VM"
+      decorators:
+        - "polarion-testcase-id(CNV-61263-004)"
+        - "pytest.mark.tier2"
+
+    variables:
+      closure_scope:
+        - name: "vm"
+          type: "VirtualMachineForTests"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "VM for CPU hotplug test"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "class"
+        description: "TestCPUHotplugVCPULimit"
+        decorators:
+          - "@pytest.mark.tier2"
+      context:
+        description: "CPU hotplug with capped MaxSockets"
+        decorators: []
+      it:
+        description: "test_cpu_hotplug_with_capped_max_sockets"
+        test_id_format: "CNV-61263-004"
+
+    test_objective:
+      title: "Hotplug CPUs on VM with high core count"
+      what: |
+        This test validates that CPU hotplug works correctly when MaxSockets
+        is capped due to the vCPU limit. The VM should be able to hotplug CPUs
+        up to but not exceeding the capped MaxSockets value.
+      why: |
+        Even with the vCPU limit cap, CPU hotplug functionality must work.
+        This ensures the fix doesn't break the hotplug feature itself.
+      acceptance_criteria:
+        - "VM starts with high core count"
+        - "CPU hotplug succeeds up to MaxSockets limit"
+        - "Guest OS sees additional CPUs"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "CPU hotplug enabled"
+        requirement: "Cluster config allows CPU hotplug"
+        validation: "oc get kubevirt -o yaml | grep maxHotplugRatio"
+
+    test_data:
+      resource_definitions:
+        - name: "vm-hotplug-test"
+          type: "VirtualMachine"
+          yaml: |
+            apiVersion: kubevirt.io/v1
+            kind: VirtualMachine
+            metadata:
+              name: vm-hotplug-test
+            spec:
+              running: true
+              template:
+                spec:
+                  domain:
+                    cpu:
+                      cores: 64
+                      sockets: 2
+                      threads: 1
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM with 64 cores, 2 sockets"
+          code_template: |
+            vm = VirtualMachineForTests(
+                name="vm-hotplug-test",
+                namespace=namespace.name,
+                cpu_cores=64,
+                cpu_sockets=2,
+                cpu_threads=1,
+            )
+            vm.create()
+            vm.start(wait=True)
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Hotplug additional socket"
+          code_template: |
+            vm.patch({"spec": {"template": {"spec": {"domain": {"cpu": {"sockets": 3}}}}}})
+
+        - step_id: "TEST-02"
+          action: "Verify additional CPUs are visible in guest"
+          code_template: |
+            # Wait for hotplug to complete
+            time.sleep(30)
+            cpu_count = vm.ssh_exec("nproc")
+            assert int(cpu_count) == 192  # 64 cores * 3 sockets
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM"
+          code_template: |
+            vm.delete(wait=True)
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P2"
+        description: "CPU hotplug succeeds"
+        condition: "Guest sees 192 CPUs after hotplug"
+        failure_impact: "CPU hotplug broken with capped MaxSockets"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: vm-hotplug-test"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "5"
+    test_id: "TS-CNV61263-005"
+    tier: "Tier 2"
+    priority: "P2"
+    mvp: false
+    requirement_id: "REQ-005"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+      helpers_required:
+        - name: "VirtualMachineForTests"
+          functions: ["__init__", "start"]
+          purpose: "Create VM with explicit maxSockets"
+      decorators:
+        - "polarion-testcase-id(CNV-61263-005)"
+        - "pytest.mark.tier2"
+
+    variables:
+      closure_scope:
+        - name: "vm"
+          type: "VirtualMachineForTests"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "VM with explicit maxSockets"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "class"
+        description: "TestCPUHotplugVCPULimit"
+        decorators:
+          - "@pytest.mark.tier2"
+      context:
+        description: "Explicit maxSockets override"
+        decorators: []
+      it:
+        description: "test_explicit_max_sockets_override"
+        test_id_format: "CNV-61263-005"
+
+    test_objective:
+      title: "Create VM with explicit maxSockets=2 and 216 cores"
+      what: |
+        This test validates that when a user explicitly sets maxSockets,
+        the auto-calculation is bypassed. With maxSockets=2 and 216 cores,
+        total vCPUs = 2 * 216 * 1 = 432, which is under 512.
+      why: |
+        Users may want to limit hotplug capacity. The fix should not override
+        explicit user configuration with the auto-calculated cap.
+      acceptance_criteria:
+        - "VM starts with explicit maxSockets=2"
+        - "MaxSockets in VMI spec is 2 (not auto-calculated)"
+        - "Total potential vCPUs stays at 432"
+
+    classification:
+      test_type: "E2E"
+      scope: "Single-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions: []
+
+    test_data:
+      resource_definitions:
+        - name: "vm-explicit-maxsockets"
+          type: "VirtualMachine"
+          yaml: |
+            apiVersion: kubevirt.io/v1
+            kind: VirtualMachine
+            metadata:
+              name: vm-explicit-maxsockets
+            spec:
+              running: true
+              template:
+                spec:
+                  domain:
+                    cpu:
+                      cores: 216
+                      sockets: 1
+                      threads: 1
+                      maxSockets: 2
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM with explicit maxSockets=2"
+          code_template: |
+            vm = VirtualMachineForTests(
+                name="vm-explicit-maxsockets",
+                namespace=namespace.name,
+                cpu_cores=216,
+                cpu_sockets=1,
+                cpu_threads=1,
+                cpu_max_sockets=2,
+            )
+            vm.create()
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Start VM and verify maxSockets is respected"
+          code_template: |
+            vm.start(wait=True)
+            assert vm.vmi.spec.domain.cpu.maxSockets == 2
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM"
+          code_template: |
+            vm.delete(wait=True)
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P2"
+        description: "Explicit maxSockets is preserved"
+        condition: "vm.vmi.spec.domain.cpu.maxSockets == 2"
+        failure_impact: "User configuration overridden"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: vm-explicit-maxsockets"
+      external_tools: []
+      scenario_specific_rbac: []
+
+  - scenario_id: "7"
+    test_id: "TS-CNV61263-007"
+    tier: "Tier 2"
+    priority: "P2"
+    mvp: false
+    requirement_id: "REQ-007"
+
+    patterns:
+      primary: "vm-lifecycle-001"
+      secondary:
+        - "factory-001"
+        - "numa-001"
+      helpers_required:
+        - name: "VirtualMachineForTests"
+          functions: ["__init__", "start"]
+          purpose: "Create NUMA-aware VM"
+      decorators:
+        - "polarion-testcase-id(CNV-61263-007)"
+        - "pytest.mark.tier2"
+
+    variables:
+      closure_scope:
+        - name: "vm"
+          type: "VirtualMachineForTests"
+          initialized_in: "fixture"
+          used_in: ["test"]
+          comment: "NUMA-aware VM"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "class"
+        description: "TestCPUHotplugVCPULimit"
+        decorators:
+          - "@pytest.mark.tier2"
+      context:
+        description: "NUMA-aware guest handling"
+        decorators: []
+      it:
+        description: "test_numa_aware_high_vcpu_vm"
+        test_id_format: "CNV-61263-007"
+
+    test_objective:
+      title: "Create high-vCPU VM with guestMappingPassthrough"
+      what: |
+        This test validates behavior when a high-vCPU VM uses NUMA passthrough.
+        NUMA-aware guests have additional topology constraints that may affect
+        socket configuration beyond the vCPU limit fix.
+      why: |
+        NUMA guests with guestMappingPassthrough may have socket topology
+        constraints that interact with the MaxSockets calculation. This ensures
+        the fix works correctly with NUMA configurations.
+      acceptance_criteria:
+        - "VM with NUMA passthrough starts (or fails with clear error)"
+        - "Socket topology is compatible with NUMA configuration"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "NUMA-capable host"
+        requirement: "Multi-socket NUMA host"
+        validation: "numactl --hardware"
+
+    test_data:
+      resource_definitions:
+        - name: "vm-numa-passthrough"
+          type: "VirtualMachine"
+          yaml: |
+            apiVersion: kubevirt.io/v1
+            kind: VirtualMachine
+            metadata:
+              name: vm-numa-passthrough
+            spec:
+              running: true
+              template:
+                spec:
+                  domain:
+                    cpu:
+                      cores: 64
+                      sockets: 2
+                      threads: 1
+                      dedicatedCpuPlacement: true
+                      numa:
+                        guestMappingPassthrough: {}
+                    memory:
+                      guest: 16Gi
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create NUMA-aware VM"
+          code_template: |
+            vm = VirtualMachineForTests(
+                name="vm-numa-passthrough",
+                namespace=namespace.name,
+                cpu_cores=64,
+                cpu_sockets=2,
+                cpu_threads=1,
+                dedicated_cpu_placement=True,
+                numa_guest_mapping_passthrough=True,
+            )
+            vm.create()
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Start VM and verify NUMA topology"
+          code_template: |
+            vm.start(wait=True, timeout=300)
+            assert vm.vmi.status.phase == "Running"
+
+        - step_id: "TEST-02"
+          action: "Verify NUMA topology in guest"
+          code_template: |
+            numa_output = vm.ssh_exec("numactl --hardware")
+            assert "available" in numa_output
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete VM"
+          code_template: |
+            vm.delete(wait=True)
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P2"
+        description: "NUMA-aware VM starts successfully"
+        condition: "vm.vmi.status.phase == 'Running'"
+        failure_impact: "NUMA guests with high vCPU cannot start"
+
+    dependencies:
+      kubernetes_resources:
+        - "VirtualMachine: vm-numa-passthrough"
+      external_tools:
+        - "numactl"
+      scenario_specific_rbac:
+        - "Schedule to specific NUMA-capable node"
+---
