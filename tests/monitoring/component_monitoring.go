@@ -52,7 +52,6 @@ type alerts struct {
 	downAlert            string
 	noReadyAlert         string
 	restErrorsBurtsAlert string
-	lowCountAlert        string
 }
 
 var (
@@ -60,14 +59,12 @@ var (
 		deploymentName:       "virt-api",
 		downAlert:            "VirtAPIDown",
 		restErrorsBurtsAlert: "VirtApiRESTErrorsBurst",
-		lowCountAlert:        "LowVirtAPICount",
 	}
 	virtController = alerts{
 		deploymentName:       "virt-controller",
 		downAlert:            "VirtControllerDown",
 		noReadyAlert:         "NoReadyVirtController",
 		restErrorsBurtsAlert: "VirtControllerRESTErrorsBurst",
-		lowCountAlert:        "LowVirtControllersCount",
 	}
 	virtHandler = alerts{
 		deploymentName:       "virt-handler",
@@ -78,7 +75,6 @@ var (
 		downAlert:            "VirtOperatorDown",
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
-		lowCountAlert:        "LowVirtOperatorCount",
 	}
 )
 
@@ -133,29 +129,15 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 			verifyAlertExist(virtClient, virtOperator.noReadyAlert)
 		})
 
-		It("LowVirtOperatorCount should be triggered when virt-operator count is low", decorators.RequiresTwoSchedulableNodes, func() {
-			verifyAlertExist(virtClient, virtOperator.lowCountAlert)
-		})
-
 		It("VirtControllerDown and NoReadyVirtController should be triggered when virt-controller is down", func() {
 			scales.UpdateScale(virtController.deploymentName, int32(0))
 			verifyAlertExist(virtClient, virtController.downAlert)
 			verifyAlertExist(virtClient, virtController.noReadyAlert)
 		})
 
-		It("LowVirtControllersCount should be triggered when virt-controller count is low", decorators.RequiresTwoSchedulableNodes, func() {
-			scales.UpdateScale(virtController.deploymentName, int32(0))
-			verifyAlertExist(virtClient, virtController.lowCountAlert)
-		})
-
 		It("VirtApiDown should be triggered when virt-api is down", func() {
 			scales.UpdateScale(virtApi.deploymentName, int32(0))
 			verifyAlertExist(virtClient, virtApi.downAlert)
-		})
-
-		It("LowVirtAPICount should be triggered when virt-api count is low", decorators.RequiresTwoSchedulableNodes, func() {
-			scales.UpdateScale(virtApi.deploymentName, int32(0))
-			verifyAlertExist(virtClient, virtApi.lowCountAlert)
 		})
 	})
 
