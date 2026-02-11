@@ -376,7 +376,7 @@ const (
 	VmiShutdownInitiatedByUnset VirtualMachineInstanceShutdownInitiatedBy = ""
 
 	PodDeletionShutdownInitiatedBy VirtualMachineInstanceShutdownInitiatedBy = "PodDeletion"
-	VMIDeletionShutdownInitiatedBy VirtualMachineInstanceShutdownInitiatedBy = "VMIDeletionS"
+	VMIDeletionShutdownInitiatedBy VirtualMachineInstanceShutdownInitiatedBy = "VMIDeletion"
 )
 
 // DeviceStatus has the information of all devices allocated spec.domain.devices
