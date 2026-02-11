@@ -109,7 +109,7 @@ var _ = Describe(SIG("Backup", func() {
 		Entry("2 backups to the same PVC should succeed", getDoubleTargetPVCSize(cd.AlpineVolumeSize), 2),
 	)
 
-	It("[QUARANTINE]Full and Incremental Backup with BackupTracker", decorators.Quarantine, func() {
+	It("[QUARANTINE]Full and Incremental Backup with BackupTracker", func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
@@ -126,6 +126,7 @@ var _ = Describe(SIG("Backup", func() {
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
+		vm.Spec.Template.ObjectMeta.Annotations["kubevirt.io/libvirt-log-filters"] = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -187,7 +188,7 @@ var _ = Describe(SIG("Backup", func() {
 		verifyBackupTargetPVCOutput(virtClient, incrementalBackupPVC, vm.Name, 1, []int64{testDataSizeBytes})
 	})
 
-	It("[QUARANTINE]Full and Incremental Backup with 2 disks", decorators.Quarantine, func() {
+	FIt("Full and Incremental Backup with 2 disks", MustPassRepeatedly(100), func() {
 		const (
 			testDataSizeMB    = 50
 			testDataSizeBytes = testDataSizeMB * 1024 * 1024
@@ -214,6 +215,7 @@ var _ = Describe(SIG("Backup", func() {
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
+		vm.Spec.Template.ObjectMeta.Annotations["kubevirt.io/libvirt-log-filters"] = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
 
 		libstorage.AddDataVolumeTemplate(vm, blankDv)
 		libstorage.AddDataVolume(vm, "disk1", blankDv)
@@ -306,6 +308,7 @@ var _ = Describe(SIG("Backup", func() {
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
+		vm.Spec.Template.ObjectMeta.Annotations["kubevirt.io/libvirt-log-filters"] = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -411,6 +414,7 @@ var _ = Describe(SIG("Backup", func() {
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
+		vm.Spec.Template.ObjectMeta.Annotations["kubevirt.io/libvirt-log-filters"] = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
@@ -504,6 +508,7 @@ var _ = Describe(SIG("Backup", func() {
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
 		)
+		vm.Spec.Template.ObjectMeta.Annotations["kubevirt.io/libvirt-log-filters"] = "3:remote 4:event 3:util.json 3:util.object 3:util.dbus 3:util.netlink 3:node_device 3:rpc 3:access 1:*"
 
 		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
