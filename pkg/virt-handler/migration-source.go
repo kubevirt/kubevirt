@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -97,6 +98,7 @@ func NewMigrationSourceController(
 		migrationProxy,
 		virtLauncherFSRunDirPattern,
 		netStat,
+		hypervisor.NewHypervisorNodeInformation(clusterConfig.GetHypervisor().Name),
 	)
 	if err != nil {
 		return nil, err
