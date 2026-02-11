@@ -41,6 +41,7 @@ const (
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 
 	kvmHypervisorDevice = "kvm"
+	kvmVirtType         = "kvm"
 )
 
 type KvmLauncherHypervisorResources struct{}
@@ -51,6 +52,10 @@ func NewKvmLauncherHypervisorResources() *KvmLauncherHypervisorResources {
 
 func (k *KvmLauncherHypervisorResources) GetHypervisorDevice() string {
 	return kvmHypervisorDevice
+}
+
+func (k *KvmLauncherHypervisorResources) GetVirtType() string {
+	return kvmVirtType
 }
 
 // GetMemoryOverhead computes the estimation of total
