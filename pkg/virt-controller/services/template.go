@@ -1374,6 +1374,35 @@ func addProbeOverheads(vmi *v1.VirtualMachineInstance, quantity *resource.Quanti
 	}
 }
 
+// addDisksOverheads returns additional memory requests and limits needed to
+// overcome potential OOMKill during VM migration.
+func addDisksOverheads(vmi *v1.VirtualMachineInstance, overallOverhead *resource.Quantity, limitOnlyOverhead *resource.Quantity) {
+	// No overhead if hotplug disks are disabled and no directly attached disks.
+	noHotplug := vmi.Spec.Domain.Devices.DisableHotplug
+	noDisks := len(vmi.Spec.Domain.Devices.Disks) == 0
+	if noHotplug && noDisks {
+		return
+	}
+
+	overheadValue := resource.MustParse("60Mi")
+
+	reqCPU := vmi.Spec.Domain.Resources.Requests.Cpu()
+	limitCPU := vmi.Spec.Domain.Resources.Limits.Cpu()
+	if reqCPU != nil && limitCPU != nil {
+		if reqCPU.Cmp(*limitCPU) == 0 {
+			// Add overhead for requests and limits for the domain with guaranteed CPU cores.
+			if overallOverhead != nil {
+				overallOverhead.Add(overheadValue)
+			}
+		} else {
+			// Add overhead only for limits if CPU cores are not guaranteed: domain CPU requests are not equal to limits.
+			if limitOnlyOverhead != nil {
+				limitOnlyOverhead.Add(overheadValue)
+			}
+		}
+	}
+}
+
 func HaveContainerDiskVolume(volumes []v1.Volume) bool {
 	for _, volume := range volumes {
 		if volume.ContainerDisk != nil {
@@ -1627,6 +1656,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 		vmiCPUArch = t.clusterConfig.GetClusterCPUArch()
 	}
 	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	memoryLimitsOverhead := GetMemoryLimitsOverhead(vmi)
 
 	if t.netBindingPluginMemoryCalculator != nil {
 		memoryOverhead.Add(
@@ -1654,6 +1684,9 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(not(doesVMIRequireDedicatedCPU), WithoutDedicatedCPU(vmi, t.clusterConfig.GetCPUAllocationRatio(), withCPULimits)),
 			NewVMIResourceRule(hasHugePages, WithHugePages(vmi.Spec.Domain.Memory, memoryOverhead)),
 			NewVMIResourceRule(not(hasHugePages), WithMemoryOverhead(vmi.Spec.Domain.Resources, memoryOverhead)),
+			NewVMIResourceRule(func(_ *v1.VirtualMachineInstance) bool {
+				return memoryLimitsOverhead.Value() > 0
+			}, WithMemoryLimitsOverhead(memoryLimitsOverhead)),
 			NewVMIResourceRule(t.doesVMIRequireAutoMemoryLimits, WithAutoMemoryLimits(vmi.Namespace, t.namespaceStore)),
 			NewVMIResourceRule(func(*v1.VirtualMachineInstance) bool {
 				return len(networkToResourceMap) > 0

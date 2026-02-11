@@ -575,6 +575,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		downwardmetricsOverhead *resource.Quantity
 		sevOverhead             *resource.Quantity
 		tpmOverhead             *resource.Quantity
+		disksOverhead           *resource.Quantity
 	)
 
 	BeforeEach(func() {
@@ -601,6 +602,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 		downwardmetricsOverhead = pointer.P(resource.MustParse("1Mi"))
 		sevOverhead = pointer.P(resource.MustParse("256Mi"))
 		tpmOverhead = pointer.P(resource.MustParse("53Mi"))
+		disksOverhead = pointer.P(resource.MustParse("60Mi"))
 	})
 
 	When("the vmi is not requesting any specific device or cpu or whatever", func() {
@@ -611,6 +613,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*videoRAMOverhead)
 			// 8Mi*1core(default)
 			expected.Add(*coresOverhead)
+			expected.Add(*disksOverhead)
 			overhead := GetMemoryOverhead(vmi, "amd64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		})
@@ -630,6 +633,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*baseOverhead)
 			expected.Add(*staticOverhead)
 			expected.Add(*videoRAMOverhead)
+			expected.Add(*disksOverhead)
 			// (2cores* 2threads *2sockets)
 			value := coresOverhead.Value() * 8
 			expected.Add(*resource.NewQuantity(value, coresOverhead.Format))
@@ -670,6 +674,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*baseOverhead)
 			expected.Add(*staticOverhead)
 			expected.Add(*coresOverhead)
+			expected.Add(*disksOverhead)
 			overhead := GetMemoryOverhead(vmi, "amd64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		})
@@ -683,6 +688,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*videoRAMOverhead)
 			expected.Add(*coresOverhead)
 			expected.Add(*cpuArchOverhead)
+			expected.Add(*disksOverhead)
 			overhead := GetMemoryOverhead(vmi, "arm64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		})
@@ -697,6 +703,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*videoRAMOverhead)
 			expected.Add(*coresOverhead)
 			expected.Add(*vfioOverhead)
+			expected.Add(*disksOverhead)
 			overhead := GetMemoryOverhead(vmi, "amd64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		},
@@ -717,6 +724,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*videoRAMOverhead)
 			expected.Add(*coresOverhead)
 			expected.Add(*downwardmetricsOverhead)
+			expected.Add(*disksOverhead)
 			overhead := GetMemoryOverhead(vmi, "amd64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		})
@@ -732,6 +740,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*videoRAMOverhead)
 			expected.Add(*coresOverhead)
 			expected.Add(probeOverhead)
+			expected.Add(*disksOverhead)
 
 			overhead := GetMemoryOverhead(vmi, "amd64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
@@ -756,6 +765,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*videoRAMOverhead)
 			expected.Add(*coresOverhead)
 			expected.Add(*sevOverhead)
+			expected.Add(*disksOverhead)
 			overhead := GetMemoryOverhead(vmi, "amd64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		})
@@ -775,6 +785,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*videoRAMOverhead)
 			expected.Add(*coresOverhead)
 			expected.Add(*tpmOverhead)
+			expected.Add(*disksOverhead)
 			overhead := GetMemoryOverhead(vmi, "amd64", nil)
 			Expect(overhead.Value()).To(BeEquivalentTo(expected.Value()))
 		})
@@ -787,6 +798,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			base.Add(*staticOverhead)
 			base.Add(*videoRAMOverhead)
 			base.Add(*coresOverhead)
+			base.Add(*disksOverhead)
 			var expected resource.Quantity
 			if expectParseError {
 				expected = *base
@@ -820,6 +832,7 @@ var _ = Describe("GetMemoryOverhead calculation", func() {
 			expected.Add(*staticOverhead)
 			expected.Add(*videoRAMOverhead)
 			expected.Add(*coresOverhead)
+			expected.Add(*disksOverhead)
 			expected.Add(resource.MustParse("100Mi"))
 
 			overhead := GetMemoryOverhead(vmi, "amd64", nil)
