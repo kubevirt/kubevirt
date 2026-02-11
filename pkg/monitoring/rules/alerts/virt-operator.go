@@ -64,7 +64,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowReadyVirtOperatorsCount",
-			Expr:  intstr.FromString("kubevirt_virt_operator_ready <  kubevirt_virt_operator_up"),
+			Expr:  intstr.FromString("kubevirt_virt_operator_ready < cluster:kubevirt_virt_operator_pods_running:count"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				"summary": "Some virt-operators are running but not ready.",
