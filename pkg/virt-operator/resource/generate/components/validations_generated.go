@@ -9418,6 +9418,7 @@ var CRDsValidation map[string]string = map[string]string{
             the clone operation
           enum:
           - RandomizeNames
+          - PrefixTargetName
           type: string
       required:
       - source

@@ -97,7 +97,7 @@ type VirtualMachineCloneSpec struct {
 	Patches []string `json:"patches,omitempty"`
 	// VolumeNamePolicy defines how to handle volume naming during the clone operation
 	// +optional
-	// +kubebuilder:validation:Enum=RandomizeNames
+	// +kubebuilder:validation:Enum=RandomizeNames;PrefixTargetName
 	VolumeNamePolicy *VolumeNamePolicy `json:"volumeNamePolicy,omitempty"`
 }
 
@@ -108,6 +108,10 @@ const (
 	// VolumeNamePolicyRandomizeNames creates new volumes with randomized names for each cloned volume.
 	// This is the default and currently only supported policy.
 	VolumeNamePolicyRandomizeNames VolumeNamePolicy = "RandomizeNames"
+	// VolumeNamePolicyPrefixTargetName defines a VolumeNamePolicy which creates
+	// new PVCs with names prefixed by the target VM name: {targetVMName}-{volumeName}.
+	// This provides predictable naming while avoiding collisions when restoring to different targets.
+	VolumeNamePolicyPrefixTargetName VolumeNamePolicy = "PrefixTargetName"
 )
 
 // ToVolumeRestorePolicy converts a VolumeNamePolicy to the corresponding VolumeRestorePolicy
@@ -116,6 +120,8 @@ func (p VolumeNamePolicy) ToVolumeRestorePolicy() snapshotv1beta1.VolumeRestoreP
 	switch p {
 	case VolumeNamePolicyRandomizeNames:
 		return snapshotv1beta1.VolumeRestorePolicyRandomizeNames
+	case VolumeNamePolicyPrefixTargetName:
+		return snapshotv1beta1.VolumeRestorePolicyPrefixTargetName
 	default:
 		// Default to RandomizeNames for safety
 		return snapshotv1beta1.VolumeRestorePolicyRandomizeNames
