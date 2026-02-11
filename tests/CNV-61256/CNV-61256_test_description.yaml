@@ -1,0 +1,866 @@
+---
+# Software Test Description (STD) - v2.1-enhanced
+# Generated from STP: tests/CNV-61256/CNV-61256_test_plan.md
+
+document_metadata:
+  std_version: "2.1-enhanced"
+  generated_date: "2026-02-10"
+  jira_issue: "CNV-61256"
+  jira_summary: "Unable to disable common-instancetypes deployment from HCO"
+  source_bugs:
+    - "CNV-59564"
+  stp_reference:
+    file: "tests/CNV-61256/CNV-61256_test_plan.md"
+    version: "v1"
+    sections_covered: "Section III - Requirements-to-Tests Mapping"
+
+  related_prs:
+    - repo: "kubevirt/hyperconverged-cluster-operator"
+      pr_number: 3471
+      url: "https://github.com/kubevirt/hyperconverged-cluster-operator/pull/3471"
+      title: "fix(api): Introduce CommonInstancetypesDeployment"
+      merged: true
+
+  owning_sig: "sig-hco"
+  participating_sigs:
+    - "sig-compute"
+    - "sig-instance-types"
+
+  total_scenarios: 8
+  tier_1_count: 2
+  tier_2_count: 6
+  p1_count: 4
+  p2_count: 4
+
+code_generation_config:
+  std_version: "2.1-enhanced"
+  framework: "ginkgo-v2"
+  assertion_library: "gomega"
+  language: "go"
+  package_name: "hco"
+
+  context_init:
+    - statement: "ctx := context.Background()"
+      variable: "ctx"
+      type: "context.Context"
+    - statement: "namespace := testsuite.GetTestNamespace(nil)"
+      variable: "namespace"
+      type: "string"
+
+  imports:
+    dot_imports:
+      - "github.com/onsi/ginkgo/v2"
+      - "github.com/onsi/gomega"
+    standard:
+      - "context"
+      - "time"
+    k8s_core:
+      - path: "k8s.io/api/core/v1"
+        alias: "k8sv1"
+      - path: "k8s.io/apimachinery/pkg/apis/meta/v1"
+        alias: "metav1"
+    kubevirt_base:
+      - "kubevirt.io/kubevirt/tests/decorators"
+      - "kubevirt.io/kubevirt/tests/framework/kubevirt"
+      - "kubevirt.io/kubevirt/tests/testsuite"
+    kubevirt_api:
+      - path: "kubevirt.io/api/core/v1"
+        alias: "v1"
+    hco:
+      - path: "github.com/kubevirt/hyperconverged-cluster-operator/api/v1beta1"
+        alias: "hcov1beta1"
+
+  timeout_constants:
+    tiny: "30s"
+    small: "60s"
+    medium: "90s"
+    large: "120s"
+
+  helper_library_imports:
+    libwait: "kubevirt.io/kubevirt/tests/libwait"
+
+common_preconditions:
+  infrastructure:
+    - name: "OpenShift cluster"
+      requirement: "OCP 4.19+ with OpenShift Virtualization"
+      validation: "oc version"
+
+    - name: "OpenShift Virtualization"
+      requirement: "CNV 4.19+ with HCO operator"
+      validation: "oc get csv -n openshift-cnv | grep kubevirt-hyperconverged"
+
+    - name: "HyperConverged CR"
+      requirement: "HyperConverged CR deployed and healthy"
+      validation: "oc get hyperconverged -n openshift-cnv kubevirt-hyperconverged"
+
+  operators:
+    - name: "HyperConverged Cluster Operator"
+      namespace: "openshift-cnv"
+      validation: "oc get csv -n openshift-cnv | grep hyperconverged"
+
+    - name: "KubeVirt Operator"
+      namespace: "openshift-cnv"
+      validation: "oc get csv -n openshift-cnv | grep kubevirt"
+
+  cluster_configuration:
+    topology: "Multi-node"
+    cpu_virtualization: "Standard"
+    storage: "Any supported StorageClass"
+    network: "OpenShift SDN or OVN-Kubernetes"
+
+  rbac_requirements:
+    - permission: "get, update, patch on hyperconvergeds"
+      scope: "Namespace: openshift-cnv"
+      validation: "oc auth can-i update hyperconvergeds -n openshift-cnv"
+    - permission: "get on kubevirts"
+      scope: "Namespace: openshift-cnv"
+      validation: "oc auth can-i get kubevirts -n openshift-cnv"
+    - permission: "list on virtualmachineclusterinstancetypes"
+      scope: "Cluster"
+      validation: "oc auth can-i list virtualmachineclusterinstancetypes"
+
+scenarios:
+  # ============================================================
+  # TIER 1 SCENARIOS (Unit/API Level)
+  # ============================================================
+
+  - scenario_id: "005"
+    test_id: "TS-CNV61256-005"
+    tier: "Tier 1"
+    priority: "P1"
+    mvp: true
+    requirement_id: "REQ-004"
+
+    patterns:
+      primary: "api-propagation-001"
+      secondary:
+        - "cr-read-001"
+        - "cr-compare-001"
+      helpers_required:
+        - name: "kubevirt"
+          functions: ["Client"]
+          purpose: "Access KubeVirt API client"
+      decorators:
+        - "decorators.Tier1"
+        - "decorators.SigCompute"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Context for API calls"
+        - name: "hco"
+          type: "*hcov1beta1.HyperConverged"
+          initialized_in: "It"
+          used_in: ["It"]
+          comment: "HyperConverged CR"
+        - name: "kv"
+          type: "*v1.KubeVirt"
+          initialized_in: "It"
+          used_in: ["It"]
+          comment: "KubeVirt CR"
+        - name: "err"
+          type: "error"
+          initialized_in: "It"
+          used_in: ["It"]
+          comment: "Error variable"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "CommonInstancetypesDeployment configuration"
+        decorators:
+          - "decorators.SigCompute"
+      context:
+        description: "HCO to KubeVirt configuration propagation"
+        decorators:
+          - "Ordered"
+      it:
+        description: "should propagate CommonInstancetypesDeployment from HCO CR to KubeVirt CR"
+        test_id_format: "[test_id:TS-CNV61256-005]"
+
+    test_objective:
+      title: "Verify KubeVirt CR reflects HCO configuration"
+      what: |
+        This test validates that the CommonInstancetypesDeployment configuration
+        in the HyperConverged CR is correctly propagated to the KubeVirt CR.
+        The HCO operator should reconcile the KubeVirt CR to match HCO settings.
+      why: |
+        Configuration propagation is essential for the feature to work correctly.
+        HCO acts as the user-facing API, and KubeVirt actually implements the
+        common-instancetypes deployment. If propagation fails, user configuration
+        has no effect.
+      acceptance_criteria:
+        - "HCO CR spec.commonInstancetypesDeployment.enabled value matches KubeVirt CR"
+        - "Changes to HCO CR are reflected in KubeVirt CR after reconciliation"
+
+    classification:
+      test_type: "Integration"
+      scope: "Multi-component"
+      automation_approach: "Go/Ginkgo with KubeVirt test framework"
+
+    specific_preconditions:
+      - name: "HCO CR accessible"
+        requirement: "Can read/update HyperConverged CR"
+        validation: "oc get hyperconverged kubevirt-hyperconverged -n openshift-cnv"
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Set CommonInstancetypesDeployment.enabled to false in HCO CR"
+          command: "oc patch hyperconverged kubevirt-hyperconverged -n openshift-cnv --type=merge -p '{\"spec\":{\"commonInstancetypesDeployment\":{\"enabled\":false}}}'"
+          validation: "Patch succeeds"
+          pattern_id: "cr-patch-001"
+          code_template: |
+            hco, err = getHyperConverged(ctx)
+            ExpectWithOffset(1, err).ToNot(HaveOccurred())
+            enabled := false
+            hco.Spec.CommonInstancetypesDeployment = &v1.CommonInstancetypesDeployment{Enabled: &enabled}
+            hco, err = updateHyperConverged(ctx, hco)
+            ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Wait for HCO reconciliation"
+          command: "sleep 30"
+          validation: "HCO reconciliation completes"
+          pattern_id: "wait-001"
+          code_template: |
+            Eventually(func() bool {
+                hco, err = getHyperConverged(ctx)
+                return err == nil && hco.Status.Conditions != nil
+            }, 2*time.Minute, 5*time.Second).Should(BeTrue())
+
+        - step_id: "TEST-02"
+          action: "Read KubeVirt CR and verify configuration"
+          command: "oc get kubevirt kubevirt-hyperconverged -n openshift-cnv -o jsonpath='{.spec.configuration.commonInstancetypesDeployment}'"
+          validation: "KubeVirt CR shows enabled: false"
+          pattern_id: "cr-read-001"
+          code_template: |
+            kv, err = getKubeVirt(ctx)
+            ExpectWithOffset(1, err).ToNot(HaveOccurred())
+            Expect(kv.Spec.Configuration.CommonInstancetypesDeployment).ToNot(BeNil())
+            Expect(*kv.Spec.Configuration.CommonInstancetypesDeployment.Enabled).To(BeFalse())
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Reset HCO CR to default (remove CommonInstancetypesDeployment)"
+          command: "oc patch hyperconverged kubevirt-hyperconverged -n openshift-cnv --type=json -p '[{\"op\":\"remove\",\"path\":\"/spec/commonInstancetypesDeployment\"}]'"
+          code_template: |
+            hco, err = getHyperConverged(ctx)
+            if err == nil {
+                hco.Spec.CommonInstancetypesDeployment = nil
+                _, err = updateHyperConverged(ctx, hco)
+            }
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "KubeVirt CR CommonInstancetypesDeployment matches HCO CR"
+        condition: "kv.spec.configuration.commonInstancetypesDeployment.enabled == hco.spec.commonInstancetypesDeployment.enabled"
+        failure_impact: "Configuration not propagated - feature broken"
+
+    dependencies:
+      kubernetes_resources:
+        - "HyperConverged: kubevirt-hyperconverged"
+        - "KubeVirt: kubevirt-hyperconverged"
+      external_tools:
+        - "oc CLI"
+      scenario_specific_rbac:
+        - "get, update on hyperconvergeds"
+        - "get on kubevirts"
+
+  - scenario_id: "006"
+    test_id: "TS-CNV61256-006"
+    tier: "Tier 1"
+    priority: "P2"
+    mvp: false
+    requirement_id: "REQ-006"
+
+    patterns:
+      primary: "api-validation-001"
+      secondary:
+        - "cr-patch-001"
+        - "error-expect-001"
+      helpers_required:
+        - name: "kubevirt"
+          functions: ["Client"]
+          purpose: "Access KubeVirt API client"
+      decorators:
+        - "decorators.Tier1"
+        - "decorators.SigCompute"
+
+    variables:
+      closure_scope:
+        - name: "ctx"
+          type: "context.Context"
+          initialized_in: "BeforeAll"
+          used_in: ["BeforeAll", "It"]
+          comment: "Context for API calls"
+        - name: "err"
+          type: "error"
+          initialized_in: "It"
+          used_in: ["It"]
+          comment: "Error variable"
+
+    test_structure:
+      type: "single"
+      describe:
+        wrapper: "SIG"
+        description: "CommonInstancetypesDeployment API validation"
+        decorators:
+          - "decorators.SigCompute"
+      context:
+        description: "Invalid configuration handling"
+        decorators:
+          - "Ordered"
+      it:
+        description: "should reject invalid configuration values"
+        test_id_format: "[test_id:TS-CNV61256-006]"
+
+    test_objective:
+      title: "Verify invalid configuration values are rejected"
+      what: |
+        This test validates that the HCO API properly validates the
+        CommonInstancetypesDeployment configuration and rejects invalid values.
+        The API should return appropriate error messages for malformed input.
+      why: |
+        API validation prevents users from accidentally misconfiguring the
+        cluster. Clear error messages help users correct their configuration.
+      acceptance_criteria:
+        - "Invalid values are rejected with appropriate error messages"
+        - "Valid boolean values (true/false) are accepted"
+
+    classification:
+      test_type: "Unit"
+      scope: "Single-component"
+      automation_approach: "Go/Ginkgo with KubeVirt test framework"
+
+    specific_preconditions:
+      - name: "HCO CR accessible"
+        requirement: "Can read/update HyperConverged CR"
+        validation: "oc get hyperconverged kubevirt-hyperconverged -n openshift-cnv"
+
+    test_steps:
+      setup: []
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Attempt to set invalid value type for enabled field"
+          command: "oc patch hyperconverged kubevirt-hyperconverged -n openshift-cnv --type=merge -p '{\"spec\":{\"commonInstancetypesDeployment\":{\"enabled\":\"invalid\"}}}'"
+          validation: "Patch is rejected with validation error"
+          pattern_id: "error-expect-001"
+          code_template: |
+            // Note: Kubernetes API validates boolean types at admission
+            // This test verifies schema validation is in place
+            // Invalid string value should be rejected by API server
+
+      cleanup: []
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P1"
+        description: "Invalid configuration is rejected"
+        condition: "API returns error for non-boolean enabled value"
+        failure_impact: "API accepts invalid config - potential runtime errors"
+
+    dependencies:
+      kubernetes_resources:
+        - "HyperConverged: kubevirt-hyperconverged"
+      external_tools:
+        - "oc CLI"
+      scenario_specific_rbac:
+        - "update on hyperconvergeds"
+
+  # ============================================================
+  # TIER 2 SCENARIOS (End-to-End)
+  # ============================================================
+
+  - scenario_id: "001"
+    test_id: "TS-CNV61256-001"
+    tier: "Tier 2"
+    priority: "P1"
+    mvp: true
+    requirement_id: "REQ-001"
+
+    patterns:
+      primary: "e2e-config-001"
+      secondary:
+        - "cr-patch-001"
+        - "resource-verify-001"
+      helpers_required:
+        - name: "ocp_resources"
+          functions: ["HyperConverged", "VirtualMachineClusterInstancetype"]
+          purpose: "OpenShift resource management"
+      decorators:
+        - "pytest.mark.tier2"
+
+    test_objective:
+      title: "Disable common-instancetypes deployment via HCO CR"
+      what: |
+        This test validates that setting spec.commonInstancetypesDeployment.enabled
+        to false in the HyperConverged CR prevents the deployment of common-instancetypes
+        cluster resources. After configuration, no VirtualMachineClusterInstancetype or
+        VirtualMachineClusterPreference resources should exist.
+      why: |
+        Customers need the ability to disable common-instancetypes deployment
+        to manage cluster resources and RBAC permissions. This is the primary
+        use case that drove the feature request.
+      acceptance_criteria:
+        - "Setting enabled: false removes all common-instancetypes resources"
+        - "No VirtualMachineClusterInstancetype resources exist after configuration"
+        - "No VirtualMachineClusterPreference resources exist after configuration"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "Common-instancetypes deployed"
+        requirement: "Default state with common-instancetypes deployed"
+        validation: "oc get virtualmachineclusterinstancetypes"
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Verify common-instancetypes are deployed by default"
+          validation: "VirtualMachineClusterInstancetype resources exist"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Set spec.commonInstancetypesDeployment.enabled to false"
+          validation: "HCO CR updated successfully"
+
+        - step_id: "TEST-02"
+          action: "Wait for KubeVirt reconciliation"
+          validation: "KubeVirt controller processes configuration change"
+
+        - step_id: "TEST-03"
+          action: "Verify no VirtualMachineClusterInstancetype resources exist"
+          validation: "Empty list returned"
+
+        - step_id: "TEST-04"
+          action: "Verify no VirtualMachineClusterPreference resources exist"
+          validation: "Empty list returned"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Reset HCO CR to enable common-instancetypes deployment"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "No common-instancetypes deployed when disabled"
+        condition: "len(VirtualMachineClusterInstancetype.list()) == 0"
+        failure_impact: "Feature does not work - common-instancetypes still deployed"
+
+    dependencies:
+      kubernetes_resources:
+        - "HyperConverged: kubevirt-hyperconverged"
+        - "VirtualMachineClusterInstancetype: cluster-scoped"
+        - "VirtualMachineClusterPreference: cluster-scoped"
+      external_tools:
+        - "oc CLI"
+
+  - scenario_id: "002"
+    test_id: "TS-CNV61256-002"
+    tier: "Tier 2"
+    priority: "P1"
+    mvp: true
+    requirement_id: "REQ-002"
+
+    patterns:
+      primary: "e2e-config-001"
+      secondary:
+        - "cr-patch-001"
+        - "resource-verify-001"
+      helpers_required:
+        - name: "ocp_resources"
+          functions: ["HyperConverged", "VirtualMachineClusterInstancetype"]
+          purpose: "OpenShift resource management"
+      decorators:
+        - "pytest.mark.tier2"
+
+    test_objective:
+      title: "Enable common-instancetypes deployment via HCO CR"
+      what: |
+        This test validates that setting spec.commonInstancetypesDeployment.enabled
+        to true in the HyperConverged CR deploys common-instancetypes cluster resources.
+        After configuration, VirtualMachineClusterInstancetype and
+        VirtualMachineClusterPreference resources should exist.
+      why: |
+        This validates the opposite configuration of TC-001, ensuring users can
+        re-enable common-instancetypes after disabling them.
+      acceptance_criteria:
+        - "Setting enabled: true deploys all common-instancetypes resources"
+        - "VirtualMachineClusterInstancetype resources exist after configuration"
+        - "VirtualMachineClusterPreference resources exist after configuration"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "Common-instancetypes disabled"
+        requirement: "Start with common-instancetypes disabled"
+        validation: "oc get virtualmachineclusterinstancetypes returns empty"
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Disable common-instancetypes deployment"
+          validation: "No VirtualMachineClusterInstancetype resources"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Set spec.commonInstancetypesDeployment.enabled to true"
+          validation: "HCO CR updated successfully"
+
+        - step_id: "TEST-02"
+          action: "Wait for KubeVirt reconciliation"
+          validation: "KubeVirt controller deploys resources"
+
+        - step_id: "TEST-03"
+          action: "Verify VirtualMachineClusterInstancetype resources exist"
+          validation: "Non-empty list returned"
+
+        - step_id: "TEST-04"
+          action: "Verify VirtualMachineClusterPreference resources exist"
+          validation: "Non-empty list returned"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Leave common-instancetypes enabled (default state)"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "Common-instancetypes deployed when enabled"
+        condition: "len(VirtualMachineClusterInstancetype.list()) > 0"
+        failure_impact: "Cannot re-enable common-instancetypes after disabling"
+
+    dependencies:
+      kubernetes_resources:
+        - "HyperConverged: kubevirt-hyperconverged"
+        - "VirtualMachineClusterInstancetype: cluster-scoped"
+        - "VirtualMachineClusterPreference: cluster-scoped"
+      external_tools:
+        - "oc CLI"
+
+  - scenario_id: "003"
+    test_id: "TS-CNV61256-003"
+    tier: "Tier 2"
+    priority: "P1"
+    mvp: true
+    requirement_id: "REQ-003"
+
+    patterns:
+      primary: "e2e-default-001"
+      secondary:
+        - "resource-verify-001"
+      helpers_required:
+        - name: "ocp_resources"
+          functions: ["HyperConverged", "VirtualMachineClusterInstancetype"]
+          purpose: "OpenShift resource management"
+      decorators:
+        - "pytest.mark.tier2"
+
+    test_objective:
+      title: "Verify default behavior when configuration is not set"
+      what: |
+        This test validates that when spec.commonInstancetypesDeployment is not
+        set (nil/unset), the default behavior is to deploy common-instancetypes.
+        This ensures backward compatibility with existing installations.
+      why: |
+        Backward compatibility is essential. Existing users who upgrade should
+        not see a change in behavior unless they explicitly configure the feature.
+      acceptance_criteria:
+        - "Unset configuration results in common-instancetypes being deployed"
+        - "Default behavior matches pre-feature behavior (enabled)"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "Fresh HCO installation"
+        requirement: "HCO with no commonInstancetypesDeployment configuration"
+        validation: "oc get hyperconverged -o jsonpath shows null for field"
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Remove commonInstancetypesDeployment from HCO CR"
+          validation: "Field is nil/unset"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Wait for KubeVirt reconciliation"
+          validation: "KubeVirt controller processes"
+
+        - step_id: "TEST-02"
+          action: "Verify VirtualMachineClusterInstancetype resources exist"
+          validation: "Non-empty list returned (default enabled)"
+
+      cleanup: []
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "Default behavior is common-instancetypes deployed"
+        condition: "len(VirtualMachineClusterInstancetype.list()) > 0"
+        failure_impact: "Backward compatibility broken - upgrades may fail"
+
+    dependencies:
+      kubernetes_resources:
+        - "HyperConverged: kubevirt-hyperconverged"
+        - "VirtualMachineClusterInstancetype: cluster-scoped"
+      external_tools:
+        - "oc CLI"
+
+  - scenario_id: "004"
+    test_id: "TS-CNV61256-004"
+    tier: "Tier 2"
+    priority: "P2"
+    mvp: false
+    requirement_id: "REQ-005"
+
+    patterns:
+      primary: "e2e-reconciliation-001"
+      secondary:
+        - "cr-patch-001"
+        - "wait-001"
+      helpers_required:
+        - name: "ocp_resources"
+          functions: ["HyperConverged"]
+          purpose: "OpenShift resource management"
+      decorators:
+        - "pytest.mark.tier2"
+
+    test_objective:
+      title: "Verify configuration persists after HCO reconciliation"
+      what: |
+        This test validates that the CommonInstancetypesDeployment configuration
+        persists after the HCO operator reconciles. Configuration should not be
+        overwritten or reset by operator operations.
+      why: |
+        Operators continuously reconcile CRs. User configuration must be preserved
+        across reconciliation cycles to provide a stable user experience.
+      acceptance_criteria:
+        - "Configuration unchanged after operator restart"
+        - "Configuration unchanged after manual reconciliation trigger"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "HCO operator running"
+        requirement: "HCO operator pod healthy"
+        validation: "oc get pods -n openshift-cnv | grep hco"
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Set commonInstancetypesDeployment.enabled to false"
+          validation: "HCO CR updated"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Delete HCO operator pod to trigger restart"
+          validation: "Pod recreated and reconciles"
+
+        - step_id: "TEST-02"
+          action: "Wait for HCO operator to become ready"
+          validation: "Operator pod running"
+
+        - step_id: "TEST-03"
+          action: "Verify configuration unchanged"
+          validation: "enabled: false still set"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Reset HCO CR to default"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "Configuration persists after reconciliation"
+        condition: "hco.spec.commonInstancetypesDeployment.enabled == false"
+        failure_impact: "User configuration lost on reconciliation"
+
+    dependencies:
+      kubernetes_resources:
+        - "HyperConverged: kubevirt-hyperconverged"
+        - "Pod: hco-operator"
+      external_tools:
+        - "oc CLI"
+
+  - scenario_id: "007"
+    test_id: "TS-CNV61256-007"
+    tier: "Tier 2"
+    priority: "P2"
+    mvp: false
+    requirement_id: "REQ-008"
+
+    patterns:
+      primary: "e2e-toggle-001"
+      secondary:
+        - "vm-lifecycle-001"
+        - "cr-patch-001"
+      helpers_required:
+        - name: "ocp_resources"
+          functions: ["HyperConverged", "VirtualMachine"]
+          purpose: "OpenShift resource management"
+      decorators:
+        - "pytest.mark.tier2"
+
+    test_objective:
+      title: "Verify behavior when toggling configuration while VMs are running"
+      what: |
+        This test validates the behavior when CommonInstancetypesDeployment is
+        toggled while VMs referencing common instance types are running. Existing
+        VMs should continue to run, but new VMs may fail to schedule.
+      why: |
+        Users may accidentally or intentionally toggle the configuration while
+        VMs are running. The system should handle this gracefully without
+        crashing existing workloads.
+      acceptance_criteria:
+        - "Running VMs continue to run when common-instancetypes disabled"
+        - "Warning or error when creating new VM with disabled common-instancetypes"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "VM running with common instance type"
+        requirement: "At least one VM using common instance type is running"
+        validation: "oc get vmi"
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Create VM using common instance type"
+          validation: "VM is running"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Disable common-instancetypes deployment"
+          validation: "HCO CR updated"
+
+        - step_id: "TEST-02"
+          action: "Verify existing VM continues running"
+          validation: "VMI status is Running"
+
+        - step_id: "TEST-03"
+          action: "Attempt to create new VM with common instance type"
+          validation: "Creation fails or warns"
+
+      cleanup:
+        - step_id: "CLEANUP-01"
+          action: "Delete test VM"
+        - step_id: "CLEANUP-02"
+          action: "Reset HCO CR to default"
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "Existing VMs not disrupted"
+        condition: "vmi.status.phase == Running"
+        failure_impact: "Running workloads disrupted by configuration change"
+
+    dependencies:
+      kubernetes_resources:
+        - "HyperConverged: kubevirt-hyperconverged"
+        - "VirtualMachine: test-vm"
+        - "VirtualMachineInstance: test-vm"
+      external_tools:
+        - "oc CLI"
+
+  - scenario_id: "008"
+    test_id: "TS-CNV61256-008"
+    tier: "Tier 2"
+    priority: "P2"
+    mvp: false
+    requirement_id: "REQ-007"
+
+    patterns:
+      primary: "e2e-upgrade-001"
+      secondary:
+        - "cr-read-001"
+      helpers_required:
+        - name: "ocp_resources"
+          functions: ["HyperConverged", "ClusterServiceVersion"]
+          purpose: "OpenShift resource management"
+      decorators:
+        - "pytest.mark.tier2"
+        - "pytest.mark.upgrade"
+
+    test_objective:
+      title: "Verify behavior during upgrade from version without this feature"
+      what: |
+        This test validates that upgrading from a CNV version without the
+        CommonInstancetypesDeployment feature to a version with the feature
+        maintains the default behavior (common-instancetypes enabled).
+      why: |
+        Upgrade scenarios are critical for production environments. Users
+        upgrading should not see unexpected behavior changes.
+      acceptance_criteria:
+        - "Upgrade preserves default behavior (common-instancetypes enabled)"
+        - "No manual intervention required after upgrade"
+
+    classification:
+      test_type: "E2E"
+      scope: "Multi-component"
+      automation_approach: "pytest with openshift-python-wrapper"
+
+    specific_preconditions:
+      - name: "Pre-upgrade CNV version"
+        requirement: "CNV version without CommonInstancetypesDeployment feature"
+        validation: "oc get csv version check"
+
+    test_steps:
+      setup:
+        - step_id: "SETUP-01"
+          action: "Verify common-instancetypes deployed before upgrade"
+          validation: "VirtualMachineClusterInstancetype resources exist"
+
+      test_execution:
+        - step_id: "TEST-01"
+          action: "Upgrade CNV to version with feature"
+          validation: "Upgrade completes successfully"
+
+        - step_id: "TEST-02"
+          action: "Verify common-instancetypes still deployed"
+          validation: "VirtualMachineClusterInstancetype resources exist"
+
+        - step_id: "TEST-03"
+          action: "Verify HCO CR has no commonInstancetypesDeployment set"
+          validation: "Field is nil (default)"
+
+      cleanup: []
+
+    assertions:
+      - assertion_id: "ASSERT-01"
+        priority: "P0"
+        description: "Upgrade preserves default behavior"
+        condition: "common-instancetypes remain deployed after upgrade"
+        failure_impact: "Upgrade disrupts cluster - common-instancetypes removed"
+
+    dependencies:
+      kubernetes_resources:
+        - "HyperConverged: kubevirt-hyperconverged"
+        - "ClusterServiceVersion: CNV"
+        - "VirtualMachineClusterInstancetype: cluster-scoped"
+      external_tools:
+        - "oc CLI"
+---
