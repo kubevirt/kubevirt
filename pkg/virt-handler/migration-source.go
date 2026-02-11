@@ -540,8 +540,8 @@ func (c *MigrationSourceController) migrateVMI(vmi *v1.VirtualMachineInstance, d
 		return err
 	}
 
-	if c.clusterConfig.PasstIPStackMigrationEnabled() {
-		if err := c.passtRepairHandler.HandleMigrationSource(vmi, c.passtSocketDirOnHostForVMI); err != nil {
+	if c.clusterConfig.PasstBindingEnabled() {
+		if err = c.passtRepairHandler.HandleMigrationSource(vmi, c.passtSocketDirOnHostForVMI); err != nil {
 			c.logger.Object(vmi).Warningf("failed to call passt-repair for migration source, %v", err)
 		}
 	}

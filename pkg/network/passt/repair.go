@@ -35,10 +35,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
-type clusterConfigurer interface {
-	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
-}
-
 type activeGuard interface {
 	TestAndSetActive(vmi *v1.VirtualMachineInstance) bool
 	SetInactive(vmi *v1.VirtualMachineInstance)
@@ -46,14 +42,12 @@ type activeGuard interface {
 
 type RepairManager struct {
 	activeVMs            activeGuard
-	clusterConfigurer    clusterConfigurer
 	findRepairSocketFunc func(string) (string, error)
 	execCommandFunc      func(string, *v1.VirtualMachineInstance, func(instance *v1.VirtualMachineInstance))
 }
 
-func NewRepairManager(clusterConfigurer clusterConfigurer) *RepairManager {
+func NewRepairManager() *RepairManager {
 	return NewRepairManagerWithOptions(
-		clusterConfigurer,
 		findRepairSocketInDir,
 		executePasstRepair,
 		newActiveVMProvider(),
@@ -61,14 +55,12 @@ func NewRepairManager(clusterConfigurer clusterConfigurer) *RepairManager {
 }
 
 func NewRepairManagerWithOptions(
-	clusterConfigurer clusterConfigurer,
 	findRepairSocketFunc func(string) (string, error),
 	execCommandFunc func(string, *v1.VirtualMachineInstance, func(instance *v1.VirtualMachineInstance)),
 	activeVMs activeGuard,
 ) *RepairManager {
 	return &RepairManager{
 		activeVMs:            activeVMs,
-		clusterConfigurer:    clusterConfigurer,
 		findRepairSocketFunc: findRepairSocketFunc,
 		execCommandFunc:      execCommandFunc,
 	}
@@ -102,7 +94,6 @@ func (r *RepairManager) HandleMigrationSource(vmi *v1.VirtualMachineInstance,
 func (r *RepairManager) HandleMigrationTarget(vmi *v1.VirtualMachineInstance,
 	socketDirFunc func(*v1.VirtualMachineInstance) (string, error),
 ) error {
-
 	if !vmispec.HasPasstBinding(vmi) {
 		return nil
 	}

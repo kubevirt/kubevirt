@@ -371,7 +371,7 @@ func (app *virtHandlerApp) Run() {
 
 	netConf := netsetup.NewNetConf(app.clusterConfig)
 	netStat := netsetup.NewNetStat()
-	passtRepairHandler := passt.NewRepairManager(app.clusterConfig)
+	passtRepairHandler := passt.NewRepairManager()
 
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,

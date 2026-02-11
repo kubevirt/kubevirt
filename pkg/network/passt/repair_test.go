@@ -35,7 +35,6 @@ import (
 )
 
 var _ = Describe("Passt Repair Handler", func() {
-
 	Context("should not run passt repair", func() {
 		var vmi *v1.VirtualMachineInstance
 		BeforeEach(func() {
@@ -52,7 +51,6 @@ var _ = Describe("Passt Repair Handler", func() {
 			}
 
 			handler := passt.NewRepairManagerWithOptions(
-				stubClusterConfig{},
 				stubFindRepairSocketInDir,
 				fakeCommandWithCallCounter,
 				newActiveVMs(),
@@ -73,7 +71,6 @@ var _ = Describe("Passt Repair Handler", func() {
 		}
 
 		handler := passt.NewRepairManagerWithOptions(
-			stubClusterConfig{},
 			stubFindRepairSocketInDir,
 			fakeCommandWithCallCounter,
 			newActiveVMs(),
@@ -110,7 +107,6 @@ var _ = Describe("Passt Repair Handler", func() {
 		}
 
 		handler := passt.NewRepairManagerWithOptions(
-			stubClusterConfig{},
 			stubFindRepairSocketInDir,
 			fakeCommandWithCallCounter,
 			newActiveVMs(),
@@ -159,7 +155,6 @@ var _ = Describe("Passt Repair Handler", func() {
 		dirFunc func(_ *v1.VirtualMachineInstance) (string, error),
 	) {
 		handler := passt.NewRepairManagerWithOptions(
-			stubClusterConfig{},
 			findRepairSocketFunc,
 			stubCommand,
 			newActiveVMs(),
@@ -181,7 +176,6 @@ var _ = Describe("Passt Repair Handler", func() {
 
 	It("HandleMigrationTarget should return error when dirFunc fails", func() {
 		handler := passt.NewRepairManagerWithOptions(
-			stubClusterConfig{},
 			stubFindRepairSocketInDir,
 			stubCommand,
 			newActiveVMs(),
@@ -201,7 +195,6 @@ var _ = Describe("Passt Repair Handler", func() {
 		}
 
 		handler := passt.NewRepairManagerWithOptions(
-			stubClusterConfig{},
 			stubFindRepairSocketInDir,
 			fakeCommandWithCallCounter,
 			newActiveVMs(),
@@ -226,7 +219,6 @@ var _ = Describe("Passt Repair Handler", func() {
 		)
 
 		handler := passt.NewRepairManagerWithOptions(
-			stubClusterConfig{},
 			stubFindRepairSocketInDir,
 			fakeCommandWithCallCounter,
 			newActiveVMs(),
@@ -239,14 +231,6 @@ var _ = Describe("Passt Repair Handler", func() {
 		Expect(passtRepairCalledCounter).To(Equal(1))
 	})
 })
-
-type stubClusterConfig struct {
-	registeredPlugins map[string]v1.InterfaceBindingPlugin
-}
-
-func (s stubClusterConfig) GetNetworkBindings() map[string]v1.InterfaceBindingPlugin {
-	return s.registeredPlugins
-}
 
 type activeVMs struct {
 	running map[types.UID]struct{}

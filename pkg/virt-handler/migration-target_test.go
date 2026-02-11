@@ -30,9 +30,8 @@ import (
 	"sync"
 	"time"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	"go.uber.org/mock/gomock"
+	k8sv1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -93,10 +92,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		migrationTargetPasstRepairHandler    *stubTargetPasstRepairHandler
 	)
 
-	const (
-		host                           = "master"
-		migratableNetworkBindingPlugin = "mig_plug"
-	)
+	const host = "master"
 
 	addDomain := func(domain *api.Domain) {
 		Expect(controller.domainStore.Add(domain)).To(Succeed())
@@ -170,11 +166,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		kv := &v1.KubeVirtConfiguration{
-			NetworkConfiguration: &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{
-				migratableNetworkBindingPlugin: {Migration: &v1.InterfaceBindingMigration{}},
-			}},
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.PasstIPStackMigration},
+				FeatureGates: []string{featuregate.PasstBinding},
 			},
 		}
 
