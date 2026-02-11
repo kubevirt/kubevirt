@@ -50,9 +50,6 @@ type PodIsolationDetector interface {
 	Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error)
 
 	DetectForSocket(socket string) (IsolationResult, error)
-
-	// Adjust system resources to run the passed VM
-	AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error
 }
 
 const isolationDialTimeout = 5
@@ -90,63 +87,6 @@ func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (Isolation
 	return NewIsolationResult(pid, ppid), nil
 }
 
-func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
-	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
-		return nil
-	}
-
-	// bump memlock ulimit for virtqemud
-	res, err := s.Detect(vmi)
-	if err != nil {
-		return err
-	}
-	launcherPid := res.Pid()
-
-	processes, err := ps.Processes()
-	if err != nil {
-		return fmt.Errorf("failed to get all processes: %v", err)
-	}
-
-	var memlockSize resource.Quantity
-	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
-		memlockSize = *vmi.Status.MigrationState.TargetMemoryOverhead
-	} else {
-		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
-		// and we are sure that all VMIs include the MemoryOverhead status field
-		memlockSize = hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-	}
-	// Add base memory requested for the VM
-	var vmiBaseMemory *resource.Quantity
-	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-	} else {
-		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-	}
-
-	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-	for _, process := range processes {
-		// consider all processes that are virt-launcher children
-		if process.PPid() != launcherPid {
-			continue
-		}
-
-		// virtqemud process sets the memory lock limit before fork/exec-ing into qemu
-		if process.Executable() != "virtqemud" {
-			continue
-		}
-
-		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize.Value())
-		if err != nil {
-			return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", process.Pid(), memlockSize.Value(), err)
-		}
-		// we assume a single process should match
-		break
-	}
-	return nil
-}
-
 // AdjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside
 // virt-launcher pod on the given VMI according to its spec.
 // Only VMI's with VFIO devices (e.g: SRIOV, GPU), SEV or RealTime workloads require QEMU process MEMLOCK adjustment.
@@ -160,11 +100,23 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 		return err
 	}
 
-	qemuProcess, err := isolationResult.GetQEMUProcess()
-	if err != nil {
-		return err
+	var targetProcess ps.Process
+	if vmi.IsRunning() {
+		targetProcess, err = isolationResult.GetQEMUProcess()
+		if err != nil {
+			return err
+		}
+	} else {
+		targetProcess, err = findVirtqemudProcess(isolationResult)
+		if err != nil {
+			return err
+		}
+		// If the virtqemud process is not found, do nothing
+		if targetProcess == nil {
+			return nil
+		}
 	}
-	qemuProcessID := qemuProcess.Pid()
+	qemuProcessID := targetProcess.Pid()
 	var memlockSize resource.Quantity
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
 		memlockSize = *vmi.Status.MigrationState.TargetMemoryOverhead
@@ -179,6 +131,8 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 	switch {
 	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.MaxGuest != nil:
 		vmiBaseMemory = vmi.Spec.Domain.Memory.MaxGuest
+	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil:
+		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
 	case vmi.Spec.Domain.Resources.Requests.Memory() != nil:
 		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
 	case vmi.Spec.Domain.Memory != nil:
@@ -191,7 +145,7 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessID, memlockSize.Value(), err)
 	}
 	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
-		qemuProcess, memlockSize.Value())
+		targetProcess, memlockSize.Value())
 
 	return nil
 }
@@ -208,6 +162,30 @@ func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error
 	}
 
 	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
+}
+
+func findVirtqemudProcess(res IsolationResult) (ps.Process, error) {
+	processes, err := ps.Processes()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get all processes: %v", err)
+	}
+	launcherPid := res.Pid()
+
+	for _, process := range processes {
+		// consider all processes that are virt-launcher children
+		if process.PPid() != launcherPid {
+			continue
+		}
+
+		// virtqemud process sets the memory lock limit before fork/exec-ing into qemu
+		if process.Executable() != "virtqemud" {
+			continue
+		}
+
+		return process, nil
+	}
+
+	return nil, nil
 }
 
 // setProcessMemoryLockRLimit Adjusts process MEMLOCK
