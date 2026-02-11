@@ -126,6 +126,7 @@ func NewMigrationTargetController(
 		migrationProxy,
 		virtLauncherFSRunDirPattern,
 		netStat,
+		hypervisor.NewHypervisorNodeInformation(clusterConfig.GetHypervisor().Name),
 	)
 	if err != nil {
 		return nil, err
@@ -647,7 +648,7 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmi, c.host)
+		cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo)
 		if err != nil {
 			return err
 		}
@@ -675,9 +676,9 @@ func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachin
 		return err
 	}
 
-	// Mount hotplug disks
+	// Mount hotplug disk
 	if attachmentPodUID := vmiCopy.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmiCopy, c.host)
+		cgroupManager, err := getCgroupManager(vmiCopy, c.host, c.hypervisorNodeInfo)
 		if err != nil {
 			return err
 		}
@@ -829,7 +830,7 @@ func (c *MigrationTargetController) updateDomainFunc(old, new interface{}) {
 }
 
 func (c *MigrationTargetController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	cgroupManager, err := getCgroupManager(vmi, c.host)
+	cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo)
 	if err != nil {
 		return err
 	}

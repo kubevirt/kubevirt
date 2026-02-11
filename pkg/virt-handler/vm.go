@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -117,8 +118,8 @@ type VirtualMachineController struct {
 	cbtHandler               *CBTHandler
 }
 
-var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
-	return cgroup.NewManagerFromVM(vmi, host)
+var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation) (cgroup.Manager, error) {
+	return cgroup.NewManagerFromVM(vmi, host, hypervisorNodeInfo.GetHypervisorDevice())
 }
 
 func NewVirtualMachineController(
@@ -164,6 +165,7 @@ func NewVirtualMachineController(
 		migrationProxy,
 		"/proc/%d/root/var/run",
 		netStat,
+		hypervisor.NewHypervisorNodeInformation(clusterConfig.GetHypervisor().Name),
 	)
 	if err != nil {
 		return nil, err
@@ -1527,7 +1529,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	// UnmountAll does the cleanup on the "best effort" basis: it is
 	// safe to pass a nil cgroupManager.
-	cgroupManager, _ := getCgroupManager(vmi, c.host)
+	cgroupManager, _ := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo)
 	if err := c.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 		return err
 	}
@@ -1952,7 +1954,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 		return err
 	}
 
-	cgroupManager, err := getCgroupManager(vmi, c.host)
+	cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo)
 	if err != nil {
 		return err
 	}
