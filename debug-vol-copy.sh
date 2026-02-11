@@ -47,7 +47,7 @@ metadata:
 spec:
   containers:
   - name: debug-copy
-    image: busybox
+    image: quay.io/prometheus/busybox
     command: ["sleep", "3600"]
     volumeMounts:
     - name: debug-vol
