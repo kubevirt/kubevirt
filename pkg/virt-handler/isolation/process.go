@@ -56,9 +56,9 @@ func lookupProcessByExecutablePrefix(processes []ps.Process, execPrefix string) 
 	return nil
 }
 
-// setProcessMemoryLockRLimit Adjusts process MEMLOCK
+// SetProcessMemoryLockRLimit Adjusts process MEMLOCK
 // soft-limit (current) and hard-limit (max) to the given size.
-func setProcessMemoryLockRLimit(pid int, size int64) error {
+func SetProcessMemoryLockRLimit(pid int, size int64) error {
 	// standard golang libraries don't provide API to set runtime limits
 	// for other processes, so we have to directly call to kernel
 	rlimit := unix.Rlimit{
