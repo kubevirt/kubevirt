@@ -28,6 +28,8 @@ import (
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
 type maskType bool
@@ -60,7 +62,7 @@ func (c *VirtualMachineController) configureVCPUScheduler(vmi *v1.VirtualMachine
 	if err != nil {
 		return err
 	}
-	qemuProcess, err := res.GetQEMUProcess()
+	qemuProcess, err := isolation.GetQEMUProcess(res)
 	if err != nil {
 		return err
 	}

@@ -102,7 +102,7 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 
 	var targetProcess ps.Process
 	if vmi.IsRunning() {
-		targetProcess, err = isolationResult.GetQEMUProcess()
+		targetProcess, err = GetQEMUProcess(isolationResult)
 		if err != nil {
 			return err
 		}
