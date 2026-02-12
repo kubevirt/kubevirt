@@ -82,66 +82,49 @@ func (d DomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *ap
 }
 
 func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.VirtualMachineInstance) (api.Interface, error) {
-	ifaceType := getInterfaceType(iface)
+	var builderOptions []builderOption
 
+	useLaunchSecurity := d.useLaunchSecuritySEV || d.useLaunchSecurityPV
+
+	ifaceType := getInterfaceType(iface)
 	modelType := ifaceType
 	if ifaceType == v1.VirtIO {
 		modelType = d.virtioModel
+
+		builderOptions = append(builderOptions, withDriver(newVirtioDriver(vmi, useLaunchSecurity)))
 	}
 
-	domainIface := api.Interface{
-		Model: &api.Model{
-			Type: modelType,
-		},
-		Alias: api.NewUserDefinedAlias(iface.Name),
-	}
-
-	if queueCount := uint(calculateNetworkQueues(vmi, ifaceType)); queueCount != 0 {
-		domainIface.Driver = &api.InterfaceDriver{Name: "vhost", Queues: &queueCount}
-	}
-
-	// Add a pciAddress if specified
 	if iface.PciAddress != "" {
 		addr, err := device.NewPciAddressField(iface.PciAddress)
 		if err != nil {
-			return domainIface, fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
+			return api.Interface{}, fmt.Errorf("failed to configure interface %s: %v", iface.Name, err)
 		}
-		domainIface.Address = addr
+		builderOptions = append(builderOptions, withPCIAddress(addr))
 	}
 
 	if iface.ACPIIndex > 0 {
-		domainIface.ACPI = &api.ACPI{Index: uint(iface.ACPIIndex)}
+		builderOptions = append(builderOptions, withACPIIndex(uint(iface.ACPIIndex)))
 	}
 
-	if d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap) {
+	isTap := d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap)
+	if isTap {
 		// use "ethernet" interface type, since we're using pre-configured tap devices
 		// https://libvirt.org/formatdomain.html#elementsNICSEthernet
-		domainIface.Type = "ethernet"
+		builderOptions = append(builderOptions, withIfaceType("ethernet"))
 		if iface.BootOrder != nil {
-			domainIface.BootOrder = &api.BootOrder{Order: *iface.BootOrder}
-		} else if d.isROMTuningSupported {
-			domainIface.Rom = &api.Rom{Enabled: "no"}
+			builderOptions = append(builderOptions, withBootOrder(*iface.BootOrder))
 		}
 	}
 
-	if d.useLaunchSecuritySEV || d.useLaunchSecurityPV {
-		if d.isROMTuningSupported {
-			// It's necessary to disable the iPXE option ROM as iPXE is not aware of SEV
-			domainIface.Rom = &api.Rom{Enabled: "no"}
-		}
-		if ifaceType == v1.VirtIO {
-			if domainIface.Driver != nil {
-				domainIface.Driver.IOMMU = "on"
-			} else {
-				domainIface.Driver = &api.InterfaceDriver{Name: "vhost", IOMMU: "on"}
-			}
-		}
+	if d.isROMTuningSupported && ((isTap && iface.BootOrder == nil) || useLaunchSecurity) {
+		builderOptions = append(builderOptions, withROMDisabled())
 	}
 
 	if iface.State == v1.InterfaceStateLinkDown {
-		domainIface.LinkState = &api.LinkState{State: "down"}
+		builderOptions = append(builderOptions, withLinkStateDown())
 	}
-	return domainIface, nil
+
+	return newDomainInterface(iface.Name, modelType, builderOptions...), nil
 }
 
 func WithDomainAttachmentByInterfaceName(domainAttachmentByInterfaceName map[string]string) option {
@@ -189,9 +172,19 @@ func indexNetworksByName(networks []v1.Network) map[string]*v1.Network {
 	return netsByName
 }
 
-func calculateNetworkQueues(vmi *v1.VirtualMachineInstance, ifaceType string) uint32 {
-	if ifaceType != v1.VirtIO {
-		return 0
+func newVirtioDriver(vmi *v1.VirtualMachineInstance, requiresIOMMU bool) *api.InterfaceDriver {
+	var driver *api.InterfaceDriver
+	queueCount := uint(NetworkQueuesCapacity(vmi))
+
+	if queueCount > 0 || requiresIOMMU {
+		driver = &api.InterfaceDriver{Name: "vhost"}
+		if queueCount > 0 {
+			driver.Queues = &queueCount
+		}
+		if requiresIOMMU {
+			driver.IOMMU = "on"
+		}
 	}
-	return NetworkQueuesCapacity(vmi)
+
+	return driver
 }
