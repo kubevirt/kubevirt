@@ -423,7 +423,8 @@
             "qgsSocketPath": "qgsSocketPathValue"
           }
         }
-      }
+      },
+      "roleAggregationStrategy": "roleAggregationStrategyValue"
     },
     "infra": {
       "nodePlacement": {

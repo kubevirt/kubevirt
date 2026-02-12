@@ -233,6 +233,7 @@ spec:
         selectors:
         - product: productValue
           vendor: vendorValue
+    roleAggregationStrategy: roleAggregationStrategyValue
     seccompConfiguration:
       virtualMachineInstanceProfile:
         customProfile:
