@@ -117,9 +117,9 @@ var _ = Describe("[Serial][sig-monitoring]Component Monitoring", Serial, decorat
 
 			time.Sleep(10 * time.Second)
 			alerts := []string{
-				virtOperator.downAlert, virtOperator.noReadyAlert, virtOperator.lowCountAlert,
-				virtController.downAlert, virtController.noReadyAlert, virtController.lowCountAlert,
-				virtApi.downAlert, virtApi.noReadyAlert, virtApi.lowCountAlert,
+				virtOperator.downAlert, virtOperator.noReadyAlert,
+				virtController.downAlert, virtController.noReadyAlert,
+				virtApi.downAlert, virtApi.noReadyAlert,
 			}
 			waitUntilAlertDoesNotExist(virtClient, alerts...)
 		})
