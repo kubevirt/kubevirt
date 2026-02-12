@@ -28,6 +28,7 @@ import (
 	com "kubevirt.io/kubevirt/pkg/handler-launcher-com"
 	"kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/info"
 	notifyv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/notify/v1"
+	virtutil "kubevirt.io/kubevirt/pkg/util"
 	grpcutil "kubevirt.io/kubevirt/pkg/util/net/grpc"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -275,9 +276,56 @@ func (e eventNotifier) UpdateEvents(event watch.Event) {
 	e.client.updateEvents(event, e.domain, e.events)
 }
 
+func isGuestPanicEvent(event *libvirt.DomainEventLifecycle) bool {
+	return event != nil && event.Event == libvirt.DOMAIN_EVENT_CRASHED
+}
+
+func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMachineInstance, metadataCache *metadata.Cache, eventDetail int) {
+	if vmi == nil {
+		log.Log.Warning("Guest panic detected but VMI is nil, cannot emit K8s event")
+		return
+	}
+
+	// Check if we already handled this panic event
+	if handled, exists := metadataCache.GuestPanicHandled.Load(); exists && handled {
+		log.Log.V(3).Info("Guest panic event already handled, skipping")
+		return
+	}
+
+	domainName := util.DomainFromNamespaceName(vmi.Namespace, vmi.Name)
+	nonRoot := virtutil.IsNonRootVMI(vmi)
+	logPath := util.GetQemuLogPath(domainName, nonRoot)
+
+	panicInfo, err := util.ReadPanicInfoFromLog(logPath)
+
+	var eventMessage string
+	if err != nil {
+		log.Log.Reason(err).Warning("Failed to read panic info from log")
+		eventMessage = "GuestPanicked (details unavailable)"
+	} else {
+		eventMessage = util.FormatGuestPanicInfo(panicInfo)
+		log.Log.Infof("Guest panic detected: %s", eventMessage)
+	}
+
+	// Only mark as handled for PANICKED events. CRASHLOADED indicates kdump-based
+	// recovery where the guest reboots, so subsequent panic events should still fire.
+	if libvirt.DomainEventCrashedDetailType(eventDetail) == libvirt.DOMAIN_EVENT_CRASHED_PANICKED {
+		metadataCache.GuestPanicHandled.Set(true)
+	}
+
+	if err := client.SendK8sEvent(vmi, k8sv1.EventTypeWarning, "GuestPanicked",
+		eventMessage); err != nil {
+		log.Log.Reason(err).Warningf("Failed to send guest panic event")
+	}
+}
+
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
 	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
 	metadataCache *metadata.Cache) {
+	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
+	if isGuestPanicEvent(libvirtEvent.Event) {
+		e.handleGuestPanicEvent(client, vmi, metadataCache, libvirtEvent.Event.Detail)
+	}
 
 	d, err := c.LookupDomainByName(util.DomainFromNamespaceName(domain.ObjectMeta.Namespace, domain.ObjectMeta.Name))
 	if err != nil {
