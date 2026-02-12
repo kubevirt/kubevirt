@@ -56,6 +56,17 @@ func (q *MockPriorityQueue) AddAfter(item interface{}, duration time.Duration) {
 	}
 }
 
+func (q *MockPriorityQueue) AddWithOpts(o priorityqueue.AddOpts, Items ...interface{}) {
+	q.PriorityQueue.AddWithOpts(o, Items...)
+	q.wgLock.Lock()
+	defer q.wgLock.Unlock()
+	if q.addWG != nil {
+		for range Items {
+			q.addWG.Done()
+		}
+	}
+}
+
 func (q *MockPriorityQueue) GetRateLimitedEnqueueCount() int {
 	return int(atomic.LoadInt32(&q.rateLimitedEnque))
 }
