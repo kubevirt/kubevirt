@@ -1607,6 +1607,21 @@ var CRDsValidation map[string]string = map[string]string{
                   type: array
                   x-kubernetes-list-type: atomic
               type: object
+            roleAggregationStrategy:
+              allOf:
+              - enum:
+                - AggregateToDefault
+                - Manual
+              - enum:
+                - AggregateToDefault
+                - Manual
+              description: |-
+                RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated
+                to the default Kubernetes roles (admin, edit, view).
+                When set to "AggregateToDefault" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
+                When set to "Manual", the labels are not added, and roles will not be aggregated to the default roles.
+                This is an Alpha feature and subject to change.
+              type: string
             seccompConfiguration:
               description: SeccompConfiguration holds Seccomp configuration for Kubevirt
                 components

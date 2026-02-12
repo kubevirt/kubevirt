@@ -3121,6 +3121,15 @@ type KubeVirtConfiguration struct {
 	// Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
+
+	// RoleAggregationStrategy controls whether RBAC cluster roles should be aggregated
+	// to the default Kubernetes roles (admin, edit, view).
+	// When set to "AggregateToDefault" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
+	// When set to "Manual", the labels are not added, and roles will not be aggregated to the default roles.
+	// This is an Alpha feature and subject to change.
+	// +optional
+	// +kubebuilder:validation:Enum=AggregateToDefault;Manual
+	RoleAggregationStrategy *RoleAggregationStrategy `json:"roleAggregationStrategy,omitempty"`
 }
 
 const (
@@ -3180,6 +3189,17 @@ type VirtTemplateDeployment struct {
 	// +nullable
 	Enabled *bool `json:"enabled,omitempty"`
 }
+
+// RoleAggregationStrategy represents the strategy for RBAC role aggregation
+// +kubebuilder:validation:Enum=AggregateToDefault;Manual
+type RoleAggregationStrategy string
+
+const (
+	// RoleAggregationStrategyAggregateToDefault enables aggregation of KubeVirt ClusterRoles to default Kubernetes roles
+	RoleAggregationStrategyAggregateToDefault RoleAggregationStrategy = "AggregateToDefault"
+	// RoleAggregationStrategyManual disables aggregation, requiring manual RBAC assignments for KubeVirt resources
+	RoleAggregationStrategyManual RoleAggregationStrategy = "Manual"
+)
 
 type VMRolloutStrategy string
 
