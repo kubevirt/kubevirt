@@ -35,6 +35,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -233,6 +235,20 @@ func WaitForMigrationToDisappearWithTimeout(migration *v1.VirtualMachineInstance
 		timeout,
 		virtClient.VirtualMachineInstanceMigration(migration.Namespace).Get,
 		virtClient.VirtualMachineInstanceMigration(migration.Namespace).Watch,
+	)
+}
+
+func WaitForBackupToDisappearWithTimeout(backup *backupv1.VirtualMachineBackup, timeout time.Duration) error {
+	virtClient, err := kubecli.GetKubevirtClient()
+	if err != nil {
+		return fmt.Errorf("failed to get kubevirt client: %w", err)
+	}
+
+	return waitForObjectToDisappear(
+		backup.Name,
+		timeout,
+		virtClient.VirtualMachineBackup(backup.Namespace).Get,
+		virtClient.VirtualMachineBackup(backup.Namespace).Watch,
 	)
 }
 

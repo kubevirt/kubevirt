@@ -55,8 +55,10 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -701,6 +703,82 @@ var _ = Describe(SIG("Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(tracker.Status).To(BeNil())
 	})
+
+	Context("Abort", Serial, func() {
+		var (
+			nodeName, address, device string
+			pvc                       *corev1.PersistentVolumeClaim
+			vmi                       *v1.VirtualMachineInstance
+		)
+		BeforeEach(func() {
+			nodeName = libnode.GetNodeNameWithHandler()
+			address, device = CreateSCSIDisk(nodeName, []string{"opts=4", "every_nth=1", "dev_size_mb=8"})
+			DeferCleanup(RemoveSCSIDisk, nodeName, address)
+			_, pvc, err = CreatePVandPVCwithFaultyDisk(nodeName, device, testsuite.GetTestNamespace(nil))
+			Expect(err).NotTo(HaveOccurred(), "Failed to create PV and PVC for faulty disk")
+		})
+
+		AfterEach(func() {
+			// In order to remove the scsi debug module, the SCSI device cannot be in used by the VM.
+			// For this reason, we manually clean-up the VM  before removing the kernel module as part of DeferCleanup.
+			if vmi != nil {
+				err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
+				Expect(err).To(Or(
+					Not(HaveOccurred()),
+					MatchError(errors.IsNotFound, "errors.IsNotFound"),
+				))
+				libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 180)
+			}
+			vmi = nil
+		})
+
+		It("Should successfully abort a progressing backup", func() {
+			dv := libdv.NewDataVolume(
+				libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+				libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libdv.WithStorage(
+					libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+				),
+			)
+			vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+				libvmi.WithLabels(backup.CBTLabel),
+				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+				withDelayDisk("delay-disk", pvc.Name),
+			)
+
+			By(fmt.Sprintf("Creating VM %s", vm.Name))
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+			totalSize := resource.MustParse(cd.AlpineVolumeSize)
+			delayDiskSize := resource.MustParse("8Mi")
+			totalSize.Add(delayDiskSize)
+			fullBackupPVCSize := getTargetPVCSizeWithOverhead(totalSize.String())
+
+			fullBackupPVC := libstorage.CreateFSPVC("full-backup-pvc", testsuite.GetTestNamespace(vm), fullBackupPVCSize, libstorage.WithStorageProfile())
+
+			By("Creating BackupTracker")
+			tracker := createBackupTracker(virtClient, vm)
+
+			By("Creating full backup and wait for it to reach progressing state")
+			backup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), tracker.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupProgressing)
+
+			By("Deleting the backup to trigger abort")
+			Expect(virtClient.VirtualMachineBackup(backup.Namespace).Delete(context.Background(), backup.Name, metav1.DeleteOptions{})).To(Succeed())
+
+			events.ExpectEvent(backup, "VirtualMachineBackupAborting", "Backup is aborting")
+
+			libwait.WaitForBackupToDisappearWithTimeout(backup, time.Second*180)
+
+			By("Verifying BackupTracker was not updated with a checkpoint")
+			tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(tracker.Status).To(BeNil())
+		})
+
+	})
 }))
 
 func backupName(vmName string) string {
@@ -850,6 +928,33 @@ func waitBackupFailed(virtClient kubecli.KubevirtClient, namespace string, backu
 	))
 
 	events.ExpectEvent(vmbackup, corev1.EventTypeWarning, "VirtualMachineBackupFailed")
+	return vmbackup
+}
+
+func waitBackupProgressing(virtClient kubecli.KubevirtClient, namespace string, backupName string) *backupv1.VirtualMachineBackup {
+	var vmbackup *backupv1.VirtualMachineBackup
+
+	By(fmt.Sprintf("Waiting for VirtualMachineBackup %s/%s to succeed", namespace, backupName))
+	Eventually(func() *backupv1.VirtualMachineBackupStatus {
+		var err error
+		vmbackup, err = virtClient.VirtualMachineBackup(namespace).Get(context.Background(), backupName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		return vmbackup.Status
+	}, 180*time.Second, 2*time.Second).Should(And(
+		Not(BeNil()),
+		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"Conditions": ContainElements(
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":   Equal(backupv1.ConditionDone),
+					"Status": Equal(corev1.ConditionFalse)}),
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":   Equal(backupv1.ConditionProgressing),
+					"Status": Equal(corev1.ConditionTrue)}),
+			),
+		})),
+	))
+
 	return vmbackup
 }
 
@@ -1034,5 +1139,33 @@ func expectCheckpointDisks(vmi *v1.VirtualMachineInstance, checkpointName string
 	for _, disk := range excludedDisks {
 		ExpectWithOffset(1, xml).ToNot(ContainSubstring(fmt.Sprintf("name='%s'", disk)),
 			"Checkpoint %s should not have bitmap for disk %s", checkpointName, disk)
+	}
+}
+
+func withDelayDisk(diskName, pvcName string) libvmi.VMOption {
+	return func(vm *v1.VirtualMachine) {
+		disk := v1.Disk{
+			Name: diskName,
+			DiskDevice: v1.DiskDevice{
+				Disk: &v1.DiskTarget{
+					Bus: v1.DiskBusVirtio,
+				},
+			},
+		}
+
+		vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, disk)
+
+		volume := v1.Volume{
+			Name: diskName,
+			VolumeSource: v1.VolumeSource{
+				PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+					PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: pvcName,
+					},
+					Hotpluggable: false,
+				},
+			},
+		}
+		vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, volume)
 	}
 }
