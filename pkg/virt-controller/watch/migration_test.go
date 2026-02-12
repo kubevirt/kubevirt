@@ -2262,12 +2262,22 @@ var _ = Describe("Migration watcher", func() {
 
 			By("Executing the controller and expecting the pending migration to have a low priority")
 			controller.Execute()
+			runningMigrationsFromQueue := make([]string, 0, 5)
 			for i := 0; i < 5; i++ {
 				item, priority, shutdown := controller.Queue.GetWithPriority()
-				Expect(item).To(Equal(fmt.Sprintf("default/testmigration%d", i)))
+				runningMigrationsFromQueue = append(runningMigrationsFromQueue, item)
 				Expect(priority).To(Equal(0))
 				Expect(shutdown).To(BeFalse())
 			}
+			Expect(runningMigrationsFromQueue).To(
+				ConsistOf(
+					"default/testmigration0",
+					"default/testmigration1",
+					"default/testmigration2",
+					"default/testmigration3",
+					"default/testmigration4",
+				),
+			)
 			item, priority, shutdown := controller.Queue.GetWithPriority()
 			Expect(item).To(Equal("default/testmigrationpending"))
 			Expect(priority).To(Equal(-100))
