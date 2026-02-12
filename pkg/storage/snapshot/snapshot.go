@@ -475,6 +475,14 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 		err = ctrl.unfreezeSource(vmSnapshot)
 		if err != nil {
+			if strings.Contains(err.Error(), VSSFreezeLimitReached) {
+				contentCpy.Status.CreationTime = nil
+				contentCpy.Status.Error = &snapshotv1.Error{
+					Time:    currentTime(),
+					Message: pointer.P(err.Error()),
+				}
+				return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
+			}
 			return 0, err
 		}
 	}
@@ -846,8 +854,8 @@ func updateSnapshotIndications(snapshot *snapshotv1.VirtualMachineSnapshot, sour
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
 			snapErr := snapshot.Status.Error
 			if snapErr != nil && snapErr.Message != nil &&
-				strings.Contains(*snapErr.Message, failedFreezeMsg) {
-				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceFailedIndication)
+				strings.Contains(*snapErr.Message, VSSFreezeLimitReached) {
+				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceTimeoutIndication)
 			}
 		} else {
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)

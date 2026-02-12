@@ -583,7 +583,9 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil).Times(1)
+			mockDomain.EXPECT().Free().Times(1)
+			mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Times(1)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
 
 			Expect(manager.FreezeVMI(vmi, 0)).To(Succeed())
@@ -603,7 +605,9 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil).Times(1)
+			mockDomain.EXPECT().Free().Times(1)
+			mockDomain.EXPECT().FSThaw(nil, uint32(0)).Times(1)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
 
 			Expect(manager.UnfreezeVMI(vmi)).To(Succeed())
@@ -612,9 +616,11 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil).Times(2)
+			mockDomain.EXPECT().Free().Times(2)
+			mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Times(1)
+			mockDomain.EXPECT().FSThaw(nil, uint32(0)).Times(1)
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
 
 			var unfreezeTimeout time.Duration = 3 * time.Second
@@ -626,9 +632,11 @@ var _ = Describe("Manager", func() {
 			vmi := newVMI(testNamespace, testVmName)
 
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-freeze"}`, testDomainName).Return("1", nil)
 			mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GET_FSFREEZE_STATUS)+`"}`, testDomainName).Return(expectedFrozenOutput, nil)
-			mockConn.EXPECT().QemuAgentCommand(`{"execute":"guest-fsfreeze-thaw"}`, testDomainName).Return("1", nil)
+			mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil).Times(2)
+			mockDomain.EXPECT().Free().Times(2)
+			mockDomain.EXPECT().FSFreeze(nil, uint32(0)).Times(1)
+			mockDomain.EXPECT().FSThaw(nil, uint32(0)).Times(1)
 
 			manager, _ := NewLibvirtDomainManager(mockConn, testVirtShareDir, testEphemeralDiskDir, nil, "/usr/share/OVMF", ephemeralDiskCreatorMock, metadataCache, nil)
 
