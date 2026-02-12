@@ -56,7 +56,7 @@ var (
 		},
 		{
 			Alert: "VMCannotBeEvicted",
-			Expr:  intstr.FromString("kubevirt_vmi_non_evictable > 0"),
+			Expr:  intstr.FromString("kubevirt_vmi_non_evictable * on(name, namespace) group_left() kubevirt_vmi_info{phase='running'} == 1"),
 			For:   ptr.To(promv1.Duration("1m")),
 			Annotations: map[string]string{
 				"description": "Eviction policy for VirtualMachine {{ $labels.name }} in namespace {{ $labels.namespace }} (on node {{ $labels.node }}) is set to Live Migration but the VM is not migratable",
