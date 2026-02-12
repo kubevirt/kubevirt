@@ -111,6 +111,7 @@ type BaseController struct {
 	recorder                    record.EventRecorder
 	hasSynced                   func() bool
 	hypervisorNodeInfo          hypervisor.HypervisorNodeInformation
+	hypervisorRuntime           hypervisor.VirtRuntime
 }
 
 func NewBaseController(
@@ -128,6 +129,7 @@ func NewBaseController(
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
 	hypervisorNodeInfo hypervisor.HypervisorNodeInformation,
+	hypervisorRuntime hypervisor.VirtRuntime,
 ) (*BaseController, error) {
 
 	c := &BaseController{
@@ -146,6 +148,7 @@ func NewBaseController(
 		netStat:                     netStat,
 		hasSynced:                   func() bool { return domainInformer.HasSynced() && vmiInformer.HasSynced() },
 		hypervisorNodeInfo:          hypervisorNodeInfo,
+		hypervisorRuntime:           hypervisorRuntime,
 	}
 
 	return c, nil
