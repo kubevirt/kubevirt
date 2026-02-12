@@ -152,6 +152,8 @@ func NewVirtualMachineController(
 	)
 	logger := log.Log.With("controller", "vm")
 
+	hypervisorName := clusterConfig.GetHypervisor().Name
+
 	baseCtrl, err := NewBaseController(
 		logger,
 		host,
@@ -166,7 +168,8 @@ func NewVirtualMachineController(
 		migrationProxy,
 		"/proc/%d/root/var/run",
 		netStat,
-		hypervisor.NewHypervisorNodeInformation(clusterConfig.GetHypervisor().Name),
+		hypervisor.NewHypervisorNodeInformation(hypervisorName),
+		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
 	)
 	if err != nil {
 		return nil, err

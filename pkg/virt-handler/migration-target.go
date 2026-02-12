@@ -112,6 +112,8 @@ func NewMigrationTargetController(
 	)
 	logger := log.Log.With("controller", "migration-target")
 
+	hypervisorName := clusterConfig.GetHypervisor().Name
+
 	baseCtrl, err := NewBaseController(
 		logger,
 		host,
@@ -126,7 +128,8 @@ func NewMigrationTargetController(
 		migrationProxy,
 		virtLauncherFSRunDirPattern,
 		netStat,
-		hypervisor.NewHypervisorNodeInformation(clusterConfig.GetHypervisor().Name),
+		hypervisor.NewHypervisorNodeInformation(hypervisorName),
+		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
 	)
 	if err != nil {
 		return nil, err
