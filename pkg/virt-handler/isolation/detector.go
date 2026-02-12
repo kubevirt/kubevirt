@@ -24,19 +24,14 @@ package isolation
 import (
 	"fmt"
 	"net"
-	"runtime"
 	"syscall"
 	"time"
 
 	ps "github.com/mitchellh/go-ps"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/util"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
@@ -85,65 +80,6 @@ func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (Isolation
 	return NewIsolationResult(pid, ppid), nil
 }
 
-// AdjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside
-// virt-launcher pod on the given VMI according to its spec.
-// Only VMI's with VFIO devices (e.g: SRIOV, GPU), SEV or RealTime workloads require QEMU process MEMLOCK adjustment.
-func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
-		return nil
-	}
-
-	isolationResult, err := podIsoDetector.Detect(vmi)
-	if err != nil {
-		return err
-	}
-
-	var targetProcess ps.Process
-	if vmi.IsRunning() {
-		targetProcess, err = GetQEMUProcess(isolationResult)
-		if err != nil {
-			return err
-		}
-	} else {
-		targetProcess, err = findVirtqemudProcess(isolationResult)
-		if err != nil {
-			return err
-		}
-		// If the virtqemud process is not found, do nothing
-		if targetProcess == nil {
-			return nil
-		}
-	}
-
-	qemuProcessID := targetProcess.Pid()
-
-	// make the best estimate for memory required by libvirt
-	memlockSize := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-	// Add max memory assigned to the VM
-	var vmiBaseMemory *resource.Quantity
-
-	switch {
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.MaxGuest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.MaxGuest
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-	case vmi.Spec.Domain.Resources.Requests.Memory() != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-	case vmi.Spec.Domain.Memory != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-	}
-
-	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-	if err := setProcessMemoryLockRLimit(qemuProcessID, memlockSize.Value()); err != nil {
-		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessID, memlockSize.Value(), err)
-	}
-	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
-		targetProcess, memlockSize.Value())
-
-	return nil
-}
-
 var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
 
 // findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
@@ -158,7 +94,7 @@ func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error
 	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
 }
 
-func findVirtqemudProcess(res IsolationResult) (ps.Process, error) {
+func FindVirtqemudProcess(res IsolationResult) (ps.Process, error) {
 	processes, err := ps.Processes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all processes: %v", err)
