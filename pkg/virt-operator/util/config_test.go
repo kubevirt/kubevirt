@@ -32,7 +32,6 @@ import (
 )
 
 var _ = Describe("Operator Config", func() {
-
 	var envVarManager EnvVarManager
 
 	BeforeEach(func() {
@@ -69,7 +68,6 @@ var _ = Describe("Operator Config", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(envMap).To(Equal(map[string]string{realKey: val}))
-
 		})
 	})
 
@@ -93,7 +91,6 @@ var _ = Describe("Operator Config", func() {
 	})
 
 	Describe("creating config ID", func() {
-
 		var idMissing, idEmpty, idFilled string
 
 		BeforeEach(func() {
@@ -124,7 +121,6 @@ var _ = Describe("Operator Config", func() {
 			Expect(idFilled).ToNot(BeEmpty())
 			Expect(idFilled).ToNot(Equal(idEmpty))
 		})
-
 	})
 
 	Context("Product Names and Versions", func() {
@@ -147,7 +143,6 @@ var _ = Describe("Operator Config", func() {
 	})
 
 	Context("custom component images", func() {
-
 		var definedEnvVars []string
 
 		setCustomImageForComponent := func(component string) string {
@@ -223,7 +218,7 @@ var _ = Describe("Operator Config", func() {
 		DescribeTable("should ", func(input testInput) {
 			envManager := EnvVarManagerMock{}
 			for k, v := range input.envVars {
-				envManager.Setenv(k, v)
+				Expect(envManager.Setenv(k, v)).To(Succeed())
 			}
 			config := GetTargetConfigFromKVWithEnvVarManager(
 				input.kv,
@@ -328,7 +323,6 @@ var _ = Describe("Operator Config", func() {
 
 			kubevirtVersion := parsedConfig.GetKubeVirtVersion()
 			Expect(kubevirtVersion).To(Equal(input.version))
-
 		},
 			Entry("virt-operator image tag when both KUBEVIRT_VERSION is set and virt-operator provided with tag",
 				&testInput{

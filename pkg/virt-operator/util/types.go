@@ -66,6 +66,10 @@ type Stores struct {
 	ClusterPreference                     cache.Store
 }
 
+// AllEmpty returns true if all stores are empty.
+// The cyclomatic complexity is high because it checks each store field, but the logic is straightforward.
+//
+//nolint:gocyclo
 func (s *Stores) AllEmpty() bool {
 	return IsStoreEmpty(s.ServiceAccountCache) &&
 		IsStoreEmpty(s.ClusterRoleCache) &&
@@ -225,6 +229,10 @@ func (e *Expectations) ResetExpectations(key string) {
 	e.ValidatingAdmissionPolicy.SetExpectations(key, 0, 0)
 }
 
+// SatisfiedExpectations returns true if all expectations are satisfied for the given key.
+// The cyclomatic complexity is high because it checks each expectation field, but the logic is straightforward.
+//
+//nolint:gocyclo
 func (e *Expectations) SatisfiedExpectations(key string) bool {
 	return e.ServiceAccount.SatisfiedExpectations(key) &&
 		e.ClusterRole.SatisfiedExpectations(key) &&
