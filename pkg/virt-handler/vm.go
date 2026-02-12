@@ -1833,7 +1833,7 @@ func (c *VirtualMachineController) affinePitThread(vmi *v1.VirtualMachineInstanc
 	}
 	var Mask unix.CPUSet
 	Mask.Zero()
-	qemuprocess, err := res.GetQEMUProcess()
+	qemuprocess, err := isolation.GetQEMUProcess(res)
 	if err != nil {
 		return err
 	}
@@ -1842,7 +1842,7 @@ func (c *VirtualMachineController) affinePitThread(vmi *v1.VirtualMachineInstanc
 		return nil
 	}
 
-	pitpid, err := res.KvmPitPid()
+	pitpid, err := isolation.KvmPitPid(res)
 	if err != nil {
 		return err
 	}

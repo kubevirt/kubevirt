@@ -60,10 +60,6 @@ type IsolationResult interface {
 	MountNamespace() string
 	// mounts for the process
 	Mounts(mount.FilterFunc) ([]*mount.Info, error)
-	// returns the QEMU process
-	GetQEMUProcess() (ps.Process, error)
-	// returns the KVM PIT pid
-	KvmPitPid() (int, error)
 }
 
 type RealIsolationResult struct {
@@ -138,7 +134,7 @@ func (r *RealIsolationResult) PPid() int {
 }
 
 // GetQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID
-func (r *RealIsolationResult) GetQEMUProcess() (ps.Process, error) {
+func GetQEMUProcess(r IsolationResult) (ps.Process, error) {
 	processes, err := ps.Processes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all processes: %v", err)
@@ -180,8 +176,8 @@ func GetNspid(vmpid int) (int, error) {
 	return -1, nil
 }
 
-func (r *RealIsolationResult) KvmPitPid() (int, error) {
-	qemuprocess, err := r.GetQEMUProcess()
+func KvmPitPid(r IsolationResult) (int, error) {
+	qemuprocess, err := GetQEMUProcess(r)
 	if err != nil {
 		return -1, err
 	}
