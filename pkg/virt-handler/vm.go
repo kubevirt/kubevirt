@@ -1876,19 +1876,14 @@ func (c *VirtualMachineController) affinePitThread(vmi *v1.VirtualMachineInstanc
 	return unix.SchedSetaffinity(pitpid, &Mask)
 }
 
-func (c *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
+func (c *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domain *api.Domain) error {
 	if err := cgroupManager.CreateChildCgroup("housekeeping", "cpuset"); err != nil {
 		c.logger.Reason(err).Error("CreateChildCgroup ")
 		return err
 	}
 
-	key := controller.VirtualMachineInstanceKey(vmi)
-	domain, domainExists, _, err := c.getDomainFromCache(key)
-	if err != nil {
-		return err
-	}
 	// bail out if domain does not exist
-	if domainExists == false {
+	if domain == nil {
 		return nil
 	}
 
@@ -1942,7 +1937,7 @@ func (c *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMa
 	return nil
 }
 
-func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineInstance, domainExists bool) error {
+func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	client, err := c.launcherClients.GetLauncherClient(vmi)
 	if err != nil {
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
@@ -1976,10 +1971,21 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 		return err
 	}
 
+	if domain == nil {
+		c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), VMIDefined)
+	}
+
 	// Post-sync housekeeping
-	err = c.handleHousekeeping(vmi, cgroupManager, domainExists)
+	err = c.handleHousekeeping(vmi, cgroupManager, domain)
 	if err != nil {
 		return err
+	}
+
+	if vmi.IsRunning() {
+		// Umount any disks no longer mounted
+		if err := c.hotplugVolumeMounter.Unmount(vmi, cgroupManager); err != nil {
+			return err
+		}
 	}
 
 	return errors.NewAggregate(errorTolerantFeaturesError)
@@ -2123,9 +2129,9 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 	return err
 }
 
-func (c *VirtualMachineController) handleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domainExists bool) error {
+func (c *VirtualMachineController) handleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domain *api.Domain) error {
 	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		err := c.configureHousekeepingCgroup(vmi, cgroupManager)
+		err := c.configureHousekeepingCgroup(vmi, cgroupManager, domain)
 		if err != nil {
 			return err
 		}
@@ -2141,16 +2147,6 @@ func (c *VirtualMachineController) handleHousekeeping(vmi *v1.VirtualMachineInst
 	if vmi.IsCPUDedicated() && !vmi.IsRunning() && !vmi.IsFinal() {
 		c.logger.V(3).Object(vmi).Info("Affining PIT thread")
 		if err := c.affinePitThread(vmi); err != nil {
-			return err
-		}
-	}
-	if !domainExists {
-		c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), VMIDefined)
-	}
-
-	if vmi.IsRunning() {
-		// Umount any disks no longer mounted
-		if err := c.hotplugVolumeMounter.Unmount(vmi, cgroupManager); err != nil {
 			return err
 		}
 	}
@@ -2274,7 +2270,7 @@ func (c *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 
-	return c.vmUpdateHelperDefault(vmi, domain != nil)
+	return c.vmUpdateHelperDefault(vmi, domain)
 }
 
 func (c *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) error {
