@@ -117,6 +117,14 @@ func (DeviceAttribute) SwaggerDoc() map[string]string {
 		"":           "DeviceAttribute must have exactly one field set.",
 		"pciAddress": "PCIAddress is the PCIe bus address of the allocated device\n+optional",
 		"mDevUUID":   "MDevUUID is the mediated device uuid of the allocated device\n+optional",
+		"usbAddress": "USBAddress is the USB bus address of the allocated device\n+optional",
+	}
+}
+
+func (USBAddress) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"bus":          "+required",
+		"deviceNumber": "+required",
 	}
 }
 

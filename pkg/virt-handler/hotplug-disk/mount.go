@@ -313,7 +313,7 @@ func (m *volumeMounter) mountHotplugVolume(
 		} else {
 			logger.V(3).Infof("Mounting file system volume: %s", volumeName)
 			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record, mountDirectory); err != nil {
-					return nil, fmt.Errorf("failed to mount filesystem hotplug volume %s: %v", volumeName, err)
+				return nil, fmt.Errorf("failed to mount filesystem hotplug volume %s: %v", volumeName, err)
 			}
 		}
 	}

@@ -525,6 +525,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Timer":                                                              schema_kubevirtio_api_core_v1_Timer(ref),
 		"kubevirt.io/api/core/v1.TokenBucketRateLimiter":                                             schema_kubevirtio_api_core_v1_TokenBucketRateLimiter(ref),
 		"kubevirt.io/api/core/v1.TopologyHints":                                                      schema_kubevirtio_api_core_v1_TopologyHints(ref),
+		"kubevirt.io/api/core/v1.USBAddress":                                                         schema_kubevirtio_api_core_v1_USBAddress(ref),
 		"kubevirt.io/api/core/v1.USBHostDevice":                                                      schema_kubevirtio_api_core_v1_USBHostDevice(ref),
 		"kubevirt.io/api/core/v1.USBSelector":                                                        schema_kubevirtio_api_core_v1_USBSelector(ref),
 		"kubevirt.io/api/core/v1.UnpauseOptions":                                                     schema_kubevirtio_api_core_v1_UnpauseOptions(ref),
@@ -19071,9 +19072,17 @@ func schema_kubevirtio_api_core_v1_DeviceAttribute(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"usbAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "USBAddress is the USB bus address of the allocated device",
+							Ref:         ref("kubevirt.io/api/core/v1.USBAddress"),
+						},
+					},
 				},
 			},
 		},
+		Dependencies: []string{
+			"kubevirt.io/api/core/v1.USBAddress"},
 	}
 }
 
@@ -25047,6 +25056,33 @@ func schema_kubevirtio_api_core_v1_TopologyHints(ref common.ReferenceCallback) c
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_USBAddress(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"bus": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"deviceNumber": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"bus", "deviceNumber"},
 			},
 		},
 	}

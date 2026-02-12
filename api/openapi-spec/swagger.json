@@ -13746,6 +13746,10 @@
      "pciAddress": {
       "description": "PCIAddress is the PCIe bus address of the allocated device",
       "type": "string"
+     },
+     "usbAddress": {
+      "description": "USBAddress is the USB bus address of the allocated device",
+      "$ref": "#/definitions/v1.USBAddress"
      }
     }
    },
@@ -16893,6 +16897,25 @@
      "tscFrequency": {
       "type": "integer",
       "format": "int64"
+     }
+    }
+   },
+   "v1.USBAddress": {
+    "type": "object",
+    "required": [
+     "bus",
+     "deviceNumber"
+    ],
+    "properties": {
+     "bus": {
+      "type": "integer",
+      "format": "int64",
+      "default": 0
+     },
+     "deviceNumber": {
+      "type": "integer",
+      "format": "int64",
+      "default": 0
      }
     }
    },

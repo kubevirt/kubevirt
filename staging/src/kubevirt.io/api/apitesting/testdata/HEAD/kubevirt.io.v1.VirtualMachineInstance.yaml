@@ -615,6 +615,9 @@ status:
         attributes:
           mDevUUID: mDevUUIDValue
           pciAddress: pciAddressValue
+          usbAddress:
+            bus: -3
+            deviceNumber: -12
         name: nameValue
         resourceClaimName: resourceClaimNameValue
       name: nameValue
@@ -623,6 +626,9 @@ status:
         attributes:
           mDevUUID: mDevUUIDValue
           pciAddress: pciAddressValue
+          usbAddress:
+            bus: -3
+            deviceNumber: -12
         name: nameValue
         resourceClaimName: resourceClaimNameValue
       name: nameValue

@@ -1141,7 +1141,11 @@
             "resourceClaimName": "resourceClaimNameValue",
             "attributes": {
               "pciAddress": "pciAddressValue",
-              "mDevUUID": "mDevUUIDValue"
+              "mDevUUID": "mDevUUIDValue",
+              "usbAddress": {
+                "bus": -3,
+                "deviceNumber": -12
+              }
             }
           }
         }
@@ -1154,7 +1158,11 @@
             "resourceClaimName": "resourceClaimNameValue",
             "attributes": {
               "pciAddress": "pciAddressValue",
-              "mDevUUID": "mDevUUIDValue"
+              "mDevUUID": "mDevUUIDValue",
+              "usbAddress": {
+                "bus": -3,
+                "deviceNumber": -12
+              }
             }
           }
         }

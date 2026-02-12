@@ -21,6 +21,7 @@ package dra
 
 import (
 	"fmt"
+	"strconv"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -39,20 +40,56 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 	if !hasHostDevicesWithDRA(vmi) {
 		return hostDevices, nil
 	}
+
+	draUSBHostDevices, err := getDRAUSBHostDevices(vmi)
+	if err != nil {
+		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
+	}
+
 	draPCIHostDevices, err := getDRAPCIHostDevices(vmi)
 	if err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
 	}
+
 	draMDEVHostDevices, err := getDRAMDEVHostDevices(vmi)
 	if err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
 	}
 
+	hostDevices = append(hostDevices, draUSBHostDevices...)
 	hostDevices = append(hostDevices, draPCIHostDevices...)
 	hostDevices = append(hostDevices, draMDEVHostDevices...)
 
 	if err := validateCreationOfDRAHostDevices(vmi.Spec.Domain.Devices.HostDevices, hostDevices); err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
+	}
+
+	return hostDevices, nil
+}
+
+func getDRAUSBHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+	var hostDevices []api.HostDevice
+	if vmi.Status.DeviceStatus == nil {
+		return hostDevices, fmt.Errorf("vmi has dra usb devices but no device status found")
+	}
+
+	for _, hdStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+		hdStatus := hdStatus.DeepCopy()
+		if hdStatus.DeviceResourceClaimStatus != nil && hdStatus.DeviceResourceClaimStatus.Attributes != nil {
+			if usbAddress := hdStatus.DeviceResourceClaimStatus.Attributes.USBAddress; usbAddress != nil {
+				hostDevices = append(hostDevices, api.HostDevice{
+					Type:  api.HostDeviceUSB,
+					Mode:  "subsystem",
+					Alias: api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hdStatus.Name),
+					Source: api.HostDeviceSource{
+						Address: &api.Address{
+							Bus:    strconv.FormatInt(usbAddress.Bus, 10),
+							Device: strconv.FormatInt(usbAddress.DeviceNumber, 10),
+						},
+					},
+				})
+			}
+		}
 	}
 
 	return hostDevices, nil

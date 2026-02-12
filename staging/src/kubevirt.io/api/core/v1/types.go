@@ -367,6 +367,16 @@ type DeviceAttribute struct {
 	//MDevUUID is the mediated device uuid of the allocated device
 	// +optional
 	MDevUUID *string `json:"mDevUUID,omitempty"`
+	// USBAddress is the USB bus address of the allocated device
+	// +optional
+	USBAddress *USBAddress `json:"usbAddress,omitempty"`
+}
+
+type USBAddress struct {
+	// +required
+	Bus int64 `json:"bus"`
+	// +required
+	DeviceNumber int64 `json:"deviceNumber"`
 }
 
 // StorageMigratedVolumeInfo tracks the information about the source and destination volumes during the volume migration

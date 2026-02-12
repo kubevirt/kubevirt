@@ -23,6 +23,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -37,6 +39,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/trace"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -55,6 +58,10 @@ const (
 	indexByNodeName              = "byNodeName"
 	PCIAddressDeviceAttributeKey = "resource.kubernetes.io/pcieRoot"
 	MDevUUIDDeviceAttributeKey   = "resource.kubernetes.io/mDevUUID"
+	// USBAddressAttributeKey = "usbAddress"
+	// No Kubernetes resource.kubernetes.io/ prefix is used because this is a
+	// driver-specific attribute.
+	USBAddressAttributeKey = "usbAddress"
 )
 
 type DeviceInfo struct {
@@ -545,7 +552,7 @@ func (c *DRAStatusController) getGPUStatus(gpuInfo DeviceInfo, pod *k8sv1.Pod) (
 	}
 
 	gpuStatus.DeviceResourceClaimStatus.Name = &device.Device
-	pciAddress, mDevUUID, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
+	pciAddress, mDevUUID, usbAddress, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
 	if err != nil {
 		return gpuStatus, err
 	}
@@ -555,6 +562,9 @@ func (c *DRAStatusController) getGPUStatus(gpuInfo DeviceInfo, pod *k8sv1.Pod) (
 	}
 	if mDevUUID != "" {
 		attrs.MDevUUID = &mDevUUID
+	}
+	if usbAddress != nil {
+		attrs.USBAddress = usbAddress
 	}
 	gpuStatus.DeviceResourceClaimStatus.Attributes = &attrs
 
@@ -597,39 +607,50 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 	return nil, nil
 }
 
-// getDeviceAttributes returns the pciAddress and mdevUUID of the device. It will return both if found, otherwise it will return empty strings
-func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, driverName string) (string, string, error) {
+// getDeviceAttributes returns the pciAddress, mdevUUID, usbAddress of the device. It will return all if found, otherwise it will return empty strings or nil.
+func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, driverName string) (string, string, *v1.USBAddress, error) {
 	resourceSlices, err := c.resourceSliceIndexer.ByIndex(indexByNodeName, nodeName)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	if len(resourceSlices) == 0 {
-		return "", "", fmt.Errorf("no resource slice objects found in cache")
+		return "", "", nil, fmt.Errorf("no resource slice objects found in cache")
 	}
 
-	pciAddress := ""
-	mdevUUID := ""
 	for _, obj := range resourceSlices {
 		rs := obj.(*resourcev1beta1.ResourceSlice)
 		if rs.Spec.Driver == driverName {
 			for _, device := range rs.Spec.Devices {
 				if device.Name == deviceName {
+
+					var (
+						pciAddress string
+						mdevUUID   string
+						usbAddress *v1.USBAddress
+					)
+
 					for key, value := range device.Basic.Attributes {
-						if string(key) == PCIAddressDeviceAttributeKey {
+						if string(key) == PCIAddressDeviceAttributeKey && value.StringValue != nil {
 							pciAddress = *value.StringValue
-						} else if string(key) == MDevUUIDDeviceAttributeKey {
+						} else if string(key) == MDevUUIDDeviceAttributeKey && value.StringValue != nil {
 							mdevUUID = *value.StringValue
+						} else if string(key) == USBAddressAttributeKey && value.StringValue != nil {
+							usbAddress, err = resolveUSBAddress(*value.StringValue)
+							if err != nil {
+								return "", "", nil, err
+							}
 						}
 					}
-					if pciAddress == "" && mdevUUID == "" {
-						return "", "", fmt.Errorf("neither pciAddress nor mdevUUIDa attribute found for device %s", deviceName)
+					if pciAddress == "" && mdevUUID == "" && usbAddress == nil {
+						return "", "", nil, fmt.Errorf("neither %s,%s or %s valid attribute found for device %s", PCIAddressDeviceAttributeKey, MDevUUIDDeviceAttributeKey, USBAddressAttributeKey, deviceName)
 					}
-					return pciAddress, mdevUUID, nil
+
+					return pciAddress, mdevUUID, usbAddress, nil
 				}
 			}
 		}
 	}
-	return pciAddress, mdevUUID, nil
+	return "", "", nil, nil
 }
 
 func indexResourceSliceByNodeName(obj interface{}) ([]string, error) {
@@ -691,7 +712,7 @@ func (c *DRAStatusController) getHostDeviceStatus(hostDeviceInfo DeviceInfo, pod
 	}
 
 	hostDeviceStatus.DeviceResourceClaimStatus.Name = &device.Device
-	pciAddress, mDevUUID, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
+	pciAddress, mDevUUID, usbAddress, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
 	if err != nil {
 		return hostDeviceStatus, err
 	}
@@ -702,7 +723,32 @@ func (c *DRAStatusController) getHostDeviceStatus(hostDeviceInfo DeviceInfo, pod
 	if mDevUUID != "" {
 		attrs.MDevUUID = &mDevUUID
 	}
+	if usbAddress != nil {
+		attrs.USBAddress = usbAddress
+	}
 	hostDeviceStatus.DeviceResourceClaimStatus.Attributes = &attrs
 
 	return hostDeviceStatus, nil
+}
+
+func resolveUSBAddress(usbAddress string) (*v1.USBAddress, error) {
+	parts := strings.SplitN(usbAddress, ":", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("invalid usb address %s", usbAddress)
+	}
+
+	bus, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve bus from usb address %s: %w", usbAddress, err)
+	}
+
+	deviceNumber, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve device number from usb address %s: %w", usbAddress, err)
+	}
+
+	return &v1.USBAddress{
+		Bus:          int64(bus),
+		DeviceNumber: int64(deviceNumber),
+	}, nil
 }

@@ -80,7 +80,8 @@ func IsAllDRAHostDevicesReconciled(vmi *v1.VirtualMachineInstance, status *v1.De
 				hdStatus.DeviceResourceClaimStatus.Name != nil &&
 				hdStatus.DeviceResourceClaimStatus.Attributes != nil &&
 				(hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil ||
-					hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil) {
+					hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil ||
+					hdStatus.DeviceResourceClaimStatus.Attributes.USBAddress != nil) {
 				reconciledCount++
 			}
 		}

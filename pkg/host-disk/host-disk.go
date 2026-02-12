@@ -28,6 +28,7 @@ import (
 	"syscall"
 
 	"kubevirt.io/client-go/log"
+
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	k8sv1 "k8s.io/api/core/v1"
