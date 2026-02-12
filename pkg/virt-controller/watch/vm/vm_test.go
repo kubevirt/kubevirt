@@ -3302,6 +3302,13 @@ var _ = Describe("VirtualMachine", func() {
 					map[string]string{selectedAnnotationKey: initialValue},
 					0,
 				),
+				Entry("should remove wildcard-synced annotations from VMI if missing in VM.spec.template.metadata.annotations",
+					[]string{customWildcardSyncAnnotation},
+					map[string]string{selectedAnnotationKey: initialValue, customSyncAnnotation: customSyncAnnotation},
+					map[string]string{selectedAnnotationKey: initialValue},
+					map[string]string{selectedAnnotationKey: initialValue},
+					1,
+				),
 			)
 
 			DescribeTable("should sync selected dynamic labels from spec.template to vmi", func(existingLabels, updatedVMLabels, expectedVMILabels map[string]string, numExpectedPatches int) {

@@ -687,7 +687,7 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 			podNewMap = map[string]string{}
 		}
 
-		// keyMap contains the deduplicated keys that we need to sync between the VM and VMIs
+		// keyMap contains the deduplicated keys that we need to sync between the VMI and the Pod
 		// This includes keys containing wildcards (e.g., abc/*) in their expanded form (e.g., abc/123 and abc/456)
 		keyMap := map[string]struct{}{}
 
