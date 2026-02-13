@@ -335,7 +335,7 @@ oci_push(
 oci_push(
     name = "push-fedora-with-test-tooling-container-disk",
     image = "//containerimages:fedora-with-test-tooling",
-    repository = "quay.io/fedora-with-test-tooling-container-disk",
+    repository = "quay.io/kubevirt/fedora-with-test-tooling-container-disk",
 )
 
 oci_push(
