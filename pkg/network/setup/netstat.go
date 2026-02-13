@@ -21,11 +21,13 @@ package network
 
 import (
 	"fmt"
+	"net"
 	"slices"
 	"strings"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
+	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -350,9 +352,24 @@ func updateVMIIfaceStatusWithGuestAgentData(ifaceStatus *v1.VirtualMachineInstan
 	// - Status IPs exist, however, GA information does not include any IP.
 	// In other words, if IP data already existed in the status, GA IP data will not override it.
 	// However, in case GA does not include IP data, it will clear IP status data (guest is not reachable by any IP).
-	if ifaceStatus.IP == "" || guestAgentIface.Ip == "" {
-		ifaceStatus.IP = guestAgentIface.Ip
-		ifaceStatus.IPs = guestAgentIface.IPs
+	ifaceStatusIPv4, ifaceStatusIPv6 := splitIPByFamiliy(ifaceStatus.IPs)
+	guestAgentIfaceIPv4, guestAgentIfaceIPv6 := splitIPByFamiliy(guestAgentIface.IPs)
+	if len(ifaceStatusIPv4) == 0 || len(guestAgentIfaceIPv4) == 0 {
+		ifaceStatusIPv4 = guestAgentIfaceIPv4
+	}
+	if len(ifaceStatusIPv6) == 0 || len(guestAgentIfaceIPv6) == 0 {
+		ifaceStatusIPv6 = guestAgentIfaceIPv6
+	}
+	ifaceStatus.IP = ""
+	ifaceStatus.IPs = nil
+	if len(ifaceStatusIPv4) > 0 {
+		ifaceStatus.IPs = append(ifaceStatus.IPs, ifaceStatusIPv4...)
+	}
+	if len(ifaceStatusIPv6) > 0 {
+		ifaceStatus.IPs = append(ifaceStatus.IPs, ifaceStatusIPv6...)
+	}
+	if len(ifaceStatus.IPs) > 0 {
+		ifaceStatus.IP = ifaceStatus.IPs[0]
 	}
 }
 
@@ -374,4 +391,22 @@ func filterHostDevicesByAlias(hostDevices []api.HostDevice, prefix string) []api
 		}
 	}
 	return filteredHostDevices
+}
+
+func splitIPByFamiliy(ips []string) ([]string, []string) {
+	var IPv4Addresses []string
+	var IPv6Addresses []string
+
+	for _, ipRaw := range ips {
+		ip := net.ParseIP(ipRaw)
+		switch {
+		case ip == nil:
+			continue
+		case netutils.IsIPv4(ip):
+			IPv4Addresses = append(IPv4Addresses, ipRaw)
+		case netutils.IsIPv6(ip):
+			IPv6Addresses = append(IPv6Addresses, ipRaw)
+		}
+	}
+	return IPv4Addresses, IPv6Addresses
 }
