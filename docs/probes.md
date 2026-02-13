@@ -1,6 +1,6 @@
-# Readiness and LivenessProbes
+# StartupProbe, Readiness and LivenessProbes
 
-The VMI spec allows setting `livenessProbe` and `readinessProbe` which translate to the same field on the resulting pod running the VM.
+The VMI spec allows setting `startupProbe`, `livenessProbe` and `readinessProbe` which translate to the same field on the resulting pod running the VM.
 
 ## Exec Probes
 
@@ -19,22 +19,22 @@ To easily define this on VM spec, specify `guestAgentPing: {}` in VM's readiness
 > Note: You can only define one of the type of probe.
 
 
-**Important:** If the qemu-guest-agent is not installed **and** enabled inside the VM, the probe will fail. 
-Many images don't enabled the agent by default so make sure you either run one that does or enable it. 
+**Important:** If the qemu-guest-agent is not installed **and** enabled inside the VM, the probe will fail.
+Many images don't enabled the agent by default so make sure you either run one that does or enable it.
 
 Make sure to provide enough delay and failureThreshold for the VM and the agent to be online.
 
 ### Example
 
 The Fedora image used in this example does have qemu-guest-agent available by default. Nevertheless, in
-case qemu-guest-agent is not installed, it will be installed and enabled via cloud-init as shown in the example below. 
-Also, cloud-init assigns the proper SELinux context, i.e. virt_qemu_ga_exec_t, to the `/tmp/healthy.txt` file. 
+case qemu-guest-agent is not installed, it will be installed and enabled via cloud-init as shown in the example below.
+Also, cloud-init assigns the proper SELinux context, i.e. virt_qemu_ga_exec_t, to the `/tmp/healthy.txt` file.
 Otherwise, SELinux will deny the attempts to open the `/tmp/healthy.txt` file causing the probe to fail.
 
 > Note:  If SELinux is not installed in your container disk image, the command `chcon` should be removed from the VM
 > manifest shown below. Otherwise, the `chcon`  command will fail.
 
-1. Create the VM 
+1. Create the VM
 
 ```yaml
 $ cat <<EOF | kubectl apply -f -
@@ -45,7 +45,7 @@ metadata:
     kubevirt.io/vm: readiness-probe-vm
   name: readiness-probe
 spec:
-  runStrategy: Always 
+  runStrategy: Always
   template:
     metadata:
       labels:

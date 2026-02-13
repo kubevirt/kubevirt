@@ -109,6 +109,7 @@ func SetDefaults_VirtualMachineInstance(obj *VirtualMachineInstance) {
 
 	setDefaults_Disk(obj)
 	setDefaults_Input(obj)
+	SetDefaults_Probe(obj.Spec.StartupProbe)
 	SetDefaults_Probe(obj.Spec.ReadinessProbe)
 	SetDefaults_Probe(obj.Spec.LivenessProbe)
 }

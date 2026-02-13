@@ -254,6 +254,7 @@ var _ = Describe("Defaults", func() {
 	It("should default probes", func() {
 		vmi := &v1.VirtualMachineInstance{
 			Spec: v1.VirtualMachineInstanceSpec{
+				StartupProbe:   &v1.Probe{},
 				ReadinessProbe: &v1.Probe{},
 				LivenessProbe:  &v1.Probe{},
 			},
@@ -266,6 +267,7 @@ var _ = Describe("Defaults", func() {
 			Expect(probe.SuccessThreshold).To(BeEquivalentTo(1))
 			Expect(probe.FailureThreshold).To(BeEquivalentTo(3))
 		}
+		validateProbe(vmi.Spec.StartupProbe)
 		validateProbe(vmi.Spec.ReadinessProbe)
 		validateProbe(vmi.Spec.LivenessProbe)
 	})
