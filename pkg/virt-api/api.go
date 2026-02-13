@@ -147,6 +147,8 @@ type virtAPIApp struct {
 var (
 	_                service.Service = &virtAPIApp{}
 	apiHealthVersion                 = new(healthz.KubeApiHealthzVersion)
+	// v3SpecCache caches OpenAPI v3 specs and their hashes for each group-version.
+	v3SpecCache = openapi.NewV3SpecCache()
 )
 
 func NewVirtApi() VirtApi {
@@ -874,6 +876,49 @@ func (app *virtAPIApp) composeSubresources() {
 			response.WriteAsJson(openapispec)
 		}))
 
+	ws.Route(ws.GET("openapi/v3").
+		Produces(restful.MIME_JSON).
+		To(func(request *restful.Request, response *restful.Response) {
+			paths := make(map[string]interface{})
+			for i, version := range v1.SubresourceGroupVersions {
+				gvPath := fmt.Sprintf("apis/%s/%s", version.Group, version.Version)
+				_, hash, err := v3SpecCache.BuildV3Spec(gvPath, subwss[i], virtversion.Get().String())
+				if err != nil {
+					log.Log.Reason(err).Errorf("failed to build OpenAPI v3 spec for %s", gvPath)
+					response.WriteErrorString(http.StatusInternalServerError, "failed to build OpenAPI v3 spec")
+					return
+				}
+				paths[gvPath] = map[string]string{
+					"serverRelativeURL": fmt.Sprintf("/openapi/v3/%s?hash=%s", gvPath, hash),
+				}
+			}
+			response.WriteAsJson(map[string]interface{}{
+				"paths": paths,
+			})
+		}).Operation("getOpenAPIV3Discovery").
+		Doc("Get OpenAPI v3 discovery"))
+
+	for i, version := range v1.SubresourceGroupVersions {
+		ws.Route(ws.GET(fmt.Sprintf("openapi/v3/apis/%s/%s", version.Group, version.Version)).
+			Produces(restful.MIME_JSON).
+			To(func(request *restful.Request, response *restful.Response) {
+				gvPath := fmt.Sprintf("apis/%s/%s", version.Group, version.Version)
+				specBytes, _, err := v3SpecCache.BuildV3Spec(gvPath, subwss[i], virtversion.Get().String())
+				if err != nil {
+					log.Log.Reason(err).Error("failed to build OpenAPI v3 spec")
+					response.WriteErrorString(http.StatusInternalServerError, "failed to build OpenAPI v3 spec")
+					return
+				}
+
+				response.ResponseWriter.Header().Set("Content-Type", restful.MIME_JSON)
+				response.ResponseWriter.Write(specBytes)
+			}).
+			Operation(fmt.Sprintf("getOpenAPIV3Spec_%s_%s", version.Group, version.Version)).
+			Doc(fmt.Sprintf("Get OpenAPI v3 specification for %s/%s", version.Group, version.Version)).
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusInternalServerError, "Internal Server Error", ""))
+	}
+
 	restful.Add(ws)
 }
 
@@ -884,6 +929,7 @@ func (app *virtAPIApp) Compose() {
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
 	restful.Filter(func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
+
 		allowed, reason, err := app.authorizor.Authorize(req)
 		if err != nil {
 

@@ -12250,7 +12250,7 @@
    "/healthz": {
     "get": {
      "description": "Health endpoint",
-     "operationId": "func15",
+     "operationId": "func17",
      "responses": {
       "401": {
        "description": "Unauthorized"
@@ -12270,6 +12270,72 @@
      "responses": {
       "401": {
        "description": "Unauthorized"
+      }
+     }
+    }
+   },
+   "/openapi/v3": {
+    "get": {
+     "description": "Get OpenAPI v3 discovery",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "getOpenAPIV3Discovery",
+     "responses": {
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    }
+   },
+   "/openapi/v3/apis/subresources.kubevirt.io/v1": {
+    "get": {
+     "description": "Get OpenAPI v3 specification for subresources.kubevirt.io/v1",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "getOpenAPIV3Spec_subresources.kubevirt.io_v1",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/openapi/v3/apis/subresources.kubevirt.io/v1alpha3": {
+    "get": {
+     "description": "Get OpenAPI v3 specification for subresources.kubevirt.io/v1alpha3",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "getOpenAPIV3Spec_subresources.kubevirt.io_v1alpha3",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "500": {
+       "description": "Internal Server Error",
+       "schema": {
+        "type": "string"
+       }
       }
      }
     }
