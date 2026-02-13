@@ -20,6 +20,9 @@
 package util
 
 import (
+	"os"
+	"path"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -97,5 +100,58 @@ var _ = Describe("Host Device VMI Predicates", func() {
 			},
 		}
 		Expect(IsHostDevVMI(vmi)).To(BeTrue())
+	})
+})
+
+var _ = Describe("Secure Guest Capacity", func() {
+	var (
+		originalSecureGuestCapacityPath string
+		tempDir                         string
+	)
+
+	BeforeEach(func() {
+		originalSecureGuestCapacityPath = secureGuestCapacityPath
+		tempDir, err := os.MkdirTemp("", "cgroup")
+		Expect(err).ToNot(HaveOccurred())
+		secureGuestCapacityPath = path.Join(tempDir, "misc.capacity")
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(tempDir)).To(Succeed())
+		secureGuestCapacityPath = originalSecureGuestCapacityPath
+	})
+
+	Context("when reading secure guest capacity from misc.capacity", func() {
+		It("should successfully parse TDX capacity", func() {
+			Expect(os.WriteFile(secureGuestCapacityPath, []byte("tdx 15\n"), 0644)).To(Succeed())
+			caps, err := GetSecureGuestCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(HaveLen(1))
+			Expect(caps["tdx"]).To(Equal(15))
+		})
+
+		It("should successfully parse SEV-SNP capacity", func() {
+			Expect(os.WriteFile(secureGuestCapacityPath, []byte("sev 99\nsev_es 2\n"), 0644)).To(Succeed())
+			caps, err := GetSecureGuestCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(HaveLen(2))
+			Expect(caps["sev"]).To(Equal(99))
+			Expect(caps["sev_es"]).To(Equal(2))
+		})
+
+		It("should successfully handle empty file", func() {
+			Expect(os.WriteFile(secureGuestCapacityPath, []byte(""), 0644)).To(Succeed())
+			caps, err := GetSecureGuestCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(BeEmpty())
+		})
+
+		It("should return error when file does not exist", func() {
+			secureGuestCapacityPath = "/nonexisted_path/misc.capacity"
+			caps, err := GetSecureGuestCapacity()
+			Expect(err).To(HaveOccurred())
+			Expect(caps).To(BeNil())
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
 	})
 })

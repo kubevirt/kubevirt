@@ -1302,6 +1302,26 @@ var _ = Describe("Template", func() {
 					Expect(pod.Spec.NodeSelector).To(HaveKeyWithValue(v1.SEVSNPLabel, "true"))
 				})
 
+				It("should add sev-esids resource with SEV-SNP workload", func() {
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+						SNP: &v1.SEVSNP{},
+					}
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					containers := pod.Spec.Containers
+					Expect(err).ToNot(HaveOccurred())
+					Expect(containers[0].Resources.Limits.Name(SevESidsDevice, resource.DecimalSI)).To(Equal(resource.NewQuantity(1, resource.DecimalSI)))
+				})
+
+				It("should not add sev-esids resource without SEV-SNP workload", func() {
+					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
+
+					pod, err := svc.RenderLaunchManifest(vmi)
+					containers := pod.Spec.Containers
+					Expect(err).ToNot(HaveOccurred())
+					Expect(containers[0].Resources.Limits.Name(SevESidsDevice, resource.DecimalSI)).To(Equal(resource.NewQuantity(0, resource.DecimalSI)))
+				})
+
 				DescribeTable("should not add SEV-ES or SEV-SNP node label selector", func(policy *v1.SEVPolicy) {
 					vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
 						SEV: &v1.SEV{

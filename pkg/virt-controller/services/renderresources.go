@@ -375,6 +375,15 @@ func WithSEV() ResourceRendererOption {
 	}
 }
 
+func WithSNPCapacity() ResourceRendererOption {
+	return func(renderer *ResourceRenderer) {
+		resources := renderer.ResourceRequirements()
+		requestResource(&resources, SevESidsDevice)
+		copyResources(resources.Limits, renderer.calculatedLimits)
+		copyResources(resources.Requests, renderer.calculatedRequests)
+	}
+}
+
 func WithPersistentReservation() ResourceRendererOption {
 	return func(renderer *ResourceRenderer) {
 		resources := renderer.ResourceRequirements()
