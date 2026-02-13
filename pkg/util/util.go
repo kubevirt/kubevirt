@@ -1,8 +1,12 @@
 package util
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -56,4 +60,40 @@ func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 	}
 
 	return nvramPath
+}
+
+var miscCapacityPath = filepath.Join(HostRootMount, "/sys/fs/cgroup/misc.capacity")
+
+// GetMiscCapacity reads /sys/fs/cgroup/misc.capacity to return a map where keys
+// are the resource type names and values are their respective capacity limits.
+// Note SEV-SNP and SEV-ES share the same capacity pool, e.g. "sev_es 99"
+func GetMiscCapacity() (map[string]int, error) {
+	caps := make(map[string]int)
+
+	content, err := os.ReadFile(miscCapacityPath)
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(content))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+
+		capacityKey := fields[0]
+		capacity, err := strconv.Atoi(fields[1])
+		if err != nil {
+			return nil, err
+		}
+		caps[capacityKey] = capacity
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return caps, nil
 }
