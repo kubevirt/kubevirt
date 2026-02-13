@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "common.go",
+        "cpuset.go",
+        "dbus.go",
+        "devices.go",
+        "user.go",
+        "v1.go",
+        "v2.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/opencontainers/runc/libcontainer/cgroups/systemd",
+    importpath = "github.com/opencontainers/runc/libcontainer/cgroups/systemd",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/coreos/go-systemd/v22/dbus:go_default_library",
+        "//vendor/github.com/cyphar/filepath-securejoin:go_default_library",
+        "//vendor/github.com/godbus/dbus/v5:go_default_library",
+        "//vendor/github.com/moby/sys/userns:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/cgroups:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
+        "//vendor/github.com/sirupsen/logrus:go_default_library",
+    ],
+)
