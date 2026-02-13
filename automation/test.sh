@@ -592,6 +592,7 @@ fi
 # Single stack IPv6 cluster should skip tests that require dual stack cluster
 if [[ ${KUBEVIRT_SINGLE_STACK} == "true" ]]; then
   add_to_label_filter '(!requires-dual-stack-cluster)' '&&'
+  add_to_label_filter '(!requires-ipv4-cluster)' '&&'
 fi
 
 # If KUBEVIRT_QUARANTINE is not set, do not run quarantined tests. When it is
