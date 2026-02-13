@@ -20,6 +20,9 @@
 package util
 
 import (
+	"os"
+	"path"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -233,3 +236,56 @@ var _ = DescribeTable("memory lock limit requirements",
 		true,
 	),
 )
+
+var _ = Describe("Misc Capacity", func() {
+	var (
+		originalMiscCapacityPath string
+		tempDir                  string
+	)
+
+	BeforeEach(func() {
+		originalMiscCapacityPath = miscCapacityPath
+		tempDir, err := os.MkdirTemp("", "cgroup")
+		Expect(err).ToNot(HaveOccurred())
+		miscCapacityPath = path.Join(tempDir, "misc.capacity")
+	})
+
+	AfterEach(func() {
+		Expect(os.RemoveAll(tempDir)).To(Succeed())
+		miscCapacityPath = originalMiscCapacityPath
+	})
+
+	Context("when reading secure guest capacity from misc.capacity", func() {
+		It("should successfully parse TDX capacity", func() {
+			Expect(os.WriteFile(miscCapacityPath, []byte("tdx 15\n"), 0644)).To(Succeed())
+			caps, err := GetMiscCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(HaveLen(1))
+			Expect(caps["tdx"]).To(Equal(15))
+		})
+
+		It("should successfully parse SEV-SNP capacity", func() {
+			Expect(os.WriteFile(miscCapacityPath, []byte("sev 410\nsev_es 99\n"), 0644)).To(Succeed())
+			caps, err := GetMiscCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(HaveLen(2))
+			Expect(caps["sev"]).To(Equal(410))
+			Expect(caps["sev_es"]).To(Equal(99))
+		})
+
+		It("should successfully handle empty file", func() {
+			Expect(os.WriteFile(miscCapacityPath, []byte(""), 0644)).To(Succeed())
+			caps, err := GetMiscCapacity()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(caps).To(BeEmpty())
+		})
+
+		It("should return error when file does not exist", func() {
+			miscCapacityPath = "/nonexisted_path/misc.capacity"
+			caps, err := GetMiscCapacity()
+			Expect(err).To(HaveOccurred())
+			Expect(caps).To(BeNil())
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
+	})
+})

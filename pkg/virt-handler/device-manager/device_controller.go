@@ -33,11 +33,10 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 
-	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
-
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
@@ -122,6 +121,51 @@ func PermanentHostDevicePlugins(hypervisorDevice string, maxDevices int, permiss
 	return ret
 }
 
+type secureGuestCapacityDeviceHandler struct {
+	IsFgEnabled                     func() bool
+	UpdateSecureGuestCapacityDevice func(capacity int) (Device, error)
+}
+
+func (c *DeviceController) updateSecureGuestCapacityDevicePlugins() []Device {
+	var capacityDeviceHandlers = map[string]secureGuestCapacityDeviceHandler{
+		"tdx":    {c.virtConfig.WorkloadEncryptionTDXEnabled, c.updateTdxDevice},
+		"sev_es": {c.virtConfig.WorkloadEncryptionSEVEnabled, c.updateSNPCapacityDevice},
+	}
+
+	var caps map[string]int
+	var err error
+	plugins := []Device{}
+	for capKey, deviceHandler := range capacityDeviceHandlers {
+		if deviceHandler.IsFgEnabled() {
+			if len(caps) == 0 {
+				caps, err = util.GetMiscCapacity()
+
+				if err != nil {
+					log.Log.V(4).Infof("Error getting secure guest capacity: %s", err.Error())
+					return nil
+				}
+
+				if len(caps) == 0 {
+					log.Log.V(4).Infof("No secure guest capacity available")
+					return nil
+				}
+			}
+
+			capacity, existed := caps[capKey]
+			if existed {
+				cvmPlugin, err := deviceHandler.UpdateSecureGuestCapacityDevice(capacity)
+				if err != nil {
+					log.Log.Reason(err).Errorf("Failed to update the secure guest capacity device plugin")
+				}
+				plugins = append(plugins, cvmPlugin)
+				break
+			}
+		}
+	}
+
+	return plugins
+}
+
 type DeviceControllerInterface interface {
 	Initialized() bool
 	RefreshMediatedDeviceTypes()
@@ -182,40 +226,28 @@ func (c *DeviceController) NodeHasDevice(devicePath string) bool {
 	return err == nil
 }
 
-func (c *DeviceController) updateTdxDevice() (Device, error) {
-	maxTDXVMs, err := cgroup.GetMiscCapacity("tdx")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get TDX capacity from misc.capacity: %v", err)
-	} else if maxTDXVMs > 0 {
-		var selinuxExecutor selinux.SELinuxExecutor
-		socketPath := c.virtConfig.GetQGSSocketPath()
-		socketDir := path.Dir(socketPath)
-		socketFile := path.Base(socketPath)
-		var tdxPlugin Device
-		var err error
-		if c.virtConfig.RequireQGS() {
-			tdxPlugin, err = NewSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
-		} else {
-			tdxPlugin = NewOptionalSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
-		}
-		return tdxPlugin, err
+func (c *DeviceController) updateSNPCapacityDevice(capacity int) (Device, error) {
+	return NewGenericDevicePlugin(services.SevESidsDeviceName, "", capacity, "", false), nil
+}
+
+func (c *DeviceController) updateTdxDevice(maxTDXVMs int) (Device, error) {
+	var selinuxExecutor selinux.SELinuxExecutor
+	socketPath := c.virtConfig.GetQGSSocketPath()
+	socketDir := path.Dir(socketPath)
+	socketFile := path.Base(socketPath)
+	var tdxPlugin Device
+	var err error
+	if c.virtConfig.RequireQGS() {
+		tdxPlugin, err = NewSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
 	} else {
-		return nil, fmt.Errorf("an invalid device capacity of %d was report for tdx", maxTDXVMs)
+		tdxPlugin = NewOptionalSocketDevicePlugin(services.TdxDeviceName, socketDir, socketFile, maxTDXVMs, selinuxExecutor, nil, true)
 	}
+	return tdxPlugin, err
 }
 
 // updatePermittedHostDevicePlugins returns a slice of device plugins for permitted devices which are present on the node
 func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 	var permittedDevices []Device
-
-	if c.virtConfig.WorkloadEncryptionTDXEnabled() {
-		tdxPlugin, err := c.updateTdxDevice()
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to configure the TDX-QGS device plugin")
-		} else {
-			permittedDevices = append(permittedDevices, tdxPlugin)
-		}
-	}
 
 	var featureGatedGenericDevices = []struct {
 		Name      string
@@ -233,6 +265,11 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 				NewGenericDevicePlugin(dev.Name, dev.Path, c.maxDevices, c.permissions, true),
 			)
 		}
+	}
+
+	cvmPlugins := c.updateSecureGuestCapacityDevicePlugins()
+	if len(cvmPlugins) > 0 {
+		permittedDevices = append(permittedDevices, cvmPlugins...)
 	}
 
 	if c.virtConfig.PersistentReservationEnabled() {
