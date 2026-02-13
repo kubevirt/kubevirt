@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["normalize.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/analysis/internal/flatten/normalize",
+    importpath = "github.com/go-openapi/analysis/internal/flatten/normalize",
+    visibility = ["//vendor/github.com/go-openapi/analysis:__subpackages__"],
+    deps = ["//vendor/github.com/go-openapi/spec:go_default_library"],
+)

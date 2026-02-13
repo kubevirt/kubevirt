@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["handler.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/nunnatsa/ginkgolinter/ginkgohandler",
+    importpath = "github.com/nunnatsa/ginkgolinter/ginkgohandler",
+    visibility = ["//visibility:public"],
+)

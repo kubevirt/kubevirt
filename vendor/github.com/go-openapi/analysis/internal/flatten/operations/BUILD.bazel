@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["operations.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/analysis/internal/flatten/operations",
+    importpath = "github.com/go-openapi/analysis/internal/flatten/operations",
+    visibility = ["//vendor/github.com/go-openapi/analysis:__subpackages__"],
+    deps = [
+        "//vendor/github.com/go-openapi/jsonpointer:go_default_library",
+        "//vendor/github.com/go-openapi/spec:go_default_library",
+        "//vendor/github.com/go-openapi/swag:go_default_library",
+    ],
+)

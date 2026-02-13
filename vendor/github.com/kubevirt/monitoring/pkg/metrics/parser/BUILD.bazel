@@ -1,0 +1,10 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["metrics_parser.go"],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/kubevirt/monitoring/pkg/metrics/parser",
+    importpath = "github.com/kubevirt/monitoring/pkg/metrics/parser",
+    visibility = ["//visibility:public"],
+    deps = ["//vendor/github.com/prometheus/client_model/go:go_default_library"],
+)

@@ -1,0 +1,30 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "cpu.go",
+        "cpuset.go",
+        "create.go",
+        "defaultpath.go",
+        "freezer.go",
+        "fs2.go",
+        "hugetlb.go",
+        "io.go",
+        "memory.go",
+        "misc.go",
+        "pids.go",
+        "psi.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs2",
+    importpath = "github.com/opencontainers/runc/libcontainer/cgroups/fs2",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/opencontainers/runc/libcontainer/cgroups:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/cgroups/fscommon:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/configs:go_default_library",
+        "//vendor/github.com/opencontainers/runc/libcontainer/utils:go_default_library",
+        "//vendor/github.com/sirupsen/logrus:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
+    ],
+)
