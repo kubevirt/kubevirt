@@ -17,7 +17,7 @@
  *
  */
 
-package virthandler
+package kvm
 
 import (
 	"fmt"
@@ -28,8 +28,6 @@ import (
 	"strings"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
 type maskType bool
@@ -57,12 +55,12 @@ var (
 
 // configureRealTimeVCPUs parses the realtime mask value and configured the selected vcpus
 // for real time workloads by setting the scheduler to FIFO and process priority equal to 1.
-func (c *VirtualMachineController) configureVCPUScheduler(vmi *v1.VirtualMachineInstance) error {
-	res, err := c.podIsolationDetector.Detect(vmi)
+func (k *KvmVirtRuntime) configureVCPUScheduler(vmi *v1.VirtualMachineInstance) error {
+	res, err := k.podIsolationDetector.Detect(vmi)
 	if err != nil {
 		return err
 	}
-	qemuProcess, err := isolation.GetQEMUProcess(res)
+	qemuProcess, err := getQEMUProcess(res)
 	if err != nil {
 		return err
 	}
@@ -97,8 +95,8 @@ func isVCPU(comm []byte) (string, bool) {
 	v := vcpuRegex.FindSubmatch(comm)
 	return string(v[1]), true
 }
-func getVCPUThreadIDs(pid int) (map[string]string, error) {
 
+func getVCPUThreadIDs(pid int) (map[string]string, error) {
 	p := filepath.Join(string(os.PathSeparator), "proc", strconv.Itoa(pid), "task")
 	d, err := os.ReadDir(p)
 	if err != nil {

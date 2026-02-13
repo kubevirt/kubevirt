@@ -19,7 +19,7 @@
  *
  */
 
-package virthandler
+package kvm
 
 import (
 	"unsafe"
