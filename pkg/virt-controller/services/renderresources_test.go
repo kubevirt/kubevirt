@@ -448,6 +448,17 @@ var _ = Describe("Resource pod spec renderer", func() {
 		}))
 	})
 
+	It("WithSNPCapacity option adds sev-esids resource", func() {
+		esidsResourceKey := kubev1.ResourceName("devices.kubevirt.io/sev-esids")
+		rr = NewResourceRenderer(nil, nil, WithSNPCapacity())
+		Expect(rr.Requests()).To(Equal(kubev1.ResourceList{
+			esidsResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
+		}))
+		Expect(rr.Limits()).To(Equal(kubev1.ResourceList{
+			esidsResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
+		}))
+	})
+
 	defaultRequest := func() kubev1.ResourceList {
 		return kubev1.ResourceList{
 			kubev1.ResourceCPU:    resource.MustParse("10m"),

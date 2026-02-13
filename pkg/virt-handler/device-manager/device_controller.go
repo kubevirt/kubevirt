@@ -33,6 +33,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
+	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-handler/selinux"
 )
@@ -117,6 +118,46 @@ func PermanentHostDevicePlugins(maxDevices int, permissions string) []Device {
 	return ret
 }
 
+type secureGuestCapacityDevice struct {
+	DeviceName  string
+	IsFgEnabled func() bool
+}
+
+func (c *DeviceController) secureGuestCapacityDevicePlugins() []Device {
+	var capacityDevices = map[string]secureGuestCapacityDevice{
+		"sev_es": {"sev-esids", c.virtConfig.WorkloadEncryptionSEVEnabled},
+	}
+
+	var caps map[string]int
+	var err error
+	plugins := []Device{}
+	for capKey, device := range capacityDevices {
+		if device.IsFgEnabled() {
+			if len(caps) == 0 {
+				caps, err = util.GetSecureGuestCapacity()
+
+				if err != nil {
+					log.Log.V(4).Infof("Error getting secure guest capacity: %s", err.Error())
+					return nil
+				}
+
+				if len(caps) == 0 {
+					log.Log.V(4).Infof("No secure guest capacity available")
+					return nil
+				}
+			}
+
+			capacity, existed := caps[capKey]
+			if existed {
+				cvmPlugin := NewGenericDevicePlugin(device.DeviceName, "", capacity, "", false)
+				plugins = append(plugins, cvmPlugin)
+			}
+		}
+	}
+
+	return plugins
+}
+
 type DeviceControllerInterface interface {
 	Initialized() bool
 	RefreshMediatedDeviceTypes()
@@ -190,6 +231,11 @@ func (c *DeviceController) updatePermittedHostDevicePlugins() []Device {
 				NewGenericDevicePlugin(dev.Name, dev.Path, c.maxDevices, c.permissions, true),
 			)
 		}
+	}
+
+	cvmPlugins := c.secureGuestCapacityDevicePlugins()
+	if len(cvmPlugins) > 0 {
+		permittedDevices = append(permittedDevices, cvmPlugins...)
 	}
 
 	if c.virtConfig.PersistentReservationEnabled() {

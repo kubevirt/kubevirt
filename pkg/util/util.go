@@ -1,9 +1,14 @@
 package util
 
 import (
+	"bufio"
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -194,4 +199,41 @@ func GenerateKubeVirtGroupVersionKind(obj runtime.Object) (runtime.Object, error
 	objCopy.GetObjectKind().SetGroupVersionKind(gvks[0])
 
 	return objCopy, nil
+}
+
+var secureGuestCapacityPath = filepath.Join(HostRootMount, "/sys/fs/cgroup/misc.capacity")
+
+func GetSecureGuestCapacity() (map[string]int, error) {
+	caps := make(map[string]int)
+
+	// Read /sys/fs/cgroup/misc.capacity to get the capacity, e.g.
+	//   "tdx 15"
+	//   "sev_es 99"
+	// Note sev_es and snp share the same capacity 99
+	content, err := os.ReadFile(secureGuestCapacityPath)
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(bytes.NewReader(content))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+
+		capacityKey := fields[0]
+		capacity, err := strconv.Atoi(fields[1])
+		if err != nil {
+			return nil, err
+		}
+		caps[capacityKey] = capacity
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return caps, nil
 }
