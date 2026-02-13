@@ -834,6 +834,47 @@ var _ = Describe("test configuration", func() {
 		),
 	)
 
+	DescribeTable("when TDX configuration", func(confidentialCompute *v1.ConfidentialComputeConfiguration, expectedEnforced bool, expectedSocketPath string, expectedModifySocketPermissions bool) {
+		clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{
+			ConfidentialCompute: confidentialCompute,
+		})
+		Expect(clusterConfig.RequireQGS()).To(Equal(expectedEnforced))
+		Expect(clusterConfig.GetQGSSocketPath()).To(Equal(expectedSocketPath))
+		Expect(clusterConfig.ShouldModifyQGSSocketPermissions()).To(Equal(expectedModifySocketPermissions))
+	},
+		Entry("is nil, should return defaults",
+			nil,
+			virtconfig.DefaultTDXAttestationEnforced, virtconfig.DefaultQGSSocketPath, virtconfig.DefaultTDXAttestationModifySocketPermissions,
+		),
+		Entry("has nil TDX, should return defaults",
+			&v1.ConfidentialComputeConfiguration{TDX: nil},
+			virtconfig.DefaultTDXAttestationEnforced, virtconfig.DefaultQGSSocketPath, virtconfig.DefaultTDXAttestationModifySocketPermissions,
+		),
+		Entry("partial attestation config should fill missing fields with defaults",
+			&v1.ConfidentialComputeConfiguration{
+				TDX: &v1.TDXConfiguration{
+					Attestation: pointer.P(v1.TDXAttestationConfiguration{
+						Enforced:                pointer.P(true),
+						ModifySocketPermissions: pointer.P(true),
+					}),
+				},
+			},
+			true, virtconfig.DefaultQGSSocketPath, true,
+		),
+		Entry("has full config, should return configured values",
+			&v1.ConfidentialComputeConfiguration{
+				TDX: &v1.TDXConfiguration{
+					Attestation: pointer.P(v1.TDXAttestationConfiguration{
+						Enforced:                pointer.P(true),
+						QgsSocketPath:           pointer.P("/custom/path/qgs.socket"),
+						ModifySocketPermissions: pointer.P(false),
+					}),
+				},
+			},
+			true, "/custom/path/qgs.socket", false,
+		),
+	)
+
 	Context("GetHypervisor", func() {
 		var KvmHypervisorConfig = v1.HypervisorConfiguration{
 			Name: v1.KvmHypervisorName,
