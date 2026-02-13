@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	routev1 "github.com/openshift/api/route/v1"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -14,6 +13,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/resourcemerge"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 )
 
@@ -65,13 +65,12 @@ func (r *Reconciler) syncRoute(route *routev1.Route, caBundle []byte) error {
 	}
 
 	cachedRoute = obj.(*routev1.Route).DeepCopy()
-	modified := resourcemerge.BoolPtr(false)
-	resourcemerge.EnsureObjectMeta(modified, &cachedRoute.ObjectMeta, route.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&cachedRoute.ObjectMeta, route.ObjectMeta)
 	kindSame := equality.Semantic.DeepEqual(cachedRoute.Spec.To.Kind, route.Spec.To.Kind)
 	nameSame := equality.Semantic.DeepEqual(cachedRoute.Spec.To.Name, route.Spec.To.Name)
 	terminationSame := equality.Semantic.DeepEqual(cachedRoute.Spec.TLS.Termination, route.Spec.TLS.Termination)
 	certSame := equality.Semantic.DeepEqual(cachedRoute.Spec.TLS.DestinationCACertificate, route.Spec.TLS.DestinationCACertificate)
-	if !*modified && kindSame && nameSame && terminationSame && certSame {
+	if !modified && kindSame && nameSame && terminationSame && certSame {
 		log.Log.V(4).Infof("route %v is up-to-date", route.GetName())
 
 		return nil

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"dario.cat/mergo"
-	"github.com/openshift/library-go/pkg/operator/resource/resourcemerge"
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +13,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply/resourcemerge"
 )
 
 func (r *Reconciler) createOrUpdateServiceMonitors() error {
@@ -56,11 +56,10 @@ func (r *Reconciler) createOrUpdateServiceMonitor(serviceMonitor *promv1.Service
 		return err
 	}
 
-	modified := resourcemerge.BoolPtr(false)
-	resourcemerge.EnsureObjectMeta(modified, &cachedServiceMonitor.ObjectMeta, serviceMonitor.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&cachedServiceMonitor.ObjectMeta, serviceMonitor.ObjectMeta)
 
 	// there was no change to metadata and the spec fields are equal
-	if !*modified && !endpointsModified {
+	if !modified && !endpointsModified {
 		log.Log.V(4).Infof("serviceMonitor %v is up-to-date", serviceMonitor.GetName())
 		return nil
 	}
@@ -126,12 +125,11 @@ func (r *Reconciler) createOrUpdatePrometheusRule(prometheusRule *promv1.Prometh
 	}
 
 	cachedPrometheusRule := obj.(*promv1.PrometheusRule)
-	modified := resourcemerge.BoolPtr(false)
 	existingCopy := cachedPrometheusRule.DeepCopy()
 
-	resourcemerge.EnsureObjectMeta(modified, &existingCopy.ObjectMeta, prometheusRule.ObjectMeta)
+	modified := resourcemerge.EnsureObjectMeta(&existingCopy.ObjectMeta, prometheusRule.ObjectMeta)
 
-	if !*modified && equality.Semantic.DeepEqual(cachedPrometheusRule.Spec, prometheusRule.Spec) {
+	if !modified && equality.Semantic.DeepEqual(cachedPrometheusRule.Spec, prometheusRule.Spec) {
 		log.Log.V(4).Infof("PrometheusRule %v is up-to-date", prometheusRule.GetName())
 		return nil
 	}
