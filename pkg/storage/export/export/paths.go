@@ -86,9 +86,10 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 
 // GetVolumeInfo returns the VolumeInfo for a given PVC name
 func (sp *ServerPaths) GetVolumeInfo(pvcName string) *VolumeInfo {
+	targetName := getExportPodVolumeNameFromStr(pvcName)
 	for _, v := range sp.Volumes {
 		_, n := filepath.Split(filepath.Clean(v.Path))
-		if n == pvcName {
+		if n == targetName {
 			return &v
 		}
 	}
