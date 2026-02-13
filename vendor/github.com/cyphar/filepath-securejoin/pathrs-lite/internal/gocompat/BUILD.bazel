@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "gocompat_errors_go120.go",
+        "gocompat_errors_unsupported.go",
+        "gocompat_generics_go121.go",
+        "gocompat_generics_unsupported.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/cyphar/filepath-securejoin/pathrs-lite/internal/gocompat",
+    importpath = "github.com/cyphar/filepath-securejoin/pathrs-lite/internal/gocompat",
+    visibility = ["//vendor/github.com/cyphar/filepath-securejoin/pathrs-lite:__subpackages__"],
+)
