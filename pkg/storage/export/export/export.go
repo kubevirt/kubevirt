@@ -798,8 +798,17 @@ func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachi
 	return naming.GetName(exportPrefix, vmExport.Name, validation.DNS1035LabelMaxLength)
 }
 
-func (ctrl *VMExportController) getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
-	pvcName := strings.ReplaceAll(pvc.Name, ".", "-")
+func getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
+	return getExportPodVolumeNameFromStr(pvc.Name)
+}
+
+// getExportPodVolumeNameFromStr sanitizes and hashes the PVC name to match the volume name used in the Pod.
+//
+// CRITICAL: This logic must stay strictly in sync with the volume naming logic used in 'createExportPod'.
+// If the logic in createExportPod changes (e.g. prefix or hashing algorithm), this function MUST be updated
+// to match, otherwise the export server will fail to locate the mounted volumes.
+func getExportPodVolumeNameFromStr(claimName string) string {
+	pvcName := strings.ReplaceAll(claimName, ".", "-")
 	// Using the formatted PVC name if it's under the max length.
 	if len(pvcName) <= validation.DNS1035LabelMaxLength {
 		return pvcName
@@ -940,7 +949,7 @@ func (ctrl *VMExportController) createExporterPodManifest(vmExport *exportv1.Vir
 	}
 	for i, pvc := range pvcs {
 		var mountPoint string
-		volumeName := ctrl.getExportPodVolumeName(pvc)
+		volumeName := getExportPodVolumeName(pvc)
 		if types.IsPVCBlock(pvc.Spec.VolumeMode) {
 			mountPoint = fmt.Sprintf("%s/%s", blockVolumeMountPath, volumeName)
 			podManifest.Spec.Containers[0].VolumeDevices = append(podManifest.Spec.Containers[0].VolumeDevices, corev1.VolumeDevice{
