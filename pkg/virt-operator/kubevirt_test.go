@@ -1822,6 +1822,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.makeHandlerReady()
 
 			kvTestData.shouldExpectKubeVirtUpdateStatusVersion(1, customConfig)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 			kvTestData.controller.Execute()
 			kv = kvTestData.getLatestKubeVirt(kv)
 			shouldExpectHCOConditions(kv, k8sv1.ConditionTrue, k8sv1.ConditionFalse, k8sv1.ConditionFalse)
@@ -2512,6 +2513,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectRbacBackupCreations()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -2580,6 +2582,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectRbacBackupCreations()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -2653,6 +2656,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectRbacBackupCreations()
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -3035,6 +3039,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -3112,6 +3117,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
 			kvTestData.fakeNamespaceModificationEvent()
 			kvTestData.shouldExpectNamespacePatch()
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
@@ -3203,6 +3209,7 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.shouldExpectPatchesAndUpdates(kv)
 			kvTestData.shouldExpectKubeVirtUpdateStatus(1)
+			kvTestData.shouldExpectInstallStrategyDeletion()
 
 			kvTestData.controller.Execute()
 
