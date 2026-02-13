@@ -119,6 +119,18 @@ type DomainStatus struct {
 	FSFreezeStatus FSFreeze
 }
 
+// GuestPanicInfo contains details about a guest panic event from QEMU
+type GuestPanicInfo struct {
+	Type string
+	// Hyper-V specific args (Windows bugcheck parameters)
+	// Arg1 is the bugcheck code
+	Arg1 uint64
+	Arg2 uint64
+	Arg3 uint64
+	Arg4 uint64
+	Arg5 uint64
+}
+
 type DomainSysInfo struct {
 	Hostname string
 	OSInfo   GuestOSInfo

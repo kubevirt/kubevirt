@@ -26,12 +26,13 @@ import (
 )
 
 type Cache struct {
-	UID              SafeData[types.UID]
-	Migration        SafeData[api.MigrationMetadata]
-	GracePeriod      SafeData[api.GracePeriodMetadata]
-	AccessCredential SafeData[api.AccessCredentialMetadata]
-	MemoryDump       SafeData[api.MemoryDumpMetadata]
-	Backup           SafeData[api.BackupMetadata]
+	UID               SafeData[types.UID]
+	Migration         SafeData[api.MigrationMetadata]
+	GracePeriod       SafeData[api.GracePeriodMetadata]
+	AccessCredential  SafeData[api.AccessCredentialMetadata]
+	MemoryDump        SafeData[api.MemoryDumpMetadata]
+	Backup            SafeData[api.BackupMetadata]
+	GuestPanicHandled SafeData[bool]
 
 	notificationSignal chan struct{}
 }
@@ -46,6 +47,7 @@ func NewCache() *Cache {
 	cache.AccessCredential.dirtyChanel = cache.notificationSignal
 	cache.MemoryDump.dirtyChanel = cache.notificationSignal
 	cache.Backup.dirtyChanel = cache.notificationSignal
+	cache.GuestPanicHandled.dirtyChanel = cache.notificationSignal
 	return cache
 }
 
