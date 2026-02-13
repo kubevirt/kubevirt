@@ -47,6 +47,7 @@ Approvers are expected to review this list.
 - [ ] Testing: New code requires [new unit tests](https://github.com/kubevirt/kubevirt/blob/main/docs/reviewer-guide.md#when-is-a-pr-good-enough). New features and bug fixes require at least one e2e test
 - [ ] Documentation: A [user-guide update](https://github.com/kubevirt/user-guide/) was considered and is present (link) or not required. You want a user-guide update if it's a user facing feature / API change.
 - [ ] Community: Announcement to [kubevirt-dev](https://groups.google.com/g/kubevirt-dev/) was considered
+- [ ] AI Contributions: The PR abides by the [KubeVirt AI Contribution Policy](https://github.com/kubevirt/community/blob/main/ai-contribution-policy.md).
 
 ### Release note
 <!--  Write your release note:
