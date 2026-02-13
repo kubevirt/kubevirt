@@ -929,7 +929,6 @@ func (app *virtAPIApp) Compose() {
 	restful.Filter(filter.RequestLoggingFilter())
 	restful.Filter(restful.OPTIONSFilter())
 	restful.Filter(func(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
-
 		allowed, reason, err := app.authorizor.Authorize(req)
 		if err != nil {
 
