@@ -1,6 +1,6 @@
 # Logging
 
-For logging use the `Log` struct provided in the `log` package (see `pkg/log`).
+For logging use the `Log` struct provided in the `log` package (import `kubevirt.io/client-go/log`; see `staging/src/kubevirt.io/client-go/log/`).
 That struct offers several functions for providing logs with different log levels, verbosity and content.
 
 ## Log Levels and Verbosity
