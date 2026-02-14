@@ -14,7 +14,6 @@ go_library(
         "//pkg/config:go_default_library",
         "//pkg/container-disk:go_default_library",
         "//pkg/emptydisk:go_default_library",
-        "//pkg/ephemeral-disk:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/host-disk:go_default_library",
         "//pkg/network/vmispec:go_default_library",
@@ -25,7 +24,6 @@ go_library(
         "//pkg/storage/types:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
-        "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/compute:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/iothreads:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/metadata:go_default_library",
@@ -40,7 +38,6 @@ go_library(
         "//staging/src/kubevirt.io/client-go/precond:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
-        "//vendor/k8s.io/api/core/v1:go_default_library",
     ],
 )
 
@@ -74,6 +71,7 @@ go_test(
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/network:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",
         "//pkg/virt-launcher/virtwrap/launchsecurity:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
