@@ -3,7 +3,6 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "builder.go",
         "converter.go",
         "generated_mock_converter.go",
         "pci-placement.go",
@@ -33,6 +32,7 @@ go_library(
         "//pkg/virt-launcher/virtwrap/converter/metadata:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/network:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/storage:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/virtio:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
@@ -49,7 +49,6 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
-        "builder_test.go",
         "converter_suite_test.go",
         "converter_test.go",
         "pci-placement_test.go",
