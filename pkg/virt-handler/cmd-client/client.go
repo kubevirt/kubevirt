@@ -238,6 +238,11 @@ func FindSocket(vmi *v1.VirtualMachineInstance) (string, error) {
 	host, _ := os.LookupEnv("NODE_NAME")
 	return findSocketOnHost(vmi, host)
 }
+
+// Do not use this low level function unless you know what you are doing.
+// Particularly testing is challenging as you need to instance a fully functional GRPC server.
+//
+// It is also not wise to have unbound number of clients to the launcher, or duplicate implementation of caching or  future recognition of source/target client(in case of same node migration).
 func NewClient(socketPath string) (LauncherClient, error) {
 	// dial socket
 	conn, err := grpcutil.DialSocket(socketPath)
