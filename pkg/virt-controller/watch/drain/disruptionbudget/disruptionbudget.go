@@ -20,7 +20,6 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/util/pdbs"
 )
 
 const deleteNotifFail = "Failed to process delete notification"
@@ -378,7 +377,7 @@ func (c *DisruptionBudgetController) execute(key string) error {
 	}
 
 	// Only consider pdbs which belong to this vmi
-	pdbs, err := pdbs.PDBsForVMI(vmi, c.pdbIndexer)
+	pdbs, err := pdbsForVMI(vmi, c.pdbIndexer)
 	if err != nil {
 		log.DefaultLogger().Reason(err).Error("Failed to fetch pod disruption budgets for namespace from cache.")
 		// If the situation does not change there is no benefit in retrying
@@ -413,4 +412,21 @@ func (c *DisruptionBudgetController) deletePDB(key string, pdb *policyv1.PodDisr
 		c.recorder.Eventf(vmi, corev1.EventTypeNormal, SuccessfulDeletePodDisruptionBudgetReason, "Deleted PodDisruptionBudget %s", pdb.Name)
 	}
 	return nil
+}
+
+func pdbsForVMI(vmi *virtv1.VirtualMachineInstance, pdbIndexer cache.Indexer) ([]*policyv1.PodDisruptionBudget, error) {
+	objs, err := pdbIndexer.ByIndex(cache.NamespaceIndex, vmi.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	pdbs := []*policyv1.PodDisruptionBudget{}
+	for _, obj := range objs {
+		p := v1.GetControllerOf(obj.(*policyv1.PodDisruptionBudget))
+		if p != nil && p.Kind == virtv1.VirtualMachineInstanceGroupVersionKind.Kind &&
+			p.Name == vmi.Name {
+			pdbs = append(pdbs, obj.(*policyv1.PodDisruptionBudget))
+		}
+	}
+	return pdbs, nil
 }

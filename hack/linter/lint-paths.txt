@@ -34,7 +34,6 @@ pkg/storage/pod/annotations
 pkg/storage/reservation
 pkg/storage/velero
 pkg/tpm
-pkg/util/pdbs
 pkg/util/ratelimiter
 pkg/virt-controller/leaderelectionconfig
 pkg/virt-controller/watch/common
