@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	converter_types "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 )
 
@@ -218,7 +219,7 @@ var _ = Describe("LibvirtHelper", func() {
 		vmi := api2.NewMinimalVMIWithNS(vmiNamespace, vmiName)
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 		domain := &api.Domain{}
-		c := &converter.ConverterContext{
+		c := &converter_types.ConverterContext{
 			Architecture:     arch.NewConverter(runtime.GOARCH),
 			VirtualMachine:   vmi,
 			AllowEmulation:   true,

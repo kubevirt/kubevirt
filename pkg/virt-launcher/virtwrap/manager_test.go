@@ -65,6 +65,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	converter_types "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/efi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
@@ -416,7 +417,7 @@ var _ = Describe("Manager", func() {
 		freePageReportingDisabled := clusterConfig.IsFreePageReportingDisabled()
 		serialConsoleLogDisabled := clusterConfig.IsSerialConsoleLogDisabled()
 
-		c := &converter.ConverterContext{
+		c := &converter_types.ConverterContext{
 			Architecture:      arch.NewConverter(runtime.GOARCH),
 			VirtualMachine:    vmi,
 			AllowEmulation:    true,

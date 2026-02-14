@@ -48,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
+	converter_types "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/testing"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/util"
 )
@@ -76,7 +77,7 @@ var _ = Describe("AccessCredentials", func() {
 
 	expectIsolationDetectionForVMI := func(vmi *v1.VirtualMachineInstance) *api.DomainSpec {
 		domain := &api.Domain{}
-		c := &converter.ConverterContext{
+		c := &converter_types.ConverterContext{
 			Architecture:   arch.NewConverter(runtime.GOARCH),
 			VirtualMachine: vmi,
 			AllowEmulation: true,
