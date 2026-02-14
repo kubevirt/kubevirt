@@ -28,7 +28,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/tpm"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
+	"kubevirt.io/kubevirt/pkg/util"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
 	api "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
@@ -55,7 +55,7 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 	// directory to ensure data integrity. This explicit sync ensures that pending
 	// writes to the swtpm backing files are flushed to disk.
 	if tpm.HasPersistentDevice(&vmi.Spec) {
-		cmd := exec.Command("/usr/bin/sync", services.PathForSwtpm(vmi))
+		cmd := exec.Command("/usr/bin/sync", util.PathForSwtpm(vmi))
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			log.Log.Errorf("fsync error to TPM state directory: %s, output: %s", err.Error(), out)
