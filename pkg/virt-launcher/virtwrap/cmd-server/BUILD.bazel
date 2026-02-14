@@ -34,7 +34,6 @@ go_test(
     embed = [":go_default_library"],
     race = "on",
     deps = [
-        "//pkg/handler-launcher-com/cmd/info:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-launcher/virtwrap:go_default_library",

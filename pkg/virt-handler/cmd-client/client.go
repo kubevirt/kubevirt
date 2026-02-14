@@ -250,10 +250,10 @@ func NewClient(socketPath string) (LauncherClient, error) {
 
 	// create info client and find cmd version to use
 	infoClient := info.NewCmdInfoClient(conn)
-	return NewClientWithInfoClient(infoClient, conn)
+	return newClientWithInfoClient(infoClient, conn)
 }
 
-func NewClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
+func newClientWithInfoClient(infoClient info.CmdInfoClient, conn *grpc.ClientConn) (LauncherClient, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
 	info, err := infoClient.Info(ctx, &info.CmdInfoRequest{})
