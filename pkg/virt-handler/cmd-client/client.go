@@ -238,6 +238,8 @@ func FindSocket(vmi *v1.VirtualMachineInstance) (string, error) {
 	host, _ := os.LookupEnv("NODE_NAME")
 	return findSocketOnHost(vmi, host)
 }
+
+// Do not use this low level function unless you know what you are doing
 func NewClient(socketPath string) (LauncherClient, error) {
 	// dial socket
 	conn, err := grpcutil.DialSocket(socketPath)
