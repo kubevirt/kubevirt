@@ -64,6 +64,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
+	types "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
@@ -1051,7 +1052,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
 	}
 
-	builder := NewDomainBuilder(
+	builder := types.NewDomainBuilder(
 		metadata.DomainConfigurator{},
 		network.NewDomainConfigurator(
 			network.WithDomainAttachmentByInterfaceName(c.DomainAttachmentByInterfaceName),
