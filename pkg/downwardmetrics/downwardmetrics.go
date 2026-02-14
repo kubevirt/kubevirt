@@ -20,7 +20,7 @@ const (
 func CreateDownwardMetricDisk(vmi *v1.VirtualMachineInstance) error {
 	for _, volume := range vmi.Spec.Volumes {
 		if volume.DownwardMetrics != nil {
-			return vhostmd.NewMetricsIODisk(config.DownwardMetricDisk).Create()
+			return vhostmd.CreateDisk(config.DownwardMetricDisk)
 		}
 	}
 	return nil
