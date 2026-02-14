@@ -116,6 +116,7 @@ var _ = Describe("[sig-compute]VM state", func() {
 		DescribeTable("should persist VM state of", decorators.RequiresTwoSchedulableNodes, func(withTPM, withEFI, shouldBeRWX bool, ops ...string) {
 			By("Creating a migratable Fedora VM with UEFI")
 			vmi := libvmifact.NewFedora(
+				libvmi.WithName("issue-16760"),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudNetworkData(cloudinit.CreateDefaultCloudInitNetworkData())),

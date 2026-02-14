@@ -81,6 +81,12 @@ func WithLabels(labels map[string]string) VMOption {
 	}
 }
 
+func WithVMName(name string) VMOption {
+	return func(vm *v1.VirtualMachine) {
+		vm.Name = name
+	}
+}
+
 func WithRunStrategy(strategy v1.VirtualMachineRunStrategy) VMOption {
 	return func(vm *v1.VirtualMachine) {
 		vm.Spec.RunStrategy = &strategy

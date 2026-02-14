@@ -82,6 +82,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			libvmi.WithVMName("issue-16760"),
 		)
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
@@ -125,6 +126,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			libvmi.WithVMName("issue-16760"),
 		)
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
@@ -305,6 +307,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			libvmi.WithVMName("issue-16760"),
 		)
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))
@@ -410,6 +413,7 @@ var _ = Describe(SIG("Backup", func() {
 		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
 			libvmi.WithLabels(backup.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			libvmi.WithVMName("issue-16760"),
 		)
 
 		By(fmt.Sprintf("Creating VM %s", vm.Name))

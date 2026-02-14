@@ -289,6 +289,7 @@ var _ = Describe(SIG("CBT", func() {
 		),
 			libvmi.WithLabels(cbt.CBTLabel),
 			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+			libvmi.WithVMName("issue-16760"),
 		)
 		volumeName := vm.Spec.Template.Spec.Volumes[0].Name
 

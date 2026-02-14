@@ -1243,7 +1243,7 @@ func volumeExpansionAllowed(sc string) bool {
 		*storageClass.AllowVolumeExpansion
 }
 
-func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string) *v1.VirtualMachine {
+func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storageClass string, opts ...libvmi.VMOption) *v1.VirtualMachine {
 	importUrl := cd.DataVolumeImportUrlForContainerDisk(containerDisk)
 	dv := libdv.NewDataVolume(
 		libdv.WithRegistryURLSource(importUrl),
@@ -1253,5 +1253,5 @@ func renderVMWithRegistryImportDataVolume(containerDisk cd.ContainerDisk, storag
 			libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(importUrl)),
 		),
 	)
-	return libstorage.RenderVMWithDataVolumeTemplate(dv)
+	return libstorage.RenderVMWithDataVolumeTemplate(dv, opts...)
 }

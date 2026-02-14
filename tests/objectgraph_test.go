@@ -98,6 +98,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 					libvmi.WithTPM(true),
 				),
 				libvmi.WithRunStrategy(v1.RunStrategyAlways),
+				libvmi.WithVMName("issue-16760"),
 			)
 			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())

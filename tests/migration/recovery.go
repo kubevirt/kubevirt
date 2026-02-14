@@ -70,6 +70,7 @@ var _ = Describe("[sig-compute]Migration recovery", decorators.SigCompute, decor
 
 		By("Creating a VM with RWO backend-storage")
 		vmi := libvmifact.NewFedora(
+			libvmi.WithName("issue-16760"),
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),

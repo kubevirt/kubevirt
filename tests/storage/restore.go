@@ -1630,7 +1630,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			})
 
 			It("should restore an already cloned virtual machine", func() {
-				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
+				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass, libvmi.WithVMName("issue-16760")))
 
 				targetVMName := vm.Name + "-clone"
 				cloneVM(vm.Name, targetVMName)

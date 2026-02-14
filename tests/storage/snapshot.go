@@ -1337,6 +1337,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 					libvmi.WithMemoryRequest("128Mi"),
 					libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
 					libvmi.WithPersistentVolumeClaim("snapshotablevolume", includedDataVolume.Name),
+					libvmi.WithName("issue-16760"),
 				)
 				vmi.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
 				vm = libvmi.NewVirtualMachine(vmi)

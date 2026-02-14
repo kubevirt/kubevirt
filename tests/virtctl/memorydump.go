@@ -71,7 +71,7 @@ var _ = Describe(SIG("[sig-storage]Memory dump", decorators.SigStorage, func() {
 
 		pvcName = "fs-pvc-" + rand.String(randNameTail)
 
-		vm = libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
+		vm = libvmi.NewVirtualMachine(libvmifact.NewCirros(), libvmi.WithRunStrategy(v1.RunStrategyAlways), libvmi.WithVMName("issue-16760"))
 		var err error
 		vm, err = kubevirt.Client().VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
