@@ -14,6 +14,8 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
 	metricspkg "kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/metrics"
+	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/unsafepath"
 	"kubevirt.io/kubevirt/pkg/util"
 )
 
@@ -22,7 +24,15 @@ var _ = Describe("vhostmd", func() {
 	Context("given real data from a real vhostmd", func() {
 
 		It("should properly read and verify a real vhostmd0", func() {
-			v := NewMetricsIODisk("testdata/vhostmd0")
+			p, err := filepath.Abs("testdata/vhostmd0")
+			Expect(err).ToNot(HaveOccurred())
+
+			sPath, err := safepath.JoinAndResolveWithRelativeRoot(p)
+			Expect(err).ToNot(HaveOccurred())
+
+			v := NewMetricsIODisk(sPath)
+			Expect(err).ToNot(HaveOccurred())
+
 			metrics, err := v.Read()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(metrics.Metrics).To(HaveLen(14))
@@ -64,8 +74,12 @@ var _ = Describe("vhostmd", func() {
 
 		It("should create a properly formatted empty vhostmd disk", func() {
 			path := filepath.Join(targetDir, "vhostmd0")
-			metricsIO := NewMetricsIODisk(path)
 			Expect(CreateDisk(path)).To(Succeed())
+
+			sPath, err := safepath.NewPathNoFollow(path)
+			Expect(err).ToNot(HaveOccurred())
+			metricsIO := NewMetricsIODisk(sPath)
+
 			metrics, err := metricsIO.Read()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(metrics.Metrics).To(BeEmpty())
@@ -73,8 +87,11 @@ var _ = Describe("vhostmd", func() {
 
 		It("should be able to repreatedly read and write metrics without modifying the result", func() {
 			path := filepath.Join(targetDir, "vhostmd0")
-			metricsIO := NewMetricsIODisk(path)
 			Expect(CreateDisk(path)).To(Succeed())
+
+			sPath, err := safepath.NewPathNoFollow(path)
+			Expect(err).ToNot(HaveOccurred())
+			metricsIO := NewMetricsIODisk(sPath)
 			metrics := &api.Metrics{
 				Metrics: []api.Metric{
 					metricspkg.MustToMetric(1292869.190000, "TotalCPUTime", "s", api.MetricContextHost),
@@ -125,7 +142,7 @@ func (d *Disk) Verify() error {
 }
 
 func (v *vhostmd) Read() (*api.Metrics, error) {
-	disk, err := readDisk(v.filePath)
+	disk, err := readDisk(unsafepath.UnsafeAbsolute(v.filePath.Raw()))
 	if err != nil {
 		return nil, fmt.Errorf("failed to load vhostmd file: %v", err)
 	}

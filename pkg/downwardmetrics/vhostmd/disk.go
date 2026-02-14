@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
+	"kubevirt.io/kubevirt/pkg/safepath"
 )
 
 const fileSize = 262144
@@ -15,7 +16,7 @@ const maxBodyLength = fileSize - 24
 var signature = [4]byte{'m', 'v', 'b', 'd'}
 
 type vhostmd struct {
-	filePath string
+	filePath *safepath.Path
 }
 
 type Header struct {
@@ -35,7 +36,7 @@ func (d *Disk) String() string {
 }
 
 func (v *vhostmd) Write(metrics *api.Metrics) (err error) {
-	f, err := os.OpenFile(v.filePath, os.O_RDWR, 0)
+	f, err := safepath.OpenAtNoFollow(v.filePath)
 	if err != nil {
 		return fmt.Errorf("failed to open vhostmd disk: %v", err)
 	}
@@ -44,7 +45,16 @@ func (v *vhostmd) Write(metrics *api.Metrics) (err error) {
 			err = fileErr
 		}
 	}()
-	if err := writeDisk(f, metrics); err != nil {
+	file, err := os.OpenFile(f.SafePath(), os.O_RDWR, 0)
+	if err != nil {
+		return fmt.Errorf("failed to open vhostmd disk: %v", err)
+	}
+	defer func() {
+		if fileErr := file.Close(); fileErr != nil && err == nil {
+			err = fileErr
+		}
+	}()
+	if err := writeDisk(file, metrics); err != nil {
 		return fmt.Errorf("failed to write metrics: %v", err)
 	}
 	return nil
