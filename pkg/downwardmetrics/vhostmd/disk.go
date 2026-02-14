@@ -67,10 +67,6 @@ func (d *Disk) Metrics() (*api.Metrics, error) {
 	return m, nil
 }
 
-func (v *vhostmd) Create() error {
-	return createDisk(v.filePath)
-}
-
 func (v *vhostmd) Read() (*api.Metrics, error) {
 	disk, err := readDisk(v.filePath)
 	if err != nil {
@@ -119,7 +115,7 @@ func readDisk(filePath string) (*Disk, error) {
 			return nil, fmt.Errorf("Invalid metrics file. Expected a maximum body length of %v, got %v", maxBodyLength, d.Header.Length)
 		}
 
-		d.Raw = make([]byte, d.Header.Length, d.Header.Length)
+		d.Raw = make([]byte, d.Header.Length)
 
 		if _, err = io.ReadFull(f, d.Raw); err != nil {
 			return nil, err
@@ -128,7 +124,7 @@ func readDisk(filePath string) (*Disk, error) {
 	return d, err
 }
 
-func createDisk(filePath string) (err error) {
+func CreateDisk(filePath string) (err error) {
 	var f *os.File
 
 	if f, err = os.OpenFile(filePath, os.O_CREATE|os.O_RDWR, 0755); err != nil {

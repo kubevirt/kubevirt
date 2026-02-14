@@ -57,16 +57,18 @@ var _ = Describe("vhostmd", func() {
 		})
 
 		It("should create a properly formatted empty vhostmd disk", func() {
-			metricsIO := NewMetricsIODisk(filepath.Join(targetDir, "vhostmd0"))
-			Expect(metricsIO.Create()).To(Succeed())
+			path := filepath.Join(targetDir, "vhostmd0")
+			metricsIO := NewMetricsIODisk(path)
+			Expect(CreateDisk(path)).To(Succeed())
 			metrics, err := metricsIO.Read()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(metrics.Metrics).To(BeEmpty())
 		})
 
 		It("should be able to repreatedly read and write metrics without modifying the result", func() {
-			metricsIO := NewMetricsIODisk(filepath.Join(targetDir, "vhostmd0"))
-			Expect(metricsIO.Create()).To(Succeed())
+			path := filepath.Join(targetDir, "vhostmd0")
+			metricsIO := NewMetricsIODisk(path)
+			Expect(CreateDisk(path)).To(Succeed())
 			metrics := &api.Metrics{
 				Metrics: []api.Metric{
 					metricspkg.MustToMetric(1292869.190000, "TotalCPUTime", "s", api.MetricContextHost),
