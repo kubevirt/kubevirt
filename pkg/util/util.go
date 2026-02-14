@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"math/big"
+	"path/filepath"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -29,6 +30,13 @@ const (
 	NonRootUID        = 107
 	NonRootUserString = "qemu"
 	RootUser          = 0
+
+	// extensive log verbosity threshold after which libvirt debug logs will be enabled
+	EXT_LOG_VERBOSITY_THRESHOLD         = 5
+	ENV_VAR_SHARED_FILESYSTEM_PATHS     = "SHARED_FILESYSTEM_PATHS"
+	ENV_VAR_LIBVIRT_DEBUG_LOGS          = "LIBVIRT_DEBUG_LOGS"
+	ENV_VAR_VIRTIOFSD_DEBUG_LOGS        = "VIRTIOFSD_DEBUG_LOGS"
+	ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
 )
 
 func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
@@ -209,4 +217,31 @@ func GenerateKubeVirtGroupVersionKind(obj runtime.Object) (runtime.Object, error
 	objCopy.GetObjectKind().SetGroupVersionKind(gvks[0])
 
 	return objCopy, nil
+}
+
+func PathForSwtpm(vmi *v1.VirtualMachineInstance) string {
+	swtpmPath := "/var/lib/libvirt/swtpm"
+	if IsNonRootVMI(vmi) {
+		swtpmPath = filepath.Join(VirtPrivateDir, "libvirt", "qemu", "swtpm")
+	}
+
+	return swtpmPath
+}
+
+func PathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
+	localCaPath := "/var/lib/swtpm-localca"
+	if IsNonRootVMI(vmi) {
+		localCaPath = filepath.Join(VirtPrivateDir, "var", "lib", "swtpm-localca")
+	}
+
+	return localCaPath
+}
+
+func PathForNVram(vmi *v1.VirtualMachineInstance) string {
+	nvramPath := "/var/lib/libvirt/qemu/nvram"
+	if IsNonRootVMI(vmi) {
+		nvramPath = filepath.Join(VirtPrivateDir, "libvirt", "qemu", "nvram")
+	}
+
+	return nvramPath
 }
