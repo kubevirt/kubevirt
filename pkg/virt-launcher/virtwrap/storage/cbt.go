@@ -37,6 +37,7 @@ import (
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	converter_types "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
 func IsChangedBlockTrackingEnabled(vmi *v1.VirtualMachineInstance) bool {
@@ -240,7 +241,7 @@ func DeleteQCOW2Overlay(vmi *v1.VirtualMachineInstance, volumeName string) error
 	return nil
 }
 
-func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *converter.ConverterContext) error {
+func ApplyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *converter_types.ConverterContext) error {
 	logger := log.Log.Object(vmi)
 	applyCBTMap := make(map[string]string)
 
