@@ -12,6 +12,7 @@ go_library(
         "hotplug_bridge.go",
         "hotplug_sriov.go",
         "link_state.go",
+        "multiqueue.go",
         "networkpolicy.go",
         "port_forward.go",
         "primary_pod_network.go",
