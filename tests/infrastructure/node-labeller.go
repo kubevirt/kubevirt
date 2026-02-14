@@ -39,6 +39,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	nodelabellerutil "kubevirt.io/kubevirt/pkg/virt-handler/node-labeller/util"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libinfra"
@@ -156,7 +157,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			}, 15*time.Second, 1*time.Second).Should(BeTrue())
 		})
 
-		It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", func() {
+		It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", decorators.WgS390x, func() {
 			for _, node := range nodesWithKVM {
 				errorMessageTemplate := "node " + node.Name + " does not contain %s label"
 				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelLabel)), fmt.Sprintf(errorMessageTemplate, "cpu"))

@@ -30,13 +30,14 @@ import (
 
 	"kubevirt.io/kubevirt/tests/compute"
 	"kubevirt.io/kubevirt/tests/console"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(compute.SIG("Reset subresource", func() {
+var _ = Describe(compute.SIG("Reset subresource", decorators.WgS390x, func() {
 
 	Describe("Reset a VirtualMachineInstance", func() {
 		It("should succeed", func() {

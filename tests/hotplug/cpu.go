@@ -103,7 +103,7 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 	})
 
 	Context("A VM with cpu.maxSockets set higher than cpu.sockets", func() {
-		It("[test_id:10811]should successfully plug vCPUs", func() {
+		It("[test_id:10811]should successfully plug vCPUs", decorators.WgS390x, func() {
 			By("Creating a running VM with 1 socket and 2 max sockets")
 			const (
 				maxSockets uint32 = 2
@@ -290,8 +290,8 @@ var _ = Describe("[sig-compute]CPU Hotplug", decorators.SigCompute, decorators.S
 		})
 	})
 
-	Context("Abort CPU change", func() {
-		It("should cancel the automated workload update", func() {
+	Context("Abort CPU change", decorators.WgS390x, func() {
+		It("[test_id:6547]should cancel the automated workload update", func() {
 			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vmi.Spec.Domain.CPU = &v1.CPU{

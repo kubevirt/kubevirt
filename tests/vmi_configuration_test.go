@@ -293,7 +293,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 60)).To(Succeed(), "should report number of sockets")
 			})
 
-			It("[test_id:1663]should report 2 vCPUs under guest OS", func() {
+			It("[test_id:1663]should report 2 vCPUs under guest OS", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithCPUCount(1, 1, 2),
 					libvmi.WithMemoryRequest("128M"),
