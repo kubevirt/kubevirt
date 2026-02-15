@@ -2261,7 +2261,7 @@ var _ = Describe("VirtualMachineInstance", func() {
 			conditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
 			controller.updateLiveMigrationConditions(vmi, conditionManager)
 
-			testutils.ExpectEvent(recorder, "cannot migrate VMI which does not use masquerade or a migratable plugin to connect to the pod network")
+			testutils.ExpectEvent(recorder, "cannot migrate VMI which does not use masquerade, passt, or a migratable plugin to connect to the pod network")
 		})
 
 		Context("check that migration is not supported when using Host Devices", func() {

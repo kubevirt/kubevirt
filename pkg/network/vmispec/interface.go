@@ -84,7 +84,7 @@ func VerifyVMIMigratable(vmi *v1.VirtualMachineInstance, bindingPlugins map[stri
 	default:
 	}
 
-	return errors.New("cannot migrate VMI which does not use masquerade or a migratable plugin to connect to the pod network")
+	return errors.New("cannot migrate VMI which does not use masquerade, passt, or a migratable plugin to connect to the pod network")
 }
 
 func LookupInterfaceStatusByMac(
