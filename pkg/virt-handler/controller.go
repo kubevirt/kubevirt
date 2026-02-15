@@ -94,6 +94,11 @@ type netconf interface {
 	Teardown(vmi *v1.VirtualMachineInstance) error
 }
 
+type netMigrationCoordinator interface {
+	MigrationTargetRun(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
+	MigrationSourceRun(*v1.VirtualMachineInstance, func(*v1.VirtualMachineInstance) (string, error)) error
+}
+
 type BaseController struct {
 	logger                      *log.FilteredLogger
 	host                        string
@@ -107,6 +112,7 @@ type BaseController struct {
 	migrationProxy              migrationproxy.ProxyManager
 	virtLauncherFSRunDirPattern string
 	netStat                     netstat
+	passtMigrationCoordinator   netMigrationCoordinator
 	recorder                    record.EventRecorder
 	hasSynced                   func() bool
 }
@@ -359,4 +365,9 @@ func (c *BaseController) checkLauncherClient(vmi *v1.VirtualMachineInstance) (bo
 	}
 
 	return false, nil
+}
+
+type passtMigrationCoordinatorStub struct {
+	isMigrationSourceRunCalled bool
+	isMigrationTargetRunCalled bool
 }
