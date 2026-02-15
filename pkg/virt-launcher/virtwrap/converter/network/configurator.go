@@ -29,6 +29,12 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
 )
 
+const (
+	//nolint:gosec //linter is confusing passt for password
+	passtLogFilePath  = "/var/run/kubevirt/passt.log"
+	passtBackendPasst = "passt"
+)
+
 type DomainConfigurator struct {
 	domainAttachmentByInterfaceName map[string]string
 	useLaunchSecuritySEV            bool
@@ -106,25 +112,57 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 		builderOptions = append(builderOptions, withACPIIndex(uint(iface.ACPIIndex)))
 	}
 
-	isTap := d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap)
-	if isTap {
-		// use "ethernet" interface type, since we're using pre-configured tap devices
-		// https://libvirt.org/formatdomain.html#elementsNICSEthernet
-		builderOptions = append(builderOptions, withIfaceType("ethernet"))
-		if iface.BootOrder != nil {
-			builderOptions = append(builderOptions, withBootOrder(*iface.BootOrder))
+	if iface.MacAddress != "" {
+		builderOptions = append(builderOptions, withMACAddress(iface.MacAddress))
+	}
+
+	switch {
+	case d.domainAttachmentByInterfaceName[iface.Name] == string(v1.Tap):
+		builderOptions = append(builderOptions, d.tapBindingOptions(iface, useLaunchSecurity)...)
+
+	case iface.PasstBinding != nil:
+		passtOpts, err := d.passtBindingOptions(iface, vmi)
+		if err != nil {
+			return api.Interface{}, err
 		}
-	}
-
-	if d.isROMTuningSupported && ((isTap && iface.BootOrder == nil) || useLaunchSecurity) {
-		builderOptions = append(builderOptions, withROMDisabled())
-	}
-
-	if iface.State == v1.InterfaceStateLinkDown {
-		builderOptions = append(builderOptions, withLinkStateDown())
+		builderOptions = append(builderOptions, passtOpts...)
 	}
 
 	return newDomainInterface(iface.Name, modelType, builderOptions...), nil
+}
+
+func (d DomainConfigurator) tapBindingOptions(iface *v1.Interface, useLaunchSecurity bool) []builderOption {
+	// use "ethernet" interface type, since we're using pre-configured tap devices
+	// https://libvirt.org/formatdomain.html#elementsNICSEthernet
+	opts := []builderOption{withIfaceType("ethernet")}
+
+	if iface.BootOrder != nil {
+		opts = append(opts, withBootOrder(*iface.BootOrder))
+	}
+
+	if d.isROMTuningSupported && (iface.BootOrder == nil || useLaunchSecurity) {
+		opts = append(opts, withROMDisabled())
+	}
+
+	if iface.State == v1.InterfaceStateLinkDown {
+		opts = append(opts, withLinkStateDown())
+	}
+
+	return opts
+}
+
+func (d DomainConfigurator) passtBindingOptions(iface *v1.Interface, vmi *v1.VirtualMachineInstance) ([]builderOption, error) {
+	ifaceStatus := netvmispec.LookupInterfaceStatusByName(vmi.Status.Interfaces, iface.Name)
+	if ifaceStatus == nil || ifaceStatus.PodInterfaceName == "" {
+		return nil, fmt.Errorf("pod interface name not found in vmi %s status, for interface %s",
+			vmi.Name, iface.Name)
+	}
+	return []builderOption{
+		withIfaceType("vhostuser"),
+		withSource(api.InterfaceSource{Device: ifaceStatus.PodInterfaceName}),
+		withBackend(api.InterfaceBackend{Type: passtBackendPasst, LogFile: passtLogFilePath}),
+		withPortForward(generatePasstPortForward(iface, vmi)),
+	}, nil
 }
 
 func WithDomainAttachmentByInterfaceName(domainAttachmentByInterfaceName map[string]string) option {

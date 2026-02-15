@@ -35,7 +35,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
-	"kubevirt.io/kubevirt/pkg/network/netbinding"
+	netresources "kubevirt.io/kubevirt/pkg/network/resources"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
@@ -184,7 +184,7 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 func collectVMILauncherMemoryOverhead(vmi *k6tv1.VirtualMachineInstance) operatormetrics.CollectorResult {
 	// Create the hypervisor resources calculator based on the cluster configuration, as the overhead calculation may differ between different hypervisors
 	launcherHypervisorResources := hypervisor.NewLauncherHypervisorResources(clusterConfig.GetHypervisor().Name)
-	memoryOverhead := services.CalculateMemoryOverhead(clusterConfig, netbinding.MemoryCalculator{}, vmi, launcherHypervisorResources)
+	memoryOverhead := services.CalculateMemoryOverhead(clusterConfig, netresources.MemoryCalculator{}, vmi, launcherHypervisorResources)
 
 	return operatormetrics.CollectorResult{
 		Metric: vmiLauncherMemoryOverhead,

@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"libvirt.org/go/libvirtxml"
 
+	netresources "kubevirt.io/kubevirt/pkg/network/resources"
 	"kubevirt.io/kubevirt/pkg/virt-handler/ksm"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,7 +69,6 @@ import (
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 	metricshandler "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/handler"
 	"kubevirt.io/kubevirt/pkg/monitoring/profiler"
-	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/network/passt"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/service"
@@ -408,7 +408,7 @@ func (app *virtHandlerApp) Run() {
 		&capabilities,
 		netConf,
 		netStat,
-		netbinding.MemoryCalculator{},
+		netresources.MemoryCalculator{},
 		passtRepairHandler,
 	)
 	if err != nil {

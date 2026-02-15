@@ -1499,6 +1499,7 @@ type InterfaceBindingMethod struct {
 	// Deprecated: Removed in v1.3
 	// +optional
 	DeprecatedPasst *DeprecatedInterfacePasst `json:"passt,omitempty"`
+	PasstBinding    *InterfacePasstBinding    `json:"passtBinding,omitempty"`
 }
 
 // InterfaceBridge connects to a given network via a linux bridge.
@@ -1523,6 +1524,9 @@ type DeprecatedInterfaceMacvtap struct{}
 // DeprecatedInterfacePasst is an alias to the deprecated InterfacePasst
 // Deprecated: Removed in v1.3
 type DeprecatedInterfacePasst struct{}
+
+// InterfacePasstBinding connects to a given network using passt usermode networking.
+type InterfacePasstBinding struct{}
 
 // PluginBinding represents a binding implemented in a plugin.
 type PluginBinding struct {

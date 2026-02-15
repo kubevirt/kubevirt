@@ -24,7 +24,7 @@ go_library(
         "//pkg/monitoring/metrics/common/client:go_default_library",
         "//pkg/monitoring/metrics/common/labels:go_default_library",
         "//pkg/monitoring/metrics/common/workqueue:go_default_library",
-        "//pkg/network/netbinding:go_default_library",
+        "//pkg/network/resources:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/migrations:go_default_library",
         "//pkg/virt-config:go_default_library",

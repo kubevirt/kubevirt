@@ -1296,6 +1296,16 @@ var _ = Describe("Converter", func() {
 			}))
 		})
 
+		It("passt network interface should enable shared memory", func() {
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+			vmi.Spec.Domain.Devices.Interfaces[0].PasstBinding = &v1.InterfacePasstBinding{}
+			vmi.Status.Interfaces = []v1.VirtualMachineInstanceNetworkInterface{{Name: "default", PodInterfaceName: "eth0"}}
+			dom := &api.Domain{}
+			Expect(Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, dom, c)).To(Succeed())
+			Expect(dom.Spec.MemoryBacking.Access.Mode).To(Equal("shared"))
+			Expect(dom.Spec.MemoryBacking.Source.Type).To(Equal("memfd"))
+		})
+
 		DescribeTable("usb controller", func(arch, bus string, matcher types.GomegaMatcher) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.Inputs[0].Bus = v1.InputBus(bus)
@@ -3663,6 +3673,10 @@ var _ = Describe("Converter", func() {
 				AllowEmulation:       true,
 				EFIConfiguration:     &EFIConfiguration{},
 				UseLaunchSecuritySEV: true,
+				DomainAttachmentByInterfaceName: map[string]string{
+					"default": string(v1.Tap),
+					"red":     string(v1.Tap),
+				},
 			}
 		})
 

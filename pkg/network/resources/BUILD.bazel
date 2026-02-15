@@ -2,29 +2,32 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "go_default_library",
-    srcs = ["netbinding.go"],
-    importpath = "kubevirt.io/kubevirt/pkg/network/netbinding",
+    srcs = ["memory.go"],
+    importpath = "kubevirt.io/kubevirt/pkg/network/resources",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/hooks:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
-        "netbinding_suite_test.go",
-        "netbinding_test.go",
+        "memory_test.go",
+        "resources_suite_test.go",
     ],
     race = "on",
     deps = [
         ":go_default_library",
-        "//pkg/hooks:go_default_library",
         "//pkg/libvmi:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
     ],
 )

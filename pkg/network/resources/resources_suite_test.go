@@ -17,7 +17,7 @@
  *
  */
 
-package admitter_test
+package resources_test
 
 import (
 	"testing"
@@ -25,17 +25,6 @@ import (
 	"kubevirt.io/client-go/testutils"
 )
 
-func TestAdmitter(t *testing.T) {
+func TestResources(t *testing.T) {
 	testutils.KubeVirtTestSuiteSetup(t)
-}
-
-type stubClusterConfigChecker struct {
-	bridgeBindingOnPodNetEnabled   bool
-	passtBindingFeatureGateEnabled bool
-}
-
-func (s stubClusterConfigChecker) PasstBindingEnabled() bool { return s.passtBindingFeatureGateEnabled }
-
-func (s stubClusterConfigChecker) IsBridgeInterfaceOnPodNetworkEnabled() bool {
-	return s.bridgeBindingOnPodNetEnabled
 }

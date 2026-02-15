@@ -121,7 +121,7 @@ const (
 	FailedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 )
 
-type netBindingPluginMemoryCalculator interface {
+type netMemoryCalculator interface {
 	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
 }
 
@@ -149,11 +149,11 @@ type TemplateService struct {
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
 
-	sidecarCreators                  []SidecarCreatorFunc
-	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
-	annotationsGenerators            []annotationsGenerator
-	netTargetAnnotationsGenerator    targetAnnotationsGenerator
-	launcherHypervisorResources      hypervisor.LauncherHypervisorResources
+	sidecarCreators               []SidecarCreatorFunc
+	netMemoryCalculator           netMemoryCalculator
+	annotationsGenerators         []annotationsGenerator
+	netTargetAnnotationsGenerator targetAnnotationsGenerator
+	launcherHypervisorResources   hypervisor.LauncherHypervisorResources
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -1519,7 +1519,7 @@ func (t *TemplateService) doesVMIRequireAutoCPULimits(vmi *v1.VirtualMachineInst
 }
 
 func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) VMIResourcePredicates {
-	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netBindingPluginMemoryCalculator, vmi, t.launcherHypervisorResources)
+	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
 	additionalCPUs := uint32(0)
 	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
@@ -1555,7 +1555,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 	}
 }
 
-func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources) resource.Quantity {
+func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netMemoryCalculator netMemoryCalculator, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources) resource.Quantity {
 	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
 	vmiCPUArch := vmi.Spec.Architecture
 	if vmiCPUArch == "" {
@@ -1564,9 +1564,9 @@ func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netBinding
 
 	memoryOverhead := launcherHypervisorResources.GetMemoryOverhead(vmi, vmiCPUArch, clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
 
-	if netBindingPluginMemoryCalculator != nil {
+	if netMemoryCalculator != nil {
 		memoryOverhead.Add(
-			netBindingPluginMemoryCalculator.Calculate(vmi, clusterConfig.GetNetworkBindings()),
+			netMemoryCalculator.Calculate(vmi, clusterConfig.GetNetworkBindings()),
 		)
 	}
 
@@ -1627,9 +1627,9 @@ func readinessGates() []k8sv1.PodReadinessGate {
 	}
 }
 
-func WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator) templateServiceOption {
+func WithNetMemoryCalculator(netMemoryCalculator netMemoryCalculator) templateServiceOption {
 	return func(service *TemplateService) {
-		service.netBindingPluginMemoryCalculator = netBindingPluginMemoryCalculator
+		service.netMemoryCalculator = netMemoryCalculator
 	}
 }
 

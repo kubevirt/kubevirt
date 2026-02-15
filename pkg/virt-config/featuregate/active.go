@@ -149,6 +149,11 @@ const (
 	// PasstIPStackMigration enables seamless migration with passt network binding.
 	PasstIPStackMigration = "PasstIPStackMigration"
 
+	// Beta: v1.8.0
+	//
+	// PasstBinding enables the use of passt core network binding
+	PasstBinding = "PasstBinding"
+
 	// MigrationPriorityQueue enables controllers to assign priorities to migrations,
 	// ensuring system-initiated migrations (e.g., node drains, upgrades) take precedence
 	// over user-initiated ones (e.g., hot plug operations).
@@ -220,6 +225,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})

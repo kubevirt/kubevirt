@@ -18,6 +18,7 @@ go_library(
         "//pkg/ephemeral-disk:go_default_library",
         "//pkg/handler-launcher-com/cmd/v1:go_default_library",
         "//pkg/host-disk:go_default_library",
+        "//pkg/network/vmispec:go_default_library",
         "//pkg/os/disk:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/safepath:go_default_library",
