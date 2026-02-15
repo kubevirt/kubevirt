@@ -1,0 +1,115 @@
+# Copyright 2024 The KubeVirt Authors.
+# Licensed under the Apache License, Version 2.0.
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mesa-injector
+  labels:
+    app: mesa-injector
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mesa-injector
+  namespace: mesa-injector
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mesa-injector
+  namespace: mesa-injector
+  labels:
+    app: mesa-injector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mesa-injector
+  template:
+    metadata:
+      labels:
+        app: mesa-injector
+    spec:
+      serviceAccountName: mesa-injector
+      containers:
+      - name: webhook
+        image: mesa-injector:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8443
+          name: webhook
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - name: webhook-certs
+          mountPath: /etc/webhook/certs
+          readOnly: true
+        resources:
+          limits:
+            cpu: 100m
+            memory: 64Mi
+          requests:
+            cpu: 50m
+            memory: 32Mi
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: mesa-injector-certs
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mesa-injector
+  namespace: mesa-injector
+spec:
+  selector:
+    app: mesa-injector
+  ports:
+  - port: 443
+    targetPort: 8443
+    name: webhook
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: mesa-injector
+webhooks:
+- name: mesa-injector.kubevirt.io
+  admissionReviewVersions: ["v1"]
+  sideEffects: None
+  clientConfig:
+    service:
+      name: mesa-injector
+      namespace: mesa-injector
+      path: /mutate
+    # CA bundle will be injected by deploy script
+    caBundle: ""
+  rules:
+  - operations: ["CREATE"]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  # No namespaceSelector - virt-launcher pods can be in any namespace (kubevirt-test-*)
+  objectSelector:
+    matchLabels:
+      kubevirt.io: virt-launcher
+  failurePolicy: Ignore
+  timeoutSeconds: 10

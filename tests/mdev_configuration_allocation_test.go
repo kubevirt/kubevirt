@@ -3,6 +3,7 @@ package tests_test
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/pointer"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -198,6 +200,42 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		})
 	})
 
+	// isFakeVGPU checks if the mdev parent device is the fake vGPU driver
+	// rather than a real PCI GPU. Fake vGPU uses "/sys/class/mdev_bus/nvidia/"
+	// while real GPUs use PCI addresses like "/sys/class/mdev_bus/0000:XX:XX.X/".
+	isFakeVGPU := func() bool {
+		check := `ls -d /sys/class/mdev_bus/nvidia 2>/dev/null && echo "fake" || echo "real"`
+		testPod := libpod.RenderPod("check-fake-vgpu", []string{"/bin/bash", "-c"}, []string{check})
+		testPod, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Create(context.Background(), testPod, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		defer func() {
+			_ = virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).Delete(context.Background(), testPod.Name, metav1.DeleteOptions{})
+		}()
+
+		var latestPod k8sv1.Pod
+		err = virtwait.PollImmediately(time.Second, 30*time.Second, waitForPod(&latestPod, ThisPod(testPod)).WithContext())
+		Expect(err).ToNot(HaveOccurred())
+
+		logs, err := virtClient.CoreV1().Pods(testsuite.NamespacePrivileged).GetLogs(testPod.Name, &k8sv1.PodLogOptions{}).DoRaw(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+		return strings.Contains(string(logs), "fake")
+	}
+
+	// shouldDisableDisplay returns true if display should be disabled for fake vGPU.
+	// When VGPU_DISPLAY=true is set (mesa-injector webhook deployed), display can remain enabled.
+	shouldDisableDisplay := func() bool {
+		vgpuDisplay := os.Getenv("VGPU_DISPLAY")
+		if vgpuDisplay == "true" {
+			// mesa-injector webhook is deployed, OpenGL libraries will be injected
+			return false
+		}
+		// } else if vgpuDisplay != "" && vgpuDisplay != "false" {
+		// 	panic(fmt.Sprintf("Invalid VGPU_DISPLAY value: %q (expected 'true', 'false', or unset)", vgpuDisplay))
+		// }
+		// No webhook, must disable display for fake vGPU
+		return isFakeVGPU()
+	}
+
 	Context("with mediated devices configuration", func() {
 		var vmi *v1.VirtualMachineInstance
 		var deviceName = "nvidia.com/GRID_T4-1B"
@@ -251,6 +289,9 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		})
 
 		It("Should successfully passthrough a mediated device", func() {
+			// Check if display should be disabled for fake vGPU
+			// When VGPU_DISPLAY=true (mesa-injector deployed), display can remain enabled
+			disableDisplay := shouldDisableDisplay()
 
 			By("Creating a Fedora VMI")
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
@@ -260,6 +301,15 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 					Name:       "gpu1",
 					DeviceName: deviceName,
 				},
+			}
+			// Disable display for fake vGPU unless mesa-injector webhook is deployed
+			// (VGPU_DISPLAY=true) which provides OpenGL libraries to virt-launcher
+			if disableDisplay {
+				vGPUs[0].VirtualGPUOptions = &v1.VGPUOptions{
+					Display: &v1.VGPUDisplayOptions{
+						Enabled: pointer.Bool(false),
+					},
+				}
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
 			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -276,10 +326,17 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 
 			domXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
 			Expect(err).ToNot(HaveOccurred())
-			// make sure that one mdev has display and ramfb on
-			By("Maiking sure that a boot display is enabled")
-			Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
-			Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
+
+			// Display assertions depend on whether display was disabled
+			if !disableDisplay {
+				// Display enabled (real vGPU or mesa-injector deployed)
+				By("Making sure that a boot display is enabled")
+				Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?on.?`), "Display should be on")
+				Expect(domXml).To(MatchRegexp(`<hostdev .*ramfb=.?on.?`), "RamFB should be on")
+			} else {
+				By("Verifying display is disabled for fake vGPU (no OpenGL support)")
+				Expect(domXml).To(MatchRegexp(`<hostdev .*display=.?off.?`), "Display should be off for fake vGPU")
+			}
 		})
 		It("Should override default mdev configuration on a specific node", func() {
 			newDesiredMdevTypeName := "nvidia-223"
@@ -304,6 +361,9 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 			singleNode := libnode.GetAllSchedulableNodes(virtClient).Items[0]
 			libnode.AddLabelToNode(singleNode.Name, cleanup.TestLabelForNamespace(testsuite.GetTestNamespace(vmi)), mdevTestLabel)
 
+			// Check if display should be disabled for fake vGPU
+			disableDisplay := shouldDisableDisplay()
+
 			By("Creating a Fedora VMI")
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithAutoattachGraphicsDevice(true))
 			vmi.Spec.Domain.Resources.Requests[k8sv1.ResourceMemory] = resource.MustParse("1G")
@@ -312,6 +372,14 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 					Name:       "gpu1",
 					DeviceName: updatedDeviceName,
 				},
+			}
+			// Disable display for fake vGPU unless mesa-injector is deployed
+			if disableDisplay {
+				vGPUs[0].VirtualGPUOptions = &v1.VGPUOptions{
+					Display: &v1.VGPUDisplayOptions{
+						Enabled: pointer.Bool(false),
+					},
+				}
 			}
 			vmi.Spec.Domain.Devices.GPUs = vGPUs
 			createdVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
@@ -386,63 +454,128 @@ var _ = Describe("[sig-compute]MediatedDevices", Serial, decorators.VGPU, decora
 		})
 
 		It("should create mdevs on devices that appear after CR configuration", func() {
-			By("looking for an mdev-compatible PCI device")
-			out, err := runBashCmd(findMdevCapableDevices)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(out).To(ContainSubstring(mdevBusPath))
-			pciId := "'" + filepath.Base(out) + "'"
+			usingFakeVGPU := isFakeVGPU()
 
-			By("finding the driver")
-			driverPath, err = runBashCmd("readlink -e " + mdevBusPath + pciId + "/driver")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(driverPath).To(ContainSubstring("drivers"))
+			var pciId, mdevType, deviceName, resourceName string
+			var err error
+			var out string
 
-			By("finding a supported type")
-			out, err = runBashCmd(fmt.Sprintf(findSupportedTypeFmt, pciId))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(out).ToNot(BeEmpty())
-			mdevType := filepath.Base(out)
+			// This test verifies virt-handler creates mdev instances when devices appear.
+			// For real GPUs: uses PCI driver unbind/bind to make device disappear/reappear.
+			// For fake vGPU: uses a sysfs hotplug_control interface that unregisters/registers
+			// the mdev parent, achieving the same effect (device disappears from mdev_bus).
+			// Both paths test identical virt-handler code - it watches /sys/class/mdev_bus/
+			// for changes regardless of whether the underlying device is PCI-based or not.
+			if usingFakeVGPU {
+				// Fake vGPU path: use hotplug_control sysfs interface
+				const fakeVGPUParent = "'nvidia'"
+				const hotplugControl = "/sys/class/nvidia/nvidia/hotplug_control"
 
-			By("finding the name of the device")
-			fileName := fmt.Sprintf(deviceNameFmt, pciId, mdevType)
-			deviceName, err := runBashCmd("cat " + fileName)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(deviceName).ToNot(BeEmpty())
+				By("removing any existing mdev instances")
+				_ = runBashCmdRw("for dev in /sys/bus/mdev/devices/*; do echo 1 > $dev/remove 2>/dev/null; done || true")
 
-			By("unbinding the device from its driver")
-			re := regexp.MustCompile(`[\da-f]{2}\.[\da-f]'$`)
-			rootPCIId = re.ReplaceAllString(pciId, "00.0'")
-			err = runBashCmdRw(fmt.Sprintf(unbindCmdFmt, rootPCIId, driverPath))
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() error {
-				_, err = runBashCmd("ls " + mdevBusPath + pciId)
-				return err
-			}).Should(HaveOccurred(), "failed to disable the VFs on "+rootPCIId)
+				By("hiding fake vGPU device (simulating hot-unplug)")
+				err = runBashCmdRw("echo hide > " + hotplugControl)
+				Expect(err).ToNot(HaveOccurred())
 
-			By("adding the device to the KubeVirt CR")
-			resourceName := filepath.Base(driverPath) + ".com/" + strings.ReplaceAll(deviceName, " ", "_")
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			config := kv.Spec.Configuration
-			config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
-				MediatedDevicesTypes: []string{mdevType},
-			}
-			config.PermittedHostDevices = &v1.PermittedHostDevices{
-				MediatedDevices: []v1.MediatedHostDevice{
-					{
-						MDEVNameSelector: deviceName,
-						ResourceName:     resourceName,
+				// Verify device is hidden
+				Eventually(func() error {
+					_, err = runBashCmd("ls " + mdevBusPath + fakeVGPUParent)
+					return err
+				}).Should(HaveOccurred(), "device should be hidden")
+
+				// Set up variables for fake vGPU
+				pciId = fakeVGPUParent
+				mdevType = "nvidia-222"
+				deviceName = "GRID T4-1B"
+				resourceName = "nvidia.com/GRID_T4-1B"
+
+				By("adding the device to the KubeVirt CR")
+				kv := libkubevirt.GetCurrentKv(virtClient)
+				config := kv.Spec.Configuration
+				config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{mdevType},
+				}
+				config.PermittedHostDevices = &v1.PermittedHostDevices{
+					MediatedDevices: []v1.MediatedHostDevice{
+						{
+							MDEVNameSelector: deviceName,
+							ResourceName:     resourceName,
+						},
 					},
-				},
-			}
-			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+				}
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
 
-			By("re-binding the device to its driver")
-			err = runBashCmdRw(fmt.Sprintf(bindCmdFmt, rootPCIId, driverPath))
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func() error {
-				_, err = runBashCmd("ls " + mdevBusPath + pciId)
-				return err
-			}).ShouldNot(HaveOccurred(), "failed to re-enable the VFs on "+rootPCIId)
+				By("showing fake vGPU device (simulating hot-plug)")
+				err = runBashCmdRw("echo show > " + hotplugControl)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Verify device is visible
+				Eventually(func() error {
+					_, err = runBashCmd("ls " + mdevBusPath + fakeVGPUParent)
+					return err
+				}).ShouldNot(HaveOccurred(), "device should be visible")
+
+			} else {
+				// Real GPU path: use PCI driver unbind/bind
+				By("looking for an mdev-compatible PCI device")
+				out, err = runBashCmd(findMdevCapableDevices)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out).To(ContainSubstring(mdevBusPath))
+				pciId = "'" + filepath.Base(out) + "'"
+
+				By("finding the driver")
+				driverPath, err = runBashCmd("readlink -e " + mdevBusPath + pciId + "/driver")
+				Expect(err).ToNot(HaveOccurred())
+				Expect(driverPath).To(ContainSubstring("drivers"))
+
+				By("finding a supported type")
+				out, err = runBashCmd(fmt.Sprintf(findSupportedTypeFmt, pciId))
+				Expect(err).ToNot(HaveOccurred())
+				Expect(out).ToNot(BeEmpty())
+				mdevType = filepath.Base(out)
+
+				By("finding the name of the device")
+				fileName := fmt.Sprintf(deviceNameFmt, pciId, mdevType)
+				deviceName, err = runBashCmd("cat " + fileName)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(deviceName).ToNot(BeEmpty())
+
+				By("unbinding the device from its driver")
+				re := regexp.MustCompile(`[\da-f]{2}\.[\da-f]'$`)
+				rootPCIId = re.ReplaceAllString(pciId, "00.0'")
+				err = runBashCmdRw(fmt.Sprintf(unbindCmdFmt, rootPCIId, driverPath))
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() error {
+					_, err = runBashCmd("ls " + mdevBusPath + pciId)
+					return err
+				}).Should(HaveOccurred(), "failed to disable the VFs on "+rootPCIId)
+
+				By("adding the device to the KubeVirt CR")
+				resourceName = filepath.Base(driverPath) + ".com/" + strings.ReplaceAll(deviceName, " ", "_")
+				kv := libkubevirt.GetCurrentKv(virtClient)
+				config := kv.Spec.Configuration
+				config.MediatedDevicesConfiguration = &v1.MediatedDevicesConfiguration{
+					MediatedDevicesTypes: []string{mdevType},
+				}
+				config.PermittedHostDevices = &v1.PermittedHostDevices{
+					MediatedDevices: []v1.MediatedHostDevice{
+						{
+							MDEVNameSelector: deviceName,
+							ResourceName:     resourceName,
+						},
+					},
+				}
+				kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+
+				By("re-binding the device to its driver")
+				err = runBashCmdRw(fmt.Sprintf(bindCmdFmt, rootPCIId, driverPath))
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(func() error {
+					_, err = runBashCmd("ls " + mdevBusPath + pciId)
+					return err
+				}).ShouldNot(HaveOccurred(), "failed to re-enable the VFs on "+rootPCIId)
+			}
 
 			By("expecting the creation of a mediated device")
 			mdevUUIDPath := fmt.Sprintf(mdevUUIDPathFmt, pciId, uuidRegex)
