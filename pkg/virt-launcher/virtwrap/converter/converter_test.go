@@ -2984,7 +2984,7 @@ var _ = Describe("Converter", func() {
 				Cores: 2,
 			}
 
-			domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true})
+			domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, DomainAttachmentByInterfaceName: map[string]string{"default": string(v1.Tap)}})
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedQueues),
 				"expected number of queues to equal number of requested vCPUs")
 		})
@@ -2996,14 +2996,14 @@ var _ = Describe("Converter", func() {
 				Sockets: 1,
 				Threads: 2,
 			}
-			domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true})
+			domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, DomainAttachmentByInterfaceName: map[string]string{"default": string(v1.Tap)}})
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedQueues),
 				"expected number of queues to equal number of requested vCPUs")
 		})
 
 		It("should not assign queues to a non-virtio devices", func() {
 			vmi.Spec.Domain.Devices.Interfaces[0].Model = "e1000"
-			domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true})
+			domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, DomainAttachmentByInterfaceName: map[string]string{"default": string(v1.Tap)}})
 			Expect(domain.Spec.Devices.Interfaces[0].Driver).To(BeNil(),
 				"queues should not be set for models other than virtio")
 		})
@@ -3014,7 +3014,7 @@ var _ = Describe("Converter", func() {
 				Sockets: 1,
 				Threads: 2,
 			}
-			domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true})
+			domain := vmiToDomain(vmi, &ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, DomainAttachmentByInterfaceName: map[string]string{"default": string(v1.Tap)}})
 			expectedNumberQueues := uint(network.MultiQueueMaxQueues)
 			Expect(*(domain.Spec.Devices.Interfaces[0].Driver.Queues)).To(Equal(expectedNumberQueues),
 				"should be capped to the maximum number of queues on tap devices")
@@ -3793,9 +3793,10 @@ var _ = Describe("Converter", func() {
 			}
 			vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{}
 			c = &ConverterContext{
-				Architecture:        archconverter.NewConverter(s390x),
-				AllowEmulation:      true,
-				UseLaunchSecurityPV: true,
+				Architecture:                    archconverter.NewConverter(s390x),
+				AllowEmulation:                  true,
+				UseLaunchSecurityPV:             true,
+				DomainAttachmentByInterfaceName: map[string]string{"default": string(v1.Tap), "red": string(v1.Tap)},
 			}
 		})
 
@@ -3873,10 +3874,11 @@ var _ = Describe("Converter", func() {
 				},
 			}
 			c = &ConverterContext{
-				Architecture:         archconverter.NewConverter(amd64),
-				AllowEmulation:       true,
-				EFIConfiguration:     &EFIConfiguration{},
-				UseLaunchSecurityTDX: true,
+				Architecture:                    archconverter.NewConverter(amd64),
+				AllowEmulation:                  true,
+				EFIConfiguration:                &EFIConfiguration{},
+				UseLaunchSecurityTDX:            true,
+				DomainAttachmentByInterfaceName: map[string]string{"default": string(v1.Tap), "red": string(v1.Tap)},
 			}
 		})
 

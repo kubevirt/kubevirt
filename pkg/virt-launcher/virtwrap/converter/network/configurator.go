@@ -126,6 +126,9 @@ func (d DomainConfigurator) configureInterface(iface *v1.Interface, vmi *v1.Virt
 			return api.Interface{}, err
 		}
 		builderOptions = append(builderOptions, passtOpts...)
+
+	default:
+		return api.Interface{}, fmt.Errorf("invalid configuration for interface %s", iface.Name)
 	}
 
 	return newDomainInterface(iface.Name, modelType, builderOptions...), nil
