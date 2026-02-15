@@ -906,18 +906,14 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 				libwait.WaitForSuccessfulVMIStart(agentVMI)
 
-				getOptions := metav1.GetOptions{}
-				var freshVMI *v1.VirtualMachineInstance
+				By("Logging in to the guest")
+				Expect(console.LoginToAlpine(agentVMI)).To(Succeed())
 
-				freshVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-
-				domXML, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, freshVMI)
-				Expect(err).ToNot(HaveOccurred(), "Should return XML from VMI")
-
-				Expect(domXML).To(ContainSubstring("<channel type='unix'>"), "Should contain at least one channel")
-				Expect(domXML).To(ContainSubstring("<target type='virtio' name='org.qemu.guest_agent.0' state='disconnected'/>"), "Should have guest agent channel present")
-				Expect(domXML).To(ContainSubstring("<alias name='channel0'/>"), "Should have guest channel present")
+				By("Verifying the guest agent virtio-serial port is visible inside the guest")
+				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
+					&expect.BSnd{S: "cat /sys/class/virtio-ports/*/name 2>/dev/null | grep -c org.qemu.guest_agent.0\n"},
+					&expect.BExp{R: console.RetValue("1")},
+				}, 30)).To(Succeed(), "Guest agent virtio-serial port should be present in the guest")
 			})
 
 			It("[test_id:1677]VMI condition should signal agent presence", func() {

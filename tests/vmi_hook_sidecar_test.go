@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"time"
 
+	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -43,9 +44,9 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
+	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
@@ -272,11 +273,15 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 					vmi.ObjectMeta.Annotations = RenderSidecarWithConfigMapWithoutImage(hooksv1alpha2.Version, cm.Name)
 				}
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXHuge)
-				domainXml, err := libdomain.GetRunningVirtualMachineInstanceDomainXML(virtClient, vmi)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(domainXml).Should(ContainSubstring("<sysinfo type='smbios'>"))
-				Expect(domainXml).Should(ContainSubstring("<smbios mode='sysinfo'/>"))
-				Expect(domainXml).Should(ContainSubstring("<entry name='manufacturer'>Radical Edward</entry>"))
+
+				By("Logging in to the guest")
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
+
+				By("Verifying SMBIOS baseboard manufacturer from inside the guest")
+				Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
+					&expect.BSnd{S: "cat /sys/class/dmi/id/board_vendor\n"},
+					&expect.BExp{R: "Radical Edward"},
+				}, 30)).To(Succeed(), "SMBIOS baseboard manufacturer should match the configured value")
 			},
 				Entry("when sidecar image is specified", true),
 				Entry("when sidecar image is not specified", false),
