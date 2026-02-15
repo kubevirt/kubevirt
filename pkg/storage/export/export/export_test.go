@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -1030,6 +1031,32 @@ var _ = Describe("Export controller", func() {
 		Entry("PVC name within limit", "pvc-name-within-limit"),
 		Entry("PVC name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
 		Entry("PVC name with same length as limit", strings.Repeat("a", validation.DNS1035LabelMaxLength)),
+	)
+
+	DescribeTable("GetVolumeInfo should correctly resolve volume paths for various PVC names", func(pvcName string) {
+		targetName := getExportPodVolumeNameFromStr(pvcName)
+		sp := &ServerPaths{
+			Volumes: []VolumeInfo{
+				{
+					Path: "/var/run/kubevirt-export/" + targetName,
+				},
+			},
+		}
+
+		result := sp.GetVolumeInfo(pvcName)
+		Expect(result).ToNot(BeNil())
+
+		_, foundName := filepath.Split(filepath.Clean(result.Path))
+		Expect(foundName).To(Equal(targetName))
+
+		if len(pvcName) > validation.DNS1035LabelMaxLength {
+			Expect(len(foundName)).To(BeNumerically("<", 63))
+			Expect(foundName).To(HavePrefix(exportPrefix))
+		}
+	},
+		Entry("Short name", "pvc-name"),
+		Entry("Name with dots", "pvc.with.dots"),
+		Entry("Long name exceeding limit", strings.Repeat("a", validation.DNS1035LabelMaxLength+1)),
 	)
 
 	DescribeTable("service name should be sanitized", func(exportName, expectedServiceName string) {
