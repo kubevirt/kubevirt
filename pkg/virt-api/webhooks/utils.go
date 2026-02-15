@@ -39,12 +39,6 @@ var VirtualMachineGroupVersionResource = metav1.GroupVersionResource{
 	Resource: "virtualmachines",
 }
 
-var VirtualMachineInstancePresetGroupVersionResource = metav1.GroupVersionResource{
-	Group:    v1.VirtualMachineInstancePresetGroupVersionKind.Group,
-	Version:  v1.VirtualMachineInstancePresetGroupVersionKind.Version,
-	Resource: "virtualmachineinstancepresets",
-}
-
 var VirtualMachineInstanceReplicaSetGroupVersionResource = metav1.GroupVersionResource{
 	Group:    v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Group,
 	Version:  v1.VirtualMachineInstanceReplicaSetGroupVersionKind.Version,
@@ -64,7 +58,6 @@ var MigrationGroupVersionResource = metav1.GroupVersionResource{
 }
 
 type Informers struct {
-	VMIPresetInformer  cache.SharedIndexInformer
 	VMRestoreInformer  cache.SharedIndexInformer
 	VMBackupInformer   cache.SharedIndexInformer
 	DataSourceInformer cache.SharedIndexInformer

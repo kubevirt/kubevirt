@@ -53,8 +53,6 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 	const kubeVirtNamespace = "kubevirt"
 
 	var vmi *v1.VirtualMachineInstance
-	var preset *v1.VirtualMachineInstancePreset
-	var presetInformer cache.SharedIndexInformer
 	var kvStore cache.Store
 	var mutator *VMIsMutator
 
@@ -169,40 +167,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		mutator = &VMIsMutator{}
 		mutator.ClusterConfig, _, kvStore = testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-		presetInformer, _ = testutils.NewFakeInformerFor(&v1.VirtualMachineInstancePreset{})
-		mutator.VMIPresetInformer = presetInformer
 		mutator.KubeVirtServiceAccounts = webhooks.KubeVirtServiceAccounts(kubeVirtNamespace)
-	})
-
-	Context("with presets", func() {
-		BeforeEach(func() {
-			selector := k8smetav1.LabelSelector{MatchLabels: map[string]string{"test": "test"}}
-			preset = &v1.VirtualMachineInstancePreset{
-				ObjectMeta: k8smetav1.ObjectMeta{
-					Name: "test-preset",
-				},
-				Spec: v1.VirtualMachineInstancePresetSpec{
-					Domain: &v1.DomainSpec{
-						CPU: &v1.CPU{Cores: 4},
-					},
-					Selector: selector,
-				},
-			}
-			presetInformer.GetIndexer().Add(preset)
-		})
-
-		It("should apply presets on VMI create", func() {
-			_, vmiSpec, _ := getMetaSpecStatusFromAdmit()
-			Expect(vmiSpec.Domain.CPU).ToNot(BeNil())
-			Expect(vmiSpec.Domain.CPU.Cores).To(Equal(uint32(4)))
-		})
-
-		It("should include deprecation warning in response when presets are applied to VMI", func() {
-			resp := admitVMI()
-			Expect(resp.Allowed).To(BeTrue())
-			Expect(resp.Warnings).ToNot(BeEmpty())
-			Expect(resp.Warnings[0]).To(ContainSubstring("VirtualMachineInstancePresets is now deprecated"))
-		})
 	})
 
 	DescribeTable("should apply defaults on VMI create when arch is known", func(arch string, cpuModel string, machineType string) {

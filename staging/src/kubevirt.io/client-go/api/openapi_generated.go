@@ -590,9 +590,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceMigrationTargetState":                              schema_kubevirtio_api_core_v1_VirtualMachineInstanceMigrationTargetState(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceNetworkInterface":                                  schema_kubevirtio_api_core_v1_VirtualMachineInstanceNetworkInterface(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstancePhaseTransitionTimestamp":                          schema_kubevirtio_api_core_v1_VirtualMachineInstancePhaseTransitionTimestamp(ref),
-		"kubevirt.io/api/core/v1.VirtualMachineInstancePreset":                                            schema_kubevirtio_api_core_v1_VirtualMachineInstancePreset(ref),
-		"kubevirt.io/api/core/v1.VirtualMachineInstancePresetList":                                        schema_kubevirtio_api_core_v1_VirtualMachineInstancePresetList(ref),
-		"kubevirt.io/api/core/v1.VirtualMachineInstancePresetSpec":                                        schema_kubevirtio_api_core_v1_VirtualMachineInstancePresetSpec(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceProfile":                                           schema_kubevirtio_api_core_v1_VirtualMachineInstanceProfile(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceReplicaSet":                                        schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSet(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstanceReplicaSetCondition":                               schema_kubevirtio_api_core_v1_VirtualMachineInstanceReplicaSetCondition(ref),
@@ -28351,125 +28348,6 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstancePhaseTransitionTimestam
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_VirtualMachineInstancePreset(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.\n\nVirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Description: "VirtualMachineInstance Spec contains the VirtualMachineInstance specification.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("kubevirt.io/api/core/v1.VirtualMachineInstancePresetSpec"),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/core/v1.VirtualMachineInstancePresetSpec"},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_VirtualMachineInstancePresetList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VirtualMachineInstancePresetList is a list of VirtualMachinePresets",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/core/v1.VirtualMachineInstancePreset"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/core/v1.VirtualMachineInstancePreset"},
-	}
-}
-
-func schema_kubevirtio_api_core_v1_VirtualMachineInstancePresetSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"selector": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Selector is a label query over a set of VMIs. Required.",
-							Default:     map[string]interface{}{},
-							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
-						},
-					},
-					"domain": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Domain is the same object type as contained in VirtualMachineInstanceSpec",
-							Ref:         ref("kubevirt.io/api/core/v1.DomainSpec"),
-						},
-					},
-				},
-				Required: []string{"selector"},
-			},
-		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.DomainSpec"},
 	}
 }
 

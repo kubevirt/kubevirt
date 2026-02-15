@@ -1841,54 +1841,6 @@ func (m *VirtualMachineInstanceMigration) IsDecentralized() bool {
 		(m.Spec.SendTo == nil && m.Spec.Receive != nil)
 }
 
-// Deprecated for removal in v2, please use VirtualMachineInstanceType and VirtualMachinePreference instead.
-//
-// VirtualMachineInstancePreset defines a VMI spec.domain to be applied to all VMIs that match the provided label selector
-// More info: https://kubevirt.io/user-guide/virtual_machines/presets/#overrides
-//
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +genclient
-type VirtualMachineInstancePreset struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	// VirtualMachineInstance Spec contains the VirtualMachineInstance specification.
-	Spec VirtualMachineInstancePresetSpec `json:"spec,omitempty" valid:"required"`
-}
-
-// VirtualMachineInstancePresetList is a list of VirtualMachinePresets
-//
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type VirtualMachineInstancePresetList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []VirtualMachineInstancePreset `json:"items"`
-}
-
-type VirtualMachineInstancePresetSpec struct {
-	// Selector is a label query over a set of VMIs.
-	// Required.
-	Selector metav1.LabelSelector `json:"selector"`
-	// Domain is the same object type as contained in VirtualMachineInstanceSpec
-	Domain *DomainSpec `json:"domain,omitempty"`
-}
-
-func NewVirtualMachinePreset(name string, selector metav1.LabelSelector) *VirtualMachineInstancePreset {
-	return &VirtualMachineInstancePreset{
-		Spec: VirtualMachineInstancePresetSpec{
-			Selector: selector,
-			Domain:   &DomainSpec{},
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: k8sv1.NamespaceDefault,
-		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: GroupVersion.String(),
-			Kind:       VirtualMachineInstancePresetGroupVersionKind.Kind,
-		},
-	}
-}
-
 // VirtualMachine handles the VirtualMachines that are not running
 // or are in a stopped state
 // The VirtualMachine contains the template to create the

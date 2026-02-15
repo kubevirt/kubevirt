@@ -77,7 +77,6 @@ go_test(
         "vmi_sound_test.go",
         "vmi_tpm_test.go",
         "vmi_vsock_test.go",
-        "vmipreset_test.go",
         "vnc_test.go",
         "watchdog_test.go",
         "windows_test.go",

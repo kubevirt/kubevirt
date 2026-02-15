@@ -75,7 +75,6 @@ var (
 	// GroupVersionKind
 	VirtualMachineInstanceGroupVersionKind           = schema.GroupVersionKind{Group: core.GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstance"}
 	VirtualMachineInstanceReplicaSetGroupVersionKind = schema.GroupVersionKind{Group: core.GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceReplicaSet"}
-	VirtualMachineInstancePresetGroupVersionKind     = schema.GroupVersionKind{Group: core.GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstancePreset"}
 	VirtualMachineGroupVersionKind                   = schema.GroupVersionKind{Group: core.GroupName, Version: GroupVersion.Version, Kind: "VirtualMachine"}
 	VirtualMachineInstanceMigrationGroupVersionKind  = schema.GroupVersionKind{Group: core.GroupName, Version: GroupVersion.Version, Kind: "VirtualMachineInstanceMigration"}
 	KubeVirtGroupVersionKind                         = schema.GroupVersionKind{Group: core.GroupName, Version: GroupVersion.Version, Kind: "KubeVirt"}
@@ -97,8 +96,6 @@ func AddKnownTypesGenerator(groupVersions []schema.GroupVersion) func(scheme *ru
 				&VirtualMachineInstanceList{},
 				&VirtualMachineInstanceReplicaSet{},
 				&VirtualMachineInstanceReplicaSetList{},
-				&VirtualMachineInstancePreset{},
-				&VirtualMachineInstancePresetList{},
 				&VirtualMachineInstanceMigration{},
 				&VirtualMachineInstanceMigrationList{},
 				&VirtualMachine{},

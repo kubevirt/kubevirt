@@ -137,17 +137,6 @@ func newApiServerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					GroupName,
-				},
-				Resources: []string{
-					"virtualmachineinstancepresets",
-				},
-				Verbs: []string{
-					"watch", "list",
-				},
-			},
-			{
-				APIGroups: []string{
 					"",
 				},
 				Resources: []string{

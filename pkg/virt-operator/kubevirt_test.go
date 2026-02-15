@@ -88,14 +88,14 @@ const (
 
 	NAMESPACE = "kubevirt-test"
 
-	resourceCount = 89
-	patchCount    = 57
+	resourceCount = 88
+	patchCount    = 56
 	updateCount   = 33
 )
 
 var (
 	crdFunctions = []func() (*extv1.CustomResourceDefinition, error){
-		components.NewVirtualMachineInstanceCrd, components.NewPresetCrd, components.NewReplicaSetCrd,
+		components.NewVirtualMachineInstanceCrd, components.NewReplicaSetCrd,
 		components.NewVirtualMachineCrd, components.NewVirtualMachineInstanceMigrationCrd,
 		components.NewVirtualMachineSnapshotCrd, components.NewVirtualMachineSnapshotContentCrd,
 		components.NewVirtualMachineExportCrd, components.NewVirtualMachineBackupCrd,

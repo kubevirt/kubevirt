@@ -251,16 +251,6 @@ var _ = Describe("[rfe_id:500][crit:high][vendor:cnv-qe@redhat.com][level:compon
 				denyAllFor("instancetype:view"),
 				denyAllFor("default")),
 
-			Entry("[test_id:528]given a vmi preset",
-				core.GroupName,
-				"virtualmachineinstancepresets",
-				false,
-				allowAllFor("admin"),
-				denyDeleteCollectionFor("edit"),
-				denyModificationsFor("view"),
-				denyAllFor("instancetype:view"),
-				denyAllFor("default")),
-
 			Entry("[test_id:529][crit:low]given a vmi replica set",
 				core.GroupName,
 				"virtualmachineinstancereplicasets",

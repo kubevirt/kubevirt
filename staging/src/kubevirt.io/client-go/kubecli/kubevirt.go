@@ -19,7 +19,7 @@
 
 package kubecli
 
-//go:generate mockgen -destination=generated_mock_kubevirt.go -package=kubecli kubevirt.io/client-go/kubecli KubevirtClient,VirtualMachineInstanceInterface,ReplicaSetInterface,VirtualMachineInstancePresetInterface,VirtualMachineInterface,VirtualMachineInstanceMigrationInterface,KubeVirtInterface,ServerVersionInterface,ExpandSpecInterface
+//go:generate mockgen -destination=generated_mock_kubevirt.go -package=kubecli kubevirt.io/client-go/kubecli KubevirtClient,VirtualMachineInstanceInterface,ReplicaSetInterface,VirtualMachineInterface,VirtualMachineInstanceMigrationInterface,KubeVirtInterface,ServerVersionInterface,ExpandSpecInterface
 
 /*
  ATTENTION: Rerun code generators when interface signatures are modified.
@@ -62,7 +62,6 @@ type KubevirtClient interface {
 	VirtualMachinePool(namespace string) poolv1.VirtualMachinePoolInterface
 	VirtualMachine(namespace string) VirtualMachineInterface
 	KubeVirt(namespace string) KubeVirtInterface
-	VirtualMachineInstancePreset(namespace string) VirtualMachineInstancePresetInterface
 	VirtualMachineBackup(namespace string) backupv1.VirtualMachineBackupInterface
 	VirtualMachineBackupTracker(namespace string) backupv1.VirtualMachineBackupTrackerInterface
 	VirtualMachineSnapshot(namespace string) snapshotv1.VirtualMachineSnapshotInterface
@@ -244,10 +243,6 @@ type VirtualMachineInstanceInterface interface {
 
 type ReplicaSetInterface interface {
 	kvcorev1.VirtualMachineInstanceReplicaSetInterface
-}
-
-type VirtualMachineInstancePresetInterface interface {
-	kvcorev1.VirtualMachineInstancePresetInterface
 }
 
 // VirtualMachineInterface provides convenience methods to work with

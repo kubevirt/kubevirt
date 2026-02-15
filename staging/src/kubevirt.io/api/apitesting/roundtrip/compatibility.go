@@ -147,7 +147,7 @@ func (c *CompatibilityTestOptions) Complete(t *testing.T) *CompatibilityTestOpti
 				// only test options types in the core API group
 				continue
 			}
-			if gvk == v1.VirtualMachineInstanceMigrationGroupVersionKind || gvk == v1.VirtualMachineInstancePresetGroupVersionKind || gvk == v1.VirtualMachineInstanceReplicaSetGroupVersionKind {
+			if gvk == v1.VirtualMachineInstanceMigrationGroupVersionKind || gvk == v1.VirtualMachineInstanceReplicaSetGroupVersionKind {
 				continue
 			}
 			gvks = append(gvks, gvk)

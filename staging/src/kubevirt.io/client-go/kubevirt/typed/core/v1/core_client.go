@@ -34,7 +34,6 @@ type KubevirtV1Interface interface {
 	VirtualMachinesGetter
 	VirtualMachineInstancesGetter
 	VirtualMachineInstanceMigrationsGetter
-	VirtualMachineInstancePresetsGetter
 	VirtualMachineInstanceReplicaSetsGetter
 }
 
@@ -57,10 +56,6 @@ func (c *KubevirtV1Client) VirtualMachineInstances(namespace string) VirtualMach
 
 func (c *KubevirtV1Client) VirtualMachineInstanceMigrations(namespace string) VirtualMachineInstanceMigrationInterface {
 	return newVirtualMachineInstanceMigrations(c, namespace)
-}
-
-func (c *KubevirtV1Client) VirtualMachineInstancePresets(namespace string) VirtualMachineInstancePresetInterface {
-	return newVirtualMachineInstancePresets(c, namespace)
 }
 
 func (c *KubevirtV1Client) VirtualMachineInstanceReplicaSets(namespace string) VirtualMachineInstanceReplicaSetInterface {

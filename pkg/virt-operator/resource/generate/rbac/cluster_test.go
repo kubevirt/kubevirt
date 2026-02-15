@@ -123,7 +123,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 
 				Entry(fmt.Sprintf("do all operations to %s/%s", GroupName, apiVM), GroupName, apiVM, "get", "delete", "create", "update", "patch", "list", "watch", "deletecollection"),
 				Entry(fmt.Sprintf("do all operations to %s/%s", GroupName, apiVMInstances), GroupName, apiVMInstances, "get", "delete", "create", "update", "patch", "list", "watch", "deletecollection"),
-				Entry(fmt.Sprintf("do all operations to %s/%s", GroupName, apiVMIPresets), GroupName, apiVMIPresets, "get", "delete", "create", "update", "patch", "list", "watch", "deletecollection"),
 				Entry(fmt.Sprintf("do all operations to %s/%s", GroupName, apiVMIReplicasets), GroupName, apiVMIReplicasets, "get", "delete", "create", "update", "patch", "list", "watch", "deletecollection"),
 
 				Entry(fmt.Sprintf("do all operations to %s/%s", snapshot.GroupName, apiVMSnapshots), snapshot.GroupName, apiVMSnapshots, "get", "delete", "create", "update", "patch", "list", "watch", "deletecollection"),
@@ -192,7 +191,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 
 				Entry(fmt.Sprintf("get, delete, create, update, patch, list, watch %s/%s", GroupName, apiVM), GroupName, apiVM, "get", "delete", "create", "update", "patch", "list", "watch"),
 				Entry(fmt.Sprintf("get, delete, create, update, patch, list, watch %s/%s", GroupName, apiVMInstances), GroupName, apiVMInstances, "get", "delete", "create", "update", "patch", "list", "watch"),
-				Entry(fmt.Sprintf("get, delete, create, update, patch, list, watch %s/%s", GroupName, apiVMIPresets), GroupName, apiVMIPresets, "get", "delete", "create", "update", "patch", "list", "watch"),
 				Entry(fmt.Sprintf("get, delete, create, update, patch, list, watch %s/%s", GroupName, apiVMIReplicasets), GroupName, apiVMIReplicasets, "get", "delete", "create", "update", "patch", "list", "watch"),
 
 				Entry(fmt.Sprintf("get, delete, create, update, patch, list, watch %s/%s", snapshot.GroupName, apiVMSnapshots), snapshot.GroupName, apiVMSnapshots, "get", "delete", "create", "update", "patch", "list", "watch"),
@@ -251,7 +249,6 @@ var _ = Describe("Cluster role and cluster role bindings", func() {
 
 				Entry(fmt.Sprintf("get, list, watch %s/%s", GroupName, apiVM), GroupName, apiVM, "get", "list", "watch"),
 				Entry(fmt.Sprintf("get, list, watch %s/%s", GroupName, apiVMInstances), GroupName, apiVMInstances, "get", "list", "watch"),
-				Entry(fmt.Sprintf("get, list, watch %s/%s", GroupName, apiVMIPresets), GroupName, apiVMIPresets, "get", "list", "watch"),
 				Entry(fmt.Sprintf("get, list, watch %s/%s", GroupName, apiVMIReplicasets), GroupName, apiVMIReplicasets, "get", "list", "watch"),
 				Entry(fmt.Sprintf("get, list, watch %s/%s", GroupName, apiVMIMigrations), GroupName, apiVMIMigrations, "get", "list", "watch"),
 

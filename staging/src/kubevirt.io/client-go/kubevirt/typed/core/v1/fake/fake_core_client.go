@@ -46,10 +46,6 @@ func (c *FakeKubevirtV1) VirtualMachineInstanceMigrations(namespace string) v1.V
 	return newFakeVirtualMachineInstanceMigrations(c, namespace)
 }
 
-func (c *FakeKubevirtV1) VirtualMachineInstancePresets(namespace string) v1.VirtualMachineInstancePresetInterface {
-	return newFakeVirtualMachineInstancePresets(c, namespace)
-}
-
 func (c *FakeKubevirtV1) VirtualMachineInstanceReplicaSets(namespace string) v1.VirtualMachineInstanceReplicaSetInterface {
 	return newFakeVirtualMachineInstanceReplicaSets(c, namespace)
 }

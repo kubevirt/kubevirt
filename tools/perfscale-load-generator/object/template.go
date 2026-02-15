@@ -57,7 +57,6 @@ func init() {
 	scheme.AddKnownTypes(groupVersion,
 		&kvv1.VirtualMachineInstance{},
 		&kvv1.VirtualMachineInstanceReplicaSet{},
-		&kvv1.VirtualMachineInstancePreset{},
 		&kvv1.VirtualMachineInstanceMigration{},
 		&kvv1.VirtualMachine{},
 	)
