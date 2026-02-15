@@ -196,9 +196,20 @@ function _fix_node_labels() {
     done
 }
 
+function _dump_kind_node_logs() {
+    echo "=== Dumping kind node container logs for debugging ==="
+    for container in $(${CRI_BIN} ps -a --filter "label=io.x-k8s.kind.cluster=${CLUSTER_NAME}" --format '{{.Names}}'); do
+        echo "--- Container logs: ${container} ---"
+        ${CRI_BIN} logs "${container}" 2>&1 || true
+        echo "--- End container logs: ${container} ---"
+    done
+    echo "=== End kind node container logs ==="
+}
+
 function setup_kind() {
     $KIND -v 9 create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE --kubeconfig=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig \
-        || ( $KIND -v 9 delete cluster --name=${CLUSTER_NAME} \
+        || ( _dump_kind_node_logs; \
+        $KIND -v 9 delete cluster --name=${CLUSTER_NAME} \
         && $KIND -v 9 create cluster --retain --name=${CLUSTER_NAME} --config=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/kind.yaml --image=$KIND_NODE_IMAGE --kubeconfig=${KUBEVIRTCI_CONFIG_PATH}/$KUBEVIRT_PROVIDER/.kubeconfig )
 
     if ${CRI_BIN} exec ${CLUSTER_NAME}-control-plane ls /usr/bin/kubectl > /dev/null; then
