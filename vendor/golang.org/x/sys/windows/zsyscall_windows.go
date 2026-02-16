@@ -91,6 +91,7 @@ var (
 	procEnumServicesStatusExW                                = modadvapi32.NewProc("EnumServicesStatusExW")
 	procEqualSid                                             = modadvapi32.NewProc("EqualSid")
 	procFreeSid                                              = modadvapi32.NewProc("FreeSid")
+	procGetAce                                               = modadvapi32.NewProc("GetAce")
 	procGetLengthSid                                         = modadvapi32.NewProc("GetLengthSid")
 	procGetNamedSecurityInfoW                                = modadvapi32.NewProc("GetNamedSecurityInfoW")
 	procGetSecurityDescriptorControl                         = modadvapi32.NewProc("GetSecurityDescriptorControl")
@@ -184,9 +185,12 @@ var (
 	procGetAdaptersInfo                                      = modiphlpapi.NewProc("GetAdaptersInfo")
 	procGetBestInterfaceEx                                   = modiphlpapi.NewProc("GetBestInterfaceEx")
 	procGetIfEntry                                           = modiphlpapi.NewProc("GetIfEntry")
+	procAddDllDirectory                                      = modkernel32.NewProc("AddDllDirectory")
 	procAssignProcessToJobObject                             = modkernel32.NewProc("AssignProcessToJobObject")
 	procCancelIo                                             = modkernel32.NewProc("CancelIo")
 	procCancelIoEx                                           = modkernel32.NewProc("CancelIoEx")
+	procClearCommBreak                                       = modkernel32.NewProc("ClearCommBreak")
+	procClearCommError                                       = modkernel32.NewProc("ClearCommError")
 	procCloseHandle                                          = modkernel32.NewProc("CloseHandle")
 	procClosePseudoConsole                                   = modkernel32.NewProc("ClosePseudoConsole")
 	procConnectNamedPipe                                     = modkernel32.NewProc("ConnectNamedPipe")
@@ -211,7 +215,9 @@ var (
 	procDeleteProcThreadAttributeList                        = modkernel32.NewProc("DeleteProcThreadAttributeList")
 	procDeleteVolumeMountPointW                              = modkernel32.NewProc("DeleteVolumeMountPointW")
 	procDeviceIoControl                                      = modkernel32.NewProc("DeviceIoControl")
+	procDisconnectNamedPipe                                  = modkernel32.NewProc("DisconnectNamedPipe")
 	procDuplicateHandle                                      = modkernel32.NewProc("DuplicateHandle")
+	procEscapeCommFunction                                   = modkernel32.NewProc("EscapeCommFunction")
 	procExitProcess                                          = modkernel32.NewProc("ExitProcess")
 	procExpandEnvironmentStringsW                            = modkernel32.NewProc("ExpandEnvironmentStringsW")
 	procFindClose                                            = modkernel32.NewProc("FindClose")
@@ -235,11 +241,15 @@ var (
 	procGenerateConsoleCtrlEvent                             = modkernel32.NewProc("GenerateConsoleCtrlEvent")
 	procGetACP                                               = modkernel32.NewProc("GetACP")
 	procGetActiveProcessorCount                              = modkernel32.NewProc("GetActiveProcessorCount")
+	procGetCommModemStatus                                   = modkernel32.NewProc("GetCommModemStatus")
+	procGetCommState                                         = modkernel32.NewProc("GetCommState")
 	procGetCommTimeouts                                      = modkernel32.NewProc("GetCommTimeouts")
 	procGetCommandLineW                                      = modkernel32.NewProc("GetCommandLineW")
 	procGetComputerNameExW                                   = modkernel32.NewProc("GetComputerNameExW")
 	procGetComputerNameW                                     = modkernel32.NewProc("GetComputerNameW")
+	procGetConsoleCP                                         = modkernel32.NewProc("GetConsoleCP")
 	procGetConsoleMode                                       = modkernel32.NewProc("GetConsoleMode")
+	procGetConsoleOutputCP                                   = modkernel32.NewProc("GetConsoleOutputCP")
 	procGetConsoleScreenBufferInfo                           = modkernel32.NewProc("GetConsoleScreenBufferInfo")
 	procGetCurrentDirectoryW                                 = modkernel32.NewProc("GetCurrentDirectoryW")
 	procGetCurrentProcessId                                  = modkernel32.NewProc("GetCurrentProcessId")
@@ -253,6 +263,7 @@ var (
 	procGetFileAttributesW                                   = modkernel32.NewProc("GetFileAttributesW")
 	procGetFileInformationByHandle                           = modkernel32.NewProc("GetFileInformationByHandle")
 	procGetFileInformationByHandleEx                         = modkernel32.NewProc("GetFileInformationByHandleEx")
+	procGetFileTime                                          = modkernel32.NewProc("GetFileTime")
 	procGetFileType                                          = modkernel32.NewProc("GetFileType")
 	procGetFinalPathNameByHandleW                            = modkernel32.NewProc("GetFinalPathNameByHandleW")
 	procGetFullPathNameW                                     = modkernel32.NewProc("GetFullPathNameW")
@@ -320,6 +331,7 @@ var (
 	procProcess32NextW                                       = modkernel32.NewProc("Process32NextW")
 	procProcessIdToSessionId                                 = modkernel32.NewProc("ProcessIdToSessionId")
 	procPulseEvent                                           = modkernel32.NewProc("PulseEvent")
+	procPurgeComm                                            = modkernel32.NewProc("PurgeComm")
 	procQueryDosDeviceW                                      = modkernel32.NewProc("QueryDosDeviceW")
 	procQueryFullProcessImageNameW                           = modkernel32.NewProc("QueryFullProcessImageNameW")
 	procQueryInformationJobObject                            = modkernel32.NewProc("QueryInformationJobObject")
@@ -329,12 +341,18 @@ var (
 	procReadProcessMemory                                    = modkernel32.NewProc("ReadProcessMemory")
 	procReleaseMutex                                         = modkernel32.NewProc("ReleaseMutex")
 	procRemoveDirectoryW                                     = modkernel32.NewProc("RemoveDirectoryW")
+	procRemoveDllDirectory                                   = modkernel32.NewProc("RemoveDllDirectory")
 	procResetEvent                                           = modkernel32.NewProc("ResetEvent")
 	procResizePseudoConsole                                  = modkernel32.NewProc("ResizePseudoConsole")
 	procResumeThread                                         = modkernel32.NewProc("ResumeThread")
+	procSetCommBreak                                         = modkernel32.NewProc("SetCommBreak")
+	procSetCommMask                                          = modkernel32.NewProc("SetCommMask")
+	procSetCommState                                         = modkernel32.NewProc("SetCommState")
 	procSetCommTimeouts                                      = modkernel32.NewProc("SetCommTimeouts")
+	procSetConsoleCP                                         = modkernel32.NewProc("SetConsoleCP")
 	procSetConsoleCursorPosition                             = modkernel32.NewProc("SetConsoleCursorPosition")
 	procSetConsoleMode                                       = modkernel32.NewProc("SetConsoleMode")
+	procSetConsoleOutputCP                                   = modkernel32.NewProc("SetConsoleOutputCP")
 	procSetCurrentDirectoryW                                 = modkernel32.NewProc("SetCurrentDirectoryW")
 	procSetDefaultDllDirectories                             = modkernel32.NewProc("SetDefaultDllDirectories")
 	procSetDllDirectoryW                                     = modkernel32.NewProc("SetDllDirectoryW")
@@ -347,6 +365,7 @@ var (
 	procSetFileInformationByHandle                           = modkernel32.NewProc("SetFileInformationByHandle")
 	procSetFilePointer                                       = modkernel32.NewProc("SetFilePointer")
 	procSetFileTime                                          = modkernel32.NewProc("SetFileTime")
+	procSetFileValidData                                     = modkernel32.NewProc("SetFileValidData")
 	procSetHandleInformation                                 = modkernel32.NewProc("SetHandleInformation")
 	procSetInformationJobObject                              = modkernel32.NewProc("SetInformationJobObject")
 	procSetNamedPipeHandleState                              = modkernel32.NewProc("SetNamedPipeHandleState")
@@ -357,6 +376,7 @@ var (
 	procSetStdHandle                                         = modkernel32.NewProc("SetStdHandle")
 	procSetVolumeLabelW                                      = modkernel32.NewProc("SetVolumeLabelW")
 	procSetVolumeMountPointW                                 = modkernel32.NewProc("SetVolumeMountPointW")
+	procSetupComm                                            = modkernel32.NewProc("SetupComm")
 	procSizeofResource                                       = modkernel32.NewProc("SizeofResource")
 	procSleepEx                                              = modkernel32.NewProc("SleepEx")
 	procTerminateJobObject                                   = modkernel32.NewProc("TerminateJobObject")
@@ -375,6 +395,7 @@ var (
 	procVirtualQueryEx                                       = modkernel32.NewProc("VirtualQueryEx")
 	procVirtualUnlock                                        = modkernel32.NewProc("VirtualUnlock")
 	procWTSGetActiveConsoleSessionId                         = modkernel32.NewProc("WTSGetActiveConsoleSessionId")
+	procWaitCommEvent                                        = modkernel32.NewProc("WaitCommEvent")
 	procWaitForMultipleObjects                               = modkernel32.NewProc("WaitForMultipleObjects")
 	procWaitForSingleObject                                  = modkernel32.NewProc("WaitForSingleObject")
 	procWriteConsoleW                                        = modkernel32.NewProc("WriteConsoleW")
@@ -385,6 +406,7 @@ var (
 	procTransmitFile                                         = modmswsock.NewProc("TransmitFile")
 	procNetApiBufferFree                                     = modnetapi32.NewProc("NetApiBufferFree")
 	procNetGetJoinInformation                                = modnetapi32.NewProc("NetGetJoinInformation")
+	procNetUserEnum                                          = modnetapi32.NewProc("NetUserEnum")
 	procNetUserGetInfo                                       = modnetapi32.NewProc("NetUserGetInfo")
 	procNtCreateFile                                         = modntdll.NewProc("NtCreateFile")
 	procNtCreateNamedPipeFile                                = modntdll.NewProc("NtCreateNamedPipeFile")
@@ -460,12 +482,16 @@ var (
 	procGetDesktopWindow                                     = moduser32.NewProc("GetDesktopWindow")
 	procGetForegroundWindow                                  = moduser32.NewProc("GetForegroundWindow")
 	procGetGUIThreadInfo                                     = moduser32.NewProc("GetGUIThreadInfo")
+	procGetKeyboardLayout                                    = moduser32.NewProc("GetKeyboardLayout")
 	procGetShellWindow                                       = moduser32.NewProc("GetShellWindow")
 	procGetWindowThreadProcessId                             = moduser32.NewProc("GetWindowThreadProcessId")
 	procIsWindow                                             = moduser32.NewProc("IsWindow")
 	procIsWindowUnicode                                      = moduser32.NewProc("IsWindowUnicode")
 	procIsWindowVisible                                      = moduser32.NewProc("IsWindowVisible")
+	procLoadKeyboardLayoutW                                  = moduser32.NewProc("LoadKeyboardLayoutW")
 	procMessageBoxW                                          = moduser32.NewProc("MessageBoxW")
+	procToUnicodeEx                                          = moduser32.NewProc("ToUnicodeEx")
+	procUnloadKeyboardLayout                                 = moduser32.NewProc("UnloadKeyboardLayout")
 	procCreateEnvironmentBlock                               = moduserenv.NewProc("CreateEnvironmentBlock")
 	procDestroyEnvironmentBlock                              = moduserenv.NewProc("DestroyEnvironmentBlock")
 	procGetUserProfileDirectoryW                             = moduserenv.NewProc("GetUserProfileDirectoryW")
@@ -766,6 +792,14 @@ func EqualSid(sid1 *SID, sid2 *SID) (isEqual bool) {
 func FreeSid(sid *SID) (err error) {
 	r1, _, e1 := syscall.Syscall(procFreeSid.Addr(), 1, uintptr(unsafe.Pointer(sid)), 0, 0)
 	if r1 != 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func GetAce(acl *ACL, aceIndex uint32, pAce **ACCESS_ALLOWED_ACE) (err error) {
+	r1, _, e1 := syscall.Syscall(procGetAce.Addr(), 3, uintptr(unsafe.Pointer(acl)), uintptr(aceIndex), uintptr(unsafe.Pointer(pAce)))
+	if r1 == 0 {
 		err = errnoErr(e1)
 	}
 	return
@@ -1604,6 +1638,15 @@ func GetIfEntry(pIfRow *MibIfRow) (errcode error) {
 	return
 }
 
+func AddDllDirectory(path *uint16) (cookie uintptr, err error) {
+	r0, _, e1 := syscall.Syscall(procAddDllDirectory.Addr(), 1, uintptr(unsafe.Pointer(path)), 0, 0)
+	cookie = uintptr(r0)
+	if cookie == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func AssignProcessToJobObject(job Handle, process Handle) (err error) {
 	r1, _, e1 := syscall.Syscall(procAssignProcessToJobObject.Addr(), 2, uintptr(job), uintptr(process), 0)
 	if r1 == 0 {
@@ -1622,6 +1665,22 @@ func CancelIo(s Handle) (err error) {
 
 func CancelIoEx(s Handle, o *Overlapped) (err error) {
 	r1, _, e1 := syscall.Syscall(procCancelIoEx.Addr(), 2, uintptr(s), uintptr(unsafe.Pointer(o)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func ClearCommBreak(handle Handle) (err error) {
+	r1, _, e1 := syscall.Syscall(procClearCommBreak.Addr(), 1, uintptr(handle), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func ClearCommError(handle Handle, lpErrors *uint32, lpStat *ComStat) (err error) {
+	r1, _, e1 := syscall.Syscall(procClearCommError.Addr(), 3, uintptr(handle), uintptr(unsafe.Pointer(lpErrors)), uintptr(unsafe.Pointer(lpStat)))
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
@@ -1832,12 +1891,28 @@ func DeviceIoControl(handle Handle, ioControlCode uint32, inBuffer *byte, inBuff
 	return
 }
 
+func DisconnectNamedPipe(pipe Handle) (err error) {
+	r1, _, e1 := syscall.Syscall(procDisconnectNamedPipe.Addr(), 1, uintptr(pipe), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func DuplicateHandle(hSourceProcessHandle Handle, hSourceHandle Handle, hTargetProcessHandle Handle, lpTargetHandle *Handle, dwDesiredAccess uint32, bInheritHandle bool, dwOptions uint32) (err error) {
 	var _p0 uint32
 	if bInheritHandle {
 		_p0 = 1
 	}
 	r1, _, e1 := syscall.Syscall9(procDuplicateHandle.Addr(), 7, uintptr(hSourceProcessHandle), uintptr(hSourceHandle), uintptr(hTargetProcessHandle), uintptr(unsafe.Pointer(lpTargetHandle)), uintptr(dwDesiredAccess), uintptr(_p0), uintptr(dwOptions), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func EscapeCommFunction(handle Handle, dwFunc uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procEscapeCommFunction.Addr(), 2, uintptr(handle), uintptr(dwFunc), 0)
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
@@ -2045,6 +2120,22 @@ func GetActiveProcessorCount(groupNumber uint16) (ret uint32) {
 	return
 }
 
+func GetCommModemStatus(handle Handle, lpModemStat *uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procGetCommModemStatus.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(lpModemStat)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func GetCommState(handle Handle, lpDCB *DCB) (err error) {
+	r1, _, e1 := syscall.Syscall(procGetCommState.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(lpDCB)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func GetCommTimeouts(handle Handle, timeouts *CommTimeouts) (err error) {
 	r1, _, e1 := syscall.Syscall(procGetCommTimeouts.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(timeouts)), 0)
 	if r1 == 0 {
@@ -2075,9 +2166,27 @@ func GetComputerName(buf *uint16, n *uint32) (err error) {
 	return
 }
 
+func GetConsoleCP() (cp uint32, err error) {
+	r0, _, e1 := syscall.Syscall(procGetConsoleCP.Addr(), 0, 0, 0, 0)
+	cp = uint32(r0)
+	if cp == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func GetConsoleMode(console Handle, mode *uint32) (err error) {
 	r1, _, e1 := syscall.Syscall(procGetConsoleMode.Addr(), 2, uintptr(console), uintptr(unsafe.Pointer(mode)), 0)
 	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func GetConsoleOutputCP() (cp uint32, err error) {
+	r0, _, e1 := syscall.Syscall(procGetConsoleOutputCP.Addr(), 0, 0, 0, 0)
+	cp = uint32(r0)
+	if cp == 0 {
 		err = errnoErr(e1)
 	}
 	return
@@ -2179,6 +2288,14 @@ func GetFileInformationByHandle(handle Handle, data *ByHandleFileInformation) (e
 
 func GetFileInformationByHandleEx(handle Handle, class uint32, outBuffer *byte, outBufferLen uint32) (err error) {
 	r1, _, e1 := syscall.Syscall6(procGetFileInformationByHandleEx.Addr(), 4, uintptr(handle), uintptr(class), uintptr(unsafe.Pointer(outBuffer)), uintptr(outBufferLen), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func GetFileTime(handle Handle, ctime *Filetime, atime *Filetime, wtime *Filetime) (err error) {
+	r1, _, e1 := syscall.Syscall6(procGetFileTime.Addr(), 4, uintptr(handle), uintptr(unsafe.Pointer(ctime)), uintptr(unsafe.Pointer(atime)), uintptr(unsafe.Pointer(wtime)), 0, 0)
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
@@ -2789,6 +2906,14 @@ func PulseEvent(event Handle) (err error) {
 	return
 }
 
+func PurgeComm(handle Handle, dwFlags uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procPurgeComm.Addr(), 2, uintptr(handle), uintptr(dwFlags), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func QueryDosDevice(deviceName *uint16, targetPath *uint16, max uint32) (n uint32, err error) {
 	r0, _, e1 := syscall.Syscall(procQueryDosDeviceW.Addr(), 3, uintptr(unsafe.Pointer(deviceName)), uintptr(unsafe.Pointer(targetPath)), uintptr(max))
 	n = uint32(r0)
@@ -2870,6 +2995,14 @@ func RemoveDirectory(path *uint16) (err error) {
 	return
 }
 
+func RemoveDllDirectory(cookie uintptr) (err error) {
+	r1, _, e1 := syscall.Syscall(procRemoveDllDirectory.Addr(), 1, uintptr(cookie), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func ResetEvent(event Handle) (err error) {
 	r1, _, e1 := syscall.Syscall(procResetEvent.Addr(), 1, uintptr(event), 0, 0)
 	if r1 == 0 {
@@ -2895,8 +3028,40 @@ func ResumeThread(thread Handle) (ret uint32, err error) {
 	return
 }
 
+func SetCommBreak(handle Handle) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetCommBreak.Addr(), 1, uintptr(handle), 0, 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func SetCommMask(handle Handle, dwEvtMask uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetCommMask.Addr(), 2, uintptr(handle), uintptr(dwEvtMask), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func SetCommState(handle Handle, lpDCB *DCB) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetCommState.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(lpDCB)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func SetCommTimeouts(handle Handle, timeouts *CommTimeouts) (err error) {
 	r1, _, e1 := syscall.Syscall(procSetCommTimeouts.Addr(), 2, uintptr(handle), uintptr(unsafe.Pointer(timeouts)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func SetConsoleCP(cp uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetConsoleCP.Addr(), 1, uintptr(cp), 0, 0)
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
@@ -2913,6 +3078,14 @@ func setConsoleCursorPosition(console Handle, position uint32) (err error) {
 
 func SetConsoleMode(console Handle, mode uint32) (err error) {
 	r1, _, e1 := syscall.Syscall(procSetConsoleMode.Addr(), 2, uintptr(console), uintptr(mode), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func SetConsoleOutputCP(cp uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetConsoleOutputCP.Addr(), 1, uintptr(cp), 0, 0)
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
@@ -3023,6 +3196,14 @@ func SetFileTime(handle Handle, ctime *Filetime, atime *Filetime, wtime *Filetim
 	return
 }
 
+func SetFileValidData(handle Handle, validDataLength int64) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetFileValidData.Addr(), 2, uintptr(handle), uintptr(validDataLength), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func SetHandleInformation(handle Handle, mask uint32, flags uint32) (err error) {
 	r1, _, e1 := syscall.Syscall(procSetHandleInformation.Addr(), 3, uintptr(handle), uintptr(mask), uintptr(flags))
 	if r1 == 0 {
@@ -3102,6 +3283,14 @@ func SetVolumeLabel(rootPathName *uint16, volumeName *uint16) (err error) {
 
 func SetVolumeMountPoint(volumeMountPoint *uint16, volumeName *uint16) (err error) {
 	r1, _, e1 := syscall.Syscall(procSetVolumeMountPointW.Addr(), 2, uintptr(unsafe.Pointer(volumeMountPoint)), uintptr(unsafe.Pointer(volumeName)), 0)
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func SetupComm(handle Handle, dwInQueue uint32, dwOutQueue uint32) (err error) {
+	r1, _, e1 := syscall.Syscall(procSetupComm.Addr(), 3, uintptr(handle), uintptr(dwInQueue), uintptr(dwOutQueue))
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
@@ -3254,6 +3443,14 @@ func WTSGetActiveConsoleSessionId() (sessionID uint32) {
 	return
 }
 
+func WaitCommEvent(handle Handle, lpEvtMask *uint32, lpOverlapped *Overlapped) (err error) {
+	r1, _, e1 := syscall.Syscall(procWaitCommEvent.Addr(), 3, uintptr(handle), uintptr(unsafe.Pointer(lpEvtMask)), uintptr(unsafe.Pointer(lpOverlapped)))
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func waitForMultipleObjects(count uint32, handles uintptr, waitAll bool, waitMilliseconds uint32) (event uint32, err error) {
 	var _p0 uint32
 	if waitAll {
@@ -3335,6 +3532,14 @@ func NetApiBufferFree(buf *byte) (neterr error) {
 
 func NetGetJoinInformation(server *uint16, name **uint16, bufType *uint32) (neterr error) {
 	r0, _, _ := syscall.Syscall(procNetGetJoinInformation.Addr(), 3, uintptr(unsafe.Pointer(server)), uintptr(unsafe.Pointer(name)), uintptr(unsafe.Pointer(bufType)))
+	if r0 != 0 {
+		neterr = syscall.Errno(r0)
+	}
+	return
+}
+
+func NetUserEnum(serverName *uint16, level uint32, filter uint32, buf **byte, prefMaxLen uint32, entriesRead *uint32, totalEntries *uint32, resumeHandle *uint32) (neterr error) {
+	r0, _, _ := syscall.Syscall9(procNetUserEnum.Addr(), 8, uintptr(unsafe.Pointer(serverName)), uintptr(level), uintptr(filter), uintptr(unsafe.Pointer(buf)), uintptr(prefMaxLen), uintptr(unsafe.Pointer(entriesRead)), uintptr(unsafe.Pointer(totalEntries)), uintptr(unsafe.Pointer(resumeHandle)), 0)
 	if r0 != 0 {
 		neterr = syscall.Errno(r0)
 	}
@@ -3919,6 +4124,12 @@ func GetGUIThreadInfo(thread uint32, info *GUIThreadInfo) (err error) {
 	return
 }
 
+func GetKeyboardLayout(tid uint32) (hkl Handle) {
+	r0, _, _ := syscall.Syscall(procGetKeyboardLayout.Addr(), 1, uintptr(tid), 0, 0)
+	hkl = Handle(r0)
+	return
+}
+
 func GetShellWindow() (shellWindow HWND) {
 	r0, _, _ := syscall.Syscall(procGetShellWindow.Addr(), 0, 0, 0, 0)
 	shellWindow = HWND(r0)
@@ -3952,10 +4163,33 @@ func IsWindowVisible(hwnd HWND) (isVisible bool) {
 	return
 }
 
+func LoadKeyboardLayout(name *uint16, flags uint32) (hkl Handle, err error) {
+	r0, _, e1 := syscall.Syscall(procLoadKeyboardLayoutW.Addr(), 2, uintptr(unsafe.Pointer(name)), uintptr(flags), 0)
+	hkl = Handle(r0)
+	if hkl == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func MessageBox(hwnd HWND, text *uint16, caption *uint16, boxtype uint32) (ret int32, err error) {
 	r0, _, e1 := syscall.Syscall6(procMessageBoxW.Addr(), 4, uintptr(hwnd), uintptr(unsafe.Pointer(text)), uintptr(unsafe.Pointer(caption)), uintptr(boxtype), 0, 0)
 	ret = int32(r0)
 	if ret == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func ToUnicodeEx(vkey uint32, scancode uint32, keystate *byte, pwszBuff *uint16, cchBuff int32, flags uint32, hkl Handle) (ret int32) {
+	r0, _, _ := syscall.Syscall9(procToUnicodeEx.Addr(), 7, uintptr(vkey), uintptr(scancode), uintptr(unsafe.Pointer(keystate)), uintptr(unsafe.Pointer(pwszBuff)), uintptr(cchBuff), uintptr(flags), uintptr(hkl), 0, 0)
+	ret = int32(r0)
+	return
+}
+
+func UnloadKeyboardLayout(hkl Handle) (err error) {
+	r1, _, e1 := syscall.Syscall(procUnloadKeyboardLayout.Addr(), 1, uintptr(hkl), 0, 0)
+	if r1 == 0 {
 		err = errnoErr(e1)
 	}
 	return
