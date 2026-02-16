@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"strings"
 	"sync"
 
@@ -18,9 +19,11 @@ import (
 	builderv3 "k8s.io/kube-openapi/pkg/builder3"
 	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
+	handler3 "k8s.io/kube-openapi/pkg/handler3"
 	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/errors"
 	"k8s.io/kube-openapi/pkg/validation/spec"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 )
 
@@ -47,15 +50,6 @@ func NewV3SpecCache() *V3SpecCache {
 	}
 }
 
-// computeHash computes SHA-512 hash of the data and returns it as uppercase hex.
-// This matches the computeETag function in k8s.io/kube-openapi/pkg/handler3/handler.go
-func computeHash(data []byte) string {
-	if data == nil {
-		return ""
-	}
-	return fmt.Sprintf("%X", sha512.Sum512(data))
-}
-
 // GetSpec retrieves a cached spec and its hash for the given group-version path.
 // Returns the JSON bytes, the hash, and a boolean indicating whether the entry exists.
 func (c *V3SpecCache) GetSpec(gvPath string) ([]byte, string, bool) {
@@ -72,12 +66,30 @@ func (c *V3SpecCache) GetSpec(gvPath string) ([]byte, string, bool) {
 // computing and storing the SHA-512 hash alongside it.
 // Returns the computed hash.
 func (c *V3SpecCache) storeSpec(gvPath string, specBytes []byte) string {
-	hash := computeHash(specBytes)
+	hash := fmt.Sprintf("%X", sha512.Sum512(specBytes))
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.specs[gvPath] = specBytes
 	c.hashes[gvPath] = hash
 	return hash
+}
+
+// BuildOpenAPIV3DiscoveryPaths builds the OpenAPI v3 discovery response paths
+// for all subresource group-versions.
+func (c *V3SpecCache) BuildOpenAPIV3DiscoveryPaths(subwss []*restful.WebService, apiVersion string) (handler3.OpenAPIV3Discovery, error) {
+	discovery := handler3.OpenAPIV3Discovery{Paths: make(map[string]handler3.OpenAPIV3DiscoveryGroupVersion)}
+	for i, gv := range v1.SubresourceGroupVersions {
+		gvPath := path.Join("apis", gv.Group, gv.Version)
+		_, hash, err := c.BuildV3Spec(gvPath, subwss[i], apiVersion)
+		if err != nil {
+			return handler3.OpenAPIV3Discovery{}, fmt.Errorf("failed to build OpenAPI v3 spec for %s: %w", gvPath, err)
+		}
+		discovery.Paths[gvPath] = handler3.OpenAPIV3DiscoveryGroupVersion{
+			ServerRelativeURL: "/openapi/v3/" + gvPath + "?hash=" + hash,
+		}
+	}
+
+	return discovery, nil
 }
 
 // BuildV3Spec retrieves a cached OpenAPI v3 spec or builds one from the given
