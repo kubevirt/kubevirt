@@ -27,11 +27,19 @@ import (
 var nodesRecordingRules = []operatorrules.RecordingRule{
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
+			Name: "cluster:kubevirt_non_schedulable_nodes:sum",
+			Help: "The number of non-schedulable nodes in the cluster.",
+		},
+		MetricType: operatormetrics.GaugeType,
+		Expr:       intstr.FromString("sum (count by (node) (kube_node_role{role=~'arbiter'})) or vector(0)"),
+	},
+	{
+		MetricsOpts: operatormetrics.MetricOpts{
 			Name: "kubevirt_allocatable_nodes",
 			Help: "The number of allocatable nodes in the cluster.",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("count(count (kube_node_status_allocatable) by (node))"),
+		Expr:       intstr.FromString("count(count (kube_node_status_allocatable) by (node)) - cluster:kubevirt_non_schedulable_nodes:sum"),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
