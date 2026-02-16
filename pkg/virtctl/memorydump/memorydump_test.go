@@ -400,6 +400,7 @@ var _ = Describe("MemoryDump", func() {
 							}},
 						},
 					},
+					ServiceName:    "virt-export-" + fmt.Sprintf("export-%s-%s", vmName, pvcName),
 					TokenSecretRef: &secret.Name,
 				},
 			}

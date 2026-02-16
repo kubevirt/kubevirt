@@ -843,6 +843,7 @@ var _ = Describe("vmexport", func() {
 					}}},
 				}),
 			}
+			vme.Status.ServiceName = "virt-export-" + vmeName
 			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
