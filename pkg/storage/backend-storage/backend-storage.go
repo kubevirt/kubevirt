@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/tools/cache"
 
 	corev1 "kubevirt.io/api/core/v1"
@@ -55,7 +56,8 @@ const (
 )
 
 func basePVC(vmi *corev1.VirtualMachineInstance) string {
-	return PVCPrefix + "-" + vmi.Name
+	name := PVCPrefix + "-" + vmi.Name
+	return name[:min(len(name), validation.DNS1035LabelMaxLength-6)]
 }
 
 func PVCForVMI(pvcStore cache.Store, vmi *corev1.VirtualMachineInstance) *v1.PersistentVolumeClaim {
