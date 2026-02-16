@@ -2564,6 +2564,69 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 	})
 
+	Context("with backend storage", decorators.RequiresRWOFsVMStateStorageClass, func() {
+		It("should successfully migrate a VM with a long name that requires backend storage", func() {
+			By("Creating a VM with a long name and persistent TPM")
+			// PVCPrefix (20) + "-" (1) + name (53) = 74 characters > 58 (MaxPVCBaseNameLength)
+			// This triggers the name mangling logic in CurrentPVCName
+			longVMName := "this-is-a-very-long-vm-name-that-will-cause-mangling"
+
+			vmi := libvmifact.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithTPM(true),
+				libvmi.WithMemoryRequest(fedoraVMSize),
+			)
+			vmi.Name = longVMName
+
+			By("Starting the VirtualMachineInstance")
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+			By("Waiting for agent to connect")
+			Eventually(matcher.ThisVMI(vmi), 4*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Logging in to the VM")
+			Expect(console.LoginToFedora(vmi)).To(Succeed())
+
+			By("Verifying backend storage PVC was created with mangled name")
+			pvcList, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			var backendPVC *k8sv1.PersistentVolumeClaim
+			for _, pvc := range pvcList.Items {
+				if label, exists := pvc.Labels["persistent-state-for"]; exists && label == vmi.Name {
+					backendPVC = &pvc
+					break
+				}
+			}
+			Expect(backendPVC).ToNot(BeNil(), "backend storage PVC should exist")
+			Expect(backendPVC.Name).To(HavePrefix("persistent-state-for-this-is-a-very-long-vm-name-that-wil"), "PVC name should be mangled to 58 chars")
+
+			By("Starting the migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			By("Verifying the migration succeeded")
+			vmi = libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+
+			By("Verifying the backend storage PVC is still correctly labeled after migration")
+			pvcList, err = virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			backendPVC = nil
+			for _, pvc := range pvcList.Items {
+				if label, exists := pvc.Labels["persistent-state-for"]; exists && label == vmi.Name {
+					backendPVC = &pvc
+					break
+				}
+			}
+			Expect(backendPVC).ToNot(BeNil(), "backend storage PVC should still exist after migration")
+
+			By("Verifying the VM is still functional after migration")
+			Expect(console.OnPrivilegedPrompt(vmi, 60)).To(BeTrue(), "should be able to login after migration")
+		})
+	})
+
 	Context("with a dedicated migration network", Serial, func() {
 		var nadName string
 
