@@ -941,6 +941,12 @@ const VirtExportProxyServiceName = "virt-exportproxy"
 
 const VirtSynchronizationControllerServiceName = "virt-synchronization-controller"
 
+const VirtTemplateApiServiceName = "virt-template-api-service"
+
+const VirtTemplateWebhookServiceName = "virt-template-webhook-service"
+
+const VirtTemplateControllerMetricsServiceName = "virt-template-controller-manager-metrics-service"
+
 const VirtAPIValidatingWebhookName = "virt-api-validator"
 
 const VirtOperatorServiceName = "kubevirt-operator-webhook"

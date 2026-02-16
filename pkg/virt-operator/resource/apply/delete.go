@@ -335,7 +335,7 @@ func DeleteAll(kv *v1.KubeVirt,
 		if rb, ok := obj.(*rbacv1.RoleBinding); ok && rb.DeletionTimestamp == nil {
 			if key, err := controller.KeyFunc(rb); err == nil {
 				expectations.RoleBinding.AddExpectedDeletion(kvkey, key)
-				err := clientset.RbacV1().RoleBindings(kv.Namespace).Delete(context.Background(), rb.Name, deleteOptions)
+				err := clientset.RbacV1().RoleBindings(rb.Namespace).Delete(context.Background(), rb.Name, deleteOptions)
 				if err != nil {
 					expectations.RoleBinding.DeletionObserved(kvkey, key)
 					log.Log.Errorf("Failed to delete rb %+v: %v", rb, err)

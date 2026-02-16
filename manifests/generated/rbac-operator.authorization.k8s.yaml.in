@@ -30,6 +30,9 @@ rules:
   - kubevirt-exportproxy-certs
   - kubevirt-synchronization-controller-certs
   - kubevirt-synchronization-controller-server-certs
+  - kubevirt-virt-template-api-certs
+  - kubevirt-virt-template-webhook-certs
+  - kubevirt-virt-template-controller-metrics-certs
   resources:
   - secrets
   verbs:
@@ -359,6 +362,39 @@ rules:
   - list
   - watch
   - patch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates
+  - virtualmachinetemplaterequests
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates/status
+  - virtualmachinetemplaterequests/status
+  verbs:
+  - get
+  - patch
+- apiGroups:
+  - template.kubevirt.io
+  resources:
+  - virtualmachinetemplates/finalizers
+  - virtualmachinetemplaterequests/finalizers
+  verbs:
+  - update
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:

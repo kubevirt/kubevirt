@@ -123,14 +123,15 @@ type vmYamlDefinition struct {
 	vmSnapshots []vmSnapshotDef
 }
 
-const secondaryNetworkName = "secondarynet"
+const (
+	virtApiDepName                = "virt-api"
+	virtControllerDepName         = "virt-controller"
+	virtTemplateApiserverDepName  = "virt-template-apiserver"
+	virtTemplateControllerDepName = "virt-template-controller"
+	secondaryNetworkName          = "secondarynet"
+)
 
 var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
-
-	const (
-		virtApiDepName        = "virt-api"
-		virtControllerDepName = "virt-controller"
-	)
 
 	var originalKv *v1.KubeVirt
 	var originalOperatorVersion string
@@ -2254,6 +2255,53 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
+	Context("virt-template deployment", func() {
+		setVirtTemplateDeploymentEnabled := func(enabled bool) {
+			kv := libkubevirt.GetCurrentKv(kubevirt.Client())
+			kv.Spec.Configuration.VirtTemplateDeployment = &v1.VirtTemplateDeployment{
+				Enabled: &enabled,
+			}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+		}
+
+		// Note: virt-template requires the Snapshot feature gate for full functionality,
+		// but these tests only verify deployment/removal behavior.
+		DescribeTable("should deploy and remove virt-template", func(setup func(), enable func(), disable func()) {
+			if setup != nil {
+				setup()
+			}
+
+			By("Ensuring virt-template deployments do not exist initially")
+			eventuallyVirtTemplateDeploymentsNotFound()
+
+			By("Enabling virt-template deployment")
+			enable()
+
+			By("Verifying virt-template deployments are created")
+			sanityCheckVirtTemplateDeploymentsExist()
+
+			By("Disabling virt-template deployment")
+			disable()
+
+			By("Verifying virt-template deployments are removed")
+			eventuallyVirtTemplateDeploymentsNotFound()
+		},
+			Entry("when feature gate is toggled",
+				nil,
+				func() { kvconfig.EnableFeatureGate(featuregate.Template) },
+				func() { kvconfig.DisableFeatureGate(featuregate.Template) },
+			),
+			Entry("when VirtTemplateDeployment.Enabled is toggled",
+				func() {
+					setVirtTemplateDeploymentEnabled(false)
+					kvconfig.EnableFeatureGate(featuregate.Template)
+				},
+				func() { setVirtTemplateDeploymentEnabled(true) },
+				func() { setVirtTemplateDeploymentEnabled(false) },
+			),
+		)
+	})
+
 	Context("external CA", func() {
 		createCrt := func(duration time.Duration) *tls.Certificate {
 			caKeyPair, _ := triple.NewCA("test.kubevirt.io", duration)
@@ -2569,9 +2617,9 @@ func nodeSelectorExistInDeployment(virtClient kubecli.KubevirtClient, deployment
 	return true
 }
 
-func sanityCheckDeploymentsExist() {
+func expectDeploymentsToExist(deployments ...string) {
 	Eventually(func() error {
-		for _, deployment := range []string{"virt-api", "virt-controller"} {
+		for _, deployment := range deployments {
 			virtClient := kubevirt.Client()
 			namespace := flags.KubeVirtInstallNamespace
 			_, err := virtClient.AppsV1().Deployments(namespace).Get(context.Background(), deployment, metav1.GetOptions{})
@@ -2580,7 +2628,20 @@ func sanityCheckDeploymentsExist() {
 			}
 		}
 		return nil
-	}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}).WithTimeout(15 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func sanityCheckDeploymentsExist() {
+	expectDeploymentsToExist(virtApiDepName, virtControllerDepName)
+}
+
+func sanityCheckVirtTemplateDeploymentsExist() {
+	expectDeploymentsToExist(virtTemplateApiserverDepName, virtTemplateControllerDepName)
+}
+
+func eventuallyVirtTemplateDeploymentsNotFound() {
+	eventuallyDeploymentNotFound(virtTemplateApiserverDepName)
+	eventuallyDeploymentNotFound(virtTemplateControllerDepName)
 }
 
 // Deprecated: deprecatedBeforeAll must not be used. Tests need to be self-contained to allow sane cleanup, accurate reporting and

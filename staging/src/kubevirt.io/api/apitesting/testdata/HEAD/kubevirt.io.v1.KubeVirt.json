@@ -375,6 +375,9 @@
       "commonInstancetypesDeployment": {
         "enabled": true
       },
+      "virtTemplateDeployment": {
+        "enabled": true
+      },
       "instancetype": {
         "referencePolicy": "referencePolicyValue"
       },

@@ -16058,6 +16058,10 @@
      "tlsConfiguration": {
       "$ref": "#/definitions/v1.TLSConfiguration"
      },
+     "virtTemplateDeployment": {
+      "description": "VirtTemplateDeployment controls the deployment of virt-template components",
+      "$ref": "#/definitions/v1.VirtTemplateDeployment"
+     },
      "virtualMachineInstancesPerNode": {
       "type": "integer",
       "format": "int32"
@@ -17930,6 +17934,15 @@
      "type": {
       "description": "Type specifies the video device type (e.g., virtio, vga, bochs, ramfb). If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).",
       "type": "string"
+     }
+    }
+   },
+   "v1.VirtTemplateDeployment": {
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "description": "Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.",
+      "type": "boolean"
      }
     }
    },

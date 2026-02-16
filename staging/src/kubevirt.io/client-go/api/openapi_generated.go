@@ -563,6 +563,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VMISelector":                                                             schema_kubevirtio_api_core_v1_VMISelector(ref),
 		"kubevirt.io/api/core/v1.VSOCKOptions":                                                            schema_kubevirtio_api_core_v1_VSOCKOptions(ref),
 		"kubevirt.io/api/core/v1.VideoDevice":                                                             schema_kubevirtio_api_core_v1_VideoDevice(ref),
+		"kubevirt.io/api/core/v1.VirtTemplateDeployment":                                                  schema_kubevirtio_api_core_v1_VirtTemplateDeployment(ref),
 		"kubevirt.io/api/core/v1.VirtualMachine":                                                          schema_kubevirtio_api_core_v1_VirtualMachine(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineCondition":                                                 schema_kubevirtio_api_core_v1_VirtualMachineCondition(ref),
 		"kubevirt.io/api/core/v1.VirtualMachineInstance":                                                  schema_kubevirtio_api_core_v1_VirtualMachineInstance(ref),
@@ -22996,6 +22997,12 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 							Ref:         ref("kubevirt.io/api/core/v1.CommonInstancetypesDeployment"),
 						},
 					},
+					"virtTemplateDeployment": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtTemplateDeployment controls the deployment of virt-template components",
+							Ref:         ref("kubevirt.io/api/core/v1.VirtTemplateDeployment"),
+						},
+					},
 					"instancetype": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Instancetype configuration",
@@ -23031,7 +23038,7 @@ func schema_kubevirtio_api_core_v1_KubeVirtConfiguration(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.HypervisorConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector", "kubevirt.io/api/core/v1.ArchConfiguration", "kubevirt.io/api/core/v1.ChangedBlockTrackingSelectors", "kubevirt.io/api/core/v1.CommonInstancetypesDeployment", "kubevirt.io/api/core/v1.DeveloperConfiguration", "kubevirt.io/api/core/v1.HypervisorConfiguration", "kubevirt.io/api/core/v1.InstancetypeConfiguration", "kubevirt.io/api/core/v1.KSMConfiguration", "kubevirt.io/api/core/v1.LiveUpdateConfiguration", "kubevirt.io/api/core/v1.MediatedDevicesConfiguration", "kubevirt.io/api/core/v1.MigrationConfiguration", "kubevirt.io/api/core/v1.NetworkConfiguration", "kubevirt.io/api/core/v1.PermittedHostDevices", "kubevirt.io/api/core/v1.ReloadableComponentConfiguration", "kubevirt.io/api/core/v1.SMBiosConfiguration", "kubevirt.io/api/core/v1.SeccompConfiguration", "kubevirt.io/api/core/v1.SupportContainerResources", "kubevirt.io/api/core/v1.TLSConfiguration", "kubevirt.io/api/core/v1.VirtTemplateDeployment", "kubevirt.io/api/core/v1.VirtualMachineOptions"},
 	}
 }
 
@@ -26615,6 +26622,25 @@ func schema_kubevirtio_api_core_v1_VideoDevice(ref common.ReferenceCallback) com
 						SchemaProps: spec.SchemaProps{
 							Description: "Type specifies the video device type (e.g., virtio, vga, bochs, ramfb). If not specified, the default is architecture-dependent (VGA for BIOS-based VMs, Bochs for EFI-based VMs on AMD64; virtio for Arm and s390x).",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_VirtTemplateDeployment(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
