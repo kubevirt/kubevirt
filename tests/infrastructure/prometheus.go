@@ -486,7 +486,12 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 	})
 
 	It("[test_id:4146]should include VMI phase metrics for all running VMs", func() {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
+		virtControllerLeaderPodName := libinfra.GetLeader()
+		leaderPod, err := virtClient.CoreV1().Pods(flags.KubeVirtInstallNamespace).Get(
+			context.Background(), virtControllerLeaderPodName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred(), "Should find the virt-controller pod")
+
+		metricsPayload := libmonitoring.GetKubevirtVMMetricsByIP(pod, leaderPod.Status.PodIP) //nolint:staticcheck
 
 		fetcher := metricsutil.NewMetricsFetcher("")
 		fetcher.AddNameFilter("kubevirt_vmi_")
@@ -494,6 +499,7 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 
 		metrics, err := fetcher.LoadMetrics(metricsPayload)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(metrics).ToNot(BeEmpty())
 
 		By("Checking the collected metrics")
 		for _, results := range metrics {
