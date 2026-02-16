@@ -16026,6 +16026,10 @@
      "permittedHostDevices": {
       "$ref": "#/definitions/v1.PermittedHostDevices"
      },
+     "persistentReservationConfiguration": {
+      "description": "PersistentReservationConfiguration controls the deployment of additional resources required for using SCSI persistent reservation in VMs",
+      "$ref": "#/definitions/v1.PersistentReservationConfiguration"
+     },
      "seccompConfiguration": {
       "$ref": "#/definitions/v1.SeccompConfiguration"
      },
@@ -16913,6 +16917,15 @@
        "$ref": "#/definitions/v1.USBHostDevice"
       },
       "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1.PersistentReservationConfiguration": {
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "description": "Enabled controls the deployment of additional resources like the pr-helper container for enabling the use of the SCSI persistent reservation VMs, defaults to False.",
+      "type": "boolean"
      }
     }
    },

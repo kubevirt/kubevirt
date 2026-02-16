@@ -1604,6 +1604,19 @@ var CRDsValidation map[string]string = map[string]string{
                   type: array
                   x-kubernetes-list-type: atomic
               type: object
+            persistentReservationConfiguration:
+              description: PersistentReservationConfiguration controls the deployment
+                of additional resources required for using SCSI persistent reservation
+                in VMs
+              nullable: true
+              properties:
+                enabled:
+                  description: |-
+                    Enabled controls the deployment of additional resources like the pr-helper container
+                    for enabling the use of the SCSI persistent reservation VMs, defaults to False.
+                  nullable: true
+                  type: boolean
+              type: object
             seccompConfiguration:
               description: SeccompConfiguration holds Seccomp configuration for Kubevirt
                 components
