@@ -23,9 +23,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/openshift/library-go/pkg/build/naming"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -40,7 +42,7 @@ const (
 )
 
 func backupTargetVolumeName(backupName string) string {
-	return fmt.Sprintf("%s-%s", backupName, backupTargetPVCPrefix)
+	return naming.GetName(backupName, backupTargetPVCPrefix, validation.DNS1035LabelMaxLength)
 }
 
 var (
