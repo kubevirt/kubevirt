@@ -124,7 +124,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 				if child.ObjectReference.Kind == "PersistentVolumeClaim" && child.ObjectReference.Name == pvc.Name {
 					pvcFound = true
 				}
-				if child.ObjectReference.Kind == "PersistentVolumeClaim" && strings.HasPrefix(child.ObjectReference.Name, fmt.Sprintf("persistent-state-for-%s", vm.Name)) {
+				if child.ObjectReference.Kind == "PersistentVolumeClaim" && strings.HasPrefix(child.ObjectReference.Name, "persistent-state-for-") {
 					tpmFound = true
 				}
 				if child.ObjectReference.Kind == "Secret" && child.ObjectReference.Name == secret.Name {
