@@ -209,6 +209,13 @@ func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachin
 	// new workloads will set the migrationTransport on creation, however legacy workloads
 	// can make the switch only after the first migration
 	vmi.Status.MigrationTransport = v1.MigrationTransportUnix
+	// Update the memory overhead to reflect the target pod's overhead after migration completes
+	if vmi.Status.MigrationState.TargetMemoryOverhead != nil {
+		if vmi.Status.Memory == nil {
+			vmi.Status.Memory = &v1.MemoryStatus{}
+		}
+		vmi.Status.Memory.MemoryOverhead = vmi.Status.MigrationState.TargetMemoryOverhead
+	}
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", c.host))
 	c.logger.Object(vmi).Info("The target node detected that the migration has completed")
 }
