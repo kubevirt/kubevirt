@@ -191,6 +191,13 @@ const (
 	// Alpha: v1.8.0
 	Template = "Template"
 
+	// Owner: @bmordeha
+	// Alpha: v1.8.0
+	//
+	// VmiMemoryOverheadReport enables reporting the memory overhead in the VMI status.
+	// When enabled, the memory overhead is calculated and set in the VMI status.Memory.MemoryOverhead field.
+	VmiMemoryOverheadReport = "VmiMemoryOverheadReport"
+
 	// Owner: sig-storage / @mhenriks
 	// Alpha: v1.8.0
 	//
@@ -246,6 +253,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ExternalNetResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VmiMemoryOverheadReport, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 }
