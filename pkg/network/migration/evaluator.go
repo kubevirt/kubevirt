@@ -71,8 +71,8 @@ func NewEvaluatorWithTimeProvider(timeProvider timeProviderFunc, clusterConfigur
 
 func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance,
 	pod *k8scorev1.Pod,
-) k8scorev1.ConditionStatus {
-	result := shouldVMIBeMarkedForAutoMigration(
+) (k8scorev1.ConditionStatus, string) {
+	result, reason := shouldVMIBeMarkedForAutoMigration(
 		vmi.Spec.Domain.Devices.Interfaces,
 		vmi.Spec.Networks,
 		vmi.Status.Interfaces,
@@ -83,21 +83,21 @@ func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance,
 
 	switch result {
 	case notRequired:
-		return k8scorev1.ConditionUnknown
+		return k8scorev1.ConditionUnknown, ""
 	case immediateMigration:
-		return k8scorev1.ConditionTrue
+		return k8scorev1.ConditionTrue, reason
 	case pendingMigration:
 		existingCondition := lookupMigrationRequiredCondition(vmi.Status.Conditions)
 		if existingCondition != nil &&
 			existingCondition.Status == k8scorev1.ConditionFalse &&
 			e.timeProvider().Sub(existingCondition.LastTransitionTime.Time) > DynamicNetworkControllerGracePeriod {
-			return k8scorev1.ConditionTrue
+			return k8scorev1.ConditionTrue, reason
 		}
 
-		return k8scorev1.ConditionFalse
+		return k8scorev1.ConditionFalse, ""
 	}
 
-	return k8scorev1.ConditionUnknown
+	return k8scorev1.ConditionUnknown, ""
 }
 
 func shouldVMIBeMarkedForAutoMigration(
@@ -107,7 +107,7 @@ func shouldVMIBeMarkedForAutoMigration(
 	namespace string,
 	pod *k8scorev1.Pod,
 	isLiveUpdateNADRefEnabled bool,
-) migrationRequirementKind {
+) (migrationRequirementKind, string) {
 	secondaryIfaces := vmispec.FilterInterfacesByNetworks(
 		ifaces,
 		vmispec.FilterMultusNonDefaultNetworks(nets),
@@ -120,17 +120,17 @@ func shouldVMIBeMarkedForAutoMigration(
 		ifaceStatus, ifaceStatusExists := ifaceStatusesByName[iface.Name]
 		if iface.State != v1.InterfaceStateAbsent && !ifaceStatusExists {
 			if iface.SRIOV != nil {
-				return immediateMigration
+				return immediateMigration, "Live migration due to change in Interface"
 			}
 
-			return pendingMigration
+			return pendingMigration, "Live migration due to change in Interface"
 		}
 
 		if iface.State == v1.InterfaceStateAbsent &&
 			ifaceStatusExists &&
 			vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus) &&
 			!vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain) {
-			return pendingMigration
+			return pendingMigration, "Live migration due to change in Interface"
 		}
 
 		if isLiveUpdateNADRefEnabled {
@@ -143,11 +143,11 @@ func shouldVMIBeMarkedForAutoMigration(
 			}
 			nadNameFromPod := nadNameFromPod(pod, ifaceStatus.PodInterfaceName)
 			if !isNADNameEqual(net.Multus.NetworkName, nadNameFromPod, namespace) {
-				return immediateMigration
+				return immediateMigration, "Live migration due to change in Network"
 			}
 		}
 	}
-	return notRequired
+	return notRequired, ""
 }
 
 func nadNameFromPod(pod *k8scorev1.Pod, ifaceName string) string {
