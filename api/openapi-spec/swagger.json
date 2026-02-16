@@ -16552,6 +16552,10 @@
      "guestRequested": {
       "description": "GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "memoryOverhead": {
+      "description": "MemoryOverhead specifies the memory overhead added by the virtualization infrastructure for the virt-launcher pod.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      }
     }
    },
@@ -18720,6 +18724,10 @@
        "format": "int32",
        "default": 0
       }
+     },
+     "targetMemoryOverhead": {
+      "description": "TargetMemoryOverhead is the memory overhead of the target virt-launcher pod",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
      },
      "targetNode": {
       "description": "The target node that the VMI is moving to",

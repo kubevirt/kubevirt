@@ -14741,6 +14741,15 @@ var CRDsValidation map[string]string = map[string]string{
                 (hotplug) for the VirtualMachine.
               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
               x-kubernetes-int-or-string: true
+            memoryOverhead:
+              anyOf:
+              - type: integer
+              - type: string
+              description: |-
+                MemoryOverhead specifies the memory overhead added by the virtualization infrastructure
+                for the virt-launcher pod.
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
           type: object
         migratedVolumes:
           description: MigratedVolumes lists the source and destination volumes during
@@ -15066,6 +15075,14 @@ var CRDsValidation map[string]string = map[string]string{
               description: The list of ports opened for live migration on the destination
                 node
               type: object
+            targetMemoryOverhead:
+              anyOf:
+              - type: integer
+              - type: string
+              description: TargetMemoryOverhead is the memory overhead of the target
+                virt-launcher pod
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
             targetNode:
               description: The target node that the VMI is moving to
               type: string
@@ -15659,6 +15676,14 @@ var CRDsValidation map[string]string = map[string]string{
               description: The list of ports opened for live migration on the destination
                 node
               type: object
+            targetMemoryOverhead:
+              anyOf:
+              - type: integer
+              - type: string
+              description: TargetMemoryOverhead is the memory overhead of the target
+                virt-launcher pod
+              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+              x-kubernetes-int-or-string: true
             targetNode:
               description: The target node that the VMI is moving to
               type: string
