@@ -535,7 +535,7 @@ var _ = SIGMigrationDescribe("Live Migration", decorators.RequiresTwoSchedulable
 						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
 						vmiPod, err := libpod.GetPodByVirtualMachineInstance(newvmi, newvmi.Namespace)
 						Expect(err).NotTo(HaveOccurred())
-						return libnet.ValidateVMIandPodIPMatch(newvmi, vmiPod)
+						return libnet.AssertAllPodIPsReportedOnVMI(newvmi, vmiPod)
 					}, time.Minute, time.Second).Should(Succeed(), "Should match PodIP with latest VMI Status after migration")
 				}
 			})
