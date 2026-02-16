@@ -39,6 +39,7 @@ import (
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -116,11 +117,22 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 		results = append(results, validateFeatureGates(newKV.Spec.Configuration.DeveloperConfiguration)...)
 	}
 
+	var cpuModelWarning string
+	if currKV.Spec.Configuration.CPUModel != newKV.Spec.Configuration.CPUModel {
+		var causes []metav1.StatusCause
+		causes, cpuModelWarning = validateCPUModel(ctx, newKV.Spec.Configuration.CPUModel, admitter.Client)
+		results = append(results, causes...)
+	}
+
 	response := validating_webhooks.NewAdmissionResponse(results)
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
 		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
 		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates)...)
+	}
+
+	if cpuModelWarning != "" {
+		response.Warnings = append(response.Warnings, cpuModelWarning)
 	}
 
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
@@ -471,6 +483,58 @@ func warnDeprecatedArchitectures(archConfiguration *v1.ArchConfiguration) []stri
 		return []string{"spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."}
 	}
 	return nil
+}
+
+func validateCPUModel(ctx context.Context, cpuModel string, client kubecli.KubevirtClient) ([]metav1.StatusCause, string) {
+	if cpuModel == "" || cpuModel == v1.CPUModeHostPassthrough || cpuModel == v1.CPUModeHostModel {
+		return nil, ""
+	}
+
+	if client == nil {
+		return nil, ""
+	}
+
+	// First, check if at least one node supports this CPU model
+	selector := labels.SelectorFromSet(labels.Set{
+		v1.CPUModelLabel + cpuModel: "true",
+	})
+	nodesWithModel, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if err != nil {
+		log.Log.Warningf("unable to validate cpuModel %q against node labels: %v", cpuModel, err)
+		return nil, ""
+	}
+
+	if len(nodesWithModel.Items) == 0 {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("the cpuModel %q is not supported by any node in the cluster", cpuModel),
+			Field:   "spec.configuration.cpuModel",
+		}}, ""
+	}
+
+	// Check if the model is supported by all nodes (common case)
+	allNodes, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Log.Warningf("unable to count total nodes for cpuModel validation: %v", err)
+		return nil, ""
+	}
+
+	totalNodes := len(allNodes.Items)
+	nodesWithModelCount := len(nodesWithModel.Items)
+
+	if totalNodes > 0 && nodesWithModelCount < totalNodes {
+		percentage := (nodesWithModelCount * 100) / totalNodes
+		warning := fmt.Sprintf(
+			"cpuModel %q is only supported by %d of %d cluster nodes (%d%%). "+
+				"New VMIs using this cluster-wide default will only be schedulable on %d%% of cluster nodes. "+
+				"For cluster-wide VM scheduling, choose a CPU model that is common to all nodes.",
+			cpuModel, nodesWithModelCount, totalNodes, percentage, percentage)
+		return nil, warning
+	}
+
+	return nil, ""
 }
 
 func validateGuestToRequestHeadroom(ratioStrPtr *string) (causes []metav1.StatusCause) {

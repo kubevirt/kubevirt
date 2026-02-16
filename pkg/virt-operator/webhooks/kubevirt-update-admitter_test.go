@@ -27,12 +27,17 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
+
 	admissionv1 "k8s.io/api/admission/v1"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -158,6 +163,131 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("5", "5"),
 			Entry("1.123", "1.123"),
 		)
+	})
+
+	Context("validateCPUModel", func() {
+		var (
+			ctrl       *gomock.Controller
+			mockClient *kubecli.MockKubevirtClient
+		)
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			mockClient = kubecli.NewMockKubevirtClient(ctrl)
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
+		DescribeTable("should accept valid values without querying nodes", func(cpuModel string) {
+			causes, warning := validateCPUModel(context.Background(), cpuModel, mockClient)
+			Expect(causes).To(BeEmpty())
+			Expect(warning).To(BeEmpty())
+		},
+			Entry("empty string", ""),
+			Entry("host-passthrough", v1.CPUModeHostPassthrough),
+			Entry("host-model", v1.CPUModeHostModel),
+		)
+
+		It("should accept a CPU model that exists on all cluster nodes", func() {
+			kubeClient := k8sfake.NewSimpleClientset(
+				&k8sv1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+						Labels: map[string]string{
+							v1.CPUModelLabel + "Haswell": "true",
+						},
+					},
+				},
+				&k8sv1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							v1.CPUModelLabel + "Haswell": "true",
+						},
+					},
+				},
+			)
+			mockClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			causes, warning := validateCPUModel(context.Background(), "Haswell", mockClient)
+			Expect(causes).To(BeEmpty())
+			Expect(warning).To(BeEmpty())
+		})
+
+		It("should warn when CPU model exists only on subset of nodes", func() {
+			kubeClient := k8sfake.NewSimpleClientset(
+				&k8sv1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node1",
+						Labels: map[string]string{
+							v1.CPUModelLabel + "Haswell": "true",
+						},
+					},
+				},
+				&k8sv1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node2",
+						Labels: map[string]string{
+							v1.CPUModelLabel + "Cascadelake-Server": "true",
+						},
+					},
+				},
+				&k8sv1.Node{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "node3",
+						Labels: map[string]string{
+							v1.CPUModelLabel + "Cascadelake-Server": "true",
+						},
+					},
+				},
+			)
+			mockClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			causes, warning := validateCPUModel(context.Background(), "Haswell", mockClient)
+			Expect(causes).To(BeEmpty())
+			Expect(warning).ToNot(BeEmpty())
+			Expect(warning).To(ContainSubstring("Haswell"))
+			Expect(warning).To(ContainSubstring("1 of 3"))
+			Expect(warning).To(ContainSubstring("33%"))
+			Expect(warning).To(ContainSubstring("For cluster-wide VM scheduling"))
+		})
+
+		It("should reject a CPU model not supported by any node", func() {
+			kubeClient := k8sfake.NewSimpleClientset()
+			mockClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			causes, warning := validateCPUModel(context.Background(), "Homer-Simpson", mockClient)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("spec.configuration.cpuModel"))
+			Expect(causes[0].Message).To(ContainSubstring("Homer-Simpson"))
+			Expect(warning).To(BeEmpty())
+		})
+
+		It("should reject a misspelled CPU model", func() {
+			kubeClient := k8sfake.NewSimpleClientset(&k8sv1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						v1.CPUModelLabel + "Cascadelake-Server": "true",
+					},
+				},
+			})
+			mockClient.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
+
+			causes, warning := validateCPUModel(context.Background(), "CascadelakeServer", mockClient)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("CascadelakeServer"))
+			Expect(warning).To(BeEmpty())
+		})
+
+		It("should not fail when client is nil", func() {
+			causes, warning := validateCPUModel(context.Background(), "SomeModel", nil)
+			Expect(causes).To(BeEmpty())
+			Expect(warning).To(BeEmpty())
+		})
 	})
 
 	Context("deprecations", func() {
