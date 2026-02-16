@@ -173,6 +173,8 @@ replace (
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 
+	golang.org/x/crypto => github.com/openshift/golang-crypto v0.36.1-0.20260226221237-df393c7e5723
+
 	k8s.io/api => k8s.io/api v0.32.5
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.32.5
 	k8s.io/apimachinery => k8s.io/apimachinery v0.32.5
