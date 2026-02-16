@@ -260,6 +260,70 @@ go_repository(
     importpath = "github.com/google/go-containerregistry",
 )
 
+# GCS bucket rules_docker is not available anymore, artifacts are now published
+# to mirror.bazel.build:
+# - https://github.com/bazelbuild/rules_docker/issues/2291
+#
+# Stick to rules_docker 0.16 because version 0.26 is not preserving the
+# capability net_bind_service from the binary virt-launcher-monitoring.
+RULES_DOCKER_GO_BINARY_RELEASE = "aad94363e63d31d574cf701df484b3e8b868a96a"
+
+http_file(
+    name = "go_puller_linux_amd64",
+    executable = True,
+    sha256 = "08b8963cce9234f57055bafc7cadd1624cdce3c5990048cea1df453d7d288bc6",
+    urls = [("https://mirror.bazel.build/storage.googleapis.com/rules_docker/" + RULES_DOCKER_GO_BINARY_RELEASE + "/puller-linux-amd64")],
+)
+
+http_file(
+    name = "go_puller_linux_arm64",
+    executable = True,
+    sha256 = "912ee7c469b3e4bf15ba5d1f0ee500e7ec6724518862703fa8b09e4d58ce3ee6",
+    urls = [("https://mirror.bazel.build/storage.googleapis.com/rules_docker/" + RULES_DOCKER_GO_BINARY_RELEASE + "/puller-linux-arm64")],
+)
+
+http_file(
+    name = "go_puller_linux_s390x",
+    executable = True,
+    sha256 = "a5527b7b3b4a266e4680a4ad8939429665d4173f26b35d5d317385134369e438",
+    urls = [("https://mirror.bazel.build/storage.googleapis.com/rules_docker/" + RULES_DOCKER_GO_BINARY_RELEASE + "/puller-linux-s390x")],
+)
+
+http_file(
+    name = "go_puller_darwin",
+    executable = True,
+    sha256 = "4855c4f5927f8fb0f885510ab3e2a166d5fa7cde765fbe9aec97dc6b2761bb22",
+    urls = [("https://mirror.bazel.build/storage.googleapis.com/rules_docker/" + RULES_DOCKER_GO_BINARY_RELEASE + "/puller-darwin-amd64")],
+)
+
+http_file(
+    name = "loader_linux_amd64",
+    executable = True,
+    sha256 = "5e5ada66beff07f9188bdc1f99c3fa37c407fc0048cd78b9c2047e9c5516f20b",
+    urls = [("https://mirror.bazel.build/storage.googleapis.com/rules_docker/" + RULES_DOCKER_GO_BINARY_RELEASE + "/loader-linux-amd64")],
+)
+
+http_file(
+    name = "loader_linux_arm64",
+    executable = True,
+    sha256 = "a80966d17b25dbc9313e9fc1cae74ded5916fa64dba0d33438c8adad338b44d3",
+    urls = [("https://mirror.bazel.build/storage.googleapis.com/rules_docker/" + RULES_DOCKER_GO_BINARY_RELEASE + "/loader-linux-arm64")],
+)
+
+http_file(
+    name = "loader_linux_s390x",
+    executable = True,
+    sha256 = "0c0ebc3e0a502542547a38b51f4686a049897eeb4cbc0e2f07fc25276c57866f",
+    urls = [("https://mirror.bazel.build/storage.googleapis.com/rules_docker/" + RULES_DOCKER_GO_BINARY_RELEASE + "/loader-linux-s390x")],
+)
+
+http_file(
+    name = "loader_darwin",
+    executable = True,
+    sha256 = "8c9986b2b506febbff737090d9ec485cec1376c52789747573521a85194341c1",
+    urls = [("https://mirror.bazel.build/storage.googleapis.com/rules_docker/" + RULES_DOCKER_GO_BINARY_RELEASE + "/loader-darwin-amd64")],
+)
+
 # bazel docker rules
 load(
     "@io_bazel_rules_docker//container:container.bzl",
