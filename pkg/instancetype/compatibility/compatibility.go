@@ -117,7 +117,6 @@ func ConvertToV1(in runtime.Object) (runtime.Object, error) {
 
 func convertInstancetype(in *v1beta1.VirtualMachineInstancetype) *v1.VirtualMachineInstancetype {
 	return &v1.VirtualMachineInstancetype{
-		TypeMeta:   in.TypeMeta,
 		ObjectMeta: in.ObjectMeta,
 		Spec:       convertInstancetypeSpec(&in.Spec),
 	}
@@ -125,7 +124,6 @@ func convertInstancetype(in *v1beta1.VirtualMachineInstancetype) *v1.VirtualMach
 
 func convertClusterInstancetype(in *v1beta1.VirtualMachineClusterInstancetype) *v1.VirtualMachineClusterInstancetype {
 	return &v1.VirtualMachineClusterInstancetype{
-		TypeMeta:   in.TypeMeta,
 		ObjectMeta: in.ObjectMeta,
 		Spec:       convertInstancetypeSpec(&in.Spec),
 	}
@@ -133,7 +131,6 @@ func convertClusterInstancetype(in *v1beta1.VirtualMachineClusterInstancetype) *
 
 func convertPreference(in *v1beta1.VirtualMachinePreference) *v1.VirtualMachinePreference {
 	return &v1.VirtualMachinePreference{
-		TypeMeta:   in.TypeMeta,
 		ObjectMeta: in.ObjectMeta,
 		Spec:       convertPreferenceSpec(&in.Spec),
 	}
@@ -141,7 +138,6 @@ func convertPreference(in *v1beta1.VirtualMachinePreference) *v1.VirtualMachineP
 
 func convertClusterPreference(in *v1beta1.VirtualMachineClusterPreference) *v1.VirtualMachineClusterPreference {
 	return &v1.VirtualMachineClusterPreference{
-		TypeMeta:   in.TypeMeta,
 		ObjectMeta: in.ObjectMeta,
 		Spec:       convertPreferenceSpec(&in.Spec),
 	}
