@@ -808,6 +808,11 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subwss = append(subwss, subws)
 	}
+
+	if err := v3SpecCache.Prepare(subwss, virtversion.Get().String()); err != nil {
+		panic(fmt.Errorf("failed to prepare OpenAPI v3 specs: %w", err))
+	}
+
 	ws := new(restful.WebService)
 
 	// K8s needs the ability to query the root paths
@@ -879,37 +884,29 @@ func (app *virtAPIApp) composeSubresources() {
 	ws.Route(ws.GET("openapi/v3").
 		Produces(restful.MIME_JSON).
 		To(func(request *restful.Request, response *restful.Response) {
-			paths := make(map[string]interface{})
-			for i, version := range v1.SubresourceGroupVersions {
-				gvPath := fmt.Sprintf("apis/%s/%s", version.Group, version.Version)
-				_, hash, err := v3SpecCache.BuildV3Spec(gvPath, subwss[i], virtversion.Get().String())
+			discoveryPaths, err := v3SpecCache.GetOpenAPIV3DiscoveryPaths()
+			if err != nil {
+				log.Log.Reason(err).Error("failed to build OpenAPI v3 discovery paths")
+				response.WriteErrorString(http.StatusInternalServerError, "failed to build OpenAPI v3 spec")
+				return
+			}
+			response.WriteAsJson(discoveryPaths)
+		}).Operation("getOpenAPIV3Discovery").
+		Doc("Get OpenAPI v3 discovery"))
+
+	for _, version := range v1.SubresourceGroupVersions {
+		version := version
+		gvPath := fmt.Sprintf("apis/%s/%s", version.Group, version.Version)
+		routePath := fmt.Sprintf("openapi/v3/%s", gvPath)
+		ws.Route(ws.GET(routePath).
+			Produces(restful.MIME_JSON).
+			To(func(request *restful.Request, response *restful.Response) {
+				specBytes, _, err := v3SpecCache.GetV3Spec(gvPath)
 				if err != nil {
 					log.Log.Reason(err).Errorf("failed to build OpenAPI v3 spec for %s", gvPath)
 					response.WriteErrorString(http.StatusInternalServerError, "failed to build OpenAPI v3 spec")
 					return
 				}
-				paths[gvPath] = map[string]string{
-					"serverRelativeURL": fmt.Sprintf("/openapi/v3/%s?hash=%s", gvPath, hash),
-				}
-			}
-			response.WriteAsJson(map[string]interface{}{
-				"paths": paths,
-			})
-		}).Operation("getOpenAPIV3Discovery").
-		Doc("Get OpenAPI v3 discovery"))
-
-	for i, version := range v1.SubresourceGroupVersions {
-		ws.Route(ws.GET(fmt.Sprintf("openapi/v3/apis/%s/%s", version.Group, version.Version)).
-			Produces(restful.MIME_JSON).
-			To(func(request *restful.Request, response *restful.Response) {
-				gvPath := fmt.Sprintf("apis/%s/%s", version.Group, version.Version)
-				specBytes, _, err := v3SpecCache.BuildV3Spec(gvPath, subwss[i], virtversion.Get().String())
-				if err != nil {
-					log.Log.Reason(err).Error("failed to build OpenAPI v3 spec")
-					response.WriteErrorString(http.StatusInternalServerError, "failed to build OpenAPI v3 spec")
-					return
-				}
-
 				response.ResponseWriter.Header().Set("Content-Type", restful.MIME_JSON)
 				response.ResponseWriter.Write(specBytes)
 			}).
