@@ -83,31 +83,8 @@ func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(
 	overhead.Add(resource.MustParse(VirtqemudOverhead))
 	overhead.Add(resource.MustParse(QemuOverhead))
 
-	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
-	// overhead per vcpu in MiB
-	coresMemory := resource.MustParse("8Mi")
-	var vcpus int64
-	if domain.CPU != nil {
-		vcpus = hardware.GetNumberOfVCPUs(domain.CPU)
-	} else {
-		// Currently, a default guest CPU topology is set by the API webhook mutator, if not set by a user.
-		// However, this wasn't always the case.
-		// In case when the guest topology isn't set, take value from resources request or limits.
-		resources := vmi.Spec.Domain.Resources
-		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-			vcpus = cpuLimit.Value()
-		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-			vcpus = cpuRequests.Value()
-		}
-	}
-
-	// if neither CPU topology nor request or limits provided, set vcpus to 1
-	if vcpus < 1 {
-		vcpus = 1
-	}
-	value := coresMemory.Value() * vcpus
-	coresMemory = *resource.NewQuantity(value, coresMemory.Format)
-	overhead.Add(coresMemory)
+	// Add CPU overhead (8 MiB per vCPU)
+	overhead.Add(calculateVCPUOverhead(vmi))
 
 	// static overhead for IOThread
 	overhead.Add(resource.MustParse("8Mi"))
@@ -175,6 +152,39 @@ func calculatePagetableMemory(vmiMemoryReq *resource.Quantity) resource.Quantity
 	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
 	pagetableMemory.Set(pagetableMemory.Value() / pageSize)
 	return *pagetableMemory
+}
+
+// calculateVCPUOverhead calculates memory overhead based on vCPU count (8 MiB per vCPU)
+func calculateVCPUOverhead(vmi *v1.VirtualMachineInstance) resource.Quantity {
+	coresMemory := resource.MustParse("8Mi")
+	vcpus := determineVCPUCount(vmi)
+	value := coresMemory.Value() * vcpus
+	return *resource.NewQuantity(value, coresMemory.Format)
+}
+
+// determineVCPUCount returns the number of vCPUs for the VMI
+func determineVCPUCount(vmi *v1.VirtualMachineInstance) int64 {
+	var vcpus int64
+
+	if vmi.Spec.Domain.CPU != nil {
+		vcpus = hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+	} else {
+		// Currently, a default guest CPU topology is set by the API webhook mutator, if not set by a user.
+		// However, this wasn't always the case.
+		// In case when the guest topology isn't set, take value from resources request or limits.
+		resources := vmi.Spec.Domain.Resources
+		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+			vcpus = cpuLimit.Value()
+		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+			vcpus = cpuRequests.Value()
+		}
+	}
+
+	// if neither CPU topology nor request or limits provided, set vcpus to 1
+	if vcpus < 1 {
+		vcpus = 1
+	}
+	return vcpus
 }
 
 func addProbeOverheads(vmi *v1.VirtualMachineInstance, quantity *resource.Quantity) {
