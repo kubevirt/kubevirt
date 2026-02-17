@@ -43,6 +43,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
+	migrations "kubevirt.io/kubevirt/pkg/util/migrations"
 )
 
 const (
@@ -70,6 +71,7 @@ const (
 	trackerCheckpointRedefinitionPending = "Waiting for checkpoint redefinition on tracker %s"
 	invalidBackupModeMsg                 = "invalid backup mode: %s"
 	backupSourceNameEmptyMsg             = "Source name is empty"
+	vmMigrationInProgressMsg             = "vm %s is currently migrating, waiting for migration to complete before starting backup"
 )
 
 var (
@@ -420,6 +422,14 @@ func (ctrl *VMBackupController) sync(backup *backupv1.VirtualMachineBackup) *Syn
 			return &SyncInfo{
 				event:  backupInitializingEvent,
 				reason: fmt.Sprintf(trackerCheckpointRedefinitionPending, backupTracker.Name),
+			}
+		}
+
+		if migrations.IsMigrating(vmi) {
+			logger.Infof(vmMigrationInProgressMsg, vmi.Name)
+			return &SyncInfo{
+				event:  backupInitializingEvent,
+				reason: fmt.Sprintf(vmMigrationInProgressMsg, vmi.Name),
 			}
 		}
 
