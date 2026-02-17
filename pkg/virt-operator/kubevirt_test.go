@@ -99,9 +99,9 @@ const (
 	externalCAConfigMapCount   = 1
 
 	// virtTemplateResourceCount consists of 30 objects from the bundled template + 3 secrets
-	virtTemplateResourceCount = 33
+	virtTemplateResourceCount = 34
 	virtTemplatePatchCount    = 16
-	virtTemplateUpdateCount   = 17
+	virtTemplateUpdateCount   = 18
 
 	numVirtTemplateCRDs = 2
 )
@@ -2658,7 +2658,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			Expect(kvTestData.totalAdds).To(Equal(resourceCount - expectedUncreatedResources + expectedTemporaryResources + externalCAConfigMapCount))
 
 			Expect(kvTestData.controller.stores.ServiceAccountCache.List()).To(HaveLen(7))
-			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(21))
+			Expect(kvTestData.controller.stores.ClusterRoleCache.List()).To(HaveLen(22))
 			Expect(kvTestData.controller.stores.ClusterRoleBindingCache.List()).To(HaveLen(12))
 			Expect(kvTestData.controller.stores.RoleCache.List()).To(HaveLen(7))
 			Expect(kvTestData.controller.stores.RoleBindingCache.List()).To(HaveLen(8))
@@ -3611,11 +3611,11 @@ var _ = Describe("KubeVirt Operator", func() {
 
 			kvTestData.controller.Execute()
 
-			// 39 in total should be missing at this point
+			// 40 in total should be missing at this point
 			// because waiting on controller, controller's PDB and virt-handler daemonset until API server deploys successfully
 			// also exportProxy + PDB + route
 			// and all virt-template resources
-			expectedUncreatedResources := 39
+			expectedUncreatedResources := 6 + virtTemplateResourceCount
 
 			// KV should be progressing, resources have been added, but they are not all ready yet
 			shouldExpectHCOConditions(kvTestData.getLatestKubeVirt(kv), k8sv1.ConditionFalse, k8sv1.ConditionTrue, k8sv1.ConditionFalse)

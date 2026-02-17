@@ -57,7 +57,7 @@ var _ = Describe("VirtTemplate", func() {
 		))
 		Expect(resources.ServiceAccounts).To(HaveLen(2))
 		Expect(resources.Roles).To(HaveLen(1))
-		Expect(resources.ClusterRoles).To(HaveLen(10))
+		Expect(resources.ClusterRoles).To(HaveLen(11))
 		Expect(resources.RoleBindings).To(HaveLen(2))
 		Expect(resources.ClusterRoleBindings).To(HaveLen(4))
 		Expect(resources.Services).To(HaveLen(3))
