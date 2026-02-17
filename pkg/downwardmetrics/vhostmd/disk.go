@@ -4,12 +4,9 @@ import (
 	"encoding/binary"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"os"
-	"strings"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
-	"kubevirt.io/kubevirt/pkg/util"
 )
 
 const fileSize = 262144
@@ -37,47 +34,6 @@ func (d *Disk) String() string {
 	return fmt.Sprintf("%v:%v:%v:%v", string(d.Header.Signature[:]), d.Header.Flag, d.Header.Checksum, d.Header.Length)
 }
 
-func (d *Disk) Verify() error {
-	var checksum int32
-	for _, b := range d.Raw {
-		checksum = checksum + int32(b)
-	}
-	if d.Header.Flag > 0 {
-		return fmt.Errorf("file is locked")
-	}
-	if checksum != d.Header.Checksum {
-		return fmt.Errorf("checksum is %v, but expected %v", checksum, d.Header.Checksum)
-	}
-	return nil
-}
-
-func (d *Disk) Metrics() (*api.Metrics, error) {
-	m := &api.Metrics{}
-	if err := xml.Unmarshal(d.Raw, m); err != nil {
-		return nil, err
-	}
-	m.Text = strings.TrimSpace(m.Text)
-	for i, metric := range m.Metrics {
-		m.Metrics[i].Name = strings.TrimSpace(metric.Name)
-		m.Metrics[i].Type = api.MetricType(strings.TrimSpace(string(metric.Type)))
-		m.Metrics[i].Context = api.MetricContext(strings.TrimSpace(string(metric.Context)))
-		m.Metrics[i].Value = strings.TrimSpace(metric.Value)
-		m.Metrics[i].Text = strings.TrimSpace(metric.Text)
-	}
-	return m, nil
-}
-
-func (v *vhostmd) Read() (*api.Metrics, error) {
-	disk, err := readDisk(v.filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load vhostmd file: %v", err)
-	}
-	if err := disk.Verify(); err != nil {
-		return nil, fmt.Errorf("failed to verify vhostmd file: %v", err)
-	}
-	return disk.Metrics()
-}
-
 func (v *vhostmd) Write(metrics *api.Metrics) (err error) {
 	f, err := os.OpenFile(v.filePath, os.O_RDWR, 0)
 	if err != nil {
@@ -92,36 +48,6 @@ func (v *vhostmd) Write(metrics *api.Metrics) (err error) {
 		return fmt.Errorf("failed to write metrics: %v", err)
 	}
 	return nil
-}
-
-func readDisk(filePath string) (*Disk, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	// If the read operation succeeds, but close fails, we have already read the data,
-	// so it is ok to not return the error.
-	defer util.CloseIOAndCheckErr(f, nil)
-
-	d := &Disk{
-		Header: &Header{},
-	}
-	if err = binary.Read(f, binary.BigEndian, d.Header); err != nil {
-		return nil, err
-	}
-
-	if d.Header.Flag == 0 {
-		if d.Header.Length > maxBodyLength {
-			return nil, fmt.Errorf("Invalid metrics file. Expected a maximum body length of %v, got %v", maxBodyLength, d.Header.Length)
-		}
-
-		d.Raw = make([]byte, d.Header.Length)
-
-		if _, err = io.ReadFull(f, d.Raw); err != nil {
-			return nil, err
-		}
-	}
-	return d, err
 }
 
 func CreateDisk(filePath string) (err error) {
