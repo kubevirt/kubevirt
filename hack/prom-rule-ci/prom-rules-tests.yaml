@@ -919,6 +919,25 @@ tests:
         alertname: KubeVirtDeprecatedAPIRequested
         exp_alerts: []
 
+  # Deprecated APIs being requested should not fire for LIST, WATCH, or DELETE verbs.
+  - interval: 1m
+    input_series:
+      - series: 'apiserver_requested_deprecated_apis{resource="virtualmachines", group="kubevirt.io", version="v1alpha3"}'
+        values: '0 0 1'
+      - series: 'apiserver_request_total{resource="virtualmachines", group="kubevirt.io", version="v1alpha3", verb="LIST"}'
+        values: '0 0 1 2'
+      - series: 'apiserver_request_total{resource="virtualmachines", group="kubevirt.io", version="v1alpha3", verb="WATCH"}'
+        values: '0 0 1 2'
+      - series: 'apiserver_request_total{resource="virtualmachines", group="kubevirt.io", version="v1alpha3", verb="DELETE"}'
+        values: '0 0 1 2'
+
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: KubeVirtDeprecatedAPIRequested
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: KubeVirtDeprecatedAPIRequested
+        exp_alerts: []
 
   # VMI CPU Queue higher than 20
   - interval: 1m
