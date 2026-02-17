@@ -21,7 +21,7 @@ package libnet
 
 import (
 	"encoding/json"
-	"regexp"
+	"fmt"
 	"strings"
 	"time"
 
@@ -31,92 +31,101 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 )
 
-var neighValidStateRegex = regexp.MustCompile(`REACHABLE|STALE|DELAY|PROBE`)
+type Route struct {
+	Dst     string `json:"dst,omitempty"`
+	Gateway string `json:"gateway,omitempty"`
+	Dev     string `json:"dev,omitempty"`
+}
 
-const (
-	defaultRoute = "default"
-	destination  = "dst"
-	gateway      = "gateway"
-)
+type Neighbor struct {
+	Dst   string   `json:"dst,omitempty"`
+	Dev   string   `json:"dev,omitempty"`
+	State []string `json:"state,omitempty"`
+}
+
+const defaultRoute = "default"
 
 func HasDefaultRoute(vmi *v1.VirtualMachineInstance, ipFamily k8sv1.IPFamily, timeout time.Duration) bool {
 	if ipFamily == k8sv1.IPv6Protocol {
-		return hasDefaultRouteIPv6(vmi, timeout)
+		return hasDefaultRouteIPv6AndNeigh(vmi, timeout)
 	}
 	return hasDefaultRouteIPv4(vmi, timeout)
 }
 
-func hasDefaultRouteIPv6(vmi *v1.VirtualMachineInstance, timeout time.Duration) bool {
-	const routeCmd = "ip -json -6 route show default"
-
-	routes, err := runJSONConsoleCommand(vmi, routeCmd, timeout)
+func hasDefaultRouteIPv4(vmi *v1.VirtualMachineInstance, timeout time.Duration) bool {
+	routes, err := queryDefaultRoutes(vmi, "-4", timeout)
 	if err != nil {
 		return false
 	}
 
 	for _, route := range routes {
-		dst, dstOk := route[destination]
-		_, gatewayOk := route[gateway]
-		if dstOk && dst == defaultRoute && gatewayOk {
-			return hasNeighbor(vmi, timeout)
+		if (route.Dst == defaultRoute) && route.Gateway != "" {
+			return true
 		}
 	}
-
 	return false
 }
 
-func hasNeighbor(vmi *v1.VirtualMachineInstance, timeout time.Duration) bool {
-	const neighCmd = "ip -6 -json neigh show"
-	neighbors, err := runJSONConsoleCommand(vmi, neighCmd, timeout)
+func hasDefaultRouteIPv6AndNeigh(vmi *v1.VirtualMachineInstance, timeout time.Duration) bool {
+	routes, err := queryDefaultRoutes(vmi, "-6", timeout)
+	if err != nil {
+		return false
+	}
+
+	for _, route := range routes {
+		if (route.Dst == defaultRoute) && route.Gateway != "" {
+			return hasNeighbor(vmi, route.Gateway, timeout)
+		}
+	}
+	return false
+}
+
+func hasNeighbor(vmi *v1.VirtualMachineInstance, dest string, timeout time.Duration) bool {
+	neighbors, err := queryNeighbors(vmi, timeout)
 	if err != nil {
 		return false
 	}
 	for _, neigh := range neighbors {
-		stateVal, ok := neigh["state"]
-		if !ok {
-			continue
-		}
-		stateSlice, ok := stateVal.([]interface{})
-		if !ok {
-			continue
-		}
-		var parts []string
-		for _, s := range stateSlice {
-			if str, ok := s.(string); ok {
-				parts = append(parts, str)
-			}
-		}
-		if neighValidStateRegex.MatchString(strings.Join(parts, " ")) {
+		if neigh.Dst == dest && isValidNeighborState(neigh.State) {
 			return true
 		}
 	}
 	return false
 }
 
-func hasDefaultRouteIPv4(vmi *v1.VirtualMachineInstance, timeout time.Duration) bool {
-	const routeCmd = "ip -json route show default"
-	routes, err := runJSONConsoleCommand(vmi, routeCmd, timeout)
+func queryDefaultRoutes(vmi *v1.VirtualMachineInstance, ipFamilyArg string, timeout time.Duration) ([]Route, error) {
+	const routeCmd = "ip -json %s route show default"
+	output, err := console.RunCommandAndStoreOutput(vmi, fmt.Sprintf(routeCmd, ipFamilyArg), timeout)
 	if err != nil {
-		return false
+		return []Route{}, err
 	}
-	for _, route := range routes {
-		dst, dstOk := route[destination]
-		_, gatewayOk := route[gateway]
-		if dstOk && dst == defaultRoute && gatewayOk {
+	var routes []Route
+	if err := json.Unmarshal([]byte(output), &routes); err != nil {
+		return []Route{}, err
+	}
+	return routes, nil
+}
+
+func queryNeighbors(vmi *v1.VirtualMachineInstance, timeout time.Duration) ([]Neighbor, error) {
+	const neighCmd = "ip -6 -json neigh show"
+	output, err := console.RunCommandAndStoreOutput(vmi, neighCmd, timeout)
+	if err != nil {
+		return []Neighbor{}, err
+	}
+	var neighbors []Neighbor
+	if err := json.Unmarshal([]byte(output), &neighbors); err != nil {
+		return []Neighbor{}, err
+	}
+	return neighbors, nil
+}
+
+func isValidNeighborState(states []string) bool {
+	for _, state := range states {
+		state = strings.ToUpper(state)
+		switch state {
+		case "REACHABLE", "STALE", "DELAY", "PROBE", "PERMANENT":
 			return true
 		}
 	}
 	return false
-}
-
-func runJSONConsoleCommand(vmi *v1.VirtualMachineInstance, command string, timeout time.Duration) ([]map[string]interface{}, error) {
-	output, err := console.RunCommandAndStoreOutput(vmi, command, timeout)
-	if err != nil {
-		return []map[string]interface{}{}, err
-	}
-	var list []map[string]interface{}
-	if err := json.Unmarshal([]byte(output), &list); err != nil {
-		return []map[string]interface{}{}, err
-	}
-	return list, nil
 }
