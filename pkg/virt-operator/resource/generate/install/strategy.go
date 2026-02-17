@@ -341,7 +341,6 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 }
 
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
-
 	config, err := operatorutil.GetConfigFromEnv()
 	if err != nil {
 		return err
@@ -359,15 +358,7 @@ func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNa
 
 	_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Create(context.Background(), configMap, metav1.CreateOptions{})
 	if err != nil {
-		if errors.IsAlreadyExists(err) {
-			// force update if already exists
-			_, err = clientset.CoreV1().ConfigMaps(config.GetNamespace()).Update(context.Background(), configMap, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-		} else {
-			return err
-		}
+		return fmt.Errorf("failed to create new install strategy configmap: %v", err)
 	}
 
 	return nil
