@@ -501,7 +501,7 @@ func (ctrl *VMBackupController) handleBackupInitiation(backup *backupv1.VirtualM
 		backup.Spec.Mode = pointer.P(backupv1.PushMode)
 	}
 	switch *backup.Spec.Mode {
-	case backupv1.PushMode:
+	case backupv1.PushMode, backupv1.PullMode:
 		pvcName := backup.Spec.PvcName
 		syncInfo := ctrl.verifyBackupTargetPVC(pvcName, backup.Namespace)
 		if syncInfo != nil {
@@ -513,8 +513,8 @@ func (ctrl *VMBackupController) handleBackupInitiation(backup *backupv1.VirtualM
 		if !attached {
 			return ctrl.attachBackupTargetPVC(vmi, *pvcName, volumeName)
 		}
-		backupOptions.Mode = backupv1.PushMode
-		backupOptions.PushPath = pointer.P(hotplugdisk.GetVolumeMountDir(volumeName))
+		backupOptions.Mode = *backup.Spec.Mode
+		backupOptions.TargetPath = pointer.P(hotplugdisk.GetVolumeMountDir(volumeName))
 	default:
 		logger.Errorf(invalidBackupModeMsg, *backup.Spec.Mode)
 		return syncInfoError(fmt.Errorf(invalidBackupModeMsg, *backup.Spec.Mode))

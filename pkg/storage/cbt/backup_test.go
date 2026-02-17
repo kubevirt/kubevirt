@@ -1623,7 +1623,7 @@ var _ = Describe("Backup Controller", func() {
 				Expect(options.BackupName).To(Equal(backupName))
 				Expect(options.Cmd).To(Equal(backupv1.Start))
 				Expect(options.Mode).To(Equal(backupv1.PushMode))
-				Expect(options.PushPath).ToNot(BeNil())
+				Expect(options.TargetPath).ToNot(BeNil())
 				return nil
 			})
 
@@ -1660,7 +1660,7 @@ var _ = Describe("Backup Controller", func() {
 				Expect(options.BackupName).To(Equal(backupName))
 				Expect(options.Cmd).To(Equal(backupv1.Start))
 				Expect(options.Mode).To(Equal(backupv1.PushMode))
-				Expect(options.PushPath).ToNot(BeNil())
+				Expect(options.TargetPath).ToNot(BeNil())
 				Expect(options.Incremental).To(BeNil())
 				return nil
 			})
@@ -1698,7 +1698,7 @@ var _ = Describe("Backup Controller", func() {
 				Expect(options.BackupName).To(Equal(backupName))
 				Expect(options.Cmd).To(Equal(backupv1.Start))
 				Expect(options.Mode).To(Equal(backupv1.PushMode))
-				Expect(options.PushPath).ToNot(BeNil())
+				Expect(options.TargetPath).ToNot(BeNil())
 				Expect(options.Incremental).ToNot(BeNil())
 				Expect(*options.Incremental).To(Equal(checkpointName))
 				return nil
@@ -1738,7 +1738,7 @@ var _ = Describe("Backup Controller", func() {
 				Expect(options.BackupName).To(Equal(backupName))
 				Expect(options.Cmd).To(Equal(backupv1.Start))
 				Expect(options.Mode).To(Equal(backupv1.PushMode))
-				Expect(options.PushPath).ToNot(BeNil())
+				Expect(options.TargetPath).ToNot(BeNil())
 				Expect(options.Incremental).To(BeNil())
 				return nil
 			})
