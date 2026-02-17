@@ -1399,6 +1399,9 @@ kubevirt.io/virt-template-client-go/virttemplate/typed/core/v1alpha1/fake
 ## explicit; go 1.24.0
 kubevirt.io/virt-template-engine/template
 kubevirt.io/virt-template-engine/template/generator
+# libguestfs.org/libnbd v1.25.2-5-g48df7c4d2b
+## explicit; go 1.17
+libguestfs.org/libnbd
 # libvirt.org/go/libvirt v1.11005.0
 ## explicit; go 1.11
 libvirt.org/go/libvirt
