@@ -19987,11 +19987,11 @@
      "mode": {
       "type": "string"
      },
-     "pushPath": {
-      "type": "string"
-     },
      "skipQuiesce": {
       "type": "boolean"
+     },
+     "targetPath": {
+      "type": "string"
      }
     }
    },
