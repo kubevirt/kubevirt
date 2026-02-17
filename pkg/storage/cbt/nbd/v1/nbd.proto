@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package kubevirt.nbd;
+option go_package = "v1";
+
+service NBD {
+    rpc Map(MapRequest) returns (stream MapResponse) {}
+    rpc Read(ReadRequest) returns (stream DataChunk) {}
+}
+
+message MapRequest {
+    string export_name = 1;
+    string bitmap_name = 2;
+    uint64 offset = 3;
+    uint64 length = 4;
+}
+
+message MapResponse {
+    repeated Extent extents = 1;
+    uint64 next_offset = 2;
+}
+
+message Extent {
+    uint64 offset = 1;
+    uint64 length = 2;
+    uint64 flags = 3;
+    string description = 4;
+}
+
+message ReadRequest {
+    string export_name = 1;
+    uint64 offset = 2;
+    uint64 length = 3;
+}
+
+message DataChunk {
+    uint64 offset = 1;
+    bytes data = 2;
+}
