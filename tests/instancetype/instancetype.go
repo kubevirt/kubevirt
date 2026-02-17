@@ -1,4 +1,4 @@
-//nolint:dupl,lll,gomnd
+//nolint:dupl,lll
 package instancetype
 
 import (
