@@ -65,6 +65,7 @@ const (
 var listenAddressFmt string
 var listenAddress = "127.0.0.1"
 var proxyOnly bool
+var preserveSession bool
 var customPort = 0
 
 func NewCommand() *cobra.Command {
@@ -79,6 +80,8 @@ func NewCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&listenAddress, "address", listenAddress, "--address=127.0.0.1: Setting this will change the listening address of the VNC server. Example: --address=0.0.0.0 will make the server listen on all interfaces.")
 	cmd.Flags().BoolVar(&proxyOnly, "proxy-only", proxyOnly, "--proxy-only=false: Setting this true will run only the virtctl vnc proxy and show the port where VNC viewers can connect")
+	cmd.Flags().BoolVar(&preserveSession, "preserve-session", false,
+		"--preserve-session: This option will preserve an existing VNC session instead of dropping it.")
 	cmd.Flags().IntVar(&customPort, "port", customPort,
 		"--port=0: Assigning a port value to this will try to run the proxy on the given port if the port is accessible; If unassigned, the proxy will run on a random port")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
@@ -97,7 +100,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	vmi := args[0]
 
 	// setup connection with VM
-	vnc, err := virtCli.VirtualMachineInstance(namespace).VNC(vmi)
+	vnc, err := virtCli.VirtualMachineInstance(namespace).VNC(vmi, preserveSession)
 	if err != nil {
 		return fmt.Errorf("Can't access VMI %s: %s", vmi, err.Error())
 	}
