@@ -72,11 +72,12 @@ const (
 
 // Indication messages
 var snapshotIndicationMessages = map[snapshotv1.Indication]string{
-	snapshotv1.VMSnapshotOnlineSnapshotIndication: "Snapshot taken while the VM was running. Consistency depends on guest-agent quiescing.",
-	snapshotv1.VMSnapshotGuestAgentIndication:     "Guest agent was active and attempted to quiesce the filesystem for application consistency.",
-	snapshotv1.VMSnapshotNoGuestAgentIndication:   "Guest agent was not available. Snapshot is crash-consistent and may not be application-consistent.",
-	snapshotv1.VMSnapshotQuiesceTimeoutIndication: "Guest agent quiesced the filesystem, but the freeze window timed out before completion. Snapshot is crash-consistent and may not be application-consistent.",
-	snapshotv1.VMSnapshotPausedIndication:         "Snapshot taken while the VM was paused. Snapshot is crash-consistent and may not be application-consistent.",
+	snapshotv1.VMSnapshotOnlineSnapshotIndication:  "Snapshot taken while the VM was running. Consistency depends on guest-agent quiescing.",
+	snapshotv1.VMSnapshotGuestAgentIndication:      "Guest agent was active and attempted to quiesce the filesystem for application consistency.",
+	snapshotv1.VMSnapshotNoGuestAgentIndication:    "Guest agent was not available. Snapshot is crash-consistent and may not be application-consistent.",
+	snapshotv1.VMSnapshotQuiesceTimeoutIndication:  "Guest agent quiesced the filesystem, but the freeze window timed out before completion. Snapshot is crash-consistent and may not be application-consistent.",
+	snapshotv1.VMSnapshotPausedIndication:          "Snapshot taken while the VM was paused. Snapshot is crash-consistent and may not be application-consistent.",
+	snapshotv1.VMSnapshotPartialSnapshotIndication: "Not all snapshotable volumes were included in the snapshot. Check status.snapshotVolumes for excluded volumes and VM VolumeSnapshotStatus for details.",
 }
 
 func VmSnapshotReady(vmSnapshot *snapshotv1.VirtualMachineSnapshot) bool {
@@ -901,6 +902,19 @@ func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot
 	}
 }
 
+func (ctrl *VMSnapshotController) addPartialSnapshotIndication(snapshot *snapshotv1.VirtualMachineSnapshot) {
+	partialSnapshotIndication := snapshotv1.SourceIndication{
+		Indication: snapshotv1.VMSnapshotPartialSnapshotIndication,
+		Message:    IndicationMessage(snapshotv1.VMSnapshotPartialSnapshotIndication),
+	}
+	snapshot.Status.SourceIndications = append(snapshot.Status.SourceIndications, partialSnapshotIndication)
+
+	// update the deprecated Indications field for backward compatibility
+	indications := sets.New(snapshot.Status.Indications...)
+	indications = sets.Insert(indications, snapshotv1.VMSnapshotPartialSnapshotIndication)
+	snapshot.Status.Indications = sets.List(indications)
+}
+
 func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *snapshotv1.VirtualMachineSnapshot, content *snapshotv1.VirtualMachineSnapshotContent) error {
 	if content == nil {
 		return nil
@@ -921,17 +935,27 @@ func (ctrl *VMSnapshotController) updateSnapshotSnapshotableVolumes(snapshot *sn
 
 	var excludedVolumes []string
 	var includedVolumes []string
+	hasExcludedSnapshottableVolume := false
 	for _, volume := range volumes {
 		if _, ok := volumeBackups[volume.Name]; ok {
 			includedVolumes = append(includedVolumes, volume.Name)
 		} else {
 			excludedVolumes = append(excludedVolumes, volume.Name)
+			// Track if any excluded volume was snapshottable
+			if !hasExcludedSnapshottableVolume && ctrl.isVolumeSnapshottable(&volume) {
+				hasExcludedSnapshottableVolume = true
+			}
 		}
 	}
 	snapshot.Status.SnapshotVolumes = &snapshotv1.SnapshotVolumesLists{
 		IncludedVolumes: includedVolumes,
 		ExcludedVolumes: excludedVolumes,
 	}
+
+	if hasExcludedSnapshottableVolume {
+		ctrl.addPartialSnapshotIndication(snapshot)
+	}
+
 	return nil
 }
 

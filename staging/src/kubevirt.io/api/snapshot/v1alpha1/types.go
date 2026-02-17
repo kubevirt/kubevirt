@@ -77,11 +77,12 @@ type VirtualMachineSnapshotSpec struct {
 type Indication string
 
 const (
-	VMSnapshotOnlineSnapshotIndication Indication = "Online"
-	VMSnapshotNoGuestAgentIndication   Indication = "NoGuestAgent"
-	VMSnapshotGuestAgentIndication     Indication = "GuestAgent"
-	VMSnapshotQuiesceTimeoutIndication Indication = "QuiesceTimeout"
-	VMSnapshotPausedIndication         Indication = "Paused"
+	VMSnapshotOnlineSnapshotIndication  Indication = "Online"
+	VMSnapshotNoGuestAgentIndication    Indication = "NoGuestAgent"
+	VMSnapshotGuestAgentIndication      Indication = "GuestAgent"
+	VMSnapshotQuiesceTimeoutIndication  Indication = "QuiesceTimeout"
+	VMSnapshotPausedIndication          Indication = "Paused"
+	VMSnapshotPartialSnapshotIndication Indication = "PartialSnapshot"
 )
 
 // SourceIndication provides an indication of the source VM with its description message
