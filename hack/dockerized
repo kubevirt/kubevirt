@@ -61,8 +61,13 @@ mkdir -p ${OUT_DIR}
 RSYNC_CID=$($KUBEVIRT_CRI run ${CONTAINER_ENV} -d -v "${BUILDER}:/root:rw${selinux_bind_options}" --security-opt "label=disable" --cap-add SYS_CHROOT --expose 873 -P ${KUBEVIRT_BUILDER_IMAGE} /usr/bin/rsync --no-detach --daemon --verbose)
 
 function finish() {
+    # avoid container cleanup affecting the exit code of the build
+    local exit_code=$?
+    set +e
     $KUBEVIRT_CRI stop --time 1 ${RSYNC_CID} >/dev/null 2>&1
     $KUBEVIRT_CRI rm -f ${RSYNC_CID} >/dev/null 2>&1
+    set -e
+    return ${exit_code}
 }
 trap finish EXIT
 
