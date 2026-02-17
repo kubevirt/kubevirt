@@ -64,8 +64,8 @@ func (in *BackupOptions) DeepCopyInto(out *BackupOptions) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.PushPath != nil {
-		in, out := &in.PushPath, &out.PushPath
+	if in.TargetPath != nil {
+		in, out := &in.TargetPath, &out.TargetPath
 		*out = new(string)
 		**out = **in
 	}
