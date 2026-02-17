@@ -111,6 +111,9 @@ Virtual Machine last transition timestamp to running status. Type: Counter.
 ### kubevirt_vm_starting_status_last_transition_timestamp_seconds
 Virtual Machine last transition timestamp to starting status. Type: Counter.
 
+### kubevirt_vmi_contains_ephemeral_hotplug_volume
+Reported only for VMIs that contain an ephemeral hotplug volume. Type: Gauge.
+
 ### kubevirt_vmi_cpu_system_usage_seconds_total
 Total CPU time spent in system mode. Type: Counter.
 
