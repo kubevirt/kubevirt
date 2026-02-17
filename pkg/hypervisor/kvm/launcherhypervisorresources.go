@@ -62,8 +62,6 @@ func (k *KvmLauncherHypervisorResources) GetHypervisorDevice() string {
 // The return value is overhead memory quantity
 //
 // Note: The overhead memory is a calculated estimation, the values are not to be assumed accurate.
-//
-//nolint:gocyclo // complexity is inherent to memory overhead calculation
 func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(
 	vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string,
 ) resource.Quantity {
