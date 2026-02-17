@@ -72,10 +72,7 @@ func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(
 
 	overhead := *resource.NewScaledQuantity(0, resource.Kilo)
 
-	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
-	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
-	pagetableMemory.Set(pagetableMemory.Value() / pageSize)
-	overhead.Add(*pagetableMemory)
+	overhead.Add(calculatePagetableMemory(vmiMemoryReq))
 
 	// Add fixed overhead for KubeVirt components, as seen in a random run, rounded up to the nearest MiB
 	// Note: shared libraries are included in the size, so every library is counted (wrongly) as many times as there are
@@ -171,6 +168,13 @@ func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(
 	}
 
 	return overhead
+}
+
+// calculatePagetableMemory calculates memory overhead for page tables (one bit for every 512b of RAM size)
+func calculatePagetableMemory(vmiMemoryReq *resource.Quantity) resource.Quantity {
+	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
+	pagetableMemory.Set(pagetableMemory.Value() / pageSize)
+	return *pagetableMemory
 }
 
 func addProbeOverheads(vmi *v1.VirtualMachineInstance, quantity *resource.Quantity) {
