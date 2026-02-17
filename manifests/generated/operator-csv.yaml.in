@@ -360,6 +360,12 @@ spec:
           - virtualmachinetemplaterequests/finalizers
           verbs:
           - update
+        - apiGroups:
+          - template.kubevirt.io
+          resources:
+          - virtualmachinetemplaterequests/source
+          verbs:
+          - create
         - nonResourceURLs:
           - /metrics
           verbs:
