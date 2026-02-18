@@ -27,6 +27,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
+type netChangePredicate func(map[string]v1.Network, map[string]v1.Network) bool
+
 // IsRestartRequired - Checks if the changes in network related fields require a reset of the VM
 // in order for them to be applied
 func IsRestartRequired(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bool {
@@ -36,8 +38,10 @@ func IsRestartRequired(vm *v1.VirtualMachine, vmi *v1.VirtualMachineInstance) bo
 	desiredNets := vm.Spec.Template.Spec.Networks
 	currentNets := vmi.Spec.Networks
 
+	netChangePredicates := []netChangePredicate{haveCurrentNetsBeenRemoved, haveCurrentNetsChanged}
+
 	return shouldIfacesChangeRequireRestart(desiredIfaces, currentIfaces) ||
-		shouldNetsChangeRequireRestart(desiredNets, currentNets)
+		shouldNetsChangeRequireRestart(desiredNets, currentNets, netChangePredicates...)
 }
 
 func shouldIfacesChangeRequireRestart(desiredIfaces, currentIfaces []v1.Interface) bool {
@@ -48,7 +52,7 @@ func shouldIfacesChangeRequireRestart(desiredIfaces, currentIfaces []v1.Interfac
 		haveCurrentIfacesChanged(desiredIfacesByName, currentIfacesByName)
 }
 
-func shouldNetsChangeRequireRestart(desiredNets, currentNets []v1.Network) bool {
+func shouldNetsChangeRequireRestart(desiredNets, currentNets []v1.Network, predicates ...netChangePredicate) bool {
 	isPodNetworkInDesiredNets := vmispec.LookupPodNetwork(desiredNets) != nil
 	isPodNetworkInCurrentNets := vmispec.LookupPodNetwork(currentNets) != nil
 
@@ -59,8 +63,12 @@ func shouldNetsChangeRequireRestart(desiredNets, currentNets []v1.Network) bool 
 	desiredNetsByName := vmispec.IndexNetworkSpecByName(desiredNets)
 	currentNetsByName := vmispec.IndexNetworkSpecByName(currentNets)
 
-	return haveCurrentNetsBeenRemoved(desiredNetsByName, currentNetsByName) ||
-		haveCurrentNetsChanged(desiredNetsByName, currentNetsByName)
+	for _, predicate := range predicates {
+		if predicate(desiredNetsByName, currentNetsByName) {
+			return true
+		}
+	}
+	return false
 }
 
 // haveCurrentIfacesBeenRemoved checks if interfaces existing in the VMI spec were removed
