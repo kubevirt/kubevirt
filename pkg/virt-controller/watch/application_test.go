@@ -149,6 +149,7 @@ var _ = Describe("Application", func() {
 			storageProfileInformer,
 			cdiInformer,
 			cdiConfigInformer,
+			kvInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
 			nil,
@@ -157,6 +158,8 @@ var _ = Describe("Application", func() {
 				return nil
 			},
 			stubMigrationEvaluator{},
+			nil,
+			nil,
 		)
 		app.rsController, _ = replicaset.NewController(vmiInformer, rsInformer, recorder, virtClient, uint(10))
 		app.vmController, _ = vm.NewController(vmiInformer,
