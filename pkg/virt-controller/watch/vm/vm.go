@@ -3083,7 +3083,6 @@ func (c *Controller) syncVMAnnotationsToVMI(vm *virtv1.VirtualMachine, vmi *virt
 	annotationsToSync := []string{
 		descheduler.EvictPodAnnotationKeyAlpha,
 		descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction,
-		velero.SkipHooksAnnotation,
 	}
 
 	newVMIAnnotations := map[string]string{}
@@ -3107,6 +3106,18 @@ func (c *Controller) syncVMAnnotationsToVMI(vm *virtv1.VirtualMachine, vmi *virt
 			} else {
 				delete(newVMIAnnotations, key)
 			}
+		}
+	}
+
+	// Sync velero skip-hooks annotation from VM metadata (not template)
+	vmVal, vmExists := vm.ObjectMeta.Annotations[velero.SkipHooksAnnotation]
+	vmiVal, vmiExists := newVMIAnnotations[velero.SkipHooksAnnotation]
+	if vmExists != vmiExists || vmVal != vmiVal {
+		changed = true
+		if vmExists {
+			newVMIAnnotations[velero.SkipHooksAnnotation] = vmVal
+		} else {
+			delete(newVMIAnnotations, velero.SkipHooksAnnotation)
 		}
 	}
 
