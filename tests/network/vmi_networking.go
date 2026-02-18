@@ -839,7 +839,7 @@ func runVMI(vmi *v1.VirtualMachineInstance) *v1.VirtualMachineInstance {
 
 func vmiWithCustomMacAddress(mac string) *v1.VirtualMachineInstance {
 	return libvmifact.NewCirros(
-		libvmi.WithInterface(*libvmi.InterfaceWithMac(v1.DefaultBridgeNetworkInterface(), mac)),
+		libvmi.WithInterface(libvmi.InterfaceWithMac(*v1.DefaultBridgeNetworkInterface(), mac)),
 		libvmi.WithNetwork(v1.DefaultPodNetwork()))
 }
 

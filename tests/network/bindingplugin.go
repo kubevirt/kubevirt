@@ -137,7 +137,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 			)
 			vmi = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(
-					*libvmi.InterfaceWithMac(&macvtapIface, chosenMAC)),
+					libvmi.InterfaceWithMac(macvtapIface, chosenMAC)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, macvtapNetworkName)))
 
 			namespace := testsuite.GetTestNamespace(nil)
