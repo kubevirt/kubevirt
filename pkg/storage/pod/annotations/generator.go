@@ -28,7 +28,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 )
 
-type Generator struct{}
+type Generator struct {
+	kubeVirtCR *v1.KubeVirt
+}
+
+func NewGenerator(kubeVirtCR *v1.KubeVirt) Generator {
+	return Generator{kubeVirtCR: kubeVirtCR}
+}
 
 func (g Generator) ManagedAnnotationKeys() []string {
 	return []string{
@@ -41,12 +47,14 @@ func (g Generator) ManagedAnnotationKeys() []string {
 }
 
 func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
-	if vmi.Annotations != nil {
-		if skip := vmi.Annotations[velero.SkipHooksAnnotation]; skip != "" {
-			if shouldSkip, _ := strconv.ParseBool(skip); shouldSkip {
-				return map[string]string{}, nil
-			}
-		}
+	// Check VMI annotation first, fallback to kubevirt CR if not set
+	skipValue := vmi.Annotations[velero.SkipHooksAnnotation]
+	if skipValue == "" && g.kubeVirtCR != nil {
+		skipValue = g.kubeVirtCR.Annotations[velero.SkipHooksAnnotation]
+	}
+
+	if skip, _ := strconv.ParseBool(skipValue); skip {
+		return map[string]string{}, nil
 	}
 
 	const computeContainerName = "compute"
