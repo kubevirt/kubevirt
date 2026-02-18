@@ -20,12 +20,14 @@
 package storage
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -88,7 +90,6 @@ func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error 
 	blockdevCreate := fmt.Sprintf(`{"execute": "blockdev-create", "arguments": {"job-id": "create", "options": {"driver": "qcow2", "file": "file", "data-file": "data-file", "data-file-raw": true, "size": %d}}}`, overlaySize)
 	jobDismiss := `{"execute": "job-dismiss", "arguments": {"id": "create"}}`
 	quit := `{"execute": "quit"}`
-	cmdInput := fmt.Sprintf("%s\n%s\n%s\n%s\n", qmpCapabilities, blockdevCreate, jobDismiss, quit)
 
 	args := append([]string{},
 		"--chardev", "stdio,id=stdio", "--monitor", "stdio",
@@ -102,14 +103,62 @@ func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error 
 
 	log.Log.V(3).Infof("QCOW2 overlay execute %v", args)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "qemu-storage-daemon", args...)
-	cmd.Stdin = bytes.NewBufferString(cmdInput)
 
-	output, err := cmd.CombinedOutput()
+	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return fmt.Errorf("failed to create QCOW2 overlay %s: %v, output: %s", overlayPath, err, output)
+		return fmt.Errorf("failed to create stdin pipe for qemu-storage-daemon: %w", err)
+	}
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe for qemu-storage-daemon: %w", err)
+	}
+
+	var stderrBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+
+	if err = cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start qemu-storage-daemon: %w", err)
+	}
+
+	// Read QMP output in background; signal when blockdev-create job concludes.
+	var outputBuf bytes.Buffer
+	concluded := make(chan struct{})
+	scanDone := make(chan struct{})
+	go func() {
+		defer close(scanDone)
+		scanner := bufio.NewScanner(stdout)
+		closed := false
+		for scanner.Scan() {
+			line := scanner.Text()
+			outputBuf.WriteString(line + "\n")
+			if !closed && strings.Contains(line, `"status": "concluded"`) {
+				close(concluded)
+				closed = true
+			}
+		}
+	}()
+
+	fmt.Fprintf(stdin, "%s\n%s\n", qmpCapabilities, blockdevCreate)
+
+	var selectErr error
+	select {
+	case <-concluded:
+		fmt.Fprintf(stdin, "%s\n%s\n", jobDismiss, quit)
+	case <-scanDone:
+		selectErr = fmt.Errorf("qemu-storage-daemon exited without job concluding for overlay %s", overlayPath)
+	case <-ctx.Done():
+		selectErr = fmt.Errorf("timed out waiting for qemu-storage-daemon to create overlay %s", overlayPath)
+	}
+
+	stdin.Close()
+	waitErr := cmd.Wait()
+	if selectErr != nil || waitErr != nil {
+		return fmt.Errorf("failed to create QCOW2 overlay %s: %w, output: %s%s",
+			overlayPath, errors.Join(selectErr, waitErr), outputBuf.String(), stderrBuf.String())
 	}
 
 	log.Log.Infof("QCOW2 overlay %s created successfully", overlayPath)
