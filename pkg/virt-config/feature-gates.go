@@ -181,10 +181,6 @@ func (config *ClusterConfig) PanicDevicesEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PanicDevicesGate)
 }
 
-func (config *ClusterConfig) PasstIPStackMigrationEnabled() bool {
-	return config.isFeatureGateEnabled(featuregate.PasstIPStackMigration)
-}
-
 func (config *ClusterConfig) PasstBindingEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PasstBinding)
 }

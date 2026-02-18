@@ -144,11 +144,6 @@ const (
 	// PanicDevices allows defining panic devices for signaling crashes in the guest for a VirtualMachineInstance.
 	PanicDevicesGate = "PanicDevices"
 
-	// Alpha: v1.6.0
-	//
-	// PasstIPStackMigration enables seamless migration with passt network binding.
-	PasstIPStackMigration = "PasstIPStackMigration"
-
 	// Beta: v1.8.0
 	//
 	// PasstBinding enables the use of passt core network binding
@@ -228,7 +223,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})

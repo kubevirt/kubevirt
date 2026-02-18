@@ -69,8 +69,9 @@ const (
 	// GA:    v1.5.0
 	DynamicPodInterfaceNamingGate = "DynamicPodInterfaceNaming"
 
-	PasstGate   = "Passt"
-	MacvtapGate = "Macvtap"
+	PasstGate             = "Passt"
+	MacvtapGate           = "Macvtap"
+	PasstIPStackMigration = "PasstIPStackMigration"
 
 	// VirtIOFSGate enables the use of virtiofs for config and storage volumes.
 	// Discontinued in v1.7.0
@@ -149,6 +150,7 @@ func init() {
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
+	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Discontinued, Message: PasstIPStackMigrationMessage})
 
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Deprecated, Message: "MultiArchitecture has been deprecated since v1.8.0"})
