@@ -147,11 +147,15 @@ var _ = Describe("[sig-monitoring]Monitoring", Serial, decorators.SigMonitoring,
 
 	Context("Deprecation Alerts", decorators.SigComputeMigrations, func() {
 		It("KubeVirtDeprecatedAPIRequested should be triggered when a deprecated API is requested", func() {
-			By("Creating a VMI with deprecated API version")
-			vmi := libvmifact.NewCirros()
-			vmi.APIVersion = "v1alpha3"
-			vmi.Namespace = testsuite.GetTestNamespace(vmi)
-			vmi, err := virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			By("Creating a VMI")
+			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).
+				Create(context.Background(), libvmifact.NewCirros(), metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Requesting the VMI using the deprecated API version")
+			_, err = virtClient.RestClient().Get().
+				RequestURI(fmt.Sprintf("/apis/kubevirt.io/v1alpha3/namespaces/%s/virtualmachineinstances/%s", vmi.Namespace, vmi.Name)).
+				DoRaw(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Verifying the alert exists")
