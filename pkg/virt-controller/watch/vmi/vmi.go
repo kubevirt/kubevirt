@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/velero"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -65,6 +66,7 @@ func NewController(templateService services.TemplateService,
 	storageProfileInformer cache.SharedIndexInformer,
 	cdiInformer cache.SharedIndexInformer,
 	cdiConfigInformer cache.SharedIndexInformer,
+	kubeVirtInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
 	netAnnotationsGenerator annotationsGenerator,
@@ -105,7 +107,8 @@ func NewController(templateService services.TemplateService,
 	c.hasSynced = func() bool {
 		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() &&
 			dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() &&
-			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced()
+			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced() &&
+			kubeVirtInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -147,6 +150,13 @@ func NewController(templateService services.TemplateService,
 	// will be removed once DeclarativeHotplugVolumes feature gate is enabled by default
 	_, err = vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: c.updateVM,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateKubeVirt,
 	})
 	if err != nil {
 		return nil, err
@@ -473,6 +483,21 @@ func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
 func (c *Controller) updateVirtualMachineInstance(_, curr interface{}) {
 	c.lowerVMIExpectation(curr)
 	c.enqueueVirtualMachine(curr)
+}
+
+func (c *Controller) updateKubeVirt(old, curr interface{}) {
+	oldKV := old.(*virtv1.KubeVirt)
+	currKV := curr.(*virtv1.KubeVirt)
+
+	oldSkipValue := oldKV.Annotations[velero.SkipHooksAnnotation]
+	currSkipValue := currKV.Annotations[velero.SkipHooksAnnotation]
+
+	// Only requeue all VMIs if the skip-backup-hooks annotation changed
+	if oldSkipValue != currSkipValue {
+		for _, obj := range c.vmiIndexer.List() {
+			c.enqueueVirtualMachine(obj)
+		}
+	}
 }
 
 func (c *Controller) lowerVMIExpectation(curr interface{}) {
