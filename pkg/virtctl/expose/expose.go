@@ -9,12 +9,14 @@ import (
 	"github.com/spf13/cobra"
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
 	"kubevirt.io/kubevirt/pkg/virtctl/templates"
 )
@@ -43,6 +45,14 @@ type command struct {
 
 	namespace string
 	client    kubecli.KubevirtClient
+}
+
+// resourceInfo holds the information extracted from a resource needed to create a Service
+type resourceInfo struct {
+	selector map[string]string
+	ports    []k8sv1.ServicePort
+	owner    metav1.Object
+	gvk      schema.GroupVersionKind
 }
 
 func NewCommand() *cobra.Command {
@@ -108,12 +118,12 @@ func (c *command) run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("cannot obtain KubeVirt client: %v", err)
 	}
 
-	serviceSelector, ports, err := c.getServiceSelectorAndPorts(vmType, vmName)
+	resInfo, err := c.getResourceInfo(vmType, vmName)
 	if err != nil {
 		return err
 	}
 
-	if err := c.createService(serviceSelector, ports); err != nil {
+	if err := c.createService(resInfo); err != nil {
 		return err
 	}
 
@@ -141,70 +151,92 @@ func (c *command) parseFlags() error {
 	return nil
 }
 
-func (c *command) getServiceSelectorAndPorts(vmType, vmName string) (map[string]string, []k8sv1.ServicePort, error) {
-	var serviceSelector map[string]string
-	var ports []k8sv1.ServicePort
+func (c *command) getResourceInfo(vmType, vmName string) (*resourceInfo, error) {
+	var info *resourceInfo
 
 	switch vmType {
 	case "vmi", "vmis", "virtualmachineinstance", "virtualmachineinstances":
 		vmi, err := c.client.VirtualMachineInstance(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
-			return nil, nil, fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
+			return nil, fmt.Errorf("error fetching VirtualMachineInstance: %v", err)
 		}
-		ports = podNetworkPorts(&vmi.Spec)
-		serviceSelector = map[string]string{
+		ports := podNetworkPorts(&vmi.Spec)
+		selector := map[string]string{
 			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vmi.Name),
+		}
+		info = &resourceInfo{
+			selector: selector,
+			ports:    ports,
+			owner:    vmi,
+			gvk:      v1.VirtualMachineInstanceGroupVersionKind,
 		}
 	case "vm", "vms", "virtualmachine", "virtualmachines":
 		vm, err := c.client.VirtualMachine(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
-			return nil, nil, fmt.Errorf("error fetching VirtualMachine: %v", err)
+			return nil, fmt.Errorf("error fetching VirtualMachine: %v", err)
 		}
+		var ports []k8sv1.ServicePort
 		if vm.Spec.Template != nil {
 			ports = podNetworkPorts(&vm.Spec.Template.Spec)
 		}
-		serviceSelector = map[string]string{
+		selector := map[string]string{
 			v1.VirtualMachineInstanceIDLabel: apimachinery.CalculateVirtualMachineInstanceID(vm.Name),
+		}
+		info = &resourceInfo{
+			selector: selector,
+			ports:    ports,
+			owner:    vm,
+			gvk:      v1.VirtualMachineGroupVersionKind,
 		}
 	case "vmirs", "vmirss", "virtualmachineinstancereplicaset", "virtualmachineinstancereplicasets":
 		vmirs, err := c.client.ReplicaSet(c.namespace).Get(context.Background(), vmName, metav1.GetOptions{})
 		if err != nil {
-			return nil, nil, fmt.Errorf("error fetching VirtualMachineInstanceReplicaSet: %v", err)
+			return nil, fmt.Errorf("error fetching VirtualMachineInstanceReplicaSet: %v", err)
 		}
+		var ports []k8sv1.ServicePort
 		if vmirs.Spec.Template != nil {
 			ports = podNetworkPorts(&vmirs.Spec.Template.Spec)
 		}
 		if vmirs.Spec.Selector == nil || len(vmirs.Spec.Selector.MatchLabels) == 0 {
-			return nil, nil, errors.New("cannot expose VirtualMachineInstanceReplicaSet without any selector labels")
+			return nil, errors.New("cannot expose VirtualMachineInstanceReplicaSet without any selector labels")
 		}
 		if len(vmirs.Spec.Selector.MatchExpressions) > 0 {
-			return nil, nil, errors.New("cannot expose VirtualMachineInstanceReplicaSet with match expressions")
+			return nil, errors.New("cannot expose VirtualMachineInstanceReplicaSet with match expressions")
 		}
-		serviceSelector = vmirs.Spec.Selector.MatchLabels
+		info = &resourceInfo{
+			selector: vmirs.Spec.Selector.MatchLabels,
+			ports:    ports,
+			owner:    vmirs,
+			gvk:      v1.VirtualMachineInstanceReplicaSetGroupVersionKind,
+		}
 	default:
-		return nil, nil, fmt.Errorf("unsupported resource type: %s", vmType)
+		return nil, fmt.Errorf("unsupported resource type: %s", vmType)
 	}
 
 	if c.port != 0 {
-		ports = []k8sv1.ServicePort{{Name: c.portName, Protocol: c.protocol, Port: c.port, TargetPort: c.targetPort}}
+		info.ports = []k8sv1.ServicePort{{Name: c.portName, Protocol: c.protocol, Port: c.port, TargetPort: c.targetPort}}
 	}
 
-	if len(ports) == 0 {
-		return nil, nil, fmt.Errorf("couldn't find port via --port flag or introspection")
+	if len(info.ports) == 0 {
+		return nil, fmt.Errorf("couldn't find port via --port flag or introspection")
 	}
 
-	return serviceSelector, ports, nil
+	return info, nil
 }
 
-func (c *command) createService(serviceSelector map[string]string, ports []k8sv1.ServicePort) error {
+func (c *command) createService(resInfo *resourceInfo) error {
+	ownerRef := metav1.NewControllerRef(resInfo.owner, resInfo.gvk)
+	ownerRef.BlockOwnerDeletion = pointer.P(false)
+
 	service := &k8sv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.serviceName,
-			Namespace: c.namespace,
+			Name:            c.serviceName,
+			Namespace:       c.namespace,
+			OwnerReferences: []metav1.OwnerReference{*ownerRef},
 		},
 		Spec: k8sv1.ServiceSpec{
-			Ports:      ports,
-			Selector:   serviceSelector,
+			Ports:      resInfo.ports,
+			Selector:   resInfo.selector,
 			ClusterIP:  c.clusterIP,
 			Type:       c.serviceType,
 			IPFamilies: c.ipFamilies,
