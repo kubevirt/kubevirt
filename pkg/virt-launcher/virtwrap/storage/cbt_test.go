@@ -20,7 +20,12 @@
 package storage
 
 import (
+	"bytes"
+	"context"
 	"fmt"
+	"io"
+	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -377,4 +382,173 @@ var _ = Describe("Changed Block Tracking", func() {
 			Expect(converterContext.ApplyCBT).To(BeEmpty())
 		})
 	})
+
+	Context("runOverlayQMPSession", func() {
+		const overlayPath = "/test/overlay.qcow2"
+		const overlaySize int64 = 1024
+
+		It("should send dismiss and quit only after concluded", func() {
+			qmpOutput := strings.Join([]string{
+				`{"QMP": {"version": {"qemu": {"micro": 0, "minor": 2, "major": 9}}}}`,
+				`{"return": {}}`,
+				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "created", "id": "create"}}`,
+				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "running", "id": "create"}}`,
+				`{"return": {}}`,
+				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "waiting", "id": "create"}}`,
+				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "pending", "id": "create"}}`,
+				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`,
+				`{"return": [{"id": "create", "type": "create", "status": "concluded"}]}`,
+				`{"return": {}}`,
+				`{"return": {}}`,
+			}, "\n")
+			stdout := strings.NewReader(qmpOutput)
+
+			var stdinBuf writeCloserBuffer
+			ctx := context.Background()
+
+			output, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(output).To(ContainSubstring(`"status": "concluded"`))
+
+			written := stdinBuf.String()
+			Expect(written).To(ContainSubstring("blockdev-create"))
+			Expect(written).To(ContainSubstring("query-jobs"))
+			Expect(written).To(ContainSubstring("job-dismiss"))
+			Expect(written).To(ContainSubstring("quit"))
+		})
+
+		It("should return error when job concludes with error", func() {
+			qmpOutput := strings.Join([]string{
+				`{"QMP": {"version": {"qemu": {"micro": 0, "minor": 2, "major": 9}}}}`,
+				`{"return": {}}`,
+				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "created", "id": "create"}}`,
+				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "running", "id": "create"}}`,
+				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "aborting", "id": "create"}}`,
+				`{"timestamp": {"seconds": 1, "microseconds": 0}, "event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`,
+				`{"return": [{"id": "create", "type": "create", "status": "concluded", "error": "Could not create file: No such file or directory"}]}`,
+				`{"return": {}}`,
+				`{"return": {}}`,
+			}, "\n")
+			stdout := strings.NewReader(qmpOutput)
+
+			var stdinBuf writeCloserBuffer
+			ctx := context.Background()
+
+			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("blockdev-create job failed"))
+			Expect(err.Error()).To(ContainSubstring("Could not create file"))
+
+			written := stdinBuf.String()
+			Expect(written).To(ContainSubstring("query-jobs"))
+			Expect(written).To(ContainSubstring("job-dismiss"))
+			Expect(written).To(ContainSubstring("quit"))
+		})
+
+		It("should still send init commands when daemon exits without concluding", func() {
+			qmpOutput := strings.Join([]string{
+				`{"QMP": {"version": {"qemu": {"micro": 0, "minor": 2, "major": 9}}}}`,
+				`{"return": {}}`,
+				`{"error": {"class": "GenericError", "desc": "something went wrong"}}`,
+			}, "\n")
+			stdout := strings.NewReader(qmpOutput)
+
+			var stdinBuf writeCloserBuffer
+			ctx := context.Background()
+
+			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exited without job concluding"))
+			Expect(err.Error()).To(ContainSubstring(overlayPath))
+
+			written := stdinBuf.String()
+			Expect(written).To(ContainSubstring("qmp_capabilities"))
+			Expect(written).To(ContainSubstring("blockdev-create"))
+			Expect(written).NotTo(ContainSubstring("job-dismiss"))
+		})
+
+		It("should return error on context timeout", func() {
+			stdoutR, stdoutW := io.Pipe()
+			defer stdoutW.Close()
+
+			var stdinBuf writeCloserBuffer
+			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+			defer cancel()
+
+			go func() {
+				<-ctx.Done()
+				stdoutW.Close()
+			}()
+
+			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdoutR, overlaySize, overlayPath)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("timed out"))
+			Expect(err.Error()).To(ContainSubstring(overlayPath))
+
+			Expect(stdinBuf.String()).NotTo(ContainSubstring("job-dismiss"))
+		})
+
+		It("should include overlay size in blockdev-create command", func() {
+			qmpOutput := `{"event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`
+			stdout := strings.NewReader(qmpOutput)
+
+			var stdinBuf writeCloserBuffer
+			ctx := context.Background()
+			const testSize int64 = 107374182400
+
+			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, testSize, overlayPath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stdinBuf.String()).To(ContainSubstring(fmt.Sprintf(`"size": %d`, testSize)))
+		})
+
+		It("should not panic on multiple concluded events", func() {
+			qmpOutput := strings.Join([]string{
+				`{"return": {}}`,
+				`{"event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`,
+				`{"event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`,
+			}, "\n")
+			stdout := strings.NewReader(qmpOutput)
+
+			var stdinBuf writeCloserBuffer
+			ctx := context.Background()
+
+			Expect(func() {
+				_, _ = runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
+			}).ToNot(Panic())
+		})
+
+		It("should capture output lines after concluded event", func() {
+			qmpOutput := strings.Join([]string{
+				`{"event": "JOB_STATUS_CHANGE", "data": {"status": "concluded", "id": "create"}}`,
+				`{"return": {}}`,
+				`{"return": {}}`,
+				`{"event": "SHUTDOWN"}`,
+			}, "\n")
+			stdout := strings.NewReader(qmpOutput)
+
+			var stdinBuf writeCloserBuffer
+			ctx := context.Background()
+
+			output, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(output).To(ContainSubstring("SHUTDOWN"))
+		})
+
+		It("should return error on empty stdout", func() {
+			stdout := strings.NewReader("")
+
+			var stdinBuf writeCloserBuffer
+			ctx := context.Background()
+
+			_, err := runOverlayQMPSession(ctx, &stdinBuf, stdout, overlaySize, overlayPath)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("exited without job concluding"))
+		})
+	})
 })
+
+type writeCloserBuffer struct {
+	bytes.Buffer
+}
+
+func (w *writeCloserBuffer) Close() error { return nil }
