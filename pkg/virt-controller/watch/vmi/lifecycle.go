@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
+	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -718,17 +719,28 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 
 	dynamicLabels := []string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel}
 	dynamicLabels = append(dynamicLabels, c.additionalLauncherLabelsSync...)
+
+	generator := storageannotations.Generator{}
+	generatedAnnotations, err := generator.Generate(vmi)
+	if err != nil {
+		return pod, fmt.Errorf("failed to generate storage annotations: %v", err)
+	}
+
 	dynamicAnnotations := []string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction}
 	dynamicAnnotations = append(dynamicAnnotations, c.additionalLauncherAnnotationsSync...)
+	dynamicAnnotations = append(dynamicAnnotations, generator.ManagedAnnotationKeys()...)
 
 	syncMap(
 		dynamicLabels,
 		vmi.Labels, newPodLabels, pod.ObjectMeta.Labels, "labels",
 	)
 
+	annotationsToSync := maps.Clone(vmi.Annotations)
+	maps.Copy(annotationsToSync, generatedAnnotations)
+
 	syncMap(
 		dynamicAnnotations,
-		vmi.Annotations, newPodAnnotations, pod.ObjectMeta.Annotations, "annotations",
+		annotationsToSync, newPodAnnotations, pod.ObjectMeta.Annotations, "annotations",
 	)
 
 	if patchSet.IsEmpty() {

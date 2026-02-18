@@ -30,6 +30,16 @@ import (
 
 type Generator struct{}
 
+func (g Generator) ManagedAnnotationKeys() []string {
+	return []string{
+		velero.PreBackupHookContainerAnnotation,
+		velero.PreBackupHookCommandAnnotation,
+		velero.PreBackupHookTimeoutAnnotation,
+		velero.PostBackupHookContainerAnnotation,
+		velero.PostBackupHookCommandAnnotation,
+	}
+}
+
 func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
 	if vmi.Annotations != nil {
 		if skip := vmi.Annotations[velero.SkipHooksAnnotation]; skip != "" {

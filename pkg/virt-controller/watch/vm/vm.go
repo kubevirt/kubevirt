@@ -3104,7 +3104,7 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 
 	dynamicLabels := []string{}
 	dynamicLabels = append(dynamicLabels, c.additionalLauncherLabelsSync...)
-	dynamicAnnotations := []string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction, velero.SkipHooksAnnotation}
+	dynamicAnnotations := []string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction}
 	dynamicAnnotations = append(dynamicAnnotations, c.additionalLauncherAnnotationsSync...)
 
 	syncMap(
@@ -3115,6 +3115,12 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 	syncMap(
 		dynamicAnnotations,
 		vm.Spec.Template.ObjectMeta.Annotations, newVmiAnnotations, vmi.ObjectMeta.Annotations, "annotations",
+	)
+
+	// Sync velero skip-hooks annotation from VM metadata (not template)
+	syncMap(
+		[]string{velero.SkipHooksAnnotation},
+		vm.ObjectMeta.Annotations, newVmiAnnotations, vmi.ObjectMeta.Annotations, "annotations",
 	)
 
 	if patchSet.IsEmpty() {
