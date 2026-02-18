@@ -25,6 +25,7 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -82,6 +83,7 @@ type StrategyInterface interface {
 	ControllerDeployments() []*appsv1.Deployment
 	ExportProxyDeployments() []*appsv1.Deployment
 	SynchronizationControllerDeployments() []*appsv1.Deployment
+	VirtTemplateDeployments() []*appsv1.Deployment
 	DaemonSets() []*appsv1.DaemonSet
 	ValidatingWebhookConfigurations() []*admissionregistrationv1.ValidatingWebhookConfiguration
 	MutatingWebhookConfigurations() []*admissionregistrationv1.MutatingWebhookConfiguration
@@ -202,6 +204,19 @@ func (ins *Strategy) SynchronizationControllerDeployments() []*appsv1.Deployment
 
 	for _, deployment := range ins.deployments {
 		if !strings.Contains(deployment.Name, "virt-synchronization-controller") {
+			continue
+		}
+		deployments = append(deployments, deployment)
+	}
+	return deployments
+}
+
+func (ins *Strategy) VirtTemplateDeployments() []*appsv1.Deployment {
+	var deployments []*appsv1.Deployment
+
+	for _, deployment := range ins.deployments {
+		if !strings.Contains(deployment.Name, "virt-template-controller") &&
+			!strings.Contains(deployment.Name, "virt-template-apiserver") {
 			continue
 		}
 		deployments = append(deployments, deployment)
@@ -335,12 +350,12 @@ func NewInstallStrategyConfigMap(config *operatorutil.KubeVirtDeploymentConfig, 
 	return configMap, nil
 }
 
-func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorutil.KubeVirtDeploymentConfig) (namespace string, err error) {
-	for _, ns := range config.GetPotentialMonitorNamespaces() {
+func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, potentionalMonitorNamespaces []string, monitorServiceAccount string) (namespace string, err error) {
+	for _, ns := range potentionalMonitorNamespaces {
 		if nsExists, err := isNamespaceExist(clientset, ns); nsExists {
 			// the monitoring service account must be in the monitoring namespace otherwise
 			// we won't be able to create roleBinding for prometheus operator pods
-			if saExists, err := isServiceAccountExist(clientset, ns, config.GetMonitorServiceAccountName()); saExists {
+			if saExists, err := isServiceAccountExist(clientset, ns, monitorServiceAccount); saExists {
 				return ns, nil
 			} else if err != nil {
 				return "", err
@@ -352,13 +367,30 @@ func getMonitorNamespace(clientset k8coresv1.CoreV1Interface, config *operatorut
 	return "", nil
 }
 
+func GetConfigFromEnv() (*operatorutil.KubeVirtDeploymentConfig, error) {
+	return getConfigFromEnvWithEnvVarManager(operatorutil.EnvVarManagerImpl{})
+}
+
+func getConfigFromEnvWithEnvVarManager(envVarManager operatorutil.EnvVarManager) (*operatorutil.KubeVirtDeploymentConfig, error) {
+	// first check if we have the new deployment config json
+	c := envVarManager.Getenv(operatorutil.TargetDeploymentConfig)
+	if c != "" {
+		config := &operatorutil.KubeVirtDeploymentConfig{}
+		if err := json.Unmarshal([]byte(c), config); err != nil {
+			return nil, err
+		}
+		return config, nil
+	}
+	return nil, fmt.Errorf("no config provided")
+}
+
 func DumpInstallStrategyToConfigMap(clientset kubecli.KubevirtClient, operatorNamespace string) error {
-	config, err := operatorutil.GetConfigFromEnv()
+	config, err := GetConfigFromEnv()
 	if err != nil {
 		return err
 	}
 
-	monitorNamespace, err := getMonitorNamespace(clientset.CoreV1(), config)
+	monitorNamespace, err := getMonitorNamespace(clientset.CoreV1(), config.GetPotentialMonitorNamespaces(), config.GetMonitorServiceAccountName())
 	if err != nil {
 		return err
 	}
@@ -466,7 +498,8 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		components.NewVirtualMachineClusterInstancetypeCrd, components.NewVirtualMachinePoolCrd,
 		components.NewMigrationPolicyCrd, components.NewVirtualMachinePreferenceCrd,
 		components.NewVirtualMachineClusterPreferenceCrd, components.NewVirtualMachineExportCrd,
-		components.NewVirtualMachineCloneCrd,
+		components.NewVirtualMachineCloneCrd, components.NewVirtualMachineBackupCrd,
+		components.NewVirtualMachineBackupTrackerCrd,
 	}
 	for _, f := range functions {
 		crd, err := f()
@@ -566,21 +599,21 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	strategy.services = append(strategy.services, components.NewApiServerService(config.GetNamespace()))
 	strategy.services = append(strategy.services, components.NewOperatorWebhookService(operatorNamespace))
 	strategy.services = append(strategy.services, components.NewExportProxyService(config.GetNamespace()))
-	apiDeployment := components.NewApiServerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetApiVersion(), productName, productVersion, productComponent, config.VirtApiImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	apiDeployment := components.NewApiServerDeployment(config, productName, productVersion, productComponent)
 	strategy.deployments = append(strategy.deployments, apiDeployment)
 
-	controller := components.NewControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetControllerVersion(), config.GetLauncherVersion(), config.GetExportServerVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtControllerImage, config.VirtLauncherImage, config.VirtExportServerImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	controller := components.NewControllerDeployment(config, productName, productVersion, productComponent)
 	strategy.deployments = append(strategy.deployments, controller)
 
 	strategy.configMaps = append(strategy.configMaps, components.NewCAConfigMaps(operatorNamespace)...)
 
-	exportProxyDeployment := components.NewExportProxyDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetExportProxyVersion(), productName, productVersion, productComponent, config.VirtExportProxyImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetVerbosity(), config.GetExtraEnv())
+	exportProxyDeployment := components.NewExportProxyDeployment(config, productName, productVersion, productComponent)
 	strategy.deployments = append(strategy.deployments, exportProxyDeployment)
 
-	synchronizationControllerDeployment := components.NewSynchronizationControllerDeployment(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetSynchronizationControllerVersion(), productName, productVersion, productComponent, config.VirtSynchronizationControllerImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetSynchronizationPort(), config.GetVerbosity(), config.GetExtraEnv())
+	synchronizationControllerDeployment := components.NewSynchronizationControllerDeployment(config, productName, productVersion, productComponent)
 	strategy.deployments = append(strategy.deployments, synchronizationControllerDeployment)
 
-	handler := components.NewHandlerDaemonSet(config.GetNamespace(), config.GetImageRegistry(), config.GetImagePrefix(), config.GetHandlerVersion(), config.GetLauncherVersion(), config.GetPrHelperVersion(), config.GetSidecarShimVersion(), productName, productVersion, productComponent, config.VirtHandlerImage, config.VirtLauncherImage, config.PrHelperImage, config.SidecarShimImage, config.GetImagePullPolicy(), config.GetImagePullSecrets(), config.GetMigrationNetwork(), config.GetVerbosity(), config.GetExtraEnv(), config.PersistentReservationEnabled())
+	handler := components.NewHandlerDaemonSet(config, productName, productVersion, productComponent)
 
 	strategy.daemonSets = append(strategy.daemonSets, handler)
 	strategy.sccs = append(strategy.sccs, components.GetAllSCC(config.GetNamespace())...)
@@ -605,6 +638,26 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		return nil, fmt.Errorf("error generating preferences for environment %v", err)
 	}
 	strategy.preferences = preferences
+
+	if config.VirtTemplateDeploymentEnabled() {
+		resources, err := components.NewVirtTemplateResources(config)
+		if err != nil {
+			return nil, fmt.Errorf("error generating virt-template resources for environment %v", err)
+		}
+		strategy.crds = append(strategy.crds, resources.CRDs...)
+		strategy.serviceAccounts = append(strategy.serviceAccounts, resources.ServiceAccounts...)
+		strategy.roles = append(strategy.roles, resources.Roles...)
+		strategy.clusterRoles = append(strategy.clusterRoles, resources.ClusterRoles...)
+		strategy.roleBindings = append(strategy.roleBindings, resources.RoleBindings...)
+		strategy.clusterRoleBindings = append(strategy.clusterRoleBindings, resources.ClusterRoleBindings...)
+		strategy.services = append(strategy.services, resources.Services...)
+		strategy.deployments = append(strategy.deployments, resources.Deployments...)
+		strategy.validatingAdmissionPolicies = append(strategy.validatingAdmissionPolicies, resources.ValidatingAdmissionPolicies...)
+		strategy.validatingAdmissionPolicyBindings = append(strategy.validatingAdmissionPolicyBindings, resources.ValidatingAdmissionPolicyBindings...)
+		strategy.validatingWebhookConfigurations = append(strategy.validatingWebhookConfigurations, resources.ValidatingWebhookConfigurations...)
+		strategy.apiServices = append(strategy.apiServices, resources.APIServices...)
+		strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewVirtTemplateCertSecrets(config.GetNamespace())...)
+	}
 
 	return strategy, nil
 }

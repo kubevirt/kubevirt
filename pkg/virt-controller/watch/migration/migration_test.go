@@ -40,10 +40,12 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
 
@@ -615,6 +617,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.RuntimeUser = 0
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -633,6 +636,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -669,6 +673,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -767,6 +772,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi := newVirtualMachine("testvmi", v1.Running)
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -907,6 +913,7 @@ var _ = Describe("Migration watcher", func() {
 
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -975,6 +982,7 @@ var _ = Describe("Migration watcher", func() {
 
 			migration := newMigrationWithAddedNodeSelector("testmigration", vmi.Name, v1.MigrationPending, addedNodeSelector)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -1282,6 +1290,63 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in target ready phase", v1.MigrationTargetReady),
 			Entry("in running phase", v1.MigrationRunning),
 		)
+		It("should garbage collect oldest finalized migrations when exceeding buffer", func() {
+			// Setup: Create a VMI and 8 finalized migrations (buffer=5, expect 3 oldest deleted)
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addVirtualMachineInstance(vmi)
+
+			baseTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
+			for i := range 8 {
+				migName := fmt.Sprintf("finalized-mig-%d", i)
+				mig := newMigration(migName, vmi.Name, v1.MigrationSucceeded)
+				mig.CreationTimestamp = metav1.Time{Time: baseTime.Add(time.Duration(i) * time.Minute)}
+				Expect(controller.migrationIndexer.Add(mig)).To(Succeed())
+				_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).Create(context.Background(), mig, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			// Call the function
+			Expect(controller.garbageCollectFinalizedMigrations(vmi)).To(Succeed())
+
+			// Verify remaining migrations (newest 5)
+			migrationList, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).List(context.Background(), metav1.ListOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(migrationList.Items).To(WithTransform(func(migrations []v1.VirtualMachineInstanceMigration) []string {
+				var migrationNames []string
+				for _, migration := range migrations {
+					migrationNames = append(migrationNames, migration.Name)
+				}
+				return migrationNames // No sort needed
+			}, ConsistOf("finalized-mig-3", "finalized-mig-4", "finalized-mig-5", "finalized-mig-6", "finalized-mig-7")))
+		})
+
+		It("should handle errors during garbage collection deletions", func() {
+			// Setup: Similar to above, but only 6 finalized (expect 1 deletion, but fail it)
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addVirtualMachineInstance(vmi)
+
+			baseTime := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+
+			for i := range 6 {
+				migName := fmt.Sprintf("finalized-mig-%d", i)
+				mig := newMigration(migName, vmi.Name, v1.MigrationSucceeded)
+				mig.CreationTimestamp = metav1.Time{Time: baseTime.Add(time.Duration(i) * time.Minute)}
+				Expect(controller.migrationIndexer.Add(mig)).To(Succeed())
+				_, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(vmi.Namespace).Create(context.Background(), mig, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			// Mock deletion to fail
+			virtClientset.PrependReactor("delete", "virtualmachineinstancemigrations", func(action testing.Action) (handled bool, ret k8sruntime.Object, err error) {
+				return true, nil, fmt.Errorf("simulated deletion error")
+			})
+
+			// Call the function: Expect error propagation
+			err := controller.garbageCollectFinalizedMigrations(vmi)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("simulated deletion error"))
+		})
 	})
 
 	Context("Migration should immediately fail if", func() {
@@ -2205,6 +2270,77 @@ var _ = Describe("Migration watcher", func() {
 		})
 	})
 
+	Context("CPU vendor label constraints", func() {
+		const nodeName = "testNode"
+		const intelVendorLabel = v1.CPUModelVendorLabel + "Intel"
+		const amdVendorLabel = v1.CPUModelVendorLabel + "AMD"
+
+		DescribeTable("should add CPU vendor label from source node", func(vendorLabel string) {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			node := newNode(nodeName)
+			if vendorLabel != "" {
+				node.Labels = map[string]string{vendorLabel: "true"}
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			addNode(node)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			targetPod, err := getTargetPod(kubeClient, vmi.Namespace, vmi.UID, migration.UID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(targetPod).ToNot(BeNil())
+
+			if vendorLabel != "" {
+				Expect(targetPod.Spec.NodeSelector).To(HaveKeyWithValue(vendorLabel, "true"))
+			} else {
+				Expect(targetPod.Spec.NodeSelector).NotTo(HaveKey(HavePrefix(v1.CPUModelVendorLabel)))
+			}
+		},
+			Entry("Intel vendor", intelVendorLabel),
+			Entry("AMD vendor", amdVendorLabel),
+			Entry("no vendor label", ""),
+		)
+
+		It("should add CPU vendor label from source node for decentralized migration", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, nodeName)
+			migration := newDecentralizedReceiverMigration("testmigration", vmi.Name, v1.MigrationPending)
+
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				SourceNode: nodeName,
+				SourceState: &v1.VirtualMachineInstanceMigrationSourceState{
+					VirtualMachineInstanceCommonMigrationState: v1.VirtualMachineInstanceCommonMigrationState{
+						Node:           nodeName,
+						SelinuxContext: "none",
+					},
+					NodeSelectors: map[string]string{
+						intelVendorLabel: "true",
+					},
+				},
+			}
+
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+
+			sanityExecute()
+
+			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulCreatePodReason)
+			pods, err := kubeClient.CoreV1().Pods(vmi.Namespace).List(context.Background(), metav1.ListOptions{
+				LabelSelector: fmt.Sprintf("%s=%s,%s=%s", v1.MigrationJobLabel, string(migration.UID), v1.CreatedByLabel, string(vmi.UID)),
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pods.Items).To(HaveLen(1))
+			Expect(pods.Items[0].Spec.NodeSelector).To(HaveKeyWithValue(intelVendorLabel, "true"))
+		})
+	})
+
 	Context("Migration abortion before hand-off to virt-handler", func() {
 		var vmi *v1.VirtualMachineInstance
 		var migration *v1.VirtualMachineInstanceMigration
@@ -2278,6 +2414,7 @@ var _ = Describe("Migration watcher", func() {
 			}
 			pendingMigration.CreationTimestamp = metav1.NewTime(failedMigration.CreationTimestamp.Add(time.Second * 1))
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(pendingMigration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -2308,6 +2445,7 @@ var _ = Describe("Migration watcher", func() {
 			successfulMigration.CreationTimestamp = metav1.NewTime(failedMigration.CreationTimestamp.Add(time.Second * 1))
 			pendingMigration.CreationTimestamp = metav1.NewTime(successfulMigration.CreationTimestamp.Add(time.Second * 1))
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(pendingMigration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -2347,6 +2485,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -2368,6 +2507,7 @@ var _ = Describe("Migration watcher", func() {
 			vmi.Status.SelinuxContext = "system_u:system_r:container_file_t:s0:c1,c2"
 			migration := newMigration("testmigration", vmi.Name, v1.MigrationPending)
 
+			addNode(newNode(vmi.Status.NodeName))
 			addMigration(migration)
 			addVirtualMachineInstance(vmi)
 			addPod(newSourcePodForVirtualMachine(vmi))
@@ -2425,7 +2565,7 @@ var _ = Describe("Migration watcher", func() {
 
 		It("existing items should keep low priority after regular Add", func() {
 			controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-				Priority: migrationsutil.QueuePriorityPending,
+				Priority: pointer.P(migrationsutil.QueuePriorityPending),
 			}, "default/testmigrationpending")
 
 			// Simulating what we do with informer handler
@@ -2448,12 +2588,12 @@ var _ = Describe("Migration watcher", func() {
 		It("should get items in order based on priority", func() {
 			for i := range 5 {
 				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-					Priority: migrationsutil.QueuePriorityPending,
+					Priority: pointer.P(migrationsutil.QueuePriorityPending),
 				}, fmt.Sprintf("default/pending%d", i))
 			}
 			for i := range 5 {
 				controller.Queue.AddWithOpts(priorityqueue.AddOpts{
-					Priority: migrationsutil.QueuePriorityRunning,
+					Priority: pointer.P(migrationsutil.QueuePriorityRunning),
 				}, fmt.Sprintf("default/active%d", i))
 			}
 			// Add should not change active3's priority
@@ -2684,6 +2824,77 @@ var _ = Describe("Migration watcher", func() {
 					),
 				)
 			})
+		})
+	})
+
+	Context("Decentralized migration condition", func() {
+		var (
+			conditionManager *virtcontroller.VirtualMachineInstanceMigrationConditionManager
+			vmi              *v1.VirtualMachineInstance
+			migration        *v1.VirtualMachineInstanceMigration
+		)
+
+		BeforeEach(func() {
+			conditionManager = virtcontroller.NewVirtualMachineInstanceMigrationConditionManager()
+			vmi = newVirtualMachine("testvmi", v1.Running)
+			migration = newMigration("testmigration", vmi.Name, v1.MigrationPending)
+		})
+		It("should set, update, and remove VirtualMachineInstanceDecentralizedMigrationBlocked condition on migration when VMI condition is added and removed", func() {
+			// Set the condition on VMI
+			vmi.Status.Conditions = append(vmi.Status.Conditions,
+				v1.VirtualMachineInstanceCondition{
+					Type:          v1.VirtualMachineInstanceDecentralizedLiveMigrationFailure,
+					Status:        k8sv1.ConditionTrue,
+					Reason:        "TestReason",
+					Message:       "Test message",
+					LastProbeTime: metav1.Now(),
+				})
+
+			updateDecentralizedMigrationCondition(vmi, migration, conditionManager)
+
+			// Verify the condition is set on the migration
+			conditionManager := virtcontroller.NewVirtualMachineInstanceMigrationConditionManager()
+			foundCondition := conditionManager.GetCondition(migration, v1.VirtualMachineInstanceDecentralizedMigrationBlocked)
+			// Verify the condition details match
+			Expect(foundCondition).ToNot(BeNil())
+			Expect(foundCondition.Reason).To(Equal("TestReason"))
+			Expect(foundCondition.Message).To(Equal("Test message"))
+			Expect(foundCondition.Status).To(Equal(k8sv1.ConditionTrue))
+
+			// Update the VMI condition with different reason and message
+			vmiConditionManager := virtcontroller.NewVirtualMachineInstanceConditionManager()
+			vmiConditionManager.UpdateCondition(vmi, &v1.VirtualMachineInstanceCondition{
+				Type:          v1.VirtualMachineInstanceDecentralizedLiveMigrationFailure,
+				Status:        k8sv1.ConditionTrue,
+				Reason:        "UpdatedReason",
+				Message:       "Updated message",
+				LastProbeTime: metav1.Now(),
+			})
+			updateDecentralizedMigrationCondition(vmi, migration, conditionManager)
+			// Verify the condition is set on the migration
+			conditionManager = virtcontroller.NewVirtualMachineInstanceMigrationConditionManager()
+			foundCondition = conditionManager.GetCondition(migration, v1.VirtualMachineInstanceDecentralizedMigrationBlocked)
+			// Verify the condition details match
+			Expect(foundCondition).ToNot(BeNil())
+			Expect(foundCondition.Reason).To(Equal("UpdatedReason"))
+			Expect(foundCondition.Message).To(Equal("Updated message"))
+			Expect(foundCondition.Status).To(Equal(k8sv1.ConditionTrue))
+
+			// Remove the VMI condition
+			vmiConditionManager = virtcontroller.NewVirtualMachineInstanceConditionManager()
+			vmiConditionManager.RemoveCondition(vmi, v1.VirtualMachineInstanceDecentralizedLiveMigrationFailure)
+			updateDecentralizedMigrationCondition(vmi, migration, conditionManager)
+
+			// Verify the condition is removed from the migration
+			Expect(conditionManager.HasCondition(migration, v1.VirtualMachineInstanceDecentralizedMigrationBlocked)).To(BeFalse(), "Condition should be removed when VMI condition is removed")
+		})
+
+		It("should not set VirtualMachineInstanceDecentralizedMigrationBlocked condition on migration when VMI does not have the condition", func() {
+			updateDecentralizedMigrationCondition(vmi, migration, conditionManager)
+
+			// Verify the condition is not set on the migration
+			conditionManager := virtcontroller.NewVirtualMachineInstanceMigrationConditionManager()
+			Expect(conditionManager.HasCondition(migration, v1.VirtualMachineInstanceDecentralizedMigrationBlocked)).To(BeFalse(), "Condition should not be set when VMI does not have the condition")
 		})
 	})
 })

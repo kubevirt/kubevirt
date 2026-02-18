@@ -1,3 +1,3 @@
-common_instancetypes_version=${COMMON_INSTANCETYPES_VERSION:-"v1.5.1"}
-cluster_instancetypes_sha256=${CLUSTER_INSTANCETYPES_SHA256:-"89fa54fce784e32af11e00a148708b5f333ecbc236259ee7ddc2aff88f8215e8"}
-cluster_preferences_sha256=${CLUSTER_PREFERENCES_SHA256:-"13854c9ff9bb170aba36efc94b743013e917ecf440236d7691b4b330fd21adf6"}
+common_instancetypes_version=${COMMON_INSTANCETYPES_VERSION:-"v1.6.0"}
+cluster_instancetypes_sha256=${CLUSTER_INSTANCETYPES_SHA256:-"37da4ac63554b9182cc26b12ca99a23e319abd3c76573313458ab2fee914c042"}
+cluster_preferences_sha256=${CLUSTER_PREFERENCES_SHA256:-"1f503c982dd21e000fce8bccde5d0bd9353ded1c17090271d7a1b2a82d42341e"}

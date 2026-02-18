@@ -22,6 +22,8 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 )
 
 // VirtualMachineClone is a CRD that clones one VM into another.
@@ -93,6 +95,37 @@ type VirtualMachineCloneSpec struct {
 	// +optional
 	// +listType=atomic
 	Patches []string `json:"patches,omitempty"`
+	// VolumeNamePolicy defines how to handle volume naming during the clone operation
+	// +optional
+	// +kubebuilder:validation:Enum=RandomizeNames;PrefixTargetName
+	VolumeNamePolicy *VolumeNamePolicy `json:"volumeNamePolicy,omitempty"`
+}
+
+// VolumeNamePolicy defines how to handle volume naming during the clone operation
+type VolumeNamePolicy string
+
+const (
+	// VolumeNamePolicyRandomizeNames creates new volumes with randomized names for each cloned volume.
+	// This is the default and currently only supported policy.
+	VolumeNamePolicyRandomizeNames VolumeNamePolicy = "RandomizeNames"
+	// VolumeNamePolicyPrefixTargetName defines a VolumeNamePolicy which creates
+	// new PVCs with names prefixed by the target VM name: {targetVMName}-{volumeName}.
+	// This provides predictable naming while avoiding collisions when restoring to different targets.
+	VolumeNamePolicyPrefixTargetName VolumeNamePolicy = "PrefixTargetName"
+)
+
+// ToVolumeRestorePolicy converts a VolumeNamePolicy to the corresponding VolumeRestorePolicy
+// for use with the snapshot/restore implementation.
+func (p VolumeNamePolicy) ToVolumeRestorePolicy() snapshotv1beta1.VolumeRestorePolicy {
+	switch p {
+	case VolumeNamePolicyRandomizeNames:
+		return snapshotv1beta1.VolumeRestorePolicyRandomizeNames
+	case VolumeNamePolicyPrefixTargetName:
+		return snapshotv1beta1.VolumeRestorePolicyPrefixTargetName
+	default:
+		// Default to RandomizeNames for safety
+		return snapshotv1beta1.VolumeRestorePolicyRandomizeNames
+	}
 }
 
 type VirtualMachineClonePhase string

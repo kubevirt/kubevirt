@@ -48,11 +48,16 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 		networkName = "n1"
 	)
 
-	DescribeTable("networksToHotplugWhoseInterfacesAreNotInTheDomain", func(vmi *v1.VirtualMachineInstance, domainIfaces map[string]api.Interface, expectedNetworks []v1.Network) {
-		Expect(
-			networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, domainIfaces),
-		).To(ConsistOf(expectedNetworks))
-	},
+	DescribeTable("networksToHotplugWhoseInterfacesAreNotInTheDomain",
+		func(
+			vmi *v1.VirtualMachineInstance,
+			domainIfaces map[string]api.Interface,
+			expectedNetworks []v1.Network,
+		) {
+			Expect(
+				networksToHotplugWhoseInterfacesAreNotInTheDomain(vmi, domainIfaces),
+			).To(ConsistOf(expectedNetworks))
+		},
 		Entry("vmi with no networks, and no interfaces in the domain",
 			&v1.VirtualMachineInstance{Spec: v1.VirtualMachineInstanceSpec{Networks: []v1.Network{}}},
 			map[string]api.Interface{},
@@ -175,7 +180,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 
 	DescribeTable(
 		"hotplugVirtioInterface SUCCEEDS for",
-		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, result libvirtClientResult) {
+		func(vmi *v1.VirtualMachineInstance, currentDomain, updatedDomain *api.Domain, result libvirtClientResult) {
 			networkInterfaceManager := newVirtIOInterfaceManager(
 				mockLibvirtClient(gomock.NewController(GinkgoT()), result).VirtDomain,
 				&fakeVMConfigurator{},
@@ -199,7 +204,7 @@ var _ = Describe("nic hotplug on virt-launcher", func() {
 
 	DescribeTable(
 		"hotplugVirtioInterface FAILS when",
-		func(vmi *v1.VirtualMachineInstance, currentDomain *api.Domain, updatedDomain *api.Domain, configurator vmConfigurator, result libvirtClientResult) {
+		func(vmi *v1.VirtualMachineInstance, currentDomain, updatedDomain *api.Domain, configurator vmConfigurator, result libvirtClientResult) {
 			networkInterfaceManager := newVirtIOInterfaceManager(
 				mockLibvirtClient(gomock.NewController(GinkgoT()), result).VirtDomain,
 				configurator,
@@ -227,14 +232,12 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 	const (
 		networkName   = "n1"
 		ordinalDevice = "tap2"
-
-		sriovNetworkName = "n2-sriov"
 	)
 
 	hashedDevice := "tap" + namescheme.GenerateHashedInterfaceName(networkName)[3:]
 
 	DescribeTable("domain interfaces to hot-unplug",
-		func(vmiSpecIfaces []v1.Interface, vmiSpecNets []v1.Network, domainSpecIfaces []api.Interface, expectedDomainSpecIfaces []api.Interface) {
+		func(vmiSpecIfaces []v1.Interface, vmiSpecNets []v1.Network, domainSpecIfaces, expectedDomainSpecIfaces []api.Interface) {
 			Expect(interfacesToHotUnplug(vmiSpecIfaces, vmiSpecNets, domainSpecIfaces)).To(ConsistOf(expectedDomainSpecIfaces))
 		},
 		Entry("given no VMI interfaces and no domain interfaces", nil, nil, nil, nil),
@@ -251,7 +254,9 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 			nil,
 		),
 		Entry("given 1 VMI absent interface and an associated interface in the domain is using ordinal device",
-			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}},
+			[]v1.Interface{
+				{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			},
 			[]v1.Network{{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}},
 			[]api.Interface{
 				{Target: &api.InterfaceTarget{Device: ordinalDevice}, Alias: api.NewUserDefinedAlias(networkName)},
@@ -259,10 +264,14 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 			nil,
 		),
 		Entry("given 1 VMI absent interface and an associated interface in the domain is using hashed device",
-			[]v1.Interface{{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}}},
+			[]v1.Interface{
+				{Name: networkName, State: v1.InterfaceStateAbsent, InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			},
 			[]v1.Network{{Name: networkName, NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{}}}},
-			[]api.Interface{{
-				Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName)},
+			[]api.Interface{
+				{
+					Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName),
+				},
 			},
 			[]api.Interface{
 				{Target: &api.InterfaceTarget{Device: hashedDevice}, Alias: api.NewUserDefinedAlias(networkName)},
@@ -272,7 +281,6 @@ var _ = Describe("nic hot-unplug on virt-launcher", func() {
 })
 
 var _ = Describe("domain network interfaces resources", func() {
-
 	It("are ignored when 0 count is specified", func() {
 		vmi := &v1.VirtualMachineInstance{}
 		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{}}
@@ -329,8 +337,8 @@ var _ = Describe("interface link state update", func() {
 	DescribeTable("no change in state",
 		func(domainFrom *api.Domain,
 			domainTo *api.Domain,
-			expectMockFunc func(*gomock.Controller) *testing.Libvirt) {
-
+			expectMockFunc func(*gomock.Controller) *testing.Libvirt,
+		) {
 			networkInterfaceManager := newVirtIOInterfaceManager(
 				expectMockFunc(gomock.NewController(GinkgoT())).VirtDomain,
 				&fakeVMConfigurator{})
@@ -376,7 +384,9 @@ func mockLibvirtClient(mockController *gomock.Controller, clientResult libvirtCl
 }
 
 func expectAttachDeviceLinkStateDown(mockController *gomock.Controller) *testing.Libvirt {
-	const interfaceWithLinkStateDownXML = `<interface type=""><source></source><link state="down"></link><alias name="ua-n1"></alias></interface>`
+	const interfaceWithLinkStateDownXML = `<interface type=""><source></source>` +
+		`<link state="down"></link>` +
+		`<alias name="ua-n1"></alias></interface>`
 	mockClient := testing.NewLibvirt(mockController)
 	mockClient.DomainEXPECT().AttachDeviceFlags(interfaceWithLinkStateDownXML, gomock.Any()).Times(1).Return(nil)
 
@@ -393,7 +403,9 @@ func expectUpdateDeviceNotCalled(mockController *gomock.Controller) *testing.Lib
 func expectUpdateDeviceLinkStateDown(mockController *gomock.Controller) *testing.Libvirt {
 	mockClient := testing.NewLibvirt(mockController)
 
-	const interfaceWithLinkStateDownXML = `<interface type=""><source></source><link state="down"></link><alias name="ua-default"></alias></interface>`
+	const interfaceWithLinkStateDownXML = `<interface type=""><source></source>` +
+		`<link state="down"></link>` +
+		`<alias name="ua-default"></alias></interface>`
 	mockClient.DomainEXPECT().UpdateDeviceFlags(interfaceWithLinkStateDownXML, gomock.Any()).Times(1).Return(nil)
 
 	return mockClient
@@ -407,7 +419,7 @@ func expectUpdateDeviceLinkStateNone(mockController *gomock.Controller) *testing
 	return mockClient
 }
 
-func vmiWithSingleBridgeInterfaceWithPodInterfaceReady(ifaceName string, nadName string) *v1.VirtualMachineInstance {
+func vmiWithSingleBridgeInterfaceWithPodInterfaceReady(ifaceName, nadName string) *v1.VirtualMachineInstance {
 	return &v1.VirtualMachineInstance{
 		Spec: v1.VirtualMachineInstanceSpec{
 			Networks: []v1.Network{generateNetwork(ifaceName, nadName)},
@@ -431,11 +443,12 @@ func vmiWithSingleBridgeInterfaceWithPodInterfaceReady(ifaceName string, nadName
 	}
 }
 
-func generateNetwork(name string, nadName string) v1.Network {
+func generateNetwork(name, nadName string) v1.Network {
 	return v1.Network{
 		Name: name,
 		NetworkSource: v1.NetworkSource{
-			Multus: &v1.MultusNetwork{NetworkName: nadName}},
+			Multus: &v1.MultusNetwork{NetworkName: nadName},
+		},
 	}
 }
 

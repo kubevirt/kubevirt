@@ -13,15 +13,17 @@ const resultsDir = "/tmp/sonobuoy/results"
 
 func main() {
 	err := execute()
-	if err != nil {
-		fmt.Printf("Failed to execute conformance suite: %v\n", err)
+	const writeFilePerms = 0o666
+	writeErr := os.WriteFile(fmt.Sprintf("%s/done", resultsDir), []byte(strings.Join([]string{resultsDir}, "\n")), writeFilePerms)
+	if writeErr != nil {
+		fmt.Printf("Failed to notify sonobuoy that I am done: %v\n", writeErr)
+		if err != nil {
+			fmt.Printf("Additionally, conformance suite failed: %v\n", err)
+		}
 		os.Exit(1)
 	}
-
-	const writeFilePerms = 0o666
-	err = os.WriteFile(fmt.Sprintf("%s/done", resultsDir), []byte(strings.Join([]string{resultsDir}, "\n")), writeFilePerms)
 	if err != nil {
-		fmt.Printf("Failed to notify sonobuoy that I am done: %v\n", err)
+		fmt.Printf("Failed to execute conformance suite: %v\n", err)
 		os.Exit(1)
 	}
 }

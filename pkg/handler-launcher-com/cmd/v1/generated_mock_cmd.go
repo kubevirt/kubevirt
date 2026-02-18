@@ -41,6 +41,26 @@ func (m *MockCmdClient) EXPECT() *MockCmdClientMockRecorder {
 	return m.recorder
 }
 
+// BackupVirtualMachine mocks base method.
+func (m *MockCmdClient) BackupVirtualMachine(ctx context.Context, in *BackupRequest, opts ...grpc.CallOption) (*Response, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "BackupVirtualMachine", varargs...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BackupVirtualMachine indicates an expected call of BackupVirtualMachine.
+func (mr *MockCmdClientMockRecorder) BackupVirtualMachine(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackupVirtualMachine", reflect.TypeOf((*MockCmdClient)(nil).BackupVirtualMachine), varargs...)
+}
+
 // CancelVirtualMachineMigration mocks base method.
 func (m *MockCmdClient) CancelVirtualMachineMigration(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
 	m.ctrl.T.Helper()
@@ -481,6 +501,26 @@ func (mr *MockCmdClientMockRecorder) Ping(ctx, in any, opts ...any) *gomock.Call
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockCmdClient)(nil).Ping), varargs...)
 }
 
+// RedefineCheckpoint mocks base method.
+func (m *MockCmdClient) RedefineCheckpoint(ctx context.Context, in *RedefineCheckpointRequest, opts ...grpc.CallOption) (*RedefineCheckpointResponse, error) {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, in}
+	for _, a := range opts {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "RedefineCheckpoint", varargs...)
+	ret0, _ := ret[0].(*RedefineCheckpointResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RedefineCheckpoint indicates an expected call of RedefineCheckpoint.
+func (mr *MockCmdClientMockRecorder) RedefineCheckpoint(ctx, in any, opts ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, in}, opts...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RedefineCheckpoint", reflect.TypeOf((*MockCmdClient)(nil).RedefineCheckpoint), varargs...)
+}
+
 // ResetVirtualMachine mocks base method.
 func (m *MockCmdClient) ResetVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
 	m.ctrl.T.Helper()
@@ -723,6 +763,21 @@ func NewMockCmdServer(ctrl *gomock.Controller) *MockCmdServer {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockCmdServer) EXPECT() *MockCmdServerMockRecorder {
 	return m.recorder
+}
+
+// BackupVirtualMachine mocks base method.
+func (m *MockCmdServer) BackupVirtualMachine(arg0 context.Context, arg1 *BackupRequest) (*Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BackupVirtualMachine", arg0, arg1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BackupVirtualMachine indicates an expected call of BackupVirtualMachine.
+func (mr *MockCmdServerMockRecorder) BackupVirtualMachine(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackupVirtualMachine", reflect.TypeOf((*MockCmdServer)(nil).BackupVirtualMachine), arg0, arg1)
 }
 
 // CancelVirtualMachineMigration mocks base method.
@@ -1053,6 +1108,21 @@ func (m *MockCmdServer) Ping(arg0 context.Context, arg1 *EmptyRequest) (*Respons
 func (mr *MockCmdServerMockRecorder) Ping(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ping", reflect.TypeOf((*MockCmdServer)(nil).Ping), arg0, arg1)
+}
+
+// RedefineCheckpoint mocks base method.
+func (m *MockCmdServer) RedefineCheckpoint(arg0 context.Context, arg1 *RedefineCheckpointRequest) (*RedefineCheckpointResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RedefineCheckpoint", arg0, arg1)
+	ret0, _ := ret[0].(*RedefineCheckpointResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RedefineCheckpoint indicates an expected call of RedefineCheckpoint.
+func (mr *MockCmdServerMockRecorder) RedefineCheckpoint(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RedefineCheckpoint", reflect.TypeOf((*MockCmdServer)(nil).RedefineCheckpoint), arg0, arg1)
 }
 
 // ResetVirtualMachine mocks base method.

@@ -72,26 +72,6 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 				return err
 			}
 
-		// passt is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		case vmiSpecIface.DeprecatedPasst != nil:
-			if !podIfaceExists {
-				return fmt.Errorf("pod link (%s) is missing", podIfaceName)
-			}
-
-			if err := n.storePodInterfaceData(vmiSpecIface, podIfaceStatus); err != nil {
-				return err
-			}
-
-		// SLIRP is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		case vmiSpecIface.DeprecatedSlirp != nil:
-			if !podIfaceExists {
-				return fmt.Errorf("pod link (%s) is missing", podIfaceName)
-			}
-
-			if err := n.storePodInterfaceData(vmiSpecIface, podIfaceStatus); err != nil {
-				return err
-			}
-
 		case vmiSpecIface.Binding != nil:
 			// The existence of the pod interface depends on the network binding plugin implementation
 			if podIfaceExists {
@@ -99,10 +79,16 @@ func (n NetPod) discover(currentStatus *nmstate.Status) error {
 					return err
 				}
 			}
+		case vmiSpecIface.PasstBinding != nil:
+			if !podIfaceExists {
+				return fmt.Errorf("pod link (%s) is missing", podIfaceName)
+			}
 
-		// Skip the discovery for all other known network interface bindings.
-		// Macvtap is removed in v1.3. This scenario is tracking old VMIs that are still processed in the reconcile loop.
-		case vmiSpecIface.DeprecatedMacvtap != nil:
+			if err := n.storePodInterfaceData(vmiSpecIface, podIfaceStatus); err != nil {
+				return err
+			}
+
+		// Skip the discovery for other known network interface bindings.
 		case vmiSpecIface.SRIOV != nil:
 		default:
 			return fmt.Errorf("undefined binding method: %v", vmiSpecIface)

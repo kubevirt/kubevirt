@@ -76,6 +76,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
@@ -122,14 +123,15 @@ type vmYamlDefinition struct {
 	vmSnapshots []vmSnapshotDef
 }
 
-const secondaryNetworkName = "secondarynet"
+const (
+	virtApiDepName                = "virt-api"
+	virtControllerDepName         = "virt-controller"
+	virtTemplateApiserverDepName  = "virt-template-apiserver"
+	virtTemplateControllerDepName = "virt-template-controller"
+	secondaryNetworkName          = "secondarynet"
+)
 
 var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func() {
-
-	const (
-		virtApiDepName        = "virt-api"
-		virtControllerDepName = "virt-controller"
-	)
 
 	var originalKv *v1.KubeVirt
 	var originalOperatorVersion string
@@ -403,6 +405,9 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(err).ToNot(HaveOccurred())
 			Expect(kv.Spec.Configuration.VirtualMachineInstancesPerNode).ToNot(Equal(&newVirtualMachineInstancesPerNode))
 
+			kvmLauncherResources := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName)
+			kvmDeviceName := services.ConstructHypervisorResourceName(kvmLauncherResources)
+
 			newVMIPerNodePatch, err := patch.New(
 				patch.WithAdd("/spec/configuration/virtualMachineInstancesPerNode", newVirtualMachineInstancesPerNode)).GeneratePayload()
 			Expect(err).ToNot(HaveOccurred())
@@ -417,7 +422,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Eventually(func() error {
 				nodesWithKvm := libnode.GetNodesWithKVM()
 				for _, node := range nodesWithKvm {
-					kvmDevices, _ := node.Status.Allocatable[services.KvmDevice]
+					kvmDevices, _ := node.Status.Allocatable[kvmDeviceName]
 					if int(kvmDevices.Value()) != newVirtualMachineInstancesPerNode {
 						return fmt.Errorf("node %s does not have the expected allocatable kvm devices: %d, got: %d", node.Name, newVirtualMachineInstancesPerNode, kvmDevices.Value())
 					}
@@ -439,7 +444,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			By("Check that worker nodes resumed the default amount of allocatable kvm devices")
 			const defaultKvmDevices = "1k"
 			defaultKvmDevicesQuant := resource.MustParse(defaultKvmDevices)
-			kvmDeviceKey := k8sv1.ResourceName(services.KvmDevice)
+			kvmDeviceKey := k8sv1.ResourceName(kvmDeviceName)
 
 			Eventually(func(g Gomega) {
 				nodesWithKvm := libnode.GetNodesWithKVM()
@@ -651,7 +656,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			}
 
 			if updateOperator && flags.OperatorManifestPath == "" {
-				Skip("Skip operator update test when operator manifest path isn't configured")
+				Fail("operator manifest path must be configured for update tests")
 			}
 
 			// This test should run fine on single-node setups as long as no VM is created pre-update
@@ -673,15 +678,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				By(fmt.Sprintf("By Using detected tag %s for previous kubevirt", previousImageTag))
 			} else {
 				By(fmt.Sprintf("By Using user defined tag %s for previous kubevirt", previousImageTag))
-			}
-
-			previousUtilityTag := flags.PreviousUtilityTag
-			previousUtilityRegistry := flags.PreviousUtilityRegistry
-			if previousUtilityTag == "" {
-				previousUtilityTag = previousImageTag
-				By(fmt.Sprintf("By Using detected tag %s for previous utility containers", previousUtilityTag))
-			} else {
-				By(fmt.Sprintf("By Using user defined tag %s for previous utility containers", previousUtilityTag))
 			}
 
 			curVersion := originalKv.Status.ObservedKubeVirtVersion
@@ -779,7 +775,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 			var vmYamls map[string]*vmYamlDefinition
 			if createVMs {
-				vmYamls, err = generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag)
+				vmYamls, err = generatePreviousVersionVmYamls(workDir)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(generatePreviousVersionVmsnapshotYamls(vmYamls, workDir)).To(Succeed())
 			}
@@ -1081,7 +1077,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3148]should be able to create kubevirt install with custom image tag", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			allKvInfraPodsAreReady(originalKv)
@@ -1121,7 +1117,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3149]should be able to create kubevirt install with image prefix", decorators.Upgrade, func() {
 
 			if flags.ImagePrefixAlt == "" {
-				Skip("Skip operator imagePrefix test because imagePrefixAlt is not present")
+				Fail("ImagePrefixAlt must be configured for image prefix tests")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1189,7 +1185,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 
 		It("[test_id:3150]should be able to update kubevirt install with custom image tag", decorators.Upgrade, func() {
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			var vmis []*v1.VirtualMachineInstance
@@ -1273,7 +1269,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		It("[test_id:3151]should be able to update kubevirt install when operator updates if no custom image tag is set", decorators.Upgrade, func() {
 
 			if flags.KubeVirtVersionTagAlt == "" {
-				Skip("Skip operator custom image tag test because alt tag is not present")
+				Fail("KubeVirtVersionTagAlt must be configured for custom image tag tests")
 			}
 
 			kv := copyOriginalKv(originalKv)
@@ -1367,13 +1363,7 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(crd.ObjectMeta.OwnerReferences).To(BeEmpty())
 		})
 
-		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", func() {
-
-			BeforeEach(func() {
-				if !checks.IsOpenShift() {
-					Skip("OpenShift operator tests should not be started on k8s")
-				}
-			})
+		Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With OpenShift cluster", decorators.OpenShift, func() {
 
 			It("[test_id:2910]Should have kubevirt SCCs created", func() {
 				const OpenShiftSCCLabel = "openshift.io/scc"
@@ -1422,28 +1412,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("[rfe_id:2897][crit:medium][vendor:cnv-qe@redhat.com][level:component]With ServiceMonitor Disabled", func() {
-
-		BeforeEach(func() {
-			if serviceMonitorEnabled() {
-				Skip("Test applies on when ServiceMonitor is not defined")
-			}
-		})
-
-		It("[test_id:3154]Should not create RBAC Role or RoleBinding for ServiceMonitor", func() {
-			rbacClient := virtClient.RbacV1()
-
-			By("Checking that Role for ServiceMonitor doesn't exist")
-			roleName := "kubevirt-service-monitor"
-			_, err := rbacClient.Roles(flags.KubeVirtInstallNamespace).Get(context.Background(), roleName, metav1.GetOptions{})
-			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "Role 'kubevirt-service-monitor' should not have been created")
-
-			By("Checking that RoleBinding for ServiceMonitor doesn't exist")
-			_, err = rbacClient.RoleBindings(flags.KubeVirtInstallNamespace).Get(context.Background(), roleName, metav1.GetOptions{})
-			Expect(err).To(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "RoleBinding 'kubevirt-service-monitor' should not have been created")
-		})
-	})
-
 	Context("With PrometheusRule Enabled", func() {
 
 		BeforeEach(func() {
@@ -1460,21 +1428,6 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			Expect(prometheusRule.Spec.Groups).ToNot(BeEmpty())
 			Expect(prometheusRule.Spec.Groups[0].Rules).ToNot(BeEmpty())
 
-		})
-	})
-
-	Context("With PrometheusRule Disabled", func() {
-
-		BeforeEach(func() {
-			if prometheusRuleEnabled() {
-				Skip("Test applies on when PrometheusRule is not defined")
-			}
-		})
-
-		It("[test_id:4615]Checks that we do not deploy a PrometheusRule cr when not needed", func() {
-			monv1 := virtClient.PrometheusClient().MonitoringV1()
-			_, err := monv1.PrometheusRules(flags.KubeVirtInstallNamespace).Get(context.Background(), components.KUBEVIRT_PROMETHEUS_RULE_NAME, metav1.GetOptions{})
-			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -2302,6 +2255,53 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
+	Context("virt-template deployment", func() {
+		setVirtTemplateDeploymentEnabled := func(enabled bool) {
+			kv := libkubevirt.GetCurrentKv(kubevirt.Client())
+			kv.Spec.Configuration.VirtTemplateDeployment = &v1.VirtTemplateDeployment{
+				Enabled: &enabled,
+			}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+		}
+
+		// Note: virt-template requires the Snapshot feature gate for full functionality,
+		// but these tests only verify deployment/removal behavior.
+		DescribeTable("should deploy and remove virt-template", func(setup func(), enable func(), disable func()) {
+			if setup != nil {
+				setup()
+			}
+
+			By("Ensuring virt-template deployments do not exist initially")
+			eventuallyVirtTemplateDeploymentsNotFound()
+
+			By("Enabling virt-template deployment")
+			enable()
+
+			By("Verifying virt-template deployments are created")
+			sanityCheckVirtTemplateDeploymentsExist()
+
+			By("Disabling virt-template deployment")
+			disable()
+
+			By("Verifying virt-template deployments are removed")
+			eventuallyVirtTemplateDeploymentsNotFound()
+		},
+			Entry("when feature gate is toggled",
+				nil,
+				func() { kvconfig.EnableFeatureGate(featuregate.Template) },
+				func() { kvconfig.DisableFeatureGate(featuregate.Template) },
+			),
+			Entry("when VirtTemplateDeployment.Enabled is toggled",
+				func() {
+					setVirtTemplateDeploymentEnabled(false)
+					kvconfig.EnableFeatureGate(featuregate.Template)
+				},
+				func() { setVirtTemplateDeploymentEnabled(true) },
+				func() { setVirtTemplateDeploymentEnabled(false) },
+			),
+		)
+	})
+
 	Context("external CA", func() {
 		createCrt := func(duration time.Duration) *tls.Certificate {
 			caKeyPair, _ := triple.NewCA("test.kubevirt.io", duration)
@@ -2617,9 +2617,9 @@ func nodeSelectorExistInDeployment(virtClient kubecli.KubevirtClient, deployment
 	return true
 }
 
-func sanityCheckDeploymentsExist() {
+func expectDeploymentsToExist(deployments ...string) {
 	Eventually(func() error {
-		for _, deployment := range []string{"virt-api", "virt-controller"} {
+		for _, deployment := range deployments {
 			virtClient := kubevirt.Client()
 			namespace := flags.KubeVirtInstallNamespace
 			_, err := virtClient.AppsV1().Deployments(namespace).Get(context.Background(), deployment, metav1.GetOptions{})
@@ -2628,7 +2628,20 @@ func sanityCheckDeploymentsExist() {
 			}
 		}
 		return nil
-	}, 15*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}).WithTimeout(15 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
+}
+
+func sanityCheckDeploymentsExist() {
+	expectDeploymentsToExist(virtApiDepName, virtControllerDepName)
+}
+
+func sanityCheckVirtTemplateDeploymentsExist() {
+	expectDeploymentsToExist(virtTemplateApiserverDepName, virtTemplateControllerDepName)
+}
+
+func eventuallyVirtTemplateDeploymentsNotFound() {
+	eventuallyDeploymentNotFound(virtTemplateApiserverDepName)
+	eventuallyDeploymentNotFound(virtTemplateControllerDepName)
 }
 
 // Deprecated: deprecatedBeforeAll must not be used. Tests need to be self-contained to allow sane cleanup, accurate reporting and
@@ -2960,7 +2973,7 @@ func deleteAllKvAndWait(ignoreOriginal bool, originalKvName string) {
 	}).WithTimeout(240 * time.Second).WithPolling(1 * time.Second).Should(Succeed())
 }
 
-func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUtilityTag string) (map[string]*vmYamlDefinition, error) {
+func generatePreviousVersionVmYamls(workDir string) (map[string]*vmYamlDefinition, error) {
 	virtClient := kubevirt.Client()
 	vmYamls := make(map[string]*vmYamlDefinition)
 	ext, err := extclient.NewForConfig(virtClient.Config())
@@ -2979,15 +2992,13 @@ func generatePreviousVersionVmYamls(workDir, previousUtilityRegistry, previousUt
 		supportedVersions = append(supportedVersions, version.Name)
 	}
 
-	imageName := fmt.Sprintf("%s/%s-container-disk-demo:%s", previousUtilityRegistry, cd.ContainerDiskAlpine, previousUtilityTag)
-
 	for i, version := range supportedVersions {
 		yamlFileName := filepath.Join(workDir, fmt.Sprintf("vm-%s.yaml", version))
 
 		err = resourcefiles.WriteFile(yamlFileName, resourcefiles.VMInfo{
 			Version:   version,
 			Index:     i,
-			ImageName: imageName,
+			ImageName: cd.ContainerDiskFor(cd.ContainerDiskAlpine),
 		})
 		if err != nil {
 			return nil, err

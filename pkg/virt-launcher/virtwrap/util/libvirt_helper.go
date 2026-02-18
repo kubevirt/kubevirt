@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"libvirt.org/go/libvirt"
 
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
@@ -34,7 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 )
 
-const QEMUSeaBiosDebugPipe = converter.QEMUSeaBiosDebugPipe
+const QEMUSeaBiosDebugPipe = compute.QEMUSeaBiosDebugPipe
 const (
 	qemuConfPath        = "/etc/libvirt/qemu.conf"
 	virtqemudConfPath   = "/etc/libvirt/virtqemud.conf"
@@ -209,6 +209,24 @@ func GetDomainSpecWithFlags(dom cli.VirDomain, flags libvirt.DomainXMLFlags) (*a
 	return domain, nil
 }
 
+// GetAllDomainDevices returns all devices from a domain
+func GetAllDomainDevices(dom cli.VirDomain) (api.Devices, error) {
+	domSpec, err := GetDomainSpecWithFlags(dom, 0)
+	if err != nil {
+		return api.Devices{}, err
+	}
+	return domSpec.Devices, nil
+}
+
+// GetAllDomainDisks returns all disks from a domain
+func GetAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
+	devices, err := GetAllDomainDevices(dom)
+	if err != nil {
+		return nil, err
+	}
+	return devices.Disks, nil
+}
+
 func (l LibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
 	// we spawn libvirt from virt-launcher in order to ensure the virtqemud+qemu process
 	// doesn't exit until virt-launcher is ready for it to. Virt-launcher traps signals
@@ -271,6 +289,14 @@ func (l LibvirtWrapper) StartVirtqemud(stopChan chan struct{}) {
 	}()
 }
 
+// GetQemuLogPath returns the path to the QEMU log file for a domain
+func GetQemuLogPath(domainName string, nonRoot bool) string {
+	if nonRoot {
+		return filepath.Join("/var", "run", "kubevirt-private", "libvirt", "qemu", "log", fmt.Sprintf("%s.log", domainName))
+	}
+	return filepath.Join("/var", "log", "libvirt", "qemu", fmt.Sprintf("%s.log", domainName))
+}
+
 func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot bool) {
 	for {
 		cmd := exec.Command("/usr/sbin/virtlogd", "-f", "/etc/libvirt/virtlogd.conf")
@@ -284,10 +310,7 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
 		}
 
 		go func() {
-			logfile := fmt.Sprintf("/var/log/libvirt/qemu/%s.log", domainName)
-			if nonRoot {
-				logfile = filepath.Join("/var", "run", "kubevirt-private", "libvirt", "qemu", "log", fmt.Sprintf("%s.log", domainName))
-			}
+			logfile := GetQemuLogPath(domainName, nonRoot)
 
 			// It can take a few seconds to the log file to be created
 			for {

@@ -78,7 +78,6 @@ var _ = Describe("NMState Spec interfaces", func() {
 				MTU:        defaultMTU,
 				IPv4:       ipv4,
 				IPv6:       ipv6,
-				Ethtool:    defaultEthtool(),
 				LinuxStack: nmstate.LinuxIfaceStack{
 					IP4RouteLocalNet: pointer.P(false),
 					PortLearning:     pointer.P(false),
@@ -189,7 +188,6 @@ var _ = Describe("NMState Spec interfaces", func() {
 					State:      nmstate.IfaceStateUp,
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
-					Ethtool:    defaultEthtool(),
 					LinuxStack: nmstate.LinuxIfaceStack{
 						IP4RouteLocalNet: pointer.P(false),
 						PortLearning:     pointer.P(false),
@@ -216,7 +214,6 @@ var _ = Describe("NMState Spec interfaces", func() {
 					State:      nmstate.IfaceStateUp,
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
-					Ethtool:    defaultEthtool(),
 					LinuxStack: nmstate.LinuxIfaceStack{
 						IP4RouteLocalNet: pointer.P(false),
 						PortLearning:     pointer.P(false),
@@ -247,7 +244,6 @@ var _ = Describe("NMState Spec interfaces", func() {
 					State:      nmstate.IfaceStateUp,
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
-					Ethtool:    defaultEthtool(),
 					LinuxStack: nmstate.LinuxIfaceStack{
 						IP4RouteLocalNet: pointer.P(false),
 						PortLearning:     pointer.P(false),
@@ -296,7 +292,6 @@ var _ = Describe("NMState Spec interfaces", func() {
 					State:      nmstate.IfaceStateUp,
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
-					Ethtool:    defaultEthtool(),
 					LinuxStack: nmstate.LinuxIfaceStack{
 						IP4RouteLocalNet: pointer.P(false),
 						PortLearning:     pointer.P(false),
@@ -341,7 +336,6 @@ var _ = Describe("NMState Spec interfaces", func() {
 					State:      nmstate.IfaceStateUp,
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
-					Ethtool:    defaultEthtool(),
 					LinuxStack: nmstate.LinuxIfaceStack{
 						IP4RouteLocalNet: pointer.P(false),
 						PortLearning:     pointer.P(false),
@@ -381,7 +375,6 @@ var _ = Describe("NMState Spec interfaces", func() {
 					Controller: bridgeName,
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
-					Ethtool:    defaultEthtool(),
 					LinuxStack: nmstate.LinuxIfaceStack{
 						IP4RouteLocalNet: pointer.P(false),
 						PortLearning:     pointer.P(false),
@@ -396,47 +389,6 @@ var _ = Describe("NMState Spec interfaces", func() {
 					State:      nmstate.IfaceStateUp,
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
-					Ethtool:    defaultEthtool(),
-					LinuxStack: nmstate.LinuxIfaceStack{
-						IP4RouteLocalNet: pointer.P(false),
-						PortLearning:     pointer.P(false),
-					},
-					IPv4: nmstate.IP{Enabled: pointer.P(false)},
-					IPv6: nmstate.IP{Enabled: pointer.P(false)},
-				},
-			}))
-		})
-
-		It("disables tx-checksum (and removes the IP/s)", func() {
-			err := nmState.Apply(&nmstate.Spec{Interfaces: []nmstate.Interface{
-				{
-					Name: dummyName,
-					IPv4: nmstate.IP{Enabled: pointer.P(false)},
-					IPv6: nmstate.IP{Enabled: pointer.P(false)},
-					Ethtool: nmstate.Ethtool{
-						Feature: nmstate.Feature{
-							TxChecksum: pointer.P(false),
-						},
-					},
-				},
-			}})
-			Expect(err).NotTo(HaveOccurred())
-
-			status, err := nmState.Read()
-			Expect(err).NotTo(HaveOccurred())
-			Expect(status.Interfaces).To(Equal([]nmstate.Interface{
-				{
-					Name:       dummyName,
-					Index:      1,
-					TypeName:   nmstate.TypeDummy,
-					State:      nmstate.IfaceStateUp,
-					MacAddress: macAddress0,
-					MTU:        defaultMTU,
-					Ethtool: nmstate.Ethtool{
-						Feature: nmstate.Feature{
-							TxChecksum: pointer.P(false),
-						},
-					},
 					LinuxStack: nmstate.LinuxIfaceStack{
 						IP4RouteLocalNet: pointer.P(false),
 						PortLearning:     pointer.P(false),
@@ -470,7 +422,6 @@ var _ = Describe("NMState Spec interfaces", func() {
 					State:      nmstate.IfaceStateUp,
 					MacAddress: macAddress0,
 					MTU:        defaultMTU,
-					Ethtool:    defaultEthtool(),
 					LinuxStack: nmstate.LinuxIfaceStack{
 						IP4RouteLocalNet: pointer.P(true),
 						PortLearning:     pointer.P(false),

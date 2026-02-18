@@ -41,6 +41,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/record"
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	clone "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
 	exportv1 "kubevirt.io/api/export/v1beta1"
@@ -54,6 +55,7 @@ import (
 	instancetypecontroller "kubevirt.io/kubevirt/pkg/instancetype/controller/vm"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/rest"
+	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
 	"kubevirt.io/kubevirt/pkg/storage/snapshot"
 	"kubevirt.io/kubevirt/pkg/testutils"
@@ -121,6 +123,8 @@ var _ = Describe("Application", func() {
 		dvInformer, _ := testutils.NewFakeInformerFor(&cdiv1.DataVolume{})
 		exportServiceInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Service{})
 		cloneInformer, _ := testutils.NewFakeInformerFor(&clone.VirtualMachineClone{})
+		backupInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackup{})
+		backupTrackerInformer, _ := testutils.NewFakeInformerFor(&backupv1.VirtualMachineBackupTracker{})
 		secretInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Secret{})
 		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
 		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
@@ -259,6 +263,15 @@ var _ = Describe("Application", func() {
 			vmRestoreInformer,
 			vmInformer,
 			vmSnapshotContentInformer,
+			pvcInformer,
+			recorder,
+		)
+		app.vmBackupController, _ = backup.NewVMBackupController(
+			virtClient,
+			backupInformer,
+			backupTrackerInformer,
+			vmInformer,
+			vmiInformer,
 			pvcInformer,
 			recorder,
 		)

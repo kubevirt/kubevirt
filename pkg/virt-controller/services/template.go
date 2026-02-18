@@ -25,6 +25,8 @@ import (
 	"maps"
 	"math/rand"
 	"os"
+	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -44,12 +46,12 @@ import (
 	"kubevirt.io/client-go/precond"
 
 	drautil "kubevirt.io/kubevirt/pkg/dra"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
@@ -76,12 +78,12 @@ const (
 	virtExporter     = "virt-exporter"
 )
 
-const KvmDevice = "devices.kubevirt.io/kvm"
-const TunDevice = "devices.kubevirt.io/tun"
-const VhostNetDevice = "devices.kubevirt.io/vhost-net"
-const SevDevice = "devices.kubevirt.io/sev"
-const VhostVsockDevice = "devices.kubevirt.io/vhost-vsock"
-const PrDevice = "devices.kubevirt.io/pr-helper"
+const K8sDevicePrefix = "devices.kubevirt.io"
+const TunDevice = K8sDevicePrefix + "/tun"
+const VhostNetDevice = K8sDevicePrefix + "/vhost-net"
+const SevDevice = K8sDevicePrefix + "/sev"
+const VhostVsockDevice = K8sDevicePrefix + "/vhost-vsock"
+const PrDevice = K8sDevicePrefix + "/pr-helper"
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
@@ -113,18 +115,13 @@ const EXT_LOG_VERBOSITY_THRESHOLD = 5
 const ephemeralStorageOverheadSize = "50M"
 
 const (
-	VirtLauncherMonitorOverhead = "25Mi"  // The `ps` RSS for virt-launcher-monitor
-	VirtLauncherOverhead        = "100Mi" // The `ps` RSS for the virt-launcher process
-	VirtlogdOverhead            = "25Mi"  // The `ps` RSS for virtlogd
-	VirtqemudOverhead           = "40Mi"  // The `ps` RSS for virtqemud
-	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 	// Default: limits.memory = 2*requests.memory
 	DefaultMemoryLimitOverheadRatio = float64(2.0)
 
 	FailedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
 )
 
-type netBindingPluginMemoryCalculator interface {
+type netMemoryCalculator interface {
 	Calculate(vmi *v1.VirtualMachineInstance, registeredPlugins map[string]v1.InterfaceBindingPlugin) resource.Quantity
 }
 
@@ -152,10 +149,11 @@ type TemplateService struct {
 	resourceQuotaStore         cache.Store
 	namespaceStore             cache.Store
 
-	sidecarCreators                  []SidecarCreatorFunc
-	netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator
-	annotationsGenerators            []annotationsGenerator
-	netTargetAnnotationsGenerator    targetAnnotationsGenerator
+	sidecarCreators               []SidecarCreatorFunc
+	netMemoryCalculator           netMemoryCalculator
+	annotationsGenerators         []annotationsGenerator
+	netTargetAnnotationsGenerator targetAnnotationsGenerator
+	launcherHypervisorResources   hypervisor.LauncherHypervisorResources
 }
 
 func isFeatureStateEnabled(fs *v1.FeatureState) bool {
@@ -363,9 +361,13 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		})
 	}
 
-	networkToResourceMap, err := multus.NetworkToResource(t.virtClient, vmi)
-	if err != nil {
-		return nil, err
+	var networkToResourceMap map[string]string
+	if !t.clusterConfig.ShouldDisableNADResourceInjection() {
+		var err error
+		networkToResourceMap, err = multus.NetworkToResource(t.virtClient, vmi)
+		if err != nil {
+			return nil, err
+		}
 	}
 	resourceRenderer, err := t.newResourceRenderer(vmi, networkToResourceMap)
 	if err != nil {
@@ -410,6 +412,12 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		}
 		if t.clusterConfig.ImageVolumeEnabled() {
 			command = append(command, "--image-volume")
+		}
+		if t.clusterConfig.LibvirtHooksServerAndClientEnabled() {
+			command = append(command, "--libvirt-hook-server-and-client")
+		}
+		if t.clusterConfig.PodSecondaryInterfaceNamingUpgradeEnabled() {
+			command = append(command, "--upgrade-ordinal-ifaces")
 		}
 		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
 			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
@@ -551,7 +559,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	if !t.clusterConfig.ImageVolumeEnabled() && (HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi)) {
-		initContainerCommand := []string{"/usr/bin/cp",
+		initContainerCommand := []string{"/usr/bin/cp", "--preserve=all",
 			"/usr/bin/container-disk",
 			"/init/usr/bin/container-disk",
 		}
@@ -902,9 +910,10 @@ func (t *TemplateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, imag
 
 func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) (*ResourceRenderer, error) {
 	vmiResources := vmi.Spec.Domain.Resources
+	hypervisorResource := ConstructHypervisorResourceName(t.launcherHypervisorResources)
 	baseOptions := []ResourceRendererOption{
 		WithEphemeralStorageRequest(),
-		WithVirtualizationResources(getRequiredResources(vmi, t.clusterConfig.AllowEmulation())),
+		WithVirtualizationResources(getRequiredResources(vmi, hypervisorResource, t.clusterConfig.AllowEmulation())),
 	}
 
 	if err := validatePermittedHostDevices(&vmi.Spec, t.clusterConfig); err != nil {
@@ -913,6 +922,10 @@ func (t *TemplateService) newResourceRenderer(vmi *v1.VirtualMachineInstance, ne
 
 	options := append(baseOptions, t.VMIResourcePredicates(vmi, networkToResourceMap).Apply()...)
 	return NewResourceRenderer(vmiResources.Limits, vmiResources.Requests, options...), nil
+}
+
+func ConstructHypervisorResourceName(l hypervisor.LauncherHypervisorResources) k8sv1.ResourceName {
+	return k8sv1.ResourceName(K8sDevicePrefix + "/" + l.GetHypervisorDevice())
 }
 
 func sidecarVolumeMount(containerName string) k8sv1.VolumeMount {
@@ -955,8 +968,13 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 	sharedMount := k8sv1.MountPropagationHostToContainer
 	command := []string{"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"}
 
-	tmpTolerations := make([]k8sv1.Toleration, len(ownerPod.Spec.Tolerations))
-	copy(tmpTolerations, ownerPod.Spec.Tolerations)
+	tolerations := append(hotplugPodTolerations(), ownerPod.Spec.Tolerations...)
+
+	// Remove duplicates
+	sort.Slice(tolerations, func(i, j int) bool {
+		return tolerations[i].Key < tolerations[j].Key
+	})
+	tolerations = slices.Compact(tolerations)
 
 	pod := &k8sv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1022,7 +1040,7 @@ func (t *TemplateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 					},
 				},
 			},
-			Tolerations:                   tmpTolerations,
+			Tolerations:                   tolerations,
 			Volumes:                       []k8sv1.Volume{emptyDirVolume(hotplugDisks)},
 			TerminationGracePeriodSeconds: &zero,
 		},
@@ -1254,29 +1272,6 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
 	return append(secrets, newsecret)
 }
 
-func addProbeOverheads(vmi *v1.VirtualMachineInstance, quantity *resource.Quantity) {
-	// We need to add this overhead due to potential issues when using exec probes.
-	// In certain situations depending on things like node size and kernel versions
-	// the exec probe can cause a significant memory overhead that results in the pod getting OOM killed.
-	// To prevent this, we add this overhead until we have a better way of doing exec probes.
-	// The virtProbeTotalAdditionalOverhead is added for the virt-probe binary we use for probing and
-	// only added once, while the virtProbeOverhead is the general memory consumption of virt-probe
-	// that we add per added probe.
-	virtProbeTotalAdditionalOverhead := resource.MustParse("100Mi")
-	virtProbeOverhead := resource.MustParse("10Mi")
-	hasLiveness := vmi.Spec.LivenessProbe != nil && vmi.Spec.LivenessProbe.Exec != nil
-	hasReadiness := vmi.Spec.ReadinessProbe != nil && vmi.Spec.ReadinessProbe.Exec != nil
-	if hasLiveness {
-		quantity.Add(virtProbeOverhead)
-	}
-	if hasReadiness {
-		quantity.Add(virtProbeOverhead)
-	}
-	if hasLiveness || hasReadiness {
-		quantity.Add(virtProbeTotalAdditionalOverhead)
-	}
-}
-
 func HaveContainerDiskVolume(volumes []v1.Volume) bool {
 	for _, volume := range volumes {
 		if volume.ContainerDisk != nil {
@@ -1308,20 +1303,21 @@ func NewTemplateService(launcherImage string,
 	precond.MustNotBeEmpty(launcherImage)
 	log.Log.V(1).Infof("Exporter Image: %s", exporterImage)
 	svc := TemplateService{
-		launcherImage:              launcherImage,
-		launcherQemuTimeout:        launcherQemuTimeout,
-		virtShareDir:               virtShareDir,
-		ephemeralDiskDir:           ephemeralDiskDir,
-		containerDiskDir:           containerDiskDir,
-		hotplugDiskDir:             hotplugDiskDir,
-		imagePullSecret:            imagePullSecret,
-		persistentVolumeClaimStore: persistentVolumeClaimCache,
-		virtClient:                 virtClient,
-		clusterConfig:              clusterConfig,
-		launcherSubGid:             launcherSubGid,
-		exporterImage:              exporterImage,
-		resourceQuotaStore:         resourceQuotaStore,
-		namespaceStore:             namespaceStore,
+		launcherImage:               launcherImage,
+		launcherQemuTimeout:         launcherQemuTimeout,
+		virtShareDir:                virtShareDir,
+		ephemeralDiskDir:            ephemeralDiskDir,
+		containerDiskDir:            containerDiskDir,
+		hotplugDiskDir:              hotplugDiskDir,
+		imagePullSecret:             imagePullSecret,
+		persistentVolumeClaimStore:  persistentVolumeClaimCache,
+		virtClient:                  virtClient,
+		clusterConfig:               clusterConfig,
+		launcherSubGid:              launcherSubGid,
+		exporterImage:               exporterImage,
+		resourceQuotaStore:          resourceQuotaStore,
+		namespaceStore:              namespaceStore,
+		launcherHypervisorResources: hypervisor.NewLauncherHypervisorResources(clusterConfig.GetHypervisor().Name),
 	}
 
 	for _, opt := range opts {
@@ -1523,20 +1519,7 @@ func (t *TemplateService) doesVMIRequireAutoCPULimits(vmi *v1.VirtualMachineInst
 }
 
 func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) VMIResourcePredicates {
-	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
-	vmiCPUArch := vmi.Spec.Architecture
-	if vmiCPUArch == "" {
-		vmiCPUArch = t.clusterConfig.GetClusterCPUArch()
-	}
-	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
-
-	if t.netBindingPluginMemoryCalculator != nil {
-		memoryOverhead.Add(
-			t.netBindingPluginMemoryCalculator.Calculate(vmi, t.clusterConfig.GetNetworkBindings()),
-		)
-	}
-
-	metrics.SetVmiLaucherMemoryOverhead(vmi, memoryOverhead)
+	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netMemoryCalculator, vmi, t.launcherHypervisorResources)
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
 	additionalCPUs := uint32(0)
 	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
@@ -1570,6 +1553,24 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 		},
 	}
+}
+
+func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netMemoryCalculator netMemoryCalculator, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources) resource.Quantity {
+	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
+	vmiCPUArch := vmi.Spec.Architecture
+	if vmiCPUArch == "" {
+		vmiCPUArch = clusterConfig.GetClusterCPUArch()
+	}
+
+	memoryOverhead := launcherHypervisorResources.GetMemoryOverhead(vmi, vmiCPUArch, clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+
+	if netMemoryCalculator != nil {
+		memoryOverhead.Add(
+			netMemoryCalculator.Calculate(vmi, clusterConfig.GetNetworkBindings()),
+		)
+	}
+
+	return memoryOverhead
 }
 
 func (t *TemplateService) doesVMIRequireAutoMemoryLimits(vmi *v1.VirtualMachineInstance) bool {
@@ -1626,9 +1627,9 @@ func readinessGates() []k8sv1.PodReadinessGate {
 	}
 }
 
-func WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator) templateServiceOption {
+func WithNetMemoryCalculator(netMemoryCalculator netMemoryCalculator) templateServiceOption {
 	return func(service *TemplateService) {
-		service.netBindingPluginMemoryCalculator = netBindingPluginMemoryCalculator
+		service.netMemoryCalculator = netMemoryCalculator
 	}
 }
 

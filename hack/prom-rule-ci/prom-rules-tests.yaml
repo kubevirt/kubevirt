@@ -215,6 +215,35 @@ tests:
               kubernetes_operator_part_of: "kubevirt"
               kubernetes_operator_component: "kubevirt"
 
+  # Some virt operators are not ready
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-1"}'
+        values: '1+0x11'
+      - series: 'kubevirt_virt_operator_ready_status{namespace="ci", pod="virt-operator-2"}'
+        values: '0+0x11'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-operator-1", phase="Running"}'
+        values: '1+0x11'
+      - series: 'kube_pod_status_phase{namespace="ci", pod="virt-operator-2", phase="Running"}'
+        values: '1+0x11'
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-1", condition="true"}'
+        values: '1+0x11'
+      - series: 'kube_pod_status_ready{namespace="ci", pod="virt-operator-2", condition="true"}'
+        values: '0+0x11'
+
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: LowReadyVirtOperatorsCount
+        exp_alerts:
+          - exp_annotations:
+              summary: "Some virt-operators are running but not ready."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowReadyVirtOperatorsCount"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
   # All virt controllers are not ready
   - interval: 1m
     input_series:
@@ -627,6 +656,29 @@ tests:
           - labels: 'kubevirt_vmi_memory_used_bytes{container="virt-handler", name="vm-example-2", namespace="default", node="node-1"}'
             value: 234329980
 
+  # Mass Failed virt-launcher pods should trigger critical alert after 10m
+  - interval: 1m
+    input_series:
+      # Single series at value 200 so the sum() recording rule reaches threshold for 10m
+      - series: 'kube_pod_status_phase{pod="virt-launcher-test", phase="Failed"}'
+        values: '200x11'
+    alert_rule_test:
+      # no alert before 10 minutes
+      - eval_time: 9m
+        alertname: VirtLauncherPodsStuckFailed
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: VirtLauncherPodsStuckFailed
+        exp_alerts:
+          - exp_annotations:
+              summary: "At least 200 virt-launcher pods are stuck in Failed state and not deleted for 10 minutes."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtLauncherPodsStuckFailed"
+            exp_labels:
+              severity: "critical"
+              operator_health_impact: "critical"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
   # Excessive VMI Migrations in a period of time
   - interval: 1h
     input_series:
@@ -715,6 +767,8 @@ tests:
         values: "_ _ _ _ _ _ _ 1+0x15"
       - series: 'kube_node_status_allocatable{node="node01", resource="devices_kubevirt_io_kvm"}'
         values: "1000+0x15 0+0x7"
+      - series: 'kube_node_spec_unschedulable{node="node01"}'
+        values: "0+0x22"
       - series: 'kubevirt_configuration_emulation_enabled'
         values: "0+0x22"
 
@@ -756,6 +810,8 @@ tests:
         values: "0+0x7 1+0x14"
       - series: 'kube_node_status_allocatable{node="node01", resource="devices_kubevirt_io_kvm"}'
         values: "0+0x21"
+      - series: 'kube_node_spec_unschedulable{node="node01"}'
+        values: "0+0x21"
       - series: 'kubevirt_configuration_emulation_enabled'
         values: "0+0x7 1+0x7 0+0x7"
 
@@ -780,6 +836,32 @@ tests:
 
       # has schedulable label, but no kvm allocatable and no emulation enabled
       - eval_time: 21m
+        alertname: KubeVirtNoAvailableNodesToRunVMs
+        exp_alerts:
+          - exp_annotations:
+              summary: "There are no available nodes in the cluster to run VMs."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtNoAvailableNodesToRunVMs"
+            exp_labels:
+              severity: "warning"
+              kubernetes_operator_component: "kubevirt"
+              kubernetes_operator_part_of: "kubevirt"
+              operator_health_impact: "critical"
+
+  # Test case: node has schedulable label but is unschedulable
+  - interval: 1m
+    input_series:
+      - series: 'kube_node_labels{node="node01",label_kubevirt_io_schedulable="true"}'
+        values: "1+0x15"
+      - series: 'kube_node_status_allocatable{node="node01", resource="devices_kubevirt_io_kvm"}'
+        values: "1000+0x15"
+      - series: 'kube_node_spec_unschedulable{node="node01"}'
+        values: "1+0x15"
+      - series: 'kubevirt_configuration_emulation_enabled'
+        values: "0+0x15"
+
+    alert_rule_test:
+      # has schedulable label and kvm allocatable but node spec is unschedulable
+      - eval_time: 6m
         alertname: KubeVirtNoAvailableNodesToRunVMs
         exp_alerts:
           - exp_annotations:
@@ -1156,3 +1238,172 @@ tests:
       - eval_time: 8m
         alertname: GuestFilesystemAlmostOutOfSpace
         exp_alerts: []
+
+  # VirtualMachineInstanceHasEphemeralHotplugVolume
+  - interval: 1m
+    input_series:
+      # VMI without ephemeral hotplug volume
+      - series: 'kubevirt_vmi_contains_ephemeral_hotplug_volume{namespace="test-ns", name="vmi-no-hotplug", volume_name="persistent-vol"}'
+        values: "0x5"
+      # VMI with one ephemeral hotplug volume
+      - series: 'kubevirt_vmi_contains_ephemeral_hotplug_volume{namespace="test-ns", name="vmi-one-hotplug", volume_name="ephemeral-vol"}'
+        values: "_ _ 1 1 1 1"
+      # VMI with multiple ephemeral hotplug volumes
+      - series: 'kubevirt_vmi_contains_ephemeral_hotplug_volume{namespace="test-ns", name="vmi-multi-hotplug", volume_name="ephemeral-vol-1, ephemeral-vol-2"}'
+        values: "_ _ 1 1 1 1"
+
+    alert_rule_test:
+      # at 1m: no VMI with ephemeral hotplug volume
+      - eval_time: 1m
+        alertname: VirtualMachineInstanceHasEphemeralHotplugVolume
+        exp_alerts: []
+
+      # at 2m: both VMIs will trigger the alert
+      - eval_time: 2m
+        alertname: VirtualMachineInstanceHasEphemeralHotplugVolume
+        exp_alerts:
+          - exp_annotations:
+              summary: "Virtual Machine Instance has Ephemeral Hotplug Volume(s). Ephemeral Hotplugs are deprecated and must be converted to persistent volumes! In a future release, feature gate `DeclarativeHotplugVolumes` will replace `HotplugVolumes` and as a result, any remaining ephemeral hotplug volumes will be automatically unplugged"
+              description: "Virtual Machine Instance vmi-one-hotplug in namespace test-ns has ephemeral hotplug volume(s) ephemeral-vol."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineInstanceHasEphemeralHotplugVolume"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vmi-one-hotplug"
+              namespace: "test-ns"
+              volume_name: "ephemeral-vol"
+          - exp_annotations:
+              summary: "Virtual Machine Instance has Ephemeral Hotplug Volume(s). Ephemeral Hotplugs are deprecated and must be converted to persistent volumes! In a future release, feature gate `DeclarativeHotplugVolumes` will replace `HotplugVolumes` and as a result, any remaining ephemeral hotplug volumes will be automatically unplugged"
+              description: "Virtual Machine Instance vmi-multi-hotplug in namespace test-ns has ephemeral hotplug volume(s) ephemeral-vol-1, ephemeral-vol-2."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/VirtualMachineInstanceHasEphemeralHotplugVolume"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "vmi-multi-hotplug"
+              namespace: "test-ns"
+              volume_name: "ephemeral-vol-1, ephemeral-vol-2"
+
+  # GuestFilesystemAlmostOutOfSpace - Exclusions: fuse.* should be excluded
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="test-vm", namespace="test-ns", disk_name="vdb", mount_point="/mnt/sshfs", file_system_type="fuse.sshfs"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="test-vm", namespace="test-ns", disk_name="vdb", mount_point="/mnt/sshfs", file_system_type="fuse.sshfs"}'
+        values: "96 96 96 96 96 96 96 96 96 96"
+
+    alert_rule_test:
+      # at 3m: usage = 96% -> would normally alert, but excluded by regex fuse(\\..*)?
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+  # GuestFilesystemAlmostOutOfSpace - Exclusions: overlay should be excluded
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="test-vm", namespace="test-ns", disk_name="vdc", mount_point="/", file_system_type="overlay"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="test-vm", namespace="test-ns", disk_name="vdc", mount_point="/", file_system_type="overlay"}'
+        values: "96 96 96 96 96 96 96 96 96 96"
+
+    alert_rule_test:
+      # at 3m: usage = 96% -> would normally alert, but excluded by overlay filter
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+
+  # GuestFilesystemAlmostOutOfSpace - Exclusions: Windows "System Reserved" mount should be excluded
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_filesystem_capacity_bytes{name="win-vm", namespace="test-ns", disk_name="sda1", mount_point="System Reserved", file_system_type="ntfs"}'
+        values: "100x10"
+      - series: 'kubevirt_vmi_filesystem_used_bytes{name="win-vm", namespace="test-ns", disk_name="sda1", mount_point="System Reserved", file_system_type="ntfs"}'
+        values: "96 96 96 96 96 96 96 96 96 96"
+
+    alert_rule_test:
+      # at 3m: usage = 96% -> would normally alert, but excluded by mount_point filter
+      - eval_time: 3m
+        alertname: GuestFilesystemAlmostOutOfSpace
+        exp_alerts: []
+  # VM memory pressure with swap activity
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_memory_available_bytes{name="virt-launcher-vm1", namespace="test-ns"}'
+        values: '1000000000x10'
+      - series: 'kubevirt_vmi_memory_usable_bytes{name="virt-launcher-vm1", namespace="test-ns"}'
+        values: '40000000x10' # 4% usable -> low usable memory
+      - series: 'kubevirt_vmi_memory_swap_in_traffic_bytes{name="virt-launcher-vm1", namespace="test-ns"}'
+        values: '0+100000000x10'
+      - series: 'kubevirt_vmi_memory_swap_out_traffic_bytes{name="virt-launcher-vm1", namespace="test-ns"}'
+        values: '0+100000000x10'
+      - series: 'kubevirt_vmi_info{name="vm1", namespace="test-ns", phase="running", vmi_pod="virt-launcher-vm1"}'
+        values: '1x10'
+
+    alert_rule_test:
+      # should not trigger before 5 minutes pending time elapses
+      - eval_time: 2m
+        alertname: KubeVirtVMGuestMemoryPressure
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: KubeVirtVMGuestMemoryPressure
+        exp_alerts: []
+      # after 5m pending, with low usable mem and swap traffic >1MiB/s
+      - eval_time: 7m
+        alertname: KubeVirtVMGuestMemoryPressure
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachine vm1 in namespace test-ns is under memory pressure: low usable memory with elevated major faults and/or swap IO."
+              summary: "The VirtualMachine is under memory pressure (possible thrashing)"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMGuestMemoryPressure"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "virt-launcher-vm1"
+              vm: "vm1"
+              namespace: "test-ns"
+
+  # VM low available memory without swap and without major faults
+  - interval: 1m
+    input_series:
+      - series: 'kubevirt_vmi_memory_available_bytes{name="virt-launcher-vm2", namespace="test-ns"}'
+        values: '1000000000x40'
+      - series: 'kubevirt_vmi_memory_usable_bytes{name="virt-launcher-vm2", namespace="test-ns"}'
+        values: '20000000x40' # 2% usable -> below 3% threshold
+      - series: 'kubevirt_vmi_memory_swap_in_traffic_bytes{name="virt-launcher-vm2", namespace="test-ns"}'
+        values: '0x40'
+      - series: 'kubevirt_vmi_memory_swap_out_traffic_bytes{name="virt-launcher-vm2", namespace="test-ns"}'
+        values: '0x40'
+      - series: 'kubevirt_vmi_memory_pgmajfault_total{name="virt-launcher-vm2", namespace="test-ns"}'
+        values: '0x40'
+      - series: 'kubevirt_vmi_info{name="vm2", namespace="test-ns", phase="running", vmi_pod="virt-launcher-vm2"}'
+        values: '1x40'
+
+    alert_rule_test:
+      # should not trigger before 30 minutes pending time elapses
+      - eval_time: 15m
+        alertname: KubeVirtVMGuestMemoryAvailableLow
+        exp_alerts: []
+      - eval_time: 29m
+        alertname: KubeVirtVMGuestMemoryAvailableLow
+        exp_alerts: []
+      # after 30m pending with very low available memory and negligible swap and pgmajfault rates
+      - eval_time: 31m
+        alertname: KubeVirtVMGuestMemoryAvailableLow
+        exp_alerts:
+          - exp_annotations:
+              description: "VirtualMachine vm2 in namespace test-ns has very low available memory (<3% headroom) for 30 minutes with no meaningful swap IO (likely no swap)."
+              summary: "The VirtualMachine has low available memory without swap"
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/KubeVirtVMGuestMemoryAvailableLow"
+            exp_labels:
+              severity: "info"
+              operator_health_impact: "none"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+              name: "virt-launcher-vm2"
+              vm: "vm2"
+              namespace: "test-ns"

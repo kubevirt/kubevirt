@@ -37,6 +37,8 @@ service Cmd {
   rpc InjectLaunchSecret(InjectLaunchSecretRequest) returns (Response) {}
   rpc GetDomainDirtyRateStats(EmptyRequest) returns (DirtyRateStatsResponse) {}
   rpc GetScreenshot(VMIRequest) returns (ScreenshotResponse) {}
+  rpc BackupVirtualMachine(BackupRequest) returns (Response) {}
+  rpc RedefineCheckpoint(RedefineCheckpointRequest) returns (RedefineCheckpointResponse) {}
 }
 
 message QemuVersionResponse {
@@ -218,4 +220,19 @@ message ScreenshotResponse {
   Response response = 1;
   string mime = 2;
   bytes data = 3;
+}
+
+message BackupRequest {
+  VMI vmi = 1;
+  bytes options = 2;
+}
+
+message RedefineCheckpointRequest {
+  VMI vmi = 1;
+  bytes checkpoint = 2;
+}
+
+message RedefineCheckpointResponse {
+  Response response = 1;
+  bool checkpointInvalid = 2;
 }

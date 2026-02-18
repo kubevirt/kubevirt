@@ -50,6 +50,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	fakenetworkclient "kubevirt.io/client-go/networkattachmentdefinitionclient/fake"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
 	k6tconfig "kubevirt.io/kubevirt/pkg/config"
@@ -57,6 +58,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hooks"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
+	"kubevirt.io/kubevirt/pkg/network/multus"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -69,6 +71,8 @@ import (
 var testHookSidecar = hooks.HookSidecar{Image: "test-image", ImagePullPolicy: "test-policy"}
 
 var _ = Describe("Template", func() {
+	const expectedNetworkResource = "amazing-network-resource.com"
+
 	var configFactory func(string) (*virtconfig.ClusterConfig, cache.Store, *TemplateService)
 	var qemuGid int64 = 107
 	var defaultArch = "amd64"
@@ -140,7 +144,7 @@ var _ = Describe("Template", func() {
 					func(vmi *v1.VirtualMachineInstance, _ *v1.KubeVirtConfiguration) (hooks.HookSidecarList, error) {
 						return hooks.UnmarshalHookSidecarList(vmi)
 					}),
-				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
+				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
 			)
 			// Set up mock clients
 			networkClient := fakenetworkclient.NewSimpleClientset()
@@ -172,6 +176,9 @@ var _ = Describe("Template", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test1",
 					Namespace: "other-namespace",
+					Annotations: map[string]string{
+						multus.ResourceNameAnnotation: expectedNetworkResource,
+					},
 				},
 			}
 			err := networkClient.Tracker().Create(gvr, network, "other-namespace")
@@ -999,7 +1006,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.InitContainers).To(HaveLen(3))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath).To(Equal("/init/usr/bin"))
 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].Name).To(Equal("virt-bin-share-dir"))
-				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp",
+				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp", "--preserve=all",
 					"/usr/bin/container-disk",
 					"/init/usr/bin/container-disk",
 				}))
@@ -1466,7 +1473,7 @@ var _ = Describe("Template", func() {
 										Enabled: pointer.P(true),
 									},
 									SyNICTimer: &v1.SyNICTimer{
-										Enabled: pointer.P(true),
+										FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 									},
 									Frequencies: &v1.FeatureState{
 										Enabled: pointer.P(true),
@@ -1527,8 +1534,8 @@ var _ = Describe("Template", func() {
 										Enabled: &enabled,
 									},
 									Spinlocks: &v1.FeatureSpinlocks{
-										Enabled: &enabled,
-										Retries: &retries,
+										FeatureState: v1.FeatureState{Enabled: &enabled},
+										Retries:      &retries,
 									},
 								},
 							},
@@ -2356,7 +2363,7 @@ var _ = Describe("Template", func() {
 						if vmiCPUArch == "" {
 							vmiCPUArch = svc.clusterConfig.GetClusterCPUArch()
 						}
-						overhead := GetMemoryOverhead(&vmi, vmiCPUArch, svc.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+						overhead := hypervisor.NewLauncherHypervisorResources(config.GetHypervisor().Name).GetMemoryOverhead(&vmi, vmiCPUArch, svc.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
 
 						mem100.Sub(overhead)
 						mem110.Sub(overhead)
@@ -2892,7 +2899,7 @@ var _ = Describe("Template", func() {
 				arch := config.GetClusterCPUArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(GetMemoryOverhead(vmi, arch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
+				expectedMemory.Add(hypervisor.NewLauncherHypervisorResources(config.GetHypervisor().Name).GetMemoryOverhead(vmi, arch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
@@ -2920,7 +2927,7 @@ var _ = Describe("Template", func() {
 				arch := config.GetClusterCPUArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(GetMemoryOverhead(vmi1, arch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
+				expectedMemory.Add(hypervisor.NewLauncherHypervisorResources(config.GetHypervisor().Name).GetMemoryOverhead(vmi1, arch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 				Expect(pod1.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
@@ -3042,7 +3049,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetBindingPluginMemoryCalculator(&stubNetBindingPluginMemoryCalculator{}),
+				WithNetMemoryCalculator(&stubNetMemoryCalculator{}),
 			)
 			vmi := v1.VirtualMachineInstance{ObjectMeta: metav1.ObjectMeta{
 				Name: "testvmi", Namespace: "default", UID: "1234",
@@ -4314,52 +4321,6 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		DescribeTable("should require NET_BIND_SERVICE", func(interfaceType string) {
-			vmi := api.NewMinimalVMI("fake-vmi")
-			switch interfaceType {
-			case "bridge":
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultBridgeNetworkInterface()}
-			case "masquerade":
-				vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{*v1.DefaultMasqueradeNetworkInterface()}
-			}
-
-			pod, err := svc.RenderLaunchManifest(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" {
-					Expect(container.SecurityContext.Capabilities.Add).To(ContainElement(k8sv1.Capability("NET_BIND_SERVICE")))
-					return
-				}
-			}
-			Expect(false).To(BeTrue())
-		},
-			Entry("when there is bridge interface", "bridge"),
-			Entry("when there is masquerade interface", "masquerade"),
-		)
-
-		It("should require capabilites which we set on virt-launcher binary", func() {
-			vmi := api.NewMinimalVMI("fake-vmi")
-			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{
-				Name: "test",
-				InterfaceBindingMethod: v1.InterfaceBindingMethod{
-					DeprecatedMacvtap: &v1.DeprecatedInterfaceMacvtap{},
-				},
-			}}
-
-			pod, err := svc.RenderLaunchManifest(vmi)
-			Expect(err).ToNot(HaveOccurred())
-
-			for _, container := range pod.Spec.Containers {
-				if container.Name == "compute" {
-					Expect(container.SecurityContext.Capabilities.Add).To(
-						ContainElement(k8sv1.Capability("NET_BIND_SERVICE")))
-					return
-				}
-			}
-			Expect(false).To(BeTrue())
-		})
-
 		DescribeTable("should require the correct set of capabilites", func(
 			getVMI func() *v1.VirtualMachineInstance,
 			containerName string,
@@ -4468,7 +4429,9 @@ var _ = Describe("Template", func() {
 
 		It("should compute the correct tolerations when rendering hotplug attachment pods", func() {
 			vmi := api.NewMinimalVMI("fake-vmi")
-			vmi.Spec.Tolerations = append(vmi.Spec.Tolerations, k8sv1.Toleration{Key: "test"})
+			duplicateToleration := []k8sv1.Toleration{{Key: "test", Operator: k8sv1.TolerationOpExists, Effect: k8sv1.TaintEffectNoSchedule},
+				{Key: "test", Operator: k8sv1.TolerationOpExists, Effect: k8sv1.TaintEffectNoSchedule}} // Add duplicate on purpose to validate deduplication logic
+			vmi.Spec.Tolerations = append(vmi.Spec.Tolerations, duplicateToleration...)
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -4477,7 +4440,39 @@ var _ = Describe("Template", func() {
 			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 
-			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(vmi.Spec.Tolerations))
+			expectedTolerations := []k8sv1.Toleration{
+				{
+					Key:      "test",
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      k8sv1.TaintNodeUnschedulable,
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      k8sv1.TaintNodeNetworkUnavailable,
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      k8sv1.TaintNodeDiskPressure,
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      k8sv1.TaintNodeMemoryPressure,
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:      k8sv1.TaintNodePIDPressure,
+					Operator: k8sv1.TolerationOpExists,
+					Effect:   k8sv1.TaintEffectNoSchedule,
+				},
+			}
+			Expect(pod.Spec.Tolerations).To(ConsistOf(expectedTolerations))
 		})
 
 		It("should compute the correct tolerations when rendering hotplug attachment trigger pods", func() {
@@ -4647,7 +4642,7 @@ var _ = Describe("Template", func() {
 			verifyPodRequestLimits(pod)
 		})
 
-		DescribeTable("hould compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
+		DescribeTable("should compute the correct resource req according to desired QoS when rendering hotplug trigger pods", func(isBlock bool) {
 			vmi := api.NewMinimalVMI("fake-vmi")
 			ownerPod, err := svc.RenderLaunchManifest(vmi)
 			Expect(err).ToNot(HaveOccurred())
@@ -4719,7 +4714,7 @@ var _ = Describe("Template", func() {
 				arch := config.GetClusterCPUArch()
 				Expect(err).ToNot(HaveOccurred())
 				expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-				expectedMemory.Add(GetMemoryOverhead(vmi, arch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
+				expectedMemory.Add(hypervisor.NewLauncherHypervisorResources(config.GetHypervisor().Name).GetMemoryOverhead(vmi, arch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
 				expectedMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 				Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(Equal(expectedMemory.Value()))
 			})
@@ -4791,45 +4786,6 @@ var _ = Describe("Template", func() {
 			})
 		})
 
-		Context("with guest-to-request memory headroom", func() {
-			BeforeEach(func() {
-				config, kvStore, svc = configFactory(defaultArch)
-			})
-
-			newVmi := func() *v1.VirtualMachineInstance {
-				vmi := api.NewMinimalVMI("test-vmi")
-
-				vmi.Spec.Domain.Resources = v1.ResourceRequirements{
-					Requests: k8sv1.ResourceList{
-						k8sv1.ResourceMemory: resource.MustParse("1G"),
-						k8sv1.ResourceCPU:    resource.MustParse("1"),
-					},
-				}
-
-				return vmi
-			}
-
-			DescribeTable("should add guest-to-memory headroom when configured with ratio", func(ratioStr string) {
-				vmi := newVmi()
-
-				ratio, err := strconv.ParseFloat(ratioStr, 64)
-				Expect(err).ToNot(HaveOccurred())
-
-				originalOverhead := GetMemoryOverhead(vmi, config.GetClusterCPUArch(), nil)
-				actualOverheadWithHeadroom := GetMemoryOverhead(vmi, config.GetClusterCPUArch(), pointer.P(ratioStr))
-				expectedOverheadWithHeadroom := multiplyMemory(originalOverhead, ratio)
-
-				const errFmt = "overhead without headroom: %s, ratio: %s, actual overhead with headroom: %s, expected overhead with headroom: %s"
-				Expect(newVmi()).To(Equal(vmi), "vmi object should not be changed")
-				Expect(actualOverheadWithHeadroom.Cmp(expectedOverheadWithHeadroom)).To(Equal(0),
-					fmt.Sprintf(errFmt, originalOverhead.String(), ratioStr, actualOverheadWithHeadroom.String(), expectedOverheadWithHeadroom.String()))
-			},
-				Entry("2.332", "2.332"),
-				Entry("1.234", "1.234"),
-				Entry("1.0", "1.0"),
-			)
-
-		})
 		Context("with configmap in VMI annotations for sidecar", func() {
 			var vmi *v1.VirtualMachineInstance
 
@@ -5484,7 +5440,7 @@ var _ = Describe("Template", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(pod.Spec.Containers[0].Name).To(Equal("compute"))
 					expectedMemory := resource.NewScaledQuantity(0, resource.Kilo)
-					expectedMemory.Add(GetMemoryOverhead(&vmi, defaultArch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
+					expectedMemory.Add(hypervisor.NewLauncherHypervisorResources(config.GetHypervisor().Name).GetMemoryOverhead(&vmi, defaultArch, config.GetConfig().AdditionalGuestMemoryOverheadRatio))
 					expectedMemory.Add(guestMemory)
 					Expect(pod.Spec.Containers[0].Resources.Requests.Memory().Value()).To(BeEquivalentTo(expectedMemory.Value()))
 					Expect(pod.Spec.Containers[0].Resources.Limits.Memory().Value()).To(BeEquivalentTo(expectedMemory.Value()))
@@ -5725,7 +5681,7 @@ var _ = Describe("Template", func() {
 
 			config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&kvConfig.Spec.Configuration)
 
-			netBindingPluginMemoryOverheadCalculator := &stubNetBindingPluginMemoryCalculator{}
+			netBindingPluginMemoryOverheadCalculator := &stubNetMemoryCalculator{}
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,
 				"/var/run/kubevirt",
@@ -5741,7 +5697,7 @@ var _ = Describe("Template", func() {
 				resourceQuotaStore,
 				namespaceStore,
 				WithSidecarCreator(testSidecarCreator),
-				WithNetBindingPluginMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
+				WithNetMemoryCalculator(netBindingPluginMemoryOverheadCalculator),
 			)
 
 			vmi := libvmi.New(
@@ -5992,6 +5948,49 @@ var _ = Describe("Template", func() {
 			Expect(err).To(MatchError(expectedErr))
 		})
 	})
+
+	Context("NAD query disablement", func() {
+		It("Should not query NAD when DisableNADResourceInjection is enabled", func() {
+			config, kvStore, svc = configFactory(defaultArch)
+			enableFeatureGate(featuregate.DisableNADResourceInjection)
+
+			svc = NewTemplateService("kubevirt/virt-launcher",
+				240,
+				"/var/run/kubevirt",
+				"/var/run/kubevirt-ephemeral-disks",
+				"/var/run/kubevirt/container-disks",
+				v1.HotplugDiskDir,
+				"pull-secret-1",
+				pvcCache,
+				virtClient,
+				config,
+				qemuGid,
+				"kubevirt/vmexport",
+				resourceQuotaStore,
+				namespaceStore,
+			)
+
+			const netName = "net1"
+
+			vmi := libvmi.New(
+				libvmi.WithNamespace("other-namespace"),
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding(netName)),
+				libvmi.WithNetwork(libvmi.MultusNetwork(netName, "test1")),
+			)
+
+			pod, err := svc.RenderLaunchManifest(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			computeContainer := pod.Spec.Containers[0]
+			Expect(computeContainer.Name).To(Equal("compute"))
+
+			_, reqExists := computeContainer.Resources.Requests[expectedNetworkResource]
+			Expect(reqExists).To(BeFalse())
+
+			_, limExists := computeContainer.Resources.Limits[expectedNetworkResource]
+			Expect(limExists).To(BeFalse())
+		})
+	})
 })
 
 func networkInfoAnnotVolume() k8sv1.Volume {
@@ -6118,11 +6117,11 @@ func validateAndExtractQemuTimeoutArg(args []string) string {
 	return timeoutString
 }
 
-type stubNetBindingPluginMemoryCalculator struct {
+type stubNetMemoryCalculator struct {
 	calculatedMemoryOverhead bool
 }
 
-func (smc *stubNetBindingPluginMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
+func (smc *stubNetMemoryCalculator) Calculate(_ *v1.VirtualMachineInstance, _ map[string]v1.InterfaceBindingPlugin) resource.Quantity {
 	smc.calculatedMemoryOverhead = true
 
 	return resource.Quantity{}

@@ -43,7 +43,12 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindingPlugins, decorators.Passt, func() {
+const (
+	vmiReadyTimeoutPasst      = 180
+	vmiReadyTimeoutManagedTap = 30
+)
+
+var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindingPlugins, func() {
 	Context("with CNI and Sidecar", func() {
 		const passtNetAttDefName = "netbindingpasst"
 
@@ -86,7 +91,7 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				vmi,
 				console.LoginToAlpine,
 				libwait.WithFailOnWarnings(false),
-				libwait.WithTimeout(180),
+				libwait.WithTimeout(vmiReadyTimeoutPasst),
 			)
 
 			Expect(vmi.Status.Interfaces).To(HaveLen(1))
@@ -135,7 +140,9 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 					*libvmi.InterfaceWithMac(&macvtapIface, chosenMAC)),
 				libvmi.WithNetwork(libvmi.MultusNetwork(ifaceName, macvtapNetworkName)))
 
-			vmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			namespace := testsuite.GetTestNamespace(nil)
+			vmi, err = kubevirt.Client().VirtualMachineInstance(namespace).Create(
+				context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
 			vmi = libwait.WaitUntilVMIReady(
 				vmi,
@@ -172,9 +179,11 @@ var _ = Describe(SIG("network binding plugin", Serial, decorators.NetCustomBindi
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			)
 
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			namespace := testsuite.GetTestNamespace(nil)
+			vmi, err := kubevirt.Client().VirtualMachineInstance(namespace).Create(
+				context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).NotTo(HaveOccurred())
-			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine, libwait.WithTimeout(30))
+			vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine, libwait.WithTimeout(vmiReadyTimeoutManagedTap))
 
 			Expect(vmi.Status.Interfaces).To(HaveLen(1))
 			Expect(vmi.Status.Interfaces[0].Name).To(Equal(primaryIface.Name))

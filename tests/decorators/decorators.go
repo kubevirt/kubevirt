@@ -71,9 +71,13 @@ var (
 	RequiresHugepages1Gi                 = Label("requireHugepages1Gi")
 	GuestAgentProbes                     = Label("guest-agent-probes")
 	Passt                                = Label("passt")
+	ImageVolume                          = Label("ImageVolume")
+	RebootPolicy                         = Label("RebootPolicy")
 
 	/* Storage classes */
 
+	// RequiresRWXFilesystemStorage requires a storage class with ReadWriteMany Filesystem storage support
+	RequiresRWXFilesystemStorage = Label("rwxfs")
 	// RequiresSnapshotStorageClass requires a storage class with support for snapshots
 	RequiresSnapshotStorageClass = Label("RequiresSnapshotStorageClass")
 	// RequiresWFFCStorageClass requires a storage class with support for WFFC bindingMode
@@ -131,6 +135,9 @@ var (
 	// Currently, in pilot mode, restricted to SIG-Network and virtctl only.
 	OncePerOrderedCleanup = Label("OncePerOrderedCleanup")
 
-	// Swap decorator is used in case a swap is required on a node.
-	Swap = Label("SwapTest")
+	/* Platform */
+
+	// OpenShift decorator is used for tests that can only run on OpenShift clusters
+	// (e.g., tests requiring SecurityContextConstraints, Routes)
+	OpenShift = Label("OpenShift")
 )

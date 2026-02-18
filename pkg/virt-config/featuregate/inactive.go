@@ -69,9 +69,12 @@ const (
 	// GA:    v1.5.0
 	DynamicPodInterfaceNamingGate = "DynamicPodInterfaceNaming"
 
-	PasstGate   = "Passt"
-	MacvtapGate = "Macvtap"
+	PasstGate             = "Passt"
+	MacvtapGate           = "Macvtap"
+	PasstIPStackMigration = "PasstIPStackMigration"
 
+	// VirtIOFSGate enables the use of virtiofs for config and storage volumes.
+	// Discontinued in v1.7.0
 	VirtIOFSGate = "ExperimentalVirtiofsSupport"
 	// VolumesUpdateStrategy enables to specify the strategy on the volume updates.
 	// Introduced in v1.3.0
@@ -103,6 +106,21 @@ const (
 	//
 	// MultiArchitecture allows VM/VMIs to request and schedule to an architecture other than that of control plane
 	MultiArchitecture = "MultiArchitecture"
+
+	// VirtIOFSConfigVolumesGate enables the use of virtiofs for config volumes, i.e., config-maps, secrets, downwardAPI, etc.
+	// Ownwers: @germag @jcanocan
+	// Alpha: v1.5.0
+	// Beta: v1.6.0
+	// GA: v1.8.0
+	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
+
+	// Owner: sig-compute
+	// Alpha: v1.0.0
+	// Deprecated: v1.8.0
+	//
+	// DisableMediatedDevicesHandling disables the handling of mediated
+	// devices, its creation and deletion
+	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
 )
 
 func init() {
@@ -128,11 +146,14 @@ func init() {
 
 	RegisterFeatureGate(FeatureGate{Name: DockerSELinuxMCSWorkaround, State: Deprecated, Message: fmt.Sprintf(
 		"DockerSELinuxMCSWorkaround has been deprecated since v1.4.")})
-	RegisterFeatureGate(FeatureGate{Name: VirtIOFSGate, State: Deprecated, Message: VirtioFsFeatureGateDeprecationMessage})
+	RegisterFeatureGate(FeatureGate{Name: VirtIOFSGate, State: Discontinued, Message: VirtioFsFeatureGateDiscontinueMessage})
 
 	RegisterFeatureGate(FeatureGate{Name: PasstGate, State: Discontinued, Message: PasstDiscontinueMessage, VmiSpecUsed: passtApiUsed})
 	RegisterFeatureGate(FeatureGate{Name: MacvtapGate, State: Discontinued, Message: MacvtapDiscontinueMessage, VmiSpecUsed: macvtapApiUsed})
+	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Discontinued, Message: PasstIPStackMigrationMessage})
 
 	RegisterFeatureGate(FeatureGate{Name: InstancetypeReferencePolicy, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MultiArchitecture, State: Deprecated, Message: "MultiArchitecture has been deprecated since v1.8.0"})
+	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Deprecated, Message: "DisableMDEVConfiguration has been deprecated since v1.8.0"})
 }

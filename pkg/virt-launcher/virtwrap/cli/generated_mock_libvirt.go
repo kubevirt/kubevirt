@@ -130,6 +130,20 @@ func (mr *MockConnectionMockRecorder) DomainEventDeviceRemovedRegister(callback 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventDeviceRemovedRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventDeviceRemovedRegister), callback)
 }
 
+// DomainEventJobCompletedRegister mocks base method.
+func (m *MockConnection) DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DomainEventJobCompletedRegister", callback)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DomainEventJobCompletedRegister indicates an expected call of DomainEventJobCompletedRegister.
+func (mr *MockConnectionMockRecorder) DomainEventJobCompletedRegister(callback any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DomainEventJobCompletedRegister", reflect.TypeOf((*MockConnection)(nil).DomainEventJobCompletedRegister), callback)
+}
+
 // DomainEventLifecycleRegister mocks base method.
 func (m *MockConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error {
 	m.ctrl.T.Helper()
@@ -468,6 +482,20 @@ func (mr *MockVirDomainMockRecorder) AuthorizedSSHKeysSet(user, keys, flags any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AuthorizedSSHKeysSet", reflect.TypeOf((*MockVirDomain)(nil).AuthorizedSSHKeysSet), user, keys, flags)
 }
 
+// BackupBegin mocks base method.
+func (m *MockVirDomain) BackupBegin(backupXML, checkpointXML string, flags libvirt.DomainBackupBeginFlags) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BackupBegin", backupXML, checkpointXML, flags)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// BackupBegin indicates an expected call of BackupBegin.
+func (mr *MockVirDomainMockRecorder) BackupBegin(backupXML, checkpointXML, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BackupBegin", reflect.TypeOf((*MockVirDomain)(nil).BackupBegin), backupXML, checkpointXML, flags)
+}
+
 // BlockResize mocks base method.
 func (m *MockVirDomain) BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error {
 	m.ctrl.T.Helper()
@@ -494,6 +522,21 @@ func (m *MockVirDomain) CoreDumpWithFormat(to string, format libvirt.DomainCoreD
 func (mr *MockVirDomainMockRecorder) CoreDumpWithFormat(to, format, flags any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CoreDumpWithFormat", reflect.TypeOf((*MockVirDomain)(nil).CoreDumpWithFormat), to, format, flags)
+}
+
+// CreateCheckpointXML mocks base method.
+func (m *MockVirDomain) CreateCheckpointXML(xmlConfig string, flags libvirt.DomainCheckpointCreateFlags) (*libvirt.DomainCheckpoint, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateCheckpointXML", xmlConfig, flags)
+	ret0, _ := ret[0].(*libvirt.DomainCheckpoint)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateCheckpointXML indicates an expected call of CreateCheckpointXML.
+func (mr *MockVirDomainMockRecorder) CreateCheckpointXML(xmlConfig, flags any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateCheckpointXML", reflect.TypeOf((*MockVirDomain)(nil).CreateCheckpointXML), xmlConfig, flags)
 }
 
 // CreateWithFlags mocks base method.

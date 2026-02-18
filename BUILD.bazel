@@ -335,7 +335,7 @@ oci_push(
 oci_push(
     name = "push-fedora-with-test-tooling-container-disk",
     image = "//containerimages:fedora-with-test-tooling",
-    repository = "quay.io/fedora-with-test-tooling-container-disk",
+    repository = "quay.io/kubevirt/fedora-with-test-tooling-container-disk",
 )
 
 oci_push(
@@ -367,6 +367,18 @@ oci_push(
     name = "push-winrmcli",
     image = "//images/winrmcli:winrmcli-image",
     repository = "quay.io/kubevirt/winrmcli",
+)
+
+oci_push(
+    name = "push-virt-template-apiserver",
+    image = "//images/virt-template:virt-template-apiserver-image",
+    repository = "quay.io/kubevirt/virt-template-apiserver",
+)
+
+oci_push(
+    name = "push-virt-template-controller",
+    image = "//images/virt-template:virt-template-controller-image",
+    repository = "quay.io/kubevirt/virt-template-controller",
 )
 
 genrule(

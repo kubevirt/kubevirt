@@ -169,10 +169,15 @@ func calcPVCNeededSize(memoryDumpExpectedSize *resource.Quantity, storageClass *
 }
 
 func generatePVC(size *resource.Quantity, claimName, namespace, storageClass, accessMode string) (*k8sv1.PersistentVolumeClaim, error) {
+	labels := map[string]string{
+		storagetypes.LabelApplyStorageProfile: "true",
+	}
+
 	pvc := &k8sv1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      claimName,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Spec: k8sv1.PersistentVolumeClaimSpec{
 			Resources: k8sv1.VolumeResourceRequirements{

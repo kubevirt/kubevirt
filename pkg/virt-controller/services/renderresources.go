@@ -13,9 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
-	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -413,122 +411,6 @@ func copyResourceClaims(resources *k8sv1.ResourceRequirements, claims *[]k8sv1.R
 	}
 }
 
-// GetMemoryOverhead computes the estimation of total
-// memory needed for the domain to operate properly.
-// This includes the memory needed for the guest and memory
-// for Qemu and OS overhead.
-// The return value is overhead memory quantity
-//
-// Note: This is the best estimation we were able to come up with
-//
-//	and is still not 100% accurate
-func GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string) resource.Quantity {
-	domain := vmi.Spec.Domain
-	vmiMemoryReq := domain.Resources.Requests.Memory()
-
-	overhead := *resource.NewScaledQuantity(0, resource.Kilo)
-
-	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
-	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
-	pagetableMemory.Set(pagetableMemory.Value() / 512)
-	overhead.Add(*pagetableMemory)
-
-	// Add fixed overhead for KubeVirt components, as seen in a random run, rounded up to the nearest MiB
-	// Note: shared libraries are included in the size, so every library is counted (wrongly) as many times as there are
-	//   processes using it. However, the extra memory is only in the order of 10MiB and makes for a nice safety margin.
-	overhead.Add(resource.MustParse(VirtLauncherMonitorOverhead))
-	overhead.Add(resource.MustParse(VirtLauncherOverhead))
-	overhead.Add(resource.MustParse(VirtlogdOverhead))
-	overhead.Add(resource.MustParse(VirtqemudOverhead))
-	overhead.Add(resource.MustParse(QemuOverhead))
-
-	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
-	// overhead per vcpu in MiB
-	coresMemory := resource.MustParse("8Mi")
-	var vcpus int64
-	if domain.CPU != nil {
-		vcpus = hardware.GetNumberOfVCPUs(domain.CPU)
-	} else {
-		// Currently, a default guest CPU topology is set by the API webhook mutator, if not set by a user.
-		// However, this wasn't always the case.
-		// In case when the guest topology isn't set, take value from resources request or limits.
-		resources := vmi.Spec.Domain.Resources
-		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-			vcpus = cpuLimit.Value()
-		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-			vcpus = cpuRequests.Value()
-		}
-	}
-
-	// if neither CPU topology nor request or limits provided, set vcpus to 1
-	if vcpus < 1 {
-		vcpus = 1
-	}
-	value := coresMemory.Value() * vcpus
-	coresMemory = *resource.NewQuantity(value, coresMemory.Format)
-	overhead.Add(coresMemory)
-
-	// static overhead for IOThread
-	overhead.Add(resource.MustParse("8Mi"))
-
-	// Add video RAM overhead
-	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
-		overhead.Add(resource.MustParse("32Mi"))
-	}
-
-	// When use uefi boot on aarch64 with edk2 package, qemu will create 2 pflash(64Mi each, 128Mi in total)
-	// it should be considered for memory overhead
-	// Additional information can be found here: https://github.com/qemu/qemu/blob/master/hw/arm/virt.c#L120
-	if cpuArch == "arm64" {
-		overhead.Add(resource.MustParse("128Mi"))
-	}
-
-	// Additional overhead of 1G for VFIO devices. VFIO requires all guest RAM to be locked
-	// in addition to MMIO memory space to allow DMA. 1G is often the size of reserved MMIO space on x86 systems.
-	// Additial information can be found here: https://www.redhat.com/archives/libvir-list/2015-November/msg00329.html
-	if util.IsVFIOVMI(vmi) {
-		overhead.Add(resource.MustParse("1Gi"))
-	}
-
-	// DownardMetrics volumes are using emptyDirs backed by memory.
-	// the max. disk size is only 256Ki.
-	if downwardmetrics.HasDownwardMetricDisk(vmi) {
-		overhead.Add(resource.MustParse("1Mi"))
-	}
-
-	addProbeOverheads(vmi, &overhead)
-
-	// Consider memory overhead for SEV guests.
-	// Additional information can be found here: https://libvirt.org/kbase/launch_security_sev.html#memory
-	if util.IsSEVVMI(vmi) || util.IsSEVSNPVMI(vmi) || util.IsSEVESVMI(vmi) {
-		overhead.Add(resource.MustParse("256Mi"))
-	}
-
-	// Having a TPM device will spawn a swtpm process
-	// In `ps`, swtpm has VSZ of 53808 and RSS of 3496, so 53Mi should do
-	if tpm.HasDevice(&vmi.Spec) {
-		overhead.Add(resource.MustParse("53Mi"))
-	}
-
-	if vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed() {
-		overhead.Add(resource.MustParse("100Mi"))
-	}
-
-	// Multiplying the ratio is expected to be the last calculation before returning overhead
-	if additionalOverheadRatio != nil && *additionalOverheadRatio != "" {
-		ratio, err := strconv.ParseFloat(*additionalOverheadRatio, 64)
-		if err != nil {
-			// This error should never happen as it's already validated by webhooks
-			log.Log.Warningf("cannot add additional overhead to virt infra overhead calculation: %v", err)
-			return overhead
-		}
-
-		overhead = multiplyMemory(overhead, ratio)
-	}
-
-	return overhead
-}
-
 // Request a resource by name. This function bumps the number of resources,
 // both its limits and requests attributes.
 //
@@ -577,7 +459,7 @@ func calcVCPUs(cpu *v1.CPU) int64 {
 	return int64(1)
 }
 
-func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k8sv1.ResourceList {
+func getRequiredResources(vmi *v1.VirtualMachineInstance, hypervisorResource k8sv1.ResourceName, allowEmulation bool) k8sv1.ResourceList {
 	res := k8sv1.ResourceList{}
 	if netvmispec.RequiresTunDevice(vmi) {
 		res[TunDevice] = resource.MustParse("1")
@@ -590,7 +472,7 @@ func getRequiredResources(vmi *v1.VirtualMachineInstance, allowEmulation bool) k
 		res[VhostNetDevice] = resource.MustParse("1")
 	}
 	if !allowEmulation {
-		res[KvmDevice] = resource.MustParse("1")
+		res[hypervisorResource] = resource.MustParse("1")
 	}
 	if util.IsAutoAttachVSOCK(vmi) {
 		res[VhostVsockDevice] = resource.MustParse("1")
@@ -770,6 +652,36 @@ func hotplugContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceLi
 	}
 }
 
+func hotplugPodTolerations() []k8sv1.Toleration {
+	return []k8sv1.Toleration{
+		{
+			Key:      k8sv1.TaintNodeUnschedulable,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodeNetworkUnavailable,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodeDiskPressure,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodeMemoryPressure,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      k8sv1.TaintNodePIDPressure,
+			Operator: k8sv1.TolerationOpExists,
+			Effect:   k8sv1.TaintEffectNoSchedule,
+		},
+	}
+}
+
 func vmExportContainerResourceRequirements(config *virtconfig.ClusterConfig) k8sv1.ResourceRequirements {
 	return k8sv1.ResourceRequirements{
 		Limits:   vmExportContainerLimits(config),
@@ -805,14 +717,6 @@ func vmExportContainerRequests(config *virtconfig.ClusterConfig) k8sv1.ResourceL
 		k8sv1.ResourceCPU:    cpuQuantity,
 		k8sv1.ResourceMemory: memQuantity,
 	}
-}
-
-func multiplyMemory(mem resource.Quantity, multiplication float64) resource.Quantity {
-	overheadAddition := float64(mem.ScaledValue(resource.Kilo)) * (multiplication - 1.0)
-	additionalOverhead := resource.NewScaledQuantity(int64(overheadAddition), resource.Kilo)
-
-	mem.Add(*additionalOverhead)
-	return mem
 }
 
 func getMemoryLimitsRatio(namespace string, namespaceStore cache.Store) float64 {

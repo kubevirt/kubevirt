@@ -66,6 +66,531 @@
      }
     }
    },
+   "/apis/backup.kubevirt.io/": {
+    "get": {
+     "description": "Get a KubeVirt API group",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "getAPIGroup-backup.kubevirt.io",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIGroup"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/backup.kubevirt.io/v1alpha1/": {
+    "get": {
+     "description": "Get KubeVirt API Resources",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "getAPIResources-backup.kubevirt.io-v1alpha1",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.APIResourceList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/backup.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinebackups": {
+    "get": {
+     "description": "Get a list of VirtualMachineBackup objects.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "listNamespacedVirtualMachineBackup",
+     "parameters": [
+      {
+       "$ref": "#/parameters/continue-tuthsW5V"
+      },
+      {
+       "$ref": "#/parameters/fieldSelector-xIcQKXFG"
+      },
+      {
+       "$ref": "#/parameters/includeUninitialized-QoLHGc5Z"
+      },
+      {
+       "$ref": "#/parameters/labelSelector-QAC9DRn4"
+      },
+      {
+       "$ref": "#/parameters/limit-1NfNmdNH"
+      },
+      {
+       "$ref": "#/parameters/namespace-nfszEHZ0"
+      },
+      {
+       "$ref": "#/parameters/resourceVersion-NVjERKp4"
+      },
+      {
+       "$ref": "#/parameters/timeoutSeconds-Uh2az5SS"
+      },
+      {
+       "$ref": "#/parameters/watch-XNNPZGbK"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackupList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "post": {
+     "description": "Create a VirtualMachineBackup object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "createNamespacedVirtualMachineBackup",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       }
+      },
+      {
+       "$ref": "#/parameters/namespace-nfszEHZ0"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       }
+      },
+      "201": {
+       "description": "Created",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       }
+      },
+      "202": {
+       "description": "Accepted",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "delete": {
+     "description": "Delete a collection of VirtualMachineBackup objects.",
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "deleteCollectionNamespacedVirtualMachineBackup",
+     "parameters": [
+      {
+       "$ref": "#/parameters/continue-tuthsW5V"
+      },
+      {
+       "$ref": "#/parameters/fieldSelector-xIcQKXFG"
+      },
+      {
+       "$ref": "#/parameters/includeUninitialized-QoLHGc5Z"
+      },
+      {
+       "$ref": "#/parameters/labelSelector-QAC9DRn4"
+      },
+      {
+       "$ref": "#/parameters/limit-1NfNmdNH"
+      },
+      {
+       "$ref": "#/parameters/resourceVersion-NVjERKp4"
+      },
+      {
+       "$ref": "#/parameters/timeoutSeconds-Uh2az5SS"
+      },
+      {
+       "$ref": "#/parameters/watch-XNNPZGbK"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   },
+   "/apis/backup.kubevirt.io/v1alpha1/namespaces/{namespace}/virtualmachinebackups/{name}": {
+    "get": {
+     "description": "Get a VirtualMachineBackup object.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "readNamespacedVirtualMachineBackup",
+     "parameters": [
+      {
+       "$ref": "#/parameters/exact-uArBoZ4_"
+      },
+      {
+       "$ref": "#/parameters/export-Jg3Blz7K"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "put": {
+     "description": "Update a VirtualMachineBackup object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "replaceNamespacedVirtualMachineBackup",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       }
+      },
+      "201": {
+       "description": "Create",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "delete": {
+     "description": "Delete a VirtualMachineBackup object.",
+     "consumes": [
+      "application/json",
+      "application/yaml"
+     ],
+     "produces": [
+      "application/json",
+      "application/yaml"
+     ],
+     "operationId": "deleteNamespacedVirtualMachineBackup",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.DeleteOptions"
+       }
+      },
+      {
+       "$ref": "#/parameters/gracePeriodSeconds--K5HaBOS"
+      },
+      {
+       "$ref": "#/parameters/orphanDependents-uRB25kX5"
+      },
+      {
+       "$ref": "#/parameters/propagationPolicy-6jk3prlO"
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Status"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "patch": {
+     "description": "Patch a VirtualMachineBackup object.",
+     "consumes": [
+      "application/json-patch+json",
+      "application/merge-patch+json"
+     ],
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "patchNamespacedVirtualMachineBackup",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Patch"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/backup.kubevirt.io/v1alpha1/virtualmachinebackups": {
+    "get": {
+     "description": "Get a list of all VirtualMachineBackup objects.",
+     "produces": [
+      "application/json",
+      "application/yaml",
+      "application/json;stream=watch"
+     ],
+     "operationId": "listVirtualMachineBackupForAllNamespaces",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.VirtualMachineBackupList"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "$ref": "#/parameters/continue-tuthsW5V"
+     },
+     {
+      "$ref": "#/parameters/fieldSelector-xIcQKXFG"
+     },
+     {
+      "$ref": "#/parameters/includeUninitialized-QoLHGc5Z"
+     },
+     {
+      "$ref": "#/parameters/labelSelector-QAC9DRn4"
+     },
+     {
+      "$ref": "#/parameters/limit-1NfNmdNH"
+     },
+     {
+      "$ref": "#/parameters/resourceVersion-NVjERKp4"
+     },
+     {
+      "$ref": "#/parameters/timeoutSeconds-Uh2az5SS"
+     },
+     {
+      "$ref": "#/parameters/watch-XNNPZGbK"
+     }
+    ]
+   },
+   "/apis/backup.kubevirt.io/v1alpha1/watch/namespaces/{namespace}/virtualmachinebackups": {
+    "get": {
+     "description": "Watch a VirtualMachineBackup object.",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "watchNamespacedVirtualMachineBackup",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "$ref": "#/parameters/continue-tuthsW5V"
+     },
+     {
+      "$ref": "#/parameters/fieldSelector-xIcQKXFG"
+     },
+     {
+      "$ref": "#/parameters/includeUninitialized-QoLHGc5Z"
+     },
+     {
+      "$ref": "#/parameters/labelSelector-QAC9DRn4"
+     },
+     {
+      "$ref": "#/parameters/limit-1NfNmdNH"
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     },
+     {
+      "$ref": "#/parameters/resourceVersion-NVjERKp4"
+     },
+     {
+      "$ref": "#/parameters/timeoutSeconds-Uh2az5SS"
+     },
+     {
+      "$ref": "#/parameters/watch-XNNPZGbK"
+     }
+    ]
+   },
+   "/apis/backup.kubevirt.io/v1alpha1/watch/virtualmachinebackups": {
+    "get": {
+     "description": "Watch a VirtualMachineBackupList object.",
+     "produces": [
+      "application/json"
+     ],
+     "operationId": "watchVirtualMachineBackupListForAllNamespaces",
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.WatchEvent"
+       }
+      },
+      "401": {
+       "description": "Unauthorized",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "$ref": "#/parameters/continue-tuthsW5V"
+     },
+     {
+      "$ref": "#/parameters/fieldSelector-xIcQKXFG"
+     },
+     {
+      "$ref": "#/parameters/includeUninitialized-QoLHGc5Z"
+     },
+     {
+      "$ref": "#/parameters/labelSelector-QAC9DRn4"
+     },
+     {
+      "$ref": "#/parameters/limit-1NfNmdNH"
+     },
+     {
+      "$ref": "#/parameters/resourceVersion-NVjERKp4"
+     },
+     {
+      "$ref": "#/parameters/timeoutSeconds-Uh2az5SS"
+     },
+     {
+      "$ref": "#/parameters/watch-XNNPZGbK"
+     }
+    ]
+   },
    "/apis/clone.kubevirt.io/": {
     "get": {
      "description": "Get a KubeVirt API group",
@@ -8231,6 +8756,61 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/backup": {
+    "put": {
+     "description": "Initiate a VirtualMachineInstance backup.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1Backup",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.BackupOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
@@ -8592,6 +9172,61 @@
      },
      {
       "$ref": "#/parameters/protocol-B-mX08es"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint": {
+    "put": {
+     "description": "Redefine a checkpoint for a VirtualMachineInstance.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1RedefineCheckpoint",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.BackupCheckpoint"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
      }
     ]
    },
@@ -9952,6 +10587,61 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/backup": {
+    "put": {
+     "description": "Initiate a VirtualMachineInstance backup.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3Backup",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.BackupOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/console": {
     "get": {
      "description": "Open a websocket connection to a serial console on the specified VirtualMachineInstance.",
@@ -10313,6 +11003,61 @@
      },
      {
       "$ref": "#/parameters/protocol-B-mX08es"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/redefine-checkpoint": {
+    "put": {
+     "description": "Redefine a checkpoint for a VirtualMachineInstance.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3RedefineCheckpoint",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1alpha1.BackupCheckpoint"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      },
+      "404": {
+       "description": "Not Found",
+       "schema": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
      }
     ]
    },
@@ -11846,7 +12591,7 @@
       "type": "string"
      },
      "volumeAttributesClassName": {
-      "description": "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim. If specified, the CSI driver will create or update the volume with the attributes defined in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName, it can be changed after the claim is created. An empty string value means that no VolumeAttributesClass will be applied to the claim but it's not allowed to reset this field to empty string once it is set. If unspecified and the PersistentVolumeClaim is unbound, the default VolumeAttributesClass will be set by the persistentvolume controller if it exists. If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource exists. More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/ (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).",
+      "description": "volumeAttributesClassName may be used to set the VolumeAttributesClass used by this claim. If specified, the CSI driver will create or update the volume with the attributes defined in the corresponding VolumeAttributesClass. This has a different purpose than storageClassName, it can be changed after the claim is created. An empty string or nil value indicates that no VolumeAttributesClass will be applied to the claim. If the claim enters an Infeasible error state, this field can be reset to its previous value (including nil) to cancel the modification. If the resource referred to by volumeAttributesClass does not exist, this PersistentVolumeClaim will be set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource exists. More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/",
       "type": "string"
      },
      "volumeMode": {
@@ -11960,7 +12705,7 @@
     "type": "object",
     "properties": {
      "preferredDuringSchedulingIgnoredDuringExecution": {
-      "description": "The scheduler will prefer to schedule pods to nodes that satisfy the anti-affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling anti-affinity expressions, etc.), compute a sum by iterating through the elements of this field and adding \"weight\" to the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.",
+      "description": "The scheduler will prefer to schedule pods to nodes that satisfy the anti-affinity expressions specified by this field, but it may choose a node that violates one or more of the expressions. The node that is most preferred is the one with the greatest sum of weights, i.e. for each node that meets all of the scheduling requirements (resource request, requiredDuringScheduling anti-affinity expressions, etc.), compute a sum by iterating through the elements of this field and subtracting \"weight\" from the sum if the node has pods which matches the corresponding podAffinityTerm; the node(s) with the highest sum are the most preferred.",
       "type": "array",
       "items": {
        "default": {},
@@ -13289,6 +14034,10 @@
      "state"
     ],
     "properties": {
+     "backupStatus": {
+      "description": "BackupStatus represents the status of vmi backup",
+      "$ref": "#/definitions/v1.VirtualMachineInstanceBackupStatus"
+     },
      "state": {
       "description": "State represents the current CBT state",
       "type": "string",
@@ -13719,16 +14468,26 @@
       "type": "integer",
       "format": "int32"
      },
-     "diskVerification": {
-      "$ref": "#/definitions/v1.DiskVerification"
-     },
-     "featureGates": {
-      "description": "FeatureGates is the list of experimental features to enable. Defaults to none",
+     "disabledFeatureGates": {
+      "description": "DisabledFeatureGates specifies a list of experimental feature gates to disable. A feature gate must not appear in both FeatureGates and DisabledFeatureGates.",
       "type": "array",
       "items": {
        "type": "string",
        "default": ""
-      }
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "diskVerification": {
+      "$ref": "#/definitions/v1.DiskVerification"
+     },
+     "featureGates": {
+      "description": "FeatureGates specifies a list of experimental feature gates to enable. Defaults to none. A feature gate must not appear in both FeatureGates and DisabledFeatureGates.",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "logVerbosity": {
       "$ref": "#/definitions/v1.LogVerbosity"
@@ -14170,6 +14929,10 @@
       "description": "Memory allow specifying the VMI memory features.",
       "$ref": "#/definitions/v1.Memory"
      },
+     "rebootPolicy": {
+      "description": "RebootPolicy specifies how the guest should behave on reboot. Reboot (default): The guest is allowed to reboot silently. Terminate: The VMI will be terminated on guest reboot, allowing higher level controllers (such as the VM controller) to recreate the VMI with any updated configuration such as boot order changes.",
+      "type": "string"
+     },
      "resources": {
       "description": "Resources describes the Compute Resources required by this vmi.",
       "default": {},
@@ -14327,7 +15090,7 @@
      },
      "tlbflush": {
       "description": "TLBFlush improves performances in overcommited environments. Requires vpindex. Defaults to the machine type setting.",
-      "$ref": "#/definitions/v1.FeatureState"
+      "$ref": "#/definitions/v1.TLBFlush"
      },
      "vapic": {
       "description": "VAPIC improves the paravirtualized handling of interrupts. Defaults to the machine type setting.",
@@ -14725,6 +15488,16 @@
      }
     }
    },
+   "v1.HypervisorConfiguration": {
+    "description": "HypervisorConfiguration holds information regarding the hypervisor present on cluster nodes.",
+    "type": "object",
+    "properties": {
+     "name": {
+      "description": "Name is the name of the hypervisor. Supported values are: \"kvm\", \"hyperv-direct\".",
+      "type": "string"
+     }
+    }
+   },
    "v1.I6300ESBWatchdog": {
     "description": "i6300esb watchdog device.",
     "type": "object",
@@ -14880,6 +15653,9 @@
       "description": "DeprecatedPasst is an alias to the deprecated Passt interface, please refer to Kubevirt user guide for alternatives. Deprecated: Removed in v1.3",
       "$ref": "#/definitions/v1.DeprecatedInterfacePasst"
      },
+     "passtBinding": {
+      "$ref": "#/definitions/v1.InterfacePasstBinding"
+     },
      "pciAddress": {
       "description": "If specified, the virtual network interface will be placed on the guests pci address with the specified PCI address. For example: 0000:81:01.10",
       "type": "string"
@@ -14953,6 +15729,10 @@
    },
    "v1.InterfaceMasquerade": {
     "description": "InterfaceMasquerade connects to a given network using netfilter rules to nat the traffic.",
+    "type": "object"
+   },
+   "v1.InterfacePasstBinding": {
+    "description": "InterfacePasstBinding connects to a given network using passt usermode networking.",
     "type": "object"
    },
    "v1.InterfaceSRIOV": {
@@ -15181,6 +15961,15 @@
      "handlerConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
      },
+     "hypervisors": {
+      "description": "Hypervisors holds information regarding the hypervisor configurations supported on this cluster.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.HypervisorConfiguration"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
      "imagePullPolicy": {
       "description": "Possible enum values:\n - `\"Always\"` means that kubelet always attempts to pull the latest image. Container will fail If the pull fails.\n - `\"IfNotPresent\"` means that kubelet pulls if the image isn't present on disk. Container will fail if the image isn't present and the pull fails.\n - `\"Never\"` means that kubelet never pulls an image, but only uses a local image. Container will fail if the image isn't present",
       "type": "string",
@@ -15268,6 +16057,10 @@
      },
      "tlsConfiguration": {
       "$ref": "#/definitions/v1.TLSConfiguration"
+     },
+     "virtTemplateDeployment": {
+      "description": "VirtTemplateDeployment controls the deployment of virt-template components",
+      "$ref": "#/definitions/v1.VirtTemplateDeployment"
      },
      "virtualMachineInstancesPerNode": {
       "type": "integer",
@@ -15632,6 +16425,10 @@
     "description": "MediatedDevicesConfiguration holds information about MDEV types to be defined, if available",
     "type": "object",
     "properties": {
+     "enabled": {
+      "description": "Enable the creation and removal of mediated devices by virt-handler Replaces the deprecated DisableMDEVConfiguration feature gate Defaults to true",
+      "type": "boolean"
+     },
      "mediatedDeviceTypes": {
       "type": "array",
       "items": {
@@ -16852,6 +17649,7 @@
       "$ref": "#/definitions/v1.FeatureState"
      },
      "enabled": {
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.",
       "type": "boolean"
      }
     }
@@ -16872,6 +17670,23 @@
    },
    "v1.TDX": {
     "type": "object"
+   },
+   "v1.TLBFlush": {
+    "type": "object",
+    "properties": {
+     "direct": {
+      "description": "Direct allows sending the TLB flush command directly to the hypervisor. It can be useful to optimize performance in nested virtualization cases, such as Windows VBS.",
+      "$ref": "#/definitions/v1.FeatureState"
+     },
+     "enabled": {
+      "description": "Enabled determines if the feature should be enabled or disabled on the guest. Defaults to true.",
+      "type": "boolean"
+     },
+     "extended": {
+      "description": "Extended allows the guest to execute partial TLB flushes. It can be helpful for general purpose workloads.",
+      "$ref": "#/definitions/v1.FeatureState"
+     }
+    }
    },
    "v1.TLSConfiguration": {
     "description": "TLSConfiguration holds TLS options",
@@ -17122,6 +17937,15 @@
      }
     }
    },
+   "v1.VirtTemplateDeployment": {
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "description": "Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.VirtualMachine": {
     "description": "VirtualMachine handles the VirtualMachines that are not running or are in a stopped state The VirtualMachine contains the template to create the VirtualMachineInstance. It also mirrors the running state of the created VirtualMachineInstance in its status.",
     "type": "object",
@@ -17216,6 +18040,45 @@
       "description": "Status is the high level overview of how the VirtualMachineInstance is doing. It contains information available to controllers and users.",
       "default": {},
       "$ref": "#/definitions/v1.VirtualMachineInstanceStatus"
+     }
+    }
+   },
+   "v1.VirtualMachineInstanceBackupStatus": {
+    "description": "VirtualMachineInstanceBackupStatus tracks the information of the executed backup",
+    "type": "object",
+    "properties": {
+     "backupMsg": {
+      "description": "BackupMsg resturns any relevant information like failure reason unfreeze failed etc...",
+      "type": "string"
+     },
+     "backupName": {
+      "description": "BackupName is the name of the executed backup",
+      "type": "string"
+     },
+     "checkpointName": {
+      "description": "CheckpointName is the name of the checkpoint created for the backup",
+      "type": "string"
+     },
+     "completed": {
+      "description": "Completed indicates the backup completed",
+      "type": "boolean"
+     },
+     "endTimestamp": {
+      "description": "EndTimestamp is the timestamp when the backup ended",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "startTimestamp": {
+      "description": "StartTimestamp is the timestamp when the backup started",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "volumes": {
+      "description": "Volumes lists the volumes included in the backup",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
      }
     }
    },
@@ -18695,7 +19558,7 @@
       "$ref": "#/definitions/v1.PreferenceMatcher"
      },
      "runStrategy": {
-      "description": "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running",
+      "description": "Running state indicates the requested running state of the VirtualMachineInstance mutually exclusive with Running Following are allowed values: - \"Always\": VMI should always be running. - \"Halted\": VMI should never be running. - \"Manual\": VMI can be started/stopped using API endpoints. - \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion. - \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
       "type": "string"
      },
      "running": {
@@ -19059,6 +19922,109 @@
      }
     }
    },
+   "v1alpha1.BackupCheckpoint": {
+    "type": "object",
+    "properties": {
+     "creationTime": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "name": {
+      "type": "string"
+     },
+     "volumes": {
+      "description": "Volumes lists volumes and their disk targets at backup time",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "v1alpha1.BackupOptions": {
+    "description": "BackupOptions are options used to configure virtual machine backup job",
+    "type": "object",
+    "properties": {
+     "backupName": {
+      "type": "string"
+     },
+     "backupStartTime": {
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
+     },
+     "cmd": {
+      "type": "string"
+     },
+     "incremental": {
+      "type": "string"
+     },
+     "mode": {
+      "type": "string"
+     },
+     "pushPath": {
+      "type": "string"
+     },
+     "skipQuiesce": {
+      "type": "boolean"
+     }
+    }
+   },
+   "v1alpha1.BackupVolumeInfo": {
+    "description": "BackupVolumeInfo contains information about a volume included in a backup",
+    "type": "object",
+    "required": [
+     "volumeName",
+     "diskTarget"
+    ],
+    "properties": {
+     "diskTarget": {
+      "description": "DiskTarget is the disk target device name at backup time",
+      "type": "string",
+      "default": ""
+     },
+     "volumeName": {
+      "description": "VolumeName is the volume name from VMI spec",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1alpha1.Condition": {
+    "description": "Condition defines conditions",
+    "type": "object",
+    "required": [
+     "type",
+     "status"
+    ],
+    "properties": {
+     "lastProbeTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "lastTransitionTime": {
+      "type": [
+       "string",
+       "null"
+      ]
+     },
+     "message": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
+     },
+     "status": {
+      "type": "string",
+      "default": ""
+     },
+     "type": {
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1alpha1.MigrationPolicy": {
     "description": "MigrationPolicy holds migration policy (i.e. configurations) to apply to a VM or group of VMs",
     "type": "object",
@@ -19164,6 +20130,126 @@
        "type": "string",
        "default": ""
       }
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineBackup": {
+    "description": "VirtualMachineBackup defines the operation of backing up a VM",
+    "type": "object",
+    "required": [
+     "spec"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ObjectMeta"
+     },
+     "spec": {
+      "default": {},
+      "$ref": "#/definitions/v1alpha1.VirtualMachineBackupSpec"
+     },
+     "status": {
+      "$ref": "#/definitions/v1alpha1.VirtualMachineBackupStatus"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineBackupList": {
+    "description": "VirtualMachineBackupList is a list of VirtualMachineBackup resources",
+    "type": "object",
+    "required": [
+     "metadata",
+     "items"
+    ],
+    "properties": {
+     "apiVersion": {
+      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+      "type": "string"
+     },
+     "items": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.VirtualMachineBackup"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "kind": {
+      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+      "type": "string"
+     },
+     "metadata": {
+      "default": {},
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.ListMeta"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineBackupSpec": {
+    "description": "VirtualMachineBackupSpec is the spec for a VirtualMachineBackup resource",
+    "type": "object",
+    "required": [
+     "source"
+    ],
+    "properties": {
+     "forceFullBackup": {
+      "description": "ForceFullBackup indicates that a full backup is desired",
+      "type": "boolean"
+     },
+     "mode": {
+      "description": "Mode specifies the way the backup output will be recieved",
+      "type": "string"
+     },
+     "pvcName": {
+      "description": "PvcName required in push mode. Specifies the name of the PVC where the backup output will be stored",
+      "type": "string"
+     },
+     "skipQuiesce": {
+      "description": "SkipQuiesce indicates whether the VM's filesystem shoule not be quiesced before the backup",
+      "type": "boolean"
+     },
+     "source": {
+      "description": "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
+      "default": {},
+      "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     }
+    }
+   },
+   "v1alpha1.VirtualMachineBackupStatus": {
+    "description": "VirtualMachineBackupStatus is the status for a VirtualMachineBackup resource",
+    "type": "object",
+    "nullable": true,
+    "properties": {
+     "checkpointName": {
+      "description": "CheckpointName the name of the checkpoint created for the current backup",
+      "type": "string"
+     },
+     "conditions": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.Condition"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "includedVolumes": {
+      "description": "IncludedVolumes lists the volumes that were included in the backup",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1alpha1.BackupVolumeInfo"
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "type": {
+      "description": "Type indicates if the backup was full or incremental",
+      "type": "string"
      }
     }
    },
@@ -20152,6 +21238,10 @@
       "description": "For a detailed description, please refer to https://kubevirt.io/user-guide/operations/clone_api/#label-annotation-filters.",
       "default": {},
       "$ref": "#/definitions/v1beta1.VirtualMachineCloneTemplateFilters"
+     },
+     "volumeNamePolicy": {
+      "description": "VolumeNamePolicy defines how to handle volume naming during the clone operation",
+      "type": "string"
      }
     }
    },

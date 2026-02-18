@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/checks"
@@ -179,17 +180,17 @@ var _ = Describe("[sig-compute]Windows VirtualMachineInstance", Serial, decorato
 
 			It("should be recognized by other pods in cluster", func() {
 
-				By("Pinging virt-handler Pod from Windows VMI")
-				winVmiPod, err := libpod.GetPodByVirtualMachineInstance(windowsVMI, windowsVMI.Namespace)
-				Expect(err).NotTo(HaveOccurred())
-				nodeName := winVmiPod.Spec.NodeName
+				By("Create client pod")
+				clientPod := libpod.RenderPod("test-conn", []string{"/bin/sh", "-c", "sleep 360"}, []string{})
+				clientPod, err := virtClient.CoreV1().Pods(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientPod, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
 
-				virtHandlerPod, err := libnode.GetVirtHandlerPod(virtClient, nodeName)
-				Expect(err).ToNot(HaveOccurred(), fmt.Sprintf("failed to get virt-handler pod on node %s", nodeName))
+				Eventually(matcher.ThisPod(clientPod)).WithTimeout(120 * time.Second).WithPolling(time.Second).Should(matcher.BeRunning())
+				clientPod, err = virtClient.CoreV1().Pods(clientPod.Namespace).Get(context.Background(), clientPod.Name, metav1.GetOptions{})
 
-				virtHandlerPodIP := libnet.GetPodIPByFamily(virtHandlerPod, k8sv1.IPv4Protocol)
+				clientPodIP := libnet.GetPodIPByFamily(clientPod, k8sv1.IPv4Protocol)
 
-				command := append(winrmLoginCommand(windowsVMI), fmt.Sprintf("ping %s", virtHandlerPodIP))
+				command := append(winrmLoginCommand(windowsVMI), fmt.Sprintf("ping %s", clientPodIP))
 
 				By(fmt.Sprintf("Running \"%s\" command via winrm-cli", command))
 				Eventually(func() error {

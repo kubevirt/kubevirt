@@ -26,7 +26,6 @@ package virtwrap
 */
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/xml"
@@ -45,6 +44,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
 
 	"libvirt.org/go/libvirt"
 
@@ -54,6 +54,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -77,14 +78,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	kutil "kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
+	premigrationhookserver "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server"
 	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -108,7 +108,6 @@ const (
 	failedSyncGuestTime                       = "failed to sync guest time"
 	failedGetDomain                           = "Getting the domain failed."
 	failedGetDomainState                      = "Getting the domain state failed."
-	failedDomainMemoryDump                    = "Domain memory dump failed"
 	affectDeviceLiveAndConfigLibvirtFlags     = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
 	affectDomainLiveAndConfigLibvirtFlags     = libvirt.DOMAIN_AFFECT_LIVE | libvirt.DOMAIN_AFFECT_CONFIG
 	affectDomainVCPULiveAndConfigLibvirtFlags = libvirt.DOMAIN_VCPU_LIVE | libvirt.DOMAIN_VCPU_CONFIG
@@ -122,7 +121,6 @@ const (
 )
 
 const maxConcurrentHotplugHostDevices = 1
-const maxConcurrentMemoryDumps = 1
 
 type contextStore struct {
 	ctx    context.Context
@@ -156,6 +154,8 @@ type DomainManager interface {
 	Exec(string, string, []string, int32) (string, error)
 	GuestPing(string) error
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
+	BackupVirtualMachine(*v1.VirtualMachineInstance, *backupv1.BackupOptions) error
+	RedefineCheckpoint(*v1.VirtualMachineInstance, *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error)
 	GetQemuVersion() (string, error)
 	UpdateVCPUs(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	GetSEVInfo() (*v1.SEVPlatformInfo, error)
@@ -174,33 +174,35 @@ type LibvirtDomainManager struct {
 	// mutex to control access to the guest time context
 	setGuestTimeLock sync.Mutex
 
-	credManager *accesscredentials.AccessCredentialManager
+	credManager    *accesscredentials.AccessCredentialManager
+	storageManager *storage.StorageManager
 
 	hotplugHostDevicesInProgress chan struct{}
-	memoryDumpInProgress         chan struct{}
 
-	virtShareDir             string
-	ephemeralDiskDir         string
-	paused                   pausedVMIs
-	agentData                *agentpoller.AsyncAgentStore
-	cloudInitDataStore       *cloudinit.CloudInitData
-	setGuestTimeContextPtr   *contextStore
-	efiEnvironment           *efi.EFIEnvironment
-	ovmfPath                 string
-	ephemeralDiskCreator     ephemeraldisk.EphemeralDiskCreatorInterface
-	directIOChecker          converter.DirectIOChecker
-	disksInfo                map[string]*osdisk.DiskInfo
-	cancelSafetyUnfreezeChan chan struct{}
-	migrateInfoStats         *stats.DomainJobInfo
-	diskMemoryLimitBytes     int64
+	virtShareDir           string
+	ephemeralDiskDir       string
+	paused                 pausedVMIs
+	agentData              *agentpoller.AsyncAgentStore
+	cloudInitDataStore     *cloudinit.CloudInitData
+	setGuestTimeContextPtr *contextStore
+	efiEnvironment         *efi.EFIEnvironment
+	ephemeralDiskCreator   ephemeraldisk.EphemeralDiskCreatorInterface
+	directIOChecker        converter.DirectIOChecker
+	disksInfo              map[string]*osdisk.DiskInfo
+	domainInfoStats        *stats.DomainJobInfo
+	diskMemoryLimitBytes   int64
 
 	metadataCache             *metadata.Cache
 	domainStatsCache          *virtcache.TimeDefinedCache[*stats.DomainStats]
 	domainDirtyRateStatsCache *virtcache.TimeDefinedCache[*stats.DomainStatsDirtyRate]
 
-	cpuSetGetter                  func() ([]int, error)
-	imageVolumeFeatureGateEnabled bool
-	setTimeOnce                   sync.Once
+	cpuSetGetter                       func() ([]int, error)
+	imageVolumeFeatureGateEnabled      bool
+	libvirtHooksServerAndClientEnabled bool
+	setTimeOnce                        sync.Once
+
+	// Premigration hook server for VMI updates during migration
+	hookServer *premigrationhookserver.PreMigrationHookServer
 }
 
 type pausedVMIs struct {
@@ -228,14 +230,14 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
 	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled, libvirtHooksServerAndClientEnabled, hookServer)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
 	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		diskMemoryLimitBytes: diskMemoryLimitBytes,
 		virConn:              connection,
@@ -244,21 +246,24 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		paused: pausedVMIs{
 			paused: make(map[types.UID]bool, 0),
 		},
-		agentData:                     agentStore,
-		efiEnvironment:                efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
-		ephemeralDiskCreator:          ephemeralDiskCreator,
-		directIOChecker:               directIOChecker,
-		disksInfo:                     map[string]*osdisk.DiskInfo{},
-		cancelSafetyUnfreezeChan:      make(chan struct{}),
-		migrateInfoStats:              &stats.DomainJobInfo{},
-		metadataCache:                 metadataCache,
-		cpuSetGetter:                  cpuSetGetter,
-		setTimeOnce:                   sync.Once{},
-		imageVolumeFeatureGateEnabled: imageVolumeEnabled,
+
+		agentData:            agentStore,
+		efiEnvironment:       efi.DetectEFIEnvironment(runtime.GOARCH, ovmfPath),
+		ephemeralDiskCreator: ephemeralDiskCreator,
+		directIOChecker:      directIOChecker,
+		disksInfo:            map[string]*osdisk.DiskInfo{},
+		domainInfoStats:      &stats.DomainJobInfo{},
+
+		metadataCache:                      metadataCache,
+		cpuSetGetter:                       cpuSetGetter,
+		setTimeOnce:                        sync.Once{},
+		imageVolumeFeatureGateEnabled:      imageVolumeEnabled,
+		libvirtHooksServerAndClientEnabled: libvirtHooksServerAndClientEnabled,
+		hookServer:                         hookServer,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
-	manager.memoryDumpInProgress = make(chan struct{}, maxConcurrentMemoryDumps)
+	manager.storageManager = storage.NewStorageManager(connection, metadataCache)
 	manager.credManager = accesscredentials.NewManager(connection, &manager.domainModifyLock, metadataCache)
 
 	reCalcDomainStats := func() (*stats.DomainStats, error) {
@@ -290,37 +295,6 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 	return &manager, nil
 }
 
-func getDomainSpec(dom cli.VirDomain) (*api.DomainSpec, error) {
-	var newSpec api.DomainSpec
-	xmlstr, err := dom.GetXMLDesc(0)
-	if err != nil {
-		return &newSpec, err
-	}
-	err = xml.Unmarshal([]byte(xmlstr), &newSpec)
-	if err != nil {
-		return &newSpec, err
-	}
-
-	return &newSpec, nil
-}
-
-func getAllDomainDevices(dom cli.VirDomain) (api.Devices, error) {
-	domSpec, err := getDomainSpec(dom)
-	if err != nil {
-		return domSpec.Devices, err
-	}
-	return domSpec.Devices, nil
-}
-
-func getAllDomainDisks(dom cli.VirDomain) ([]api.Disk, error) {
-	devices, err := getAllDomainDevices(dom)
-	if err != nil {
-		return nil, err
-	}
-
-	return devices.Disks, nil
-}
-
 func (l *LibvirtDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance) error {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -339,7 +313,7 @@ func (l *LibvirtDomainManager) UpdateGuestMemory(vmi *v1.VirtualMachineInstance)
 		return err
 	}
 
-	spec, err := getDomainSpec(dom)
+	spec, err := util.GetDomainSpecWithFlags(dom, 0)
 	if err != nil {
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
@@ -525,7 +499,7 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 			return fmt.Errorf("%s: %v", errMsgPrefix, err)
 		}
 
-		spec, err := getDomainSpec(dom)
+		spec, err := util.GetDomainSpecWithFlags(dom, 0)
 		if err != nil {
 			return fmt.Errorf("%s: %v", errMsgPrefix, err)
 		}
@@ -877,7 +851,7 @@ func expandDiskImagesOffline(vmi *v1.VirtualMachineInstance, domain *api.Domain)
 				logger.Errorf("Failed to get possible guest size from disk")
 				break
 			}
-			err := expandDiskImageOffline(getSourceFile(disk), possibleGuestSize)
+			err := expandDiskImageOffline(getBackendSource(disk), possibleGuestSize)
 			if err != nil {
 				logger.Reason(err).Errorf("failed to expand disk image %v at boot", disk)
 			}
@@ -906,6 +880,10 @@ func expandDiskImageOffline(imagePath string, size int64) error {
 }
 
 func possibleGuestSize(disk api.Disk) (int64, bool) {
+	if disk.Source.Dev != "" {
+		return 0, true
+	}
+
 	if disk.Capacity == nil {
 		log.DefaultLogger().Error("No disk capacity")
 		return 0, false
@@ -926,14 +904,12 @@ func possibleGuestSize(disk api.Disk) (int64, bool) {
 	}
 
 	preferredSize := *disk.Capacity
-	if isBlock := disk.Source.Dev != ""; !isBlock {
-		usableSize, err := getUsableDiskSize(getSourceFile(disk))
-		if err != nil {
-			log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
-			usableSize = preferredSize
-		}
-		preferredSize = min(usableSize, preferredSize)
+	usableSize, err := getUsableDiskSize(getBackendSource(disk))
+	if err != nil {
+		log.DefaultLogger().Reason(err).Error("Failed to get total usable space, using disk capacity instead")
+		usableSize = preferredSize
 	}
+	preferredSize = min(usableSize, preferredSize)
 
 	size := int64((1 - filesystemOverhead) * float64(preferredSize))
 	size = kutil.AlignImageSizeTo1MiB(size, log.DefaultLogger())
@@ -968,7 +944,7 @@ func shouldExpandOffline(disk api.Disk) bool {
 		// Block devices don't need to be expanded
 		return false
 	}
-	diskInfo, err := osdisk.GetDiskInfo(getSourceFile(disk))
+	diskInfo, err := osdisk.GetDiskInfo(getBackendSource(disk))
 	if err != nil {
 		log.DefaultLogger().Reason(err).Warning("Failed to get image info")
 		return false
@@ -1062,11 +1038,23 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 	}
 
+	// Check KVM device availability
+	const kvmPath = "/dev/kvm"
+	kvmAvailable := true
+	if _, err := os.Stat(kvmPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			kvmAvailable = false
+		} else {
+			return nil, fmt.Errorf("failed to stat KVM device %s: %w", kvmPath, err)
+		}
+	}
+
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter.ConverterContext{
 		Architecture:          arch.NewConverter(runtime.GOARCH),
 		VirtualMachine:        vmi,
 		AllowEmulation:        allowEmulation,
+		KvmAvailable:          kvmAvailable,
 		CPUSet:                podCPUSet,
 		IsBlockPVC:            isBlockPVCMap,
 		IsBlockDV:             isBlockDVMap,
@@ -1156,10 +1144,6 @@ func isSerialConsoleLogEnabled(clusterSerialConsoleLogDisabled bool, vmi *v1.Vir
 	return (vmi.Spec.Domain.Devices.LogSerialConsole != nil && *vmi.Spec.Domain.Devices.LogSerialConsole) || (vmi.Spec.Domain.Devices.LogSerialConsole == nil && !clusterSerialConsoleLogDisabled)
 }
 
-func needToCreateQCOW2Overlay(vmi *v1.VirtualMachineInstance) bool {
-	return cbt.CompareCBTState(vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
-}
-
 func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
 	l.domainModifyLock.Lock()
 	defer l.domainModifyLock.Unlock()
@@ -1183,7 +1167,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	}
 
 	if cbt.HasCBTStateEnabled(vmi.Status.ChangedBlockTracking) {
-		if err := applyChangedBlockTracking(vmi, c); err != nil {
+		if err := storage.ApplyChangedBlockTracking(vmi, c); err != nil {
 			logger.Reason(err).Error("failed to apply CBT")
 			return nil, err
 		}
@@ -1225,7 +1209,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		logger.Info("Domain unpaused.")
 	}
 
-	oldSpec, err := getDomainSpec(dom)
+	oldSpec, err := util.GetDomainSpecWithFlags(dom, 0)
 	if err != nil {
 		logger.Reason(err).Error("Parsing domain XML failed.")
 		return nil, err
@@ -1249,108 +1233,6 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	return oldSpec, nil
 }
 
-var createQCOW2Overlay = createQCOW2OverlayFunc
-
-func createQCOW2OverlayFunc(overlayPath, imagePath string, blockDev bool) error {
-	if _, err := os.Stat(overlayPath); err == nil {
-		log.Log.V(3).Infof("overlay %s already exists", overlayPath)
-		return nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		log.Log.Reason(err).Errorf("Error checking QCOW2 overlay %s existence", overlayPath)
-		return err
-	}
-
-	_, err := os.Create(overlayPath)
-	if err != nil {
-		log.Log.Reason(err).Errorf("Error creating file QCOW2 overlay %s", overlayPath)
-		return err
-	}
-
-	defer func(path string) {
-		if err != nil {
-			log.Log.Errorf("Deleting QCOW2 overlay %s due to failure %s", path, err)
-			os.Remove(path)
-		}
-	}(overlayPath)
-
-	info, err := osdisk.GetDiskInfo(imagePath)
-	if err != nil {
-		return fmt.Errorf("failed to get image info for image %q", imagePath)
-	}
-	overlaySize := info.VirtualSize
-
-	qmpCapabilities := `{"execute": "qmp_capabilities"}`
-	blockdevCreate := fmt.Sprintf(`{"execute": "blockdev-create", "arguments": {"job-id": "create", "options": {"driver": "qcow2", "file": "file", "data-file": "data-file", "data-file-raw": true, "size": %d}}}`, overlaySize)
-	jobDismiss := `{"execute": "job-dismiss", "arguments": {"id": "create"}}`
-	quit := `{"execute": "quit"}`
-	cmdInput := fmt.Sprintf("%s\n%s\n%s\n%s\n", qmpCapabilities, blockdevCreate, jobDismiss, quit)
-
-	args := append([]string{},
-		"--chardev", "stdio,id=stdio", "--monitor", "stdio",
-		"--blockdev", fmt.Sprintf("file,node-name=file,filename=%s", overlayPath))
-
-	if blockDev {
-		args = append(args, "--blockdev", fmt.Sprintf("host_device,node-name=data-file,filename=%s", imagePath))
-	} else {
-		args = append(args, "--blockdev", fmt.Sprintf("file,node-name=data-file,filename=%s", imagePath))
-	}
-
-	log.Log.V(3).Infof("QCOW2 overlay execute %v", args)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "qemu-storage-daemon", args...)
-	cmd.Stdin = bytes.NewBufferString(cmdInput)
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to create QCOW2 overlay %s: %v, output: %s", overlayPath, err, output)
-	}
-
-	log.Log.Infof("QCOW2 overlay %s created successfully", overlayPath)
-	return nil
-}
-
-func applyChangedBlockTracking(vmi *v1.VirtualMachineInstance, c *converter.ConverterContext) error {
-	logger := log.Log.Object(vmi)
-	applyCBTMap := make(map[string]string)
-
-	// create overlay for every disk supporting changedBlockTracking
-	for _, volume := range vmi.Spec.Volumes {
-		volumeName := volume.Name
-		logger.V(3).Infof("Creating QCOW2 overlay for %+v", volume)
-		if !cbt.IsCBTEligibleVolume(&volume) {
-			logger.V(3).Infof("SKIP Creating QCOW2 overlay for %s", volume.Name)
-			continue
-		}
-
-		overlayPath := cbt.GetQCOW2OverlayPath(vmi, volumeName)
-		logger.V(3).Infof("QCOW2 overlay path is %s", overlayPath)
-		if !needToCreateQCOW2Overlay(vmi) {
-			applyCBTMap[volumeName] = overlayPath
-			continue
-		}
-
-		var imagePath string
-		blockDev := false
-		if c.IsBlockPVC[volumeName] || c.IsBlockDV[volumeName] {
-			imagePath = converter.GetBlockDeviceVolumePath(volumeName)
-			blockDev = true
-		} else {
-			imagePath = converter.GetFilesystemVolumePath(volumeName)
-		}
-
-		err := createQCOW2Overlay(overlayPath, imagePath, blockDev)
-		if err != nil {
-			return err
-		}
-		applyCBTMap[volumeName] = overlayPath
-	}
-
-	c.ApplyCBT = applyCBTMap
-	return nil
-}
-
 func (l *LibvirtDomainManager) syncDisks(
 	domain *api.Domain,
 	spec *api.DomainSpec,
@@ -1361,7 +1243,8 @@ func (l *LibvirtDomainManager) syncDisks(
 
 	// Look up all the disks to detach
 	for _, detachDisk := range getDetachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
-		logger.V(1).Infof("Detaching disk %s, target %s", detachDisk.Alias.GetName(), detachDisk.Target.Device)
+		volumeName := detachDisk.Alias.GetName()
+		logger.V(1).Infof("Detaching disk %s, target %s", volumeName, detachDisk.Target.Device)
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
 			logger.Reason(err).Error("marshalling detached disk failed")
@@ -1372,10 +1255,14 @@ func (l *LibvirtDomainManager) syncDisks(
 			logger.Reason(err).Error("detaching device")
 			return err
 		}
+		if err := storage.DeleteQCOW2Overlay(vmi, volumeName); err != nil {
+			logger.Reason(err).Error("deleting CBT overlay")
+			return err
+		}
 	}
 	// Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
-		allowAttach, err := checkIfDiskReadyToUse(getSourceFile(attachDisk))
+		allowAttach, err := checkIfDiskReadyToUse(getBackendSource(attachDisk))
 		if err != nil {
 			return err
 		}
@@ -1403,9 +1290,9 @@ func (l *LibvirtDomainManager) syncDisks(
 	}
 	// Look up all the disks to UPDATE
 	for _, updateDisk := range getUpdatedDisks(spec.Devices.Disks, domain.Spec.Devices.Disks) {
-		sourceFile := getSourceFile(updateDisk)
+		sourceFile := getBackendSource(updateDisk)
 		if sourceFile != "" {
-			allowUpdate, err := checkIfDiskReadyToUse(getSourceFile(updateDisk))
+			allowUpdate, err := checkIfDiskReadyToUse(sourceFile)
 			if err != nil {
 				return err
 			}
@@ -1437,7 +1324,11 @@ func (l *LibvirtDomainManager) syncDisks(
 				logger.Warningf("Failed to get possible guest size from disk %v", disk)
 				break
 			}
-			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), libvirt.DOMAIN_BLOCK_RESIZE_BYTES)
+			flags := libvirt.DOMAIN_BLOCK_RESIZE_BYTES
+			if possibleGuestSize == 0 {
+				flags |= libvirt.DOMAIN_BLOCK_RESIZE_CAPACITY
+			}
+			err := dom.BlockResize(getSourceFile(disk), uint64(possibleGuestSize), flags)
 			if err != nil {
 				logger.Reason(err).Errorf("libvirt failed to expand disk image %v", disk)
 			}
@@ -1535,15 +1426,21 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 }
 
 func getSourceFile(disk api.Disk) string {
-	source := disk.Source
-	if source.DataStore != nil {
-		source = *source.DataStore.Source
+	if disk.Source.File != "" {
+		return disk.Source.File
 	}
-	file := source.File
-	if source.File == "" {
-		file = disk.Source.Dev
+	return disk.Source.Dev
+}
+
+func getBackendSource(disk api.Disk) string {
+	if disk.Source.DataStore != nil && disk.Source.DataStore.Source != nil {
+		source := *disk.Source.DataStore.Source
+		if source.File != "" {
+			return source.File
+		}
+		return source.Dev
 	}
-	return file
+	return getSourceFile(disk)
 }
 
 var checkIfDiskReadyToUse = checkIfDiskReadyToUseFunc
@@ -1580,7 +1477,7 @@ func checkIfDiskReadyToUseFunc(filename string) (bool, error) {
 }
 
 func isHotplugDisk(disk api.Disk) bool {
-	return strings.HasPrefix(getSourceFile(disk), v1.HotplugDiskDir)
+	return strings.HasPrefix(getBackendSource(disk), v1.HotplugDiskDir)
 }
 
 func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
@@ -1627,7 +1524,7 @@ func getAttachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 }
 
 func isHotPlugDiskOrEmpty(disk api.Disk) bool {
-	return isHotplugDisk(disk) || getSourceFile(disk) == ""
+	return isHotplugDisk(disk) || getBackendSource(disk) == ""
 }
 
 func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
@@ -1653,7 +1550,7 @@ func getUpdatedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
 			continue
 		}
 		newDiskCpy := oldDisk.DeepCopy()
-		if getSourceFile(newDisk) == "" {
+		if getBackendSource(newDisk) == "" {
 			newDiskCpy.Source = api.DiskSource{}
 		} else {
 			newDiskCpy.Source = *newDisk.Source.DeepCopy()
@@ -1725,6 +1622,11 @@ func shouldExpandOnline(dom cli.VirDomain, disk api.Disk) bool {
 		return false
 	}
 	guestSize := blockInfo.Capacity
+	// If block device, expand if capacity is lower than physical
+	if disk.Source.Dev != "" {
+		return guestSize < blockInfo.Physical
+	}
+
 	possibleGuestSize, ok := possibleGuestSize(disk)
 	if !ok || possibleGuestSize <= int64(guestSize) {
 		return false
@@ -1748,107 +1650,8 @@ func (l *LibvirtDomainManager) getDomainSpec(dom cli.VirDomain) (*api.DomainSpec
 	return domainSpec, err
 }
 
-func removePreviousMemoryDump(dir string) {
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		log.Log.Reason(err).Errorf("failed to remove older memory dumps")
-		return
-	}
-	for _, file := range files {
-		if strings.Contains(file.Name(), "memory.dump") {
-			err = os.Remove(filepath.Join(dir, file.Name()))
-			if err != nil {
-				log.Log.Reason(err).Errorf("failed to remove older memory dumps")
-			}
-		}
-	}
-}
-
 func (l *LibvirtDomainManager) MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
-	select {
-	case l.memoryDumpInProgress <- struct{}{}:
-	default:
-		log.Log.Object(vmi).Infof("memory-dump is in progress")
-		return nil
-	}
-
-	go func() {
-		defer func() { <-l.memoryDumpInProgress }()
-		if err := l.memoryDump(vmi, dumpPath); err != nil {
-			log.Log.Object(vmi).Reason(err).Error(failedDomainMemoryDump)
-		}
-	}()
-	return nil
-}
-
-func (l *LibvirtDomainManager) memoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error {
-	logger := log.Log.Object(vmi)
-
-	if l.shouldSkipMemoryDump(dumpPath) {
-		return nil
-	}
-	l.initializeMemoryDumpMetadata(dumpPath)
-
-	domName := api.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if dom == nil || err != nil {
-		return err
-	}
-	defer dom.Free()
-	// keep trying to do memory dump even if remove previous one failed
-	removePreviousMemoryDump(filepath.Dir(dumpPath))
-
-	logger.Infof("Starting memory dump")
-	failed := false
-	reason := ""
-	err = dom.CoreDumpWithFormat(dumpPath, libvirt.DOMAIN_CORE_DUMP_FORMAT_RAW, libvirt.DUMP_MEMORY_ONLY)
-	if err != nil {
-		failed = true
-		reason = fmt.Sprintf("%s: %s", failedDomainMemoryDump, err)
-	} else {
-		logger.Infof("Completed memory dump successfully")
-	}
-
-	l.setMemoryDumpResult(failed, reason)
-	return err
-}
-
-func (l *LibvirtDomainManager) shouldSkipMemoryDump(dumpPath string) bool {
-	memoryDumpMetadata, _ := l.metadataCache.MemoryDump.Load()
-	if memoryDumpMetadata.FileName == filepath.Base(dumpPath) {
-		// memory dump still in progress or have just completed
-		// no need to trigger another one
-		return true
-	}
-	return false
-}
-
-func (l *LibvirtDomainManager) initializeMemoryDumpMetadata(dumpPath string) {
-	l.metadataCache.MemoryDump.WithSafeBlock(func(memoryDumpMetadata *api.MemoryDumpMetadata, initialized bool) {
-		now := metav1.Now()
-		*memoryDumpMetadata = api.MemoryDumpMetadata{
-			FileName:       filepath.Base(dumpPath),
-			StartTimestamp: &now,
-		}
-	})
-	log.Log.V(4).Infof("initialize memory dump metadata: %s", l.metadataCache.MemoryDump.String())
-}
-
-func (l *LibvirtDomainManager) setMemoryDumpResult(failed bool, reason string) {
-	l.metadataCache.MemoryDump.WithSafeBlock(func(memoryDumpMetadata *api.MemoryDumpMetadata, initialized bool) {
-		if !initialized {
-			// nothing to report if memory dump metadata is empty
-			return
-		}
-
-		now := metav1.Now()
-		memoryDumpMetadata.Completed = true
-		memoryDumpMetadata.EndTimestamp = &now
-		memoryDumpMetadata.Failed = failed
-		memoryDumpMetadata.FailureReason = reason
-	})
-	log.Log.V(4).Infof("set memory dump results in metadata: %s", l.metadataCache.MemoryDump.String())
-	return
+	return l.storageManager.MemoryDump(vmi, dumpPath)
 }
 
 func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
@@ -1934,115 +1737,12 @@ func (l *LibvirtDomainManager) UnpauseVMI(vmi *v1.VirtualMachineInstance) error 
 	return nil
 }
 
-func (l *LibvirtDomainManager) migrationInProgress() bool {
-	migrationMetadata, exists := l.metadataCache.Migration.Load()
-	return exists && migrationMetadata.StartTimestamp != nil && migrationMetadata.EndTimestamp == nil
-}
-
-func (l *LibvirtDomainManager) scheduleSafetyVMIUnfreeze(vmi *v1.VirtualMachineInstance, unfreezeTimeout time.Duration) {
-	select {
-	case <-time.After(unfreezeTimeout):
-		log.Log.Warningf("Unfreeze was not called for vmi %s for more then %v, initiating unfreeze",
-			vmi.Name, unfreezeTimeout)
-		l.UnfreezeVMI(vmi)
-	case <-l.cancelSafetyUnfreezeChan:
-		log.Log.V(3).Infof("Canceling schedualed Unfreeze for vmi %s", vmi.Name)
-		// aborted
-	}
-}
-
-func (l *LibvirtDomainManager) cancelSafetyUnfreeze() {
-	select {
-	case l.cancelSafetyUnfreezeChan <- struct{}{}:
-	default:
-	}
-}
-
-func (l *LibvirtDomainManager) getParsedFSStatus(domainName string) (string, error) {
-	cmdResult, err := l.virConn.QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, domainName)
-	if err != nil {
-		return "", err
-	}
-	fsfreezeStatus, err := agentpoller.ParseFSFreezeStatus(cmdResult)
-	if err != nil {
-		return "", err
-	}
-
-	return fsfreezeStatus.Status, nil
-}
-
 func (l *LibvirtDomainManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error {
-	if l.migrationInProgress() {
-		return fmt.Errorf("Failed to freeze VMI, VMI is currently during migration")
-	}
-	domainName := api.VMINamespaceKeyFunc(vmi)
-	safetyUnfreezeTimeout := time.Duration(unfreezeTimeoutSeconds) * time.Second
-
-	fsfreezeStatus, err := l.getParsedFSStatus(domainName)
-	if err != nil {
-		log.Log.Errorf("Failed to get fs status before freeze vmi %s, %s", vmi.Name, err.Error())
-		return err
-	}
-
-	// idempotent - prevent failure in case fs is already frozen
-	if fsfreezeStatus == api.FSFrozen {
-		return nil
-	}
-
-	// The fsfreeze doesn't apply to the TPM, so we can at least do a fsync to the state
-	// directory to ensure data integrity. This explicit sync ensures that pending
-	// writes to the swtpm backing files are flushed to disk.
-	if tpm.HasPersistentDevice(&vmi.Spec) {
-		cmd := exec.Command("/usr/bin/sync", services.PathForSwtpm(vmi))
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			log.Log.Errorf("fsync error to TPM state directory: %s, output: %s", err.Error(), out)
-			return err
-		}
-	}
-
-	domain, err := l.virConn.LookupDomainByName(domainName)
-	if err != nil {
-		log.Log.Errorf("Domain lookup failed: %v", err)
-		return err
-	}
-	defer domain.Free()
-
-	if err := domain.FSFreeze(nil, 0); err != nil {
-		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
-		return err
-	}
-
-	l.cancelSafetyUnfreeze()
-	if safetyUnfreezeTimeout != 0 {
-		go l.scheduleSafetyVMIUnfreeze(vmi, safetyUnfreezeTimeout)
-	}
-	return nil
+	return l.storageManager.FreezeVMI(vmi, unfreezeTimeoutSeconds)
 }
 
 func (l *LibvirtDomainManager) UnfreezeVMI(vmi *v1.VirtualMachineInstance) error {
-	l.cancelSafetyUnfreeze()
-	domainName := api.VMINamespaceKeyFunc(vmi)
-	fsfreezeStatus, err := l.getParsedFSStatus(domainName)
-	if err == nil {
-		// prevent initating fs thaw to prevent rerunning the thaw hook
-		if fsfreezeStatus == api.FSThawed {
-			return nil
-		}
-	}
-
-	domain, err := l.virConn.LookupDomainByName(domainName)
-	if err != nil {
-		log.Log.Errorf("Domain lookup failed: %v", err)
-		return err
-	}
-	defer domain.Free()
-
-	if err := domain.FSThaw(nil, 0); err != nil {
-		log.Log.Errorf("Failed to unfreeze vmi, %s", err.Error())
-		return err
-	}
-	return nil
+	return l.storageManager.UnfreezeVMI(vmi)
 }
 
 func (l *LibvirtDomainManager) ResetVMI(vmi *v1.VirtualMachineInstance) error {
@@ -2312,7 +2012,7 @@ func (l *LibvirtDomainManager) getDomainStats() ([]*stats.DomainStats, error) {
 	statsTypes := libvirt.DOMAIN_STATS_BALLOON | libvirt.DOMAIN_STATS_CPU_TOTAL | libvirt.DOMAIN_STATS_VCPU | libvirt.DOMAIN_STATS_INTERFACE | libvirt.DOMAIN_STATS_BLOCK | libvirt.DOMAIN_STATS_DIRTYRATE
 	flags := libvirt.CONNECT_GET_ALL_DOMAINS_STATS_RUNNING | libvirt.CONNECT_GET_ALL_DOMAINS_STATS_PAUSED
 
-	domstats, err := l.virConn.GetDomainStats(statsTypes, l.migrateInfoStats, flags)
+	domstats, err := l.virConn.GetDomainStats(statsTypes, l.domainInfoStats, flags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get domain stats: %v", err)
 	}
@@ -2398,7 +2098,7 @@ func (l *LibvirtDomainManager) buildDevicesMetadata(vmi *v1.VirtualMachineInstan
 		}
 	}
 
-	domainSpec, err := getDomainSpec(dom)
+	domainSpec, err := util.GetDomainSpecWithFlags(dom, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -2854,4 +2554,18 @@ func calculateHotplugPortCount(vmi *v1.VirtualMachineInstance, domainSpec *api.D
 	}
 
 	return max(defaultTotalPorts-portsInUse, minFreePorts), nil
+}
+
+func (l *LibvirtDomainManager) BackupVirtualMachine(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
+	switch backupOptions.Cmd {
+	case backupv1.Start:
+		return l.storageManager.BackupVirtualMachine(vmi, backupOptions)
+	default:
+		// TODO: Implement backup abort functionality
+		return fmt.Errorf("recieved unknown backup command")
+	}
+}
+
+func (l *LibvirtDomainManager) RedefineCheckpoint(vmi *v1.VirtualMachineInstance, checkpoint *backupv1.BackupCheckpoint) (checkpointInvalid bool, err error) {
+	return l.storageManager.RedefineCheckpoint(vmi, checkpoint)
 }

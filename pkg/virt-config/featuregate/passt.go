@@ -23,7 +23,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 )
 
-const PasstDiscontinueMessage = "Passt network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
+const (
+	PasstDiscontinueMessage      = "Passt network binding is discontinued since v1.3. Please refer to Kubevirt user guide for alternatives."
+	PasstIPStackMigrationMessage = "Seamless migration with passt network binding plugin is no longer supported since KubeVirt v1.8. Please use the passt core binding instead."
+)
 
 func passtApiUsed(spec *v1.VirtualMachineInstanceSpec) bool {
 	for _, net := range spec.Domain.Devices.Interfaces {

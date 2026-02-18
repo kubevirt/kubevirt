@@ -202,4 +202,23 @@ var _ = Describe("Apply Prometheus", func() {
 		Expect(r.createOrUpdatePrometheusRule(requiredPR)).To(Succeed())
 		Expect(patched).To(BeTrue())
 	})
+
+	It("should not create PrometheusRules when PrometheusRules is disabled", func() {
+		created := false
+		promClient.Fake.PrependReactor("create", "prometheusrules", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
+			created = true
+			return true, nil, nil
+		})
+
+		r := &Reconciler{
+			kv:           kv,
+			stores:       stores,
+			clientset:    clientset,
+			expectations: expectations,
+			config:       util.OperatorConfig{PrometheusRulesEnabled: false},
+		}
+
+		Expect(r.createOrUpdatePrometheusRules()).To(Succeed())
+		Expect(created).To(BeFalse(), "PrometheusRule should not be created when disabled")
+	})
 })

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
@@ -50,7 +51,7 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 				Fail("No emulated USB devices present for functional test.")
 			}
 
-			vmi = libvmifact.NewCirros()
+			vmi = libvmifact.NewAlpine()
 		})
 
 		AfterEach(func() {
@@ -60,7 +61,7 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 				testsuite.NamespaceTestDefault).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred(), failedDeleteVMI)
 
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, deleteTimeout)
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, deleteTimeout*time.Second)).To(Succeed())
 		})
 
 		Context("with usb storage", func() {
@@ -99,7 +100,7 @@ var _ = Describe("[sig-compute][USB] [QUARANTINE] host USB Passthrough", Serial,
 				vmi.Spec.Domain.Devices.HostDevices = hostDevs
 				vmi, err = virtClient.VirtualMachineInstance(testsuite.NamespaceTestDefault).Create(context.Background(), vmi, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
-				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToCirros)
+				vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
 
 				By("Making sure the usb is present inside the VMI")
 				const expectTimeout = 15

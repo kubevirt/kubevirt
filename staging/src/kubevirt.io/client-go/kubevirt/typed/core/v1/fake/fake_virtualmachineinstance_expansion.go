@@ -25,6 +25,7 @@ import (
 
 	"k8s.io/client-go/testing"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
 	fake2 "kubevirt.io/client-go/testing"
@@ -170,6 +171,20 @@ func (c *fakeVirtualMachineInstances) ObjectGraph(ctx context.Context, name stri
 func (c *fakeVirtualMachineInstances) EvacuateCancel(ctx context.Context, name string, evacuateCancelOptions *v1.EvacuateCancelOptions) error {
 	_, err := c.Fake.
 		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "evacuate/cancel", name, evacuateCancelOptions), nil)
+
+	return err
+}
+
+func (c *fakeVirtualMachineInstances) Backup(ctx context.Context, name string, backupOptions *backupv1.BackupOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "backup", name, backupOptions), nil)
+
+	return err
+}
+
+func (c *fakeVirtualMachineInstances) RedefineCheckpoint(ctx context.Context, name string, checkpoint *backupv1.BackupCheckpoint) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(c.Resource(), c.Namespace(), "redefine-checkpoint", name, checkpoint), nil)
 
 	return err
 }

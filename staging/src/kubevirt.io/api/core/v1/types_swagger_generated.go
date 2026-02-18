@@ -466,7 +466,7 @@ func (VirtualMachineSpec) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                      "VirtualMachineSpec describes how the proper VirtualMachine\nshould look like",
 		"running":               "Running controls whether the associatied VirtualMachineInstance is created or not\nMutually exclusive with RunStrategy\nDeprecated: VirtualMachineInstance field \"Running\" is now deprecated, please use RunStrategy instead.",
-		"runStrategy":           "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running",
+		"runStrategy":           "Running state indicates the requested running state of the VirtualMachineInstance\nmutually exclusive with Running\nFollowing are allowed values:\n- \"Always\": VMI should always be running.\n- \"Halted\": VMI should never be running.\n- \"Manual\": VMI can be started/stopped using API endpoints.\n- \"RerunOnFailure\": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.\n- \"Once\": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.",
 		"instancetype":          "InstancetypeMatcher references a instancetype that is used to fill fields in Template",
 		"preference":            "PreferenceMatcher references a set of preference that is used to fill fields in Template",
 		"template":              "Template is the direct specification of VirtualMachineInstance",
@@ -521,10 +521,24 @@ func (InstancetypeStatusRef) SwaggerDoc() map[string]string {
 	}
 }
 
+func (VirtualMachineInstanceBackupStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":               "VirtualMachineInstanceBackupStatus tracks the information of the executed backup\n+k8s:openapi-gen=true",
+		"backupName":     "BackupName is the name of the executed backup",
+		"startTimestamp": "StartTimestamp is the timestamp when the backup started",
+		"endTimestamp":   "EndTimestamp is the timestamp when the backup ended",
+		"completed":      "Completed indicates the backup completed",
+		"backupMsg":      "BackupMsg resturns any relevant information like failure reason\nunfreeze failed etc...\n+optional",
+		"checkpointName": "CheckpointName is the name of the checkpoint created for the backup\n+optional",
+		"volumes":        "Volumes lists the volumes included in the backup\n+optional\n+listType=atomic",
+	}
+}
+
 func (ChangedBlockTrackingStatus) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"":      "ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM\n+k8s:openapi-gen=true",
-		"state": "State represents the current CBT state",
+		"":             "ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM\n+k8s:openapi-gen=true",
+		"state":        "State represents the current CBT state",
+		"backupStatus": "BackupStatus represents the status of vmi backup\n+nullable\n+optional",
 	}
 }
 
@@ -901,8 +915,17 @@ func (KubeVirtConfiguration) SwaggerDoc() map[string]string {
 		"liveUpdateConfiguration":            "LiveUpdateConfiguration holds defaults for live update features",
 		"vmRolloutStrategy":                  "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,\ntolerations, and affinity, are propagated from a VM to its VMI.\n+nullable\n+kubebuilder:validation:Enum=Stage;LiveUpdate",
 		"commonInstancetypesDeployment":      "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources\n+nullable",
+		"virtTemplateDeployment":             "VirtTemplateDeployment controls the deployment of virt-template components\n+nullable",
 		"instancetype":                       "Instancetype configuration\n+nullable",
+		"hypervisors":                        "Hypervisors holds information regarding the hypervisor configurations supported on this cluster.\n+listType=atomic\n+kubebuilder:validation:MaxItems:=1",
 		"changedBlockTrackingLabelSelectors": "ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.\nEnabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.\n+nullable",
+	}
+}
+
+func (HypervisorConfiguration) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":     "HypervisorConfiguration holds information regarding the hypervisor present on cluster nodes.",
+		"name": "Name is the name of the hypervisor.\nSupported values are: \"kvm\", \"hyperv-direct\".\n+kubebuilder:validation:Enum=kvm;hyperv-direct",
 	}
 }
 
@@ -922,6 +945,12 @@ func (InstancetypeConfiguration) SwaggerDoc() map[string]string {
 func (CommonInstancetypesDeployment) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"enabled": "Enabled controls the deployment of common-instancetypes resources, defaults to True.\n+nullable",
+	}
+}
+
+func (VirtTemplateDeployment) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"enabled": "Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.\n+nullable",
 	}
 }
 
@@ -1017,7 +1046,8 @@ func (DiskVerification) SwaggerDoc() map[string]string {
 func (DeveloperConfiguration) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                                "DeveloperConfiguration holds developer options",
-		"featureGates":                    "FeatureGates is the list of experimental features to enable. Defaults to none",
+		"featureGates":                    "FeatureGates specifies a list of experimental feature gates to enable. Defaults to none.\nA feature gate must not appear in both FeatureGates and DisabledFeatureGates.\n+optional\n+listType=atomic",
+		"disabledFeatureGates":            "DisabledFeatureGates specifies a list of experimental feature gates to disable.\nA feature gate must not appear in both FeatureGates and DisabledFeatureGates.\n+optional\n+listType=atomic",
 		"pvcTolerateLessSpaceUpToPercent": "LessPVCSpaceToleration determines how much smaller, in percentage, disk PVCs are\nallowed to be compared to the requested size (to account for various overheads).\nDefaults to 10",
 		"minimumReservePVCBytes":          "MinimumReservePVCBytes is the amount of space, in bytes, to leave unused on disks.\nDefaults to 131072 (128KiB)",
 		"memoryOvercommit":                "MemoryOvercommit is the percentage of memory we want to give VMIs compared to the amount\ngiven to its parent pod (virt-launcher). For example, a value of 102 means the VMI will\n\"see\" 2% more memory than its parent pod. Values under 100 are effectively \"undercommits\".\nOvercommits can lead to memory exhaustion, which in turn can lead to crashes. Use carefully.\nDefaults to 100\n+kubebuilder:validation:Minimum:=10",
@@ -1078,6 +1108,7 @@ func (MediatedDevicesConfiguration) SwaggerDoc() map[string]string {
 		"mediatedDevicesTypes":    "Deprecated. Use mediatedDeviceTypes instead.\n+optional\n+listType=atomic",
 		"mediatedDeviceTypes":     "+optional\n+listType=atomic",
 		"nodeMediatedDeviceTypes": "+optional\n+listType=atomic",
+		"enabled":                 "Enable the creation and removal of mediated devices by virt-handler\nReplaces the deprecated DisableMDEVConfiguration feature gate\nDefaults to true\n+optional",
 	}
 }
 

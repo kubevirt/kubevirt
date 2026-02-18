@@ -22,6 +22,7 @@ package virthandler
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	goerror "errors"
 	"fmt"
 	"os"
@@ -47,6 +48,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -62,7 +64,6 @@ import (
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	netvmispec "kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/safepath"
-	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -113,6 +114,7 @@ type VirtualMachineController struct {
 	vmiExpectations          *controller.UIDTrackingControllerExpectations
 	vmiGlobalStore           cache.Store
 	multipathSocketMonitor   *multipathmonitor.MultipathSocketMonitor
+	cbtHandler               *CBTHandler
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
@@ -139,6 +141,7 @@ func NewVirtualMachineController(
 	hostCpuModel string,
 	netConf netconf,
 	netStat netstat,
+	cbtHandler *CBTHandler,
 ) (*VirtualMachineController, error) {
 
 	queue := workqueue.NewTypedRateLimitingQueueWithConfig[string](
@@ -191,6 +194,7 @@ func NewVirtualMachineController(
 		vmiExpectations:          controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		vmiGlobalStore:           vmiGlobalStore,
 		multipathSocketMonitor:   multipathmonitor.NewMultipathSocketMonitor(),
+		cbtHandler:               cbtHandler,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -1023,11 +1027,14 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	c.updateGuestInfoFromDomain(vmi, domain)
 	c.updateVolumeStatusesFromDomain(vmi, domain)
 	c.updateFSFreezeStatus(vmi, domain)
+	c.updateBackupStatus(vmi, domain)
 	c.updateMachineType(vmi, domain)
 	if err = c.updateMemoryInfo(vmi, domain); err != nil {
 		return err
 	}
-	cbt.SetChangedBlockTrackingOnVMIFromDomain(vmi, domain)
+	if err = c.cbtHandler.HandleChangedBlockTracking(vmi, domain); err != nil {
+		return err
+	}
 	err = c.netStat.UpdateStatus(vmi, domain)
 	return err
 }
@@ -2454,4 +2461,39 @@ func parseLibvirtQuantity(value int64, unit string) *resource.Quantity {
 		return resource.NewQuantity(value*1024*1024*1024*1024, resource.BinarySI)
 	}
 	return nil
+}
+
+func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	if domain == nil ||
+		domain.Spec.Metadata.KubeVirt.Backup == nil ||
+		vmi.Status.ChangedBlockTracking == nil ||
+		vmi.Status.ChangedBlockTracking.BackupStatus == nil {
+		return
+	}
+	backupMetadata := domain.Spec.Metadata.KubeVirt.Backup
+	// Handle the case where a new backupStatus was initiated but
+	// the backupMetadata wasnt reinitialized yet
+	if vmi.Status.ChangedBlockTracking.BackupStatus.BackupName != backupMetadata.Name {
+		return
+	}
+	vmi.Status.ChangedBlockTracking.BackupStatus.Completed = backupMetadata.Completed
+	if backupMetadata.StartTimestamp != nil {
+		vmi.Status.ChangedBlockTracking.BackupStatus.StartTimestamp = backupMetadata.StartTimestamp
+	}
+	if backupMetadata.EndTimestamp != nil {
+		vmi.Status.ChangedBlockTracking.BackupStatus.EndTimestamp = backupMetadata.EndTimestamp
+	}
+	if backupMetadata.BackupMsg != "" {
+		vmi.Status.ChangedBlockTracking.BackupStatus.BackupMsg = &backupMetadata.BackupMsg
+	}
+	if backupMetadata.CheckpointName != "" {
+		vmi.Status.ChangedBlockTracking.BackupStatus.CheckpointName = &backupMetadata.CheckpointName
+	}
+	if backupMetadata.Volumes != "" {
+		var volumes []backupv1.BackupVolumeInfo
+		if err := json.Unmarshal([]byte(backupMetadata.Volumes), &volumes); err == nil && len(volumes) > 0 {
+			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = volumes
+		}
+	}
+	// TODO: Handle backup failure (backupMetadata.Failed) and abort status (backupMetadata.AbortStatus)
 }

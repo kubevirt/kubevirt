@@ -688,7 +688,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		vmi.Spec.Domain.Features = &v1.Features{
 			Hyperv: &v1.FeatureHyperv{
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.P(true),
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 				},
 			},
 		}
@@ -770,7 +770,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.P(true),
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 				},
 			},
 		}
@@ -788,7 +788,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Enabled: pointer.P(true),
 			},
 			SyNICTimer: &v1.SyNICTimer{
-				Enabled: pointer.P(true),
+				FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 			},
 		}
 
@@ -810,7 +810,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				},
 				// should enable SyNIC
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.P(true),
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 				},
 				EVMCS: &v1.FeatureState{
 					Enabled: pointer.P(true),
@@ -831,7 +831,7 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 				Enabled: pointer.P(true),
 			},
 			SyNICTimer: &v1.SyNICTimer{
-				Enabled: pointer.P(true),
+				FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 			},
 			EVMCS: &v1.FeatureState{
 				Enabled: pointer.P(true),

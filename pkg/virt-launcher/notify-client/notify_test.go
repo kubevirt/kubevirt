@@ -23,6 +23,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -55,6 +56,8 @@ var _ = Describe("Notify", func() {
 		var eventChan chan watch.Event
 		var deleteNotificationSent chan watch.Event
 		var client *Notifier
+		var vmiStore cache.Store
+		var recorder *record.FakeRecorder
 
 		var mockLibvirt *testing.Libvirt
 		var e *eventCaller
@@ -70,11 +73,19 @@ var _ = Describe("Notify", func() {
 			stopped := false
 			shareDir, err := os.MkdirTemp("", "kubevirt-share")
 			Expect(err).ToNot(HaveOccurred())
+			recorder = record.NewFakeRecorder(10)
+			recorder.IncludeObject = true
+			vmiInformer, _ := testutils.NewFakeInformerFor(&v1.VirtualMachineInstance{})
+			vmiStore = vmiInformer.GetStore()
 			e = &eventCaller{}
 
 			go func() {
-				notifyserver.RunServer(shareDir, stop, eventChan, nil, nil)
+				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
 			}()
+			// mimic pipe
+			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
+			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
+			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 
 			client = NewNotifier(shareDir)
 
@@ -248,6 +259,86 @@ var _ = Describe("Notify", func() {
 				}
 				Expect(timedOut).To(BeFalse())
 			})
+
+		It("should consolidate I/O error status and Agent updates into a single watch event", func() {
+			faultDisk := []libvirt.DomainDiskError{
+				{
+					Disk:  "vda",
+					Error: libvirt.DOMAIN_DISK_ERROR_NO_SPACE,
+				},
+			}
+			domain := api.NewMinimalDomain("test")
+			domain.Status.Reason = api.ReasonPausedIOError
+			x, err := xml.Marshal(domain.Spec)
+			Expect(err).ToNot(HaveOccurred())
+
+			ctrl := gomock.NewController(GinkgoT())
+			mockLibvirt := testing.NewLibvirt(ctrl)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(mockLibvirt.VirtDomain, nil).AnyTimes()
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_IOERROR), nil)
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+			mockLibvirt.DomainEXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
+
+			vmi := api2.NewMinimalVMI("test-vmi")
+			vmi.UID = "1234"
+			vmiStore.Add(vmi)
+
+			metadataCache := metadata.NewCache()
+			interfaceStatus := []api.InterfaceStatus{{Ip: "10.0.0.1", InterfaceName: "eth0"}}
+			e.eventCallback(mockLibvirt.VirtConnection, domain, libvirtEvent{}, client, deleteNotificationSent, interfaceStatus, nil, vmi, nil, metadataCache)
+
+			var event watch.Event
+			Eventually(eventChan, 2*time.Second).Should(Receive(&event))
+
+			newDomain, ok := event.Object.(*api.Domain)
+			Expect(ok).To(BeTrue())
+			Expect(newDomain.Status.Reason).To(Equal(api.ReasonPausedIOError))
+			Expect(newDomain.Status.Interfaces).To(HaveLen(1))
+			Expect(newDomain.Status.Interfaces[0].Ip).To(Equal("10.0.0.1"))
+		})
+
+		It("should process job completion event even if the domain is paused due to an I/O error", func() {
+			faultDisk := []libvirt.DomainDiskError{
+				{
+					Disk:  "vda",
+					Error: libvirt.DOMAIN_DISK_ERROR_NO_SPACE,
+				},
+			}
+			domain := api.NewMinimalDomain("test")
+			domain.Status.Reason = api.ReasonPausedIOError
+			x, err := xml.Marshal(domain.Spec)
+			Expect(err).ToNot(HaveOccurred())
+
+			domainJobInfo := libvirt.DomainJobInfo{
+				Type:      libvirt.DOMAIN_JOB_COMPLETED,
+				Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
+			}
+			ctrl := gomock.NewController(GinkgoT())
+			mockLibvirt := testing.NewLibvirt(ctrl)
+			mockLibvirt.ConnectionEXPECT().LookupDomainByName(gomock.Any()).Return(mockLibvirt.VirtDomain, nil).AnyTimes()
+			mockLibvirt.DomainEXPECT().GetState().Return(libvirt.DOMAIN_PAUSED, int(libvirt.DOMAIN_PAUSED_IOERROR), nil)
+			mockLibvirt.DomainEXPECT().Free()
+			mockLibvirt.DomainEXPECT().GetXMLDesc(gomock.Eq(libvirt.DomainXMLFlags(0))).Return(string(x), nil)
+			mockLibvirt.DomainEXPECT().GetDiskErrors(uint32(0)).Return(faultDisk, nil)
+			mockLibvirt.DomainEXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(1)).Return(&domainJobInfo, nil)
+
+			metadataCache := metadata.NewCache()
+			metadataCache.Backup.Store(api.BackupMetadata{})
+			libvirtEvent := libvirtEvent{
+				JobCompletedEvent: &libvirt.DomainEventJobCompleted{
+					Info: domainJobInfo,
+				},
+			}
+			vmi := api2.NewMinimalVMI("fake-vmi")
+			vmi.UID = "4321"
+			vmiStore.Add(vmi)
+
+			e.eventCallback(mockLibvirt.VirtConnection, domain, libvirtEvent, client, deleteNotificationSent, nil, nil, vmi, nil, metadataCache)
+			backupMeta, ok := metadataCache.Backup.Load()
+			Expect(ok).To(BeTrue())
+			Expect(backupMeta.Completed).To(BeTrue())
+		})
 	})
 
 	Describe("K8s Events", func() {
@@ -279,6 +370,10 @@ var _ = Describe("Notify", func() {
 			go func() {
 				notifyserver.RunServer(shareDir, stop, eventChan, recorder, vmiStore)
 			}()
+			// mimic pipe
+			notifyServer := filepath.Join(shareDir, "domain-notify.sock")
+			pipePath := filepath.Join(shareDir, "domain-notify-pipe.sock")
+			Expect(os.Symlink(notifyServer, pipePath)).To(Succeed())
 
 			time.Sleep(1 * time.Second)
 

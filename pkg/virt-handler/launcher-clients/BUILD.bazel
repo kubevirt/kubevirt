@@ -9,15 +9,13 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/ephemeral-disk-utils:go_default_library",
-        "//pkg/safepath:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/virt-handler/cache:go_default_library",
         "//pkg/virt-handler/cmd-client:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
+        "//pkg/virt-handler/notify-server/pipe:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
     ],
 )
 

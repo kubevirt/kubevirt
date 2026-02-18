@@ -20,22 +20,17 @@ import (
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
 const (
-	graphicsDeviceDefaultHeads uint = 1
-	graphicsDeviceDefaultVRAM  uint = 16384
-	amd64                           = "amd64"
-	arm64                           = "arm64"
-	s390x                           = "s390x"
+	amd64 = "amd64"
+	arm64 = "arm64"
+	s390x = "s390x"
 )
 
 type Converter interface {
 	GetArchitecture() string
-	AddGraphicsDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, isEFI bool)
-	ScsiController(model string, driver *api.ControllerDriver) api.Controller
+	SCSIControllerModel(virtioModel string) string
 	IsUSBNeeded(vmi *v1.VirtualMachineInstance) bool
 	SupportCPUHotplug() bool
 	IsSMBiosNeeded() bool
@@ -44,7 +39,6 @@ type Converter interface {
 	IsROMTuningSupported() bool
 	RequiresMPXCPUValidation() bool
 	ShouldVerboseLogsBeEnabled() bool
-	ConvertWatchdog(source *v1.Watchdog, watchdog *api.Watchdog) error
 	SupportPCIHole64Disabling() bool
 }
 
@@ -59,15 +53,6 @@ func NewConverter(arch string) Converter {
 	default:
 		log.Log.Warning("Trying to create an arch converter from an unknown arch: " + arch + ". Falling back to AMD64")
 		return converterAMD64{}
-	}
-}
-
-func defaultSCSIController(model string, driver *api.ControllerDriver) api.Controller {
-	return api.Controller{
-		Type:   "scsi",
-		Index:  "0",
-		Model:  model,
-		Driver: driver,
 	}
 }
 

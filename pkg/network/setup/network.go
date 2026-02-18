@@ -65,8 +65,8 @@ func (v VMNetworkConfigurator) getPhase2NICs(domain *api.Domain, networks []v1.N
 			return nil, fmt.Errorf("no iface matching with network %s", networks[i].Name)
 		}
 
-		// Binding plugin (with non tap domain attachment), SR-IOV and Slirp devices are not part of the phases
-		if (iface.Binding != nil && v.domainAttachments[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil || iface.DeprecatedSlirp != nil {
+		// Passt, Binding plugin (with non tap domain attachment) and SR-IOV devices are not part of the phases
+		if (iface.PasstBinding != nil || iface.Binding != nil && v.domainAttachments[iface.Name] != string(v1.Tap)) || iface.SRIOV != nil {
 			continue
 		}
 

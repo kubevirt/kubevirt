@@ -40,9 +40,69 @@ import (
 )
 
 var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
-
 	test := field.NewPath("test")
 	vmProfileField := test.Child("virtualMachineInstanceProfile")
+
+	DescribeTable("validateVirtTemplateDeployment", func(kvSpec v1.KubeVirtSpec, expectError bool) {
+		causes := validateVirtTemplateDeployment(&kvSpec.Configuration)
+		if expectError {
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("spec.configuration.virtTemplateDeployment.enabled"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should reject when VirtTemplateDeployment enabled without Template feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
+						Enabled: pointer.P(true),
+					},
+				},
+			},
+			true,
+		),
+		Entry("should allow when VirtTemplateDeployment enabled with Template feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.Template},
+					},
+					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
+						Enabled: pointer.P(true),
+					},
+				},
+			},
+			false,
+		),
+		Entry("should allow when VirtTemplateDeployment is nil",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{},
+			},
+			false,
+		),
+		Entry("should allow when VirtTemplateDeployment.Enabled is nil",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
+						Enabled: nil,
+					},
+				},
+			},
+			false,
+		),
+		Entry("should allow when VirtTemplateDeployment.Enabled is false",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					VirtTemplateDeployment: &v1.VirtTemplateDeployment{
+						Enabled: pointer.P(false),
+					},
+				},
+			},
+			false,
+		),
+	)
 
 	DescribeTable("validateSeccompConfiguration", func(seccompConfiguration *v1.SeccompConfiguration, expectedFields []string) {
 		causes := validateSeccompConfiguration(test, seccompConfiguration)
@@ -50,7 +110,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		for _, cause := range causes {
 			Expect(cause.Field).To(BeElementOf(expectedFields))
 		}
-
 	},
 		Entry("don't specifying custom ", &v1.SeccompConfiguration{
 			VirtualMachineInstanceProfile: &v1.VirtualMachineInstanceProfile{
@@ -115,7 +174,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				field = fmt.Sprintf("%s#%d", field, indexInField)
 			}
 			Expect(causes[0].Field).To(Equal(field))
-
 		},
 			Entry("with unspecified minTLSVersion but non empty ciphers",
 				&v1.TLSConfiguration{Ciphers: []string{tls.CipherSuiteName(tls.TLS_AES_256_GCM_SHA384)}},
@@ -156,7 +214,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		)
 
 		DescribeTable("valid values", func(validRatio string) {
-
 		},
 			Entry("1.0", "1.0"),
 			Entry("5", "5"),
@@ -172,23 +229,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			admitter = NewKubeVirtUpdateAdmitter(nil, clusterConfig)
 		})
 
-		admit := func(ctx context.Context, kubevirt v1.KubeVirt) *admissionv1.AdmissionResponse {
-			kvBytes, err := json.Marshal(kubevirt)
-			Expect(err).ToNot(HaveOccurred())
-
-			request := &admissionv1.AdmissionReview{
-				Request: &admissionv1.AdmissionRequest{
-					Resource: KubeVirtGroupVersionResource,
-					Object: runtime.RawExtension{
-						Raw: kvBytes,
-					},
-					OldObject: runtime.RawExtension{
-						Raw: kvBytes,
-					},
-					Operation: admissionv1.Update,
-				},
-			}
-			return admitter.Admit(ctx, request)
+		admit := func(kubevirt v1.KubeVirt) *admissionv1.AdmissionResponse {
+			return admitKVUpdate(admitter, &kubevirt, &kubevirt)
 		}
 
 		const warn = true
@@ -206,7 +248,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			response := admit(context.Background(), kvObject)
+			response := admit(kvObject)
 			Expect(response).NotTo(BeNil())
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
@@ -214,7 +256,6 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			} else {
 				Expect(response.Warnings).To(BeEmpty())
 			}
-
 		},
 			Entry("should warn if used", warn, &v1.MediatedDevicesConfiguration{
 				MediatedDevicesTypes: []string{"test1", "test2"},
@@ -241,7 +282,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			response := admit(context.Background(), kvObject)
+			response := admit(kvObject)
 			Expect(response).NotTo(BeNil())
 			if shouldWarn {
 				Expect(response.Warnings).NotTo(BeEmpty())
@@ -313,7 +354,8 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("with HotplugNICs", featuregate.HotplugNetworkIfacesGate, fmt.Sprintf(featuregate.WarningPattern, featuregate.HotplugNetworkIfacesGate, featuregate.GA)),
 			Entry("with Passt", featuregate.PasstGate, featuregate.PasstDiscontinueMessage),
 			Entry("with MacvtapGate", featuregate.MacvtapGate, featuregate.MacvtapDiscontinueMessage),
-			Entry("with ExperimentalVirtiofsSupport", featuregate.VirtIOFSGate, featuregate.VirtioFsFeatureGateDeprecationMessage),
+			Entry("with ExperimentalVirtiofsSupport", featuregate.VirtIOFSGate, featuregate.VirtioFsFeatureGateDiscontinueMessage),
+			Entry("with DisableMediatedDevicesHandling", featuregate.DisableMediatedDevicesHandling, "DisableMDEVConfiguration has been deprecated since v1.8.0"),
 		)
 
 		DescribeTable("should raise warning when archConfig is set for ppc64le", func(shouldWarn bool, archConfig *v1.ArchConfiguration) {
@@ -325,7 +367,7 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				},
 			}
 
-			response := admit(context.Background(), kv)
+			response := admit(kv)
 			Expect(response).NotTo(BeNil())
 
 			if shouldWarn {
@@ -339,4 +381,97 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 			Entry("should not warn when archConfig is not set for ppc64le", false, &v1.ArchConfiguration{}),
 		)
 	})
+
+	Context("Feature Gate Validation", func() {
+		var admitter *KubeVirtUpdateAdmitter
+
+		BeforeEach(func() {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			admitter = NewKubeVirtUpdateAdmitter(nil, clusterConfig)
+		})
+
+		admitUpdate := func(devConfig *v1.DeveloperConfiguration) *admissionv1.AdmissionResponse {
+			oldKV := &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+			newKV := oldKV.DeepCopy()
+			newKV.Spec.Configuration.DeveloperConfiguration = devConfig
+			return admitKVUpdate(admitter, oldKV, newKV)
+		}
+
+		DescribeTable("should reject conflicting feature gates", func(enabledGates, disabledGates []string, expectedConflictingGates ...string) {
+			var devConfig *v1.DeveloperConfiguration
+			if enabledGates != nil || disabledGates != nil {
+				devConfig = &v1.DeveloperConfiguration{
+					FeatureGates:         enabledGates,
+					DisabledFeatureGates: disabledGates,
+				}
+			}
+
+			response := admitUpdate(devConfig)
+
+			if len(expectedConflictingGates) == 0 {
+				Expect(response.Allowed).To(BeTrue())
+			} else {
+				Expect(response.Allowed).To(BeFalse())
+				Expect(response.Result.Details.Causes).To(HaveLen(len(expectedConflictingGates)))
+				for _, gate := range expectedConflictingGates {
+					Expect(response.Result.Details.Causes).To(ContainElement(And(
+						HaveField("Message", fmt.Sprintf(`feature gate "%s" exists on both "FeatureGates" and "DisabledFeatureGates"`, gate)),
+						HaveField("Type", metav1.CauseTypeForbidden),
+						HaveField("Field", field.NewPath("spec", "configuration", "developerConfiguration", "featureGates").String()),
+					)), `Expected to find conflict for gate: %s`, gate)
+				}
+			}
+		},
+			Entry("no conflict - both lists empty",
+				[]string{},
+				[]string{}),
+
+			Entry("no conflict - only enabled gates",
+				[]string{"Gate1", "Gate2"},
+				[]string{}),
+
+			Entry("no conflict - only disabled gates",
+				[]string{},
+				[]string{"Gate1", "Gate2"}),
+
+			Entry("no conflict - different gates",
+				[]string{"EnabledGate1", "EnabledGate2"},
+				[]string{"DisabledGate1", "DisabledGate2"}),
+
+			Entry("no conflict - nil DeveloperConfiguration",
+				nil, nil),
+
+			Entry("single conflict - same gate in both lists",
+				[]string{"ConflictGate", "ValidGate1"},
+				[]string{"ConflictGate", "ValidGate2"},
+				"ConflictGate"),
+
+			Entry("multiple conflicts",
+				[]string{"Conflict1", "Conflict2", "ValidGate"},
+				[]string{"Conflict1", "Conflict2", "AnotherValid"},
+				"Conflict1", "Conflict2"),
+
+			Entry("all gates conflict",
+				[]string{"Gate1", "Gate2", "Gate3"},
+				[]string{"Gate1", "Gate2", "Gate3"},
+				"Gate1", "Gate2", "Gate3"),
+		)
+	})
 })
+
+func admitKVUpdate(admitter *KubeVirtUpdateAdmitter, oldKV, newKV *v1.KubeVirt) *admissionv1.AdmissionResponse {
+	oldKVBytes, err := json.Marshal(oldKV)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	newKVBytes, err := json.Marshal(newKV)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+
+	request := &admissionv1.AdmissionReview{
+		Request: &admissionv1.AdmissionRequest{
+			Resource:  KubeVirtGroupVersionResource,
+			Operation: admissionv1.Update,
+			OldObject: runtime.RawExtension{Raw: oldKVBytes},
+			Object:    runtime.RawExtension{Raw: newKVBytes},
+		},
+	}
+	return admitter.Admit(context.Background(), request)
+}

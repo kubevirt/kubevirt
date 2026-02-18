@@ -315,6 +315,7 @@ spec:
         model: modelValue
         name: nameValue
         passt: {}
+        passtBinding: {}
         pciAddress: pciAddressValue
         ports:
         - name: nameValue
@@ -375,7 +376,11 @@ spec:
             enabled: true
           enabled: true
         tlbflush:
+          direct:
+            enabled: true
           enabled: true
+          extended:
+            enabled: true
         vapic:
           enabled: true
         vendorid:
@@ -430,6 +435,7 @@ spec:
       hugepages:
         pageSize: pageSizeValue
       maxGuest: "0"
+    rebootPolicy: rebootPolicyValue
     resources:
       limits:
         limitsKey: "0"
@@ -607,6 +613,16 @@ status:
   activePods:
     activePodsKey: activePodsValue
   changedBlockTracking:
+    backupStatus:
+      backupMsg: backupMsgValue
+      backupName: backupNameValue
+      checkpointName: checkpointNameValue
+      completed: true
+      endTimestamp: "1988-01-01T01:01:01Z"
+      startTimestamp: "1986-01-01T01:01:01Z"
+      volumes:
+      - diskTarget: diskTargetValue
+        volumeName: volumeNameValue
     state: stateValue
   conditions:
   - lastProbeTime: "1987-01-01T01:01:01Z"

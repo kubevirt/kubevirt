@@ -863,7 +863,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
 			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.hugepages.size"))
+			Expect(causes[0].Field).To(Equal("fake.domain.memory.hugepages.pageSize"))
 		})
 
 		It("should reject greater hugepages.size than requests.memory", func() {
@@ -1009,7 +1009,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(string(causes[0].Type)).To(Equal("FieldValueInvalid"))
 			Expect(causes[0].Field).To(Equal("fake.domain.resources.requests.memory"))
 			Expect(causes[0].Message).To(Equal("fake.domain.resources.requests.memory '64Mi' " +
-				"is not a multiple of the page size fake.domain.hugepages.size '10Mi'"))
+				"is not a multiple of the page size fake.domain.memory.hugepages.pageSize '10Mi'"))
 		})
 
 		It("should allow setting guest memory and hugepages", func() {
@@ -1252,14 +1252,11 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		},
 			Entry("PVC should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemPVC("sharedtestdisk")),
 			Entry("PVC should be accepted when feature gate is enabled", featuregate.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
-
 			Entry("DV should be rejected when feature gate is disabled", "", false, libvmi.WithFilesystemDV("sharedtestdisk")),
 			Entry("DV should be accepted when feature gate is enabled", featuregate.VirtIOFSStorageVolumeGate, true, libvmi.WithFilesystemDV("sharedtestdisk")),
-			Entry("configmap should be rejected when the feature gate is disabled", "", false, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
-			Entry("configmap should be accepted when the feature gate is enabled", featuregate.VirtIOFSConfigVolumesGate, true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
-			Entry("PVC should be accepted when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, true, libvmi.WithFilesystemPVC("sharedtestdisk")),
-			Entry("DV should be accepted when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, true, libvmi.WithFilesystemDV("sharedtestdisk")),
-			Entry("config map should be accepted when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
+			Entry("configmap should be accepted when the feature gate is disabled", "", true, libvmi.WithConfigMapFs("sharedconfigmap", "sharedconfigmap")),
+			Entry("PVC should be rejected when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, false, libvmi.WithFilesystemPVC("sharedtestdisk")),
+			Entry("DV should be rejected when the deprecated feature gate is enabled", featuregate.VirtIOFSGate, false, libvmi.WithFilesystemDV("sharedtestdisk")),
 		)
 
 		It("should reject host devices when feature gate is disabled", func() {
@@ -2098,6 +2095,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 
 			causes := validateVolumes(k8sfield.NewPath("fake"), vmi.Spec.Volumes, config)
 			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("HostDisk feature gate is not enabled"))
 		})
 
 		It("should accept hostDisk volumes if the feature gate is enabled", func() {
@@ -3731,6 +3729,35 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 		)
 	})
 
+	Context("with RebootPolicy", func() {
+		It("should accept rebootPolicy when feature gate is enabled", func() {
+			enableFeatureGates(featuregate.RebootPolicy)
+			vmi := libvmi.New(
+				libvmi.WithArchitecture(runtime.GOARCH),
+				libvmi.WithResourceMemory("128M"),
+			)
+			vmi.Spec.Domain.RebootPolicy = pointer.P(v1.RebootPolicyTerminate)
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty(), "should accept rebootPolicy when feature gate is enabled")
+		})
+
+		It("should reject rebootPolicy when feature gate is disabled", func() {
+			disableFeatureGates()
+			vmi := libvmi.New(
+				libvmi.WithArchitecture(runtime.GOARCH),
+				libvmi.WithResourceMemory("128M"),
+			)
+			vmi.Spec.Domain.RebootPolicy = pointer.P(v1.RebootPolicyTerminate)
+
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Message).To(Equal(fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", featuregate.RebootPolicy)))
+			Expect(causes[0].Field).To(Equal("fake.domain.rebootPolicy"))
+		})
+	})
+
 	Context("with DRA GPUs", func() {
 		It("Should require deviceName without DRA", func() {
 			vmi := libvmi.New(
@@ -4129,7 +4156,7 @@ var _ = Describe("additional tests", func() {
 					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.P(true),
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 				},
 			},
 		}
@@ -4152,7 +4179,7 @@ var _ = Describe("additional tests", func() {
 					Enabled: pointer.P(true),
 				},
 				SyNICTimer: &v1.SyNICTimer{
-					Enabled: pointer.P(true),
+					FeatureState: v1.FeatureState{Enabled: pointer.P(true)},
 				},
 			},
 		}

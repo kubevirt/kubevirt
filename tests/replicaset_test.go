@@ -27,7 +27,6 @@ import (
 	"time"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
-	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/libvmi/replicaset"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -128,7 +127,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	newReplicaSet := func() *v1.VirtualMachineInstanceReplicaSet {
 		By("Create a new VirtualMachineInstance replica set")
-		template := libvmifact.NewCirros(
+		template := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
@@ -157,7 +156,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 	)
 
 	DescribeTable("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:component]should scale with the horizontal pod autoscaler", func(startScale int, stopScale int) {
-		template := libvmifact.NewCirros(
+		template := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 		)
@@ -220,7 +219,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		Expect(err).ToNot(HaveOccurred())
 
 		Expect(reviewResponse.Details.Causes).To(HaveLen(1))
-		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[2].name"))
+		Expect(reviewResponse.Details.Causes[0].Field).To(Equal("spec.template.spec.domain.devices.disks[1].name"))
 	})
 	It("[test_id:1413]should update readyReplicas once VMIs are up", func() {
 		newRS := newReplicaSet()
@@ -405,7 +404,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 
 	It("should replace a VMI immediately when a virt-launcher pod gets deleted", func() {
 		By("Creating new replica set")
-		template := libvmifact.NewCirros(
+		template := libvmifact.NewAlpine(
 			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 			libvmi.WithNetwork(v1.DefaultPodNetwork()),
 			libvmi.WithTerminationGracePeriod(200),
@@ -447,24 +446,20 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(rs)).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(vmi.Status.Phase).To(Equal(v1.Running))
-		Expect(controller.NewVirtualMachineInstanceConditionManager().
-			HasConditionWithStatusAndReason(
-				vmi,
-				v1.VirtualMachineInstanceConditionType(k8sv1.PodReady),
-				k8sv1.ConditionFalse,
-				v1.PodTerminatingReason,
-			),
-		).To(BeTrue())
+		Expect(vmi).To(matcher.HaveConditionFalseWithReason(
+			v1.VirtualMachineInstanceConditionType(k8sv1.PodReady),
+			v1.PodTerminatingReason,
+		))
 		Expect(vmi.DeletionTimestamp).ToNot(BeNil())
 	})
 
 	Context("replicaset with topology spread constraints", decorators.WgS390x, func() {
-		It("Replicas should be spread across nodes", func() {
+		It("Replicas should be spread across nodes", decorators.RequiresTwoSchedulableNodes, func() {
 			nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
 			Expect(nodes.Items).ToNot(BeEmpty(), "There should be some schedulable nodes")
 			numNodes := len(nodes.Items)
 			if numNodes < 2 {
-				Skip("Skipping spec if test environment has less than two schedulable nodes")
+				Fail("Test environment has less than two schedulable nodes")
 			}
 			vmLabelKey := "test" + rand.String(5)
 			vmLabelValue := "test" + rand.String(5)

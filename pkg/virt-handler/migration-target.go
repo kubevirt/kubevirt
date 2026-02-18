@@ -50,13 +50,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	containerdisk "kubevirt.io/kubevirt/pkg/virt-handler/container-disk"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
@@ -593,7 +593,9 @@ func (c *MigrationTargetController) handleTargetMigrationProxy(vmi *v1.VirtualMa
 func replaceMigratedVolumesStatus(vmi *v1.VirtualMachineInstance) {
 	replaceVolsStatus := make(map[string]*v1.PersistentVolumeClaimInfo)
 	for _, v := range vmi.Status.MigratedVolumes {
-		replaceVolsStatus[v.SourcePVCInfo.ClaimName] = v.DestinationPVCInfo
+		if v.SourcePVCInfo != nil {
+			replaceVolsStatus[v.SourcePVCInfo.ClaimName] = v.DestinationPVCInfo
+		}
 	}
 	for i, v := range vmi.Status.VolumeStatus {
 		if v.PersistentVolumeClaimInfo == nil {
@@ -730,8 +732,8 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
 	options.InterfaceDomainAttachment = domainspec.DomainAttachmentByInterfaceName(vmi.Spec.Domain.Devices.Interfaces, c.clusterConfig.GetNetworkBindings())
 
-	if c.clusterConfig.PasstIPStackMigrationEnabled() {
-		if err := c.passtRepairHandler.HandleMigrationTarget(vmi, c.passtSocketDirOnHostForVMI); err != nil {
+	if c.clusterConfig.PasstBindingEnabled() {
+		if err = c.passtRepairHandler.HandleMigrationTarget(vmi, c.passtSocketDirOnHostForVMI); err != nil {
 			c.logger.Object(vmi).Warningf("failed to call passt-repair for migration target, %v", err)
 		}
 	}
@@ -918,7 +920,7 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 	}
 
 	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
-	requiredMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
+	requiredMemory := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
 	requiredMemory.Add(
 		c.netBindingPluginMemoryCalculator.Calculate(vmi, c.clusterConfig.GetNetworkBindings()),
 	)

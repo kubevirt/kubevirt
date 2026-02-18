@@ -73,7 +73,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 		vmi = nil
-		checks.SkipTestIfNoFeatureGate(featuregate.VirtIOFSStorageVolumeGate)
+		checks.FailTestIfNoFeatureGate(featuregate.VirtIOFSStorageVolumeGate)
 	})
 
 	Context("VirtIO-FS with multiple PVCs", func() {
@@ -333,7 +333,7 @@ var _ = Describe("[sig-storage] virtiofs", decorators.SigStorage, func() {
 			Expect(strings.Trim(podVirtioFsFileExist, "\n")).To(Equal("exist"))
 			err = virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})
 			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120)
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 120*time.Second)).To(Succeed())
 		})
 	})
 })

@@ -201,14 +201,6 @@ func (app *SubresourceAPIApp) StopVMRequestHandler(request *restful.Request, res
 		return
 	}
 
-	if hasVMI {
-		condManager := controller.NewVirtualMachineInstanceConditionManager()
-		if condManager.HasConditionWithStatus(vmi, v1.VirtualMachineInstancePaused, k8sv1.ConditionTrue) {
-			writeError(errors.NewConflict(v1.Resource("virtualmachine"), name, fmt.Errorf("cannot stop a paused VirtualMachineInstance; it must be unpaused first")), response)
-			return
-		}
-	}
-
 	var oldGracePeriodSeconds int64
 	var patchErr error
 	if hasVMI && !vmi.IsFinal() && bodyStruct.GracePeriod != nil {
@@ -687,4 +679,36 @@ func getRunningPatch(vm *v1.VirtualMachine, running bool) ([]byte, error) {
 		patch.WithTest("/spec/running", vm.Spec.Running),
 		patch.WithReplace("/spec/running", running),
 	).GeneratePayload()
+}
+
+func (app *SubresourceAPIApp) BackupVMIRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.Phase != v1.Running {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf(vmNotRunning))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.BackupURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
+
+func (app *SubresourceAPIApp) RedefineCheckpointVMIRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		if vmi.Status.ChangedBlockTracking == nil ||
+			vmi.Status.ChangedBlockTracking.State != v1.ChangedBlockTrackingEnabled {
+			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name,
+				fmt.Errorf("ChangedBlockTracking is not enabled"))
+		}
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.RedefineCheckpointURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
 }

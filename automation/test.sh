@@ -21,7 +21,7 @@ set -ex
 
 export TIMESTAMP=${TIMESTAMP:-1}
 
-export KUBEVIRT_DEPLOY_NP="${KUBEVIRT_DEPLOY_NP:-false}"
+export KUBEVIRT_DEPLOY_NP="${KUBEVIRT_DEPLOY_NP:-true}"
 export WORKSPACE="${WORKSPACE:-$PWD}"
 export IMAGE_PULL_POLICY="${IMAGE_PULL_POLICY:-IfNotPresent}"
 readonly ARTIFACTS_PATH="${ARTIFACTS-$WORKSPACE/exported-artifacts}"
@@ -42,24 +42,23 @@ if [[ ${CI} == "true" && -n "$PULL_BASE_SHA" && -n "$PULL_PULL_SHA" && "$JOB_NAM
     fi
  fi
 
-if [[ ${CI} == "true" ]]; then
-  if [[ ! $TARGET =~ .*kind.* ]] && [[ ! $TARGET =~ .*k3d.* ]]; then
-    _delay="$(( ( RANDOM % 180 )))"
-    echo "INFO: Sleeping for ${_delay}s to randomize job startup slighty"
-    sleep ${_delay}
-  fi
-fi
-
 if [ -z $TARGET ]; then
   echo "FATAL: TARGET must be non empty"
   exit 1
 fi
 
+add_feature_gate() {
+  if [ -z "$FEATURE_GATES" ]; then
+    export FEATURE_GATES="$1"
+  else
+    export FEATURE_GATES="$FEATURE_GATES,$1"
+  fi
+}
+
 export KUBEVIRT_DEPLOY_CDI=true
 if [[ ! $TARGET =~ .*kind.* ]]; then
-  export FEATURE_GATES="NodeRestriction"
+  add_feature_gate "NodeRestriction"
   export KUBEVIRT_PSA="true"
-  export KUBEVIRT_FLANNEL=true
 fi
 
 case "$TARGET" in
@@ -73,6 +72,7 @@ case "$TARGET" in
     export KUBEVIRT_DEPLOY_NET_BINDING_CNI=true
     export KUBEVIRT_DEPLOY_CDI=false
     export KUBEVIRT_DEPLOY_ISTIO=true
+    export KUBEVIRT_DEPLOY_NETWORK_RESOURCES_INJECTOR=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
     ;;
   *sig-storage*)
@@ -135,6 +135,12 @@ case "$TARGET" in
   *wg-arm64*)
     export KUBEVIRT_PROVIDER=${TARGET/-wg-arm64}
     export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
+    ;;
+  *wg-mshv-amd64*)
+    export KUBEVIRT_PROVIDER=${TARGET/-wg-mshv-amd64/}
+    export KUBEVIRT_COLLECT_CONTAINER_RUNTIME_DEBUG=true
+    add_feature_gate "ConfigurableHypervisor"
+    export HYPERVISOR="hyperv-direct"
     ;;
   *sev*)
     export KUBEVIRT_PROVIDER=${TARGET/-sev}
@@ -452,6 +458,9 @@ spec:
   nfs:
     server: "nfs"
     path: /
+  # W/A https://issues.redhat.com/browse/RHEL-129836
+  mountOptions:
+    - nfsvers=4.1
   storageClassName: windows
 EOF
 fi
@@ -511,7 +520,7 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     export KUBEVIRT_E2E_PARALLEL=false
     label_filter='((sig-compute && Serial) && !(GPU,VGPU,sig-compute-migrations) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-parallel ]]; then
-    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage) && !(SEV, SEVES, secure-execution))'
+    label_filter='(sig-compute && !(Serial,GPU,VGPU,sig-compute-migrations,sig-storage,storage-req) && !(SEV, SEVES, secure-execution))'
   elif [[ $TARGET =~ sig-compute-conformance ]]; then
     label_filter='(sig-compute && conformance)'
   elif [[ $TARGET =~ sig-compute ]]; then
@@ -550,6 +559,10 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
 
   if [[ ! $TARGET =~ wg-arm64 ]]; then
     add_to_label_filter "(!requires-arm64)" "&&"
+  fi
+
+  if [[ $KUBEVIRT_PROVIDER =~ k8s-1\.3[1-4] ]]; then
+    add_to_label_filter "(!ImageVolume)" "&&"
   fi
 
   rwofs_sc=$(jq -er .storageRWOFileSystem "${kubevirt_test_config}")
@@ -603,6 +616,12 @@ if [[ -z "$KUBEVIRT_SWAP_ON" || "$KUBEVIRT_SWAP_ON" == "false" ]]; then
   add_to_label_filter '(!SwapTest)' '&&'
 fi
 
+# OpenShift-specific tests require features not available in KubeVirtCI
+# (SecurityContextConstraints, Routes). Filter them out when not on OpenShift.
+if ! kubectl get clusterversion version &>/dev/null; then
+  add_to_label_filter '(!OpenShift)' '&&'
+fi
+
 # Prepare RHEL PV for Template testing
 if [[ $TARGET =~ os-.* ]]; then
   ginko_params="$ginko_params|Networkpolicy"
@@ -623,6 +642,9 @@ spec:
   nfs:
     server: "nfs"
     path: /
+  # W/A https://issues.redhat.com/browse/RHEL-129836
+  mountOptions:
+    - nfsvers=4.1
   storageClassName: rhel
 EOF
 fi

@@ -89,6 +89,9 @@
         "featureGates": [
           "featureGatesValue"
         ],
+        "disabledFeatureGates": [
+          "disabledFeatureGatesValue"
+        ],
         "pvcTolerateLessSpaceUpToPercent": -31,
         "minimumReservePVCBytes": 18446744073709551594,
         "memoryOvercommit": -16,
@@ -266,7 +269,8 @@
               "mediatedDeviceTypesValue"
             ]
           }
-        ]
+        ],
+        "enabled": true
       },
       "minCPUModel": "minCPUModelValue",
       "obsoleteCPUModels": {
@@ -371,9 +375,17 @@
       "commonInstancetypesDeployment": {
         "enabled": true
       },
+      "virtTemplateDeployment": {
+        "enabled": true
+      },
       "instancetype": {
         "referencePolicy": "referencePolicyValue"
       },
+      "hypervisors": [
+        {
+          "name": "nameValue"
+        }
+      ],
       "changedBlockTrackingLabelSelectors": {
         "namespaceLabelSelector": {
           "matchLabels": {

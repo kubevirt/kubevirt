@@ -861,6 +861,29 @@ func (c *Controller) handleValidationErrors(err error, vmi *virtv1.VirtualMachin
 	return nil
 }
 
+func isWaitAsReceiverRunStrategy(vm *virtv1.VirtualMachine) bool {
+	return vm.Spec.RunStrategy != nil && *vm.Spec.RunStrategy == virtv1.RunStrategyWaitAsReceiver
+}
+
+func (c *Controller) handleWaitAsReceiverVolumeInfo(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
+	if vmi == nil {
+		return nil
+	}
+	if vmi.IsMigrationCompleted() {
+		return nil
+	}
+	migVols, err := volumemig.GenerateReceiverMigratedVolumes(c.pvcStore, vmi, vm)
+	if err != nil {
+		log.Log.Object(vm).Errorf("failed to generate the migrating volumes for vm: %v", err)
+		return err
+	}
+	if err := volumemig.PatchVMIStatusWithMigratedVolumes(c.clientset, migVols, vmi); err != nil {
+		log.Log.Object(vm).Errorf("failed to update migrating volumes for vmi:%v", err)
+		return err
+	}
+	return nil
+}
+
 func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) error {
 	if vmi == nil {
 		return nil
@@ -879,7 +902,7 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 	case vm.Spec.UpdateVolumesStrategy == nil ||
 		*vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyReplacement:
 		log.Log.Object(vm).V(4).Infof("not handling replacement update volumes strategy")
-	case *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
+	case vm.Spec.UpdateVolumesStrategy != nil && *vm.Spec.UpdateVolumesStrategy == virtv1.UpdateVolumesStrategyMigration:
 		if !volumemig.PersistentVolumesUpdated(&vm.Spec.Template.Spec, &vmi.Spec) {
 			log.Log.Object(vm).V(4).Infof("No persistent volumes updated")
 			return nil
@@ -906,12 +929,10 @@ func (c *Controller) handleVolumeUpdateRequest(vm *virtv1.VirtualMachine, vmi *v
 			log.Log.Object(vm).Errorf("failed to update migrating volumes for vmi:%v", err)
 			return err
 		}
-		log.Log.Object(vm).Infof("Updated migrating volumes in the status")
 		if _, err := volumemig.PatchVMIVolumes(c.clientset, vmi, vm); err != nil {
 			log.Log.Object(vm).Errorf("failed to update volumes for vmi:%v", err)
 			return err
 		}
-		log.Log.Object(vm).Infof("Updated volumes for vmi")
 		if vm.Status.VolumeUpdateState == nil {
 			vm.Status.VolumeUpdateState = &virtv1.VolumeUpdateState{}
 		}
@@ -2962,8 +2983,8 @@ func setRestartRequired(vm *virtv1.VirtualMachine, message string) {
 	})
 }
 
-// addRestartRequiredIfNeeded adds the restartRequired condition to the VM if any non-live-updatable field was changed
-func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
+// syncRestartRequired adds or removes the RestartRequired condition from the VM based on whether any non-live-updatable field was changed
+func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSpec, vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
 	if lastSeenVMSpec == nil {
 		return false
 	}
@@ -3014,9 +3035,27 @@ func (c *Controller) addRestartRequiredIfNeeded(lastSeenVMSpec *virtv1.VirtualMa
 		lastSeenVM.Spec.Template.Spec.Networks = currentVM.Spec.Template.Spec.Networks
 	}
 
+	// Neutralize firmware UUID changes if the VMI's UUID matches the VM's UUID.
+	// This happens when the firmware synchronizer persists the UUID to a VM that didn't have one.
+	if vmi != nil && vmi.Spec.Domain.Firmware != nil && currentVM.Spec.Template.Spec.Domain.Firmware != nil &&
+		vmi.Spec.Domain.Firmware.UUID == currentVM.Spec.Template.Spec.Domain.Firmware.UUID {
+		if lastSeenVM.Spec.Template.Spec.Domain.Firmware == nil {
+			lastSeenVM.Spec.Template.Spec.Domain.Firmware = &virtv1.Firmware{}
+		}
+		lastSeenVM.Spec.Template.Spec.Domain.Firmware.UUID = currentVM.Spec.Template.Spec.Domain.Firmware.UUID
+	}
+
 	if !equality.Semantic.DeepEqual(lastSeenVM.Spec.Template.Spec, currentVM.Spec.Template.Spec) {
 		setRestartRequired(vm, "a non-live-updatable field was changed in the template spec")
 		return true
+	}
+
+	// If no restart is needed, remove any existing RestartRequired condition.
+	// This handles cases where a previous condition was set but is no longer valid,
+	// such as when the firmware UUID synchronizer persisted a UUID that matches the VMI's UUID.
+	vmConditionManager := controller.NewVirtualMachineConditionManager()
+	if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
+		vmConditionManager.RemoveCondition(vm, virtv1.VirtualMachineRestartRequired)
 	}
 
 	return false
@@ -3156,6 +3195,9 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	if !equality.Semantic.DeepEqual(vm.Spec, syncedVM.Spec) {
 		return syncedVM, vmi, nil, nil
 	}
+	if !equality.Semantic.DeepEqual(vm.Status, syncedVM.Status) {
+		return syncedVM, vmi, nil, nil
+	}
 
 	vm.ObjectMeta = syncedVM.ObjectMeta
 	vm.Spec = syncedVM.Spec
@@ -3180,7 +3222,7 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 		return vm, vmi, syncErr, nil
 	}
 
-	restartRequired := c.addRestartRequiredIfNeeded(startVMSpec, vm, vmi)
+	restartRequired := c.syncRestartRequired(startVMSpec, vm, vmi)
 
 	// Must check satisfiedExpectations again here because a VMI can be created or
 	// deleted in the startStop function which impacts how we process
@@ -3243,8 +3285,14 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 			return vm, vmi, common.NewSyncError(fmt.Errorf("error encountered while handling memory hotplug requests: %v", err), hotplugMemoryErrorReason), nil
 		}
 
-		if err := c.handleVolumeUpdateRequest(vmCopy, vmi); err != nil {
-			return vm, vmi, common.NewSyncError(fmt.Errorf("error encountered while handling volumes update requests: %v", err), volumesUpdateErrorReason), nil
+		if isWaitAsReceiverRunStrategy(vm) {
+			if err := c.handleWaitAsReceiverVolumeInfo(vmCopy, vmi); err != nil {
+				return vm, vmi, common.NewSyncError(fmt.Errorf("error encountered while handling wait as receiver volume migration requests: %v", err), volumesUpdateErrorReason), nil
+			}
+		} else {
+			if err := c.handleVolumeUpdateRequest(vmCopy, vmi); err != nil {
+				return vm, vmi, common.NewSyncError(fmt.Errorf("error encountered while handling volumes update requests: %v", err), volumesUpdateErrorReason), nil
+			}
 		}
 	}
 

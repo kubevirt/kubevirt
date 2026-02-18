@@ -82,6 +82,7 @@ var (
 		noReadyAlert:         "NoReadyVirtOperator",
 		restErrorsBurtsAlert: "VirtOperatorRESTErrorsBurst",
 		lowCountAlert:        "LowVirtOperatorCount",
+		lowReadyAlert:        "LowReadyVirtOperatorsCount",
 	}
 )
 
@@ -92,14 +93,18 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 
 	BeforeAll(func() {
 		virtClient = kubevirt.Client()
-		scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
+		scales = libmonitoring.NewScaling(virtClient, []string{
+			virtOperator.deploymentName,
+			virtController.deploymentName,
+			virtApi.deploymentName,
+		})
 	})
 
 	BeforeEach(func() {
 		By("Increasing the rate limit")
 		increaseRateLimit(virtClient)
 
-		By("Backing up the operator, controller, api and handler scales")
+		By("Scaling down the operator to prevent reconciliation")
 		scales.UpdateScale(virtOperator.deploymentName, int32(0))
 
 		By("Reducing the alert pending time")
@@ -107,6 +112,10 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 	})
 
 	AfterEach(func() {
+		By("Restoring the controller and api scales")
+		scales.RestoreScale(virtController.deploymentName)
+		scales.RestoreScale(virtApi.deploymentName)
+
 		By("Restoring the operator")
 		restoreOperator(virtClient, scales)
 	})
@@ -194,8 +203,26 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 
 	Context("Low ready alerts", decorators.RequiresTwoSchedulableNodes, func() {
 		It("LowReadyVirtControllersCount should be triggered when virt-controller pods exist but are not ready", func() {
+			By("Ensuring the controller is scaled up")
+			scales.RestoreScale(virtController.deploymentName)
+
 			virtControllerDeployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), virtController.deploymentName, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
+
+			originalVirtControllerDeployment := virtControllerDeployment.DeepCopy()
+			defer func() {
+				By("Restoring the virt-controller deployment to the correct image")
+				currentDep, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), virtController.deploymentName, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				currentDep.Spec.Template.Spec.Containers[0] = originalVirtControllerDeployment.Spec.Template.Spec.Containers[0]
+				patch, err := json.Marshal(currentDep)
+				Expect(err).ToNot(HaveOccurred())
+				_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), virtController.deploymentName, types.MergePatchType, patch, metav1.PatchOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Waiting for the low ready alert to not be firing anymore")
+				libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtController.lowReadyAlert)
+			}()
 
 			container := &virtControllerDeployment.Spec.Template.Spec.Containers[0]
 			container.Image = libregistry.GetUtilityImageFromRegistry("vm-killer") // any random image
@@ -303,6 +330,45 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 				g.Expect(libmonitoring.CheckAlertExists(virtClient, virtHandler.restErrorsBurtsAlert)).To(BeTrue())
 			}, 5*time.Minute, 500*time.Millisecond).Should(Succeed())
 		})
+	})
+})
+
+var _ = Describe("[sig-monitoring] Virt-operator alerts", Serial, Ordered, decorators.SigMonitoring, decorators.RequiresTwoSchedulableNodes, func() {
+	It("LowReadyVirtOperatorsCount should be triggered when virt-operator pods exist but are not ready", func() {
+		virtClient := kubevirt.Client()
+
+		virtOperatorDeployment, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), virtOperator.deploymentName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		originalVirtOperatorDeployment := virtOperatorDeployment.DeepCopy()
+		defer func() {
+			By("Restoring the virt-operator deployment to the correct image")
+			currentDep, err := virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Get(context.Background(), virtOperator.deploymentName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			currentDep.Spec.Template.Spec.Containers[0] = originalVirtOperatorDeployment.Spec.Template.Spec.Containers[0]
+			patch, err := json.Marshal(currentDep)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), virtOperator.deploymentName, types.MergePatchType, patch, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for the low ready alert to not be firing anymore")
+			libmonitoring.WaitUntilAlertDoesNotExist(virtClient, virtOperator.lowReadyAlert)
+		}()
+
+		container := &virtOperatorDeployment.Spec.Template.Spec.Containers[0]
+		container.Image = libregistry.GetUtilityImageFromRegistry("vm-killer") // any random image
+		container.Command = []string{"tail", "-f", "/dev/null"}
+		container.Args = []string{}
+		container.ReadinessProbe = nil
+		container.LivenessProbe = nil
+
+		patch, err := json.Marshal(virtOperatorDeployment)
+		Expect(err).ToNot(HaveOccurred())
+
+		_, err = virtClient.AppsV1().Deployments(flags.KubeVirtInstallNamespace).Patch(context.Background(), virtOperatorDeployment.Name, types.MergePatchType, patch, metav1.PatchOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		libmonitoring.VerifyAlertExist(virtClient, virtOperator.lowReadyAlert)
 	})
 })
 

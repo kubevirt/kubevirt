@@ -96,6 +96,7 @@ func (DomainSpec) SwaggerDoc() map[string]string {
 		"ioThreads":       "IOThreads specifies the IOThreads options.\n+optional",
 		"chassis":         "Chassis specifies the chassis info passed to the domain.\n+optional",
 		"launchSecurity":  "Launch Security setting of the vmi.\n+optional",
+		"rebootPolicy":    "RebootPolicy specifies how the guest should behave on reboot.\nReboot (default): The guest is allowed to reboot silently.\nTerminate: The VMI will be terminated on guest reboot, allowing\nhigher level controllers (such as the VM controller) to recreate\nthe VMI with any updated configuration such as boot order changes.\n+optional",
 	}
 }
 
@@ -630,7 +631,9 @@ func (Features) SwaggerDoc() map[string]string {
 }
 
 func (SyNICTimer) SwaggerDoc() map[string]string {
-	return map[string]string{}
+	return map[string]string{
+		"direct": "+optional",
+	}
 }
 
 func (FeatureState) SwaggerDoc() map[string]string {
@@ -642,22 +645,26 @@ func (FeatureState) SwaggerDoc() map[string]string {
 
 func (FeatureAPIC) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"enabled":        "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
 		"endOfInterrupt": "EndOfInterrupt enables the end of interrupt notification in the guest.\nDefaults to false.\n+optional",
 	}
 }
 
 func (FeatureSpinlocks) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"enabled":   "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
 		"spinlocks": "Retries indicates the number of retries.\nMust be a value greater or equal 4096.\nDefaults to 4096.\n+optional",
 	}
 }
 
 func (FeatureVendorID) SwaggerDoc() map[string]string {
 	return map[string]string{
-		"enabled":  "Enabled determines if the feature should be enabled or disabled on the guest.\nDefaults to true.\n+optional",
 		"vendorid": "VendorID sets the hypervisor vendor id, visible to the vmi.\nString up to twelve characters.",
+	}
+}
+
+func (TLBFlush) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"direct":   "Direct allows sending the TLB flush command directly to the hypervisor.\nIt can be useful to optimize performance in nested virtualization cases, such as Windows VBS.\n+optional",
+		"extended": "Extended allows the guest to execute partial TLB flushes. It can be helpful for general purpose workloads.\n+optional",
 	}
 }
 
@@ -792,6 +799,12 @@ func (DeprecatedInterfaceMacvtap) SwaggerDoc() map[string]string {
 func (DeprecatedInterfacePasst) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"": "DeprecatedInterfacePasst is an alias to the deprecated InterfacePasst\nDeprecated: Removed in v1.3",
+	}
+}
+
+func (InterfacePasstBinding) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"": "InterfacePasstBinding connects to a given network using passt usermode networking.",
 	}
 }
 

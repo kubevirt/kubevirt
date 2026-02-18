@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
@@ -733,6 +734,9 @@ const (
 	// Indicates whether the VMI is live migratable
 	VirtualMachineInstanceIsStorageLiveMigratable VirtualMachineInstanceConditionType = "StorageLiveMigratable"
 
+	// Indicates whether the VMI has any failure during decentralized live migration
+	VirtualMachineInstanceDecentralizedLiveMigrationFailure VirtualMachineInstanceConditionType = "DecentralizedLiveMigrationFailure"
+
 	// VirtualMachineInstanceMigrationRequired Indicates that an automatic migration is required
 	VirtualMachineInstanceMigrationRequired VirtualMachineInstanceConditionType = "MigrationRequired"
 
@@ -742,13 +746,13 @@ const (
 
 // These are valid reasons for VMI conditions.
 const (
-	// Reason means that VMI is not live migratioable because of it's disks collection
+	// Reason means that VMI is not live migratable because of it's disks collection
 	VirtualMachineInstanceReasonDisksNotMigratable = "DisksNotLiveMigratable"
-	// Reason means that VMI is not live migratioable because of it's network interfaces collection
+	// Reason means that VMI is not live migratable because of it's network interfaces collection
 	VirtualMachineInstanceReasonInterfaceNotMigratable = "InterfaceNotLiveMigratable"
-	// Reason means that VMI is not live migratioable because it uses hotplug
+	// Reason means that VMI is not live migratable because it uses hotplug
 	VirtualMachineInstanceReasonHotplugNotMigratable = "HotplugNotLiveMigratable"
-	// Reason means that VMI is not live migratioable because of it's CPU mode
+	// Reason means that VMI is not live migratable because of it's CPU mode
 	VirtualMachineInstanceReasonCPUModeNotMigratable = "CPUModeLiveMigratable"
 	// Reason means that VMI is not live migratable because it uses virtiofs
 	VirtualMachineInstanceReasonVirtIOFSNotMigratable = "VirtIOFSNotLiveMigratable"
@@ -766,11 +770,13 @@ const (
 	VirtualMachineInstanceReasonHypervPassthroughNotMigratable = "HypervPassthroughNotLiveMigratable"
 	// Reason means that VMI is not live migratable because it requested SCSI persitent reservation
 	VirtualMachineInstanceReasonPRNotMigratable = "PersistentReservationNotLiveMigratable"
+	// Reason means that VMI is not decentralized live migratable, the reason is specified in the condition message
+	VirtualMachineInstanceReasonDecentralizedNotMigratable = "DecentralizedNotLiveMigratable"
 	// Reason means that not all of the VMI's DVs are ready
 	VirtualMachineInstanceReasonNotAllDVsReady = "NotAllDVsReady"
 	// Reason means that all of the VMI's DVs are bound and ready
 	VirtualMachineInstanceReasonAllDVsReady = "AllDVsReady"
-	// Indicates a generic reason that the VMI isn't migratable and more details are spiecified in the condition message.
+	// Indicates a generic reason that the VMI isn't migratable and more details are specified in the condition message.
 	VirtualMachineInstanceReasonNotMigratable = "NotMigratable"
 	// Reason means that the volume update change was cancelled
 	VirtualMachineInstanceReasonVolumesChangeCancellation = "VolumesChangeCancellation"
@@ -808,6 +814,8 @@ const (
 	VirtualMachineInstanceMigrationRejectedByResourceQuota VirtualMachineInstanceMigrationConditionType = "migrationRejectedByResourceQuota"
 	// VirtualMachineInstanceMigrationBlockedByUtilityVolumes indicates that migration is waiting for utility volumes to detach
 	VirtualMachineInstanceMigrationBlockedByUtilityVolumes VirtualMachineInstanceMigrationConditionType = "migrationBlockedByUtilityVolumes"
+	// VirtualMachineInstanceDecentralizedMigrationBlocked indicates that a decentralized migration is blocked
+	VirtualMachineInstanceDecentralizedMigrationBlocked VirtualMachineInstanceMigrationConditionType = "decentralizedMigrationBlocked"
 )
 
 type VirtualMachineInstanceCondition struct {
@@ -1213,6 +1221,8 @@ const (
 	EphemeralBackupObject = "kubevirt.io/ephemeral-backup-object"
 	// This annotation represents that the annotated object is for temporary use during pod/volume provisioning
 	EphemeralProvisioningObject string = "kubevirt.io/ephemeral-provisioning"
+	// This annotation indicates the VMI contains an ephemeral hotplug volume
+	EphemeralHotplugAnnotation string = "kubevirt.io/ephemeral-hotplug-volumes"
 
 	// This label indicates the object is a part of the install strategy retrieval process.
 	InstallStrategyLabel = "kubevirt.io/install-strategy"
@@ -1932,19 +1942,12 @@ type VirtualMachineRunStrategy string
 // These are the valid VMI run strategies
 const (
 	// Placeholder. Not a valid RunStrategy.
-	RunStrategyUnknown VirtualMachineRunStrategy = ""
-	// VMI should always be running.
-	RunStrategyAlways VirtualMachineRunStrategy = "Always"
-	// VMI should never be running.
-	RunStrategyHalted VirtualMachineRunStrategy = "Halted"
-	// VMI can be started/stopped using API endpoints.
-	RunStrategyManual VirtualMachineRunStrategy = "Manual"
-	// VMI will initially be running--and restarted if a failure occurs.
-	// It will not be restarted upon successful completion.
+	RunStrategyUnknown        VirtualMachineRunStrategy = ""
+	RunStrategyAlways         VirtualMachineRunStrategy = "Always"
+	RunStrategyHalted         VirtualMachineRunStrategy = "Halted"
+	RunStrategyManual         VirtualMachineRunStrategy = "Manual"
 	RunStrategyRerunOnFailure VirtualMachineRunStrategy = "RerunOnFailure"
-	// VMI will run once and not be restarted upon completion regardless
-	// if the completion is of phase Failure or Success
-	RunStrategyOnce VirtualMachineRunStrategy = "Once"
+	RunStrategyOnce           VirtualMachineRunStrategy = "Once"
 	// Receiver pod will be created waiting for an incoming migration. Switch after to expected
 	// RunStrategy.
 	RunStrategyWaitAsReceiver VirtualMachineRunStrategy = "WaitAsReceiver"
@@ -1967,6 +1970,12 @@ type VirtualMachineSpec struct {
 
 	// Running state indicates the requested running state of the VirtualMachineInstance
 	// mutually exclusive with Running
+	// Following are allowed values:
+	// - "Always": VMI should always be running.
+	// - "Halted": VMI should never be running.
+	// - "Manual": VMI can be started/stopped using API endpoints.
+	// - "RerunOnFailure": VMI will initially be running and restarted if a failure occurs, but will not be restarted upon successful completion.
+	// - "Once": VMI will run once and not be restarted upon completion regardless if the completion is of phase Failure or Success.
 	RunStrategy *VirtualMachineRunStrategy `json:"runStrategy,omitempty" optional:"true"`
 
 	// InstancetypeMatcher references a instancetype that is used to fill fields in Template
@@ -2180,11 +2189,39 @@ const (
 	ChangedBlockTrackingFGDisabled ChangedBlockTrackingState = "IncrementalBackupFeatureGateDisabled"
 )
 
+// VirtualMachineInstanceBackupStatus tracks the information of the executed backup
+// +k8s:openapi-gen=true
+type VirtualMachineInstanceBackupStatus struct {
+	// BackupName is the name of the executed backup
+	BackupName string `json:"backupName,omitempty"`
+	// StartTimestamp is the timestamp when the backup started
+	StartTimestamp *metav1.Time `json:"startTimestamp,omitempty"`
+	// EndTimestamp is the timestamp when the backup ended
+	EndTimestamp *metav1.Time `json:"endTimestamp,omitempty"`
+	// Completed indicates the backup completed
+	Completed bool `json:"completed,omitempty"`
+	// BackupMsg resturns any relevant information like failure reason
+	// unfreeze failed etc...
+	// +optional
+	BackupMsg *string `json:"backupMsg,omitempty"`
+	// CheckpointName is the name of the checkpoint created for the backup
+	// +optional
+	CheckpointName *string `json:"checkpointName,omitempty"`
+	// Volumes lists the volumes included in the backup
+	// +optional
+	// +listType=atomic
+	Volumes []backupv1.BackupVolumeInfo `json:"volumes,omitempty"`
+}
+
 // ChangedBlockTrackingStatus represents the status of ChangedBlockTracking for a VM
 // +k8s:openapi-gen=true
 type ChangedBlockTrackingStatus struct {
 	// State represents the current CBT state
 	State ChangedBlockTrackingState `json:"state"`
+	// BackupStatus represents the status of vmi backup
+	// +nullable
+	// +optional
+	BackupStatus *VirtualMachineInstanceBackupStatus `json:"backupStatus,omitempty"`
 }
 
 type VolumeUpdateState struct {
@@ -3060,14 +3097,39 @@ type KubeVirtConfiguration struct {
 	// +nullable
 	CommonInstancetypesDeployment *CommonInstancetypesDeployment `json:"commonInstancetypesDeployment,omitempty"`
 
+	// VirtTemplateDeployment controls the deployment of virt-template components
+	// +nullable
+	VirtTemplateDeployment *VirtTemplateDeployment `json:"virtTemplateDeployment,omitempty"`
+
 	// Instancetype configuration
 	// +nullable
 	Instancetype *InstancetypeConfiguration `json:"instancetype,omitempty"`
+
+	// Hypervisors holds information regarding the hypervisor configurations supported on this cluster.
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems:=1
+	Hypervisors []HypervisorConfiguration `json:"hypervisors,omitempty"`
 
 	// ChangedBlockTrackingLabelSelectors defines label selectors. VMs matching these selectors will have changed block tracking enabled.
 	// Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
+}
+
+const (
+	// KVM is the default and most common hypervisor used with KubeVirt.
+	KvmHypervisorName string = "kvm"
+
+	// HyperV with Direct Virtualization support.
+	HyperVDirectHypervisorName string = "hyperv-direct"
+)
+
+// HypervisorConfiguration holds information regarding the hypervisor present on cluster nodes.
+type HypervisorConfiguration struct {
+	// Name is the name of the hypervisor.
+	// Supported values are: "kvm", "hyperv-direct".
+	// +kubebuilder:validation:Enum=kvm;hyperv-direct
+	Name string `json:"name,omitempty"`
 }
 
 type ChangedBlockTrackingSelectors struct {
@@ -3102,6 +3164,12 @@ const (
 
 type CommonInstancetypesDeployment struct {
 	// Enabled controls the deployment of common-instancetypes resources, defaults to True.
+	// +nullable
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+type VirtTemplateDeployment struct {
+	// Enabled controls the deployment of virt-template resources, defaults to True when feature gate is enabled.
 	// +nullable
 	Enabled *bool `json:"enabled,omitempty"`
 }
@@ -3289,8 +3357,16 @@ type DiskVerification struct {
 
 // DeveloperConfiguration holds developer options
 type DeveloperConfiguration struct {
-	// FeatureGates is the list of experimental features to enable. Defaults to none
+	// FeatureGates specifies a list of experimental feature gates to enable. Defaults to none.
+	// A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
+	// +optional
+	// +listType=atomic
 	FeatureGates []string `json:"featureGates,omitempty"`
+	// DisabledFeatureGates specifies a list of experimental feature gates to disable.
+	// A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
+	// +optional
+	// +listType=atomic
+	DisabledFeatureGates []string `json:"disabledFeatureGates,omitempty"`
 	// LessPVCSpaceToleration determines how much smaller, in percentage, disk PVCs are
 	// allowed to be compared to the requested size (to account for various overheads).
 	// Defaults to 10
@@ -3405,6 +3481,11 @@ type MediatedDevicesConfiguration struct {
 	// +optional
 	// +listType=atomic
 	NodeMediatedDeviceTypes []NodeMediatedDeviceTypesConfig `json:"nodeMediatedDeviceTypes,omitempty"`
+	// Enable the creation and removal of mediated devices by virt-handler
+	// Replaces the deprecated DisableMDEVConfiguration feature gate
+	// Defaults to true
+	// +optional
+	Enabled *bool `json:"enabled,omitempty"`
 }
 
 // NodeMediatedDeviceTypesConfig holds information about MDEV types to be defined in a specific node that matches the NodeSelector field.

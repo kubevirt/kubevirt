@@ -20,8 +20,8 @@
 package downwardapi
 
 import (
+	"cmp"
 	"encoding/json"
-	"maps"
 	"slices"
 
 	networkv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
@@ -36,8 +36,8 @@ const (
 	NetworkInfoVolumePath = "network-info"
 )
 
-func CreateNetworkInfoAnnotationValue(networkDeviceInfoMap map[string]*networkv1.DeviceInfo) string {
-	networkInfo := generateNetworkInfo(networkDeviceInfoMap)
+func CreateNetworkInfoAnnotationValue(networkStatusesByNetworkName map[string]networkv1.NetworkStatus) string {
+	networkInfo := generateNetworkInfo(networkStatusesByNetworkName)
 	networkInfoBytes, err := json.Marshal(networkInfo)
 	if err != nil {
 		log.Log.Warningf("failed to marshal network-info: %v", err)
@@ -47,15 +47,24 @@ func CreateNetworkInfoAnnotationValue(networkDeviceInfoMap map[string]*networkv1
 	return string(networkInfoBytes)
 }
 
-func generateNetworkInfo(networkDeviceInfoMap map[string]*networkv1.DeviceInfo) NetworkInfo {
-	var downwardAPIInterfaces []Interface
+func generateNetworkInfo(networkStatusesByNetworkName map[string]networkv1.NetworkStatus) NetworkInfo {
+	downwardAPIInterfaces := make([]Interface, 0, len(networkStatusesByNetworkName))
 
-	// Sort keys of the map with to get deterministic order
-	sortedNetNames := slices.Sorted(maps.Keys(networkDeviceInfoMap))
-	for _, networkName := range sortedNetNames {
-		deviceInfo := networkDeviceInfoMap[networkName]
-		downwardAPIInterfaces = append(downwardAPIInterfaces, Interface{Network: networkName, DeviceInfo: deviceInfo})
+	for networkName, networkStatus := range networkStatusesByNetworkName {
+		downwardAPIInterfaces = append(
+			downwardAPIInterfaces,
+			Interface{
+				Network:    networkName,
+				DeviceInfo: networkStatus.DeviceInfo,
+				Mac:        networkStatus.Mac,
+			},
+		)
 	}
-	networkInfo := NetworkInfo{Interfaces: downwardAPIInterfaces}
-	return networkInfo
+
+	// Sort by network name to get deterministic order
+	slices.SortFunc(downwardAPIInterfaces, func(iface1, iface2 Interface) int {
+		return cmp.Compare(iface1.Network, iface2.Network)
+	})
+
+	return NetworkInfo{Interfaces: downwardAPIInterfaces}
 }

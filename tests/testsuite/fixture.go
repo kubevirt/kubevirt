@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -42,6 +43,7 @@ import (
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/tests/flags"
@@ -57,8 +59,13 @@ const (
 	defaultEventuallyTimeout         = 5 * time.Second
 	defaultEventuallyPollingInterval = 1 * time.Second
 	defaultKubevirtReadyTimeout      = 5 * time.Minute
-	defaultKWOKNodeCount             = 100
+	defaultKWOKNodeCount             = 8000
+	defaultKWOKNodeDeleteBatchSize   = 500
+	defaultKWOKNodeDeleteTimeout     = 10 * time.Minute
 	defaultMachineType               = "q35"
+	defaultVirtAPIReplicaCount       = 2
+	ArchAMD64                        = "amd64"
+	ArchS390x                        = "s390x"
 )
 
 const HostPathBase = "/tmp/hostImages"
@@ -104,6 +111,7 @@ func SynchronizedBeforeTestSetup() []byte {
 	}
 
 	if flags.DeployFakeKWOKNodesFlag {
+		disableVirtAPIAutoScaling()
 		createFakeKWOKNodes()
 	}
 
@@ -222,7 +230,9 @@ func EnsureKVMPresent() {
 				virtHandlerNode, err := virtClient.CoreV1().Nodes().Get(context.Background(), pod.Spec.NodeName, metav1.GetOptions{})
 				ExpectWithOffset(1, err).ToNot(HaveOccurred())
 
-				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[services.KvmDevice]
+				kvmLauncherResources := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName)
+				kvmAllocatable, ok1 := virtHandlerNode.Status.Allocatable[services.ConstructHypervisorResourceName(kvmLauncherResources)]
+
 				vhostNetAllocatable, ok2 := virtHandlerNode.Status.Allocatable[services.VhostNetDevice]
 				ready = ready && ok1 && ok2
 				ready = ready && (kvmAllocatable.Value() > 0) && (vhostNetAllocatable.Value() > 0)
@@ -234,8 +244,28 @@ func EnsureKVMPresent() {
 }
 
 func deleteFakeKWOKNodes() {
-	err := kubevirt.Client().CoreV1().Nodes().DeleteCollection(context.TODO(), metav1.DeleteOptions{}, metav1.ListOptions{LabelSelector: "type=kwok"})
-	Expect(err).NotTo(HaveOccurred(), "failed to delete fake nodes")
+	virtClient := kubevirt.Client()
+	ctx, cancel := context.WithTimeout(context.Background(), defaultKWOKNodeDeleteTimeout)
+	defer cancel()
+
+	Eventually(func() bool {
+		nodes, err := virtClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{LabelSelector: "type=kwok", Limit: 1})
+		Expect(err).ToNot(HaveOccurred())
+
+		if len(nodes.Items) == 0 {
+			return true
+		}
+
+		err = virtClient.CoreV1().Nodes().DeleteCollection(
+			ctx,
+			metav1.DeleteOptions{},
+			metav1.ListOptions{LabelSelector: "type=kwok", Limit: defaultKWOKNodeDeleteBatchSize})
+		Expect(err).To(Succeed())
+
+		time.Sleep(5 * time.Second)
+
+		return false
+	}, defaultKWOKNodeDeleteTimeout, defaultEventuallyPollingInterval).Should(BeTrue())
 }
 
 // setup fake nodes for KWOK performance test
@@ -282,7 +312,12 @@ func newFakeKWOKNode(nodeName string) *k8sv1.Node {
 				{
 					Key:    "kwok.x-k8s.io/node",
 					Value:  "fake",
-					Effect: "NoSchedule",
+					Effect: k8sv1.TaintEffectNoSchedule,
+				},
+				{
+					Key:    "kwok.x-k8s.io/node",
+					Value:  "fake",
+					Effect: k8sv1.TaintEffectNoExecute,
 				},
 				{
 					Key:    "CriticalAddonsOnly",
@@ -311,6 +346,17 @@ func newFakeKWOKNode(nodeName string) *k8sv1.Node {
 			},
 		},
 	}
+}
+
+// disableVirtAPIAutoScaling sets fixed replicas for virt-api to prevent auto-scaling
+// Without this, virt-api would scale to hundreds of replicas when thousands of KWOK nodes are created.
+func disableVirtAPIAutoScaling() {
+	By("Disabling virt-api auto-scaling for KWOK density testing")
+	virtClient := kubevirt.Client()
+
+	patchData := []byte(`{"spec":{"infra":{"replicas":` + strconv.Itoa(int(defaultVirtAPIReplicaCount)) + `}}}`)
+	_, err := virtClient.KubeVirt(flags.KubeVirtInstallNamespace).Patch(context.TODO(), "kubevirt", types.MergePatchType, patchData, metav1.PatchOptions{})
+	Expect(err).NotTo(HaveOccurred(), "Failed to patch KubeVirt CR")
 }
 
 func getKWOKNodeCount() int {

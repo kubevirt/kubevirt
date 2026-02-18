@@ -55,13 +55,13 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple"
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
@@ -145,7 +145,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			libvmi.WithSecretDisk(secret.Name, secret.Name),
 			libvmi.WithConfigMapDisk(configMapName, configMapName),
 			libvmi.WithEmptyDisk("usb-disk", v1.DiskBusUSB, resource.MustParse("64Mi")),
-			libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n")),
+			libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 		}
 		if kernelBootEnabled {
 			opts = append(opts, withKernelBoot())
@@ -360,14 +360,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
-			It("should migrate vmi and use Live Migration method with read-only disks", func() {
+			It("should migrate vmi and use Live Migration method with read-only disks", decorators.RequiresRWXBlock, func() {
 				By("Defining a VMI with PVC disk and read-only CDRoms")
 				if !libstorage.HasCDI() {
 					Fail("Fail DataVolume tests when CDI is not present")
 				}
 				sc, exists := libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Fail("Block storage (RWX) is not present")
+					Fail("Failed test when RWX Block storage is not present")
 				}
 				dv := libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine), cdiv1.RegistryPullNode),
@@ -571,7 +571,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						Expect(err).ToNot(HaveOccurred(), "Should successfully get new VMI")
 						vmiPod, err := libpod.GetPodByVirtualMachineInstance(newvmi, vmi.Namespace)
 						Expect(err).NotTo(HaveOccurred())
-						return libnet.ValidateVMIandPodIPMatch(newvmi, vmiPod)
+						return libnet.AssertAllPodIPsReportedOnVMI(newvmi, vmiPod)
 					}, 180*time.Second, time.Second).Should(Succeed(), "Should have updated IP and IPs fields")
 				}
 			})
@@ -887,10 +887,10 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("DisksNotLiveMigratable"))
 			})
-			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", decorators.StorageReq, func() {
+			It("[test_id:1479][storage-req] should migrate a vmi with a shared block disk", decorators.StorageReq, decorators.RequiresRWXBlock, func() {
 				sc, exists := libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Failed test when RWX Block storage is not present")
 				}
 
 				By("Starting the VirtualMachineInstance")
@@ -947,14 +947,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ExpectMigrationToSucceedWithDefaultTimeout(virtClient, migration1)
 			})
 		})
-		Context("[storage-req]with an Alpine shared block volume PVC", decorators.StorageReq, func() {
+		Context("[storage-req]with an Alpine shared block volume PVC", decorators.StorageReq, decorators.RequiresRWXBlock, func() {
 			var sc string
 			var exists bool
 
 			BeforeEach(func() {
 				sc, exists = libstorage.GetRWXBlockStorageClass()
 				if !exists {
-					Skip("Skip test when Block storage is not present")
+					Fail("Failed test when RWX Block storage is not present")
 				}
 			})
 
@@ -993,14 +993,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			It("[test_id:3240]should be successfully with a cloud init", func() {
 				// Start the VirtualMachineInstance with the PVC attached
-				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskCirros, k8sv1.ReadWriteMany, sc,
+				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc,
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
-					libvmi.WithHostname(fmt.Sprintf("%s", cd.ContainerDiskCirros)),
+					libvmi.WithHostname(fmt.Sprintf("%s", cd.ContainerDiskAlpine)),
 				)
 				vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsXLarge)
 
 				By("Checking that the VirtualMachineInstance console has expected output")
-				Expect(console.LoginToCirros(vmi)).To(Succeed())
+				Expect(console.LoginToAlpine(vmi)).To(Succeed())
 
 				By("Checking that MigrationMethod is set to BlockMigration")
 				Expect(vmi.Status.MigrationMethod).To(Equal(v1.BlockMigration))
@@ -1015,7 +1015,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			})
 		})
 
-		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", func() {
+		Context("with a Fedora shared NFS PVC (using nfs ipv4 address), cloud init and service account", decorators.RequiresRWXFilesystemStorage, func() {
 			var vmi *v1.VirtualMachineInstance
 			var dv *cdiv1.DataVolume
 			var storageClass string
@@ -1040,7 +1040,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				var foundSC bool
 				storageClass, foundSC = libstorage.GetRWXFileSystemStorageClass()
 				if !foundSC {
-					Skip("Skip test when Filesystem storage is not present")
+					Fail("Failed test when RWX Filesystem storage is not present")
 				}
 			})
 
@@ -1081,7 +1081,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			// Create DV and alter permission of disk.img
 			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 			if !foundSC {
-				Skip("Skip test when Filesystem storage is not present")
+				Fail("Failed test when RWX Filesystem storage is not present")
 			}
 
 			dv := libdv.NewDataVolume(
@@ -1167,7 +1167,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
-				Entry("[test_id:8610] with DataVolume", func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8610] with DataVolume", decorators.RequiresRWXFilesystemStorage, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return libvmi.New(
@@ -1182,7 +1182,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged, false)
 				}, console.LoginToFedora),
 
-				Entry("[test_id:8612] with PVC", func() *v1.VirtualMachineInstance {
+				Entry("[test_id:8612] with PVC", decorators.RequiresRWXFilesystemStorage, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the Underlying PVC
 					return libvmi.New(
@@ -1253,7 +1253,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 						libvmi.WithNetwork(v1.DefaultPodNetwork()))
 				}, console.LoginToAlpine),
 
-				Entry("with DataVolume", func() *v1.VirtualMachineInstance {
+				Entry("with DataVolume", decorators.RequiresRWXFilesystemStorage, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the DataVolume
 					return libvmi.New(
@@ -1268,7 +1268,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					return prepareVMIWithAllVolumeSources(testsuite.NamespacePrivileged, false)
 				}, console.LoginToFedora),
 
-				Entry("with PVC", func() *v1.VirtualMachineInstance {
+				Entry("with PVC", decorators.RequiresRWXFilesystemStorage, func() *v1.VirtualMachineInstance {
 					dv = createDataVolumePVCAndChangeDiskImgPermissions(testsuite.NamespacePrivileged, size)
 					// Use the underlying PVC
 					return libvmi.New(
@@ -1895,7 +1895,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigrationAborted(vmi, string(migration.UID), 180)
 
 				By("Waiting for the migration object to disappear")
-				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
+				Expect(libwait.WaitForMigrationToDisappearWithTimeout(migration, 240*time.Second)).To(Succeed())
 			},
 				Entry("[sig-storage][test_id:2226] with ContainerDisk", newVirtualMachineInstanceWithFedoraContainerDisk),
 				Entry("[sig-storage][storage-req][test_id:2731] with RWX block disk from block volume PVC", decorators.StorageReq, newVirtualMachineInstanceWithFedoraRWXBlockDisk),
@@ -1961,7 +1961,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}, 30*time.Second, 2*time.Second).ShouldNot(HaveOccurred(), "target migration pod is expected to disappear after migration cancellation")
 
 				By("Waiting for the migration object to disappear")
-				libwait.WaitForMigrationToDisappearWithTimeout(migration, 20)
+				Expect(libwait.WaitForMigrationToDisappearWithTimeout(migration, 20*time.Second)).To(Succeed())
 			})
 
 			It("[sig-compute][test_id:8584]Immediate migration cancellation before migration starts running cancel a migration by deleting vmim object", func() {
@@ -1992,7 +1992,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(virtClient.VirtualMachineInstanceMigration(migration.Namespace).Delete(context.Background(), migration.Name, metav1.DeleteOptions{})).To(Succeed())
 
 				By("Waiting for the migration object to disappear")
-				libwait.WaitForMigrationToDisappearWithTimeout(migration, 240)
+				Expect(libwait.WaitForMigrationToDisappearWithTimeout(migration, 240*time.Second)).To(Succeed())
 
 				By("Verifying the VMI's phase, migration state and on node")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -2715,14 +2715,14 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 	Context("ResourceQuota rejection", func() {
 		It("Should contain condition when migrating with quota that doesn't have resources for both source and target", decorators.Conformance, func() {
 			vmiRequest := resource.MustParse("200Mi")
-			vmi := libvmifact.NewCirros(
+			vmi := libvmifact.NewAlpine(
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithMemoryRequest(vmiRequest.String()),
 			)
 
 			vmiRequest.Add(resource.MustParse("50Mi")) //add 50Mi memoryOverHead to make sure vmi creation won't be blocked
-			enoughMemoryToStartVmiButNotEnoughForMigration := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+			enoughMemoryToStartVmiButNotEnoughForMigration := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, nil)
 			enoughMemoryToStartVmiButNotEnoughForMigration.Add(vmiRequest)
 			resourcesToLimit := k8sv1.ResourceList{
 				k8sv1.ResourceMemory: resource.MustParse(enoughMemoryToStartVmiButNotEnoughForMigration.String()),
@@ -2812,11 +2812,11 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			}, 200)).To(Succeed())
 		})
 
-		It("should migrate with a shared DV", func() {
+		It("should migrate with a shared DV", decorators.RequiresRWXFilesystemStorage, func() {
 			sc, foundSC := libstorage.GetRWXFileSystemStorageClass()
 
 			if !foundSC {
-				Skip("Skip test when Filesystem RWX storage is not present")
+				Fail("Failed test when RWX Filesystem storage is not present")
 			}
 
 			dataVolume := libdv.NewDataVolume(

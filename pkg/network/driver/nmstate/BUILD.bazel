@@ -10,7 +10,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/network/driver/nmstate",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/network/driver/ethtool:go_default_library",
         "//pkg/network/driver/netlink:go_default_library",
         "//pkg/network/driver/procsys:go_default_library",
         "//pkg/network/driver/virtchroot:go_default_library",

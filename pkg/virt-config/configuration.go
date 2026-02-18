@@ -269,6 +269,11 @@ func defaultClusterConfig(cpuArch string) *v1.KubeVirtConfiguration {
 			MaxHotplugRatio: DefaultMaxHotplugRatio,
 		},
 		VMRolloutStrategy: pointer.P(DefaultVMRolloutStrategy),
+		Hypervisors: []v1.HypervisorConfiguration{
+			{
+				Name: v1.KvmHypervisorName,
+			},
+		},
 	}
 }
 
@@ -289,9 +294,7 @@ func (c *ClusterConfig) SetConfigModifiedCallback(cb ConfigModifiedFn) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.configModifiedCallback = append(c.configModifiedCallback, cb)
-	for _, callback := range c.configModifiedCallback {
-		go callback()
-	}
+	go cb()
 }
 
 func setConfigFromKubeVirt(config *v1.KubeVirtConfiguration, kv *v1.KubeVirt) error {

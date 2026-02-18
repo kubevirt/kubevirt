@@ -412,44 +412,6 @@ func (c *Controller) resolveControllerRef(namespace string, controllerRef *metav
 	return pool.(*poolv1.VirtualMachinePool)
 }
 
-// listControllerFromNamespace takes a namespace and returns all Pools from the Pool cache which run in this namespace
-func (c *Controller) listControllerFromNamespace(namespace string) ([]*poolv1.VirtualMachinePool, error) {
-	objs, err := c.poolIndexer.ByIndex(cache.NamespaceIndex, namespace)
-	if err != nil {
-		return nil, err
-	}
-	pools := []*poolv1.VirtualMachinePool{}
-	for _, obj := range objs {
-		pool := obj.(*poolv1.VirtualMachinePool)
-		pools = append(pools, pool)
-	}
-	return pools, nil
-}
-
-// getMatchingController returns the first Pool which matches the labels of the VirtualMachine from the listener cache.
-// If there are no matching controllers, a NotFound error is returned.
-func (c *Controller) getMatchingControllers(vm *virtv1.VirtualMachine) (pools []*poolv1.VirtualMachinePool) {
-	logger := log.Log
-	controllers, err := c.listControllerFromNamespace(vm.ObjectMeta.Namespace)
-	if err != nil {
-		return nil
-	}
-
-	for _, pool := range controllers {
-		selector, err := metav1.LabelSelectorAsSelector(pool.Spec.Selector)
-		if err != nil {
-			logger.Object(pool).Reason(err).Error("Failed to parse label selector from pool.")
-			continue
-		}
-
-		if selector.Matches(labels.Set(vm.ObjectMeta.Labels)) {
-			pools = append(pools, pool)
-		}
-
-	}
-	return pools
-}
-
 // Run runs the passed in PoolController.
 func (c *Controller) Run(threadiness int, stopCh <-chan struct{}) {
 	defer controller.HandlePanic()
@@ -830,6 +792,8 @@ func indexVMSpec(poolSpec *poolv1.VirtualMachinePoolSpec, idx int) *virtv1.Virtu
 		}
 	}
 
+	suffix := "-" + strconv.Itoa(idx)
+
 	for i, volume := range spec.Template.Spec.Volumes {
 		if volume.VolumeSource.PersistentVolumeClaim != nil {
 			indexName, ok := dvNameMap[volume.VolumeSource.PersistentVolumeClaim.ClaimName]
@@ -842,9 +806,23 @@ func indexVMSpec(poolSpec *poolv1.VirtualMachinePoolSpec, idx int) *virtv1.Virtu
 				spec.Template.Spec.Volumes[i].DataVolume.Name = indexName
 			}
 		} else if volume.VolumeSource.ConfigMap != nil && appendIndexToConfigMapRefs {
-			volume.VolumeSource.ConfigMap.Name += "-" + strconv.Itoa(idx)
+			volume.VolumeSource.ConfigMap.Name += suffix
 		} else if volume.VolumeSource.Secret != nil && appendIndexToSecretRefs {
-			volume.VolumeSource.Secret.SecretName += "-" + strconv.Itoa(idx)
+			volume.VolumeSource.Secret.SecretName += suffix
+		} else if volume.VolumeSource.CloudInitNoCloud != nil && appendIndexToSecretRefs {
+			if volume.VolumeSource.CloudInitNoCloud.UserDataSecretRef != nil {
+				volume.CloudInitNoCloud.UserDataSecretRef.Name += suffix
+			}
+			if volume.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef != nil {
+				volume.CloudInitNoCloud.NetworkDataSecretRef.Name += suffix
+			}
+		} else if volume.VolumeSource.CloudInitConfigDrive != nil && appendIndexToSecretRefs {
+			if volume.VolumeSource.CloudInitConfigDrive.UserDataSecretRef != nil {
+				volume.CloudInitConfigDrive.UserDataSecretRef.Name += suffix
+			}
+			if volume.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+				volume.CloudInitConfigDrive.NetworkDataSecretRef.Name += suffix
+			}
 		}
 	}
 
@@ -1109,6 +1087,9 @@ func (c *Controller) opportunisticUpdate(pool *poolv1.VirtualMachinePool, vmOutd
 			vmCopy.Annotations = maps.Clone(pool.Spec.VirtualMachineTemplate.ObjectMeta.Annotations)
 			vmCopy.Spec = *indexVMSpec(&pool.Spec, index)
 			vmCopy = injectPoolRevisionLabelsIntoVM(vmCopy, revisionName)
+
+			// Preserve VM identity/specific fields that were set during VM creation
+			preserveVMIdentityFields(vm, vmCopy)
 
 			_, err = c.clientset.VirtualMachine(vmCopy.Namespace).Update(context.Background(), vmCopy, metav1.UpdateOptions{})
 			if err != nil {
@@ -2100,4 +2081,27 @@ func nodeSelectorRequirementsAsSelector(nsm *[]k8score.NodeSelectorRequirement) 
 	}
 
 	return selector, nil
+}
+
+func preserveVMIdentityFields(originalVM, updatedVM *virtv1.VirtualMachine) {
+	if originalVM.Spec.Template == nil || updatedVM.Spec.Template == nil {
+		return
+	}
+
+	originalSpec := &originalVM.Spec.Template.Spec
+	updatedSpec := &updatedVM.Spec.Template.Spec
+
+	// preserve firmware UUID and Serial, as they are generated at creation time
+	// and should never change as they identify the VM to the guest OS
+	if originalSpec.Domain.Firmware != nil {
+		if updatedSpec.Domain.Firmware == nil {
+			updatedSpec.Domain.Firmware = &virtv1.Firmware{}
+		}
+		if originalSpec.Domain.Firmware.UUID != "" {
+			updatedSpec.Domain.Firmware.UUID = originalSpec.Domain.Firmware.UUID
+		}
+		if originalSpec.Domain.Firmware.Serial != "" {
+			updatedSpec.Domain.Firmware.Serial = originalSpec.Domain.Firmware.Serial
+		}
+	}
 }

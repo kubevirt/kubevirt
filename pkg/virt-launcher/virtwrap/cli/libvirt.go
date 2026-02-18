@@ -48,6 +48,7 @@ type Connection interface {
 	LookupDomainByName(name string) (VirDomain, error)
 	DomainDefineXML(xml string) (VirDomain, error)
 	Close() (int, error)
+	DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) error
 	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
 	DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error
 	DomainEventDeviceRemovedRegister(callback libvirt.DomainEventDeviceRemovedCallback) error
@@ -90,6 +91,7 @@ type LibvirtConnection struct {
 	reconnectLock *sync.Mutex
 
 	domainEventCallbacks                        []libvirt.DomainEventLifecycleCallback
+	domainEventJobCompletedCallbacks            []libvirt.DomainEventJobCompletedCallback
 	domainDeviceAddedEventCallbacks             []libvirt.DomainEventDeviceAddedCallback
 	domainDeviceRemovedEventCallbacks           []libvirt.DomainEventDeviceRemovedCallback
 	domainEventMigrationIterationCallbacks      []libvirt.DomainEventMigrationIterationCallback
@@ -146,6 +148,17 @@ func (l *LibvirtConnection) Close() (int, error) {
 	} else {
 		return 0, nil
 	}
+}
+
+func (l *LibvirtConnection) DomainEventJobCompletedRegister(callback libvirt.DomainEventJobCompletedCallback) (err error) {
+	if err = l.reconnectIfNecessary(); err != nil {
+		return
+	}
+
+	l.domainEventJobCompletedCallbacks = append(l.domainEventJobCompletedCallbacks, callback)
+	_, err = l.Connect.DomainEventJobCompletedRegister(nil, callback)
+	l.checkConnectionLost(err)
+	return
 }
 
 func (l *LibvirtConnection) DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) (err error) {
@@ -542,6 +555,12 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
 			return err
 		}
 	}
+	for _, callback := range l.domainEventJobCompletedCallbacks {
+		log.Log.Infof("Re-registered job completed callback: %p", callback)
+		if _, err = l.Connect.DomainEventJobCompletedRegister(nil, callback); err != nil {
+			return err
+		}
+	}
 	for _, callback := range l.domainEventMigrationIterationCallbacks {
 		log.Log.Infof("Re-registered iteration callback: %p", callback)
 		if _, err = l.Connect.DomainEventMigrationIterationRegister(nil, callback); err != nil {
@@ -650,6 +669,8 @@ type VirDomain interface {
 	FSFreeze(mounts []string, flags uint32) error
 	FSThaw(mounts []string, flags uint32) error
 	Screenshot(stream *libvirt.Stream, screen, flags uint32) (string, error)
+	BackupBegin(backupXML string, checkpointXML string, flags libvirt.DomainBackupBeginFlags) error
+	CreateCheckpointXML(xmlConfig string, flags libvirt.DomainCheckpointCreateFlags) (*libvirt.DomainCheckpoint, error)
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {
@@ -666,7 +687,6 @@ func NewConnectionWithTimeout(uri string, user string, pass string, checkInterva
 	err = virtwait.PollImmediately(connectionInterval, connectionTimeout, func(_ context.Context) (done bool, err error) {
 		virConn, err = newConnection(uri, user, pass)
 		if err != nil {
-			logger.V(1).Infof("Connecting to libvirt daemon failed: %v", err)
 			return false, nil
 		}
 		return true, nil

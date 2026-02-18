@@ -57,34 +57,29 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
+var _ = Describe("[sig-monitoring]VM Monitoring", decorators.SigMonitoring, func() {
 	var (
 		err        error
 		virtClient kubecli.KubevirtClient
-		vm         *v1.VirtualMachine
 	)
 
 	BeforeEach(func() {
 		virtClient = kubevirt.Client()
 	})
 
-	Context("Cluster VM metrics", func() {
-		It("kubevirt_number_of_vms should reflect the number of VMs", func() {
-			for i := 0; i < 5; i++ {
-				vmi := libvmifact.NewGuestless()
-				vm := libvmi.NewVirtualMachine(vmi)
-				_, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-			}
+	Context("VMI metrics", Ordered, func() {
+		var sharedVMI *v1.VirtualMachineInstance
 
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_number_of_vms", 5)
+		BeforeAll(func() {
+			sharedVMI = libvmops.RunVMIAndExpectLaunch(libvmifact.NewGuestless(), libvmops.StartupTimeoutSecondsHuge)
 		})
-	})
 
-	Context("VMI metrics", func() {
+		AfterAll(func() {
+			_ = virtClient.VirtualMachineInstance(sharedVMI.Namespace).Delete(context.Background(), sharedVMI.Name, metav1.DeleteOptions{})
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(sharedVMI, 240*time.Second)).To(Succeed())
+		})
+
 		It("should have kubevirt_vmi_phase_transition_time_seconds buckets correctly configured", func() {
-			vmi := libvmifact.NewGuestless()
-			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			for _, bucket := range virtcontroller.PhaseTransitionTimeBuckets() {
 				labels := map[string]string{"le": strconv.FormatFloat(bucket, 'f', -1, 64)}
@@ -95,8 +90,6 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		})
 
 		It("should have kubevirt_rest_client_requests_total for the 'virtualmachineinstances' resource", func() {
-			vmi := libvmifact.NewGuestless()
-			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 			labels := map[string]string{"resource": "virtualmachineinstances"}
 			libmonitoring.WaitForMetricValueWithLabelsToBe(virtClient, "kubevirt_rest_client_requests_total", labels, 0, ">", 0)
@@ -121,12 +114,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		}
 
 		It("Should be available for a running VM", func() {
-
-			By("Create a running VirtualMachine")
-			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			vm := createRunningVM(virtClient, libvmifact.NewGuestless(), v1.RunStrategyAlways, false)
 
 			By("Checking that the VM metrics are available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
@@ -136,12 +124,7 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		})
 
 		It("Should be available for a paused VM", func() {
-
-			By("Create a running VirtualMachine")
-			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			vm := createRunningVM(virtClient, libvmifact.NewGuestless(), v1.RunStrategyAlways, true)
 
 			By("Pausing the VM")
 			err := virtClient.VirtualMachineInstance(vm.Namespace).Pause(context.Background(), vm.Name, &v1.PauseOptions{})
@@ -159,80 +142,13 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 		It("Should not be available for a stopped VM", func() {
 			By("Create a stopped VirtualMachine")
-			vm = libvmi.NewVirtualMachine(libvmifact.NewGuestless())
-			vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
+			vm := createRunningVM(virtClient, libvmifact.NewGuestless(), v1.RunStrategyHalted, false)
 
 			By("Checking that the VM metrics are not available")
 			metricLabels := map[string]string{"name": vm.Name, "namespace": vm.Namespace}
 			for _, metric := range cpuMetrics {
 				checkMetricTo(metric, metricLabels, BeNumerically("==", -1), "VM metrics should not be available for a stopped VM")
 			}
-		})
-	})
-
-	Context("VM migration metrics", decorators.RequiresTwoSchedulableNodes, func() {
-		var nodes *corev1.NodeList
-
-		BeforeEach(func() {
-			Eventually(func() []corev1.Node {
-				nodes = libnode.GetAllSchedulableNodes(virtClient)
-				return nodes.Items
-			}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
-		})
-
-		It("Should correctly update metrics on successful VMIM", func() {
-			By("Creating VMIs")
-			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
-
-			By("Migrating VMIs")
-			migration := libmigration.New(vmi.Name, vmi.Namespace)
-			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_pending_phase", 0)
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_unset_phase", 0)
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_running_phase", 0)
-
-			labels := map[string]string{
-				"vmi":       vmi.Name,
-				"namespace": vmi.Namespace,
-			}
-			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
-
-			By("Delete VMIs")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
-		})
-
-		It("Should correctly update metrics on failing VMIM", func() {
-			By("Creating VMIs")
-			vmi := libvmifact.NewFedora(
-				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-				libvmi.WithNetwork(v1.DefaultPodNetwork()),
-				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
-			)
-			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
-			labels := map[string]string{
-				"vmi":       vmi.Name,
-				"namespace": vmi.Namespace,
-			}
-
-			By("Starting the Migration")
-			migration := libmigration.New(vmi.Name, vmi.Namespace)
-			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
-			migration = libmigration.RunMigration(virtClient, migration)
-
-			Eventually(matcher.ThisMigration(migration)).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
-
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_unset_phase", 0)
-			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_failed", 1, labels, 1)
-
-			By("Deleting the VMI")
-			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
 		})
 	})
 
@@ -275,15 +191,8 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		})
 
 		It("Snapshot succeeded timestamp metric values should be correct", func() {
-			virtClient = kubevirt.Client()
 			By("Creating a Virtual Machine")
-			vmi := libvmifact.NewGuestless()
-			vm = libvmi.NewVirtualMachine(vmi)
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Starting the Virtual Machine")
-			libvmops.StartVirtualMachine(vm)
+			vm := createRunningVM(virtClient, libvmifact.NewGuestless(), v1.RunStrategyAlways, false)
 
 			By("Creating a snapshot of the Virtual Machine")
 			snapshot := libstorage.NewSnapshot(vm.Name, vm.Namespace)
@@ -324,7 +233,8 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 	Context("Metrics that are based on VMI connections", func() {
 		It("should have kubevirt_vmi_last_api_connection_timestamp_seconds correctly configured", func() {
 			By("Starting a VirtualMachineInstance")
-			vmi := libvmifact.NewAlpine()
+			firstVMIName := "test-vmi-connection-1-" + rand.String(5)
+			vmi := libvmifact.NewAlpine(libvmi.WithName(firstVMIName))
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
@@ -335,10 +245,11 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 
 			By("Deleting the VirtualMachineInstance")
 			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
-			libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240)
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240*time.Second)).To(Succeed())
 
 			By("Starting the same VirtualMachineInstance")
-			vmi = libvmifact.NewAlpine()
+			secondVMIName := "test-vmi-connection-2-" + rand.String(5)
+			vmi = libvmifact.NewAlpine(libvmi.WithName(secondVMIName))
 			vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vmi = libwait.WaitForSuccessfulVMIStart(vmi)
@@ -347,61 +258,6 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			Expect(console.LoginToAlpine(vmi)).To(Succeed())
 			validateLastConnectionMetricValue(vmi, initialMetricValue)
 		})
-	})
-
-	Context("VM alerts", func() {
-		var scales *libmonitoring.Scaling
-
-		BeforeEach(func() {
-			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
-			scales.UpdateScale(virtOperator.deploymentName, int32(0))
-
-			libmonitoring.ReduceAlertPendingTime(virtClient)
-		})
-
-		AfterEach(func() {
-			scales.RestoreAllScales()
-		})
-
-		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
-			By("starting VMI")
-			vmi := libvmifact.NewGuestless()
-			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
-
-			By("delete virt-handler daemonset")
-			err = virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("waiting for OrphanedVirtualMachineInstances alert")
-			libmonitoring.VerifyAlertExist(virtClient, "OrphanedVirtualMachineInstances")
-		})
-
-		It("should fire VMCannotBeEvicted alert", func() {
-			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
-			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
-
-			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			Eventually(func() v1.VirtualMachineInstancePhase {
-				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				return vmi.Status.Phase
-			}, 5*time.Minute, 30*time.Second).Should(Equal(v1.Running))
-
-			By("waiting for VMCannotBeEvicted alert")
-			libmonitoring.VerifyAlertExist(virtClient, "VMCannotBeEvicted")
-		})
-	})
-})
-
-// These tests are suited to run in parallel, but are set to run in Serial because the monitoring tests are flaky.
-var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitoring, func() {
-	var virtClient kubecli.KubevirtClient
-
-	BeforeEach(func() {
-		virtClient = kubevirt.Client()
 	})
 
 	Context("VM dirty rate metrics", func() {
@@ -419,31 +275,15 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 		}
 
 		It("should ensure a running VM has dirty rate metrics", func() {
-			By("Create a running VirtualMachine")
-			vm := libvmi.NewVirtualMachine(libvmifact.NewGuestless(), libvmi.WithRunStrategy(v1.RunStrategyAlways))
-			vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(matcher.ThisVM(vm)).WithTimeout(100 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			vm := createRunningVM(virtClient, libvmifact.NewGuestless(), v1.RunStrategyAlways, false)
 
 			By("Checking that the VM metrics are available")
 			getDirtyRateMetricValue(vm)
 		})
 
 		It("[QUARANTINE] should ensure a stress VM has high dirty rate than a stale VM", decorators.Quarantine, func() {
-			createVM := func(vmName string) *v1.VirtualMachine {
-				By(fmt.Sprintf("Creating a VirtualMachine: %s", vmName))
-				vm := libvmi.NewVirtualMachine(libvmifact.NewFedora(libvmi.WithName(vmName)), libvmi.WithRunStrategy(v1.RunStrategyOnce))
-				vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred())
-
-				By("Waiting for the VirtualMachine to be ready")
-				Eventually(matcher.ThisVM(vm)).WithTimeout(100 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
-
-				return vm
-			}
-
-			staleVM := createVM("stale-vm-" + rand.String(5))
-			stressedVM := createVM("stressed-vm-" + rand.String(5))
+			staleVM := createRunningVM(virtClient, libvmifact.NewFedora(libvmi.WithName("stale-vm-"+rand.String(5))), v1.RunStrategyOnce, true)
+			stressedVM := createRunningVM(virtClient, libvmifact.NewFedora(libvmi.WithName("stressed-vm-"+rand.String(5))), v1.RunStrategyOnce, true)
 
 			By("Logging in the stressed VM's guest agent")
 			stressedVMI, err := virtClient.VirtualMachineInstance(stressedVM.Namespace).Get(context.Background(), stressedVM.Name, metav1.GetOptions{})
@@ -473,6 +313,135 @@ var _ = Describe("[sig-monitoring]VM Monitoring", Serial, decorators.SigMonitori
 			}
 			Eventually(dirtyRateValidationFunc).WithTimeout(1 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 			Consistently(dirtyRateValidationFunc).WithTimeout(30 * time.Second).WithPolling(5 * time.Second).Should(Succeed())
+		})
+	})
+
+	Context("Cluster VM metrics", func() {
+		It("kubevirt_number_of_vms should reflect the number of VMs", func() {
+			for i := 0; i < 5; i++ {
+				vmi := libvmifact.NewGuestless()
+				vm := libvmi.NewVirtualMachine(vmi)
+				_, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(nil)).Create(context.Background(), vm, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_number_of_vms", 5, map[string]string{"namespace": testsuite.GetTestNamespace(nil)}, 1)
+		})
+	})
+
+	Context("VM migration metrics", Serial, decorators.RequiresTwoSchedulableNodes, func() {
+		var nodes *corev1.NodeList
+
+		BeforeEach(func() {
+			Eventually(func() []corev1.Node {
+				nodes = libnode.GetAllSchedulableNodes(virtClient)
+				return nodes.Items
+			}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
+		})
+
+		It("Should correctly update metrics on successful VMIM", func() {
+			By("Creating VMIs")
+			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+			By("Migrating VMIs")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+
+			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_pending_phase", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_unset_phase", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_running_phase", 0)
+
+			labels := map[string]string{
+				"vmi":       vmi.Name,
+				"namespace": vmi.Namespace,
+			}
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_succeeded", 1, labels, 1)
+
+			By("Delete VMIs")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240*time.Second)).To(Succeed())
+		})
+
+		It("Should correctly update metrics on failing VMIM", func() {
+			By("Creating VMIs")
+			vmi := libvmifact.NewFedora(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+				libvmi.WithNodeAffinityFor(nodes.Items[0].Name),
+			)
+			vmi = libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+			labels := map[string]string{
+				"vmi":       vmi.Name,
+				"namespace": vmi.Namespace,
+			}
+
+			By("Starting the Migration")
+			migration := libmigration.New(vmi.Name, vmi.Namespace)
+			migration.Annotations = map[string]string{v1.MigrationUnschedulablePodTimeoutSecondsAnnotation: "60"}
+			migration = libmigration.RunMigration(virtClient, migration)
+
+			Eventually(matcher.ThisMigration(migration)).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(matcher.BeInPhase(v1.MigrationFailed), "migration creation should fail")
+
+			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_scheduling_phase", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_vmi_migrations_in_unset_phase", 0)
+			libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_vmi_migration_failed", 1, labels, 1)
+
+			By("Deleting the VMI")
+			Expect(virtClient.VirtualMachineInstance(vmi.Namespace).Delete(context.Background(), vmi.Name, metav1.DeleteOptions{})).To(Succeed())
+			Expect(libwait.WaitForVirtualMachineToDisappearWithTimeout(vmi, 240*time.Second)).To(Succeed())
+		})
+	})
+
+	Context("VM alerts", Serial, func() {
+		var scales *libmonitoring.Scaling
+
+		BeforeEach(func() {
+			scales = libmonitoring.NewScaling(virtClient, []string{virtOperator.deploymentName})
+			scales.UpdateScale(virtOperator.deploymentName, int32(0))
+
+			libmonitoring.ReduceAlertPendingTime(virtClient)
+		})
+
+		AfterEach(func() {
+			scales.RestoreAllScales()
+		})
+
+		It("[test_id:9260] should fire OrphanedVirtualMachineInstances alert", func() {
+			By("starting VMI")
+			vmi := libvmifact.NewGuestless()
+			libvmops.RunVMIAndExpectLaunch(vmi, libvmops.StartupTimeoutSecondsHuge)
+
+			By("delete virt-handler daemonset")
+			err := virtClient.AppsV1().DaemonSets(flags.KubeVirtInstallNamespace).Delete(context.Background(), virtHandler.deploymentName, metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("waiting for OrphanedVirtualMachineInstances alert")
+			libmonitoring.VerifyAlertExist(virtClient, "OrphanedVirtualMachineInstances")
+		})
+
+	})
+
+	Context("VM eviction alerts", func() {
+		It("should fire VMCannotBeEvicted alert", func() {
+			// Speed up alert pending time locally
+			libmonitoring.ReduceAlertPendingTime(virtClient)
+
+			By("starting non-migratable VMI with eviction strategy set to LiveMigrate ")
+			vmi := libvmifact.NewAlpine(libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrate))
+
+			vmi, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func() v1.VirtualMachineInstancePhase {
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				return vmi.Status.Phase
+			}, 5*time.Minute, 30*time.Second).Should(Equal(v1.Running))
+
+			By("waiting for VMCannotBeEvicted alert")
+			libmonitoring.VerifyAlertExist(virtClient, "VMCannotBeEvicted")
 		})
 	})
 })
@@ -510,4 +479,22 @@ func validateLastConnectionMetricValue(vmi *v1.VirtualMachineInstance, formerVal
 	}, 3*time.Minute, 20*time.Second).Should(BeNumerically(">", formerValue))
 
 	return metricValue
+}
+
+func createRunningVM(virtClient kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance, runStrategy v1.VirtualMachineRunStrategy, waitForVMIStart bool) *v1.VirtualMachine {
+	By("Create a running VirtualMachine")
+	vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(runStrategy))
+	var err error
+	vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	// Only wait for VM Ready if it is expected to run
+	if runStrategy != v1.RunStrategyHalted {
+		EventuallyWithOffset(1, matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+	}
+	if waitForVMIStart {
+		vmi.Namespace = vm.Namespace
+		vmi.Name = vm.Name
+		libwait.WaitForSuccessfulVMIStart(vmi)
+	}
+	return vm
 }

@@ -418,6 +418,14 @@ spec:
                           https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio
                           Defaults to 10
                         type: integer
+                      disabledFeatureGates:
+                        description: |-
+                          DisabledFeatureGates specifies a list of experimental feature gates to disable.
+                          A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       diskVerification:
                         description: DiskVerification holds container disks verification
                           limits
@@ -432,11 +440,13 @@ spec:
                         - memoryLimit
                         type: object
                       featureGates:
-                        description: FeatureGates is the list of experimental features
-                          to enable. Defaults to none
+                        description: |-
+                          FeatureGates specifies a list of experimental feature gates to enable. Defaults to none.
+                          A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       logVerbosity:
                         description: LogVerbosity sets log verbosity level of  various
                           components
@@ -543,6 +553,25 @@ spec:
                             type: object
                         type: object
                     type: object
+                  hypervisors:
+                    description: Hypervisors holds information regarding the hypervisor
+                      configurations supported on this cluster.
+                    items:
+                      description: HypervisorConfiguration holds information regarding
+                        the hypervisor present on cluster nodes.
+                      properties:
+                        name:
+                          description: |-
+                            Name is the name of the hypervisor.
+                            Supported values are: "kvm", "hyperv-direct".
+                          enum:
+                          - kvm
+                          - hyperv-direct
+                          type: string
+                      type: object
+                    maxItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                   imagePullPolicy:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
@@ -654,6 +683,12 @@ spec:
                     description: MediatedDevicesConfiguration holds information about
                       MDEV types to be defined, if available
                     properties:
+                      enabled:
+                        description: |-
+                          Enable the creation and removal of mediated devices by virt-handler
+                          Replaces the deprecated DisableMDEVConfiguration feature gate
+                          Defaults to true
+                        type: boolean
                       mediatedDeviceTypes:
                         items:
                           type: string
@@ -1081,6 +1116,17 @@ spec:
                         - VersionTLS12
                         - VersionTLS13
                         type: string
+                    type: object
+                  virtTemplateDeployment:
+                    description: VirtTemplateDeployment controls the deployment of
+                      virt-template components
+                    nullable: true
+                    properties:
+                      enabled:
+                        description: Enabled controls the deployment of virt-template
+                          resources, defaults to True when feature gate is enabled.
+                        nullable: true
+                        type: boolean
                     type: object
                   virtualMachineInstancesPerNode:
                     type: integer
@@ -1813,8 +1859,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -2886,8 +2932,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -3806,6 +3852,14 @@ spec:
                           https://kubevirt.io/user-guide/operations/node_overcommit/#node-cpu-allocation-ratio
                           Defaults to 10
                         type: integer
+                      disabledFeatureGates:
+                        description: |-
+                          DisabledFeatureGates specifies a list of experimental feature gates to disable.
+                          A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
+                        items:
+                          type: string
+                        type: array
+                        x-kubernetes-list-type: atomic
                       diskVerification:
                         description: DiskVerification holds container disks verification
                           limits
@@ -3820,11 +3874,13 @@ spec:
                         - memoryLimit
                         type: object
                       featureGates:
-                        description: FeatureGates is the list of experimental features
-                          to enable. Defaults to none
+                        description: |-
+                          FeatureGates specifies a list of experimental feature gates to enable. Defaults to none.
+                          A feature gate must not appear in both FeatureGates and DisabledFeatureGates.
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       logVerbosity:
                         description: LogVerbosity sets log verbosity level of  various
                           components
@@ -3931,6 +3987,25 @@ spec:
                             type: object
                         type: object
                     type: object
+                  hypervisors:
+                    description: Hypervisors holds information regarding the hypervisor
+                      configurations supported on this cluster.
+                    items:
+                      description: HypervisorConfiguration holds information regarding
+                        the hypervisor present on cluster nodes.
+                      properties:
+                        name:
+                          description: |-
+                            Name is the name of the hypervisor.
+                            Supported values are: "kvm", "hyperv-direct".
+                          enum:
+                          - kvm
+                          - hyperv-direct
+                          type: string
+                      type: object
+                    maxItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
                   imagePullPolicy:
                     description: PullPolicy describes a policy for if/when to pull
                       a container image
@@ -4042,6 +4117,12 @@ spec:
                     description: MediatedDevicesConfiguration holds information about
                       MDEV types to be defined, if available
                     properties:
+                      enabled:
+                        description: |-
+                          Enable the creation and removal of mediated devices by virt-handler
+                          Replaces the deprecated DisableMDEVConfiguration feature gate
+                          Defaults to true
+                        type: boolean
                       mediatedDeviceTypes:
                         items:
                           type: string
@@ -4469,6 +4550,17 @@ spec:
                         - VersionTLS12
                         - VersionTLS13
                         type: string
+                    type: object
+                  virtTemplateDeployment:
+                    description: VirtTemplateDeployment controls the deployment of
+                      virt-template components
+                    nullable: true
+                    properties:
+                      enabled:
+                        description: Enabled controls the deployment of virt-template
+                          resources, defaults to True when feature gate is enabled.
+                        nullable: true
+                        type: boolean
                     type: object
                   virtualMachineInstancesPerNode:
                     type: integer
@@ -5201,8 +5293,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm
@@ -6274,8 +6366,8 @@ spec:
                                   most preferred is the one with the greatest sum of weights, i.e.
                                   for each node that meets all of the scheduling requirements (resource
                                   request, requiredDuringScheduling anti-affinity expressions, etc.),
-                                  compute a sum by iterating through the elements of this field and adding
-                                  "weight" to the sum if the node has pods which matches the corresponding podAffinityTerm; the
+                                  compute a sum by iterating through the elements of this field and subtracting
+                                  "weight" from the sum if the node has pods which matches the corresponding podAffinityTerm; the
                                   node(s) with the highest sum are the most preferred.
                                 items:
                                   description: The weights of all of the matched WeightedPodAffinityTerm

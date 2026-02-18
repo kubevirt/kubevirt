@@ -811,39 +811,14 @@ var _ = Describe("Snapshot controlleer", func() {
 				Entry("when vm not running", false),
 			)
 
-			DescribeTable("should not lock source if volume PVCs", func(createPVCs, boundPVCs bool, expectedReason string) {
+			DescribeTable("should not lock source if volume PVCs", func(setupPVC func(*corev1.PersistentVolumeClaim), expectedReason string) {
 				vmSnapshot := createVMSnapshotInProgress()
 				vm := createVM()
 				vmSource.Add(vm)
 
 				pvcs := createPersistentVolumeClaims()
 				for i := range pvcs {
-					if createPVCs {
-						if !boundPVCs {
-							pvcs[i].Status.Phase = corev1.ClaimPending
-						} else {
-							dv := &cdiv1.DataVolume{
-								ObjectMeta: metav1.ObjectMeta{
-									Name:      pvcs[i].Name,
-									Namespace: pvcs[i].Namespace,
-								},
-								Status: cdiv1.DataVolumeStatus{
-									Phase: cdiv1.WaitForFirstConsumer,
-								},
-							}
-							dvSource.Add(dv)
-							pvcs[i].OwnerReferences = []metav1.OwnerReference{
-								*metav1.NewControllerRef(dv, schema.GroupVersionKind{
-									Group:   cdiv1.SchemeGroupVersion.Group,
-									Version: cdiv1.SchemeGroupVersion.Version,
-									Kind:    "DataVolume",
-								}),
-							}
-						}
-						pvcSource.Add(&pvcs[i])
-					} else {
-						pvcSource.Delete(&pvcs[i])
-					}
+					setupPVC(&pvcs[i])
 				}
 
 				updatedSnapshot := vmSnapshot.DeepCopy()
@@ -861,9 +836,37 @@ var _ = Describe("Snapshot controlleer", func() {
 				controller.processVMSnapshotWorkItem()
 				Expect(*updateStatusCalls).To(Equal(1))
 			},
-				Entry("doesnt exist", false, false, "volume doesnt exist"),
-				Entry("are not bound", true, false, "volume not bound"),
-				Entry("are not populated", true, true, "volume not populated"),
+				Entry("doesnt exist", func(pvc *corev1.PersistentVolumeClaim) {
+					pvcSource.Delete(pvc)
+				}, "volume doesnt exist"),
+				Entry("are not bound", func(pvc *corev1.PersistentVolumeClaim) {
+					pvc.Status.Phase = corev1.ClaimPending
+					pvcSource.Add(pvc)
+				}, "volume not bound"),
+				Entry("are not populated", func(pvc *corev1.PersistentVolumeClaim) {
+					dv := &cdiv1.DataVolume{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      pvc.Name,
+							Namespace: pvc.Namespace,
+						},
+						Status: cdiv1.DataVolumeStatus{
+							Phase: cdiv1.WaitForFirstConsumer,
+						},
+					}
+					dvSource.Add(dv)
+					pvc.OwnerReferences = []metav1.OwnerReference{
+						*metav1.NewControllerRef(dv, schema.GroupVersionKind{
+							Group:   cdiv1.SchemeGroupVersion.Group,
+							Version: cdiv1.SchemeGroupVersion.Version,
+							Kind:    "DataVolume",
+						}),
+					}
+					pvcSource.Add(pvc)
+				}, "volume not populated"),
+				Entry("are being deleted", func(pvc *corev1.PersistentVolumeClaim) {
+					pvc.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+					pvcSource.Add(pvc)
+				}, "volume is being deleted"),
 			)
 
 			It("should not lock source if pods using PVCs when vm not running", func() {
@@ -1502,12 +1505,11 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedContent := vmSnapshotContent.DeepCopy()
 				updatedContent.ResourceVersion = "1"
 				errorMessage := "Guest agent is not responding"
-				formatedErr := fmt.Sprintf("%s %s: %v", failedFreezeMsg, vm.Name, errorMessage)
 				updatedContent.Status = &snapshotv1.VirtualMachineSnapshotContentStatus{
 					ReadyToUse: pointer.P(false),
 					Error: &snapshotv1.Error{
 						Time:    timeFunc(),
-						Message: &formatedErr,
+						Message: &errorMessage,
 					},
 				}
 
@@ -1521,7 +1523,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should set QuiesceFailed indication if error in content says failed freeze vm", func() {
+			It("should set QuiesceTimeout indication if error contains VSS freeze timeout", func() {
 				vm := createLockedVM()
 				vmSource.Add(vm)
 				vmi := createVMI(vm)
@@ -1533,9 +1535,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 				vmiSource.Add(vmi)
 
-				errorMessage := "Guest agent is not responding"
-				formatedErr := fmt.Sprintf("%s %s: %v", failedFreezeMsg, vm.Name, errorMessage)
-				vmSnapshotContent := createErrorVMSnapshotContent(formatedErr)
+				// VSS timeout error during unfreeze - this should trigger QuiesceTimeout
+				vmSnapshotContent := createErrorVMSnapshotContent(VSSFreezeLimitReached)
 				vmSnapshotContentSource.Add(vmSnapshotContent)
 
 				vmSnapshot := createVMSnapshotInProgress()
@@ -1547,7 +1548,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				updatedSnapshot.Status.Indications = []snapshotv1.Indication{
 					snapshotv1.VMSnapshotGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
-					snapshotv1.VMSnapshotQuiesceFailedIndication,
+					snapshotv1.VMSnapshotQuiesceTimeoutIndication,
 				}
 				updatedSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
 					{
@@ -1559,8 +1560,8 @@ var _ = Describe("Snapshot controlleer", func() {
 						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
 					},
 					{
-						Indication: snapshotv1.VMSnapshotQuiesceFailedIndication,
-						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceFailedIndication),
+						Indication: snapshotv1.VMSnapshotQuiesceTimeoutIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceTimeoutIndication),
 					},
 				}
 				updatedSnapshot.Status.Conditions = []snapshotv1.Condition{
@@ -1575,7 +1576,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				Expect(*updateStatusCalls).To(Equal(1))
 			})
 
-			It("should not unset QuiesceFailed indication if freeze succeeded afterwards", func() {
+			It("should not unset QuiesceTimeout indication once set", func() {
 				vm := createLockedVM()
 				vmSource.Add(vm)
 				vmi := createVMI(vm)
@@ -1587,6 +1588,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmi.Status.Conditions = append(vmi.Status.Conditions, agentCondition)
 				vmiSource.Add(vmi)
 
+				// Snapshot already has QuiesceTimeout from a previous VSS timeout error
 				vmSnapshot := createVMSnapshotInProgress()
 				vmSnapshot.Status.Conditions = []snapshotv1.Condition{
 					newProgressingCondition(corev1.ConditionTrue, "Source locked and operation in progress"),
@@ -1595,7 +1597,7 @@ var _ = Describe("Snapshot controlleer", func() {
 				vmSnapshot.Status.Indications = []snapshotv1.Indication{
 					snapshotv1.VMSnapshotGuestAgentIndication,
 					snapshotv1.VMSnapshotOnlineSnapshotIndication,
-					snapshotv1.VMSnapshotQuiesceFailedIndication,
+					snapshotv1.VMSnapshotQuiesceTimeoutIndication,
 				}
 				vmSnapshot.Status.SourceIndications = []snapshotv1.SourceIndication{
 					{
@@ -1607,8 +1609,8 @@ var _ = Describe("Snapshot controlleer", func() {
 						Message:    IndicationMessage(snapshotv1.VMSnapshotOnlineSnapshotIndication),
 					},
 					{
-						Indication: snapshotv1.VMSnapshotQuiesceFailedIndication,
-						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceFailedIndication),
+						Indication: snapshotv1.VMSnapshotQuiesceTimeoutIndication,
+						Message:    IndicationMessage(snapshotv1.VMSnapshotQuiesceTimeoutIndication),
 					},
 				}
 				addVirtualMachineSnapshot(vmSnapshot)

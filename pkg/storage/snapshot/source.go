@@ -52,13 +52,16 @@ import (
 
 const (
 	sourceFinalizer = "snapshot.kubevirt.io/snapshot-source-protection"
-	failedFreezeMsg = "Failed freezing vm"
+	// VSSFreezeLimitReached is the error substring returned by the QEMU guest agent
+	// when Windows VSS cannot hold the freeze long enough (10-second VSS limitation).
+	VSSFreezeLimitReached = "fsfreeze is limited"
 )
 
 var (
 	ErrVolumeDoesntExist  = errors.New("volume doesnt exist")
 	ErrVolumeNotBound     = errors.New("volume not bound")
 	ErrVolumeNotPopulated = errors.New("volume not populated")
+	ErrVolumeBeingDeleted = errors.New("volume is being deleted")
 )
 
 type snapshotSource interface {
@@ -157,7 +160,7 @@ func (s *vmSnapshotSource) Lock() (bool, error) {
 	err = s.verifyVolumes(pvcNames.List())
 	if err != nil {
 		switch errors.Unwrap(err) {
-		case ErrVolumeDoesntExist, ErrVolumeNotBound, ErrVolumeNotPopulated:
+		case ErrVolumeDoesntExist, ErrVolumeNotBound, ErrVolumeNotPopulated, ErrVolumeBeingDeleted:
 			s.state.lockMsg += fmt.Sprintf(" source %s/%s %s", s.vm.Namespace, s.vm.Name, err.Error())
 			log.Log.Error(s.state.lockMsg)
 			return false, nil
@@ -259,6 +262,9 @@ func (s *vmSnapshotSource) verifyVolumes(pvcNames []string) error {
 		}
 
 		pvc := obj.(*corev1.PersistentVolumeClaim).DeepCopy()
+		if pvc.DeletionTimestamp != nil {
+			return fmt.Errorf("%w: %s", ErrVolumeBeingDeleted, pvcName)
+		}
 		if pvc.Status.Phase != corev1.ClaimBound {
 			return fmt.Errorf("%w: %s", ErrVolumeNotBound, pvcName)
 		}
@@ -454,9 +460,8 @@ func (s *vmSnapshotSource) Freeze() error {
 	err := s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Freeze(context.Background(), s.vm.Name, getFailureDeadline(s.snapshot))
 	timeTrack(startTime, fmt.Sprintf("Freezing vmi %s", s.vm.Name))
 	if err != nil {
-		formattedErr := fmt.Errorf("%s %s: %v", failedFreezeMsg, s.vm.Name, err)
-		log.Log.Errorf("%s", formattedErr.Error())
-		return formattedErr
+		log.Log.Errorf("Failed freezing vm %s: %v", s.vm.Name, err)
+		return err
 	}
 	s.state.frozen = true
 
@@ -473,6 +478,7 @@ func (s *vmSnapshotSource) Unfreeze() error {
 	defer timeTrack(time.Now(), fmt.Sprintf("Unfreezing vmi %s", s.vm.Name))
 	err := s.controller.Client.VirtualMachineInstance(s.vm.Namespace).Unfreeze(context.Background(), s.vm.Name)
 	if err != nil {
+		log.Log.Errorf("Failed unfreezing vm %s: %v", s.vm.Name, err)
 		return err
 	}
 	s.state.frozen = false

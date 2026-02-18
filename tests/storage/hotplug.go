@@ -50,15 +50,16 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
+	"kubevirt.io/kubevirt/tests/libmonitoring"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libregistry"
@@ -89,7 +90,6 @@ const (
 
 type addVolumeFunction func(name, namespace, volumeName, claimName string, bus v1.DiskBus, dryRun bool, cache v1.DriverCache)
 type removeVolumeFunction func(name, namespace, volumeName string, dryRun bool)
-type storageClassFunction func() (string, bool)
 
 var _ = Describe(SIG("Hotplug", func() {
 	var err error
@@ -232,6 +232,35 @@ var _ = Describe(SIG("Hotplug", func() {
 			}
 
 			updatedVMI, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					return nil
+				}
+				return err
+			}
+
+			for _, volume := range updatedVMI.Spec.Volumes {
+				if _, ok := nameMap[volume.Name]; ok {
+					return fmt.Errorf("waiting on VMI volume to be removed")
+				}
+			}
+			for _, disk := range updatedVMI.Spec.Domain.Devices.Disks {
+				if _, ok := nameMap[disk.Name]; ok {
+					return fmt.Errorf("waiting on VMI disk to be removed")
+				}
+			}
+
+			return nil
+		}, 90*time.Second, 1*time.Second).ShouldNot(HaveOccurred())
+	}
+
+	verifyVolumeAndDiskVMIRemoved := func(vmi *v1.VirtualMachineInstance, volumeNames ...string) {
+		nameMap := make(map[string]bool)
+		for _, volumeName := range volumeNames {
+			nameMap[volumeName] = true
+		}
+		Eventually(func() error {
+			updatedVMI, err := virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
 			if err != nil {
 				if errors.IsNotFound(err) {
 					return nil
@@ -591,7 +620,9 @@ var _ = Describe(SIG("Hotplug", func() {
 			dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace, libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n")))
+			vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace,
+				libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
+			)
 
 			By("Creating VirtualMachine")
 			vm, err = virtClient.VirtualMachine(vmi.Namespace).Create(context.Background(), libvmi.NewVirtualMachine(vmi), metav1.CreateOptions{})
@@ -759,6 +790,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			for _, volumeName := range dvNames {
 				By("removing volume " + volumeName + " from VM")
 				removeVolumeVM(vm.Name, vm.Namespace, volumeName, false)
+				verifyVolumeAndDiskVMRemoved(vm, volumeName)
 			}
 			for _, volumeName := range dvNames {
 				verifyVolumeNolongerAccessible(vmi, volumeName)
@@ -796,6 +828,103 @@ var _ = Describe(SIG("Hotplug", func() {
 			addVolumeFunc(obj.GetName(), obj.GetNamespace(), "testvolume", dv.Name, v1.DiskBusSCSI, true, "")
 			verifyNoVolumeAttached(vmi, "testvolume")
 		}
+
+		Context("Ephemeral Metrics", decorators.SigMonitoring, func() {
+
+			var (
+				vm *v1.VirtualMachine
+				sc string
+			)
+
+			BeforeEach(func() {
+				exists := false
+				sc, exists = libstorage.GetRWOFileSystemStorageClass()
+				if !exists {
+					Skip("Fail no filesystem storage class available")
+				}
+
+				vmi := libvmifact.NewCirros()
+				vm, err = virtClient.VirtualMachine(testsuite.GetTestNamespace(vmi)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Eventually(matcher.ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+			})
+
+			AfterEach(func() {
+				kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+				kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
+			})
+
+			isPrometheusDeployed := func() bool {
+				ns := "monitoring"
+				if checks.IsOpenShift() {
+					ns = "openshift-monitoring"
+				}
+
+				_, err := virtClient.CoreV1().ServiceAccounts(ns).Get(context.Background(), "prometheus-k8s", metav1.GetOptions{})
+				return err == nil
+			}
+
+			It("should count only vmis with hotplug ephemeral volumes, ignoring persistent volumes and unplugs", Serial, func() {
+				if !isPrometheusDeployed() {
+					Skip("Prometheus not deployed")
+				}
+				kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+				kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
+				ephemeralCount := 0.0
+
+				By("Creating hotplug volume that will persist")
+				dvPersistent := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+				addDVVolumeVM(vm.Name, vm.Namespace, "persistent-volume", dvPersistent.Name, v1.DiskBusSCSI, false, "")
+
+				By("Creating hotplug volume that will be unplugged")
+				dvUnplug := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+				addDVVolumeVM(vm.Name, vm.Namespace, "unplug-volume", dvUnplug.Name, v1.DiskBusSCSI, false, "")
+				removeVolumeVM(vm.Name, vm.Namespace, "unplug-volume", false)
+
+				By("Creating ephemeral hotplug volume")
+				dvEphemeral := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+				addDVVolumeVMI(vm.Name, vm.Namespace, "ephemeral-volume", dvEphemeral.Name, v1.DiskBusSCSI, false, "")
+				ephemeralCount++
+
+				vmi := libvmifact.NewCirros()
+				vm2, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways)), metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				Eventually(matcher.ThisVM(vm2)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(matcher.BeReady())
+
+				By("Creating second ephemeral hotplug volume on separate vm")
+				dvEphemeral2 := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+				addDVVolumeVMI(vm2.Name, vm2.Namespace, "ephemeral-volume2", dvEphemeral2.Name, v1.DiskBusSCSI, false, "")
+				ephemeralCount++
+
+				libmonitoring.WaitForMetricValue(virtClient, "sum(kubevirt_vmi_contains_ephemeral_hotplug_volume)", ephemeralCount)
+
+				By("Removing ephemeral volume")
+				removeVolumeVMI(vm2.Name, vm2.Namespace, "ephemeral-volume2", false)
+				ephemeralCount--
+
+				By("Expecting metric to have decremented")
+				libmonitoring.WaitForMetricValue(virtClient, "sum(kubevirt_vmi_contains_ephemeral_hotplug_volume)", ephemeralCount)
+
+				By("Checking Alert is fired")
+				libmonitoring.VerifyAlertExist(virtClient, "VirtualMachineInstanceHasEphemeralHotplugVolume")
+			})
+
+			It("should ignore delcarative hotplugs", Serial, func() {
+				if !isPrometheusDeployed() {
+					Skip("Prometheus not deployed")
+				}
+				kvconfig.EnableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
+				kvconfig.DisableFeatureGate(featuregate.HotplugVolumesGate)
+
+				By("Adding delcarative hotplug")
+				dvPersistent := createDataVolumeAndWaitForImport(sc, k8sv1.PersistentVolumeFilesystem)
+				addDVVolumeVM(vm.Name, vm.Namespace, "persistent-volume", dvPersistent.Name, v1.DiskBusSCSI, false, "")
+
+				By("Expecting no ephemeral metrics")
+				libmonitoring.WaitForMetricValue(virtClient, "sum(kubevirt_vmi_contains_ephemeral_hotplug_volume)", -1)
+			})
+		})
 
 		Context("VMI", decorators.RequiresRWXBlock, func() {
 			var (
@@ -1075,6 +1204,8 @@ var _ = Describe(SIG("Hotplug", func() {
 				vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
 
+				verifyVolumeAndDiskVMRemoved(vm, "testvolume")
+
 				By("Verifying that the hotplugged volume can be unplugged after a restart")
 				verifyVolumeNolongerAccessible(vmi, targets[0])
 			})
@@ -1164,6 +1295,8 @@ var _ = Describe(SIG("Hotplug", func() {
 				verifySingleAttachmentPod(virtClient, vmi)
 				removeVolumeVM(vmi.Name, vmi.Namespace, "block", false)
 				removeVolumeVM(vmi.Name, vmi.Namespace, "fs", false)
+				verifyVolumeAndDiskVMRemoved(vm, "block")
+				verifyVolumeAndDiskVMRemoved(vm, "fs")
 
 				for i := 0; i < 2; i++ {
 					verifyVolumeNolongerAccessible(vmi, targets[i])
@@ -1275,6 +1408,8 @@ var _ = Describe(SIG("Hotplug", func() {
 
 				By("Verifying the volume can be detached and reattached after migration")
 				removeVolumeFunc(vmi.Name, vmi.Namespace, volumeName, false)
+
+				verifyVolumeAndDiskVMIRemoved(vmi, volumeName)
 				verifyVolumeNolongerAccessible(vmi, targets[0])
 				addVolumeFunc(vmi.Name, vmi.Namespace, volumeName, dv.Name, v1.DiskBusSCSI, false, "")
 				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
@@ -1353,7 +1488,7 @@ var _ = Describe(SIG("Hotplug", func() {
 				hookSidecarsValue := fmt.Sprintf(`[{"args": ["--version", "v1alpha2"], "image": "%s", "imagePullPolicy": "IfNotPresent"}]`,
 					libregistry.GetUtilityImageFromRegistry(hookSidecarImage))
 				vmi := libstorage.RenderVMIWithDataVolume(dv.Name, dv.Namespace,
-					libvmi.WithCloudInitNoCloud(libvmici.WithNoCloudEncodedUserData("#!/bin/bash\necho 'hello'\n")),
+					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 					libvmi.WithAnnotation("hooks.kubevirt.io/hookSidecars", hookSidecarsValue),
 					libvmi.WithAnnotation("diskimage.vm.kubevirt.io/bootImageName", newDiskImgName),
 				)
@@ -1803,6 +1938,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifySingleAttachmentPod(virtClient, vmi)
 			By(removingVolumeFromVM)
 			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		})
 	})
@@ -1900,6 +2036,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifySingleAttachmentPod(virtClient, vmi)
 			By(removingVolumeFromVM)
 			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		},
 			Entry("without dedicated IO and shared policy", false),
@@ -1956,6 +2093,7 @@ var _ = Describe(SIG("Hotplug", func() {
 			verifySingleAttachmentPod(virtClient, vmi)
 			By(removingVolumeFromVM)
 			removeVolumeVM(vm.Name, vm.Namespace, "testvolume", false)
+			verifyVolumeAndDiskVMRemoved(vm, "testvolume")
 			verifyVolumeNolongerAccessible(vmi, targets[0])
 		})
 	})

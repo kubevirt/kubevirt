@@ -28,7 +28,6 @@ import (
 
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
@@ -38,6 +37,7 @@ import (
 
 type clusterConfigurer interface {
 	GetNetworkBindings() map[string]v1.InterfaceBindingPlugin
+	PodSecondaryInterfaceNamingUpgradeEnabled() bool
 }
 
 type Generator struct {
@@ -92,7 +92,8 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 
 // GenerateFromSource generates ordinal pod interfaces naming scheme for a migration target in case the migration source pod uses it
 func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod *k8scorev1.Pod) (map[string]string, error) {
-	if !namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(sourcePod)) {
+	if g.clusterConfigurer.PodSecondaryInterfaceNamingUpgradeEnabled() ||
+		!namescheme.PodHasOrdinalInterfaceName(multus.NetworkStatusesFromPod(sourcePod)) {
 		return nil, nil
 	}
 
@@ -115,8 +116,8 @@ func (g Generator) GenerateFromSource(vmi *v1.VirtualMachineInstance, sourcePod 
 func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) map[string]string {
 	annotations := map[string]string{}
 
-	if deviceInfoAnnotation := g.generateDeviceInfoAnnotation(vmi, pod); deviceInfoAnnotation != "" {
-		annotations[downwardapi.NetworkInfoAnnot] = deviceInfoAnnotation
+	if networkInfoAnnotation := g.generateNetworkInfoAnnotation(vmi, pod); networkInfoAnnotation != "" {
+		annotations[downwardapi.NetworkInfoAnnot] = networkInfoAnnotation
 	}
 
 	if updatedMultusAnnotation, shouldUpdate := g.generateMultusAnnotation(vmi, pod); shouldUpdate {
@@ -160,17 +161,22 @@ func (g Generator) generateMultusAnnotation(vmi *v1.VirtualMachineInstance, pod 
 	return updatedMultusAnnotation, true
 }
 
-func (g Generator) generateDeviceInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
+func (g Generator) generateNetworkInfoAnnotation(vmi *v1.VirtualMachineInstance, pod *k8scorev1.Pod) string {
 	ifaces := vmispec.FilterInterfacesSpec(vmi.Spec.Domain.Devices.Interfaces, func(iface v1.Interface) bool {
 		return iface.SRIOV != nil || vmispec.HasBindingPluginDeviceInfo(iface, g.clusterConfigurer.GetNetworkBindings())
 	})
 
-	networkDeviceInfoMap := deviceinfo.MapNetworkNameToDeviceInfo(vmi.Spec.Networks, ifaces, multus.NetworkStatusesFromPod(pod))
-	if len(networkDeviceInfoMap) == 0 {
+	if len(ifaces) == 0 {
 		return ""
 	}
 
-	return downwardapi.CreateNetworkInfoAnnotationValue(networkDeviceInfoMap)
+	multusNetworkStatuses := multus.NetworkStatusesFromPod(pod)
+	networkStatusesByNetworkName := mapNetworkStatusesByNetworkName(ifaces, vmi.Spec.Networks, multusNetworkStatuses)
+	if len(networkStatusesByNetworkName) == 0 {
+		return ""
+	}
+
+	return downwardapi.CreateNetworkInfoAnnotationValue(networkStatusesByNetworkName)
 }
 
 func shouldAddIstioKubeVirtAnnotation(vmi *v1.VirtualMachineInstance) bool {
@@ -207,4 +213,26 @@ func ifacesAndNetsForMultusAnnotationUpdate(vmi *v1.VirtualMachineInstance) ([]v
 		return nil, nil, false
 	}
 	return ifacesToAnnotate, networksToAnnotate, ifaceChangeRequired
+}
+
+func mapNetworkStatusesByNetworkName(
+	ifaces []v1.Interface,
+	networks []v1.Network,
+	multusNetworkStatuses []networkv1.NetworkStatus,
+) map[string]networkv1.NetworkStatus {
+	networkStatusesByPodIfaceName := multus.NetworkStatusesByPodIfaceName(multusNetworkStatuses)
+	podIfaceNameByNetworkName := namescheme.CreateFromNetworkStatuses(networks, multusNetworkStatuses)
+
+	networkStatusesByNetworkName := map[string]networkv1.NetworkStatus{}
+	for _, iface := range ifaces {
+		podIfaceName := podIfaceNameByNetworkName[iface.Name]
+		ns, exists := networkStatusesByPodIfaceName[podIfaceName]
+		if !exists {
+			// The interface may not be plugged yet
+			continue
+		}
+		networkStatusesByNetworkName[iface.Name] = ns
+	}
+
+	return networkStatusesByNetworkName
 }

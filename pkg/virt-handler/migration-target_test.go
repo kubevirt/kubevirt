@@ -30,9 +30,8 @@ import (
 	"sync"
 	"time"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	"go.uber.org/mock/gomock"
+	k8sv1 "k8s.io/api/core/v1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -55,11 +54,11 @@ import (
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	hotplugvolume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
@@ -68,6 +67,7 @@ import (
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	notifyserver "kubevirt.io/kubevirt/pkg/virt-handler/notify-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
+	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
 var _ = Describe("VirtualMachineInstance migration target", func() {
@@ -92,10 +92,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		migrationTargetPasstRepairHandler    *stubTargetPasstRepairHandler
 	)
 
-	const (
-		host                           = "master"
-		migratableNetworkBindingPlugin = "mig_plug"
-	)
+	const host = "master"
 
 	addDomain := func(domain *api.Domain) {
 		Expect(controller.domainStore.Add(domain)).To(Succeed())
@@ -169,11 +166,8 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		virtClient.EXPECT().CoreV1().Return(k8sfakeClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineInstance(metav1.NamespaceDefault).Return(virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault)).AnyTimes()
 		kv := &v1.KubeVirtConfiguration{
-			NetworkConfiguration: &v1.NetworkConfiguration{Binding: map[string]v1.InterfaceBindingPlugin{
-				migratableNetworkBindingPlugin: {Migration: &v1.InterfaceBindingMigration{}},
-			}},
 			DeveloperConfiguration: &v1.DeveloperConfiguration{
-				FeatureGates: []string{featuregate.PasstIPStackMigration},
+				FeatureGates: []string{featuregate.PasstBinding},
 			},
 		}
 
@@ -361,7 +355,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 			GuestRequested: &initialMemory,
 		}
 
-		targetPodMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+		targetPodMemory := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, nil)
 		targetPodMemory.Add(requestedMemory)
 		vmi.Labels = map[string]string{
 			v1.VirtualMachinePodMemoryRequestsLabel: targetPodMemory.String(),
@@ -377,7 +371,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		Expect(controller.hotplugMemory(vmi, client)).To(Succeed())
 
-		Expect(conditionManager.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)).To(BeFalse())
+		Expect(vmi).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMemoryChange))
 		Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
 		Expect(vmi.Status.Memory.GuestRequested).To(Equal(vmi.Spec.Domain.Memory.Guest))
 		Expect(networkBindingPluginMemoryCalculator.calculatedMemoryOverhead).To(BeTrue())
@@ -412,7 +406,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		Expect(controller.hotplugMemory(vmi, client)).ToNot(Succeed())
 
-		Expect(conditionManager.HasCondition(vmi, v1.VirtualMachineInstanceMemoryChange)).To(BeFalse())
+		Expect(vmi).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceMemoryChange))
 		Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
 		Expect(vmi.Status.Memory.GuestRequested).ToNot(Equal(vmi.Spec.Domain.Memory.Guest))
 	})
@@ -435,7 +429,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		}
 		vmi.Spec.Architecture = "amd64"
 
-		targetPodMemory := services.GetMemoryOverhead(vmi, runtime.GOARCH, nil)
+		targetPodMemory := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, nil)
 		targetPodMemory.Add(requestedMemory)
 		vmi.Labels = map[string]string{
 			v1.VirtualMachinePodMemoryRequestsLabel: targetPodMemory.String(),
@@ -451,7 +445,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		Expect(controller.hotplugMemory(vmi, client)).ToNot(Succeed())
 
-		Expect(conditionManager.HasConditionWithStatusAndReason(vmi, v1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionFalse, "Memory Hotplug Failed")).To(BeTrue())
+		Expect(vmi).To(matcher.HaveConditionFalseWithReason(v1.VirtualMachineInstanceMemoryChange, "Memory Hotplug Failed"))
 		Expect(v1.VirtualMachinePodMemoryRequestsLabel).ToNot(BeKeyOf(vmi.Labels))
 		Expect(vmi.Status.Memory.GuestRequested).ToNot(Equal(vmi.Spec.Domain.Memory.Guest))
 	})

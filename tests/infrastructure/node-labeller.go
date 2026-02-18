@@ -158,40 +158,24 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 
 		It("[test_id:6246] label nodes with cpu model, cpu features and host cpu model", func() {
 			for _, node := range nodesWithKVM {
-				cpuModelLabelPresent := false
-				cpuFeatureLabelPresent := false
-				hyperVLabelPresent := false
-				hostCPUModelPresent := false
-				hostCPURequiredFeaturesPresent := false
-				for key := range node.Labels {
-					if strings.Contains(key, v1.CPUModelLabel) {
-						cpuModelLabelPresent = true
-					}
-					if strings.Contains(key, v1.CPUFeatureLabel) {
-						cpuFeatureLabelPresent = true
-					}
-					if strings.Contains(key, v1.HypervLabel) {
-						hyperVLabelPresent = true
-					}
-					if strings.Contains(key, v1.HostModelCPULabel) {
-						hostCPUModelPresent = true
-					}
-					if strings.Contains(key, v1.HostModelRequiredFeaturesLabel) {
-						hostCPURequiredFeaturesPresent = true
-					}
+				errorMessageTemplate := "node " + node.Name + " does not contain %s label"
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelLabel)), fmt.Sprintf(errorMessageTemplate, "cpu"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUFeatureLabel)), fmt.Sprintf(errorMessageTemplate, "feature"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelCPULabel)), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
+				Expect(node.Labels).To(HaveKey(HavePrefix(v1.HostModelRequiredFeaturesLabel)),
+					fmt.Sprintf(errorMessageTemplate, "host cpu required features"))
 
-					if cpuModelLabelPresent && cpuFeatureLabelPresent && hyperVLabelPresent && hostCPUModelPresent &&
-						hostCPURequiredFeaturesPresent {
-						break
-					}
+				arch := node.Labels[k8sv1.LabelArchStable]
+
+				if arch == testsuite.ArchAMD64 {
+					Expect(node.Labels).To(HaveKey(HavePrefix(v1.HypervLabel)), fmt.Sprintf(errorMessageTemplate, "hyperV"))
 				}
 
-				errorMessageTemplate := "node " + node.Name + " does not contain %s label"
-				Expect(cpuModelLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "cpu"))
-				Expect(cpuFeatureLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "feature"))
-				Expect(hyperVLabelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "hyperV"))
-				Expect(hostCPUModelPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu model"))
-				Expect(hostCPURequiredFeaturesPresent).To(BeTrue(), fmt.Sprintf(errorMessageTemplate, "host cpu required features"))
+				if arch == testsuite.ArchAMD64 || arch == testsuite.ArchS390x {
+					Expect(node.Labels).To(HaveKey(HavePrefix(v1.CPUModelVendorLabel)), fmt.Sprintf(errorMessageTemplate, "vendor"))
+				} else {
+					Expect(node.Labels).ToNot(HaveKey(HavePrefix(v1.CPUModelVendorLabel)))
+				}
 			}
 		})
 

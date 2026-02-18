@@ -9,7 +9,6 @@ import (
 	"kubevirt.io/kubevirt/tests/events"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/cleanup"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libvmops"
 
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -45,7 +44,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	virtpointer "kubevirt.io/kubevirt/pkg/pointer"
 	typesStorage "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -1654,24 +1652,13 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(restore.Status.Restores).To(HaveLen(1))
 			})
 
-			DescribeTable("should restore vm with hot plug disks", func(restoreToNewVM, withEphemeralHotplug bool) {
-				if withEphemeralHotplug {
-					kvconfig.DisableFeatureGate(featuregate.DeclarativeHotplugVolumesGate)
-					kvconfig.EnableFeatureGate(featuregate.HotplugVolumesGate)
-				}
-
+			DescribeTable("should restore vm with hot plug disks", func(restoreToNewVM bool) {
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				Expect(console.LoginToFedora(vmi)).To(Succeed())
 
 				By("Add persistent hotplug disk")
-				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, false)
-
-				var tempVolName string
-				if withEphemeralHotplug {
-					By("Add temporary hotplug disk")
-					tempVolName = AddVolumeAndVerify(virtClient, snapshotStorageClass, vm, true)
-				}
+				persistVolName := AddVolumeAndVerify(virtClient, snapshotStorageClass, vm)
 
 				doRestore("", console.LoginToFedora, onlineSnapshot, getTargetVMName(restoreToNewVM, newVmName))
 				Expect(restore.Status.Restores).To(HaveLen(2))
@@ -1684,20 +1671,15 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(targetVMI.Spec.Volumes).To(HaveLen(2))
 				foundHotPlug := false
-				foundTempHotPlug := false
 				for _, volume := range targetVMI.Spec.Volumes {
 					if volume.Name == persistVolName {
 						foundHotPlug = true
-					} else if volume.Name == tempVolName {
-						foundTempHotPlug = true
 					}
 				}
 				Expect(foundHotPlug).To(BeTrue())
-				Expect(foundTempHotPlug).To(BeFalse())
 			},
-				Entry("[test_id:7425] to the same VM", false, false),
-				Entry("to a new VM", true, false),
-				Entry("to the same VM with ephemeral", Serial, false, false),
+				Entry("[test_id:7425] to the same VM", false),
+				Entry("to a new VM", true),
 			)
 
 			It("should override VM during restore", func() {

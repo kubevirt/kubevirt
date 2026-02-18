@@ -46,6 +46,8 @@ const (
 	GetFSFreezeStatus AgentCommand = "guest-fsfreeze-status"
 
 	pollInitialInterval = 10 * time.Second
+
+	repeatingLogLevel = 3
 )
 
 // AgentUpdatedEvent fire up when data is changes in the store
@@ -408,7 +410,7 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 // GET_AGENT - According to libvirt engineers this command shouldn't be used
 // by KubeVirt, because it provides irrelevant information (version and supported commands).
 func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
-	log.Log.Infof("Polling command: %v", commands)
+	log.Log.V(repeatingLogLevel).Infof("Polling command: %v", commands)
 
 	for _, command := range commands {
 		cmdResult, err := agentPoller.Connection.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, agentPoller.domainName)

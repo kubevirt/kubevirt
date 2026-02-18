@@ -47,25 +47,6 @@ var _ = Describe("Operator Config", func() {
 		}
 	}
 
-	DescribeTable("Parse image", func(image string, config *KubeVirtDeploymentConfig) {
-		envVarManager.Setenv(OldOperatorImageEnvName, image)
-
-		err := VerifyEnv()
-		Expect(err).ToNot(HaveOccurred())
-
-		parsedConfig, err := GetConfigFromEnv()
-		Expect(err).ToNot(HaveOccurred())
-
-		Expect(parsedConfig.GetImageRegistry()).To(Equal(config.GetImageRegistry()), "registry should match")
-		Expect(parsedConfig.GetKubeVirtVersion()).To(Equal(config.GetKubeVirtVersion()), "tag should match")
-	},
-		Entry("without registry", "kubevirt/virt-operator:v123", getConfig("kubevirt", "v123")),
-		Entry("with registry", "reg/kubevirt/virt-operator:v123", getConfig("reg/kubevirt", "v123")),
-		Entry("with registry with port", "reg:1234/kubevirt/virt-operator:latest", getConfig("reg:1234/kubevirt", "latest")),
-		Entry("without tag", "kubevirt/virt-operator", getConfig("kubevirt", "latest")),
-		Entry("with shasum", "kubevirt/virt-operator@sha256:abcdef", getConfig("kubevirt", "latest")),
-	)
-
 	Describe("GetPassthroughEnv()", func() {
 		It("should eturn environment variables matching the passthrough prefix (and only those vars)", func() {
 			realKey := rand.String(10)
@@ -107,63 +88,7 @@ var _ = Describe("Operator Config", func() {
 				{Name: key2, Value: val2},
 			}
 
-			Expect(*envObjects).To(ConsistOf(expected))
-		})
-	})
-
-	Describe("Config json from env var", func() {
-		It("should be parsed", func() {
-			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","namespace":"kubevirt","registry":"registry:5000/kubevirt","imagePrefix":"somePrefix","kubeVirtVersion":"devel","additionalProperties":{"ImagePullPolicy":"IfNotPresent", "MonitorNamespace":"non-default-monitor-namespace", "MonitorAccount":"non-default-prometheus-k8s"}}`
-			envVarManager.Setenv(TargetDeploymentConfig, json)
-			parsedConfig, err := GetConfigFromEnv()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(parsedConfig.GetDeploymentID()).To(Equal("9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59"))
-			Expect(parsedConfig.GetNamespace()).To(Equal("kubevirt"))
-			Expect(parsedConfig.GetImageRegistry()).To(Equal("registry:5000/kubevirt"))
-			Expect(parsedConfig.GetImagePrefix()).To(Equal("somePrefix"))
-			Expect(parsedConfig.GetKubeVirtVersion()).To(Equal("devel"))
-			Expect(parsedConfig.GetImagePullPolicy()).To(Equal(k8sv1.PullIfNotPresent))
-			Expect(parsedConfig.GetPotentialMonitorNamespaces()).To(ConsistOf("non-default-monitor-namespace"))
-			Expect(parsedConfig.GetMonitorServiceAccountName()).To(Equal("non-default-prometheus-k8s"))
-		})
-	})
-
-	Describe("Config json with default value", func() {
-		It("should be parsed", func() {
-			json := `{"id":"9ca7273e4d5f1bee842f64a8baabc15cbbf1ce59","additionalProperties":{"ImagePullPolicy":"IfNotPresent"}}`
-			envVarManager.Setenv(TargetDeploymentConfig, json)
-			parsedConfig, err := GetConfigFromEnv()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(parsedConfig.GetPotentialMonitorNamespaces()).To(ConsistOf("openshift-monitoring", "monitoring"))
-			Expect(parsedConfig.GetMonitorServiceAccountName()).To(Equal("prometheus-k8s"))
-		})
-	})
-
-	Describe("parsing ObservedDeploymentConfig", func() {
-		It("should retrieve imagePrefix if present", func() {
-			prefix := "test-prefix-"
-			deploymentConfig := KubeVirtDeploymentConfig{}
-			deploymentConfig.ImagePrefix = prefix
-
-			blob, err := deploymentConfig.GetJson()
-			Expect(err).ToNot(HaveOccurred())
-
-			result, found, err := getImagePrefixFromDeploymentConfig(blob)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(found).To(BeTrue())
-			Expect(result).To(Equal(prefix))
-		})
-
-		It("should not error if imagePrefix is not present", func() {
-			deploymentConfig := KubeVirtDeploymentConfig{}
-
-			blob, err := deploymentConfig.GetJson()
-			Expect(err).ToNot(HaveOccurred())
-
-			result, found, err := getImagePrefixFromDeploymentConfig(blob)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(found).To(BeFalse())
-			Expect(result).To(Equal(""))
+			Expect(envObjects).To(ConsistOf(expected))
 		})
 	})
 
@@ -199,6 +124,34 @@ var _ = Describe("Operator Config", func() {
 			Expect(idFilled).ToNot(BeEmpty())
 			Expect(idFilled).ToNot(Equal(idEmpty))
 		})
+
+		DescribeTable("should result in different ID when component images change", func(setImage func(*KubeVirtDeploymentConfig, string)) {
+			cfgA := &KubeVirtDeploymentConfig{}
+			cfgA.AdditionalProperties = make(map[string]string)
+			setImage(cfgA, "registry:5000/kubevirt/image:v1")
+			cfgA.generateInstallStrategyID()
+
+			cfgB := &KubeVirtDeploymentConfig{}
+			cfgB.AdditionalProperties = make(map[string]string)
+			setImage(cfgB, "registry:5000/kubevirt/image:v2")
+			cfgB.generateInstallStrategyID()
+
+			Expect(cfgA.ID).ToNot(BeEmpty())
+			Expect(cfgB.ID).ToNot(BeEmpty())
+			Expect(cfgA.ID).ToNot(Equal(cfgB.ID))
+		},
+			Entry("VirtOperatorImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtOperatorImage = img }),
+			Entry("VirtApiImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtApiImage = img }),
+			Entry("VirtControllerImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtControllerImage = img }),
+			Entry("VirtHandlerImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtHandlerImage = img }),
+			Entry("VirtLauncherImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtLauncherImage = img }),
+			Entry("VirtExportProxyImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtExportProxyImage = img }),
+			Entry("VirtExportServerImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtExportServerImage = img }),
+			Entry("VirtSynchronizationControllerImage", func(c *KubeVirtDeploymentConfig, img string) { c.VirtSynchronizationControllerImage = img }),
+			Entry("GsImage", func(c *KubeVirtDeploymentConfig, img string) { c.GsImage = img }),
+			Entry("PrHelperImage", func(c *KubeVirtDeploymentConfig, img string) { c.PrHelperImage = img }),
+			Entry("SidecarShimImage", func(c *KubeVirtDeploymentConfig, img string) { c.SidecarShimImage = img }),
+		)
 
 	})
 
@@ -274,8 +227,9 @@ var _ = Describe("Operator Config", func() {
 			err := VerifyEnv()
 			Expect(err).ToNot(HaveOccurred())
 
-			parsedConfig, err := GetConfigFromEnv()
-			Expect(err).ToNot(HaveOccurred())
+			parsedConfig := GetTargetConfigFromKV(&v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{},
+			})
 
 			const errMsg = "image is not set as expected"
 			Expect(parsedConfig.VirtOperatorImage).To(Equal(operatorImage), errMsg)
@@ -398,8 +352,7 @@ var _ = Describe("Operator Config", func() {
 			err := VerifyEnv()
 			Expect(err).ToNot(HaveOccurred())
 
-			parsedConfig, err := GetConfigFromEnv()
-			Expect(err).ToNot(HaveOccurred())
+			parsedConfig := GetTargetConfigFromKVWithEnvVarManager(&v1.KubeVirt{}, envVarManager)
 
 			kubevirtVersion := parsedConfig.GetKubeVirtVersion()
 			Expect(kubevirtVersion).To(Equal(input.version))

@@ -54,9 +54,6 @@ const (
 	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
 	// user can tell Kubevirt to use it
 	KubevirtSeccompProfile = "KubevirtSeccompProfile"
-	// DisableMediatedDevicesHandling disables the handling of mediated
-	// devices, its creation and deletion
-	DisableMediatedDevicesHandling = "DisableMDEVConfiguration"
 	// PersistentReservation enables the use of the SCSI persistent reservation with the pr-helper daemon
 	PersistentReservation = "PersistentReservation"
 
@@ -81,6 +78,14 @@ const (
 	// bind mounts in virt-handler.
 	ImageVolume = "ImageVolume"
 
+	// Owner: @Barakmor1
+	// Alpha: v1.8.0
+	//
+	// LibvirtHooksServerAndClient The LibvirtHooksServerAndClient FG enables running pre-migration
+	// hooks on the target virt-launcher pod, allowing domain XML mutations to be applied
+	// on the target before migration starts.
+	LibvirtHooksServerAndClient = "LibvirtHooksServerAndClient"
+
 	// Owner: @shellyka13
 	// Alpha: v1.6.0
 	//
@@ -89,7 +94,6 @@ const (
 	// To support incremental backups, a QCOW2 overlay must be created on top of the VM's raw disk image.
 	IncrementalBackupGate = "IncrementalBackup"
 
-	VirtIOFSConfigVolumesGate = "EnableVirtioFsConfigVolumes"
 	VirtIOFSStorageVolumeGate = "EnableVirtioFsStorageVolumes"
 
 	// Owner: @alaypatel07
@@ -140,21 +144,56 @@ const (
 	// PanicDevices allows defining panic devices for signaling crashes in the guest for a VirtualMachineInstance.
 	PanicDevicesGate = "PanicDevices"
 
-	// Alpha: v1.6.0
+	// Beta: v1.8.0
 	//
-	// PasstIPStackMigration enables seamless migration with passt network binding.
-	PasstIPStackMigration = "PasstIPStackMigration"
+	// PasstBinding enables the use of passt core network binding
+	PasstBinding = "PasstBinding"
 
 	// MigrationPriorityQueue enables controllers to assign priorities to migrations,
 	// ensuring system-initiated migrations (e.g., node drains, upgrades) take precedence
 	// over user-initiated ones (e.g., hot plug operations).
 	// Owner: sig-compute / @fossedihelm
 	// Alpha: v1.7.0
+	// Beta: v1.8.0
 	//
 	MigrationPriorityQueue = "MigrationPriorityQueue"
+
+	// Owner: @harshitgupta1337
+	// Alpha: v1.8.0
+	// This feature is disabled by default. When enabled, it allows using
+	// hypervisors other than KVM for running VMs.
+	// Details of the new hypervisors should be specified via the
+	// HypervisorConfigurations field in KubeVirtConfiguration.
+	ConfigurableHypervisor = "ConfigurableHypervisor"
+
+	// PodSecondaryInterfaceNamingUpgrade enables the upgrade mechanism for VMs
+	// stuck with the obsolete ordinal naming scheme for their pod secondary networks
+	// Owner: SIG network
+	// Beta: v1.8
+	PodSecondaryInterfaceNamingUpgrade = "PodSecondaryInterfaceNamingUpgrade"
+
+	// DisableNADResourceInjection disables the VMI controller query of NetworkAttachmentDefinition objects and
+	// the deployment of related RBAC rules by virt-operator.
+	// Owner: SIG network
+	// Beta: v1.8.0
+	DisableNADResourceInjection = "DisableNADResourceInjection"
+
+	// Owner: sig-compute / @MarSik
+	// Alpha: v1.8.0
+	//
+	// RebootPolicy enables setting the RebootPolicy field on VMI's DomainSpec
+	// which allows terminating the VMI on guest reboot instead of silently rebooting,
+	// enabling the VM controller to recreate the VMI with updated configuration.
+	RebootPolicy = "RebootPolicy"
+
+	// Owner: sig-compute / @0xFelix
+	// Template enables the deployment of virt-template components by virt-operator.
+	// Alpha: v1.8.0
+	Template = "Template"
 )
 
 func init() {
+	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ImageVolume, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: Alpha})
@@ -172,11 +211,9 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionTDX, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: NodeRestrictionGate, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSStorageVolumeGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: GPUsWithDRAGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesWithDRAGate, State: Alpha})
@@ -186,7 +223,12 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: PasstBinding, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: IncrementalBackupGate, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: DisableNADResourceInjection, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
 }

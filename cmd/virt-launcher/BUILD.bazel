@@ -27,6 +27,9 @@ go_library(
         "//pkg/virt-launcher:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
         "//pkg/virt-launcher/notify-client:go_default_library",
+        "//pkg/virt-launcher/premigration-hook-server:go_default_library",
+        "//pkg/virt-launcher/premigration-hook-server/cpuhook:go_default_library",
+        "//pkg/virt-launcher/premigration-hook-server/network:go_default_library",
         "//pkg/virt-launcher/standalone:go_default_library",
         "//pkg/virt-launcher/virtwrap:go_default_library",
         "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",
@@ -156,7 +159,18 @@ pkg_tar(
         ":qemu",
     ],
     mode = "0755",
+    owner = "107.107",
     package_dir = "/etc/libvirt/hooks",
+)
+
+# Go binary for advanced qemu hook (used when LibvirtHooksServerAndClient is enabled)
+# This binary is placed in /usr/bin and replaces /etc/libvirt/hooks/qemu at runtime
+pkg_tar(
+    name = "libvirt-hook-client-tar",
+    srcs = [
+        "//cmd/virt-launcher/libvirt-hook-client",
+    ],
+    package_dir = "/usr/bin",
 )
 
 # Workaround for https://github.com/moby/moby/issues/44106
@@ -191,6 +205,8 @@ oci_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
+            ":qemu-hook-tar",
+            ":libvirt-hook-client-tar",
             ":qemu-kvm-modules-dir-tar",
         ],
         "@io_bazel_rules_go//go/platform:linux_s390x": [
@@ -199,6 +215,8 @@ oci_image(
             ":libvirt-config",
             ":passwd-tar",
             ":nsswitch-tar",
+            ":qemu-hook-tar",
+            ":libvirt-hook-client-tar",
             ":qemu-kvm-modules-dir-tar",
         ],
         "//conditions:default": [
@@ -208,6 +226,7 @@ oci_image(
             ":passwd-tar",
             ":nsswitch-tar",
             ":qemu-hook-tar",
+            ":libvirt-hook-client-tar",
             ":qemu-kvm-modules-dir-tar",
         ],
     }),

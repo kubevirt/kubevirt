@@ -6,7 +6,6 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/network/pod/annotations",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/network/deviceinfo:go_default_library",
         "//pkg/network/downwardapi:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/network/multus:go_default_library",
