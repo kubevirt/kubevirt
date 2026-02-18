@@ -1,0 +1,6 @@
+repositories:
+- arch: x86_64
+  baseurl: http://DOCKER_URL:80/x86_64/ # The IP corresponding to the rpms-http-server container
+  name: custom-build
+  gpgcheck: 0
+  repo_gpgcheck: 0
