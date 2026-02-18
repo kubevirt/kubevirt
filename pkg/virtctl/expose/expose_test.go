@@ -162,6 +162,20 @@ var _ = Describe("Expose", func() {
 			}
 		}
 
+		getResUID := func(resType string) string {
+			switch resType {
+			case "vmi":
+				return string(vmi.UID)
+			case "vm":
+				return string(vm.UID)
+			case "vmirs":
+				return string(vmirs.UID)
+			default:
+				Fail("unknown resource type")
+				return ""
+			}
+		}
+
 		BeforeEach(func() {
 			var err error
 			vmi, err = virtClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.Background(), libvmi.New(), metav1.CreateOptions{})
@@ -420,6 +434,27 @@ var _ = Describe("Expose", func() {
 			Entry("with VirtualMachineInstanceReplicaSet and IPFamilyPolicy SingleStack", "vmirs", k8sv1.IPFamilyPolicySingleStack),
 			Entry("with VirtualMachineInstanceReplicaSet and IPFamilyPolicy PreferDualStack", "vmirs", k8sv1.IPFamilyPolicyPreferDualStack),
 			Entry("with VirtualMachineInstanceReplicaSet and IPFamilyPolicy RequireDualStack", "vmirs", k8sv1.IPFamilyPolicyRequireDualStack),
+		)
+
+		DescribeTable("creating a service with ownerReferences", func(resType, expectedKind string) {
+			resName := getResName(resType)
+			err := runCommand(resType, resName, "--name", serviceName, "--port", servicePortStr)
+			Expect(err).ToNot(HaveOccurred())
+
+			service, err := kubeClient.CoreV1().Services(metav1.NamespaceDefault).Get(context.Background(), serviceName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(service.OwnerReferences).To(HaveLen(1))
+			Expect(service.OwnerReferences[0].Kind).To(Equal(expectedKind))
+			Expect(service.OwnerReferences[0].Name).To(Equal(resName))
+			Expect(string(service.OwnerReferences[0].UID)).To(Equal(getResUID(resType)))
+			Expect(service.OwnerReferences[0].Controller).ToNot(BeNil())
+			Expect(*service.OwnerReferences[0].Controller).To(BeTrue())
+			Expect(service.OwnerReferences[0].BlockOwnerDeletion).ToNot(BeNil())
+			Expect(*service.OwnerReferences[0].BlockOwnerDeletion).To(BeFalse())
+		},
+			Entry("with VirtualMachineInstance", "vmi", "VirtualMachineInstance"),
+			Entry("with VirtualMachine", "vm", "VirtualMachine"),
+			Entry("with VirtualMachineInstanceReplicaSet", "vmirs", "VirtualMachineInstanceReplicaSet"),
 		)
 	})
 })
