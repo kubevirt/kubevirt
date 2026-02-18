@@ -23,6 +23,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	v1 "kubevirt.io/api/core/v1"
+
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 	"kubevirt.io/kubevirt/pkg/storage/velero"
@@ -48,7 +50,7 @@ var _ = Describe("Annotations Generator", func() {
 	}
 
 	It("Should generate storage annotations", func() {
-		generator := annotations.Generator{}
+		generator := annotations.NewGenerator(nil)
 		annotations, err := generator.Generate(libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithName(vmiName)))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(annotations).To(Equal(expectedAnnotations))
@@ -61,7 +63,7 @@ var _ = Describe("Annotations Generator", func() {
 				velero.SkipHooksAnnotation: skipValue,
 			}
 
-			generator := annotations.Generator{}
+			generator := annotations.NewGenerator(nil)
 			annotations, err := generator.Generate(vmi)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(annotations).To(BeEmpty())
@@ -81,7 +83,7 @@ var _ = Describe("Annotations Generator", func() {
 				velero.SkipHooksAnnotation: skipValue,
 			}
 
-			generator := annotations.Generator{}
+			generator := annotations.NewGenerator(nil)
 			annotations, err := generator.Generate(vmi)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(annotations).To(Equal(expectedAnnotations))
@@ -94,4 +96,33 @@ var _ = Describe("Annotations Generator", func() {
 		Entry("with uppercase 'F'", "F"),
 		Entry("with invalid value", "invalid"),
 	)
+
+	It("Should not generate storage annotations when skip annotation is set on KubeVirt CR", func() {
+		vmi := libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithName(vmiName))
+		kubeVirtCR := &v1.KubeVirt{}
+		kubeVirtCR.Annotations = map[string]string{
+			velero.SkipHooksAnnotation: "true",
+		}
+
+		generator := annotations.NewGenerator(kubeVirtCR)
+		annotations, err := generator.Generate(vmi)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(annotations).To(BeEmpty())
+	})
+
+	It("VMI annotation should take precedence over KubeVirt CR annotation", func() {
+		vmi := libvmi.New(libvmi.WithNamespace(testNamespace), libvmi.WithName(vmiName))
+		vmi.Annotations = map[string]string{
+			velero.SkipHooksAnnotation: "false",
+		}
+		kubeVirtCR := &v1.KubeVirt{}
+		kubeVirtCR.Annotations = map[string]string{
+			velero.SkipHooksAnnotation: "true",
+		}
+
+		generator := annotations.NewGenerator(kubeVirtCR)
+		annotations, err := generator.Generate(vmi)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(annotations).To(Equal(expectedAnnotations))
+	})
 })

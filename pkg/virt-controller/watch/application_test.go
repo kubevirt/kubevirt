@@ -149,6 +149,7 @@ var _ = Describe("Application", func() {
 			storageProfileInformer,
 			cdiInformer,
 			cdiConfigInformer,
+			kvInformer,
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, nil),
 			nil,

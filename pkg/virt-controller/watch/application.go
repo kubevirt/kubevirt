@@ -699,6 +699,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.storageProfileInformer,
 		vca.cdiInformer,
 		vca.cdiConfigInformer,
+		vca.kubeVirtInformer,
 		vca.clusterConfig,
 		topologyHinter,
 		netAnnotationsGenerator,

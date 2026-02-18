@@ -720,7 +720,7 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 	dynamicLabels := []string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel}
 	dynamicLabels = append(dynamicLabels, c.additionalLauncherLabelsSync...)
 
-	generator := storageannotations.Generator{}
+	generator := storageannotations.NewGenerator(c.clusterConfig.GetConfigFromKubeVirtCR())
 	generatedAnnotations, err := generator.Generate(vmi)
 	if err != nil {
 		return pod, fmt.Errorf("failed to generate storage annotations: %v", err)
