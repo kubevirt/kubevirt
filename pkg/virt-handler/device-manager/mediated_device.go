@@ -20,14 +20,12 @@
 package device_manager
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-
-	"context"
 
 	"github.com/fsnotify/fsnotify"
 	v1 "kubevirt.io/api/core/v1"
@@ -56,24 +54,18 @@ type MediatedDevicePlugin struct {
 func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevicePlugin {
 	s := strings.Split(resourceName, "/")
 	mdevTypeName := s[1]
-	serverSock := SocketPath(mdevTypeName)
 	iommuToMDEVMap := make(map[string]string)
 
 	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
 
 	dpi := &MediatedDevicePlugin{
-		DevicePluginBase: &DevicePluginBase{
-			devs:         devs,
-			socketPath:   serverSock,
-			resourceName: resourceName,
-			devicePath:   vfioDevicePath,
-			deviceRoot:   util.HostRootMount,
-			initialized:  false,
-			lock:         &sync.Mutex{},
-			healthUpdate: make(chan struct{}, 1),
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
-		},
+		DevicePluginBase: newDevicePluginBase(
+			devs,
+			mdevTypeName,
+			util.HostRootMount,
+			vfioDevicePath,
+			resourceName,
+		),
 		iommuToMDEVMap: iommuToMDEVMap,
 	}
 	dpi.setupMonitoredDevices = dpi.setupMonitoredDevicesFunc

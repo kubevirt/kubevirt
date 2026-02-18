@@ -83,6 +83,23 @@ func (dpi *DevicePluginBase) GetResourceName() string {
 	return dpi.resourceName
 }
 
+func newDevicePluginBase(devs []*pluginapi.Device, socketPath string, deviceRoot string, devicePath string, resourceName string) *DevicePluginBase {
+	dpi := &DevicePluginBase{
+		devs:                devs,
+		socketPath:          SocketPath(socketPath),
+		deviceRoot:          deviceRoot,
+		devicePath:          devicePath,
+		resourceName:        resourceName,
+		initialized:         false,
+		lock:                &sync.Mutex{},
+		healthUpdate:        make(chan struct{}, 1),
+		done:                make(chan struct{}),
+		deregistered:        make(chan struct{}),
+		skipDupHealthChecks: true,
+	}
+	return dpi
+}
+
 func (dpi *DevicePluginBase) Start(stop <-chan struct{}) (err error) {
 	logger := log.DefaultLogger()
 	dpi.stop = stop

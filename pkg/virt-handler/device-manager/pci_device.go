@@ -25,7 +25,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	v1 "kubevirt.io/api/core/v1"
@@ -55,24 +54,19 @@ type PCIDevicePlugin struct {
 }
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
-	serverSock := SocketPath(strings.Replace(resourceName, "/", "-", -1))
+	serverSock := strings.Replace(resourceName, "/", "-", -1)
 	iommuToPCIMap := make(map[string]string)
 
 	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
 
 	dpi := &PCIDevicePlugin{
-		DevicePluginBase: &DevicePluginBase{
-			devs:         devs,
-			initialized:  false,
-			lock:         &sync.Mutex{},
-			socketPath:   serverSock,
-			devicePath:   vfioDevicePath,
-			resourceName: resourceName,
-			deviceRoot:   util.HostRootMount,
-			healthUpdate: make(chan struct{}, 1),
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
-		},
+		DevicePluginBase: newDevicePluginBase(
+			devs,
+			serverSock,
+			util.HostRootMount,
+			vfioDevicePath,
+			resourceName,
+		),
 		iommuToPCIMap: iommuToPCIMap,
 	}
 	dpi.setupMonitoredDevices = dpi.setupMonitoredDevicesFunc

@@ -25,7 +25,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"kubevirt.io/client-go/log"
@@ -89,18 +88,13 @@ func NewSocketDevicePlugin(socketName, socketDir, socketFile string, maxDevices 
 		deviceRoot = util.HostRootMount
 	}
 	dpi := &SocketDevicePlugin{
-		DevicePluginBase: &DevicePluginBase{
-			devs:         []*pluginapi.Device{},
-			healthUpdate: make(chan struct{}, 1),
-			resourceName: fmt.Sprintf("%s/%s", DeviceNamespace, socketName),
-			initialized:  false,
-			lock:         &sync.Mutex{},
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
-			socketPath:   SocketPath(strings.Replace(socketName, "/", "-", -1)),
-			deviceRoot:   deviceRoot,
-			devicePath:   filepath.Join(socketDir, socketFile),
-		},
+		DevicePluginBase: newDevicePluginBase(
+			[]*pluginapi.Device{},
+			strings.Replace(socketName, "/", "-", -1),
+			deviceRoot,
+			filepath.Join(socketDir, socketFile),
+			fmt.Sprintf("%s/%s", DeviceNamespace, socketName),
+		),
 		p:        p,
 		executor: executor,
 	}

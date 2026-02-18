@@ -27,7 +27,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/fsnotify/fsnotify"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -392,18 +391,13 @@ func NewUSBDevicePlugin(resourceName string, deviceRoot string, pluginDevices []
 	resourceID = fmt.Sprintf("usb-%s", resourceID)
 	devs := devicesToKubeVirtDevicePlugin(pluginDevices)
 	usb := &USBDevicePlugin{
-		DevicePluginBase: &DevicePluginBase{
-			devs:         devs,
-			socketPath:   SocketPath(resourceID),
-			deviceRoot:   deviceRoot,
-			devicePath:   pathToUSBDevices,
-			resourceName: resourceName,
-			initialized:  false,
-			lock:         &sync.Mutex{},
-			healthUpdate: make(chan struct{}, 1),
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
-		},
+		DevicePluginBase: newDevicePluginBase(
+			devs,
+			resourceID,
+			deviceRoot,
+			pathToUSBDevices,
+			resourceName,
+		),
 		devices: pluginDevices,
 		p:       p,
 		logger:  log.Log.With("subcomponent", resourceID),
