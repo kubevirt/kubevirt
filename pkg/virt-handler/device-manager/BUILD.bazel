@@ -11,6 +11,7 @@ go_library(
         "generic_device.go",
         "mediated_device.go",
         "mediated_devices_types.go",
+        "nvidia.go",
         "pci_device.go",
         "socket_device.go",
         "usb_device.go",
