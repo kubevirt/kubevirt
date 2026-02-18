@@ -34,11 +34,15 @@ type MockLauncherClientManager struct {
 	UnResponsive      bool
 	Initialized       bool
 	UnResponsiveError error
+	IrrecoverableErr  bool
 }
 
 func (m *MockLauncherClientManager) GetVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {
 	if m.Client != nil {
 		return m.Client, nil
+	}
+	if m.IrrecoverableErr {
+		return nil, fmt.Errorf("%w: %s", IrrecoverableError, "Unknown client")
 	}
 	return nil, fmt.Errorf("Unknown client")
 }
