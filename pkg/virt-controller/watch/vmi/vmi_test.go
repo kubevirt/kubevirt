@@ -60,6 +60,7 @@ import (
 	controllertesting "kubevirt.io/kubevirt/pkg/controller/testing"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
+	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -67,7 +68,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 	watchtesting "kubevirt.io/kubevirt/pkg/virt-controller/watch/testing"
 
-	"kubevirt.io/kubevirt/pkg/storage/velero"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/descheduler"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
 )
@@ -244,6 +244,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			config,
 			topology.NewTopologyHinter(&cache.FakeCustomStore{}, &cache.FakeCustomStore{}, config),
 			stubNetworkAnnotationsGenerator{},
+			stubStorageAnnotationsGenerator{},
 			stubNetStatusUpdate,
 			validateNetVMISpecStub(),
 			stubMigrationEvaluator{result: k8sv1.ConditionUnknown},
@@ -2342,6 +2343,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			)
 
 			It("should remove Velero annotations when skip annotation is added to VMI", func() {
+				controller.storageAnnotationsGenerator = storageannotations.NewGenerator(config.GetConfigFromKubeVirtCR())
+
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Status.Phase = virtv1.Running
 				// Start without skip annotation so Velero annotations are generated
@@ -2377,6 +2380,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			It("should add Velero annotations when skip annotation is removed from VMI", func() {
+				controller.storageAnnotationsGenerator = storageannotations.NewGenerator(config.GetConfigFromKubeVirtCR())
+
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Status.Phase = virtv1.Running
 				vmi.Annotations[skipHooksAnnotation] = "true"
@@ -2403,6 +2408,8 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 			})
 
 			It("should not patch pod when Velero annotations are already in sync", func() {
+				controller.storageAnnotationsGenerator = storageannotations.NewGenerator(config.GetConfigFromKubeVirtCR())
+
 				vmi := newPendingVirtualMachine("testvmi")
 				vmi.Status.Phase = virtv1.Running
 				// Remove skip annotation so Velero annotations are generated
@@ -4761,11 +4768,6 @@ func newPendingVirtualMachine(name string) *virtv1.VirtualMachineInstance {
 	vmi.Status.Phase = virtv1.Pending
 	setReadyCondition(vmi, k8sv1.ConditionFalse, virtv1.PodNotExistsReason)
 	kvcontroller.SetLatestApiVersionAnnotation(vmi)
-	// Skip Velero hooks by default in tests to avoid unexpected pod patches
-	if vmi.Annotations == nil {
-		vmi.Annotations = make(map[string]string)
-	}
-	vmi.Annotations[velero.SkipHooksAnnotation] = "true"
 	return vmi
 }
 
@@ -4929,6 +4931,19 @@ type stubNetworkAnnotationsGenerator struct {
 
 func (s stubNetworkAnnotationsGenerator) GenerateFromActivePod(_ *virtv1.VirtualMachineInstance, _ *k8sv1.Pod) map[string]string {
 	return s.annotations
+}
+
+type stubStorageAnnotationsGenerator struct {
+	annotations map[string]string
+	keys        []string
+}
+
+func (s stubStorageAnnotationsGenerator) Generate(_ *virtv1.VirtualMachineInstance) (map[string]string, error) {
+	return s.annotations, nil
+}
+
+func (s stubStorageAnnotationsGenerator) ManagedAnnotationKeys() []string {
+	return s.keys
 }
 
 func validateNetVMISpecStub(causes ...metav1.StatusCause) func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []metav1.StatusCause {
