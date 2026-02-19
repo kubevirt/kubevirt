@@ -659,6 +659,7 @@ func (vca *VirtControllerApp) initCommon() {
 	containerdisk.SetLocalDirectoryOnly(filepath.Join(vca.ephemeralDiskDir, "container-disk-data"))
 
 	netAnnotationsGenerator := netannotations.NewGenerator(vca.clusterConfig)
+	storageAnnotationsGenerator := storageannotations.NewGenerator(vca.clusterConfig)
 
 	vca.templateService = services.NewTemplateService(vca.launcherImage,
 		vca.launcherQemuTimeout,
@@ -703,6 +704,7 @@ func (vca *VirtControllerApp) initCommon() {
 		vca.clusterConfig,
 		topologyHinter,
 		netAnnotationsGenerator,
+		storageAnnotationsGenerator,
 		netcontrollers.UpdateVMIStatus,
 		func(field *k8sfield.Path, vmiSpec *v1.VirtualMachineInstanceSpec, clusterCfg *virtconfig.ClusterConfig) []metav1.StatusCause {
 			return netadmitter.ValidateCreation(field, vmiSpec, clusterCfg)
