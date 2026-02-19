@@ -30,12 +30,16 @@ import (
 
 const computeContainerName = "compute"
 
-type Generator struct {
-	kubeVirtCR *v1.KubeVirt
+type kubeVirtCRProvider interface {
+	GetConfigFromKubeVirtCR() *v1.KubeVirt
 }
 
-func NewGenerator(kubeVirtCR *v1.KubeVirt) Generator {
-	return Generator{kubeVirtCR: kubeVirtCR}
+type Generator struct {
+	clusterConfig kubeVirtCRProvider
+}
+
+func NewGenerator(clusterConfig kubeVirtCRProvider) Generator {
+	return Generator{clusterConfig: clusterConfig}
 }
 
 func (g Generator) ManagedAnnotationKeys() []string {
@@ -50,9 +54,12 @@ func (g Generator) ManagedAnnotationKeys() []string {
 
 func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
 	// Check VMI annotation first, fallback to kubevirt CR if not set
-	skipValue := vmi.Annotations[velero.SkipHooksAnnotation]
-	if skipValue == "" && g.kubeVirtCR != nil {
-		skipValue = g.kubeVirtCR.Annotations[velero.SkipHooksAnnotation]
+	skipValue, hasSkipValue := vmi.Annotations[velero.SkipHooksAnnotation]
+	if !hasSkipValue && g.clusterConfig != nil {
+		kubeVirtCR := g.clusterConfig.GetConfigFromKubeVirtCR()
+		if kubeVirtCR != nil {
+			skipValue = kubeVirtCR.Annotations[velero.SkipHooksAnnotation]
+		}
 	}
 
 	annotations := map[string]string{}

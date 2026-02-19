@@ -30,6 +30,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 )
 
+type crProvider struct{ cr *v1.KubeVirt }
+
+func (p *crProvider) GetConfigFromKubeVirtCR() *v1.KubeVirt { return p.cr }
+
 var _ = Describe("Annotations Generator", func() {
 	const (
 		testNamespace = "testns"
@@ -104,7 +108,7 @@ var _ = Describe("Annotations Generator", func() {
 			velero.SkipHooksAnnotation: "true",
 		}
 
-		generator := annotations.NewGenerator(kubeVirtCR)
+		generator := annotations.NewGenerator(&crProvider{cr: kubeVirtCR})
 		annotations, err := generator.Generate(vmi)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(annotations).To(BeEmpty())
@@ -120,7 +124,7 @@ var _ = Describe("Annotations Generator", func() {
 			velero.SkipHooksAnnotation: "true",
 		}
 
-		generator := annotations.NewGenerator(kubeVirtCR)
+		generator := annotations.NewGenerator(&crProvider{cr: kubeVirtCR})
 		annotations, err := generator.Generate(vmi)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(annotations).To(Equal(expectedAnnotations))
