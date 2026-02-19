@@ -49,7 +49,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	"kubevirt.io/client-go/kubecli"
@@ -97,7 +97,7 @@ const (
 	inUseReason               = "InUse"
 	volumesNotPopulatedReason = "VolumesNotPopulated"
 
-	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1alpha1/namespaces/%s/virtualmachineexports/%s%s"
+	proxyUrlBase = "https://virt-exportproxy.%s.svc/api/export.kubevirt.io/v1/namespaces/%s/virtualmachineexports/%s%s"
 
 	tlsKey           = "tls.key"
 	tlsCert          = "tls.crt"

@@ -77,7 +77,7 @@ import (
 const (
 	testNamespace   = "default"
 	ingressSecret   = "ingress-secret"
-	currentVersion  = "v1beta1"
+	currentVersion  = "v1"
 	vmExportName    = "test"
 	labelKey        = "label-key"
 	labelValue      = "label-value"
@@ -227,7 +227,7 @@ var _ = Describe("Export controller", func() {
 
 		virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineExport(testNamespace).
-			Return(vmExportClient.ExportV1beta1().VirtualMachineExports(testNamespace)).AnyTimes()
+			Return(vmExportClient.ExportV1().VirtualMachineExports(testNamespace)).AnyTimes()
 
 		controller = &VMExportController{
 			Client:                      virtClient,

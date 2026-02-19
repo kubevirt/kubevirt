@@ -92,7 +92,7 @@ var _ = Describe("vmexport", func() {
 		kubecli.MockKubevirtClientInstance = kubecli.NewMockKubevirtClient(ctrl)
 		kubecli.MockKubevirtClientInstance.EXPECT().CoreV1().Return(kubeClient.CoreV1()).AnyTimes()
 		kubecli.MockKubevirtClientInstance.EXPECT().StorageV1().Return(kubeClient.StorageV1()).AnyTimes()
-		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
+		kubecli.MockKubevirtClientInstance.EXPECT().VirtualMachineExport(metav1.NamespaceDefault).Return(virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault)).AnyTimes()
 
 		server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -142,7 +142,7 @@ var _ = Describe("vmexport", func() {
 
 	Context("VMExport fails", func() {
 		It("VirtualMachineExport already exists when using 'create'", func() {
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runCreateCmd(
@@ -175,7 +175,7 @@ var _ = Describe("vmexport", func() {
 
 		It("VirtualMachineExport download fails when there's no volume available", func() {
 			vme.Status = vmeStatusReady(nil)
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
@@ -202,7 +202,7 @@ var _ = Describe("vmexport", func() {
 					}},
 				},
 			})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
@@ -229,7 +229,7 @@ var _ = Describe("vmexport", func() {
 					}},
 				},
 			})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
@@ -240,7 +240,7 @@ var _ = Describe("vmexport", func() {
 
 		It("VirtualMachineExport download fails when no format is available", func() {
 			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{Name: volumeName}})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
@@ -258,7 +258,7 @@ var _ = Describe("vmexport", func() {
 					Url:    server.URL,
 				}},
 			}})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
@@ -276,7 +276,7 @@ var _ = Describe("vmexport", func() {
 					Url:    server.URL,
 				}},
 			}})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
@@ -292,7 +292,7 @@ var _ = Describe("vmexport", func() {
 			}
 			vmexport.WaitForVirtualMachineExportFn = vmexport.WaitForVirtualMachineExport
 
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
@@ -315,7 +315,7 @@ var _ = Describe("vmexport", func() {
 					Url:    server.URL,
 				}},
 			}})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
@@ -347,7 +347,7 @@ var _ = Describe("vmexport", func() {
 					Url:    server.URL,
 				}},
 			}})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
@@ -394,7 +394,7 @@ var _ = Describe("vmexport", func() {
 			err := runCreateCmd(setFlag(flag, name))
 			Expect(err).ToNot(HaveOccurred())
 
-			vme, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			vme, err = virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vme.Spec.Source.Kind).To(Equal(kind))
 			Expect(vme.Spec.Source.Name).To(Equal(name))
@@ -414,11 +414,11 @@ var _ = Describe("vmexport", func() {
 
 		DescribeTable("Delete command runs successfully", func(exists bool) {
 			if exists {
-				_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+				_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
 			}
 			Expect(runDeleteCmd()).To(Succeed())
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
 			Expect(err).To(MatchError(k8serrors.IsNotFound, "k8serrors.IsNotFound"))
 		},
 			Entry("when VME exists", true),
@@ -437,7 +437,7 @@ var _ = Describe("vmexport", func() {
 					Url:    server.URL,
 				}},
 			}})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
@@ -455,7 +455,7 @@ var _ = Describe("vmexport", func() {
 			err := runCreateCmd(setFlag(vmexport.PVC_FLAG, pvcName))
 			Expect(err).ToNot(HaveOccurred())
 
-			vme, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			vme, err = virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vme.Status = vmeStatusReady([]exportv1.VirtualMachineExportVolume{{
 				Name: volumeName,
@@ -464,7 +464,7 @@ var _ = Describe("vmexport", func() {
 					Url:    server.URL,
 				}}},
 			})
-			vme, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Update(context.Background(), vme, metav1.UpdateOptions{})
+			vme, err = virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Update(context.Background(), vme, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			args := append([]string{
@@ -475,7 +475,7 @@ var _ = Describe("vmexport", func() {
 			err = runDownloadCmd(args...)
 			Expect(err).ToNot(HaveOccurred())
 
-			vme, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			vme, err = virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
 			if expected {
 				Expect(err).ToNot(HaveOccurred())
 			} else {
@@ -589,7 +589,7 @@ var _ = Describe("vmexport", func() {
 					Url:    server.URL,
 				}}},
 			})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
@@ -611,7 +611,7 @@ var _ = Describe("vmexport", func() {
 					Url:    server.URL,
 				}}},
 			})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
@@ -632,7 +632,7 @@ var _ = Describe("vmexport", func() {
 					Url:    server.URL,
 				}}},
 			})
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
@@ -652,7 +652,7 @@ var _ = Describe("vmexport", func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			vme, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			vme, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(*vme.Spec.TTLDuration).To(Equal(ttl))
 		})
@@ -672,7 +672,7 @@ var _ = Describe("vmexport", func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			vme, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			vme, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(vme.Labels).To(HaveKeyWithValue(labelKey, labelValue))
 			Expect(vme.Annotations).To(HaveKeyWithValue(annotationKey, annotationValue))
@@ -705,7 +705,7 @@ var _ = Describe("vmexport", func() {
 					Url:  server.URL + manifestUrl,
 				},
 			)
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
@@ -750,7 +750,7 @@ var _ = Describe("vmexport", func() {
 					Url:  server.URL + secretUrl,
 				},
 			)
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
@@ -792,7 +792,7 @@ var _ = Describe("vmexport", func() {
 					Url:  server.URL + secretUrl,
 				},
 			)
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			_, err = kubeClient.CoreV1().Secrets(metav1.NamespaceDefault).Create(context.Background(), secret, metav1.CreateOptions{})
@@ -843,7 +843,7 @@ var _ = Describe("vmexport", func() {
 					}}},
 				}),
 			}
-			_, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
+			_, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Create(context.Background(), vme, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			service = &k8sv1.Service{
@@ -905,10 +905,10 @@ var _ = Describe("vmexport", func() {
 				}, nil
 			}
 
-			vme, err := virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
+			vme, err := virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Get(context.Background(), vme.Name, metav1.GetOptions{})
 			Expect(err).ToNot(HaveOccurred())
 			vme.Status.Links.Internal = vme.Status.Links.External
-			_, err = virtClient.ExportV1beta1().VirtualMachineExports(metav1.NamespaceDefault).Update(context.Background(), vme, metav1.UpdateOptions{})
+			_, err = virtClient.ExportV1().VirtualMachineExports(metav1.NamespaceDefault).Update(context.Background(), vme, metav1.UpdateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			err = runDownloadCmd(
