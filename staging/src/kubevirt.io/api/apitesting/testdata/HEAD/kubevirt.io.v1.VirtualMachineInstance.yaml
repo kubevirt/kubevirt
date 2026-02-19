@@ -435,6 +435,9 @@ spec:
       hugepages:
         pageSize: pageSizeValue
       maxGuest: "0"
+      reservedOverhead:
+        addedOverhead: "0"
+        memLock: memLockValue
     rebootPolicy: rebootPolicyValue
     resources:
       limits:
