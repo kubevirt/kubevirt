@@ -659,6 +659,12 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 		strategy.certificateSecrets = append(strategy.certificateSecrets, components.NewVirtTemplateCertSecrets(config.GetNamespace())...)
 	}
 
+	if config.OptOutRoleAggregationEnabled() {
+		for _, cr := range strategy.clusterRoles {
+			removeAggregateLabels(cr)
+		}
+	}
+
 	return strategy, nil
 }
 
@@ -949,4 +955,14 @@ func isServiceAccountExist(clientset k8coresv1.CoreV1Interface, ns string, servi
 	}
 
 	return false, err
+}
+
+const aggregateLabelPrefix = "rbac.authorization.k8s.io/aggregate-to-"
+
+func removeAggregateLabels(cr *rbacv1.ClusterRole) {
+	for key := range cr.Labels {
+		if strings.HasPrefix(key, aggregateLabelPrefix) {
+			delete(cr.Labels, key)
+		}
+	}
 }

@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 
@@ -20,8 +21,36 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 )
 
+const aggregateLabelPrefix = "rbac.authorization.k8s.io/aggregate-to-"
+
 func (r *Reconciler) createOrUpdateClusterRole(cr *rbacv1.ClusterRole, imageTag string, imageRegistry string, id string) error {
+	markAggregateLabelsForRemoval(r.stores.ClusterRoleCache, cr)
 	return rbacCreateOrUpdate(r, cr, imageTag, imageRegistry, id)
+}
+
+// markAggregateLabelsForRemoval adds MergeMap removal markers (key + "-") for
+// aggregate labels that exist on the cached ClusterRole but are absent from the
+// required one. This bridges the gap between the strategy (which omits labels
+// when OptOutRoleAggregation is enabled) and resourcemerge.MergeMap (which only
+// adds/updates but never removes keys on its own).
+func markAggregateLabelsForRemoval(clusterRoleCache cache.Store, required *rbacv1.ClusterRole) {
+	cached, exists, _ := clusterRoleCache.Get(required)
+	if !exists {
+		return
+	}
+	existingCR := cached.(*rbacv1.ClusterRole)
+	for key := range existingCR.Labels {
+		if !strings.HasPrefix(key, aggregateLabelPrefix) {
+			continue
+		}
+		if _, found := required.Labels[key]; found {
+			continue
+		}
+		if required.Labels == nil {
+			required.Labels = make(map[string]string)
+		}
+		required.Labels[key+"-"] = ""
+	}
 }
 
 func (r *Reconciler) createOrUpdateClusterRoleBinding(crb *rbacv1.ClusterRoleBinding, imageTag string, imageRegistry string, id string) error {
