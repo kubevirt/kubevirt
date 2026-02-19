@@ -889,7 +889,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					freshVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
 					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 					return freshVMI.Status.Conditions
-				}, 240*time.Second, 2).Should(
+				}, 240*time.Second, 2*time.Second).Should(
 					ContainElement(
 						MatchFields(
 							IgnoreExtras,
@@ -943,7 +943,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				}, 400)).To(Succeed())
 
 				By("VMI has the guest agent connected condition")
-				Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
+				Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 			})
 
 			Context("with cluster config changes", Serial, func() {
@@ -1003,7 +1003,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						return false
 					}
 					return updatedVmi.Status.GuestOSInfo.Name != ""
-				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in vmi status")
+				}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have guest OS Info in vmi status")
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(updatedVmi.Status.GuestOSInfo.Name).To(ContainSubstring("Fedora"))
@@ -1026,7 +1026,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						guestInfo.OS.Name != "" &&
 						len(guestInfo.FSInfo.Filesystems) > 0
 
-				}, 240*time.Second, 2).Should(BeTrue(), "Should have guest OS Info in subresource")
+				}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have guest OS Info in subresource")
 			})
 
 			It("[test_id:4628]should not return the whole data when agent is not present", func() {
@@ -1048,7 +1048,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 						return err.Error()
 					}
 					return ""
-				}, 240*time.Second, 2).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
+				}, 240*time.Second, 2*time.Second).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
 			})
 
 			It("[test_id:4629]should return user list", func() {
@@ -1066,7 +1066,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 					return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
 
-				}, 240*time.Second, 2).Should(BeTrue(), "Should have fedora users")
+				}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have fedora users")
 			})
 
 			It("[test_id:4630]should return filesystem list", func() {
@@ -1083,7 +1083,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" &&
 						len(fsList.Items[0].Disk) > 0 && fsList.Items[0].Disk[0].BusType != ""
 
-				}, 240*time.Second, 2).Should(BeTrue(), "Should have some filesystem")
+				}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have some filesystem")
 			})
 
 		})
