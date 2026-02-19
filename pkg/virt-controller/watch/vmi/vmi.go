@@ -69,6 +69,7 @@ func NewController(templateService templateService,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
 	netAnnotationsGenerator annotationsGenerator,
+	storageAnnotationsGenerator storageAnnotationsGenerator,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
 	netMigrationEvaluator migrationEvaluator,
@@ -100,6 +101,7 @@ func NewController(templateService templateService,
 		cidsMap:                           vsock.NewCIDsMap(),
 		backendStorage:                    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator:           netAnnotationsGenerator,
+		storageAnnotationsGenerator:       storageAnnotationsGenerator,
 		updateNetworkStatus:               netStatusUpdater,
 		validateNetworkSpec:               netSpecValidator,
 		netMigrationEvaluator:             netMigrationEvaluator,
@@ -201,6 +203,11 @@ type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) erro
 
 type specValidator func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []v1.StatusCause
 
+type storageAnnotationsGenerator interface {
+	Generate(vmi *virtv1.VirtualMachineInstance) (map[string]string, error)
+	ManagedAnnotationKeys() []string
+}
+
 type migrationEvaluator interface {
 	// Evaluate determines if a VMI should request an automatic migration.
 	//
@@ -233,6 +240,7 @@ type Controller struct {
 	backendStorage                    *backendstorage.BackendStorage
 	hasSynced                         func() bool
 	netAnnotationsGenerator           annotationsGenerator
+	storageAnnotationsGenerator       storageAnnotationsGenerator
 	updateNetworkStatus               statusUpdater
 	validateNetworkSpec               specValidator
 	netMigrationEvaluator             migrationEvaluator
