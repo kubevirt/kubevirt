@@ -248,7 +248,7 @@ var _ = Describe("Install Strategy", func() {
 			}
 		})
 
-		It("should strip aggregate labels when RoleAggregationStrategy is Manual", func() {
+		It("should strip aggregate labels when OptOutRoleAggregation FG is enabled and strategy is Manual", func() {
 			manual := v1.RoleAggregationStrategyManual
 			manualConfig := util.GetTargetConfigFromKV(&v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -258,6 +258,9 @@ var _ = Describe("Install Strategy", func() {
 					ImageRegistry: "fake-registry",
 					ImageTag:      "v9.9.9",
 					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"OptOutRoleAggregation"},
+						},
 						RoleAggregationStrategy: &manual,
 					},
 				},
@@ -273,7 +276,32 @@ var _ = Describe("Install Strategy", func() {
 			}
 		})
 
-		It("should keep aggregate labels when RoleAggregationStrategy is AggregateToDefault", func() {
+		It("should keep aggregate labels when strategy is Manual but FG is not enabled", func() {
+			manual := v1.RoleAggregationStrategyManual
+			noFGConfig := util.GetTargetConfigFromKV(&v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageRegistry: "fake-registry",
+					ImageTag:      "v9.9.9",
+					Configuration: v1.KubeVirtConfiguration{
+						RoleAggregationStrategy: &manual,
+					},
+				},
+			})
+			strategy, err := GenerateCurrentInstallStrategy(noFGConfig, "", namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, cr := range strategy.clusterRoles {
+				if labelKey, ok := aggregateRoleNames[cr.Name]; ok {
+					Expect(cr.Labels).To(HaveKeyWithValue(labelKey, "true"),
+						"ClusterRole %s should have label %s when FG is not enabled", cr.Name, labelKey)
+				}
+			}
+		})
+
+		It("should keep aggregate labels when FG is enabled but strategy is AggregateToDefault", func() {
 			aggregateToDefault := v1.RoleAggregationStrategyAggregateToDefault
 			aggregateConfig := util.GetTargetConfigFromKV(&v1.KubeVirt{
 				ObjectMeta: metav1.ObjectMeta{
@@ -283,6 +311,9 @@ var _ = Describe("Install Strategy", func() {
 					ImageRegistry: "fake-registry",
 					ImageTag:      "v9.9.9",
 					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"OptOutRoleAggregation"},
+						},
 						RoleAggregationStrategy: &aggregateToDefault,
 					},
 				},
