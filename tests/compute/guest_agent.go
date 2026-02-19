@@ -239,6 +239,17 @@ var _ = Describe(SIG("GuestAgent info", func() {
 				"Should have agent connected condition")
 		})
 
+		It("[test_id:1676]should have attached a guest agent channel by default", func() {
+			By("Logging in to the guest")
+			Expect(console.LoginToFedora(agentVMI)).To(Succeed())
+
+			By("Verifying the guest agent virtio-serial port is visible inside the guest")
+			Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
+				&expect.BSnd{S: "cat /sys/class/virtio-ports/*/name 2>/dev/null | grep -c org.qemu.guest_agent.0\n"},
+				&expect.BExp{R: console.RetValue("1")},
+			}, 30)).To(Succeed(), "Guest agent virtio-serial port should be present in the guest")
+		})
+
 		It("[test_id:1677]VMI condition should signal agent presence", func() {
 			getOptions := metav1.GetOptions{}
 
@@ -364,6 +375,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 			}, 240*time.Second, 2*time.Second).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
 		})
 	})
+
 }))
 
 func createExecProbe(period, initialSeconds, timeoutSeconds int32, command ...string) *v1.Probe {

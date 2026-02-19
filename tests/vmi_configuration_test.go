@@ -871,23 +871,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
-			It("[test_id:1676]should have attached a guest agent channel by default", func() {
-				agentVMI := libvmifact.NewAlpine()
-				By("Starting a VirtualMachineInstance")
-				agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-				libwait.WaitForSuccessfulVMIStart(agentVMI)
-
-				By("Logging in to the guest")
-				Expect(console.LoginToAlpine(agentVMI)).To(Succeed())
-
-				By("Verifying the guest agent virtio-serial port is visible inside the guest")
-				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
-					&expect.BSnd{S: "cat /sys/class/virtio-ports/*/name 2>/dev/null | grep -c org.qemu.guest_agent.0\n"},
-					&expect.BExp{R: console.RetValue("1")},
-				}, 30)).To(Succeed(), "Guest agent virtio-serial port should be present in the guest")
-			})
-
 			Context("with cluster config changes", Serial, func() {
 				BeforeEach(func() {
 					kv := libkubevirt.GetCurrentKv(virtClient)
