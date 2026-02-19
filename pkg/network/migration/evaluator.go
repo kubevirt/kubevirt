@@ -58,9 +58,7 @@ func NewEvaluatorWithTimeProvider(timeProvider timeProviderFunc) Evaluator {
 
 func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance) k8scorev1.ConditionStatus {
 	result := shouldVMIBeMarkedForAutoMigration(
-		vmi.Spec.Domain.Devices.Interfaces,
-		vmi.Spec.Networks,
-		vmi.Status.Interfaces,
+		vmi,
 	)
 
 	switch result {
@@ -83,10 +81,12 @@ func (e Evaluator) Evaluate(vmi *v1.VirtualMachineInstance) k8scorev1.ConditionS
 }
 
 func shouldVMIBeMarkedForAutoMigration(
-	ifaces []v1.Interface,
-	nets []v1.Network,
-	ifaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+	vmi *v1.VirtualMachineInstance,
 ) migrationRequirementKind {
+	ifaces := vmi.Spec.Domain.Devices.Interfaces
+	nets := vmi.Spec.Networks
+	ifaceStatuses := vmi.Status.Interfaces
+
 	secondaryIfaces := vmispec.FilterInterfacesByNetworks(
 		ifaces,
 		vmispec.FilterMultusNonDefaultNetworks(nets),
@@ -96,22 +96,40 @@ func shouldVMIBeMarkedForAutoMigration(
 
 	for _, iface := range secondaryIfaces {
 		ifaceStatus, ifaceStatusExists := ifaceStatusesByName[iface.Name]
-		if iface.State != v1.InterfaceStateAbsent && !ifaceStatusExists {
-			if iface.SRIOV != nil {
-				return immediateMigration
-			}
 
-			return pendingMigration
+		if req := checkHotplugMigration(iface, ifaceStatusExists); req != notRequired {
+			return req
 		}
 
-		if iface.State == v1.InterfaceStateAbsent &&
-			ifaceStatusExists &&
-			vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus) &&
-			!vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain) {
-			return pendingMigration
+		if req := checkHotUnplugMigration(iface, ifaceStatus, ifaceStatusExists); req != notRequired {
+			return req
 		}
 	}
+	return notRequired
+}
 
+func checkHotplugMigration(iface v1.Interface, ifaceStatusExists bool) migrationRequirementKind {
+	if iface.State != v1.InterfaceStateAbsent && !ifaceStatusExists {
+		if iface.SRIOV != nil {
+			return immediateMigration
+		}
+
+		return pendingMigration
+	}
+	return notRequired
+}
+
+func checkHotUnplugMigration(
+	iface v1.Interface,
+	ifaceStatus v1.VirtualMachineInstanceNetworkInterface,
+	ifaceStatusExists bool,
+) migrationRequirementKind {
+	if iface.State == v1.InterfaceStateAbsent &&
+		ifaceStatusExists &&
+		vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceMultusStatus) &&
+		!vmispec.ContainsInfoSource(ifaceStatus.InfoSource, vmispec.InfoSourceDomain) {
+		return pendingMigration
+	}
 	return notRequired
 }
 
