@@ -65,7 +65,11 @@ var _ = Describe("PCI Device", func() {
 
 		By("mocking PCI functions to simulate a vfio-pci device at " + fakeAddress)
 		mockPCI := NewMockDeviceHandler(gomock.NewController(GinkgoT()))
+		oldHandler := handler
 		handler = mockPCI
+		DeferCleanup(func() {
+			handler = oldHandler
+		})
 		// Force pre-defined returned values and ensure the function only get called exacly once each on 0000:00:00.0
 		mockPCI.EXPECT().GetDeviceIOMMUGroup(pciBasePath, fakeAddress).Return(fakeIommuGroup, nil).Times(1)
 		mockPCI.EXPECT().GetDeviceDriver(pciBasePath, fakeAddress).Return(fakeDriver, nil).Times(1)
@@ -74,7 +78,7 @@ var _ = Describe("PCI Device", func() {
 		// Allow the regular functions to be called for all the other devices, they're harmless.
 		// Just force the driver to NOT vfio-pci to ensure they all get ignored.
 		mockPCI.EXPECT().GetDeviceIOMMUGroup(pciBasePath, gomock.Any()).AnyTimes()
-		mockPCI.EXPECT().GetDeviceDriver(pciBasePath, gomock.Any()).Return("definitely-not-vfio-pci", nil).AnyTimes()
+		mockPCI.EXPECT().GetDeviceDriver(pciBasePath, gomock.Any()).Return("vfio-pci", nil).AnyTimes()
 		mockPCI.EXPECT().GetDeviceNumaNode(pciBasePath, gomock.Any()).AnyTimes()
 		mockPCI.EXPECT().GetDevicePCIID(pciBasePath, gomock.Any()).AnyTimes()
 
