@@ -204,6 +204,13 @@ const (
 	// Owner: sig-compute / @bgartzi
 	// Alpha: v1.8.0
 	ReservedOverheadMemlock = "ReservedOverheadMemlock"
+
+	// Owner: @orenc1
+	// Alpha: v1.8.0
+	//
+	// OptOutRoleAggregation enables the RoleAggregationStrategy field in KubeVirtConfiguration,
+	// allowing users to opt out of aggregating KubeVirt ClusterRoles to the default Kubernetes roles.
+	OptOutRoleAggregation = "OptOutRoleAggregation"
 )
 
 func init() {
@@ -246,4 +253,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 }

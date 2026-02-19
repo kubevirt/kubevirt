@@ -3136,6 +3136,7 @@ type KubeVirtConfiguration struct {
 	// to the default Kubernetes roles (admin, edit, view).
 	// When set to "AggregateToDefault" (default) or not specified, the aggregate-to-* labels are added to the cluster roles.
 	// When set to "Manual", the labels are not added, and roles will not be aggregated to the default roles.
+	// Setting this field to "Manual" requires the OptOutRoleAggregation feature gate to be enabled.
 	// This is an Alpha feature and subject to change.
 	// +optional
 	// +kubebuilder:validation:Enum=AggregateToDefault;Manual

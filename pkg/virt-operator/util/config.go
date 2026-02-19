@@ -195,9 +195,11 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	hypervisor := virtconfig.GetHypervisorFromKvConfig(&kv.Spec.Configuration, isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.ConfigurableHypervisor))
 	additionalProperties[AdditionalPropertiesHypervisorName] = hypervisor.Name
 
-	if kv.Spec.Configuration.RoleAggregationStrategy != nil &&
-		*kv.Spec.Configuration.RoleAggregationStrategy == v1.RoleAggregationStrategyManual {
-		additionalProperties[AdditionalPropertiesOptOutRoleAggregation] = ""
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.OptOutRoleAggregation) {
+		if kv.Spec.Configuration.RoleAggregationStrategy != nil &&
+			*kv.Spec.Configuration.RoleAggregationStrategy == v1.RoleAggregationStrategyManual {
+			additionalProperties[AdditionalPropertiesOptOutRoleAggregation] = ""
+		}
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
