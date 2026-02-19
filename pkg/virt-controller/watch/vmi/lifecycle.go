@@ -47,7 +47,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
-	storageannotations "kubevirt.io/kubevirt/pkg/storage/pod/annotations"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -703,17 +702,14 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 	}
 
 	dynamicLabels := []string{virtv1.NodeNameLabel, virtv1.OutdatedLauncherImageLabel}
-	dynamicLabels = append(dynamicLabels, c.additionalLauncherLabelsSync...)
 
-	generator := storageannotations.NewGenerator(c.clusterConfig.GetConfigFromKubeVirtCR())
-	generatedAnnotations, err := generator.Generate(vmi)
+	generatedAnnotations, err := c.storageAnnotationsGenerator.Generate(vmi)
 	if err != nil {
 		return pod, fmt.Errorf("failed to generate storage annotations: %v", err)
 	}
 
 	dynamicAnnotations := []string{descheduler.EvictPodAnnotationKeyAlpha, descheduler.EvictPodAnnotationKeyAlphaPreferNoEviction}
-	dynamicAnnotations = append(dynamicAnnotations, c.additionalLauncherAnnotationsSync...)
-	dynamicAnnotations = append(dynamicAnnotations, generator.ManagedAnnotationKeys()...)
+	dynamicAnnotations = append(dynamicAnnotations, c.storageAnnotationsGenerator.ManagedAnnotationKeys()...)
 
 	syncMap(
 		dynamicLabels,
