@@ -304,6 +304,17 @@ var _ = Describe("Volume Migration", func() {
 					ObjectMeta: metav1.ObjectMeta{Name: v, Namespace: ns},
 					Spec: k8sv1.PersistentVolumeClaimSpec{
 						VolumeMode: virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+						Resources: k8sv1.VolumeResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+							},
+						},
+						AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+					},
+					Status: k8sv1.PersistentVolumeClaimStatus{
+						Capacity: k8sv1.ResourceList{
+							k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+						},
 					},
 				})
 				alreadyAddedVols[v] = true
@@ -316,6 +327,17 @@ var _ = Describe("Volume Migration", func() {
 					ObjectMeta: metav1.ObjectMeta{Name: v, Namespace: ns},
 					Spec: k8sv1.PersistentVolumeClaimSpec{
 						VolumeMode: virtpointer.P(k8sv1.PersistentVolumeFilesystem),
+						Resources: k8sv1.VolumeResourceRequirements{
+							Requests: k8sv1.ResourceList{
+								k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+							},
+						},
+						AccessModes: []k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce},
+					},
+					Status: k8sv1.PersistentVolumeClaimStatus{
+						Capacity: k8sv1.ResourceList{
+							k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+						},
 					},
 				})
 			}
@@ -342,18 +364,36 @@ var _ = Describe("Volume Migration", func() {
 					Expect(ok).To(BeTrue())
 					Expect(migVol.SourcePVCInfo).ToNot(BeNil())
 					Expect(migVol.DestinationPVCInfo).ToNot(BeNil())
-					Expect(migVol.SourcePVCInfo.ClaimName).To(Equal(v.src))
-					Expect(migVol.DestinationPVCInfo.ClaimName).To(Equal(v.dst))
-					Expect(migVol.SourcePVCInfo.VolumeMode).To(HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)))
-					Expect(migVol.DestinationPVCInfo.VolumeMode).To(HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)))
+					Expect(migVol.SourcePVCInfo).To(
+						PointTo(
+							MatchFields(IgnoreExtras, Fields{
+								"ClaimName":   Equal(v.src),
+								"VolumeMode":  HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)),
+								"AccessModes": Equal([]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+								"Requests":    Equal(k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")}),
+								"Capacity":    Equal(k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")}),
+							}),
+						),
+					)
+					Expect(migVol.DestinationPVCInfo).To(
+						PointTo(
+							MatchFields(IgnoreExtras, Fields{
+								"ClaimName":   Equal(v.dst),
+								"VolumeMode":  HaveValue(Equal(k8sv1.PersistentVolumeFilesystem)),
+								"AccessModes": Equal([]k8sv1.PersistentVolumeAccessMode{k8sv1.ReadWriteOnce}),
+								"Requests":    Equal(k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")}),
+								"Capacity":    Equal(k8sv1.ResourceList{k8sv1.ResourceStorage: resource.MustParse("1Gi")}),
+							}),
+						),
+					)
 				}
 			}
 		},
 			Entry("with an update of a volume", []string{"src0"}, []string{"dst0"},
-				map[string]migVolumes{generateDiskNameFromIndex(0): migVolumes{src: "src0", dst: "dst0"}}),
+				map[string]migVolumes{generateDiskNameFromIndex(0): {src: "src0", dst: "dst0"}}),
 			Entry("with an update of multiple volumes", []string{"src0", "src1"}, []string{"dst0", "dst1"},
-				map[string]migVolumes{generateDiskNameFromIndex(0): migVolumes{src: "src0", dst: "dst0"},
-					generateDiskNameFromIndex(1): migVolumes{src: "src1", dst: "dst1"}}),
+				map[string]migVolumes{generateDiskNameFromIndex(0): {src: "src0", dst: "dst0"},
+					generateDiskNameFromIndex(1): {src: "src1", dst: "dst1"}}),
 			Entry("without any update", []string{"vol0"}, []string{"vol0"}, map[string]migVolumes{}),
 		)
 

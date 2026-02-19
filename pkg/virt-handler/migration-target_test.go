@@ -682,6 +682,61 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		client.EXPECT().SignalTargetPodCleanup(vmi)
 		sanityExecute()
 	})
+
+	It("should not accidentally update VMI spec on cleanup", func() {
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.Spec.Volumes = []v1.Volume{
+			{
+				Name: "testvol",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: "testclaim"},
+					},
+				},
+			},
+		}
+		vmi.Status.VolumeStatus = []v1.VolumeStatus{
+			{
+				Name: "testvol",
+				PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+					ClaimName:  "testclaim",
+					VolumeMode: pointer.P(k8sv1.PersistentVolumeFilesystem),
+					Capacity: k8sv1.ResourceList{
+						k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+					},
+					Requests: k8sv1.ResourceList{
+						k8sv1.ResourceStorage: resource.MustParse("1Gi"),
+					},
+				},
+			},
+		}
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = "othernode"
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:   host,
+			SourceNode:   "othernode",
+			MigrationUID: "123",
+			Failed:       true,
+			EndTimestamp: pointer.P(metav1.Now()),
+		}
+		vmi = addActivePods(vmi, podTestUUID, host)
+
+		createVMI(vmi)
+
+		client.EXPECT().SignalTargetPodCleanup(vmi)
+		originalVMI := vmi.DeepCopy()
+		sanityExecute()
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		// Update occured for labels but not spec
+		Expect(updatedVMI.Spec.Volumes).To(Equal(originalVMI.Spec.Volumes))
+		Expect(updatedVMI.Labels).To(Not(HaveKey(v1.MigrationTargetNodeNameLabel)))
+	})
 })
 
 type stubTargetPasstRepairHandler struct {
