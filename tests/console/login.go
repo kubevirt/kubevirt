@@ -125,88 +125,105 @@ func LoginToAlpine(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) err
 // LoginToFedora performs a console login to a Fedora base VM
 func LoginToFedora(vmi *v1.VirtualMachineInstance, timeout ...time.Duration) error {
 	virtClient := kubevirt.Client()
+	hostName := dns.SanitizeHostname(vmi)
+
+	loginTimeout := 1 * time.Minute
+	if len(timeout) > 0 {
+		loginTimeout = timeout[0]
+	}
 
 	// TODO: This is temporary workaround for issue seen in CI
 	// We see that 10seconds for an initial boot is not enough
 	// At the same time it seems the OS is booted within 10sec
 	// We need to have a look on Running -> Booting time
 	const double = 2
-	expecter, _, err := NewExpecter(virtClient, vmi, double*connectionTimeout)
-	if err != nil {
-		return err
-	}
-	defer expecter.Close()
 
-	err = expecter.Send("\n")
-	if err != nil {
-		return err
-	}
-
-	hostName := dns.SanitizeHostname(vmi)
-
-	// Do not login, if we already logged in
 	loggedInPromptRegex := fmt.Sprintf(
 		`(\[fedora@(localhost|fedora|%s|%s) ~\]\$ |\[root@(localhost|fedora|%s|%s) fedora\]\# )`, vmi.Name, hostName, vmi.Name, hostName,
 	)
-	b := []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BExp{R: loggedInPromptRegex},
-	}
-	_, err = expecter.ExpectBatch(b, promptTimeout)
-	if err == nil {
-		return nil
-	}
 
-	b = []expect.Batcher{
-		&expect.BSnd{S: "\n"},
-		&expect.BSnd{S: "\n"},
-		&expect.BCas{C: []expect.Caser{
-			&expect.Case{
-				// Using only "login: " would match things like "Last failed login: Tue Jun  9 22:25:30 UTC 2020 on ttyS0"
-				// and in case the VM's did not get hostname form DHCP server try the default hostname
-				R:  regexp.MustCompile(fmt.Sprintf(`(localhost|fedora|%s|%s) login: `, vmi.Name, hostName)),
-				S:  "fedora\n",
-				T:  expect.Next(),
-				Rt: 10,
-			},
-			&expect.Case{
-				R:  regexp.MustCompile(`Password:`),
-				S:  "fedora\n",
-				T:  expect.Next(),
-				Rt: 10,
-			},
-			&expect.Case{
-				R:  regexp.MustCompile(`Login incorrect`),
-				T:  expect.LogContinue("Failed to log in", expect.NewStatus(codes.PermissionDenied, "login failed")),
-				Rt: 10,
-			},
-			&expect.Case{
-				R: regexp.MustCompile(loggedInPromptRegex),
-				T: expect.OK(),
-			},
-		}},
-		&expect.BSnd{S: "sudo su\n"},
-		&expect.BExp{R: PromptExpression},
-	}
-	loginTimeout := 2 * time.Minute
-	if len(timeout) > 0 {
-		loginTimeout = timeout[0]
-	}
-	res, err := expecter.ExpectBatch(b, loginTimeout)
-	if err != nil {
-		log.DefaultLogger().Object(vmi).Reason(err).Errorf("Login attempt failed: %+v", res)
-		// Try once more since sometimes the login prompt is ripped apart by asynchronous daemon updates
-		if retryRes, retryErr := expecter.ExpectBatch(b, loginTimeout); retryErr != nil {
-			log.DefaultLogger().Object(vmi).Reason(retryErr).Errorf("Retried login attempt after two minutes failed: %+v", retryRes)
-			return retryErr
+	const maxRetries = 4
+	const retryDelay = 2 * time.Second
+
+	var err error
+	for attempt := range maxRetries {
+		var expecter expect.Expecter
+		expecter, _, err = NewExpecter(virtClient, vmi, double*connectionTimeout)
+		if err != nil {
+			return err
+		}
+
+		err = expecter.Send("\n")
+		if err != nil {
+			expecter.Close()
+			return err
+		}
+
+		// Check if already logged in
+		b := []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: loggedInPromptRegex},
+		}
+		_, err = expecter.ExpectBatch(b, promptTimeout)
+		if err == nil {
+			expecter.Close()
+			return nil
+		}
+
+		// Try to login
+		b = []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BSnd{S: "\n"},
+			&expect.BCas{C: []expect.Caser{
+				&expect.Case{
+					// Using only "login: " would match things like "Last failed login: Tue Jun  9 22:25:30 UTC 2020 on ttyS0"
+					// and in case the VM's did not get hostname form DHCP server try the default hostname
+					R:  regexp.MustCompile(fmt.Sprintf(`(localhost|fedora|%s|%s) login: `, vmi.Name, hostName)),
+					S:  "fedora\n",
+					T:  expect.Next(),
+					Rt: 10,
+				},
+				&expect.Case{
+					R:  regexp.MustCompile(`Password:`),
+					S:  "fedora\n",
+					T:  expect.Next(),
+					Rt: 10,
+				},
+				&expect.Case{
+					R:  regexp.MustCompile(`Login incorrect`),
+					T:  expect.LogContinue("Failed to log in", expect.NewStatus(codes.PermissionDenied, "login failed")),
+					Rt: 10,
+				},
+				&expect.Case{
+					R: regexp.MustCompile(loggedInPromptRegex),
+					T: expect.OK(),
+				},
+			}},
+			&expect.BSnd{S: "sudo su\n"},
+			&expect.BExp{R: PromptExpression},
+		}
+
+		var res []expect.BatchRes
+		res, err = expecter.ExpectBatch(b, loginTimeout)
+		if err == nil {
+			// Login successful, configure console
+			err = configureConsole(expecter, false)
+			expecter.Close()
+			return err
+		}
+
+		expecter.Close()
+
+		if attempt < maxRetries-1 {
+			log.DefaultLogger().Object(vmi).Reason(err).Infof(
+				"Login attempt %d/%d failed, will retry with new connection: %+v",
+				attempt+1, maxRetries, res,
+			)
+			time.Sleep(retryDelay)
 		}
 	}
 
-	err = configureConsole(expecter, false)
-	if err != nil {
-		return err
-	}
-	return nil
+	return fmt.Errorf("failed to login after %d attempts: %v", maxRetries, err)
 }
 
 // OnPrivilegedPrompt performs a console check that the prompt is privileged.
