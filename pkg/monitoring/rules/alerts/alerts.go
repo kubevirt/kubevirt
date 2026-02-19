@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
-
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatorrules"
 )
 
@@ -36,18 +35,20 @@ const (
 
 	severityAlertLabelKey        = "severity"
 	operatorHealthImpactLabelKey = "operator_health_impact"
+	summaryAnnotationKey         = "summary"
+	descriptionAnnotationKey     = "description"
+	partOfAlertLabelKey          = "kubernetes_operator_part_of"
+	componentAlertLabelKey       = "kubernetes_operator_component"
+	kubevirtLabelValue           = "kubevirt"
 
-	partOfAlertLabelKey    = "kubernetes_operator_part_of"
-	componentAlertLabelKey = "kubernetes_operator_component"
-	kubevirtLabelValue     = "kubevirt"
-
-	durationFiveMinutes = "5 minutes"
+	eightyPercent = 80
+	fiveMinutes   = 5
 )
 
-func Register(namespace string) error {
+func Register(registry *operatorrules.Registry, namespace string) error {
 	alerts := [][]promv1.Rule{
 		systemAlerts(namespace),
-		virtApiAlerts(namespace),
+		virtAPIAlerts(namespace),
 		virtControllerAlerts(namespace),
 		virtHandlerAlerts(namespace),
 		virtOperatorAlerts(namespace),
@@ -64,7 +65,7 @@ func Register(namespace string) error {
 		}
 	}
 
-	return operatorrules.RegisterAlerts(alerts...)
+	return registry.RegisterAlerts(alerts...)
 }
 
 func getRunbookURLTemplate() string {
@@ -80,12 +81,15 @@ func getRunbookURLTemplate() string {
 	return runbookURLTemplate
 }
 
-func getErrorRatio(ns string, podName string, errorCodeRegex string, durationInMinutes int) string {
-	errorRatioQuery := "sum ( rate ( kubevirt_rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\",code=~\"%s\"} [%dm] ) )  /  sum ( rate ( kubevirt_rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\"} [%dm] ) )"
+func getErrorRatio(ns, podName, errorCodeRegex string, durationInMinutes int) string {
+	errorRatioQuery := "sum ( rate ( kubevirt_rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\",code=~\"%s\"} [%dm] ) )  / " +
+		" sum ( rate ( kubevirt_rest_client_requests_total{namespace=\"%s\",pod=~\"%s-.*\"} [%dm] ) )"
 	return fmt.Sprintf(errorRatioQuery, ns, podName, errorCodeRegex, durationInMinutes, ns, podName, durationInMinutes)
 }
 
-func getRestCallsFailedWarning(failingCallsPercentage int, component, duration string) string {
+func getRestCallsFailedWarning(failingCallsPercentage int, component string, durationInMinutes int) string {
+	duration := fmt.Sprintf("%d minutes", durationInMinutes)
+
 	const restCallsFailWarningTemplate = "More than %d%% of the rest calls failed in %s for the last %s"
 	return fmt.Sprintf(restCallsFailWarningTemplate, failingCallsPercentage, component, duration)
 }

@@ -31,7 +31,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 			Expr:  intstr.FromString("kubevirt_virt_operator_up == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				"summary": "All virt-operator servers are down.",
+				summaryAnnotationKey: "All virt-operator servers are down.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",
@@ -43,7 +43,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_operator_up < 2)"),
 			For:   ptr.To(promv1.Duration("60m")),
 			Annotations: map[string]string{
-				"summary": "More than one virt-operator should be running if more than one worker nodes exist.",
+				summaryAnnotationKey: "More than one virt-operator should be running if more than one worker nodes exist.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
@@ -52,10 +52,10 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "VirtOperatorRESTErrorsBurst",
-			Expr:  intstr.FromString(getErrorRatio(namespace, "virt-operator", "(4|5)[0-9][0-9]", 5) + " >= 0.8"),
+			Expr:  intstr.FromString(getErrorRatio(namespace, "virt-operator", "(4|5)[0-9][0-9]", fiveMinutes) + " >= 0.8"),
 			For:   ptr.To(promv1.Duration("5m")),
 			Annotations: map[string]string{
-				"summary": getRestCallsFailedWarning(80, "virt-operator", durationFiveMinutes),
+				summaryAnnotationKey: getRestCallsFailedWarning(eightyPercent, "virt-operator", fiveMinutes),
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",
@@ -67,7 +67,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 			Expr:  intstr.FromString("kubevirt_virt_operator_ready < cluster:kubevirt_virt_operator_pods_running:count"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				"summary": "Some virt-operators are running but not ready.",
+				summaryAnnotationKey: "Some virt-operators are running but not ready.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
@@ -79,7 +79,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 			Expr:  intstr.FromString("kubevirt_virt_operator_ready == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				"summary": "No ready virt-operator was detected for the last 10 min.",
+				summaryAnnotationKey: "No ready virt-operator was detected for the last 10 min.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",
@@ -91,7 +91,7 @@ func virtOperatorAlerts(namespace string) []promv1.Rule {
 			Expr:  intstr.FromString("kubevirt_virt_operator_leading == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				"summary": "No leading virt-operator was detected for the last 10 min.",
+				summaryAnnotationKey: "No leading virt-operator was detected for the last 10 min.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "critical",

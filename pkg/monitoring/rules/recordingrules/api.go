@@ -31,6 +31,11 @@ var apiRecordingRules = []operatorrules.RecordingRule{
 			Help: "The total number of requests to deprecated KubeVirt APIs.",
 		},
 		MetricType: operatormetrics.CounterType,
-		Expr:       intstr.FromString("group by (group,version,resource,subresource) (apiserver_requested_deprecated_apis{group=\"kubevirt.io\"}) * on (group,version,resource,subresource) group_right() sum by (group,version,resource,subresource,verb) (apiserver_request_total)"),
+		Expr: intstr.FromString(
+			"group by (group,version,resource,subresource) " +
+				"(apiserver_requested_deprecated_apis{group=\"kubevirt.io\"}) * " +
+				"on (group,version,resource,subresource) group_right() " +
+				"sum by (group,version,resource,subresource,verb) (apiserver_request_total)",
+		),
 	},
 }
