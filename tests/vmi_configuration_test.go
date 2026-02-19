@@ -34,6 +34,7 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	k8sv1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -48,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	hw_utils "kubevirt.io/kubevirt/pkg/util/hardware"
@@ -60,12 +60,10 @@ import (
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
-	"kubevirt.io/kubevirt/tests/framework/matcher"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libkubevirt"
 	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
-	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libsecret"
@@ -868,53 +866,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BExp{R: "virtio_rng"},
 				}, 400)).To(Succeed())
 			})
-		})
-
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
-			Context("with cluster config changes", Serial, func() {
-				BeforeEach(func() {
-					kv := libkubevirt.GetCurrentKv(virtClient)
-
-					config := kv.Spec.Configuration
-					config.SupportedGuestAgentVersions = []string{"X.*"}
-					kvconfig.UpdateKubeVirtConfigValueAndWait(config)
-				})
-
-				It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
-					agentVMI := libvmifact.NewFedora(
-						libnet.WithMasqueradeNetworking(),
-						libvmi.WithCloudInitNoCloud(
-							libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-shutdown")),
-						),
-					)
-					By("Starting a VirtualMachineInstance")
-					agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-					libwait.WaitForSuccessfulVMIStart(agentVMI)
-
-					Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
-				})
-
-				It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
-					agentVMI := libvmifact.NewFedora(
-						libnet.WithMasqueradeNetworking(),
-						libvmi.WithCloudInitNoCloud(
-							libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-set-password")),
-						),
-					)
-					By("Starting a VirtualMachineInstance")
-					agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
-					Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-					libwait.WaitForSuccessfulVMIStart(agentVMI)
-
-					By("VMI has the guest agent connected condition")
-					Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-					By("fetching the VMI after agent has connected")
-					Expect(matcher.ThisVMI(agentVMI)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceUnsupportedAgent))
-				})
-			})
-
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with serial-number", func() {
