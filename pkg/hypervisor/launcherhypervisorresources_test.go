@@ -27,10 +27,18 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 )
 
-var _ = DescribeTable("Test NewLauncherHypervisorResources", func(hypervisorType string, expectedType interface{}) {
-	renderer := NewLauncherHypervisorResources(hypervisorType)
-	Expect(renderer).To(BeAssignableToTypeOf(expectedType))
-},
-	Entry("should return KVM renderer for unknown hypervisor", "unknownHypervisor", (*kvm.KvmLauncherHypervisorResources)(nil)),
-	Entry("should return KVM renderer for KVM hypervisor", v1.KvmHypervisorName, (*kvm.KvmLauncherHypervisorResources)(nil)),
-)
+var _ = Describe("NewLauncherHypervisorResources", func() {
+	DescribeTable("should return correct hypervisor resources", func(hypervisorType string, expectedType interface{}) {
+		renderer := NewLauncherHypervisorResources(hypervisorType)
+		Expect(renderer).To(BeAssignableToTypeOf(expectedType))
+	},
+		Entry("should return KVM renderer for empty hypervisor", "", (*kvm.KvmLauncherHypervisorResources)(nil)),
+		Entry("should return KVM renderer for KVM hypervisor", v1.KvmHypervisorName, (*kvm.KvmLauncherHypervisorResources)(nil)),
+	)
+
+	It("should panic for unsupported hypervisor", func() {
+		Expect(func() {
+			NewLauncherHypervisorResources("unsupported")
+		}).To(Panic())
+	})
+})

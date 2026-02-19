@@ -7,6 +7,7 @@ cmd/virtctl
 cmd/virt-exportserver
 cmd/virt-operator
 pkg/controller/testing
+pkg/hypervisor
 pkg/instancetype
 pkg/libvmi
 pkg/monitoring/rules

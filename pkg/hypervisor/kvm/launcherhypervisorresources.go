@@ -40,7 +40,9 @@ const (
 	VirtqemudOverhead           = "40Mi"  // The `ps` RSS for virtqemud
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 
-	kvmHypervisorDevice = "kvm"
+	KvmHypervisorDevice = "kvm"
+
+	pageSize = 512 // Hardware-defined page size in bytes for pagetable calculations
 )
 
 type KvmLauncherHypervisorResources struct{}
@@ -50,7 +52,7 @@ func NewKvmLauncherHypervisorResources() *KvmLauncherHypervisorResources {
 }
 
 func (k *KvmLauncherHypervisorResources) GetHypervisorDevice() string {
-	return kvmHypervisorDevice
+	return KvmHypervisorDevice
 }
 
 // GetMemoryOverhead computes the estimation of total
@@ -60,16 +62,15 @@ func (k *KvmLauncherHypervisorResources) GetHypervisorDevice() string {
 // The return value is overhead memory quantity
 //
 // Note: The overhead memory is a calculated estimation, the values are not to be assumed accurate.
-func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string) resource.Quantity {
+func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(
+	vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string,
+) resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
 	overhead := *resource.NewScaledQuantity(0, resource.Kilo)
 
-	// Add the memory needed for pagetables (one bit for every 512b of RAM size)
-	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
-	pagetableMemory.Set(pagetableMemory.Value() / 512)
-	overhead.Add(*pagetableMemory)
+	overhead.Add(calculatePagetableMemory(vmiMemoryReq))
 
 	// Add fixed overhead for KubeVirt components, as seen in a random run, rounded up to the nearest MiB
 	// Note: shared libraries are included in the size, so every library is counted (wrongly) as many times as there are
@@ -80,37 +81,14 @@ func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(vmi *v1.VirtualMachin
 	overhead.Add(resource.MustParse(VirtqemudOverhead))
 	overhead.Add(resource.MustParse(QemuOverhead))
 
-	// Add CPU table overhead (8 MiB per vCPU and 8 MiB per IO thread)
-	// overhead per vcpu in MiB
-	coresMemory := resource.MustParse("8Mi")
-	var vcpus int64
-	if domain.CPU != nil {
-		vcpus = hardware.GetNumberOfVCPUs(domain.CPU)
-	} else {
-		// Currently, a default guest CPU topology is set by the API webhook mutator, if not set by a user.
-		// However, this wasn't always the case.
-		// In case when the guest topology isn't set, take value from resources request or limits.
-		resources := vmi.Spec.Domain.Resources
-		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
-			vcpus = cpuLimit.Value()
-		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
-			vcpus = cpuRequests.Value()
-		}
-	}
-
-	// if neither CPU topology nor request or limits provided, set vcpus to 1
-	if vcpus < 1 {
-		vcpus = 1
-	}
-	value := coresMemory.Value() * vcpus
-	coresMemory = *resource.NewQuantity(value, coresMemory.Format)
-	overhead.Add(coresMemory)
+	// Add CPU overhead (8 MiB per vCPU)
+	overhead.Add(calculateVCPUOverhead(vmi))
 
 	// static overhead for IOThread
 	overhead.Add(resource.MustParse("8Mi"))
 
 	// Add video RAM overhead
-	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice == true {
+	if domain.Devices.AutoattachGraphicsDevice == nil || *domain.Devices.AutoattachGraphicsDevice {
 		overhead.Add(resource.MustParse("32Mi"))
 	}
 
@@ -165,6 +143,46 @@ func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(vmi *v1.VirtualMachin
 	}
 
 	return overhead
+}
+
+// calculatePagetableMemory calculates memory overhead for page tables (one bit for every 512b of RAM size)
+func calculatePagetableMemory(vmiMemoryReq *resource.Quantity) resource.Quantity {
+	pagetableMemory := resource.NewScaledQuantity(vmiMemoryReq.ScaledValue(resource.Kilo), resource.Kilo)
+	pagetableMemory.Set(pagetableMemory.Value() / pageSize)
+	return *pagetableMemory
+}
+
+// calculateVCPUOverhead calculates memory overhead based on vCPU count (8 MiB per vCPU)
+func calculateVCPUOverhead(vmi *v1.VirtualMachineInstance) resource.Quantity {
+	coresMemory := resource.MustParse("8Mi")
+	vcpus := determineVCPUCount(vmi)
+	value := coresMemory.Value() * vcpus
+	return *resource.NewQuantity(value, coresMemory.Format)
+}
+
+// determineVCPUCount returns the number of vCPUs for the VMI
+func determineVCPUCount(vmi *v1.VirtualMachineInstance) int64 {
+	var vcpus int64
+
+	if vmi.Spec.Domain.CPU != nil {
+		vcpus = hardware.GetNumberOfVCPUs(vmi.Spec.Domain.CPU)
+	} else {
+		// Currently, a default guest CPU topology is set by the API webhook mutator, if not set by a user.
+		// However, this wasn't always the case.
+		// In case when the guest topology isn't set, take value from resources request or limits.
+		resources := vmi.Spec.Domain.Resources
+		if cpuLimit, ok := resources.Limits[k8sv1.ResourceCPU]; ok {
+			vcpus = cpuLimit.Value()
+		} else if cpuRequests, ok := resources.Requests[k8sv1.ResourceCPU]; ok {
+			vcpus = cpuRequests.Value()
+		}
+	}
+
+	// if neither CPU topology nor request or limits provided, set vcpus to 1
+	if vcpus < 1 {
+		vcpus = 1
+	}
+	return vcpus
 }
 
 func addProbeOverheads(vmi *v1.VirtualMachineInstance, quantity *resource.Quantity) {
