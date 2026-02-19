@@ -35,7 +35,7 @@ import (
 	certificate2 "k8s.io/client-go/util/certificate"
 	aggregatorclient "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
 
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
@@ -50,7 +50,7 @@ const (
 	defaultTlsKeyFilePath  = "/etc/virt-exportproxy/certificates/tls.key"
 
 	apiGroup           = "export.kubevirt.io"
-	apiVersions        = "v1alpha1|v1beta1"
+	apiVersions        = "v1alpha1|v1beta1|v1"
 	exportResourceName = "virtualmachineexports"
 )
 

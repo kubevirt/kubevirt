@@ -45,7 +45,7 @@ import (
 	generatedclient "kubevirt.io/client-go/kubevirt"
 	backupv1 "kubevirt.io/client-go/kubevirt/typed/backup/v1alpha1"
 	kvcorev1 "kubevirt.io/client-go/kubevirt/typed/core/v1"
-	exportv1 "kubevirt.io/client-go/kubevirt/typed/export/v1beta1"
+	exportv1 "kubevirt.io/client-go/kubevirt/typed/export/v1"
 	instancetypev1beta1 "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
 	migrationsv1 "kubevirt.io/client-go/kubevirt/typed/migrations/v1alpha1"
 	poolv1 "kubevirt.io/client-go/kubevirt/typed/pool/v1beta1"
@@ -195,7 +195,7 @@ func (k kubevirtClient) VirtualMachineRestore(namespace string) snapshotv1.Virtu
 }
 
 func (k kubevirtClient) VirtualMachineExport(namespace string) exportv1.VirtualMachineExportInterface {
-	return k.generatedKubeVirtClient.ExportV1beta1().VirtualMachineExports(namespace)
+	return k.generatedKubeVirtClient.ExportV1().VirtualMachineExports(namespace)
 }
 
 func (k kubevirtClient) VirtualMachineInstancetype(namespace string) instancetypev1beta1.VirtualMachineInstancetypeInterface {

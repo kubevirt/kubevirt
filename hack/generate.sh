@@ -19,6 +19,7 @@ swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/pool/v1beta1/types.g
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/migrations/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1beta1/types.go
+swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/export/v1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1alpha1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/clone/v1beta1/types.go
 swagger-doc -in ${KUBEVIRT_DIR}/staging/src/kubevirt.io/api/backup/v1alpha1/types.go
@@ -31,6 +32,7 @@ deepcopy-gen \
     kubevirt.io/api/snapshot/v1beta1 \
     kubevirt.io/api/export/v1alpha1 \
     kubevirt.io/api/export/v1beta1 \
+    kubevirt.io/api/export/v1 \
     kubevirt.io/api/instancetype/v1beta1 \
     kubevirt.io/api/pool/v1alpha1 \
     kubevirt.io/api/pool/v1beta1 \
@@ -61,6 +63,7 @@ openapi-gen \
     kubevirt.io/api/clone/v1beta1 \
     kubevirt.io/api/export/v1alpha1 \
     kubevirt.io/api/export/v1beta1 \
+    kubevirt.io/api/export/v1 \
     kubevirt.io/api/instancetype/v1beta1 \
     kubevirt.io/api/migrations/v1alpha1 \
     kubevirt.io/api/pool/v1alpha1 \
@@ -86,7 +89,7 @@ fi
 
 client-gen --clientset-name kubevirt \
     --input-base kubevirt.io/api \
-    --input core/v1,export/v1alpha1,export/v1beta1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1 \
+    --input core/v1,export/v1alpha1,export/v1beta1,export/v1,snapshot/v1alpha1,snapshot/v1beta1,instancetype/v1beta1,pool/v1alpha1,pool/v1beta1,migrations/v1alpha1,clone/v1alpha1,clone/v1beta1,backup/v1alpha1 \
     --output-dir ${KUBEVIRT_DIR}/staging/src/kubevirt.io/client-go \
     --output-pkg ${CLIENT_GEN_BASE} \
     --go-header-file ${KUBEVIRT_DIR}/hack/boilerplate/boilerplate.go.txt
@@ -141,6 +144,7 @@ deepcopy-gen \
     #include export
     GOFLAGS= controller-gen crd paths=../api/export/v1alpha1/
     GOFLAGS= controller-gen crd paths=../api/export/v1beta1/
+    GOFLAGS= controller-gen crd paths=../api/export/v1/
 
     #include instancetype
     GOFLAGS= controller-gen crd paths=../api/instancetype/v1beta1/
