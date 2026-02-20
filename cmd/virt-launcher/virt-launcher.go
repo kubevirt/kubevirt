@@ -58,6 +58,7 @@ import (
 	premigrationhookserver "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/cpuhook"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/network"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/vgpuhook"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/standalone"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -442,6 +443,15 @@ func main() {
 	if *ifacesOrdinalNamingUpgradeEnabled {
 		hookFuncs = append(hookFuncs, network.UpgradeOrdinalNamingScheme)
 	}
+	if *libvirtHooksServerAndClientEnabled {
+		hookFuncs = append(hookFuncs, vgpuhook.VGPUDedicatedHook)
+
+		// TODO: replaceQemuHookWithCustomClient This code should be removed once the LibvirtHooksServerAndClient feature is GA.
+		// Instead of overriding the script at runtime, we can include the custom binary in the launcher image at build time.
+		if err := replaceQemuHookWithCustomClient(); err != nil {
+			panic(err)
+		}
+	}
 
 	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(
 		stopChan,
@@ -450,13 +460,6 @@ func main() {
 	domainManager, err := virtwrap.NewLibvirtDomainManager(domainConn, *virtShareDir, *ephemeralDiskDir, &agentStore, *ovmfPath, ephemeralDiskCreator, metadataCache, signalStopChan, *diskMemoryLimitBytes, util.GetPodCPUSet, *imageVolumeEnabled, *libvirtHooksServerAndClientEnabled, preMigrationHookServer)
 	if err != nil {
 		panic(err)
-	}
-	if *libvirtHooksServerAndClientEnabled {
-		// TODO: replaceQemuHookWithCustomClient This code should be removed once the LibvirtHooksServerAndClient feature is GA.
-		// Instead of overriding the script at runtime, we can include the custom binary in the launcher image at build time.
-		if err := replaceQemuHookWithCustomClient(); err != nil {
-			panic(err)
-		}
 	}
 
 	// Start the virt-launcher command service.
