@@ -781,7 +781,7 @@ var _ = Describe("Converter", func() {
 					},
 				},
 				AllowEmulation:                  true,
-				KvmAvailable:                    true,
+				HypervisorDeviceAvailable:       true,
 				IsBlockPVC:                      isBlockPVCMap,
 				IsBlockDV:                       isBlockDVMap,
 				SMBios:                          TestSmbios,
@@ -1167,7 +1167,7 @@ var _ = Describe("Converter", func() {
 				libvmi.WithEphemeralPersistentVolumeClaim(blockPVCName, "test-ephemeral"),
 			)
 
-			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, KvmAvailable: true, EphemeraldiskCreator: EphemeralDiskImageCreator, IsBlockPVC: isBlockPVCMap, IsBlockDV: isBlockDVMap})
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, HypervisorDeviceAvailable: true, EphemeraldiskCreator: EphemeralDiskImageCreator, IsBlockPVC: isBlockPVCMap, IsBlockDV: isBlockDVMap})
 			By("Checking if the disk backing store type is block")
 			Expect(domain.Spec.Devices.Disks[0].BackingStore).ToNot(BeNil())
 			Expect(domain.Spec.Devices.Disks[0].BackingStore.Type).To(Equal("block"))
@@ -2255,7 +2255,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices = v1.Devices{
 				AutoattachGraphicsDevice: autoAttach,
 			}
-			domain := vmiToDomain(&vmi, &convertertypes.ConverterContext{AllowEmulation: true, KvmAvailable: true, Architecture: archconverter.NewConverter(arch)})
+			domain := vmiToDomain(&vmi, &convertertypes.ConverterContext{AllowEmulation: true, HypervisorDeviceAvailable: true, Architecture: archconverter.NewConverter(arch)})
 			Expect(domain.Spec.Devices.Video).To(HaveLen(devices))
 			Expect(domain.Spec.Devices.Graphics).To(HaveLen(devices))
 
@@ -2283,7 +2283,7 @@ var _ = Describe("Converter", func() {
 		DescribeTable("should check video device", func(arch string) {
 			const expectedVideoType = "test-video"
 			vmi := libvmi.New(libvmi.WithAutoattachGraphicsDevice(true), libvmi.WithVideo(expectedVideoType))
-			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{AllowEmulation: true, KvmAvailable: true, Architecture: archconverter.NewConverter(arch)})
+			domain := vmiToDomain(vmi, &convertertypes.ConverterContext{AllowEmulation: true, HypervisorDeviceAvailable: true, Architecture: archconverter.NewConverter(arch)})
 			Expect(domain.Spec.Devices.Video[0].Model.Type).To(Equal(expectedVideoType))
 		},
 			MultiArchEntry("and use the explicitly set video device"),
@@ -2301,7 +2301,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 
-			domain := vmiToDomain(&vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(arch), AllowEmulation: true, KvmAvailable: true})
+			domain := vmiToDomain(&vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(arch), AllowEmulation: true, HypervisorDeviceAvailable: true})
 			Expect(domain.Spec.Devices.Graphics).To(HaveLen(1))
 			Expect(domain.Spec.Devices.Graphics).To(HaveExactElements(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
 				"Type": Equal("vnc"),
@@ -2393,7 +2393,7 @@ var _ = Describe("Converter", func() {
 				},
 			}
 
-			domain := vmiToDomain(&vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, KvmAvailable: true})
+			domain := vmiToDomain(&vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, HypervisorDeviceAvailable: true})
 			Expect(domain.Spec.Features.Hyperv.Mode).To(Equal(api.HypervModePassthrough))
 		})
 	})
@@ -2423,7 +2423,7 @@ var _ = Describe("Converter", func() {
 			vmi.Spec.Domain.Devices = v1.Devices{
 				AutoattachSerialConsole: autoAttach,
 			}
-			domain := vmiToDomain(&vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, KvmAvailable: true})
+			domain := vmiToDomain(&vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, HypervisorDeviceAvailable: true})
 			Expect(domain.Spec.Devices.Serials).To(HaveLen(devices))
 			Expect(domain.Spec.Devices.Consoles).To(HaveLen(devices))
 
@@ -2437,7 +2437,7 @@ var _ = Describe("Converter", func() {
 	It("should not include serial entry in sysinfo when firmware.serial is not set", func() {
 		vmi := libvmi.New()
 		v1.SetObjectDefaults_VirtualMachineInstance(vmi)
-		domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, KvmAvailable: true})
+		domain := vmiToDomain(vmi, &convertertypes.ConverterContext{Architecture: archconverter.NewConverter(runtime.GOARCH), AllowEmulation: true, HypervisorDeviceAvailable: true})
 		Expect(domain.Spec.SysInfo.System).ToNot(ContainElement(HaveField("Name", Equal("serial"))),
 			"serial entry should not be present in sysinfo",
 		)
