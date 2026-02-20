@@ -52,6 +52,11 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
+const (
+	guestAgentConnectTimeout = 4 * time.Minute
+	vmiStartTimeout          = 180
+)
+
 var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 	Context("Readiness Probe", func() {
 		const (
@@ -66,11 +71,11 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 				libnet.WithMasqueradeNetworking(),
 				withReadinessProbe(readinessProbe),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi)).
-				WithTimeout(12 * time.Minute).
+				WithTimeout(guestAgentConnectTimeout).
 				WithPolling(2 * time.Second).
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -85,7 +90,7 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 				libnet.WithMasqueradeNetworking(),
 				withReadinessProbe(readinessProbe),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 
 			By("Checking that the VMI is consistently non-ready")
 			Consistently(matcher.ThisVMI(vmi)).
@@ -112,9 +117,9 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 
 		BeforeEach(func() {
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 			By("Disabling the guest-agent")
@@ -151,11 +156,11 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 		It("Should not fail the VMI", func() {
 			livenessProbe := createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(livenessProbe))
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi)).
-				WithTimeout(12 * time.Minute).
+				WithTimeout(guestAgentConnectTimeout).
 				WithPolling(2 * time.Second).
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -172,7 +177,7 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 		It("Should fail the VMI with working Exec probe and invalid command", func() {
 			livenessProbe := createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1")
 			vmi := libvmifact.NewFedora(withLivenessProbe(livenessProbe))
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 
 			By("Checking that the VMI is in a final state after a while")
 			Eventually(func() bool {
@@ -195,11 +200,11 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 
 		BeforeEach(func() {
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(createGuestAgentPingProbe(period, initialSeconds)))
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi)).
-				WithTimeout(12 * time.Minute).
+				WithTimeout(guestAgentConnectTimeout).
 				WithPolling(2 * time.Second).
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -235,7 +240,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 				freshVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
 				return freshVMI.Status.Conditions
-			}, 240*time.Second, 2*time.Second).Should(
+			}, guestAgentConnectTimeout, 2*time.Second).Should(
 				ContainElement(
 					MatchFields(
 						IgnoreExtras,
@@ -280,7 +285,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 					return false
 				}
 				return updatedVmi.Status.GuestOSInfo.Name != ""
-			}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have guest OS Info in vmi status")
+			}, guestAgentConnectTimeout, 2*time.Second).Should(BeTrue(), "Should have guest OS Info in vmi status")
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedVmi.Status.GuestOSInfo.Name).To(ContainSubstring("Fedora"))
@@ -301,7 +306,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 					guestInfo.OS.Name != "" &&
 					len(guestInfo.FSInfo.Filesystems) > 0
 
-			}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have guest OS Info in subresource")
+			}, guestAgentConnectTimeout, 2*time.Second).Should(BeTrue(), "Should have guest OS Info in subresource")
 		})
 
 		It("[test_id:4629]should return user list", func() {
@@ -317,7 +322,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 
 				return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
 
-			}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have fedora users")
+			}, guestAgentConnectTimeout, 2*time.Second).Should(BeTrue(), "Should have fedora users")
 		})
 
 		It("[test_id:4630]should return filesystem list", func() {
@@ -332,7 +337,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 				return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" &&
 					len(fsList.Items[0].Disk) > 0 && fsList.Items[0].Disk[0].BusType != ""
 
-			}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have some filesystem")
+			}, guestAgentConnectTimeout, 2*time.Second).Should(BeTrue(), "Should have some filesystem")
 		})
 	})
 
@@ -349,7 +354,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 			libwait.WaitForSuccessfulVMIStart(agentVMI)
 
 			By("Waiting for the guest agent to connect")
-			Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("Expecting the VirtualMachineInstance console")
 			Expect(console.LoginToFedora(agentVMI)).To(Succeed())
@@ -358,7 +363,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 			Expect(stopGuestAgent(agentVMI)).To(Succeed())
 
 			By("VMI has the guest agent connected condition")
-			Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 		})
 
 		It("[test_id:4625]should remove condition when agent is off", func() {
@@ -373,7 +378,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 					return err.Error()
 				}
 				return ""
-			}, 240*time.Second, 2*time.Second).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
+			}, guestAgentConnectTimeout, 2*time.Second).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
 		})
 	})
 
@@ -398,7 +403,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 			Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
 			libwait.WaitForSuccessfulVMIStart(agentVMI)
 
-			Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
+			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
 		})
 
 		It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
@@ -414,7 +419,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 			libwait.WaitForSuccessfulVMIStart(agentVMI)
 
 			By("VMI has the guest agent connected condition")
-			Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			By("fetching the VMI after agent has connected")
 			Expect(matcher.ThisVMI(agentVMI)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceUnsupportedAgent))
