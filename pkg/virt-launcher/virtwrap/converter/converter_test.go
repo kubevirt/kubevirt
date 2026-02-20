@@ -625,15 +625,8 @@ var _ = Describe("Converter", func() {
 
 		BeforeEach(func() {
 			c = &ConverterContext{
-				Architecture:   archconverter.NewConverter(runtime.GOARCH),
-				VirtualMachine: vmi,
-				Secrets: map[string]*k8sv1.Secret{
-					"mysecret": {
-						Data: map[string][]byte{
-							"node.session.auth.username": []byte("admin"),
-						},
-					},
-				},
+				Architecture:                    archconverter.NewConverter(runtime.GOARCH),
+				VirtualMachine:                  vmi,
 				AllowEmulation:                  true,
 				KvmAvailable:                    true,
 				IsBlockPVC:                      isBlockPVCMap,
@@ -1752,13 +1745,6 @@ var _ = Describe("Converter", func() {
 			c = &ConverterContext{
 				Architecture:   archconverter.NewConverter(runtime.GOARCH),
 				VirtualMachine: vmi,
-				Secrets: map[string]*k8sv1.Secret{
-					"mysecret": {
-						Data: map[string][]byte{
-							"node.session.auth.username": []byte("admin"),
-						},
-					},
-				},
 				AllowEmulation: true,
 				SMBios:         TestSmbios,
 				DomainAttachmentByInterfaceName: map[string]string{

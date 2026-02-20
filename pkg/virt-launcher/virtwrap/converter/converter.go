@@ -37,8 +37,6 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	k8sv1 "k8s.io/api/core/v1"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	"kubevirt.io/client-go/precond"
@@ -88,7 +86,6 @@ type ConverterContext struct {
 	Architecture                    arch.Converter
 	AllowEmulation                  bool
 	KvmAvailable                    bool
-	Secrets                         map[string]*k8sv1.Secret
 	VirtualMachine                  *v1.VirtualMachineInstance
 	CPUSet                          []int
 	IsBlockPVC                      map[string]bool
