@@ -33,7 +33,10 @@ import (
 )
 
 var _ = Describe("VirtTemplate", func() {
-	const testNamespace = "kubevirt-test"
+	const (
+		testNamespace    = "kubevirt-test"
+		numOfDeployments = 2
+	)
 
 	var testConfig *util.KubeVirtDeploymentConfig
 
@@ -58,7 +61,7 @@ var _ = Describe("VirtTemplate", func() {
 		Expect(resources.RoleBindings).To(HaveLen(2))
 		Expect(resources.ClusterRoleBindings).To(HaveLen(4))
 		Expect(resources.Services).To(HaveLen(3))
-		Expect(resources.Deployments).To(HaveLen(2))
+		Expect(resources.Deployments).To(HaveLen(numOfDeployments))
 		Expect(resources.ValidatingAdmissionPolicies).To(HaveLen(1))
 		Expect(resources.ValidatingAdmissionPolicyBindings).To(HaveLen(1))
 		Expect(resources.ValidatingWebhookConfigurations).To(HaveLen(1))
@@ -181,6 +184,7 @@ var _ = Describe("VirtTemplate", func() {
 
 			resources, err := NewVirtTemplateResources(config)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(resources.Deployments).To(HaveLen(numOfDeployments))
 
 			for _, dep := range resources.Deployments {
 				if expectLabels {
@@ -215,10 +219,77 @@ var _ = Describe("VirtTemplate", func() {
 
 		resources, err := NewVirtTemplateResources(config)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(resources.Deployments).To(HaveLen(numOfDeployments))
 
 		for _, dep := range resources.Deployments {
 			Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(HaveLen(1))
 			Expect(dep.Spec.Template.Spec.ImagePullSecrets[0].Name).To(Equal("my-secret"))
+		}
+	})
+
+	It("should override apiserver image when VirtTemplateApiserverImage is set", func() {
+		const image = "my-registry.io/custom-apiserver:v1.0.0"
+		config := &util.KubeVirtDeploymentConfig{
+			Namespace: testNamespace,
+			ComponentImages: util.ComponentImages{
+				VirtTemplateApiserverImage: image,
+			},
+		}
+
+		resources, err := NewVirtTemplateResources(config)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resources.Deployments).To(HaveLen(numOfDeployments))
+
+		for _, dep := range resources.Deployments {
+			if dep.Name == VirtTemplateApiserverDeploymentName {
+				Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(image))
+			}
+		}
+	})
+
+	It("should override controller image when VirtTemplateControllerImage is set", func() {
+		const image = "my-registry.io/custom-controller:v1.0.0"
+		config := &util.KubeVirtDeploymentConfig{
+			Namespace: testNamespace,
+			ComponentImages: util.ComponentImages{
+				VirtTemplateControllerImage: image,
+			},
+		}
+
+		resources, err := NewVirtTemplateResources(config)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resources.Deployments).To(HaveLen(numOfDeployments))
+
+		for _, dep := range resources.Deployments {
+			if dep.Name == VirtTemplateControllerDeploymentName {
+				Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(image))
+			}
+		}
+	})
+
+	It("should prefer image override over registry replacement", func() {
+		const (
+			image    = "my-registry.io/custom-apiserver:v1.0.0"
+			registry = "my-custom-registry.io/kubevirt"
+		)
+		config := &util.KubeVirtDeploymentConfig{
+			Namespace: testNamespace,
+			Registry:  registry,
+			ComponentImages: util.ComponentImages{
+				VirtTemplateApiserverImage: image,
+			},
+		}
+
+		resources, err := NewVirtTemplateResources(config)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(resources.Deployments).To(HaveLen(numOfDeployments))
+
+		for _, dep := range resources.Deployments {
+			if dep.Name == VirtTemplateApiserverDeploymentName {
+				Expect(dep.Spec.Template.Spec.Containers[0].Image).To(Equal(image))
+			} else {
+				Expect(dep.Spec.Template.Spec.Containers[0].Image).To(HavePrefix(registry + "/"))
+			}
 		}
 	})
 
@@ -231,6 +302,7 @@ var _ = Describe("VirtTemplate", func() {
 
 		resources, err := NewVirtTemplateResources(config)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(resources.Deployments).To(HaveLen(numOfDeployments))
 
 		for _, dep := range resources.Deployments {
 			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(HavePrefix(registry + "/"))
@@ -246,6 +318,7 @@ var _ = Describe("VirtTemplate", func() {
 
 		resources, err := NewVirtTemplateResources(config)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(resources.Deployments).To(HaveLen(numOfDeployments))
 
 		for _, dep := range resources.Deployments {
 			Expect(dep.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring("/" + prefix))
@@ -262,6 +335,7 @@ var _ = Describe("VirtTemplate", func() {
 
 		resources, err := NewVirtTemplateResources(config)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(resources.Deployments).To(HaveLen(numOfDeployments))
 
 		for _, dep := range resources.Deployments {
 			Expect(dep.Spec.Template.Spec.Containers[0].ImagePullPolicy).To(Equal(k8sv1.PullAlways))
@@ -283,6 +357,7 @@ var _ = Describe("VirtTemplate", func() {
 
 		resources, err := NewVirtTemplateResources(config)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(resources.Deployments).To(HaveLen(numOfDeployments))
 
 		for _, dep := range resources.Deployments {
 			found := false
@@ -299,6 +374,7 @@ var _ = Describe("VirtTemplate", func() {
 	It("should append verbosity argument to containers", func() {
 		resources, err := NewVirtTemplateResources(testConfig)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(resources.Deployments).To(HaveLen(numOfDeployments))
 
 		for _, dep := range resources.Deployments {
 			container := dep.Spec.Template.Spec.Containers[0]
