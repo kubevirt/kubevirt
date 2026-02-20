@@ -30,6 +30,7 @@ go_library(
         "//pkg/certificates/bootstrap:go_default_library",
         "//pkg/certificates/triple:go_default_library",
         "//pkg/certificates/triple/cert:go_default_library",
+        "//pkg/hypervisor:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/reservation:go_default_library",
         "//pkg/util:go_default_library",

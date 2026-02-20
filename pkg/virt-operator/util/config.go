@@ -28,6 +28,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -37,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 )
 
@@ -86,6 +88,9 @@ const (
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesVirtTemplateDeploymentEnabled = "VirtTemplateDeploymentEnabled"
+
+	// lookup key in AdditionalProperties
+	AdditionalPropertiesHypervisorName = "HypervisorName"
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
@@ -161,18 +166,21 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		kv.Spec.Configuration.MigrationConfiguration.Network != nil {
 		additionalProperties[AdditionalPropertiesMigrationNetwork] = *kv.Spec.Configuration.MigrationConfiguration.Network
 	}
-	if kv.Spec.Configuration.DeveloperConfiguration != nil && len(kv.Spec.Configuration.DeveloperConfiguration.FeatureGates) > 0 {
-		for _, v := range kv.Spec.Configuration.DeveloperConfiguration.FeatureGates {
-			if v == featuregate.PersistentReservation {
-				additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
-			} else if v == featuregate.Template {
-				virtTemplateDeployment := kv.Spec.Configuration.VirtTemplateDeployment
-				if virtTemplateDeployment == nil || virtTemplateDeployment.Enabled == nil || *virtTemplateDeployment.Enabled {
-					additionalProperties[AdditionalPropertiesVirtTemplateDeploymentEnabled] = ""
-				}
-			}
+
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.PersistentReservation) {
+		additionalProperties[AdditionalPropertiesPersistentReservationEnabled] = ""
+	}
+
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.Template) {
+		virtTemplateDeployment := kv.Spec.Configuration.VirtTemplateDeployment
+		if virtTemplateDeployment == nil || virtTemplateDeployment.Enabled == nil || *virtTemplateDeployment.Enabled {
+			additionalProperties[AdditionalPropertiesVirtTemplateDeploymentEnabled] = ""
 		}
 	}
+
+	hypervisor := virtconfig.GetHypervisorFromKvConfig(&kv.Spec.Configuration, isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.ConfigurableHypervisor))
+	additionalProperties[AdditionalPropertiesHypervisorName] = hypervisor.Name
+
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
 	return getConfig(kv.Spec.ImageRegistry,
@@ -180,6 +188,13 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		kv.Namespace,
 		additionalProperties,
 		envVarManager)
+}
+
+func isFeatureGateEnabledInKvConfig(kvConfig *v1.KubeVirtConfiguration, featureGate string) bool {
+	if kvConfig.DeveloperConfiguration != nil && len(kvConfig.DeveloperConfiguration.FeatureGates) > 0 {
+		return slices.Contains(kvConfig.DeveloperConfiguration.FeatureGates, featureGate)
+	}
+	return false
 }
 
 func getKVMapFromSpec(spec v1.KubeVirtSpec) map[string]string {
@@ -497,6 +512,15 @@ func (c *KubeVirtDeploymentConfig) GetImagePullSecrets() []k8sv1.LocalObjectRefe
 		return data
 	}
 	return data
+}
+
+func (c *KubeVirtDeploymentConfig) GetHypervisorName() string {
+	value, found := c.AdditionalProperties[AdditionalPropertiesHypervisorName]
+	if found {
+		return value
+	} else {
+		return v1.KvmHypervisorName
+	}
 }
 
 func (c *KubeVirtDeploymentConfig) PersistentReservationEnabled() bool {

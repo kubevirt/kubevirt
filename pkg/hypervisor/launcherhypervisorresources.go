@@ -37,6 +37,6 @@ func NewLauncherHypervisorResources(hypervisor string) LauncherHypervisorResourc
 	switch hypervisor {
 	// Other hypervisors can be added here
 	default:
-		return kvm.NewKvmLauncherHypervisorResources()
+		return kvm.NewKvmHypervisorBackend()
 	}
 }

@@ -13,6 +13,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	"kubevirt.io/kubevirt/pkg/util"
@@ -137,6 +138,8 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 	pod.ServiceAccountName = HandlerServiceAccountName
 	pod.HostPID = true
 
+	hypervisorNodeInfo := hypervisor.NewHypervisorNodeInformation(config.GetHypervisorName())
+
 	// nodelabeller currently only support x86. The arch check will be done in node-labller.sh
 	pod.InitContainers = []corev1.Container{
 		{
@@ -148,6 +151,16 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 			Name:  "virt-launcher",
 			Args: []string{
 				"node-labeller.sh",
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name:  "PREFERRED_VIRTTYPE",
+					Value: hypervisorNodeInfo.GetVirtType(),
+				},
+				{
+					Name:  "HYPERVISOR_DEVICE",
+					Value: hypervisorNodeInfo.GetHypervisorDevice(),
+				},
 			},
 			SecurityContext: &corev1.SecurityContext{
 				Privileged: pointer.P(true),

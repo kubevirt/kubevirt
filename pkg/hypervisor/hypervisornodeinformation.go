@@ -20,17 +20,19 @@
 package hypervisor
 
 import (
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	v1 "kubevirt.io/api/core/v1"
-
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 )
 
-var _ = DescribeTable("Test NewLauncherHypervisorResources", func(hypervisorType string, expectedType interface{}) {
-	renderer := NewLauncherHypervisorResources(hypervisorType)
-	Expect(renderer).To(BeAssignableToTypeOf(expectedType))
-},
-	Entry("should return KVM renderer for unknown hypervisor", "unknownHypervisor", (*kvm.KvmHypervisorBackend)(nil)),
-	Entry("should return KVM renderer for KVM hypervisor", v1.KvmHypervisorName, (*kvm.KvmHypervisorBackend)(nil)),
-)
+// Interface to abstract the hypervisor-specific node-level information.
+type HypervisorNodeInformation interface {
+	GetHypervisorDevice() string
+	GetVirtType() string
+}
+
+func NewHypervisorNodeInformation(hypervisor string) HypervisorNodeInformation {
+	switch hypervisor {
+	// Other hypervisors can be added here
+	default:
+		return kvm.NewKvmHypervisorBackend()
+	}
+}

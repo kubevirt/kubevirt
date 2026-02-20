@@ -41,16 +41,21 @@ const (
 	QemuOverhead                = "30Mi"  // The `ps` RSS for qemu, minus the RAM of its (stressed) guest, minus the virtual page table
 
 	kvmHypervisorDevice = "kvm"
+	kvmVirtType         = "kvm"
 )
 
-type KvmLauncherHypervisorResources struct{}
+type KvmHypervisorBackend struct{}
 
-func NewKvmLauncherHypervisorResources() *KvmLauncherHypervisorResources {
-	return &KvmLauncherHypervisorResources{}
+func NewKvmHypervisorBackend() *KvmHypervisorBackend {
+	return &KvmHypervisorBackend{}
 }
 
-func (k *KvmLauncherHypervisorResources) GetHypervisorDevice() string {
+func (k *KvmHypervisorBackend) GetHypervisorDevice() string {
 	return kvmHypervisorDevice
+}
+
+func (k *KvmHypervisorBackend) GetVirtType() string {
+	return kvmVirtType
 }
 
 // GetMemoryOverhead computes the estimation of total
@@ -60,7 +65,7 @@ func (k *KvmLauncherHypervisorResources) GetHypervisorDevice() string {
 // The return value is overhead memory quantity
 //
 // Note: The overhead memory is a calculated estimation, the values are not to be assumed accurate.
-func (k *KvmLauncherHypervisorResources) GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string) resource.Quantity {
+func (k *KvmHypervisorBackend) GetMemoryOverhead(vmi *v1.VirtualMachineInstance, cpuArch string, additionalOverheadRatio *string) resource.Quantity {
 	domain := vmi.Spec.Domain
 	vmiMemoryReq := domain.Resources.Requests.Memory()
 
