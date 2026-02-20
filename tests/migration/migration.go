@@ -259,7 +259,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				return migrationDurationTotal
 			}
 
-			It("[test_id:6968]should apply them and result in different migration durations", func() {
+			It("[test_id:6968] should apply them and result in different migration durations", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 				migrationPolicy := CreateMigrationPolicy(virtClient, GeneratePolicyAndAlignVMI(vmi))
 
@@ -291,7 +291,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				// check VMI, confirm migration state
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
-			It("should be successfully migrate with a WriteBack disk cache", func() {
+			It("[test_id:5689]should be successfully migrate with a WriteBack disk cache", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 				vmi.Spec.Domain.Devices.Disks[0].Cache = v1.CacheWriteBack
 
@@ -339,7 +339,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
-			It("should migrate vmi with LiveMigrateIfPossible eviction strategy", func() {
+			It("[test_id:2353]should migrate vmi with LiveMigrateIfPossible eviction strategy", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(
 					libnet.WithMasqueradeNetworking(),
 					libvmi.WithEvictionStrategy(v1.EvictionStrategyLiveMigrateIfPossible),
@@ -544,7 +544,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
-			It("[test_id:1783]should be successfully migrated multiple times with cloud-init disk", decorators.Conformance, func() {
+			It("[test_id:1783] should be successfully migrated multiple times with cloud-init disk", decorators.Conformance, decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
@@ -582,7 +582,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			// Previously, we'd stop getting events after libvirt reconnect, which
 			// prevented things like migration. This test verifies we can migrate after
 			// resetting virtqemud
-			It("[test_id:4746]should migrate even if virtqemud has restarted at some point.", func() {
+			It("[test_id:4746]should migrate even if virtqemud has restarted at some point.", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
@@ -627,7 +627,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
-			It("[test_id:6972]should migrate to a persistent (non-transient) libvirt domain.", func() {
+			It("[test_id:6972]should migrate to a persistent (non-transient) libvirt domain.", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
@@ -650,7 +650,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(isLibvirtDomainPersistent(vmi)).To(BeTrue(), "The VMI was not found in the list of libvirt persistent domains")
 				libmigration.EnsureNoMigrationMetadataInPersistentXML(vmi)
 			})
-			It("[test_id:6973]should be able to successfully migrate with a paused vmi", func() {
+			It("[test_id:6973]should be able to successfully migrate with a paused vmi", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
@@ -1283,7 +1283,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 		})
 		Context("migration security", func() {
 			Context(" with TLS disabled", Serial, func() {
-				It("[test_id:6976] should be successfully migrated", func() {
+				It("[test_id:6976] should be successfully migrated", decorators.WgS390x, func() {
 					cfg := getCurrentKvConfig(virtClient)
 					cfg.MigrationConfiguration.DisableTLS = pointer.P(true)
 					kvconfig.UpdateKubeVirtConfigValueAndWait(cfg)
@@ -2145,7 +2145,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 		})
 
-		Context(" with freePageReporting", Serial, func() {
+		Context(" with freePageReporting", Serial, decorators.WgS390x, func() {
 
 			BeforeEach(func() {
 				kv := libkubevirt.GetCurrentKv(virtClient)
@@ -2154,7 +2154,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				kvconfig.UpdateKubeVirtConfigValueAndWait(*kvConfigurationCopy)
 			})
 
-			It("should be able to migrate", func() {
+			It("[test_id:2387]should be able to migrate", func() {
 				vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 
 				By("Starting the VirtualMachineInstance")
