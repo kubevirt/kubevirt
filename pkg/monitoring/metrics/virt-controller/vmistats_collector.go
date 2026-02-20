@@ -34,7 +34,9 @@ import (
 	k6tv1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/network/netbinding"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 const (
@@ -60,6 +62,7 @@ var (
 			vmiMigrationEndTime,
 			vmiVnicInfo,
 			vmiEphemeralHotplugVolume,
+			vmiLauncherMemoryOverhead,
 		},
 		CollectCallback: vmiStatsCollectorCallback,
 	}
@@ -135,6 +138,14 @@ var (
 		},
 		[]string{"namespace", "name", "volume_name"},
 	)
+
+	vmiLauncherMemoryOverhead = operatormetrics.NewGaugeVec(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_vmi_launcher_memory_overhead_bytes",
+			Help: "Estimation of the memory amount required for virt-launcher's infrastructure components (e.g. libvirt, QEMU).",
+		},
+		[]string{"namespace", "name"},
+	)
 )
 
 func vmiStatsCollectorCallback() []operatormetrics.CollectorResult {
@@ -163,9 +174,20 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 		crs = append(crs, collectVMIMigrationTime(vmi)...)
 		crs = append(crs, CollectVmisVnicInfo(vmi)...)
 		crs = append(crs, collectVMIEphemeralHotplug(vmi)...)
+		crs = append(crs, collectVMILauncherMemoryOverhead(vmi))
 	}
 
 	return crs
+}
+
+func collectVMILauncherMemoryOverhead(vmi *k6tv1.VirtualMachineInstance) operatormetrics.CollectorResult {
+	memoryOverhead := services.CalculateMemoryOverhead(clusterConfig, netbinding.MemoryCalculator{}, vmi)
+
+	return operatormetrics.CollectorResult{
+		Metric: vmiLauncherMemoryOverhead,
+		Labels: []string{vmi.Namespace, vmi.Name},
+		Value:  float64(memoryOverhead.Value()),
+	}
 }
 
 func collectVMIInfo(vmi *k6tv1.VirtualMachineInstance) operatormetrics.CollectorResult {
