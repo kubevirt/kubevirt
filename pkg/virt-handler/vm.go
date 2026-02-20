@@ -801,13 +801,19 @@ func (c *VirtualMachineController) updateGuestAgentConditions(vmi *v1.VirtualMac
 		if len(guestInfo.SupportedCommands) > 0 {
 			supported, reason = isGuestAgentSupported(vmi, guestInfo.SupportedCommands)
 			c.logger.V(3).Object(vmi).Info(reason)
-		} else {
+		} else if guestInfo.GAVersion != "" {
 			for _, version := range c.clusterConfig.GetSupportedAgentVersions() {
 				supported = supported || regexp.MustCompile(version).MatchString(guestInfo.GAVersion)
 			}
 			if !supported {
 				reason = fmt.Sprintf("Guest agent version '%s' is not supported", guestInfo.GAVersion)
 			}
+		} else {
+			// Both SupportedCommands and GAVersion are empty. This happens when
+			// virt-launcher no longer populates these deprecated fields (agent-poller
+			// cleanup). The guest agent channel is connected (checked above), so
+			// treat the agent as supported.
+			supported = true
 		}
 
 		if !supported {
