@@ -40,7 +40,7 @@ type EFIConfiguration struct {
 type ConverterContext struct {
 	Architecture                    arch.Converter
 	AllowEmulation                  bool
-	KvmAvailable                    bool
+	HypervisorAvailable             bool
 	Secrets                         map[string]*k8sv1.Secret
 	VirtualMachine                  *v1.VirtualMachineInstance
 	CPUSet                          []int

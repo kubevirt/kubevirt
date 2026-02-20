@@ -1021,7 +1021,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},
-		compute.NewHypervisorDomainConfigurator(c.AllowEmulation, c.KvmAvailable),
+		compute.NewHypervisorDomainConfigurator(c.AllowEmulation, c.HypervisorAvailable),
 		compute.NewLaunchSecurityDomainConfigurator(architecture),
 		compute.ChannelsDomainConfigurator{},
 		compute.ClockDomainConfigurator{},
