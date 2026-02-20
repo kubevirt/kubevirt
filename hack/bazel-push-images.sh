@@ -42,6 +42,13 @@ default_targets="
     libguestfs-tools
 "
 
+# Add additional images for s390x only
+if [[ "${ARCHITECTURE}" == "s390x" || "${ARCHITECTURE}" == "crossbuild-s390x" ]]; then
+    default_targets+="
+        s390x-guestless-kernel
+    "
+fi
+
 # Add additional images for non-s390x architectures only
 if [[ "${ARCHITECTURE}" != "s390x" && "${ARCHITECTURE}" != "crossbuild-s390x" ]]; then
     default_targets+="

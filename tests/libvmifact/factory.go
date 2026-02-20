@@ -98,6 +98,21 @@ func NewAlpineWithTestTooling(opts ...libvmi.Option) *kvirtv1.VirtualMachineInst
 }
 
 func NewGuestless(opts ...libvmi.Option) *kvirtv1.VirtualMachineInstance {
+	if isS390X() {
+		// On s390x, VMs require an IPL source to start; they cannot be launched
+		// completely "guestless". We use KernelBoot with a minimal kernel image.
+		kernelBootOpts := []libvmi.Option{
+			libvmi.WithKernelBoot(
+				cd.ContainerDiskFor(cd.KernelBootS390xGuestless),
+				"/boot/kernel",
+				"",
+				"",
+			),
+			libvmi.WithMemoryRequest("16Mi"),
+		}
+		kernelBootOpts = append(kernelBootOpts, opts...)
+		return libvmi.New(kernelBootOpts...)
+	}
 	opts = append(
 		[]libvmi.Option{libvmi.WithMemoryRequest(qemuMinimumMemory())},
 		opts...)

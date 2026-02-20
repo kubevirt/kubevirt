@@ -392,6 +392,12 @@ oci_pull(
 )
 
 oci_pull(
+    name = "s390x-guestless-kernel",
+    digest = "sha256:3bf6fc355fc9718c088c4c881b2d35a073ea274f6b16dc42236ef5e29db2215d",
+    image = "quay.io/kubevirt/s390x-guestless-kernel",
+)
+
+oci_pull(
     name = "alpine-ext-kernel-boot-demo-container-base",
     digest = "sha256:bccd990554f55623d96fa70bc7efc553dd617523ebca76919b917ad3ee616c1d",
     image = "quay.io/kubevirt/alpine-ext-kernel-boot-demo",

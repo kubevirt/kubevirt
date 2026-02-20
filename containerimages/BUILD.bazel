@@ -130,3 +130,9 @@ oci_image(
     }),
     visibility = ["//visibility:public"],
 )
+
+oci_image(
+    name = "s390x-guestless-kernel",
+    base = "@s390x-guestless-kernel",
+    visibility = ["//visibility:public"],
+)
