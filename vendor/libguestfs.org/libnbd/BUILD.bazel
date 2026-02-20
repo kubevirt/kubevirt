@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "aio_buffer.go",
+        "bindings.go",
+        "callbacks.go",
+        "closures.go",
+        "handle.go",
+        "wrappers.go",
+        "wrappers.h",
+    ],
+    cgo = True,
+    clinkopts = ["-lnbd"],
+    copts = [
+        "-D_GNU_SOURCE=1",
+        "-DfreeCallbackId=nbd_freeCallbackId",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/libguestfs.org/libnbd",
+    importpath = "libguestfs.org/libnbd",
+    visibility = ["//visibility:public"],
+)
