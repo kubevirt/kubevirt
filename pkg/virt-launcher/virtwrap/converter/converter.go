@@ -998,7 +998,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		_, autoThreads = iothreads.GetIOThreadsCountType(vmi)
 	}
 
-	if err := hypervisor.NewDomainBuilderFactory(v1.KvmHypervisorName).MakeDomainBuilder(vmi, c).Build(vmi, domain); err != nil {
+	if err := hypervisor.NewDomainBuilderFactory(c.HypervisorName).MakeDomainBuilder(vmi, c).Build(vmi, domain); err != nil {
 		return err
 	}
 

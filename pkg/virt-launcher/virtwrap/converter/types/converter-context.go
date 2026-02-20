@@ -69,4 +69,5 @@ type ConverterContext struct {
 	BochsForEFIGuests               bool
 	SerialConsoleLog                bool
 	DomainAttachmentByInterfaceName map[string]string
+	HypervisorName                  string
 }

@@ -1072,6 +1072,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseLaunchSecurityPV:   kutil.IsSecureExecutionVMI(vmi),
 		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
+		HypervisorName:        l.hypervisorName,
 	}
 
 	if options != nil {
