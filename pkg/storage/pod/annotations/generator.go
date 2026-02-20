@@ -39,6 +39,7 @@ func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, 
 			vmi.Name,
 			vmi.Namespace,
 		),
+		velero.PreBackupHookTimeoutAnnotation:    "60s",
 		velero.PostBackupHookContainerAnnotation: computeContainerName,
 		velero.PostBackupHookCommandAnnotation: fmt.Sprintf(
 			"[\"/usr/bin/virt-freezer\", \"--unfreeze\", \"--name\", %q, \"--namespace\", %q]",

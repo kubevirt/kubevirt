@@ -75,7 +75,7 @@ var snapshotIndicationMessages = map[snapshotv1.Indication]string{
 	snapshotv1.VMSnapshotOnlineSnapshotIndication: "Snapshot taken while the VM was running. Consistency depends on guest-agent quiescing.",
 	snapshotv1.VMSnapshotGuestAgentIndication:     "Guest agent was active and attempted to quiesce the filesystem for application consistency.",
 	snapshotv1.VMSnapshotNoGuestAgentIndication:   "Guest agent was not available. Snapshot is crash-consistent and may not be application-consistent.",
-	snapshotv1.VMSnapshotQuiesceFailedIndication:  "Guest agent failed to quiesce the filesystem. Snapshot is crash-consistent and may not be application-consistent.",
+	snapshotv1.VMSnapshotQuiesceTimeoutIndication: "Guest agent quiesced the filesystem, but the freeze window timed out before completion. Snapshot is crash-consistent and may not be application-consistent.",
 	snapshotv1.VMSnapshotPausedIndication:         "Snapshot taken while the VM was paused. Snapshot is crash-consistent and may not be application-consistent.",
 }
 
@@ -484,6 +484,14 @@ func (ctrl *VMSnapshotController) updateVMSnapshotContent(content *snapshotv1.Vi
 
 		err = ctrl.unfreezeSource(vmSnapshot)
 		if err != nil {
+			if strings.Contains(err.Error(), VSSFreezeLimitReached) {
+				contentCpy.Status.CreationTime = nil
+				contentCpy.Status.Error = &snapshotv1.Error{
+					Time:    currentTime(),
+					Message: pointer.P(err.Error()),
+				}
+				return 5 * time.Second, ctrl.updateVmSnapshotContentStatus(content, contentCpy)
+			}
 			return 0, err
 		}
 	}
@@ -865,8 +873,8 @@ func updateSnapshotSourceIndications(snapshot *snapshotv1.VirtualMachineSnapshot
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotGuestAgentIndication)
 			snapErr := snapshot.Status.Error
 			if snapErr != nil && snapErr.Message != nil &&
-				strings.Contains(*snapErr.Message, failedFreezeMsg) {
-				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceFailedIndication)
+				strings.Contains(*snapErr.Message, VSSFreezeLimitReached) {
+				indications = sets.Insert(indications, snapshotv1.VMSnapshotQuiesceTimeoutIndication)
 			}
 		} else {
 			indications = sets.Insert(indications, snapshotv1.VMSnapshotNoGuestAgentIndication)
