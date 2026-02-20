@@ -367,7 +367,10 @@ func (c *MigrationTargetController) Execute() bool {
 	return true
 }
 
-func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, oldStatus *v1.VirtualMachineInstanceStatus, oldLabels map[string]string) error {
+func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, oldSpec *v1.VirtualMachineInstanceSpec, oldStatus *v1.VirtualMachineInstanceStatus, oldLabels map[string]string) error {
+	if !equality.Semantic.DeepEqual(*oldSpec, vmi.Spec) {
+		return fmt.Errorf("spec changes illegal in updateVMI, not updating VMI")
+	}
 	// update the VMI if necessary
 	if !equality.Semantic.DeepEqual(oldStatus, vmi.Status) || !equality.Semantic.DeepEqual(oldLabels, vmi.Labels) {
 		_, err := c.clientset.VirtualMachineInstance(vmi.ObjectMeta.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
@@ -386,7 +389,7 @@ func (c *MigrationTargetController) updateVMI(vmi *v1.VirtualMachineInstance, ol
 // - The VMI will be removed from our informer
 // - The migration proxy for the VMI will be stopped
 // - The key will not be re-enqueued
-func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance, oldStatus *v1.VirtualMachineInstanceStatus, oldLabels map[string]string, domain *api.Domain) error {
+func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance, oldSpec *v1.VirtualMachineInstanceSpec, oldStatus *v1.VirtualMachineInstanceStatus, oldLabels map[string]string, domain *api.Domain) error {
 	if domainPausedFailedPostCopy(domain) {
 		if vmi.Status.Phase == v1.Running {
 			// In this function, we can usually clean up our (target) pod, since the migration is over.
@@ -442,10 +445,11 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 	// Effectively removes the VMI from our VMI informer
 	delete(vmi.Labels, v1.MigrationTargetNodeNameLabel)
 	delete(vmi.Annotations, v1.CreateMigrationTarget)
-	return c.updateVMI(vmi, oldStatus, oldLabels)
+	return c.updateVMI(vmi, oldSpec, oldStatus, oldLabels)
 }
 
 func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	oldSpec := vmi.Spec
 	oldStatus := vmi.Status
 	oldLabels := vmi.Labels
 	vmi = vmi.DeepCopy()
@@ -453,7 +457,7 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 	// post-migration clean up
 	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.EndTimestamp != nil &&
 		(vmi.Status.MigrationState.Completed || vmi.Status.MigrationState.Failed) {
-		return c.finalCleanup(vmi, &oldStatus, oldLabels, domain)
+		return c.finalCleanup(vmi, &oldSpec, &oldStatus, oldLabels, domain)
 	}
 
 	if domain != nil {
@@ -479,7 +483,7 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 	// If processVMI is just waiting for something to be ready, we can't and don't need to increase expectations.
 	// We can't because the VMI may not update before the thing is ready, deadlocking us
 	// We don't need to because every time processVMI is waiting for something it re-adds the key to the queue
-	updateVMIErr := c.updateVMI(vmi, &oldStatus, oldLabels)
+	updateVMIErr := c.updateVMI(vmi, &oldSpec, &oldStatus, oldLabels)
 	if updateVMIErr != nil {
 		return updateVMIErr
 	}
@@ -648,28 +652,29 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 	return nil
 }
 
-func (c *MigrationTargetController) unmountVolumes(vmi *v1.VirtualMachineInstance) error {
+func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachineInstance) error {
 	// The VolumeStatus is used to retrieve additional information for the volume handling.
 	// For example, for filesystem PVC, the information is used to create a right size image.
 	// In the case of migrated volumes, we need to replace the original volume information with the
 	// destination volume properties.
-	replaceMigratedVolumesStatus(vmi)
-	err := hostdisk.ReplacePVCByHostDisk(vmi)
+	replaceMigratedVolumesStatus(originalVMI)
+	vmiCopy := originalVMI.DeepCopy()
+	err := hostdisk.ReplacePVCByHostDisk(vmiCopy)
 	if err != nil {
 		return err
 	}
 
-	if err = c.containerDiskMounter.Unmount(vmi); err != nil {
+	if err = c.containerDiskMounter.Unmount(vmiCopy); err != nil {
 		return err
 	}
 
 	// Mount hotplug disks
-	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmi, c.host)
+	if attachmentPodUID := vmiCopy.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
+		cgroupManager, err := getCgroupManager(vmiCopy, c.host)
 		if err != nil {
 			return err
 		}
-		if err = c.hotplugVolumeMounter.Unmount(vmi, cgroupManager); err != nil {
+		if err = c.hotplugVolumeMounter.Unmount(vmiCopy, cgroupManager); err != nil {
 			return fmt.Errorf("failed to unmount hotplug volumes: %v", err)
 		}
 	}

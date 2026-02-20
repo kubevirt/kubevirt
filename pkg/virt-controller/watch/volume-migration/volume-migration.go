@@ -373,16 +373,28 @@ func GenerateMigratedVolumes(pvcStore cache.Store, vmi *virtv1.VirtualMachineIns
 		if pvc != nil && pvc.Spec.VolumeMode != nil {
 			volMode = pvc.Spec.VolumeMode
 		}
+		srcPVCInfo := &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:  oldClaim,
+			VolumeMode: oldVolMode,
+		}
+		dstPVCInfo := &virtv1.PersistentVolumeClaimInfo{
+			ClaimName:  claim,
+			VolumeMode: volMode,
+		}
+		if oldPvc != nil {
+			srcPVCInfo.AccessModes = oldPvc.Spec.AccessModes
+			srcPVCInfo.Requests = oldPvc.Spec.Resources.Requests
+			srcPVCInfo.Capacity = oldPvc.Status.Capacity
+		}
+		if pvc != nil {
+			dstPVCInfo.AccessModes = pvc.Spec.AccessModes
+			dstPVCInfo.Requests = pvc.Spec.Resources.Requests
+			dstPVCInfo.Capacity = pvc.Status.Capacity
+		}
 		migVolsInfo = append(migVolsInfo, virtv1.StorageMigratedVolumeInfo{
-			VolumeName: v.Name,
-			DestinationPVCInfo: &virtv1.PersistentVolumeClaimInfo{
-				ClaimName:  claim,
-				VolumeMode: volMode,
-			},
-			SourcePVCInfo: &virtv1.PersistentVolumeClaimInfo{
-				ClaimName:  oldClaim,
-				VolumeMode: oldVolMode,
-			},
+			VolumeName:         v.Name,
+			DestinationPVCInfo: dstPVCInfo,
+			SourcePVCInfo:      srcPVCInfo,
 		})
 	}
 
