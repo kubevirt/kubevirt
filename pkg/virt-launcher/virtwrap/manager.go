@@ -42,6 +42,7 @@ import (
 	"syscall"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
@@ -204,6 +205,8 @@ type LibvirtDomainManager struct {
 
 	// Premigration hook server for VMI updates during migration
 	hookServer *premigrationhookserver.PreMigrationHookServer
+
+	hypervisorName string
 }
 
 type pausedVMIs struct {
@@ -231,14 +234,14 @@ func (s pausedVMIs) contains(uid types.UID) bool {
 
 func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore,
 	ovmfPath string, ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string) (DomainManager, error) {
 	directIOChecker := converter.NewDirectIOChecker()
-	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled, libvirtHooksServerAndClientEnabled, hookServer)
+	return newLibvirtDomainManager(connection, virtShareDir, ephemeralDiskDir, agentStore, ovmfPath, ephemeralDiskCreator, directIOChecker, metadataCache, stopChan, diskMemoryLimitBytes, cpuSetGetter, imageVolumeEnabled, libvirtHooksServerAndClientEnabled, hookServer, hypervisorName)
 }
 
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
 	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache,
-	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer) (DomainManager, error) {
+	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string) (DomainManager, error) {
 	manager := LibvirtDomainManager{
 		diskMemoryLimitBytes: diskMemoryLimitBytes,
 		virConn:              connection,
@@ -261,6 +264,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		imageVolumeFeatureGateEnabled:      imageVolumeEnabled,
 		libvirtHooksServerAndClientEnabled: libvirtHooksServerAndClientEnabled,
 		hookServer:                         hookServer,
+		hypervisorName:                     hypervisorName,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -1036,35 +1040,35 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 	}
 
-	// Check KVM device availability
-	const kvmPath = "/dev/kvm"
-	kvmAvailable := true
-	if _, err := os.Stat(kvmPath); err != nil {
+	// Check hypervisor device availability
+	hypervisorDevicePath := "/dev/" + hypervisor.NewLauncherHypervisorResources(l.hypervisorName).GetHypervisorDevice()
+	hypervisorAvailable := true
+	if _, err := os.Stat(hypervisorDevicePath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			kvmAvailable = false
+			hypervisorAvailable = false
 		} else {
-			return nil, fmt.Errorf("failed to stat KVM device %s: %w", kvmPath, err)
+			return nil, fmt.Errorf("failed to stat hypervisor device %s: %w", hypervisorDevicePath, err)
 		}
 	}
 
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter_types.ConverterContext{
-		Architecture:          arch.NewConverter(runtime.GOARCH),
-		VirtualMachine:        vmi,
-		AllowEmulation:        allowEmulation,
-		KvmAvailable:          kvmAvailable,
-		CPUSet:                podCPUSet,
-		IsBlockPVC:            isBlockPVCMap,
-		IsBlockDV:             isBlockDVMap,
-		EFIConfiguration:      efiConf,
-		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
-		PermanentVolumes:      permanentVolumes,
-		EphemeraldiskCreator:  l.ephemeralDiskCreator,
-		UseLaunchSecuritySEV:  kutil.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
-		UseLaunchSecurityTDX:  kutil.IsTDXVMI(vmi),
-		UseLaunchSecurityPV:   kutil.IsSecureExecutionVMI(vmi),
-		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
-		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
+		Architecture:              arch.NewConverter(runtime.GOARCH),
+		VirtualMachine:            vmi,
+		AllowEmulation:            allowEmulation,
+		HypervisorDeviceAvailable: hypervisorAvailable,
+		CPUSet:                    podCPUSet,
+		IsBlockPVC:                isBlockPVCMap,
+		IsBlockDV:                 isBlockDVMap,
+		EFIConfiguration:          efiConf,
+		UseVirtioTransitional:     vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
+		PermanentVolumes:          permanentVolumes,
+		EphemeraldiskCreator:      l.ephemeralDiskCreator,
+		UseLaunchSecuritySEV:      kutil.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
+		UseLaunchSecurityTDX:      kutil.IsTDXVMI(vmi),
+		UseLaunchSecurityPV:       kutil.IsSecureExecutionVMI(vmi),
+		FreePageReporting:         isFreePageReportingEnabled(false, vmi),
+		SerialConsoleLog:          isSerialConsoleLogEnabled(false, vmi),
 	}
 
 	if options != nil {
