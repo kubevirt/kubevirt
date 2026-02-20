@@ -505,6 +505,9 @@ github.com/wadey/gocovmerge
 # github.com/x448/float16 v0.8.4
 ## explicit; go 1.11
 github.com/x448/float16
+# gitlab.com/MichalPrivoznik/virt-lint/go v0.0.0-20250829132905-5404eadecdc1
+## explicit; go 1.21.1
+gitlab.com/MichalPrivoznik/virt-lint/go/virt-lint
 # go.mongodb.org/mongo-driver v1.14.0
 ## explicit; go 1.18
 go.mongodb.org/mongo-driver/bson

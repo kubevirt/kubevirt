@@ -69,6 +69,7 @@ type Connection interface {
 	GetDomainDirtyRate(calculationDuration time.Duration, flags libvirt.DomainDirtyRateCalcFlags) ([]*stats.DomainStatsDirtyRate, error)
 	GetQemuVersion() (string, error)
 	GetSEVInfo() (*api.SEVNodeParameters, error)
+	GetLibvirtConnect() *libvirt.Connect
 }
 
 type Stream interface {
@@ -122,6 +123,10 @@ func (s *VirStream) Close() error {
 
 func (s *VirStream) UnderlyingStream() *libvirt.Stream {
 	return s.Stream
+}
+
+func (l *LibvirtConnection) GetLibvirtConnect() *libvirt.Connect {
+	return l.Connect
 }
 
 func (l *LibvirtConnection) NewStream(flags libvirt.StreamFlags) (Stream, error) {

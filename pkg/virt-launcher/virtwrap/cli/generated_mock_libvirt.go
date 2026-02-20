@@ -217,6 +217,20 @@ func (mr *MockConnectionMockRecorder) GetDomainStats(statsTypes, l, flags any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDomainStats", reflect.TypeOf((*MockConnection)(nil).GetDomainStats), statsTypes, l, flags)
 }
 
+// GetLibvirtConnect mocks base method.
+func (m *MockConnection) GetLibvirtConnect() *libvirt.Connect {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLibvirtConnect")
+	ret0, _ := ret[0].(*libvirt.Connect)
+	return ret0
+}
+
+// GetLibvirtConnect indicates an expected call of GetLibvirtConnect.
+func (mr *MockConnectionMockRecorder) GetLibvirtConnect() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLibvirtConnect", reflect.TypeOf((*MockConnection)(nil).GetLibvirtConnect))
+}
+
 // GetQemuVersion mocks base method.
 func (m *MockConnection) GetQemuVersion() (string, error) {
 	m.ctrl.T.Helper()
