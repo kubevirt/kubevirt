@@ -419,6 +419,9 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 		if t.clusterConfig.PodSecondaryInterfaceNamingUpgradeEnabled() {
 			command = append(command, "--upgrade-ordinal-ifaces")
 		}
+		if t.clusterConfig.VGPUDedicatedHookEnabled() {
+			command = append(command, "--vGPU-dedicated-hook")
+		}
 		if customDebugFilters, exists := vmi.Annotations[v1.CustomLibvirtLogFiltersAnnotation]; exists {
 			log.Log.Object(vmi).Infof("Applying custom debug filters for vmi %s: %s", vmi.Name, customDebugFilters)
 			command = append(command, "--libvirt-log-filters", customDebugFilters)

@@ -85,6 +85,7 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	premigrationhookserver "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/vgpuhook"
 	accesscredentials "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/access-credentials"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -1092,6 +1093,18 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	}
 	c.DisksInfo = l.disksInfo
 
+	gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
+	if err != nil {
+		return nil, err
+	}
+	c.GPUHostDevices = gpuHostDevices
+
+	gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi)
+	if err != nil {
+		return nil, err
+	}
+	c.GPUHostDevices = append(c.GPUHostDevices, gpuDRAHostDevices...)
+
 	if !isMigrationTarget {
 		sriovDevices, err := sriov.CreateHostDevices(vmi)
 		if err != nil {
@@ -1112,20 +1125,18 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			return nil, err
 		}
 		c.GenericHostDevices = append(c.GenericHostDevices, genericDRAHostDevices...)
-
-		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
-		if err != nil {
-			return nil, err
+	} else {
+		if len(c.GPUHostDevices) > 0 {
+			if !l.libvirtHooksServerAndClientEnabled {
+				return nil, fmt.Errorf("vGPU live migration requires LibvirtHooksServerAndClient feature gate")
+			}
+			if len(c.GPUHostDevices) == 1 {
+				vmi.Annotations[vgpuhook.TargetMdevUUIDAnnotation] = c.GPUHostDevices[0].Source.Address.UUID
+			} else {
+				return nil, fmt.Errorf("too many GPUs found on vmi for migration: %d", len(c.GPUHostDevices))
+			}
 		}
-		c.GPUHostDevices = gpuHostDevices
-
-		gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi)
-		if err != nil {
-			return nil, err
-		}
-		c.GPUHostDevices = append(c.GPUHostDevices, gpuDRAHostDevices...)
 	}
-
 	return c, nil
 }
 

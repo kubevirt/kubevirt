@@ -58,6 +58,7 @@ import (
 	premigrationhookserver "kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/cpuhook"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/network"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/premigration-hook-server/vgpuhook"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/standalone"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -355,6 +356,7 @@ func main() {
 	imageVolumeEnabled := pflag.Bool("image-volume", false, "Generated with ImageVolume instead of containerDisk") //remove this once ImageVolume is GAed
 	libvirtHooksServerAndClientEnabled := pflag.Bool("libvirt-hook-server-and-client", false, "Enable pre-migration hooks on the target virt-launcher pod")
 	ifacesOrdinalNamingUpgradeEnabled := pflag.Bool("upgrade-ordinal-ifaces", false, "Enable upgrade of ordinal ifaces naming scheme")
+	vGPUDedicatedHookEnabled := pflag.Bool("vGPU-dedicated-hook", false, "Enable target mdev UUID mutation for vGPU live migration")
 	hookSidecars := pflag.Uint("hook-sidecars", 0, "Number of requested hook sidecars, virt-launcher will wait for all of them to become available")
 	diskMemoryLimitBytes := pflag.Int64("disk-memory-limit", virtconfig.DefaultDiskVerificationMemoryLimitBytes, "Memory limit for disk verification")
 	ovmfPath := pflag.String("ovmf-path", "/usr/share/OVMF", "The directory that contains the EFI roms (like OVMF_CODE.fd)")
@@ -441,6 +443,9 @@ func main() {
 	}
 	if *ifacesOrdinalNamingUpgradeEnabled {
 		hookFuncs = append(hookFuncs, network.UpgradeOrdinalNamingScheme)
+	}
+	if *vGPUDedicatedHookEnabled {
+		hookFuncs = append(hookFuncs, vgpuhook.VGPUDedicatedHook)
 	}
 
 	preMigrationHookServer := premigrationhookserver.NewPreMigrationHookServer(
