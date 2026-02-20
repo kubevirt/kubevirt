@@ -355,10 +355,7 @@ var _ = Describe(SIG("GuestAgent info", func() {
 			Expect(console.LoginToFedora(agentVMI)).To(Succeed())
 
 			By("Terminating guest agent and waiting for it to disappear.")
-			Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
-				&expect.BSnd{S: "systemctl stop qemu-guest-agent\n"},
-				&expect.BExp{R: ""},
-			}, 400)).To(Succeed())
+			Expect(stopGuestAgent(agentVMI)).To(Succeed())
 
 			By("VMI has the guest agent connected condition")
 			Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
