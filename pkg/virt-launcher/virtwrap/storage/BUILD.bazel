@@ -47,7 +47,6 @@ go_test(
         "//pkg/pointer:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/virt-launcher/metadata:go_default_library",
-        "//pkg/virt-launcher/virtwrap/agent-poller:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/cli:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter:go_default_library",

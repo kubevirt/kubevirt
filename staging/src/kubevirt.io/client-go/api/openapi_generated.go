@@ -27193,7 +27193,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestAgentInfo(ref comm
 					},
 					"guestAgentVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "GAVersion is a version of currently installed guest agent",
+							Description: "GAVersion is a version of currently installed guest agent Deprecated: GAVersion is no longer populated by the agent poller.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -27205,7 +27205,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestAgentInfo(ref comm
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Return command list the guest agent supports",
+							Description: "Return command list the guest agent supports Deprecated: SupportedCommands is no longer populated by the agent poller.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -27261,7 +27261,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineInstanceGuestAgentInfo(ref comm
 					},
 					"fsFreezeStatus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem. It will be set to \"frozen\" if the request was made, or unset otherwise. This does not reflect the actual state of the guest filesystem.",
+							Description: "FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem. It will be set to \"frozen\" if the request was made, or unset otherwise. This does not reflect the actual state of the guest filesystem. Deprecated: FSFreezeStatus is no longer populated by the agent poller.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

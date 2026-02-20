@@ -34,17 +34,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/stats"
 )
 
-// AgentCommand is a command executable on guest agent
-type AgentCommand string
-
-// Aliases for commands executed on guest agent
-// Aliases are also used as keys to the store, it does not matter how the keys are named,
-// only whether it relates to the right data
 const (
-	GetFilesystem     AgentCommand = "guest-get-fsinfo"
-	GetAgent          AgentCommand = "guest-info"
-	GetFSFreezeStatus AgentCommand = "guest-fsfreeze-status"
-
 	pollInitialInterval = 10 * time.Second
 
 	repeatingLogLevel = 3
@@ -73,8 +63,6 @@ func NewAsyncAgentStore() AsyncAgentStore {
 	}
 }
 
-// Store saves the value with a key to the storage, when there is a change in data
-// it fires up updated event
 func (s *AsyncAgentStore) Store(key, value any) {
 	oldData, _ := s.store.Load(key)
 
@@ -82,14 +70,13 @@ func (s *AsyncAgentStore) Store(key, value any) {
 
 	domainInfo := api.DomainGuestInfo{}
 	switch key {
-	case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES, GetFSFreezeStatus:
+	case libvirt.DOMAIN_GUEST_INFO_OS, libvirt.DOMAIN_GUEST_INFO_INTERFACES:
 		updated := (oldData == nil) || !equality.Semantic.DeepEqual(oldData, value)
 		if !updated {
 			return
 		}
 		domainInfo.OSInfo = s.GetGuestOSInfo()
 		domainInfo.Interfaces = s.GetInterfaceStatus()
-		domainInfo.FSFreezeStatus = s.GetFSFreezeStatus()
 
 		s.AgentUpdated <- AgentUpdatedEvent{
 			DomainInfo: domainInfo,
@@ -149,33 +136,10 @@ func (s *AsyncAgentStore) GetGuestOSInfo() *api.GuestOSInfo {
 	return nil
 }
 
-// GetGA returns guest agent record with its version if present
-func (s *AsyncAgentStore) GetGA() AgentInfo {
-	data, ok := s.store.Load(GetAgent)
-	agent := AgentInfo{}
-	if !ok {
-		return agent
-	}
-
-	agent = data.(AgentInfo)
-	return agent
-}
-
-// GetFSFreezeStatus returns the Guest fsfreeze status
-func (s *AsyncAgentStore) GetFSFreezeStatus() *api.FSFreeze {
-	data, ok := s.store.Load(GetFSFreezeStatus)
-	if !ok {
-		return nil
-	}
-
-	fsfreezeStatus := data.(api.FSFreeze)
-	return &fsfreezeStatus
-}
-
-// GetFS returns the filesystem list limited to the limit set
-// set limit to -1 to return the whole list
+// GetFS returns the filesystem list from the guest agent, restricted to a limit
+// set limit to -1 to return all
 func (s *AsyncAgentStore) GetFS(limit int) []api.Filesystem {
-	data, ok := s.store.Load(GetFilesystem)
+	data, ok := s.store.Load(libvirt.DOMAIN_GUEST_INFO_FILESYSTEM)
 	filesystems := []api.Filesystem{}
 	if !ok {
 		return filesystems
@@ -191,7 +155,6 @@ func (s *AsyncAgentStore) GetFS(limit int) []api.Filesystem {
 	return limitedFilesystems
 }
 
-// GetUsers return the use list limited to the limit set
 // set limit to -1 to return all users
 func (s *AsyncAgentStore) GetUsers(limit int) []api.User {
 	data, ok := s.store.Load(libvirt.DOMAIN_GUEST_INFO_USERS)
@@ -225,9 +188,6 @@ func (s *AsyncAgentStore) GetLoad() *stats.DomainStatsLoad {
 // PollerWorker collects the data from the guest agent
 // only unique items are stored as configuration
 type PollerWorker struct {
-	// AgentCommands is a list of commands executed on the guestAgent
-	AgentCommands []AgentCommand
-
 	// InfoTypes defines the type of guest info to fetch (if applicable)
 	InfoTypes libvirt.DomainGuestInfoTypes
 
@@ -288,10 +248,7 @@ func CreatePoller(
 	domainName string,
 	store *AsyncAgentStore,
 	qemuAgentSysInterval time.Duration,
-	qemuAgentFileInterval time.Duration,
 	qemuAgentUserInterval time.Duration,
-	qemuAgentVersionInterval time.Duration,
-	qemuAgentFSFreezeStatusInterval time.Duration,
 ) *AgentPoller {
 	return &AgentPoller{
 		Connection:     connection,
@@ -300,19 +257,6 @@ func CreatePoller(
 		agentConnected: false,
 		agentStore:     store,
 		workers: []PollerWorker{
-			// Polling for QEMU agent commands
-			{
-				CallTick:      qemuAgentVersionInterval,
-				AgentCommands: []AgentCommand{GetAgent},
-			},
-			{
-				CallTick:      qemuAgentFileInterval,
-				AgentCommands: []AgentCommand{GetFilesystem},
-			},
-			{
-				CallTick:      qemuAgentFSFreezeStatusInterval,
-				AgentCommands: []AgentCommand{GetFSFreezeStatus},
-			},
 			// Polling for guest info API
 			{
 				CallTick: qemuAgentSysInterval,
@@ -341,18 +285,10 @@ func (p *AgentPoller) Start() {
 	p.agentDone = make(chan struct{})
 
 	for _, worker := range p.workers {
-		if len(worker.AgentCommands) != 0 {
-			log.Log.Infof("Starting agent poller with commands: %v", worker.AgentCommands)
-		} else {
-			log.Log.Infof("Starting agent poller with API operations: %v", worker.InfoTypes)
-		}
+		log.Log.Infof("Starting agent poller with API operations: %v", worker.InfoTypes)
 
 		go worker.Poll(func() {
-			if len(worker.AgentCommands) != 0 {
-				executeAgentCommands(worker.AgentCommands, p)
-			} else {
-				fetchAndStoreGuestInfo(worker.InfoTypes, p)
-			}
+			fetchAndStoreGuestInfo(worker.InfoTypes, p)
 		}, p.agentDone, pollInitialInterval)
 	}
 }
@@ -395,52 +331,6 @@ func (p *AgentPoller) UpdateFromEvent(domainEvent *libvirt.DomainEventLifecycle,
 			p.agentConnected = true
 			p.Start()
 			return
-		}
-	}
-}
-
-// TODO: Remove all commands with this function
-//
-// GET_FSFREEZE_STATUS - This is not implemented in libvirt API and won't be
-// implemented (KubeVirt is expected to provide its own implementation for it).
-//
-// GET_FILESYSTEM - We are missing busType field in the response, which will
-// be included in libvirt 11.2 upstream later (https://gitlab.com/libvirt/libvirt-go-module/-/issues/18).
-//
-// GET_AGENT - According to libvirt engineers this command shouldn't be used
-// by KubeVirt, because it provides irrelevant information (version and supported commands).
-func executeAgentCommands(commands []AgentCommand, agentPoller *AgentPoller) {
-	log.Log.V(repeatingLogLevel).Infof("Polling command: %v", commands)
-
-	for _, command := range commands {
-		cmdResult, err := agentPoller.Connection.QemuAgentCommand(`{"execute":"`+string(command)+`"}`, agentPoller.domainName)
-		if err != nil {
-			// skip the command on error, it is not vital
-			continue
-		}
-
-		switch command {
-		case GetFSFreezeStatus:
-			fsfreezeStatus, err := ParseFSFreezeStatus(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent fsfreeze status %s", err.Error())
-				continue
-			}
-			agentPoller.agentStore.Store(GetFSFreezeStatus, fsfreezeStatus)
-		case GetFilesystem:
-			filesystems, err := parseFilesystem(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent filesystem %s", err.Error())
-				continue
-			}
-			agentPoller.agentStore.Store(GetFilesystem, filesystems)
-		case GetAgent:
-			agent, err := parseAgent(cmdResult)
-			if err != nil {
-				log.Log.Errorf("Cannot parse guest agent information %s", err.Error())
-				continue
-			}
-			agentPoller.agentStore.Store(GetAgent, agent)
 		}
 	}
 }
@@ -529,6 +419,7 @@ func convertToIPAddresses(ipAddresses []libvirt.DomainGuestInfoIPAddress) (prima
 	if interfaceIP == "" && len(interfaceIPs) > 0 {
 		interfaceIP = interfaceIPs[0]
 	}
+
 	return interfaceIP, interfaceIPs
 }
 
