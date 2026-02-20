@@ -73,7 +73,6 @@ go_test(
         "vmi_ignition_test.go",
         "vmi_kernel_boot_test.go",
         "vmi_lifecycle_test.go",
-        "vmi_multiqueue_test.go",
         "vmi_sound_test.go",
         "vmi_tpm_test.go",
         "vmi_vsock_test.go",

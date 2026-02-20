@@ -117,6 +117,12 @@ func InterfaceWithMac(iface *kvirtv1.Interface, macAddress string) *kvirtv1.Inte
 	return iface
 }
 
+// InterfaceWithModel decorates an existing Interface with a model.
+func InterfaceWithModel(iface kvirtv1.Interface, model string) kvirtv1.Interface {
+	iface.Model = model
+	return iface
+}
+
 // MultusNetwork returns a Network with the given name, associated to the given nad
 func MultusNetwork(name, nadName string) *kvirtv1.Network {
 	return &kvirtv1.Network{
