@@ -236,16 +236,10 @@ var _ = Describe(SIG("GuestAgent info", func() {
 			libwait.WaitForSuccessfulVMIStart(agentVMI)
 
 			By("VMI has the guest agent connected condition")
-			Eventually(func() []v1.VirtualMachineInstanceCondition {
-				freshVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-				return freshVMI.Status.Conditions
-			}, guestAgentConnectTimeout, 2*time.Second).Should(
-				ContainElement(
-					MatchFields(
-						IgnoreExtras,
-						Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
-				"Should have agent connected condition")
+			Eventually(matcher.ThisVMI(agentVMI)).
+				WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2 * time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 		})
 
 		It("[test_id:1676]should have attached a guest agent channel by default", func() {
@@ -285,7 +279,9 @@ var _ = Describe(SIG("GuestAgent info", func() {
 					return false
 				}
 				return updatedVmi.Status.GuestOSInfo.Name != ""
-			}, guestAgentConnectTimeout, 2*time.Second).Should(BeTrue(), "Should have guest OS Info in vmi status")
+			}).WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2*time.Second).
+				Should(BeTrue(), "Should have guest OS Info in vmi status")
 
 			Expect(err).ToNot(HaveOccurred())
 			Expect(updatedVmi.Status.GuestOSInfo.Name).To(ContainSubstring("Fedora"))
@@ -306,7 +302,9 @@ var _ = Describe(SIG("GuestAgent info", func() {
 					guestInfo.OS.Name != "" &&
 					len(guestInfo.FSInfo.Filesystems) > 0
 
-			}, guestAgentConnectTimeout, 2*time.Second).Should(BeTrue(), "Should have guest OS Info in subresource")
+			}).WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2*time.Second).
+				Should(BeTrue(), "Should have guest OS Info in subresource")
 		})
 
 		It("[test_id:4629]should return user list", func() {
@@ -322,7 +320,9 @@ var _ = Describe(SIG("GuestAgent info", func() {
 
 				return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
 
-			}, guestAgentConnectTimeout, 2*time.Second).Should(BeTrue(), "Should have fedora users")
+			}).WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2*time.Second).
+				Should(BeTrue(), "Should have fedora users")
 		})
 
 		It("[test_id:4630]should return filesystem list", func() {
@@ -337,7 +337,9 @@ var _ = Describe(SIG("GuestAgent info", func() {
 				return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" &&
 					len(fsList.Items[0].Disk) > 0 && fsList.Items[0].Disk[0].BusType != ""
 
-			}, guestAgentConnectTimeout, 2*time.Second).Should(BeTrue(), "Should have some filesystem")
+			}).WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2*time.Second).
+				Should(BeTrue(), "Should have some filesystem")
 		})
 	})
 
@@ -378,7 +380,9 @@ var _ = Describe(SIG("GuestAgent info", func() {
 					return err.Error()
 				}
 				return ""
-			}, guestAgentConnectTimeout, 2*time.Second).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
+			}).WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2*time.Second).
+				Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
 		})
 	})
 
