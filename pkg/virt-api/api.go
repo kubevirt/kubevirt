@@ -147,6 +147,8 @@ type virtAPIApp struct {
 var (
 	_                service.Service = &virtAPIApp{}
 	apiHealthVersion                 = new(healthz.KubeApiHealthzVersion)
+	// v3SpecCache caches OpenAPI v3 specs and their hashes for each group-version.
+	v3SpecCache = openapi.NewV3SpecCache()
 )
 
 func NewVirtApi() VirtApi {
@@ -873,6 +875,41 @@ func (app *virtAPIApp) composeSubresources() {
 			})
 			response.WriteAsJson(openapispec)
 		}))
+
+	ws.Route(ws.GET("openapi/v3").
+		Produces(restful.MIME_JSON).
+		To(func(request *restful.Request, response *restful.Response) {
+			discoveryPaths, err := v3SpecCache.BuildOpenAPIV3DiscoveryPaths(subwss, virtversion.Get().String())
+			if err != nil {
+				log.Log.Reason(err).Error("failed to build OpenAPI v3 discovery paths")
+				response.WriteErrorString(http.StatusInternalServerError, "failed to build OpenAPI v3 spec")
+				return
+			}
+			response.WriteAsJson(discoveryPaths)
+		}).Operation("getOpenAPIV3Discovery").
+		Doc("Get OpenAPI v3 discovery"))
+
+	for i, version := range v1.SubresourceGroupVersions {
+		i, version := i, version
+		gvPath := fmt.Sprintf("apis/%s/%s", version.Group, version.Version)
+		routePath := fmt.Sprintf("openapi/v3/%s", gvPath)
+		ws.Route(ws.GET(routePath).
+			Produces(restful.MIME_JSON).
+			To(func(request *restful.Request, response *restful.Response) {
+				specBytes, _, err := v3SpecCache.BuildV3Spec(gvPath, subwss[i], virtversion.Get().String())
+				if err != nil {
+					log.Log.Reason(err).Errorf("failed to build OpenAPI v3 spec for %s", gvPath)
+					response.WriteErrorString(http.StatusInternalServerError, "failed to build OpenAPI v3 spec")
+					return
+				}
+				response.ResponseWriter.Header().Set("Content-Type", restful.MIME_JSON)
+				response.ResponseWriter.Write(specBytes)
+			}).
+			Operation(fmt.Sprintf("getOpenAPIV3Spec_%s_%s", version.Group, version.Version)).
+			Doc(fmt.Sprintf("Get OpenAPI v3 specification for %s/%s", version.Group, version.Version)).
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusInternalServerError, "Internal Server Error", ""))
+	}
 
 	restful.Add(ws)
 }

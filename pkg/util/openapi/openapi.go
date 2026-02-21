@@ -1,11 +1,14 @@
 package openapi
 
 import (
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"strings"
+	"sync"
 
 	"github.com/emicklei/go-restful/v3"
 	openapi_spec "github.com/go-openapi/spec"
@@ -13,11 +16,14 @@ import (
 	openapi_validate "github.com/go-openapi/validate"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/builder"
+	builderv3 "k8s.io/kube-openapi/pkg/builder3"
 	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
+	handler3 "k8s.io/kube-openapi/pkg/handler3"
 	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/errors"
 	"k8s.io/kube-openapi/pkg/validation/spec"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 )
 
@@ -25,6 +31,91 @@ type Validator struct {
 	specSchemes   *openapi_spec.Schema
 	statusSchemes *openapi_spec.Schema
 	topLevelKeys  map[string]interface{}
+}
+
+// V3SpecCache caches OpenAPI v3 specs and their hashes for each group-version.
+// The hash is computed as SHA-512 of the JSON-serialized spec, matching Kubernetes'
+// kube-openapi handler3 implementation (computeETag in pkg/handler3/handler.go).
+type V3SpecCache struct {
+	mu     sync.RWMutex
+	specs  map[string][]byte
+	hashes map[string]string
+}
+
+// NewV3SpecCache creates a new V3SpecCache instance.
+func NewV3SpecCache() *V3SpecCache {
+	return &V3SpecCache{
+		specs:  make(map[string][]byte),
+		hashes: make(map[string]string),
+	}
+}
+
+// GetSpec retrieves a cached spec and its hash for the given group-version path.
+// Returns the JSON bytes, the hash, and a boolean indicating whether the entry exists.
+func (c *V3SpecCache) GetSpec(gvPath string) ([]byte, string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	specBytes, ok := c.specs[gvPath]
+	if !ok {
+		return nil, "", false
+	}
+	return specBytes, c.hashes[gvPath], true
+}
+
+// storeSpec caches the JSON-serialized spec for a group-version path,
+// computing and storing the SHA-512 hash alongside it.
+// Returns the computed hash.
+func (c *V3SpecCache) storeSpec(gvPath string, specBytes []byte) string {
+	hash := fmt.Sprintf("%X", sha512.Sum512(specBytes))
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.specs[gvPath] = specBytes
+	c.hashes[gvPath] = hash
+	return hash
+}
+
+// BuildOpenAPIV3DiscoveryPaths builds the OpenAPI v3 discovery response paths
+// for all subresource group-versions.
+func (c *V3SpecCache) BuildOpenAPIV3DiscoveryPaths(subwss []*restful.WebService, apiVersion string) (handler3.OpenAPIV3Discovery, error) {
+	discovery := handler3.OpenAPIV3Discovery{Paths: make(map[string]handler3.OpenAPIV3DiscoveryGroupVersion)}
+	for i, gv := range v1.SubresourceGroupVersions {
+		gvPath := path.Join("apis", gv.Group, gv.Version)
+		_, hash, err := c.BuildV3Spec(gvPath, subwss[i], apiVersion)
+		if err != nil {
+			return handler3.OpenAPIV3Discovery{}, fmt.Errorf("failed to build OpenAPI v3 spec for %s: %w", gvPath, err)
+		}
+		discovery.Paths[gvPath] = handler3.OpenAPIV3DiscoveryGroupVersion{
+			ServerRelativeURL: "/openapi/v3/" + gvPath + "?hash=" + hash,
+		}
+	}
+
+	return discovery, nil
+}
+
+// BuildV3Spec retrieves a cached OpenAPI v3 spec or builds one from the given
+// WebService, caches it, and returns the JSON bytes and SHA-512 hash.
+// The version parameter sets the spec's Info.Version field.
+func (c *V3SpecCache) BuildV3Spec(gvPath string, ws *restful.WebService, version string) ([]byte, string, error) {
+	if specBytes, hash, ok := c.GetSpec(gvPath); ok {
+		return specBytes, hash, nil
+	}
+
+	config := CreateV3Config()
+	config.GetDefinitions = api.GetOpenAPIDefinitions
+	openapiV3Spec, err := builderv3.BuildOpenAPISpecFromRoutes(
+		restfuladapter.AdaptWebServices([]*restful.WebService{ws}), config)
+	if err != nil {
+		return nil, "", err
+	}
+	openapiV3Spec.Info.Version = version
+
+	specBytes, err := json.Marshal(openapiV3Spec)
+	if err != nil {
+		return nil, "", err
+	}
+
+	hash := c.storeSpec(gvPath, specBytes)
+	return specBytes, hash, nil
 }
 
 func CreateConfig() *common.Config {
