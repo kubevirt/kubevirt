@@ -1,8 +1,10 @@
 ARG BUILD_ARCH=amd64
+ARG CENTOS_STREAM_VERSION=9
 
 FROM quay.io/kubevirt/builder:2510281240-82d14f4b41 AS builder
 
 ARG BUILD_ARCH
+ARG CENTOS_STREAM_VERSION=9
 
 WORKDIR /workspace
 
@@ -17,9 +19,9 @@ RUN source /etc/profile.d/gimme.sh && \
         s390x|crossbuild-s390x) BAZEL_ARCH="s390x" ;; \
         *) echo "ERROR: Unsupported BUILD_ARCH: ${BUILD_ARCH}"; exit 1 ;; \
     esac && \
-    bazel build //rpm:testimage_${BAZEL_ARCH} && \
+    bazel build --config=cs${CENTOS_STREAM_VERSION} //rpm:testimage_${BAZEL_ARCH} && \
     mkdir -p /rootfs && \
-    tar -xf bazel-bin/rpm/testimage_${BAZEL_ARCH}.tar -C /rootfs \
+    tar -xf bazel-bin/rpm/testimage_${BAZEL_ARCH}_cs${CENTOS_STREAM_VERSION}.tar -C /rootfs \
         --exclude='./var/run/*' && \
     if [ ! -L /rootfs/var/run ]; then \
         rm -rf /rootfs/var/run && \
