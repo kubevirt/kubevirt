@@ -28,7 +28,7 @@ import (
 const (
 	// NodeUnresponsiveReason is in various places as reason to indicate that
 	// an action was taken because virt-handler became unresponsive.
-	NodeUnresponsiveReason = "NodeUnresponsive"
+	NodeUnresponsiveReason string = string(virtv1.NodeUnresponsiveReason)
 )
 
 // Controller is the main Controller struct.
