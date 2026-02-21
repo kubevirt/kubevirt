@@ -157,6 +157,15 @@ func (c *Controller) handleBackendStorage(vmi *virtv1.VirtualMachineInstance) (s
 			return "", common.NewSyncError(err, controller.FailedBackendStorageCreateReason)
 		}
 	}
+
+	vm := c.getOwnerVM(vmi)
+	if vm != nil {
+		// Add the backend storage PVC to the VM status
+		if err := c.backendStorage.UpdatePersistentStateVolume(vm, pvc); err != nil {
+			return "", common.NewSyncError(err, controller.FailedBackendStorageUpdateReason)
+		}
+	}
+
 	return pvc.Name, nil
 }
 

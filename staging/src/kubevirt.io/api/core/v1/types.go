@@ -2128,6 +2128,12 @@ type VirtualMachineStatus struct {
 	// +optional
 	ChangedBlockTracking *ChangedBlockTrackingStatus `json:"changedBlockTracking,omitempty" optional:"true"`
 
+	// PersistentStateVolume tracks the backend storage PVC status
+	// containing persistent VM state (UEFI, TPM, CBT)
+	// +nullable
+	// +optional
+	PersistentStateVolume *VolumeStatus `json:"persistentStateVolume,omitempty" optional:"true"`
+
 	// InstancetypeRef captures the state of any referenced instance type from the VirtualMachine
 	//+nullable
 	//+optional

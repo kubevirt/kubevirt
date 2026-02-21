@@ -118,6 +118,7 @@ type Controller struct {
 	clientset                         kubecli.KubevirtClient
 	Queue                             priorityqueue.PriorityQueue[string]
 	vmiStore                          cache.Store
+	vmStore                           cache.Store
 	podIndexer                        cache.Indexer
 	migrationIndexer                  cache.Indexer
 	nodeStore                         cache.Store
@@ -147,6 +148,7 @@ type Controller struct {
 
 func NewController(templateService templateService,
 	vmiInformer cache.SharedIndexInformer,
+	vmInformer cache.SharedIndexInformer,
 	podInformer cache.SharedIndexInformer,
 	migrationInformer cache.SharedIndexInformer,
 	nodeInformer cache.SharedIndexInformer,
@@ -169,6 +171,7 @@ func NewController(templateService templateService,
 			o.MetricProvider = workqueuemetrics.NewPrometheusMetricsProvider()
 		}),
 		vmiStore:                vmiInformer.GetStore(),
+		vmStore:                 vmInformer.GetStore(),
 		podIndexer:              podInformer.GetIndexer(),
 		migrationIndexer:        migrationInformer.GetIndexer(),
 		nodeStore:               nodeInformer.GetStore(),
@@ -194,6 +197,7 @@ func NewController(templateService templateService,
 	c.virtControllerVMIMWorkQueueTracer = &traceUtils.Tracer{Threshold: time.Second}
 	c.hasSynced = func() bool {
 		return vmiInformer.HasSynced() &&
+			vmInformer.HasSynced() &&
 			podInformer.HasSynced() &&
 			migrationInformer.HasSynced() &&
 			resourceQuotaInformer.HasSynced() &&
@@ -506,7 +510,8 @@ func (c *Controller) canMigrateVMI(migration *virtv1.VirtualMachineInstanceMigra
 }
 
 func (c *Controller) failMigration(migration *virtv1.VirtualMachineInstanceMigration) error {
-	err := backendstorage.MigrationAbort(c.clientset, migration)
+	bs := backendstorage.NewBackendStorage(c.clientset, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
+	err := bs.MigrationAbort(migration)
 	if err != nil {
 		return err
 	}
@@ -520,7 +525,8 @@ func (c *Controller) interruptMigration(migration *virtv1.VirtualMachineInstance
 		return c.failMigration(migration)
 	}
 
-	return backendstorage.RecoverFromBrokenMigration(c.clientset, migration, c.pvcStore, vmi, c.templateService.GetLauncherImage())
+	bs := backendstorage.NewBackendStorage(c.clientset, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
+	return bs.RecoverFromBrokenMigration(migration, vmi, c.getOwnerVM(vmi), c.templateService.GetLauncherImage())
 }
 
 func (c *Controller) updateStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance, pods []*k8sv1.Pod, syncError error) error {
@@ -820,7 +826,8 @@ func (c *Controller) processMigrationPhase(
 			_, exists := pod.Annotations[virtv1.MigrationTargetReadyTimestamp]
 			if !exists && vmi.Status.MigrationState.TargetNodeDomainReadyTimestamp != nil {
 				if backendstorage.IsBackendStorageNeeded(vmi) {
-					err := backendstorage.MigrationHandoff(c.clientset, c.pvcStore, migration)
+					bs := backendstorage.NewBackendStorage(c.clientset, c.clusterConfig, c.storageClassStore, c.storageProfileStore, c.pvcStore)
+					err := bs.MigrationHandoff(migration, c.getOwnerVM(vmi))
 					if err != nil {
 						return err
 					}
@@ -2593,4 +2600,8 @@ func getTargetPodMemoryRequests(pod *k8sv1.Pod) (string, error) {
 	}
 
 	return memReq.String(), nil
+}
+
+func (c *Controller) getOwnerVM(vmi *virtv1.VirtualMachineInstance) *virtv1.VirtualMachine {
+	return controller.GetOwnerVM(vmi, c.vmStore)
 }

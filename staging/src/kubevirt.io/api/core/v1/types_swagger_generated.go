@@ -500,6 +500,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"runStrategy":            "RunStrategy tracks the last recorded RunStrategy used by the VM.\nThis is needed to correctly process the next strategy (for now only the RerunOnFailure)",
 		"volumeUpdateState":      "VolumeUpdateState contains the information about the volumes set\nupdates related to the volumeUpdateStrategy",
 		"changedBlockTracking":   "ChangedBlockTracking represents the status of the changedBlockTracking\n+nullable\n+optional",
+		"persistentStateVolume":  "PersistentStateVolume tracks the backend storage PVC status\ncontaining persistent VM state (UEFI, TPM, CBT)\n+nullable\n+optional",
 		"instancetypeRef":        "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine\n+nullable\n+optional",
 		"preferenceRef":          "PreferenceRef captures the state of any referenced preference from the VirtualMachine\n+nullable\n+optional",
 	}

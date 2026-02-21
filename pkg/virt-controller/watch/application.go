@@ -757,6 +757,7 @@ func (vca *VirtControllerApp) initCommon() {
 	vca.migrationController, err = migration.NewController(
 		vca.templateService,
 		vca.vmiInformer,
+		vca.vmInformer,
 		vca.kvPodInformer,
 		vca.migrationInformer,
 		vca.nodeInformer,
