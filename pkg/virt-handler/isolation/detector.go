@@ -119,8 +119,17 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 			continue
 		}
 
-		// make the best estimate for memory required by libvirt
-		memlockSize := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
+		// Use the stored memory overhead from VMI status if available to ensure
+		// consistency with the actual pod configuration, especially after upgrades.
+		var memlockSize resource.Quantity
+		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
+			memlockSize = *vmi.Status.MigrationState.TargetMemoryOverhead
+		} else {
+			// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
+			// and we are sure that all VMIs include the MemoryOverhead status field
+			memlockSize = hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
+		}
+
 		// Add base memory requested for the VM
 		var vmiBaseMemory *resource.Quantity
 		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
@@ -159,8 +168,16 @@ func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.
 		return err
 	}
 	qemuProcessID := qemuProcess.Pid()
-	// make the best estimate for memory required by libvirt
-	memlockSize := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
+	// Use the stored memory overhead from VMI status if available to ensure
+	// consistency with the actual pod configuration, especially after upgrades.
+	var memlockSize resource.Quantity
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
+		memlockSize = *vmi.Status.MigrationState.TargetMemoryOverhead
+	} else {
+		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
+		// and we are sure that all VMIs include the MemoryOverhead status field
+		memlockSize = hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
+	}
 	// Add max memory assigned to the VM
 	var vmiBaseMemory *resource.Quantity
 

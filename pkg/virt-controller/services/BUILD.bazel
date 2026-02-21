@@ -25,6 +25,7 @@ go_library(
         "//pkg/network/downwardapi:go_default_library",
         "//pkg/network/istio:go_default_library",
         "//pkg/network/multus:go_default_library",
+        "//pkg/network/resources:go_default_library",
         "//pkg/network/vmispec:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/storage/backend-storage:go_default_library",

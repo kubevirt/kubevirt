@@ -55,6 +55,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
+	netresources "kubevirt.io/kubevirt/pkg/network/resources"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
@@ -549,6 +550,12 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	if tempPod {
 		// mark pod as temp - only used for provisioning
 		podAnnotations[v1.EphemeralProvisioningObject] = "true"
+	}
+
+	if t.clusterConfig.VmiMemoryOverheadReportEnabled() {
+		launcherHypervisorResources := hypervisor.NewLauncherHypervisorResources(t.clusterConfig.GetHypervisor().Name)
+		memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, netresources.MemoryCalculator{}, vmi, launcherHypervisorResources)
+		podAnnotations[v1.MemoryOverheadAnnotationBytes] = strconv.FormatInt(memoryOverhead.Value(), 10)
 	}
 
 	var initContainers []k8sv1.Container
@@ -1555,6 +1562,8 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 	}
 }
 
+// TODO: Make this function private (calculateMemoryOverhead) once VmiMemoryOverheadReport feature gate is GA
+// and we are sure that all VMIs include the MemoryOverhead status field
 func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netMemoryCalculator netMemoryCalculator, vmi *v1.VirtualMachineInstance, launcherHypervisorResources hypervisor.LauncherHypervisorResources) resource.Quantity {
 	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
 	vmiCPUArch := vmi.Spec.Architecture

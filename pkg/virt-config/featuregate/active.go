@@ -186,6 +186,13 @@ const (
 	// enabling the VM controller to recreate the VMI with updated configuration.
 	RebootPolicy = "RebootPolicy"
 
+	// Owner: @bmordeha
+	// Alpha: v1.8.0
+	//
+	// VmiMemoryOverheadReport enables reporting the memory overhead in the VMI status.
+	// When enabled, the memory overhead is calculated and set in the VMI status.Memory.MemoryOverhead field.
+	VmiMemoryOverheadReport = "VmiMemoryOverheadReport"
+
 	// Owner: sig-compute / @0xFelix
 	// Template enables the deployment of virt-template components by virt-operator.
 	// Alpha: v1.8.0
@@ -230,5 +237,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: PodSecondaryInterfaceNamingUpgrade, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: DisableNADResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VmiMemoryOverheadReport, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
 }
