@@ -20,11 +20,14 @@
 package device_manager
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -35,72 +38,171 @@ import (
 )
 
 var _ = Describe("Socket device", func() {
-	var dpi *SocketDevicePlugin
-	var sockDevPath string
+	var (
+		workDir     string
+		dpi         *SocketDevicePlugin
+		stop        chan struct{}
+		sockDevPath string
+	)
 	const socket = "fake-test.sock"
 
 	BeforeEach(func() {
-		var err error
-		workDir := GinkgoT().TempDir()
-		Expect(err).ToNot(HaveOccurred())
+		workDir = GinkgoT().TempDir()
 		sockDevPath = path.Join(workDir, socket)
 		createFile(sockDevPath)
 
 		ctrl := gomock.NewController(GinkgoT())
 		mockExec := selinux.NewMockExecutor(ctrl)
-		mockPermManager := NewMockPermissionManager(ctrl)
 		mockSelinux := selinux.NewMockSELinux(ctrl)
+		mockPermManager := NewMockpermissionManager(ctrl)
 		mockExec.EXPECT().NewSELinux().Return(mockSelinux, true, nil).AnyTimes()
-		mockSelinux.EXPECT().IsPermissive().Return(true).AnyTimes()
 		mockPermManager.EXPECT().ChownAtNoFollow(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-		dpi, err = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, mockPermManager)
-		Expect(err).ToNot(HaveOccurred())
+		mockSelinux.EXPECT().IsPermissive().Return(true).AnyTimes()
+		dpi = NewSocketDevicePlugin("test", workDir, socket, 1, mockExec, mockPermManager, false)
 		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
 		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
 		createFile(dpi.socketPath)
 		dpi.done = make(chan struct{})
-		stop := make(chan struct{})
+		stop = make(chan struct{})
 		dpi.stop = stop
-		DeferCleanup(func() { close(stop) })
+		dpi.skipDupHealthChecks = false
+	})
+
+	AfterEach(func() {
+		close(stop)
+		dpi.skipDupHealthChecks = true
 	})
 
 	It("Should stop if the device plugin socket file is deleted", func() {
+
 		errChan := make(chan error, 1)
-		go func(errChan chan error) {
-			errChan <- dpi.healthCheck()
-		}(errChan)
-		Consistently(func() string {
-			return dpi.devs[0].Health
-		}, 500*time.Millisecond, 100*time.Millisecond).Should(Equal(pluginapi.Healthy))
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go func() {
+			errChan <- dpi.healthCheck(healthCheckContext)
+		}()
+
+		By("waiting for initial healthcheck to send Healthy message")
+		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
+
 		Expect(os.Remove(dpi.socketPath)).To(Succeed())
 
-		Expect(<-errChan).ToNot(HaveOccurred())
+		Eventually(errChan, 5*time.Second).Should(Receive(Not(HaveOccurred())))
 	})
 
 	It("Should monitor health of device node", func() {
-		go dpi.healthCheck()
-		Expect(dpi.devs[0].Health).To(Equal(pluginapi.Healthy))
+		By("Confirming that the device begins as unhealthy")
+		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
+
+		By("waiting for initial healthcheck to send Healthy message")
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go dpi.healthCheck(healthCheckContext)
+		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
 
 		By("Removing a (fake) device node")
-		os.Remove(sockDevPath)
+		err = os.Remove(sockDevPath)
+		Expect(err).ToNot(HaveOccurred())
 
 		By("waiting for healthcheck to send Unhealthy message")
-		Eventually(func() string {
-			return (<-dpi.health).Health
-		}, 5*time.Second).Should(Equal(pluginapi.Unhealthy))
+		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Unhealthy))
 
 		By("Creating a new (fake) device node")
 		createFile(sockDevPath)
 
 		By("waiting for healthcheck to send Healthy message")
-		Eventually(func() string {
-			return (<-dpi.health).Health
-		}, 5*time.Second).Should(Equal(pluginapi.Healthy))
+		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Healthy))
+	})
+
+	It("Should mark device unhealthy on SELinux failure", func() {
+		// Create a new DPI with a failing executor
+		ctrl := gomock.NewController(GinkgoT())
+		failingMockExec := selinux.NewMockExecutor(ctrl)
+		// mock NewSELinux to return error
+		failingMockExec.EXPECT().NewSELinux().Return(nil, false, fmt.Errorf("selinux error")).AnyTimes()
+
+		// Re-create dpi with failing executor
+		dpi = NewSocketDevicePlugin("test", workDir, socket, 1, failingMockExec, newPermissionManager(), false)
+		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+		dpi.socketPath = filepath.Join(workDir, "kubevirt-test.sock")
+		dpi.stop = stop
+
+		_, err := os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		Expect(err).ToNot(HaveOccurred())
+
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go dpi.healthCheck(healthCheckContext)
+
+		By("Confirming that the device reports unhealthy due to SELinux failure")
+		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		Expect(dpi.getDevHealthByIndex(0)).To(Equal(pluginapi.Unhealthy))
+	})
+
+	It("Should setup watcher for socket device", func() {
+		watcher, err := fsnotify.NewWatcher()
+		Expect(err).ToNot(HaveOccurred())
+		defer watcher.Close()
+
+		monitoredDevices := make(map[string]string)
+		err = dpi.setupMonitoredDevicesFunc(watcher, monitoredDevices)
+		Expect(err).ToNot(HaveOccurred())
+
+		Expect(monitoredDevices).To(HaveLen(1))
+		Expect(watcher.WatchList()).To(ContainElement(workDir))
+	})
+
+	It("Should return error if parent directory cannot be watched", func() {
+		ctrl := gomock.NewController(GinkgoT())
+		mockExec := selinux.NewMockExecutor(ctrl)
+
+		badDpi := NewSocketDevicePlugin("test", "/nonexistent/dir", "test.sock", 1, mockExec, nil, false)
+
+		watcher, _ := fsnotify.NewWatcher()
+		defer watcher.Close()
+
+		err := badDpi.setupMonitoredDevicesFunc(watcher, make(map[string]string))
+		Expect(err).To(MatchError(ContainSubstring("failed to add the device parent directory")))
+	})
+
+	It("Should allocate the device", func() {
+		allocateRequest := &pluginapi.AllocateRequest{
+			ContainerRequests: []*pluginapi.ContainerAllocateRequest{
+				{
+					DevicesIDs: []string{dpi.devs[0].ID},
+				},
+			},
+		}
+
+		allocateResponse, err := dpi.Allocate(context.Background(), allocateRequest)
+		socketDir := filepath.Dir(dpi.devicePath)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(allocateResponse.ContainerResponses).To(HaveLen(1))
+		Expect(allocateResponse.ContainerResponses[0].Mounts).To(HaveLen(1))
+		Expect(allocateResponse.ContainerResponses[0].Mounts[0].HostPath).To(Equal(socketDir))
+		Expect(allocateResponse.ContainerResponses[0].Mounts[0].ContainerPath).To(Equal(socketDir))
+		Expect(allocateResponse.ContainerResponses[0].Mounts[0].ReadOnly).To(BeFalse())
 	})
 })
 
 func createFile(path string) {
+	// create parent director(y,ies) if it doesn't exist
+	dir := filepath.Dir(path)
+	err := os.MkdirAll(dir, 0755)
+	Expect(err).ToNot(HaveOccurred())
+	// create file
 	fileObj, err := os.Create(path)
 	Expect(err).ToNot(HaveOccurred())
-	fileObj.Close()
+	err = fileObj.Close()
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func expectAllDevHealthIs(devs []*pluginapi.Device, expectedHealth string) {
+	for _, dev := range devs {
+		Expect(dev.Health).To(Equal(expectedHealth))
+	}
 }
