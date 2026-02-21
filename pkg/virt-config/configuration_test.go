@@ -8,9 +8,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	kubev1 "k8s.io/api/core/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/tools/cache"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -833,6 +835,102 @@ var _ = Describe("test configuration", func() {
 			false,
 		),
 	)
+
+	Context("HasCRDAPI", func() {
+		var crdInformer cache.SharedIndexInformer
+		var kvInformer cache.SharedIndexInformer
+		var cfg *virtconfig.ClusterConfig
+		addCustomResourceDefinition := func(crdInformer cache.SharedIndexInformer, group, kind string) {
+			crd := &extv1.CustomResourceDefinition{
+				Spec: extv1.CustomResourceDefinitionSpec{
+					Group: group,
+					Names: extv1.CustomResourceDefinitionNames{Kind: kind},
+				},
+			}
+			crdInformer.GetStore().Replace([]interface{}{crd}, "1")
+		}
+
+		BeforeEach(func() {
+			crdInformer, _ = testutils.NewFakeInformerFor(&extv1.CustomResourceDefinition{})
+			kvInformer, _ = testutils.NewFakeInformerFor(&v1.KubeVirt{})
+
+			var err error
+			cfg, err = virtconfig.NewClusterConfig(crdInformer, kvInformer, "kubevirt")
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		It("returns true for a CDI DataSource CRD", func() {
+			addCustomResourceDefinition(crdInformer, virtconfig.CdiGroupName, "DataSource")
+
+			Expect(cfg.HasDataSourceAPI()).To(BeTrue())
+		})
+
+		It("returns true for a CDI DataVolume CRD", func() {
+			addCustomResourceDefinition(crdInformer, virtconfig.CdiGroupName, "DataVolume")
+
+			Expect(cfg.HasDataVolumeAPI()).To(BeTrue())
+		})
+
+		It("returns false for DataSource when group is wrong even if kind matches", func() {
+			addCustomResourceDefinition(crdInformer, "not.kubevirt.io", "DataSource")
+
+			Expect(cfg.HasDataSourceAPI()).To(BeFalse())
+		})
+
+		It("returns false for DataSource when kind differs even if group matches", func() {
+			addCustomResourceDefinition(crdInformer, virtconfig.CdiGroupName, "NotDataSource")
+
+			Expect(cfg.HasDataSourceAPI()).To(BeFalse())
+		})
+
+		It("returns false for DataVolume when group is wrong even if kind matches", func() {
+			addCustomResourceDefinition(crdInformer, "not.kubevirt.io", "DataVolume")
+
+			Expect(cfg.HasDataVolumeAPI()).To(BeFalse())
+		})
+
+		It("returns false for DataVolume when kind differs even if group matches", func() {
+			addCustomResourceDefinition(crdInformer, virtconfig.CdiGroupName, "NotDataVolume")
+
+			Expect(cfg.HasDataVolumeAPI()).To(BeFalse())
+		})
+
+		It("returns true for a ServiceMonitor CRD", func() {
+			addCustomResourceDefinition(crdInformer, virtconfig.MonitoringGroupName, "ServiceMonitor")
+
+			Expect(cfg.HasServiceMonitorAPI()).To(BeTrue())
+		})
+
+		It("returns true for a PrometheusRule CRD", func() {
+			addCustomResourceDefinition(crdInformer, virtconfig.MonitoringGroupName, "PrometheusRule")
+
+			Expect(cfg.HasPrometheusRuleAPI()).To(BeTrue())
+		})
+
+		It("returns false for ServiceMonitor when group is wrong even if kind matches", func() {
+			addCustomResourceDefinition(crdInformer, "not.coreos.com", "ServiceMonitor")
+
+			Expect(cfg.HasServiceMonitorAPI()).To(BeFalse())
+		})
+
+		It("returns false for ServiceMonitor when kind differs even if group matches", func() {
+			addCustomResourceDefinition(crdInformer, virtconfig.MonitoringGroupName, "NotServiceMonitor")
+
+			Expect(cfg.HasServiceMonitorAPI()).To(BeFalse())
+		})
+
+		It("returns false for PrometheusRule when group is wrong even if kind matches", func() {
+			addCustomResourceDefinition(crdInformer, "not.coreos.com", "PrometheusRule")
+
+			Expect(cfg.HasPrometheusRuleAPI()).To(BeFalse())
+		})
+
+		It("returns false for PrometheusRule when kind differs even if group matches", func() {
+			addCustomResourceDefinition(crdInformer, virtconfig.MonitoringGroupName, "NotPrometheusRule")
+
+			Expect(cfg.HasPrometheusRuleAPI()).To(BeFalse())
+		})
+	})
 
 	Context("GetHypervisor", func() {
 		var KvmHypervisorConfig = v1.HypervisorConfiguration{

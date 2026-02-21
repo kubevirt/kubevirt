@@ -88,11 +88,27 @@ func RemoveDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 func AddDataVolumeAPI(crdInformer cache.SharedIndexInformer) {
 	crdInformer.GetStore().Add(&extv1.CustomResourceDefinition{
 		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: "cdi.kubevirt.io",
 			Names: extv1.CustomResourceDefinitionNames{
 				Kind: "DataVolume",
 			},
 		},
 	})
+}
+
+func AddDataSourceAPI(crdInformer cache.SharedIndexInformer) {
+	crdInformer.GetStore().Add(&extv1.CustomResourceDefinition{
+		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: "cdi.kubevirt.io",
+			Names: extv1.CustomResourceDefinitionNames{
+				Kind: "DataSource",
+			},
+		},
+	})
+}
+
+func RemoveDataSourceAPI(crdInformer cache.SharedIndexInformer) {
+	crdInformer.GetStore().Replace(nil, "")
 }
 
 func GetFakeKubeVirtClusterConfig(kubeVirtStore cache.Store) *KVv1.KubeVirt {
@@ -117,6 +133,7 @@ func AddServiceMonitorAPI(crdInformer cache.SharedIndexInformer) {
 			Name: "service-monitors.monitoring.coreos.com",
 		},
 		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: "monitoring.coreos.com",
 			Names: extv1.CustomResourceDefinitionNames{
 				Kind: "ServiceMonitor",
 			},
@@ -134,6 +151,7 @@ func AddPrometheusRuleAPI(crdInformer cache.SharedIndexInformer) {
 			Name: "prometheusrules.monitoring.coreos.com",
 		},
 		Spec: extv1.CustomResourceDefinitionSpec{
+			Group: "monitoring.coreos.com",
 			Names: extv1.CustomResourceDefinitionNames{
 				Kind: "PrometheusRule",
 			},
