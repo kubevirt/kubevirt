@@ -1121,6 +1121,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "instancetype-",
 					},
 					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: uint32(1),
+						},
 						Memory: instancetypev1beta1.MemoryInstancetype{
 							Guest: resource.MustParse("2Gi"),
 						},
@@ -1450,6 +1453,9 @@ var _ = Describe("[crit:medium][vendor:cnv-qe@redhat.com][level:component][sig-c
 						GenerateName: "instancetype-",
 					},
 					Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
+						CPU: instancetypev1beta1.CPUInstancetype{
+							Guest: uint32(1),
+						},
 						Memory: instancetypev1beta1.MemoryInstancetype{
 							Guest: resource.MustParse("1Gi"),
 						},
