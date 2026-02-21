@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage"
@@ -372,6 +373,8 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 		e.updateStatus(&domain.Status)
 	}
 
+	handleStartingUp(domain, libvirtEvent, metadataCache)
+
 	eventType := watch.Modified
 
 	switch domain.Status.Reason {
@@ -429,6 +432,27 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 		log.Log.Reason(err).Error("Could not send domain notify event.")
 	}
 	client.updateEvents(event, domain, events)
+}
+
+// handleStartingUp manages the StartingUp metadata flag for a domain.
+// It sets the StartingUp flag to false when the domain has successfully started,
+// transitioning from the startup phase to a running or paused state.
+// This is used to track when a VM has completed its initial boot process.
+func handleStartingUp(domain *api.Domain, libvirtEvent libvirtEvent, metadataCache *metadata.Cache) {
+	// Check if the domain is currently marked as starting up (or the flag is unset)
+	// AND check if any of the following conditions indicate successful startup:
+	// - Domain is in Running state
+	// - Domain is in Paused state
+	// - A libvirt event was received
+	// - The event is specifically DOMAIN_EVENT_STARTED with STARTED_BOOTED detail
+	if (domain.Spec.Metadata.KubeVirt.StartingUp == nil || *domain.Spec.Metadata.KubeVirt.StartingUp == true) &&
+		domain.Status.Status == api.Running || domain.Status.Status == api.Paused ||
+		(libvirtEvent.Event != nil && libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_STARTED &&
+			libvirt.DomainEventStartedDetailType(libvirtEvent.Event.Detail) == libvirt.DOMAIN_EVENT_STARTED_BOOTED) {
+		// Mark the domain as no longer starting up
+		domain.Spec.Metadata.KubeVirt.StartingUp = pointer.P(false)
+		metadataCache.StartingUp.Store(false)
+	}
 }
 
 func (n *Notifier) StartDomainNotifier(

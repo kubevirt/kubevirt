@@ -72,6 +72,11 @@ func (l *launcherClientsManager) GetVerifiedLauncherClient(vmi *v1.VirtualMachin
 	// Verify connectivity.
 	// It's possible the pod has already been torn down along with the VirtualMachineInstance.
 	err = client.Ping()
+	if err == nil {
+		return
+	}
+
+	_, err = cmdclient.FindSocket(vmi)
 	return
 }
 
