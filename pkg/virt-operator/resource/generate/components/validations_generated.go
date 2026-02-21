@@ -8430,6 +8430,9 @@ var CRDsValidation map[string]string = map[string]string{
                   description: EndTimestamp is the timestamp when the backup ended
                   format: date-time
                   type: string
+                failed:
+                  description: Failed indicates that the backup failed
+                  type: boolean
                 startTimestamp:
                   description: StartTimestamp is the timestamp when the backup started
                   format: date-time
@@ -14302,6 +14305,9 @@ var CRDsValidation map[string]string = map[string]string{
                   description: EndTimestamp is the timestamp when the backup ended
                   format: date-time
                   type: string
+                failed:
+                  description: Failed indicates that the backup failed
+                  type: boolean
                 startTimestamp:
                   description: StartTimestamp is the timestamp when the backup started
                   format: date-time
@@ -31293,6 +31299,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 backup ended
                               format: date-time
                               type: string
+                            failed:
+                              description: Failed indicates that the backup failed
+                              type: boolean
                             startTimestamp:
                               description: StartTimestamp is the timestamp when the
                                 backup started

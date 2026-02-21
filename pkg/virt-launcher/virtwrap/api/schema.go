@@ -441,10 +441,12 @@ type MigrationMetadata struct {
 
 type BackupMetadata struct {
 	Name           string       `xml:"name,omitempty"`
+	Mode           string       `xml:"mode,omitempty"`
 	SkipQuiesce    bool         `xml:"skipQuiesce,omitempty"`
 	StartTimestamp *metav1.Time `xml:"startTimestamp,omitempty"`
 	EndTimestamp   *metav1.Time `xml:"endTimestamp,omitempty"`
 	Completed      bool         `xml:"completed,omitempty"`
+	Failed         bool         `xml:"failed,omitempty"`
 	BackupMsg      string       `xml:"backupMsg,omitempty"`
 	CheckpointName string       `xml:"checkpointName,omitempty"`
 	Volumes        string       `xml:"volumes,omitempty"`
