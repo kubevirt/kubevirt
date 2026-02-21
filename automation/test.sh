@@ -66,6 +66,7 @@ case "$TARGET" in
     echo "picking the default provider for windows tests"
     ;;
   *sig-network*)
+    export KUBEVIRT_NO_BAZEL=true
     export KUBEVIRT_WITH_DYN_NET_CTRL="${KUBEVIRT_WITH_DYN_NET_CTRL:-false}"
     export KUBEVIRT_NUM_NODES=3
     export KUBEVIRT_WITH_CNAO=true
@@ -76,6 +77,7 @@ case "$TARGET" in
     export KUBEVIRT_PROVIDER=${TARGET/-sig-network*/}
     ;;
   *sig-storage*)
+    export KUBEVIRT_NO_BAZEL=true
     export KUBEVIRT_PROVIDER=${TARGET/-sig-storage/}
     export KUBEVIRT_STORAGE="rook-ceph-default"
     export KUBEVIRT_DEPLOY_NFS_CSI=true
