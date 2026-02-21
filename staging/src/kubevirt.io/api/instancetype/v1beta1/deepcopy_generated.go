@@ -230,6 +230,11 @@ func (in *DevicePreferences) DeepCopyInto(out *DevicePreferences) {
 		*out = new(v1.PanicDeviceModel)
 		**out = **in
 	}
+	if in.PreferredVideoType != nil {
+		in, out := &in.PreferredVideoType, &out.PreferredVideoType
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 
