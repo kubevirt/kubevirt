@@ -15,12 +15,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
-	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 )
 
 var _ = Describe("Container spec renderer", func() {
 	var vsr *VolumeRenderer
-	var config *virtconfig.ClusterConfig
 
 	const (
 		containerDisk     = "cdisk1"
@@ -34,7 +32,7 @@ var _ = Describe("Container spec renderer", func() {
 	Context("without any options", func() {
 		BeforeEach(func() {
 			var err error
-			vsr, err = NewVolumeRenderer(config, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir)
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -72,7 +70,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(config, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{ephemeralVolumeOption}, nil))
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{ephemeralVolumeOption}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -131,7 +129,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(config, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{hostDisk}, nil))
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{hostDisk}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -188,7 +186,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(config, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{cloudInitConfig}, nil))
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{cloudInitConfig}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -263,7 +261,7 @@ var _ = Describe("Container spec renderer", func() {
 			}
 
 			var err error
-			vsr, err = NewVolumeRenderer(config, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{dataVolume}, nil))
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIVolumes(pvcStore, []v1.Volume{dataVolume}, nil))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -311,7 +309,7 @@ var _ = Describe("Container spec renderer", func() {
 			disk := v1.Disk{Name: downwardAPIVolumeName}
 
 			var err error
-			vsr, err = NewVolumeRenderer(config, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIConfigVolumes([]v1.Disk{disk}, []v1.Volume{downwardAPIVolume}))
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withVMIConfigVolumes([]v1.Disk{disk}, []v1.Volume{downwardAPIVolume}))
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -347,7 +345,7 @@ var _ = Describe("Container spec renderer", func() {
 			vmi := &v1.VirtualMachineInstance{}
 
 			var err error
-			vsr, err = NewVolumeRenderer(config, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedMount := k8sv1.VolumeMount{
@@ -368,7 +366,7 @@ var _ = Describe("Container spec renderer", func() {
 			)
 
 			var err error
-			vsr, err = NewVolumeRenderer(config, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
+			vsr, err = NewVolumeRenderer(stubImagePullPolicyGetter{}, false, launcherImage, make(map[string]string), namespace, ephemeralDisk, containerDisk, virtShareDir, withBackendStorage(vmi, backendStoragePVC))
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedVolume := k8sv1.Volume{
@@ -436,4 +434,12 @@ func defaultVolumeMounts() []k8sv1.VolumeMount {
 		{Name: "libvirt-runtime", MountPath: "/var/run/libvirt"},
 		{Name: "sockets", MountPath: "dir1/sockets"},
 	}
+}
+
+type stubImagePullPolicyGetter struct {
+	imagePullPolicy k8sv1.PullPolicy
+}
+
+func (s stubImagePullPolicyGetter) GetImagePullPolicy() k8sv1.PullPolicy {
+	return s.imagePullPolicy
 }
