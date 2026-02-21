@@ -132,7 +132,6 @@ var (
 
 	// OncePerOrderedCleanup decorates Ordered tests to only cleanup after the last
 	// test in an Ordered container.
-	// Currently, in pilot mode, restricted to SIG-Network and virtctl only.
 	OncePerOrderedCleanup = Label("OncePerOrderedCleanup")
 
 	/* Platform */
