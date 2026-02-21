@@ -13,9 +13,9 @@ ENV GOLANGCI_LINT_VERSION=v2.2.2
 ENV KUBEVIRT_CREATE_BAZELRCS=false
 
 # Install packages
-RUN dnf install -y dnf-plugins-core && \
+RUN dnf install -y --nodocs dnf-plugins-core && \
     dnf config-manager --enable crb && \
-    dnf install -y --setopt=install_weak_deps=False \
+    dnf install -y --nodocs --setopt=install_weak_deps=False \
         java-11-openjdk-devel \
         libvirt-devel \
         cpio \
@@ -114,7 +114,7 @@ RUN set -x && \
     go install -v mvdan.cc/gofumpt@v0.8.0 && \
     curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOROOT)"/bin $GOLANGCI_LINT_VERSION
 
-RUN pip3 install --upgrade operator-courier==${OPERATOR_COURIER_VERSION}
+RUN pip3 install --no-cache-dir --upgrade operator-courier==${OPERATOR_COURIER_VERSION}
 
 RUN set -x && \
     wget https://github.com/vmware-tanzu/sonobuoy/releases/download/v${SONOBUOY_VERSION}/sonobuoy_${SONOBUOY_VERSION}_linux_${SONOBUOY_ARCH}.tar.gz && \
