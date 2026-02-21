@@ -29,6 +29,7 @@ import (
 	k6sv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd"
 	"kubevirt.io/kubevirt/pkg/downwardmetrics/vhostmd/api"
@@ -73,7 +74,18 @@ func (s *Scraper) Scrape(socketFile string, vmi *k6sv1.VirtualMachineInstance) {
 		return
 	}
 
-	metricsUpdater := vhostmd.NewMetricsIODisk(downwardmetrics.FormatDownwardMetricPath(res.Pid()))
+	root, err := res.MountRoot()
+	if err != nil {
+		log.Log.Reason(err).Infof("failed to detect root")
+		return
+	}
+
+	diskPath, err := root.AppendAndResolveWithRelativeRoot(config.DownwardMetricDisk)
+	if err != nil {
+		log.Log.Reason(err).Infof("failed to detect disk")
+		return
+	}
+	metricsUpdater := vhostmd.NewMetricsIODisk(diskPath)
 	err = metricsUpdater.Write(metrics)
 	if err != nil {
 		log.Log.Reason(err).Infof("failed to write metrics to disk")
