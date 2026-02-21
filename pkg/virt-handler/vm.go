@@ -2067,6 +2067,14 @@ func (c *VirtualMachineController) handleStartingVMI(
 		}
 	}
 
+	if c.clusterConfig.HostDevicesWithDRAEnabled() {
+		if !drautil.IsAllDRAHostDevicesReconciled(vmi, vmi.Status.DeviceStatus) {
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "WaitingForDRAHostDeviceAttributes",
+				"Waiting for Dynamic Resource Allocation host device attributes to be reconciled")
+			return false, nil
+		}
+	}
+
 	if err := c.setupNetwork(vmi, netsetup.FilterNetsForVMStartup(vmi), c.netConf); err != nil {
 		return false, fmt.Errorf("failed to configure vmi network: %w", err)
 	}
