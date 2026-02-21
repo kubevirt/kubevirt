@@ -114,7 +114,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			Value map[string]string `json:"value"`
 		}
 
-		It("skip node reconciliation when node has skip annotation", func() {
+		It("skip node reconciliation when node has skip annotation", decorators.WgS390x, func() {
 			for i, node := range nodesWithKVM {
 				node.Labels[nonExistingCPUModelLabel] = trueStr
 				p := []patch{
@@ -180,26 +180,27 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 			}
 		})
 
-		It("[test_id:6247] should set default obsolete cpu models filter when obsolete-cpus-models is not set in kubevirt config", func() {
-			kvConfig := libkubevirt.GetCurrentKv(virtClient)
-			kvConfig.Spec.Configuration.ObsoleteCPUModels = nil
-			config.UpdateKubeVirtConfigValueAndWait(kvConfig.Spec.Configuration)
-			node := nodesWithKVM[0]
-			timeout := 30 * time.Second
-			Eventually(func() error {
-				nodeObj, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
-				Expect(err).ToNot(HaveOccurred())
-				for key := range nodeObj.Labels {
-					if strings.Contains(key, v1.CPUModelLabel) {
-						model := strings.TrimPrefix(key, v1.CPUModelLabel)
-						if _, ok := nodelabellerutil.DefaultObsoleteCPUModels[model]; ok {
-							return fmt.Errorf("node can't contain label with cpu model, which is in default obsolete filter")
+		It("[test_id:6247] should set default obsolete cpu models filter when obsolete-cpus-models is not set in kubevirt config",
+			decorators.WgS390x, func() {
+				kvConfig := libkubevirt.GetCurrentKv(virtClient)
+				kvConfig.Spec.Configuration.ObsoleteCPUModels = nil
+				config.UpdateKubeVirtConfigValueAndWait(kvConfig.Spec.Configuration)
+				node := nodesWithKVM[0]
+				timeout := 30 * time.Second
+				Eventually(func() error {
+					nodeObj, err := virtClient.CoreV1().Nodes().Get(context.Background(), node.Name, metav1.GetOptions{})
+					Expect(err).ToNot(HaveOccurred())
+					for key := range nodeObj.Labels {
+						if strings.Contains(key, v1.CPUModelLabel) {
+							model := strings.TrimPrefix(key, v1.CPUModelLabel)
+							if _, ok := nodelabellerutil.DefaultObsoleteCPUModels[model]; ok {
+								return fmt.Errorf("node can't contain label with cpu model, which is in default obsolete filter")
+							}
 						}
 					}
-				}
-				return nil
-			}).WithTimeout(timeout).WithPolling(1 * time.Second).ShouldNot(HaveOccurred())
-		})
+					return nil
+				}).WithTimeout(timeout).WithPolling(1 * time.Second).ShouldNot(HaveOccurred())
+			})
 
 		It("[test_id:6995]should expose tsc frequency and tsc scalability", func() {
 			node := nodesWithKVM[0]
@@ -212,7 +213,7 @@ var _ = Describe(SIGSerial("Node-labeller", func() {
 		})
 	})
 
-	Context("advanced labeling", func() {
+	Context("advanced labeling", decorators.WgS390x, func() {
 		var originalKubeVirt *v1.KubeVirt
 
 		BeforeEach(func() {

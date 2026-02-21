@@ -66,7 +66,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		virtClient = kubevirt.Client()
 	})
 
-	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachine", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting and stopping the same VirtualMachine", decorators.WgS390x, func() {
 		Context("with ephemeral registry disk", func() {
 			It("[test_id:1463] should success multiple times", decorators.Conformance, func() {
 				By("Creating the VirtualMachine")
@@ -97,7 +97,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 		})
 	})
 
-	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance", func() {
+	Describe("[rfe_id:273][crit:medium][vendor:cnv-qe@redhat.com][level:component]Starting a VirtualMachineInstance", decorators.WgS390x, func() {
 		Context("should obey the disk verification limits in the KubeVirt CR", Serial, func() {
 			It("[test_id:7182]disk verification should fail when the memory limit is too low", func() {
 				By("Reducing the diskVerificaton memory usage limit")
@@ -205,7 +205,7 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 		})
 	})
-	Describe("Bogus container disk path", func() {
+	Describe("Bogus container disk path", decorators.WgS390x, func() {
 		Context("that points to outside of the volume", func() {
 			//TODO this could be unit test
 			It("should be rejected on VMI creation", func() {

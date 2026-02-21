@@ -128,7 +128,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", func() {
+	Context("[rfe_id:897][crit:medium][vendor:cnv-qe@redhat.com][level:component]for CPU and memory limits should", decorators.WgS390x, func() {
 
 		It("[test_id:3110]lead to get the burstable QOS class assigned when limit and requests differ", decorators.Conformance, func() {
 			vmi := libvmops.RunVMIAndExpectScheduling(libvmifact.NewAlpine(), 60)
@@ -350,7 +350,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with no memory requested", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with no memory requested", decorators.WgS390x, func() {
 			It("[test_id:3113]should failed to the VMI creation", func() {
 				vmi := libvmi.New()
 				By("Starting a VirtualMachineInstance")
@@ -531,7 +531,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Entry("[test_id:4437]should enable EFI secure boot", Serial, true, "SecureBoot enabled"),
 		)
 
-		Context("[rfe_id:989]test cpu_allocation_ratio", func() {
+		Context("[rfe_id:989]test cpu_allocation_ratio", decorators.WgS390x, func() {
 			It("virt-launchers pod cpu requests should be proportional to the number of vCPUs", func() {
 				vmi := libvmifact.NewAlpine()
 				guestMemory := resource.MustParse("256Mi")
@@ -564,7 +564,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 		})
 
-		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", func() {
+		Context("[rfe_id:609][crit:medium][vendor:cnv-qe@redhat.com][level:component]Support memory over commitment test", decorators.WgS390x, func() {
 			It("[test_id:732]Check Free memory on the VMI", func() {
 				overcommitVmi := libvmifact.NewAlpine(overcommitGuestOverhead())
 				overcommitVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(overcommitVmi)).Create(context.Background(), overcommitVmi, metav1.CreateOptions{})
@@ -642,7 +642,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:3077][crit:medium][vendor:cnv-qe@redhat.com][level:component]with input devices", func() {
-			It("[test_id:2642]should failed to start the VMI with wrong type of input device", func() {
+			It("[test_id:2642]should failed to start the VMI with wrong type of input device", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpine()
 				vmi.Spec.Domain.Devices.Inputs = []v1.Input{
 					{
@@ -656,7 +656,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).To(HaveOccurred(), "should not start vmi")
 			})
 
-			It("[test_id:3074]should failed to start the VMI with wrong bus of input device", func() {
+			It("[test_id:3074]should failed to start the VMI with wrong bus of input device", decorators.WgS390x, func() {
 				vmi := libvmifact.NewAlpine(
 					libvmi.WithTablet("tablet0", "ps2"),
 				)
@@ -705,7 +705,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("with namespace different from provided", func() {
+		Context("with namespace different from provided", decorators.WgS390x, func() {
 			It("should fail admission", func() {
 				// create a namespace default limit
 				limitRangeObj := k8sv1.LimitRange{
@@ -872,7 +872,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			})
 		})
 
-		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
+		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", decorators.WgS390x, func() {
 			prepareAgentVM := func() *v1.VirtualMachineInstance {
 				agentVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
 
@@ -1251,7 +1251,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 			Expect(pod.Spec.RuntimeClassName).To(BeNil())
 		})
 
-		Context("with geust-to-request memory ", Serial, func() {
+		Context("with guest-to-request memory ", Serial, decorators.WgS390x, func() {
 			setHeadroom := func(ratioStr string) {
 				kv := libkubevirt.GetCurrentKv(virtClient)
 
@@ -1483,7 +1483,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("with a custom scheduler", func() {
+	Context("with a custom scheduler", decorators.WgS390x, func() {
 		It("[test_id:4631]should set the custom scheduler on the pod", func() {
 			vmi := libvmi.New(
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
@@ -1498,7 +1498,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 
 	Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with CPU request settings", func() {
 
-		It("[test_id:3127]should set CPU request from VMI spec", func() {
+		It("[test_id:3127]should set CPU request from VMI spec", decorators.WgS390x, func() {
 			vmi := libvmi.New(
 				libvmi.WithMemoryRequest(enoughMemForSafeBiosEmulation),
 				libvmi.WithCPURequest("500m"),
@@ -1590,7 +1590,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("using automatic resource limits", func() {
+	Context("using automatic resource limits", decorators.WgS390x, func() {
 
 		When("there is no ResourceQuota with memory and cpu limits associated with the creation namespace", func() {
 			It("[test_id:11215]should not automatically set memory limits in the virt-launcher pod", func() {
@@ -2344,7 +2344,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 	})
-	Context("virt-launcher processes memory usage", func() {
+	Context("virt-launcher processes memory usage", decorators.WgS390x, func() {
 		doesntExceedMemoryUsage := func(processRss *map[string]resource.Quantity, process string, memoryLimit resource.Quantity) {
 			actual := (*processRss)[process]
 			ExpectWithOffset(1, (&actual).Cmp(memoryLimit)).To(Equal(-1),
