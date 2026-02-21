@@ -146,7 +146,6 @@ func NewController(vmiInformer cache.SharedIndexInformer,
 	additionalLauncherAnnotationsSync []string,
 	additionalLauncherLabelsSync []string,
 ) (*Controller, error) {
-
 	c := &Controller{
 		Queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			workqueue.DefaultTypedControllerRateLimiter[string](),
@@ -374,7 +373,6 @@ func (c *Controller) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(vm) {
 		controller.SetLatestApiVersionAnnotation(vm)
 		_, err = c.clientset.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
-
 		if err != nil {
 			logger.Reason(err).Error("Updating api version annotations failed")
 		}
@@ -706,7 +704,6 @@ func (c *Controller) VMIAffinityPatch(vm *virtv1.VirtualMachine, vmi *virtv1.Vir
 				patch.WithTest("/spec/affinity", vmi.Spec.Affinity),
 				patch.WithReplace("/spec/affinity", vm.Spec.Template.Spec.Affinity))
 		}
-
 	} else {
 		patchset.AddOption(patch.WithRemove("/spec/affinity"))
 	}
@@ -730,7 +727,6 @@ func (c *Controller) vmiTolerationsPatch(vm *virtv1.VirtualMachine, vmi *virtv1.
 				patch.WithTest("/spec/tolerations", vmi.Spec.Tolerations),
 				patch.WithReplace("/spec/tolerations", vm.Spec.Template.Spec.Tolerations))
 		}
-
 	} else {
 		patchset.AddOption(patch.WithRemove("/spec/tolerations"))
 	}
@@ -1472,7 +1468,7 @@ func (c *Controller) conditionallyBumpGenerationAnnotationOnVmi(vm *virtv1.Virtu
 }
 
 // Returns in seconds how long to wait before trying to start the VM again.
-func calculateStartBackoffTime(failCount int, maxDelay int) int {
+func calculateStartBackoffTime(failCount, maxDelay int) int {
 	// The algorithm is designed to work well with a dynamic maxDelay
 	// if we decide to expose this as a tuning in the future.
 	minInterval := 10
@@ -1533,7 +1529,6 @@ func vmiFailedEarly(vmi *virtv1.VirtualMachineInstance) bool {
 // 1. VMI exists and ever hit running phase
 // 2. run strategy is not set to automatically restart failed VMIs
 func shouldClearStartFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) bool {
-
 	if wasVMIInRunningPhase(vmi) {
 		return true
 	}
@@ -1554,7 +1549,6 @@ func shouldClearStartFailure(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 }
 
 func startFailureBackoffTimeLeft(vm *virtv1.VirtualMachine) int64 {
-
 	if vm.Status.StartFailure == nil {
 		return 0
 	}
@@ -1574,7 +1568,6 @@ func syncStartFailureStatus(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachin
 	if shouldClearStartFailure(vm, vmi) {
 		// if a vmi associated with the vm hits a running phase, then reset the start failure counter
 		vm.Status.StartFailure = nil
-
 	} else if vmi != nil && vmiFailedEarly(vmi) {
 		// if the VMI failed without ever hitting running successfully,
 		// record this as a start failure so we can back off retrying
@@ -1668,7 +1661,6 @@ func (c *Controller) stopVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachi
 	// stop it
 	c.expectations.ExpectDeletions(vmKey, []string{controller.VirtualMachineInstanceKey(vmi)})
 	err = c.clientset.VirtualMachineInstance(vm.ObjectMeta.Namespace).Delete(context.Background(), vmi.ObjectMeta.Name, metav1.DeleteOptions{})
-
 	// Don't log an error if it is already deleted
 	if err != nil {
 		// We can't observe a delete if it was not accepted by the server
@@ -1758,7 +1750,7 @@ func (c *Controller) deleteOlderVMRevision(vm *virtv1.VirtualMachine) (bool, err
 
 // getControllerRevision attempts to get the controller revision by name and
 // namespace. It will return (nil, nil) if the controller revision is not found.
-func (c *Controller) getControllerRevision(namespace string, name string) (*appsv1.ControllerRevision, error) {
+func (c *Controller) getControllerRevision(namespace, name string) (*appsv1.ControllerRevision, error) {
 	cr, err := c.clientset.AppsV1().ControllerRevisions(namespace).Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
 		if apiErrors.IsNotFound(err) {
@@ -1815,7 +1807,6 @@ func (c *Controller) getLastVMRevisionSpec(vm *virtv1.VirtualMachine) (*virtv1.V
 			continue
 		}
 		gen, err := genFromKey(k)
-
 		if err != nil {
 			return nil, fmt.Errorf("invalid key: %s", k)
 		}
@@ -1929,7 +1920,6 @@ func hasStopRequestForVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 // setStableUUID makes sure the VirtualMachineInstance being started has a 'stable' UUID.
 // The UUID is 'stable' if doesn't change across reboots.
 func setupStableFirmwareUUID(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
-
 	logger := log.Log.Object(vm)
 
 	if vmi.Spec.Domain.Firmware == nil {
@@ -2186,6 +2176,7 @@ func (c *Controller) addDataVolume(obj interface{}) {
 	}
 	c.queueVMsForDataVolume(dataVolume)
 }
+
 func (c *Controller) updateDataVolume(old, cur interface{}) {
 	curDataVolume := cur.(*cdiv1.DataVolume)
 	oldDataVolume := old.(*cdiv1.DataVolume)
@@ -2402,7 +2393,6 @@ func parseGeneration(revisionName string, logger *log.FilteredLogger) *int64 {
 // generation annotation. If the controller revision does not exist,
 // (nil, nil) will be returned.
 func (c *Controller) patchVmGenerationFromControllerRevision(vmi *virtv1.VirtualMachineInstance, logger *log.FilteredLogger) (*virtv1.VirtualMachineInstance, *int64, error) {
-
 	cr, err := c.getControllerRevision(vmi.Namespace, vmi.Status.VirtualMachineRevisionName)
 	if err != nil || cr == nil {
 		return vmi, nil, err
@@ -2711,7 +2701,6 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 			LastProbeTime:      now,
 			LastTransitionTime: now,
 		})
-
 	} else if vmiReadyCond == nil {
 		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineReady,
@@ -2721,7 +2710,6 @@ func syncReadyConditionFromVMI(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMac
 			LastProbeTime:      now,
 			LastTransitionTime: now,
 		})
-
 	} else {
 		conditionManager.UpdateCondition(vm, &virtv1.VirtualMachineCondition{
 			Type:               virtv1.VirtualMachineReady,
@@ -2786,7 +2774,6 @@ func syncConditions(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstanc
 }
 
 func processFailureCondition(vm *virtv1.VirtualMachine, syncErr common.SyncError) {
-
 	vmConditionManager := controller.NewVirtualMachineConditionManager()
 	if syncErr == nil {
 		if vmConditionManager.HasCondition(vm, virtv1.VirtualMachineFailure) {
@@ -3072,8 +3059,35 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 	newVmiLabels := maps.Clone(vmi.Labels)
 
 	syncMap := func(keys []string, vmMap, vmiMap, vmiOrigMap map[string]string, subPath string) {
-		changed := false
+		// keyMap contains the deduplicated keys that we need to sync between the VM and VMIs
+		// This includes keys containing wildcards (e.g., abc/*) in their expanded form (e.g., abc/123 and abc/456)
+		keyMap := map[string]struct{}{}
+
+		// Iterate over every configured key we are asked to sync
 		for _, key := range keys {
+			// If the key is a wildcard (it has a "*" at the very end), we need to
+			// find every key that matches that pattern in the VM/VMI
+			if strings.HasSuffix(key, "*") {
+				prefix, _ := strings.CutSuffix(key, "*")
+				for vmMapKey := range vmMap {
+					if strings.HasPrefix(vmMapKey, prefix) {
+						keyMap[vmMapKey] = struct{}{}
+					}
+				}
+
+				for vmiMapKey := range vmiMap {
+					if strings.HasPrefix(vmiMapKey, prefix) {
+						keyMap[vmiMapKey] = struct{}{}
+					}
+				}
+			} else {
+				// Key is not a wildcard, store it as-is
+				keyMap[key] = struct{}{}
+			}
+		}
+
+		changed := false
+		for key := range keyMap {
 			vmVal, vmExists := vmMap[key]
 			vmiVal, vmiExists := vmiMap[key]
 			if vmExists == vmiExists && vmVal == vmiVal {
@@ -3135,7 +3149,6 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 }
 
 func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string) (*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, common.SyncError, error) {
-
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
 
 	var (
