@@ -1,0 +1,50 @@
+{{- if ne (index . "SKIP_INDEXING") "true" }}
+metricsEndpoints:
+  # endpoints to collect metrics from
+  - endpoint: {{ .PROMETHEUS_ENDPOINT }}{{ with index . "PROMETHEUS_PORT" }}:{{ . }}{{ end }}
+    token: {{ .PROMETHEUS_TOKEN }}
+    metrics:
+      - tests/performance/manifests/kube-burner/metric-profiles/kubevirt-density.yml
+    indexer:
+      type: local
+      metricsDirectory: {{ .METRICS_FOLDER }}
+{{- end }}
+
+global:
+  # collect runtime measurements
+  gc: {{.GC}}
+  gcMetrics: {{.GC_METRICS}}
+  measurements:
+  - name: vmiLatency
+    thresholds:
+     - conditionType: VMIRunning
+       metric: P50
+       threshold: 45s
+     - conditionType: VMIRunning
+       metric: P95
+       threshold: 60s
+
+jobs:
+  # create the VMs
+  - name: kubevirt-density
+    jobType: create
+    jobIterations: {{ .JOB_ITERATIONS }}
+    qps: {{ .QPS }}
+    burst: {{ .BURST }}
+    namespacedIterations: false
+    namespace: kubevirt-density
+    verifyObjects: true
+    errorOnVerify: true
+    waitWhenFinished: true
+    cleanup: true
+    objects:
+    - objectTemplate: tests/performance/manifests/kube-burner/kubevirt-density/templates/vm-ephemeral.yml
+      replicas: 1
+      inputVars:
+        name: kubevirt-density
+        image: quay.io/kubevirt/fedora-with-test-tooling-container-disk:v0.48.1
+        OS: fedora27
+        cpuCores: 1
+        cpu: 100m
+        memory: 90Mi
+        createVMI: true

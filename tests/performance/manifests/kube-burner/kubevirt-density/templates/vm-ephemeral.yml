@@ -1,0 +1,53 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  creationTimestamp: null
+  labels:
+    kubevirt-vm: vm-{{.name}}-{{.Replica}}-{{.Iteration}}
+    kubevirt.io/os: {{.OS}}
+  name: {{.name}}-{{.Replica}}-{{.Iteration}}
+spec:
+  running: {{.createVMI}}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        kubevirt-vm: vm-{{.name}}-{{.Replica}}-{{.Iteration}}
+        kubevirt.io/os: {{.OS}}
+    spec:
+      domain:
+        cpu:
+          cores: {{.cpuCores}}
+        devices:
+          disks:
+          - disk:
+              bus: virtio
+            name: cloudinitdisk
+          - disk:
+              bus: virtio
+            name: containerdisk
+          interfaces:
+          - masquerade: {}
+            model: virtio
+            name: default
+          networkInterfaceMultiqueue: true
+          rng: {}
+        resources:
+          requests:
+            cpu: {{.cpu}}
+            memory: {{.memory}}
+      networks:
+      - name: default
+        pod: {}
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - cloudInitNoCloud:
+          userData: |-
+            #cloud-config
+            password: fedora
+            chpasswd: { expire: False }
+        name: cloudinitdisk
+      - containerDisk:
+          image:  {{.image}}
+          imagePullPolicy: IfNotPresent
+        name: containerdisk

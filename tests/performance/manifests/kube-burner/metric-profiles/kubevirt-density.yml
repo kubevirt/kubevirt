@@ -1,0 +1,121 @@
+# kubevirt vmi phase transition time from creation seconds bucket
+- query: histogram_quantile(0.99, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[{{.elapsed}}]))
+  metricName: vmiCreationToRunningSecondsP99
+  instant: true
+
+- query: histogram_quantile(0.95, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[{{.elapsed}}]))
+  metricName: vmiCreationToRunningSecondsP95
+  instant: true
+
+- query: histogram_quantile(0.50, rate(kubevirt_vmi_phase_transition_time_from_creation_seconds_bucket{phase="Running"}[{{.elapsed}}]))
+  metricName: vmiCreationToRunningSecondsP50
+  instant: true
+
+- query: histogram_quantile(0.99, rate(kubevirt_vmi_phase_transition_time_from_deletion_seconds_bucket{phase="Succeeded"}[{{.elapsed}}]))
+  metricName: vmiDeletionToSucceededSecondsP99
+  instant: true
+
+- query: histogram_quantile(0.95, rate(kubevirt_vmi_phase_transition_time_from_deletion_seconds_bucket{phase="Succeeded"}[{{.elapsed}}]))
+  metricName: vmiDeletionToSucceededSecondsP95
+  instant: true
+
+- query: histogram_quantile(0.50, rate(kubevirt_vmi_phase_transition_time_from_deletion_seconds_bucket{phase="Succeeded"}[{{.elapsed}}]))
+  metricName: vmiDeletionToSucceededSecondsP50
+  instant: true
+
+- query: histogram_quantile(0.99, rate(kubevirt_vmi_phase_transition_time_from_deletion_seconds_bucket{phase="Failed"}[{{.elapsed}}]))
+  metricName: vmiDeletionToFailedSecondsP99
+  instant: true
+
+- query: histogram_quantile(0.95, rate(kubevirt_vmi_phase_transition_time_from_deletion_seconds_bucket{phase="Failed"}[{{.elapsed}}]))
+  metricName: vmiDeletionToFailedSecondsP95
+  instant: true
+
+- query: histogram_quantile(0.50, rate(kubevirt_vmi_phase_transition_time_from_deletion_seconds_bucket{phase="Failed"}[{{.elapsed}}]))
+  metricName: vmiDeletionToFailedSecondsP50
+  instant: true
+
+# Resource request counts by operation
+- query: sum by (resource, verb) (increase(kubevirt_rest_client_requests_total{pod=~"virt-controller.*|virt-handler.*|virt-operator.*|virt-api.*"}[{{ .elapsed }}]))
+  metricName: resourceRequestCountsByOperation
+  instant: true
+
+# VMI counts by phase
+- query: sum by (phase) (kubevirt_vmi_phase_count{})
+  metricName: phaseCount
+  instant: true
+
+# Container cpu usage
+- query: avg(rate(container_cpu_usage_seconds_total{namespace="kubevirt",pod=~"virt-api.*", container!="",container!="POD"}[{{ .elapsed }}]))
+  metricName: avgVirtAPICPUUsage
+  instant: true
+
+- query: max(rate(container_cpu_usage_seconds_total{namespace="kubevirt",pod=~"virt-controller.*", container!="",container!="POD"}[{{ .elapsed }}]))
+  metricName: avgVirtControllerCPUUsage
+  instant: true
+
+- query: avg((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[{{ .elapsed }}])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))
+  metricName: avgVirtHandlerCPUUsage
+  instant: true
+
+- query: min((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[{{ .elapsed }}])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))
+  metricName: minVirtHandlerCPUUsage
+  instant: true
+
+- query: max((sum(rate(container_cpu_usage_seconds_total{pod=~"virt-handler.*", container="virt-handler"}[{{ .elapsed }}])) by (node) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"})))
+  metricName: maxVirtHandlerCPUUsage
+  instant: true
+
+# Container memory rss
+- query: avg(avg_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[{{ .elapsed }}]))/1024/1024
+  metricName: avgVirtAPIMemoryUsageInMB
+  instant: true
+
+- query: max(avg_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[{{ .elapsed }}]))/1024/1024
+  metricName: avgVirtControllerMemoryUsageInMB
+  instant: true
+
+- query: avg(min_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[{{ .elapsed }}]))/1024/1024
+  metricName: minVirtAPIMemoryUsageInMB
+  instant: true
+
+- query: avg(max_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[{{ .elapsed }}]))/1024/1024
+  metricName: maxVirtAPIMemoryUsageInMB
+  instant: true
+
+- query: avg(max_over_time(container_memory_rss{pod=~"virt-api.*", container!="POD", container!=""}[{{ .elapsed }}]))/1024/1024
+  metricName: maxVirtAPIMemoryUsageInMB
+  instant: true
+
+- query: max(max_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[{{ .elapsed }}]))/1024/1024
+  metricName: maxVirtControllerMemoryUsageInMB
+  instant: true
+
+- query: max(min_over_time(container_memory_rss{pod=~"virt-controller.*", container!="POD", container!=""}[{{ .elapsed }}]))/1024/1024
+  metricName: minVirtControllerMemoryUsageInMB
+  instant: true
+
+- query: avg(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"}))[{{ .elapsed }}:]))/1024/1024
+  metricName: avgVirtHandlerMemoryUsageInMB
+  instant: true
+
+- query: min(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"}))[{{ .elapsed }}:]))/1024/1024
+  metricName: minVirtHandlerMemoryUsageInMB
+  instant: true
+
+- query: max(avg_over_time((sum by (node) (container_memory_rss{pod=~"virt-handler.*", container="virt-handler"}) / sum by (node) (kubevirt_vmi_phase_count{node != "", node != "<no value>"}))[{{ .elapsed }}:]))/1024/1024
+  metricName: maxVirtHandlerMemoryUsageInMB
+  instant: true
+
+# Virt controller workbench metrics
+- query: sum(rate(kubevirt_workqueue_adds_total{container="virt-controller"}[{{ .elapsed }}]))
+  metricName: virtControllerWorkqueueAddRate
+  instant: true
+
+- query: sum(rate(kubevirt_workqueue_depth{container="virt-controller"}[{{ .elapsed }}]))
+  metricName: virtControllerWorkqueueDepth
+  instant: true
+
+- query: histogram_quantile(0.99, sum(rate(kubevirt_workqueue_queue_duration_seconds_bucket{container="virt-controller"}[{{ .elapsed }}])) by (le))
+  metricName: virtControllerWorkqueueP99Latency
+  instant: true
