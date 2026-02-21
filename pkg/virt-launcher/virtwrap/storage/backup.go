@@ -292,20 +292,43 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		}
 	}
 
-	// TODO: Handle non-success job completion (DOMAIN_JOB_FAILED, DOMAIN_JOB_CANCELLED, unknown types)
-	if event.Info.Type == libvirt.DOMAIN_JOB_COMPLETED {
+	var failed bool
+	var message string
+	switch event.Info.Type {
+	case libvirt.DOMAIN_JOB_COMPLETED:
 		logger.Info("Backup has been completed successfully")
-	} else {
-		logger.Warningf("Unexpected job completion type: %d (only handling success case)", event.Info.Type)
+	case libvirt.DOMAIN_JOB_CANCELLED:
+		logger.Info("Backup has been aborted")
+		message = "backup aborted"
+		failed = backupMetadata.Mode == string(backupv1.PushMode)
+	case libvirt.DOMAIN_JOB_FAILED:
+		logger.Info("Backup has failed")
+		failed = true
+	default:
+		message = fmt.Sprintf("unexpected job completion type: %d", event.Info.Type)
+		failed = true
+	}
+	if event.Info.ErrorMessageSet {
+		err := event.Info.ErrorMessage
+		if message == "" {
+			message = err
+		} else {
+			message = fmt.Sprintf("%s: %s", message, event.Info.ErrorMessage)
+		}
+	}
+	if failed && message == "" {
+		message = "unknown failure reason"
 	}
 
 	metadataCache.Backup.WithSafeBlock(func(backupMetadata *api.BackupMetadata, exists bool) {
-		// Verify the backup metadata is still for the same backup to avoid race conditions
 		if !exists || backupMetadata.Name != backupName {
 			logger.Warning("Backup metadata changed or was cleared before update could complete. Backup completion may not be properly recorded.")
 			return
 		}
+
+		backupMetadata.Failed = failed
 		backupMetadata.Completed = true
+		backupMetadata.BackupMsg = message
 		now := metav1.Now()
 		backupMetadata.EndTimestamp = &now
 	})
@@ -313,7 +336,57 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 	log.Log.V(2).Infof("Updated backup result in metadata via Notifier: %s", metadataCache.Backup.String())
 }
 
-// TODO: Implement backup abort functionality for graceful shutdown
+func (m *StorageManager) AbortVirtualMachineBackup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
+	backupMetadata, exists := m.metadataCache.Backup.Load()
+	if err := shouldAbort(exists, backupMetadata, backupOptions); err != nil {
+		return err
+	}
+	return m.abortBackup(vmi, backupMetadata)
+}
+
+func shouldAbort(exists bool, backupMetadata api.BackupMetadata, backupOptions *backupv1.BackupOptions) error {
+	const failedAbort = "failed to abort backup: %s"
+	if !exists || backupMetadata.Name == "" {
+		return fmt.Errorf(failedAbort, "could not find ongoing backup")
+	}
+	if backupMetadata.StartTimestamp == nil {
+		return fmt.Errorf(failedAbort, "backup did not start yet")
+	}
+	if backupMetadata.Name != backupOptions.BackupName || !backupMetadata.StartTimestamp.Equal(backupOptions.BackupStartTime) {
+		return fmt.Errorf(failedAbort, "requested backup differs from ongoing one")
+	}
+	if backupMetadata.Completed {
+		return fmt.Errorf(failedAbort, "backup already completed")
+	}
+	return nil
+}
+
+func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetadata api.BackupMetadata) error {
+	domName := api.VMINamespaceKeyFunc(vmi)
+	dom, err := m.virConn.LookupDomainByName(domName)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Warning("failed to abort backup, domain not found")
+		return err
+	}
+	defer dom.Free()
+
+	stats, err := dom.GetJobStats(0)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to get domain job stats")
+		return err
+	}
+	if stats.Operation != libvirt.DOMAIN_JOB_OPERATION_BACKUP || stats.Type != libvirt.DOMAIN_JOB_UNBOUNDED {
+		return fmt.Errorf("cannot abort backup, wrong operation or type: %d, %d", stats.Operation, stats.Type)
+	}
+
+	if err := dom.AbortJob(); err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to abort backup, error calling abort job on domain")
+		return err
+	}
+
+	log.Log.Object(vmi).Info("backup job abort initiated successfully")
+	return nil
+}
 
 // isLibvirtCheckpointInvalidError checks if the libvirt error indicates
 // the checkpoint is invalid/corrupt (bitmap corruption, inconsistent state, etc.)

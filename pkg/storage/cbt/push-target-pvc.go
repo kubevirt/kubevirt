@@ -167,7 +167,7 @@ func (ctrl *VMBackupController) attachBackupTargetPVC(vmi *v1.VirtualMachineInst
 	}
 }
 
-func (ctrl *VMBackupController) detachBackupTargetPVC(vmi *v1.VirtualMachineInstance, volumeName string) *SyncInfo {
+func (ctrl *VMBackupController) detachBackupTargetPVC(vmi *v1.VirtualMachineInstance, volumeName string, event string) *SyncInfo {
 	if len(vmi.Spec.UtilityVolumes) == 0 {
 		return nil
 	}
@@ -206,7 +206,7 @@ func (ctrl *VMBackupController) detachBackupTargetPVC(vmi *v1.VirtualMachineInst
 	log.Log.Object(vmi).Infof("%s", pvcDetachMsg)
 
 	return &SyncInfo{
-		event:  backupInitiatedEvent,
+		event:  event,
 		reason: pvcDetachMsg,
 	}
 }
