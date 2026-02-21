@@ -20,10 +20,20 @@ package apply
 
 import (
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 )
 
-func applyCPUPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+// deprecatedTopologyToNew maps deprecated topology values to their new equivalents
+var deprecatedTopologyToNew = map[instancetypev1.PreferredCPUTopology]instancetypev1.PreferredCPUTopology{
+	instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferSockets): instancetypev1.Sockets,
+	instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferCores):   instancetypev1.Cores,
+	instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferThreads): instancetypev1.Threads,
+	instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferSpread):  instancetypev1.Spread,
+	instancetypev1.PreferredCPUTopology(instancetypev1beta1.DeprecatedPreferAny):     instancetypev1.Any,
+}
+
+func applyCPUPreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.CPU == nil || len(preferenceSpec.CPU.PreferredCPUFeatures) == 0 {
 		return
 	}
@@ -39,23 +49,27 @@ func applyCPUPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, v
 	}
 }
 
-func GetPreferredTopology(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) v1beta1.PreferredCPUTopology {
-	// Default to PreferSockets when a PreferredCPUTopology isn't provided
-	preferredTopology := v1beta1.Sockets
+func GetPreferredTopology(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) instancetypev1.PreferredCPUTopology {
+	// Default to Sockets when a PreferredCPUTopology isn't provided
+	preferredTopology := instancetypev1.Sockets
 	if preferenceSpec != nil && preferenceSpec.CPU != nil && preferenceSpec.CPU.PreferredCPUTopology != nil {
 		preferredTopology = *preferenceSpec.CPU.PreferredCPUTopology
+	}
+	// Normalize deprecated values to new equivalents
+	if newTopology, ok := deprecatedTopologyToNew[preferredTopology]; ok {
+		return newTopology
 	}
 	return preferredTopology
 }
 
 const defaultSpreadRatio uint32 = 2
 
-func GetSpreadOptions(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) (uint32, v1beta1.SpreadAcross) {
+func GetSpreadOptions(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) (uint32, instancetypev1.SpreadAcross) {
 	ratio := defaultSpreadRatio
 	if preferenceSpec.PreferSpreadSocketToCoreRatio != 0 {
 		ratio = preferenceSpec.PreferSpreadSocketToCoreRatio
 	}
-	across := v1beta1.SpreadAcrossSocketsCores
+	across := instancetypev1.SpreadAcrossSocketsCores
 	if preferenceSpec.CPU != nil && preferenceSpec.CPU.SpreadOptions != nil {
 		if preferenceSpec.CPU.SpreadOptions.Across != nil {
 			across = *preferenceSpec.CPU.SpreadOptions.Across

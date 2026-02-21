@@ -29,7 +29,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
+	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -56,29 +57,29 @@ var _ = Describe("compatibility", func() {
 	}
 
 	Context("instancetype", func() {
-		var expectedInstancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec
+		var expectedInstancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec
 
 		BeforeEach(func() {
-			expectedInstancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
-				CPU: v1beta1.CPUInstancetype{
+			expectedInstancetypeSpec = &instancetypev1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1.CPUInstancetype{
 					Guest: 4,
 					// Set the following values to be compatible with objects converted from prior API versions
 					Model:                 pointer.P(""),
 					DedicatedCPUPlacement: pointer.P(false),
 					IsolateEmulatorThread: pointer.P(false),
 				},
-				Memory: v1beta1.MemoryInstancetype{
+				Memory: instancetypev1.MemoryInstancetype{
 					Guest: resource.MustParse("128Mi"),
 				},
 			}
 		})
 
-		generatev1beta1InstancetypeSpec := func() v1beta1.VirtualMachineInstancetypeSpec {
-			return v1beta1.VirtualMachineInstancetypeSpec{
-				CPU: v1beta1.CPUInstancetype{
+		generatev1beta1InstancetypeSpec := func() instancetypev1.VirtualMachineInstancetypeSpec {
+			return instancetypev1.VirtualMachineInstancetypeSpec{
+				CPU: instancetypev1.CPUInstancetype{
 					Guest: expectedInstancetypeSpec.CPU.Guest,
 				},
-				Memory: v1beta1.MemoryInstancetype{
+				Memory: instancetypev1.MemoryInstancetype{
 					Guest: expectedInstancetypeSpec.Memory.Guest,
 				},
 			}
@@ -100,13 +101,13 @@ var _ = Describe("compatibility", func() {
 		},
 			Entry("v1beta1 VirtualMachineInstancetype", func() []byte {
 				// Omit optional pointer fields with default values
-				expectedInstancetypeSpec.CPU = v1beta1.CPUInstancetype{
+				expectedInstancetypeSpec.CPU = instancetypev1.CPUInstancetype{
 					Guest: 4,
 				}
 
-				instancetype := v1beta1.VirtualMachineInstancetype{
+				instancetype := instancetypev1.VirtualMachineInstancetype{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: v1beta1.SchemeGroupVersion.String(),
+						APIVersion: instancetypev1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachineInstancetype",
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -121,13 +122,13 @@ var _ = Describe("compatibility", func() {
 			}),
 			Entry("v1beta1 VirtualMachineClusterInstancetype", func() []byte {
 				// Omit optional pointer fields with default values
-				expectedInstancetypeSpec.CPU = v1beta1.CPUInstancetype{
+				expectedInstancetypeSpec.CPU = instancetypev1.CPUInstancetype{
 					Guest: 4,
 				}
 
-				instancetype := v1beta1.VirtualMachineClusterInstancetype{
+				instancetype := instancetypev1.VirtualMachineClusterInstancetype{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: v1beta1.SchemeGroupVersion.String(),
+						APIVersion: instancetypev1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachineClusterInstancetype",
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -144,26 +145,27 @@ var _ = Describe("compatibility", func() {
 		It("decode ControllerRevision fails due to unknown object", func() {
 			_, err := GetInstancetypeSpec(generateUnknownObjectControllerRevision())
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unexpected type in ControllerRevision"))
+			Expect(err.Error()).To(ContainSubstring("failed to convert object in ControllerRevision"))
 		})
 	})
 
 	Context("preference", func() {
-		var expectedPreferenceSpec *v1beta1.VirtualMachinePreferenceSpec
+		var expectedPreferenceSpec *instancetypev1.VirtualMachinePreferenceSpec
 
 		BeforeEach(func() {
-			preferredCPUTopology := v1beta1.DeprecatedPreferCores
-			expectedPreferenceSpec = &v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
-					PreferredCPUTopology: &preferredCPUTopology,
+			// After conversion from v1beta1, deprecated values should be converted to new values
+			expectedPreferenceSpec = &instancetypev1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1.CPUPreferences{
+					PreferredCPUTopology: pointer.P(instancetypev1.Cores),
 				},
 			}
 		})
 
-		generatev1beta1PreferenceSpec := func() v1beta1.VirtualMachinePreferenceSpec {
-			preferredTopology := v1beta1.DeprecatedPreferCores
-			return v1beta1.VirtualMachinePreferenceSpec{
-				CPU: &v1beta1.CPUPreferences{
+		generatev1beta1PreferenceSpec := func() instancetypev1beta1.VirtualMachinePreferenceSpec {
+			// Use deprecated value in v1beta1 input to test conversion
+			preferredTopology := instancetypev1beta1.DeprecatedPreferCores
+			return instancetypev1beta1.VirtualMachinePreferenceSpec{
+				CPU: &instancetypev1beta1.CPUPreferences{
 					PreferredCPUTopology: &preferredTopology,
 				},
 			}
@@ -184,13 +186,13 @@ var _ = Describe("compatibility", func() {
 			Expect(*spec).To(Equal(*expectedPreferenceSpec))
 		},
 			Entry("v1beta1 VirtualMachinePreference", func() []byte {
-				preference := v1beta1.VirtualMachinePreference{
+				preference := instancetypev1beta1.VirtualMachinePreference{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: v1beta1.SchemeGroupVersion.String(),
-						Kind:       "VirtualMachineClusterPreference",
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+						Kind:       "VirtualMachinePreference",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "VirtualMachineClusterPreference",
+						Name: "VirtualMachinePreference",
 					},
 					Spec: generatev1beta1PreferenceSpec(),
 				}
@@ -200,9 +202,9 @@ var _ = Describe("compatibility", func() {
 				return preferenceBytes
 			}),
 			Entry("v1beta1 VirtualMachineClusterPreference", func() []byte {
-				preference := v1beta1.VirtualMachineClusterPreference{
+				preference := instancetypev1beta1.VirtualMachineClusterPreference{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: v1beta1.SchemeGroupVersion.String(),
+						APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
 						Kind:       "VirtualMachineClusterPreference",
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -219,7 +221,7 @@ var _ = Describe("compatibility", func() {
 		It("decode ControllerRevision fails due to unknown object", func() {
 			_, err := GetPreferenceSpec(generateUnknownObjectControllerRevision())
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("unexpected type in ControllerRevision"))
+			Expect(err.Error()).To(ContainSubstring("failed to convert object in ControllerRevision"))
 		})
 	})
 })

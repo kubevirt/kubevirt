@@ -37,7 +37,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
@@ -54,7 +54,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 	)
 
 	type instancetypeSpecFinder interface {
-		Find(vm *v1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
+		Find(vm *v1.VirtualMachine) (*instancetypev1.VirtualMachineInstancetypeSpec, error)
 	}
 
 	var (
@@ -82,15 +82,15 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			fakeClientset.KubevirtV1().VirtualMachines(metav1.NamespaceDefault)).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineInstancetype(metav1.NamespaceDefault).Return(
-			fakeClientset.InstancetypeV1beta1().VirtualMachineInstancetypes(metav1.NamespaceDefault)).AnyTimes()
+			fakeClientset.InstancetypeV1().VirtualMachineInstancetypes(metav1.NamespaceDefault)).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(
-			fakeClientset.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
+			fakeClientset.InstancetypeV1().VirtualMachineClusterInstancetypes()).AnyTimes()
 
-		instancetypeInformer, _ := testutils.NewFakeInformerFor(&v1beta1.VirtualMachineInstancetype{})
+		instancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineInstancetype{})
 		instancetypeInformerStore = instancetypeInformer.GetStore()
 
-		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&v1beta1.VirtualMachineClusterInstancetype{})
+		clusterInstancetypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterInstancetype{})
 		clusterInstancetypeInformerStore = clusterInstancetypeInformer.GetStore()
 
 		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
@@ -123,18 +123,18 @@ var _ = Describe("Instance Type SpecFinder", func() {
 	})
 
 	Context("Using global ClusterInstancetype", func() {
-		var clusterInstancetype *v1beta1.VirtualMachineClusterInstancetype
+		var clusterInstancetype *instancetypev1.VirtualMachineClusterInstancetype
 
 		BeforeEach(func() {
-			clusterInstancetype = &v1beta1.VirtualMachineClusterInstancetype{
+			clusterInstancetype = &instancetypev1.VirtualMachineClusterInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cluster-instancetype",
 				},
-				Spec: v1beta1.VirtualMachineInstancetypeSpec{
-					CPU: v1beta1.CPUInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: uint32(2),
 					},
-					Memory: v1beta1.MemoryInstancetype{
+					Memory: instancetypev1.MemoryInstancetype{
 						Guest: resource.MustParse("128Mi"),
 					},
 				},
@@ -182,7 +182,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(fakeClientset.Actions()).ToNot(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralResourceName),
 						"",
 						vm.Spec.Instancetype.Name,
 					),
@@ -236,7 +236,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(fakeClientset.Actions()).To(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralResourceName),
 						"",
 						vm.Spec.Instancetype.Name,
 					),
@@ -252,7 +252,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(fakeClientset.Actions()).To(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.ClusterPluralResourceName),
 						"",
 						vm.Spec.Instancetype.Name,
 					),
@@ -298,19 +298,19 @@ var _ = Describe("Instance Type SpecFinder", func() {
 	})
 
 	Context("Using namespaced Instancetype", func() {
-		var fakeInstancetype *v1beta1.VirtualMachineInstancetype
+		var fakeInstancetype *instancetypev1.VirtualMachineInstancetype
 
 		BeforeEach(func() {
-			fakeInstancetype = &v1beta1.VirtualMachineInstancetype{
+			fakeInstancetype = &instancetypev1.VirtualMachineInstancetype{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-instancetype",
 					Namespace: metav1.NamespaceDefault,
 				},
-				Spec: v1beta1.VirtualMachineInstancetypeSpec{
-					CPU: v1beta1.CPUInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: uint32(2),
 					},
-					Memory: v1beta1.MemoryInstancetype{
+					Memory: instancetypev1.MemoryInstancetype{
 						Guest: resource.MustParse("128Mi"),
 					},
 				},
@@ -359,7 +359,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(fakeClientset.Actions()).ToNot(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.PluralResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.PluralResourceName),
 						vm.Namespace,
 						vm.Spec.Instancetype.Name,
 					),
@@ -405,7 +405,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(fakeClientset.Actions()).To(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.PluralResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.PluralResourceName),
 						vm.Namespace,
 						vm.Spec.Instancetype.Name,
 					),
@@ -421,7 +421,7 @@ var _ = Describe("Instance Type SpecFinder", func() {
 			Expect(fakeClientset.Actions()).To(
 				ContainElement(
 					testing.NewGetAction(
-						v1beta1.SchemeGroupVersion.WithResource(apiinstancetype.PluralResourceName),
+						instancetypev1.SchemeGroupVersion.WithResource(apiinstancetype.PluralResourceName),
 						vm.Namespace,
 						vm.Spec.Instancetype.Name,
 					),

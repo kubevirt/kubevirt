@@ -1,4 +1,3 @@
-//nolint:gocyclo
 /*
  * This file is part of the KubeVirt project
  *
@@ -21,12 +20,12 @@ package apply
 
 import (
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-func applyFirmwarePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyFirmwarePreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Firmware == nil {
 		return
 	}
@@ -55,18 +54,5 @@ func applyFirmwarePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSp
 
 	if vmiFirmware.Bootloader.EFI == nil && vmiFirmware.Bootloader.BIOS == nil && firmware.PreferredEfi != nil {
 		vmiFirmware.Bootloader.EFI = firmware.PreferredEfi.DeepCopy()
-		// When using PreferredEfi return early to avoid applying DeprecatedPreferredUseEfi or DeprecatedPreferredUseSecureBoot below
-		return
-	}
-
-	if firmware.DeprecatedPreferredUseEfi != nil &&
-		*firmware.DeprecatedPreferredUseEfi &&
-		vmiFirmware.Bootloader.EFI == nil &&
-		vmiFirmware.Bootloader.BIOS == nil {
-		vmiFirmware.Bootloader.EFI = &virtv1.EFI{}
-	}
-
-	if firmware.DeprecatedPreferredUseSecureBoot != nil && vmiFirmware.Bootloader.EFI != nil && vmiFirmware.Bootloader.EFI.SecureBoot == nil {
-		vmiFirmware.Bootloader.EFI.SecureBoot = pointer.P(*firmware.DeprecatedPreferredUseSecureBoot)
 	}
 }

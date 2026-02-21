@@ -26,7 +26,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -35,11 +35,11 @@ import (
 var _ = Describe("instancetype.Spec.GPUs", func() {
 	var (
 		vmi            *virtv1.VirtualMachineInstance
-		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
+		preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec
 
 		vmiApplier       = apply.NewVMIApplier()
 		field            = k8sfield.NewPath("spec", "template", "spec")
-		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
+		instancetypeSpec = &instancetypev1.VirtualMachineInstancetypeSpec{
 			GPUs: []virtv1.GPU{
 				{
 					Name:       "barfoo",

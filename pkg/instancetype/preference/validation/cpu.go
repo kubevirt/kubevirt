@@ -22,24 +22,19 @@ import (
 	"fmt"
 	"slices"
 
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
 )
 
-func IsPreferredTopologySupported(topology v1beta1.PreferredCPUTopology) bool {
-	supportedTopologies := []v1beta1.PreferredCPUTopology{
-		v1beta1.DeprecatedPreferSockets,
-		v1beta1.DeprecatedPreferCores,
-		v1beta1.DeprecatedPreferThreads,
-		v1beta1.DeprecatedPreferSpread,
-		v1beta1.DeprecatedPreferAny,
-		v1beta1.Sockets,
-		v1beta1.Cores,
-		v1beta1.Threads,
-		v1beta1.Spread,
-		v1beta1.Any,
+func IsPreferredTopologySupported(topology instancetypev1.PreferredCPUTopology) bool {
+	supportedTopologies := []instancetypev1.PreferredCPUTopology{
+		instancetypev1.Sockets,
+		instancetypev1.Cores,
+		instancetypev1.Threads,
+		instancetypev1.Spread,
+		instancetypev1.Any,
 	}
 	return slices.Contains(supportedTopologies, topology)
 }
@@ -54,31 +49,31 @@ const (
 )
 
 func CheckSpreadCPUTopology(
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 ) *conflict.Conflict {
 	topology := apply.GetPreferredTopology(preferenceSpec)
-	if instancetypeSpec == nil || (topology != v1beta1.Spread && topology != v1beta1.DeprecatedPreferSpread) {
+	if instancetypeSpec == nil || topology != instancetypev1.Spread {
 		return nil
 	}
 
 	ratio, across := apply.GetSpreadOptions(preferenceSpec)
 	switch across {
-	case v1beta1.SpreadAcrossSocketsCores:
+	case instancetypev1.SpreadAcrossSocketsCores:
 		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
 			return conflict.NewWithMessage(
 				fmt.Sprintf(spreadAcrossSocketsCoresErrFmt, instancetypeSpec.CPU.Guest, ratio),
 				instancetypeCPUGuestPath,
 			)
 		}
-	case v1beta1.SpreadAcrossCoresThreads:
+	case instancetypev1.SpreadAcrossCoresThreads:
 		if (instancetypeSpec.CPU.Guest % ratio) > 0 {
 			return conflict.NewWithMessage(
 				fmt.Sprintf(spreadAcrossCoresThreadsErrFmt, instancetypeSpec.CPU.Guest, ratio),
 				instancetypeCPUGuestPath,
 			)
 		}
-	case v1beta1.SpreadAcrossSocketsCoresThreads:
+	case instancetypev1.SpreadAcrossSocketsCoresThreads:
 		const threadsPerCore = 2
 		if (instancetypeSpec.CPU.Guest%threadsPerCore) > 0 || ((instancetypeSpec.CPU.Guest/threadsPerCore)%ratio) > 0 {
 			return conflict.NewWithMessage(
