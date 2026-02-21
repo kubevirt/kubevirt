@@ -1836,6 +1836,42 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
+	Context("with ContainerPathVolumes feature gate toggled", func() {
+
+		AfterEach(func() {
+			kvconfig.EnableFeatureGate(featuregate.ContainerPathVolumesGate)
+		})
+
+		It("should delete and recreate virt-launcher-pod-mutator webhook", func() {
+			By("Ensuring ContainerPathVolumes feature gate is enabled")
+			kvconfig.EnableFeatureGate(featuregate.ContainerPathVolumesGate)
+
+			By("Verifying virt-launcher-pod-mutator webhook exists")
+			Eventually(func() error {
+				_, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), components.VirtLauncherPodMutatingWebhookName, metav1.GetOptions{})
+				return err
+			}, time.Minute, time.Second*2).Should(Succeed(), "webhook should exist when feature gate is enabled")
+
+			By("Disabling ContainerPathVolumes feature gate")
+			kvconfig.DisableFeatureGate(featuregate.ContainerPathVolumesGate)
+
+			By("Verifying virt-launcher-pod-mutator webhook is deleted")
+			Eventually(func() error {
+				_, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), components.VirtLauncherPodMutatingWebhookName, metav1.GetOptions{})
+				return err
+			}, time.Minute*5, time.Second*2).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"), "webhook should be deleted when feature gate is disabled")
+
+			By("Re-enabling ContainerPathVolumes feature gate")
+			kvconfig.EnableFeatureGate(featuregate.ContainerPathVolumesGate)
+
+			By("Verifying virt-launcher-pod-mutator webhook is recreated")
+			Eventually(func() error {
+				_, err := virtClient.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.TODO(), components.VirtLauncherPodMutatingWebhookName, metav1.GetOptions{})
+				return err
+			}, time.Minute, time.Second*2).Should(Succeed(), "webhook should be recreated when feature gate is re-enabled")
+		})
+	})
+
 	Context(" Seccomp configuration", Serial, func() {
 
 		Context("Kubevirt profile", func() {

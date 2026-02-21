@@ -190,6 +190,14 @@ const (
 	// Template enables the deployment of virt-template components by virt-operator.
 	// Alpha: v1.8.0
 	Template = "Template"
+
+	// Owner: sig-storage / @mhenriks
+	// Alpha: v1.8.0
+	//
+	// ContainerPathVolumes enables exposing virt-launcher volumeMount paths to the VM
+	// via virtiofs. This allows VMs to access credentials and tokens injected into pods
+	// by external systems such as AWS IRSA, GKE Workload Identity, or TEE attestation.
+	ContainerPathVolumesGate = "ContainerPathVolumes"
 )
 
 func init() {
@@ -231,4 +239,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DisableNADResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
 }

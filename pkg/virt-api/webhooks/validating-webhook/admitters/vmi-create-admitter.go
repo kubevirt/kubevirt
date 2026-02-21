@@ -284,14 +284,15 @@ func validateDownwardMetrics(field *k8sfield.Path, spec *v1.VirtualMachineInstan
 func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 
-	diskAndFilesystemNames := make(map[string]struct{})
+	diskNames := make(map[string]struct{})
+	filesystemNames := make(map[string]struct{})
 
 	for _, disk := range spec.Domain.Devices.Disks {
-		diskAndFilesystemNames[disk.Name] = struct{}{}
+		diskNames[disk.Name] = struct{}{}
 	}
 
 	for _, fs := range spec.Domain.Devices.Filesystems {
-		diskAndFilesystemNames[fs.Name] = struct{}{}
+		filesystemNames[fs.Name] = struct{}{}
 	}
 
 	// Validate that volumes match disks and filesystems correctly
@@ -299,12 +300,46 @@ func validateVirtualMachineInstanceSpecVolumeDisks(field *k8sfield.Path, spec *v
 		if volume.MemoryDump != nil {
 			continue
 		}
-		if _, matchingDiskExists := diskAndFilesystemNames[volume.Name]; !matchingDiskExists {
+
+		_, matchingDiskExists := diskNames[volume.Name]
+		_, matchingFilesystemExists := filesystemNames[volume.Name]
+
+		if !matchingDiskExists && !matchingFilesystemExists {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: fmt.Sprintf(nameOfTypeNotFoundMessagePattern, field.Child("domain", "volumes").Index(idx).Child("name").String(), volume.Name),
 				Field:   field.Child("domain", "volumes").Index(idx).Child("name").String(),
 			})
+		}
+
+		// ContainerPath volumes must be mapped to a filesystem (virtiofs), not a disk
+		if volume.ContainerPath != nil {
+			if matchingDiskExists {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("ContainerPath volume '%s' must be mapped to a filesystem, not a disk", volume.Name),
+					Field:   field.Child("domain", "volumes").Index(idx).String(),
+				})
+			}
+			if !matchingFilesystemExists {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("ContainerPath volume '%s' must have a matching filesystem defined in spec.domain.devices.filesystems", volume.Name),
+					Field:   field.Child("domain", "volumes").Index(idx).String(),
+				})
+			}
+			// Block reserved paths used by KubeVirt internally
+			reservedPrefixes := []string{"/var/run/kubevirt", "/var/run/libvirt"}
+			for _, prefix := range reservedPrefixes {
+				if strings.HasPrefix(volume.ContainerPath.Path, prefix) {
+					causes = append(causes, metav1.StatusCause{
+						Type:    metav1.CauseTypeFieldValueInvalid,
+						Message: fmt.Sprintf("ContainerPath volume '%s' uses reserved path prefix '%s'", volume.Name, prefix),
+						Field:   field.Child("domain", "volumes").Index(idx).Child("containerPath", "path").String(),
+					})
+					break
+				}
+			}
 		}
 	}
 	return causes
@@ -1649,6 +1684,9 @@ func validateVolumes(field *k8sfield.Path, volumes []v1.Volume, config *virtconf
 		}
 		if volume.MemoryDump != nil {
 			memoryDumpVolumeCount++
+			volumeSourceSetCount++
+		}
+		if volume.ContainerPath != nil {
 			volumeSourceSetCount++
 		}
 

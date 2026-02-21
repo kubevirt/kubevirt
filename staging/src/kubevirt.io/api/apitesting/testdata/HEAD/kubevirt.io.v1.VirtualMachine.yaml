@@ -757,6 +757,9 @@ spec:
           imagePullPolicy: imagePullPolicyValue
           imagePullSecret: imagePullSecretValue
           path: pathValue
+        containerPath:
+          path: pathValue
+          readOnly: true
         dataVolume:
           hotpluggable: true
           name: nameValue
