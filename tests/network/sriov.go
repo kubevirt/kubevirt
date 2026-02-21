@@ -191,6 +191,25 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 			// there is little we can do beyond just checking two devices are present: PCI slots are different inside
 			// the guest, and DP doesn't pass information about vendor IDs of allocated devices into the pod, so
 			// it's hard to match them.
+
+			By("checking SR-IOV interface status and verifying no duplicate or ghost interfaces")
+			Eventually(func() []v1.VirtualMachineInstanceNetworkInterface {
+				vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, k8smetav1.GetOptions{})
+				Expect(err).NotTo(HaveOccurred())
+				return normalizeInterfaceStatuses(vmi.Status.Interfaces)
+			}).WithTimeout(time.Minute).WithPolling(time.Second).Should(ConsistOf(
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal("default"),
+					"InfoSource":       ContainSubstring(vmispec.InfoSourceDomain),
+					"PodInterfaceName": Not(BeEmpty()),
+				}),
+				MatchFields(IgnoreExtras, Fields{
+					"Name":             Equal(sriovnet1),
+					"MAC":              Not(BeEmpty()),
+					"InfoSource":       Equal(vmispec.NewInfoSource(vmispec.InfoSourceDomain, vmispec.InfoSourceGuestAgent, vmispec.InfoSourceMultusStatus)),
+					"PodInterfaceName": Not(BeEmpty()),
+				}),
+			), "expected exactly 2 interfaces without duplicates")
 		})
 
 		It("[test_id:1754]should create a virtual machine with sriov interface with all pci devices on the root bus", func() {
@@ -580,6 +599,17 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 	})
 }))
+
+func normalizeInterfaceStatuses(statuses []v1.VirtualMachineInstanceNetworkInterface) []v1.VirtualMachineInstanceNetworkInterface {
+	normalized := make([]v1.VirtualMachineInstanceNetworkInterface, len(statuses))
+	copy(normalized, statuses)
+	for i := range normalized {
+		normalized[i].InterfaceName = ""
+		normalized[i].IP = ""
+		normalized[i].IPs = nil
+	}
+	return normalized
+}
 
 func readSRIOVResourceName() string {
 	sriovResourceName := os.Getenv("SRIOV_RESOURCE_NAME")

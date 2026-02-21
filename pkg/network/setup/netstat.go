@@ -113,6 +113,8 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 		return err
 	}
 
+	interfacesStatus = restoreSRIOVMACsFromPrevStatus(interfacesStatus, vmi.Status.Interfaces, vmiInterfacesSpecByName)
+
 	// Guest Agent information will add and conditionally override data gathered from the cache.
 	interfacesStatus = ifacesStatusFromGuestAgent(interfacesStatus, domain.Status.Interfaces, vmiInterfacesSpecByName)
 
@@ -123,7 +125,7 @@ func (c *NetStat) UpdateStatus(vmi *v1.VirtualMachineInstance, domain *api.Domai
 
 	interfacesStatus = ifacesStatusFromMultus(interfacesStatus, multusStatusNetworksByName, vmiInterfacesSpecByName)
 
-	interfacesStatus = restorePodIfaceNames(interfacesStatus, vmi.Status.Interfaces)
+	interfacesStatus = restoreControllerIfaceFields(interfacesStatus, vmi.Status.Interfaces)
 	vmi.Status.Interfaces = interfacesStatus
 
 	c.removeAbsentIfacesFromVolatileCache(vmi)
@@ -151,8 +153,31 @@ func restorePrimaryIfaceStatus(
 	})
 }
 
-// restorePodIfaceNames restores the PodInterfaceName based on the VMI controller's last report
-func restorePodIfaceNames(
+// restoreSRIOVMACsFromPrevStatus restores MAC addresses for SR-IOV interfaces from the previous VMI status.
+// SR-IOV interfaces don't get their MAC from the domain spec, so it must be restored from the previous
+func restoreSRIOVMACsFromPrevStatus(
+	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
+	prevIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
+	vmiIfacesSpecByName map[string]v1.Interface,
+) []v1.VirtualMachineInstanceNetworkInterface {
+	prevIfaceStatusByName := netvmispec.IndexInterfaceStatusByName(prevIfaceStatuses, func(ifaceStatus v1.VirtualMachineInstanceNetworkInterface) bool {
+		return ifaceStatus.Name != ""
+	})
+
+	for i, ifaceStatus := range interfacesStatus {
+		iface, exists := vmiIfacesSpecByName[ifaceStatus.Name]
+		if exists && iface.SRIOV != nil && ifaceStatus.MAC == "" {
+			if prevStatus, exists := prevIfaceStatusByName[ifaceStatus.Name]; exists && prevStatus.MAC != "" {
+				interfacesStatus[i].MAC = prevStatus.MAC
+			}
+		}
+	}
+
+	return interfacesStatus
+}
+
+// restoreControllerIfaceFields preserves interface status fields based on the VMI controller's last report
+func restoreControllerIfaceFields(
 	interfacesStatus []v1.VirtualMachineInstanceNetworkInterface,
 	prevIfaceStatuses []v1.VirtualMachineInstanceNetworkInterface,
 ) []v1.VirtualMachineInstanceNetworkInterface {
@@ -163,7 +188,11 @@ func restorePodIfaceNames(
 
 	for i, ifaceStatus := range interfacesStatus {
 		if ifaceStatusOriginatedFromSpec := ifaceStatus.Name != ""; ifaceStatusOriginatedFromSpec {
-			interfacesStatus[i].PodInterfaceName = prevIfaceStatusesFromSpecByName[ifaceStatus.Name].PodInterfaceName
+			prevStatus := prevIfaceStatusesFromSpecByName[ifaceStatus.Name]
+			interfacesStatus[i].PodInterfaceName = prevStatus.PodInterfaceName
+			if interfacesStatus[i].MAC == "" && prevStatus.MAC != "" {
+				interfacesStatus[i].MAC = prevStatus.MAC
+			}
 		}
 	}
 
@@ -305,20 +334,30 @@ func linkStateFromDomain(linkState *api.LinkState) string {
 	return linkState.State
 }
 
-func sriovIfacesStatusFromDomainHostDevices(hostDevices []api.HostDevice, vmiIfacesSpecByName map[string]v1.Interface) []v1.VirtualMachineInstanceNetworkInterface {
+func sriovIfacesStatusFromDomainHostDevices(
+	hostDevices []api.HostDevice,
+	vmiIfacesSpecByName map[string]v1.Interface,
+) []v1.VirtualMachineInstanceNetworkInterface {
 	var vmiStatusIfaces []v1.VirtualMachineInstanceNetworkInterface
 
 	for _, hostDevice := range filterHostDevicesByAlias(hostDevices, deviceinfo.SRIOVAliasPrefix) {
+		ifaceName := hostDevice.Alias.GetName()[len(deviceinfo.SRIOVAliasPrefix):]
 		vmiStatusIface := v1.VirtualMachineInstanceNetworkInterface{
-			Name:       hostDevice.Alias.GetName()[len(deviceinfo.SRIOVAliasPrefix):],
+			Name:       ifaceName,
 			InfoSource: netvmispec.InfoSourceDomain,
+			MAC:        resolveMACAddress(ifaceName, vmiIfacesSpecByName),
 		}
-		if iface, exists := vmiIfacesSpecByName[vmiStatusIface.Name]; exists {
-			vmiStatusIface.MAC = iface.MacAddress
-		}
+
 		vmiStatusIfaces = append(vmiStatusIfaces, vmiStatusIface)
 	}
 	return vmiStatusIfaces
+}
+
+func resolveMACAddress(ifaceName string, vmiIfacesSpecByName map[string]v1.Interface) string {
+	if iface, exists := vmiIfacesSpecByName[ifaceName]; exists && iface.MacAddress != "" {
+		return iface.MacAddress
+	}
+	return ""
 }
 
 func ifacesStatusFromGuestAgent(
