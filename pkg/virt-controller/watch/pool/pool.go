@@ -824,6 +824,40 @@ func indexVMSpec(poolSpec *poolv1.VirtualMachinePoolSpec, idx int) *virtv1.Virtu
 				volume.CloudInitConfigDrive.NetworkDataSecretRef.Name += suffix
 			}
 		}
+
+		if appendIndexToSecretRefs {
+			if volume.VolumeSource.CloudInitNoCloud != nil {
+				if volume.VolumeSource.CloudInitNoCloud.UserDataSecretRef != nil {
+					volume.VolumeSource.CloudInitNoCloud.UserDataSecretRef.Name += "-" + strconv.Itoa(idx)
+				}
+				if volume.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef != nil {
+					volume.VolumeSource.CloudInitNoCloud.NetworkDataSecretRef.Name += "-" + strconv.Itoa(idx)
+				}
+				if volume.VolumeSource.CloudInitNoCloud.MetaDataSecretRef != nil {
+					volume.VolumeSource.CloudInitNoCloud.MetaDataSecretRef.Name += "-" + strconv.Itoa(idx)
+				}
+			}
+			if volume.VolumeSource.CloudInitConfigDrive != nil {
+				if volume.VolumeSource.CloudInitConfigDrive.UserDataSecretRef != nil {
+					volume.VolumeSource.CloudInitConfigDrive.UserDataSecretRef.Name += "-" + strconv.Itoa(idx)
+				}
+				if volume.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef != nil {
+					volume.VolumeSource.CloudInitConfigDrive.NetworkDataSecretRef.Name += "-" + strconv.Itoa(idx)
+				}
+				if volume.VolumeSource.CloudInitConfigDrive.MetaDataSecretRef != nil {
+					volume.VolumeSource.CloudInitConfigDrive.MetaDataSecretRef.Name += "-" + strconv.Itoa(idx)
+				}
+			}
+			if volume.VolumeSource.Sysprep != nil && volume.VolumeSource.Sysprep.Secret != nil {
+				volume.VolumeSource.Sysprep.Secret.Name += "-" + strconv.Itoa(idx)
+			}
+		}
+
+		if appendIndexToConfigMapRefs {
+			if volume.VolumeSource.Sysprep != nil && volume.VolumeSource.Sysprep.ConfigMap != nil {
+				volume.VolumeSource.Sysprep.ConfigMap.Name += "-" + strconv.Itoa(idx)
+			}
+		}
 	}
 
 	return spec
