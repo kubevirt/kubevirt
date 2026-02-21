@@ -25,7 +25,6 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
-
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -47,10 +46,33 @@ func NewGraphicsDomainConfigurator(architecture string, useBochsForEFIGuests boo
 }
 
 func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice {
+	if isGraphicsDisabled(vmi) {
 		return nil
 	}
 
+	configureVNCGraphics(vmi, domain)
+
+	if configureUserDefinedVideo(vmi, domain) {
+		return nil
+	}
+
+	switch g.architecture {
+	case "amd64":
+		configureAMD64VideoDevice(vmi, domain, g.useBochsForEFIGuests)
+	case "arm64":
+		configureARM64VideoDevice(domain)
+	case "s390x":
+		configureS390XVideoDevice(domain)
+	}
+
+	return nil
+}
+
+func isGraphicsDisabled(vmi *v1.VirtualMachineInstance) bool {
+	return vmi.Spec.Domain.Devices.AutoattachGraphicsDevice != nil && !*vmi.Spec.Domain.Devices.AutoattachGraphicsDevice
+}
+
+func configureVNCGraphics(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	domain.Spec.Devices.Graphics = []api.Graphics{
 		{
 			Listen: &api.GraphicsListen{
@@ -60,38 +82,27 @@ func (g GraphicsDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, do
 			Type: "vnc",
 		},
 	}
-
-	g.configureVideoDevice(vmi, domain)
-
-	return nil
 }
 
-func (g GraphicsDomainConfigurator) configureVideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	if vmi.Spec.Domain.Devices.Video != nil {
-		video := api.Video{
+func configureUserDefinedVideo(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
+	if vmi.Spec.Domain.Devices.Video == nil {
+		return false
+	}
+	domain.Spec.Devices.Video = []api.Video{
+		{
 			Model: api.VideoModel{
 				Type:  vmi.Spec.Domain.Devices.Video.Type,
 				VRam:  pointer.P(graphicsDeviceDefaultVRAM),
 				Heads: pointer.P(graphicsDeviceDefaultHeads),
 			},
-		}
-		domain.Spec.Devices.Video = []api.Video{video}
-		return
+		},
 	}
-
-	switch g.architecture {
-	case "amd64":
-		g.configureAMD64VideoDevice(vmi, domain)
-	case "arm64":
-		g.configureARM64VideoDevice(domain)
-	case "s390x":
-		g.configureS390XVideoDevice(domain)
-	}
+	return true
 }
 
-func (g GraphicsDomainConfigurator) configureAMD64VideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+func configureAMD64VideoDevice(vmi *v1.VirtualMachineInstance, domain *api.Domain, useBochsForEFIGuests bool) {
 	// For AMD64 + EFI, use bochs. For BIOS, use VGA
-	if g.useBochsForEFIGuests && vmi.IsBootloaderEFI() {
+	if useBochsForEFIGuests && vmi.IsBootloaderEFI() {
 		domain.Spec.Devices.Video = []api.Video{
 			{
 				Model: api.VideoModel{
@@ -113,7 +124,7 @@ func (g GraphicsDomainConfigurator) configureAMD64VideoDevice(vmi *v1.VirtualMac
 	}
 }
 
-func (g GraphicsDomainConfigurator) configureARM64VideoDevice(domain *api.Domain) {
+func configureARM64VideoDevice(domain *api.Domain) {
 	// For arm64, qemu-kvm only support virtio-gpu display device, so set it as default video device.
 	domain.Spec.Devices.Video = []api.Video{
 		{
@@ -125,7 +136,7 @@ func (g GraphicsDomainConfigurator) configureARM64VideoDevice(domain *api.Domain
 	}
 }
 
-func (g GraphicsDomainConfigurator) configureS390XVideoDevice(domain *api.Domain) {
+func configureS390XVideoDevice(domain *api.Domain) {
 	domain.Spec.Devices.Video = []api.Video{{
 		Model: api.VideoModel{
 			Type:  v1.VirtIO,
