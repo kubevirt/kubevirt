@@ -33,6 +33,7 @@ import (
 
 	"github.com/emicklei/go-restful/v3"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -131,6 +132,7 @@ var _ = Describe("Application", func() {
 		preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
 		clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
 		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
+		jobInformer, _ := testutils.NewFakeInformerFor(&batchv1.Job{})
 
 		var qemuGid int64 = 107
 
@@ -225,6 +227,7 @@ var _ = Describe("Application", func() {
 			StorageClassInformer:      storageClassInformer,
 			DataVolumeInformer:        dataVolumeInformer,
 			Recorder:                  recorder,
+			JobInformer:               jobInformer,
 		}
 		_ = app.restoreController.Init()
 		app.exportController = &export.VMExportController{
