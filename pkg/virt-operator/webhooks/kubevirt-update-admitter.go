@@ -38,6 +38,7 @@ import (
 
 	admissionv1 "k8s.io/api/admission/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	"k8s.io/apimachinery/pkg/labels"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
@@ -116,6 +117,8 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
 		results = append(results, validateFeatureGates(newKV.Spec.Configuration.DeveloperConfiguration)...)
 	}
+
+	results = append(results, validateCPUModel(ctx, newKV.Spec.Configuration.CPUModel, admitter.Client)...)
 
 	response := validating_webhooks.NewAdmissionResponse(results)
 
@@ -471,6 +474,38 @@ func warnDeprecatedArchitectures(archConfiguration *v1.ArchConfiguration) []stri
 	if archConfiguration != nil && archConfiguration.Ppc64le != nil {
 		return []string{"spec.configuration.architectureConfiguration.ppc64le is deprecated and no longer supported."}
 	}
+	return nil
+}
+
+func validateCPUModel(ctx context.Context, cpuModel string, client kubecli.KubevirtClient) []metav1.StatusCause {
+	if cpuModel == "" || cpuModel == v1.CPUModeHostPassthrough || cpuModel == v1.CPUModeHostModel {
+		return nil
+	}
+
+	if client == nil {
+		return nil
+	}
+
+	selector := labels.SelectorFromSet(labels.Set{
+		v1.CPUModelLabel + cpuModel: "true",
+	})
+	nodeList, err := client.CoreV1().Nodes().List(ctx, metav1.ListOptions{
+		LabelSelector: selector.String(),
+		Limit:         1,
+	})
+	if err != nil {
+		log.Log.Warningf("unable to validate cpuModel %q against node labels: %v", cpuModel, err)
+		return nil
+	}
+
+	if len(nodeList.Items) == 0 {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("the cpuModel %q is not supported by any node in the cluster", cpuModel),
+			Field:   "spec.configuration.cpuModel",
+		}}
+	}
+
 	return nil
 }
 
