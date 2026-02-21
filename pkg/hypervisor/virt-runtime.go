@@ -24,6 +24,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
+	"kubevirt.io/kubevirt/pkg/hypervisor/mshv"
 	"kubevirt.io/kubevirt/pkg/virt-handler/cgroup"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -36,6 +37,8 @@ type VirtRuntime interface {
 
 func GetVirtRuntime(podIsolationDetector isolation.PodIsolationDetector, hypervisorName string) VirtRuntime {
 	switch hypervisorName {
+	case v1.HyperVDirectHypervisorName:
+		return mshv.NewMshvVirtRuntime(podIsolationDetector, log.Log.With("controller", "vm"))
 	default:
 		return kvm.NewKvmVirtRuntime(podIsolationDetector, log.Log.With("controller", "vm"))
 	}
