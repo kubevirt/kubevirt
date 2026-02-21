@@ -70,6 +70,9 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 	}
 	defer domain.Free()
 
+	m.freezeInProgress.Store(true)
+	defer m.freezeInProgress.Store(false)
+
 	if err := domain.FSFreeze(nil, 0); err != nil {
 		log.Log.Errorf("Failed to freeze vmi, %s", err.Error())
 		return err
@@ -137,4 +140,9 @@ func (m *StorageManager) getParsedFSStatus(domainName string) (string, error) {
 	}
 
 	return fsfreezeStatus.Status, nil
+}
+
+// IsFreezeInProgress returns true while a filesystem freeze operation is in progress.
+func (m *StorageManager) IsFreezeInProgress() bool {
+	return m.freezeInProgress.Load()
 }
