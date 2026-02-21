@@ -190,6 +190,13 @@ const (
 	// Template enables the deployment of virt-template components by virt-operator.
 	// Alpha: v1.8.0
 	Template = "Template"
+
+	// Owner: @orenc1
+	// Alpha: v1.8.0
+	//
+	// OptOutRoleAggregation enables the RoleAggregationStrategy field in KubeVirtConfiguration,
+	// allowing users to opt out of aggregating KubeVirt ClusterRoles to the default Kubernetes roles.
+	OptOutRoleAggregation = "OptOutRoleAggregation"
 )
 
 func init() {
@@ -231,4 +238,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DisableNADResourceInjection, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 }

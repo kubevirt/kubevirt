@@ -383,4 +383,128 @@ var _ = Describe("RBAC test", func() {
 		})
 
 	})
+
+	Context("markAggregateLabelsForRemoval", func() {
+		var clusterRoleCache cache.Store
+
+		BeforeEach(func() {
+			clusterRoleCache = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
+		})
+
+		It("should add removal markers when existing has aggregate labels but required does not", func() {
+			existing := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kubevirt.io:admin",
+					Labels: map[string]string{
+						"rbac.authorization.k8s.io/aggregate-to-admin": "true",
+						"kubevirt.io": "",
+					},
+				},
+			}
+			Expect(clusterRoleCache.Add(existing)).To(Succeed())
+
+			required := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kubevirt.io:admin",
+					Labels: map[string]string{
+						"kubevirt.io": "",
+					},
+				},
+			}
+
+			markAggregateLabelsForRemoval(clusterRoleCache, required)
+
+			Expect(required.Labels).To(HaveKeyWithValue("rbac.authorization.k8s.io/aggregate-to-admin-", ""))
+			Expect(required.Labels).To(HaveKeyWithValue("kubevirt.io", ""))
+		})
+
+		It("should not add removal markers when required also has the aggregate labels", func() {
+			existing := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kubevirt.io:admin",
+					Labels: map[string]string{
+						"rbac.authorization.k8s.io/aggregate-to-admin": "true",
+					},
+				},
+			}
+			Expect(clusterRoleCache.Add(existing)).To(Succeed())
+
+			required := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kubevirt.io:admin",
+					Labels: map[string]string{
+						"rbac.authorization.k8s.io/aggregate-to-admin": "true",
+					},
+				},
+			}
+
+			markAggregateLabelsForRemoval(clusterRoleCache, required)
+
+			Expect(required.Labels).To(HaveKeyWithValue("rbac.authorization.k8s.io/aggregate-to-admin", "true"))
+			Expect(required.Labels).ToNot(HaveKey("rbac.authorization.k8s.io/aggregate-to-admin-"))
+		})
+
+		It("should do nothing when existing has no aggregate labels", func() {
+			existing := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kubevirt.io:some-role",
+					Labels: map[string]string{
+						"kubevirt.io": "",
+					},
+				},
+			}
+			Expect(clusterRoleCache.Add(existing)).To(Succeed())
+
+			required := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kubevirt.io:some-role",
+					Labels: map[string]string{
+						"kubevirt.io": "",
+					},
+				},
+			}
+
+			markAggregateLabelsForRemoval(clusterRoleCache, required)
+
+			Expect(required.Labels).To(Equal(map[string]string{"kubevirt.io": ""}))
+		})
+
+		It("should do nothing when no cached object exists", func() {
+			required := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kubevirt.io:admin",
+					Labels: map[string]string{
+						"kubevirt.io": "",
+					},
+				},
+			}
+
+			markAggregateLabelsForRemoval(clusterRoleCache, required)
+
+			Expect(required.Labels).To(Equal(map[string]string{"kubevirt.io": ""}))
+		})
+
+		It("should initialize labels map on required if nil", func() {
+			existing := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kubevirt.io:admin",
+					Labels: map[string]string{
+						"rbac.authorization.k8s.io/aggregate-to-admin": "true",
+					},
+				},
+			}
+			Expect(clusterRoleCache.Add(existing)).To(Succeed())
+
+			required := &rbacv1.ClusterRole{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kubevirt.io:admin",
+				},
+			}
+
+			markAggregateLabelsForRemoval(clusterRoleCache, required)
+
+			Expect(required.Labels).ToNot(BeNil())
+			Expect(required.Labels).To(HaveKeyWithValue("rbac.authorization.k8s.io/aggregate-to-admin-", ""))
+		})
+	})
 })
