@@ -127,6 +127,7 @@
 | kubevirt_vmsnapshot_disks_restored_from_source | Recording rule | Gauge | Returns the total number of virtual machine disks restored from the source virtual machine. |
 | kubevirt_vmsnapshot_disks_restored_from_source_bytes | Recording rule | Gauge | Returns the amount of space in bytes restored from the source virtual machine. |
 | kubevirt_vmsnapshot_persistentvolumeclaim_labels | Recording rule | Gauge | Returns the labels of the persistent volume claims that are used for restoring virtual machines. |
+| node:kubevirt_non_schedulable:sum | Recording rule | Gauge | The number of non-schedulable nodes in the cluster. |
 | vmi:kubevirt_vmi_memory_available_bytes:sum | Recording rule | Gauge | Sum of available memory bytes per VMI (aggregated by name, namespace). |
 | vmi:kubevirt_vmi_memory_headroom_ratio:sum | Recording rule | Gauge | Usable memory to available memory ratio per VMI (aggregated by name, namespace). |
 | vmi:kubevirt_vmi_pgmajfaults:rate30m | Recording rule | Gauge | Rate of major page faults over 30 minutes per VMI (aggregated by name, namespace). |
