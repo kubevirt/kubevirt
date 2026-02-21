@@ -21,15 +21,42 @@ package annotations
 
 import (
 	"fmt"
+	"strconv"
 
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/storage/velero"
 )
 
-type Generator struct{}
+type Generator struct {
+	kubeVirtCR *v1.KubeVirt
+}
+
+func NewGenerator(kubeVirtCR *v1.KubeVirt) Generator {
+	return Generator{kubeVirtCR: kubeVirtCR}
+}
+
+func (g Generator) ManagedAnnotationKeys() []string {
+	return []string{
+		velero.PreBackupHookContainerAnnotation,
+		velero.PreBackupHookCommandAnnotation,
+		velero.PreBackupHookTimeoutAnnotation,
+		velero.PostBackupHookContainerAnnotation,
+		velero.PostBackupHookCommandAnnotation,
+	}
+}
 
 func (g Generator) Generate(vmi *v1.VirtualMachineInstance) (map[string]string, error) {
+	// Check VMI annotation first, fallback to kubevirt CR if not set
+	skipValue := vmi.Annotations[velero.SkipHooksAnnotation]
+	if skipValue == "" && g.kubeVirtCR != nil {
+		skipValue = g.kubeVirtCR.Annotations[velero.SkipHooksAnnotation]
+	}
+
+	if skip, _ := strconv.ParseBool(skipValue); skip {
+		return map[string]string{}, nil
+	}
+
 	const computeContainerName = "compute"
 
 	return map[string]string{
