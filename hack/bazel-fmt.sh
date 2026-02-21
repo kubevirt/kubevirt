@@ -24,15 +24,15 @@ source hack/bootstrap.sh
 source hack/config.sh
 
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     //vendor/mvdan.cc/sh/v3/cmd/shfmt:shfmt -- -i 4 -w ${KUBEVIRT_DIR}/hack/ ${KUBEVIRT_DIR}/images/
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     //:gazelle -- pkg/ tools/ tests/ cmd/
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     //:goimports
 # align BAZEL files to a single format
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     //:buildifier

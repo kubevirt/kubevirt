@@ -13,16 +13,43 @@ fi
 fail_if_cri_bin_missing
 
 kubevirt_builder_version="2510281240-82d14f4b41"
+kubevirt_cs10_builder_version=${KUBEVIRT_CS10_BUILDER_VERSION:-""}
+
+# CentOS Stream 9 builder images (default)
 default_kubevirt_builder_image="quay.io/kubevirt/builder:${kubevirt_builder_version}"
 kubevirt_cross_compile_image="quay.io/kubevirt/builder-cross:${kubevirt_builder_version}"
 
-KUBEVIRT_BUILDER_IMAGE=${KUBEVIRT_BUILDER_IMAGE:-"${default_kubevirt_builder_image}"}
+# CentOS Stream 10 builder images
+default_kubevirt_cs10_builder_image="quay.io/kubevirt/builder-cs10:${kubevirt_cs10_builder_version}"
+kubevirt_cs10_cross_compile_image="quay.io/kubevirt/builder-cs10-cross:${kubevirt_cs10_builder_version}"
+
+# Select builder based on KUBEVIRT_CENTOS_STREAM_VERSION
+# If KUBEVIRT_BUILDER_IMAGE is already set, use it directly (user override)
+if [ -n "${KUBEVIRT_BUILDER_IMAGE}" ]; then
+    : # User has specified a custom builder image
+elif [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" == "10" ]; then
+    if [ -z "${kubevirt_cs10_builder_version}" ]; then
+        echo "ERROR: KUBEVIRT_CENTOS_STREAM_VERSION=10 requires KUBEVIRT_CS10_BUILDER_VERSION to be set" >&2
+        echo "Build a CS10 builder image with: hack/builder/build-cs10.sh" >&2
+        echo "Then set: export KUBEVIRT_CS10_BUILDER_VERSION=<version>" >&2
+        echo "Or set KUBEVIRT_BUILDER_IMAGE directly to your local CS10 builder image" >&2
+        exit 1
+    fi
+    KUBEVIRT_BUILDER_IMAGE="${default_kubevirt_cs10_builder_image}"
+    kubevirt_cross_compile_image="${kubevirt_cs10_cross_compile_image}"
+else
+    KUBEVIRT_BUILDER_IMAGE="${default_kubevirt_builder_image}"
+fi
 
 # As long as KUBEVIRT_BUILDER_IMAGE is using the default builder, check if cross-compilation is needed and
 # switch to bigger cross-compile image instead.
 # Should KUBEVIRT_BUILDER_IMAGE be modified by the user, do not change it. It is assumed that the user knows
 # what they are doing.
-if [ "${KUBEVIRT_BUILDER_IMAGE}" == "${default_kubevirt_builder_image}" ] && [ -n "${BUILD_ARCH}" ]; then
+default_builder_image="${default_kubevirt_builder_image}"
+if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" == "10" ]; then
+    default_builder_image="${default_kubevirt_cs10_builder_image}"
+fi
+if [ "${KUBEVIRT_BUILDER_IMAGE}" == "${default_builder_image}" ] && [ -n "${BUILD_ARCH}" ]; then
     for arch in ${BUILD_ARCH//,/ }; do
         arch=$(format_archname "${arch}")
         if [[ ${arch} =~ ^cross-* ]]; then
@@ -39,7 +66,7 @@ SYNC_VENDOR=${SYNC_VENDOR:-false}
 
 TEMPFILE=".rsynctemp"
 
-CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY} --env KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL}"
+CONTAINER_ENV="--env HTTP_PROXY=${HTTP_PROXY} --env HTTPS_PROXY=${HTTP_PROXY} --env NO_PROXY=${NO_PROXY} --env KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL} --env KUBEVIRT_CENTOS_STREAM_VERSION=${KUBEVIRT_CENTOS_STREAM_VERSION}"
 
 # Create the persistent container volume
 if [ -z "$($KUBEVIRT_CRI volume list | grep ${BUILDER})" ]; then

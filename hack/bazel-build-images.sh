@@ -28,7 +28,6 @@ other_images_default="
     //cmd/sidecars:sidecar-shim-image
     //cmd/libguestfs:libguestfs-tools-image
     //containerimages:alpine-container-disk-image
-    //containerimages:alpine-with-test-tooling
     //containerimages:fedora-with-test-tooling
     //images/disks-images-provider:disks-images-provider-image
     //images/vm-killer:vm-killer-image
@@ -46,6 +45,7 @@ other_images_x86_64_aarch64="
     //containerimages:cirros-custom-container-disk-image
     //containerimages:virtio-container-disk-image
     //containerimages:alpine-ext-kernel-boot-demo-container
+    //containerimages:alpine-with-test-tooling
     //containerimages:fedora-realtime
     //images/winrmcli:winrmcli-image
     //tests:conformance_image
@@ -72,7 +72,7 @@ case ${ARCHITECTURE} in
 esac
 
 bazel build \
-    --config=${ARCHITECTURE} \
+    --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     --define container_prefix= \
     --define image_prefix= \
     --define container_tag= \

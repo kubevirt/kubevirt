@@ -10,9 +10,9 @@ rm -rf "${TESTS_OUT_DIR}"
 mkdir -p "${TESTS_OUT_DIR}/tools"
 
 bazel build \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     //vendor/github.com/onsi/ginkgo/v2/ginkgo:ginkgo
 
 bazel run \
-    --config=${HOST_ARCHITECTURE} \
+    --config=${HOST_ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     :build-ginkgo -- ${TESTS_OUT_DIR}/ginkgo
