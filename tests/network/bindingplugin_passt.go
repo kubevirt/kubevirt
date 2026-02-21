@@ -58,7 +58,7 @@ const (
 
 var _ = Describe(
 	SIG(" VirtualMachineInstance with passt network binding plugin",
-		decorators.NetCustomBindingPlugins, decorators.Passt, Serial, func() {
+		decorators.NetCustomBindingPlugins, Serial, func() {
 			const passtNetAttDefName = "netbindingpasst"
 
 			var err error

@@ -93,6 +93,40 @@ var _ = Describe("Network Domain Configurator", func() {
 		),
 	)
 
+	DescribeTable("Should fail to configure interfaces",
+		func(
+			vmi *v1.VirtualMachineInstance,
+			domainAttachmentByInterfaceName map[string]string,
+		) {
+			configurator := network.NewDomainConfigurator(
+				network.WithDomainAttachmentByInterfaceName(domainAttachmentByInterfaceName),
+				network.WithUseLaunchSecuritySEV(false),
+				network.WithUseLaunchSecurityPV(false),
+				network.WithROMTuningSupport(false),
+				network.WithVirtioModel(virtioModel),
+			)
+
+			var domain api.Domain
+			Expect(configurator.Configure(vmi, &domain)).NotTo(Succeed())
+			Expect(domain).To(Equal(api.Domain{}))
+		},
+		Entry(
+			"when unknown domain attachment is specified",
+			libvmi.New(
+				libvmi.WithInterface(v1.Interface{Name: network1Name}),
+				libvmi.WithNetwork(libvmi.MultusNetwork(network1Name, nad1Name)),
+			),
+			map[string]string{network1Name: "invalid"},
+		),
+		Entry(
+			"when no domain attachment is specified",
+			libvmi.New(
+				libvmi.WithInterface(libvmi.InterfaceDeviceWithBridgeBinding("default")),
+				libvmi.WithNetwork(v1.DefaultPodNetwork()),
+			),
+			nil,
+		))
+
 	DescribeTable("Should configure interfaces with tap-based binding",
 		func(vmi *v1.VirtualMachineInstance) {
 			networkName := vmi.Spec.Domain.Devices.Interfaces[0].Name
