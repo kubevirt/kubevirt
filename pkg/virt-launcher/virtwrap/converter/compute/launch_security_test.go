@@ -54,12 +54,10 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 		expectedDomain := api.Domain{
 			Spec: api.DomainSpec{
 				LaunchSecurity: &api.LaunchSecurity{
-					Type:            "sev",
-					DHCert:          "",
-					Session:         "",
-					Cbitpos:         "",
-					ReducedPhysBits: "",
-					Policy:          "0x5",
+					Type: "sev",
+					LaunchSecuritySEVCommon: api.LaunchSecuritySEVCommon{
+						Policy: "0x5",
+					},
 				},
 			},
 		}
@@ -81,6 +79,152 @@ var _ = Describe("LaunchSecurity Domain Configurator", func() {
 			},
 		}
 		Expect(domain).To(Equal(expectedDomain))
+	})
+})
+
+var _ = Describe("configureSEVLaunchSecurity", func() {
+	It("should configure basic SEV with default policy", func() {
+		sevConfig := &v1.SEV{}
+
+		result := compute.ConfigureSEVLaunchSecurity(sevConfig)
+
+		Expect(result).ToNot(BeNil())
+		Expect(result.Type).To(Equal("sev"))
+		Expect(result.LaunchSecuritySEVCommon.Policy).To(Equal("0x1")) // Default SEV policy
+		Expect(result.LaunchSecuritySEV.DHCert).To(BeEmpty())
+		Expect(result.LaunchSecuritySEV.Session).To(BeEmpty())
+	})
+
+	It("should configure SEV with custom DHCert and Session", func() {
+		sevConfig := &v1.SEV{
+			DHCert:  "test-dh-cert",
+			Session: "test-session",
+		}
+
+		result := compute.ConfigureSEVLaunchSecurity(sevConfig)
+
+		Expect(result).ToNot(BeNil())
+		Expect(result.Type).To(Equal("sev"))
+		Expect(result.LaunchSecuritySEV.DHCert).To(Equal("test-dh-cert"))
+		Expect(result.LaunchSecuritySEV.Session).To(Equal("test-session"))
+	})
+
+	It("should configure SEV-ES with encrypted state policy", func() {
+		encryptedState := true
+		sevConfig := &v1.SEV{
+			Policy: &v1.SEVPolicy{
+				EncryptedState: &encryptedState,
+			},
+		}
+
+		result := compute.ConfigureSEVLaunchSecurity(sevConfig)
+
+		Expect(result).ToNot(BeNil())
+		Expect(result.Type).To(Equal("sev"))
+		Expect(result.Policy).To(Equal("0x5")) // NoDebug + EncryptedState
+	})
+})
+
+var _ = Describe("configureSEVSNPLaunchSecurity", func() {
+	It("should configure basic SEV-SNP with default policy", func() {
+		snpConfig := &v1.SEVSNP{}
+
+		result := compute.ConfigureSEVSNPLaunchSecurity(snpConfig)
+
+		Expect(result).ToNot(BeNil())
+		Expect(result.Type).To(Equal("sev-snp"))
+		Expect(result.Policy).To(Equal("0x30000")) // Default SEV-SNP policy
+	})
+
+	It("should configure SEV-SNP with custom policy", func() {
+		snpConfig := &v1.SEVSNP{
+			Policy: "0x40000",
+		}
+
+		result := compute.ConfigureSEVSNPLaunchSecurity(snpConfig)
+
+		Expect(result).ToNot(BeNil())
+		Expect(result.Type).To(Equal("sev-snp"))
+		Expect(result.Policy).To(Equal("0x40000"))
+	})
+
+	It("should configure SEV-SNP with all fields", func() {
+		snpConfig := &v1.SEVSNP{
+			VCEK:            "test-vcek",
+			AuthorKey:       "test-author-key",
+			KernelHashes:    "test-kernel-hashes",
+			Cbitpos:         "51",
+			IdBlock:         "test-id-block",
+			IdAuth:          "test-id-auth",
+			ReducedPhysBits: "1",
+		}
+
+		result := compute.ConfigureSEVSNPLaunchSecurity(snpConfig)
+
+		Expect(result).ToNot(BeNil())
+		Expect(result.Type).To(Equal("sev-snp"))
+		Expect(result.LaunchSecuritySNP.VCEK).To(Equal("test-vcek"))
+		Expect(result.LaunchSecuritySNP.AuthorKey).To(Equal("test-author-key"))
+		Expect(result.LaunchSecuritySEVCommon.KernelHashes).To(Equal("test-kernel-hashes"))
+		Expect(result.LaunchSecuritySEVCommon.Cbitpos).To(Equal("51"))
+		Expect(result.LaunchSecuritySNP.IdBlock).To(Equal("test-id-block"))
+		Expect(result.LaunchSecuritySNP.IdAuth).To(Equal("test-id-auth"))
+		Expect(result.LaunchSecuritySEVCommon.ReducedPhysBits).To(Equal("1"))
+	})
+
+	It("should handle empty string fields correctly", func() {
+		snpConfig := &v1.SEVSNP{
+			VCEK:         "",
+			AuthorKey:    "test-author-key",
+			KernelHashes: "",
+		}
+
+		result := compute.ConfigureSEVSNPLaunchSecurity(snpConfig)
+
+		Expect(result).ToNot(BeNil())
+		Expect(result.LaunchSecuritySNP.VCEK).To(BeEmpty())
+		Expect(result.LaunchSecuritySNP.AuthorKey).To(Equal("test-author-key"))
+		Expect(result.LaunchSecuritySEVCommon.KernelHashes).To(BeEmpty())
+	})
+})
+
+var _ = Describe("amd64LaunchSecurity", func() {
+	It("should configure SEV when only SEV is specified", func() {
+		vmi := libvmi.New()
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+			SEV: &v1.SEV{},
+		}
+
+		result := compute.Amd64LaunchSecurity(vmi)
+
+		Expect(result).ToNot(BeNil())
+		Expect(result.Type).To(Equal("sev"))
+
+	})
+
+	It("should configure SEV-SNP when only SNP is specified", func() {
+		vmi := libvmi.New()
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+			SNP: &v1.SEVSNP{},
+		}
+
+		result := compute.Amd64LaunchSecurity(vmi)
+
+		Expect(result).ToNot(BeNil())
+		Expect(result.Type).To(Equal("sev-snp"))
+
+	})
+
+	It("should configure TDX when TDX is specified", func() {
+		vmi := libvmi.New()
+		vmi.Spec.Domain.LaunchSecurity = &v1.LaunchSecurity{
+			TDX: &v1.TDX{},
+		}
+
+		result := compute.Amd64LaunchSecurity(vmi)
+
+		Expect(result).ToNot(BeNil())
+		Expect(result.Type).To(Equal("tdx"))
 	})
 })
 
