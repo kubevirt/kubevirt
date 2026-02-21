@@ -3,35 +3,33 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
-        "domain-builder-factory.go",
-        "hypervisornodeinformation.go",
-        "launcherhypervisorresources.go",
-        "virt-runtime.go",
+        "builder.go",
+        "converter-context.go",
     ],
-    importpath = "kubevirt.io/kubevirt/pkg/hypervisor",
+    importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/hypervisor/kvm:go_default_library",
-        "//pkg/virt-handler/cgroup:go_default_library",
-        "//pkg/virt-handler/isolation:go_default_library",
+        "//pkg/ephemeral-disk:go_default_library",
+        "//pkg/handler-launcher-com/cmd/v1:go_default_library",
+        "//pkg/os/disk:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
-        "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
-        "//staging/src/kubevirt.io/client-go/log:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
+        "//vendor/k8s.io/api/core/v1:go_default_library",
     ],
 )
 
 go_test(
     name = "go_default_test",
     srcs = [
-        "hypervisor_suite_test.go",
-        "launcherhypervisorresources_test.go",
+        "builder_test.go",
+        "types_suite_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
     deps = [
-        "//pkg/hypervisor/kvm:go_default_library",
+        "//pkg/libvmi:go_default_library",
+        "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",

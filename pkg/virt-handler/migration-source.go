@@ -40,6 +40,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/controller"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -83,6 +84,8 @@ func NewMigrationSourceController(
 	)
 	logger := log.Log.With("controller", "migration-source")
 
+	hypervisorName := clusterConfig.GetHypervisor().Name
+
 	baseCtrl, err := NewBaseController(
 		logger,
 		host,
@@ -97,6 +100,8 @@ func NewMigrationSourceController(
 		migrationProxy,
 		virtLauncherFSRunDirPattern,
 		netStat,
+		hypervisor.NewHypervisorNodeInformation(hypervisorName),
+		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
 	)
 	if err != nil {
 		return nil, err

@@ -17,7 +17,7 @@
  *
  */
 
-package converter
+package types
 
 import (
 	v1 "kubevirt.io/api/core/v1"

@@ -17,7 +17,7 @@
  *
  */
 
-package virthandler
+package kvm
 
 import (
 	"fmt"
