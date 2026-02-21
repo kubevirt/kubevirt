@@ -1407,3 +1407,132 @@ tests:
               name: "virt-launcher-vm2"
               vm: "vm2"
               namespace: "test-ns"
+
+  # LowVirtAPICount - should fire when less than 75% of desired virt-api pods are running
+  - interval: 1m
+    input_series:
+      - series: 'up{namespace="ci", pod="virt-api-1"}'
+        values: '1+0x61'
+      - series: 'kube_deployment_spec_replicas{deployment="virt-api", namespace="ci"}'
+        values: '4+0x61'
+
+    alert_rule_test:
+      # should not fire before 60m
+      - eval_time: 59m
+        alertname: LowVirtAPICount
+        exp_alerts: []
+      # should fire at 60m (1 out of 4 pods running = 25% < 75%)
+      - eval_time: 60m
+        alertname: LowVirtAPICount
+        exp_alerts:
+          - exp_annotations:
+              summary: "Less than 75% of desired virt-api pods are running."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowVirtAPICount"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # LowVirtAPICount - should not fire when 75% or more of desired virt-api pods are running
+  - interval: 1m
+    input_series:
+      - series: 'up{namespace="ci", pod="virt-api-1"}'
+        values: '1+0x61'
+      - series: 'up{namespace="ci", pod="virt-api-2"}'
+        values: '1+0x61'
+      - series: 'up{namespace="ci", pod="virt-api-3"}'
+        values: '1+0x61'
+      - series: 'kube_deployment_spec_replicas{deployment="virt-api", namespace="ci"}'
+        values: '4+0x61'
+
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: LowVirtAPICount
+        exp_alerts: []
+
+  # LowVirtControllersCount - should fire when less than 75% of desired virt-controller pods are up
+  - interval: 1m
+    input_series:
+      - series: 'up{namespace="ci", pod="virt-controller-1"}'
+        values: '1+0x11'
+      - series: 'kube_deployment_spec_replicas{deployment="virt-controller", namespace="ci"}'
+        values: '4+0x11'
+
+    alert_rule_test:
+      # should not fire before 10m
+      - eval_time: 9m
+        alertname: LowVirtControllersCount
+        exp_alerts: []
+      # should fire at 10m (1 out of 4 pods up = 25% < 75%)
+      - eval_time: 10m
+        alertname: LowVirtControllersCount
+        exp_alerts:
+          - exp_annotations:
+              summary: "Less than 75% of desired virt-controller pods are ready."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowVirtControllersCount"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # LowVirtControllersCount - should not fire when 75% or more of desired virt-controller pods are up
+  - interval: 1m
+    input_series:
+      - series: 'up{namespace="ci", pod="virt-controller-1"}'
+        values: '1+0x11'
+      - series: 'up{namespace="ci", pod="virt-controller-2"}'
+        values: '1+0x11'
+      - series: 'up{namespace="ci", pod="virt-controller-3"}'
+        values: '1+0x11'
+      - series: 'kube_deployment_spec_replicas{deployment="virt-controller", namespace="ci"}'
+        values: '4+0x11'
+
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: LowVirtControllersCount
+        exp_alerts: []
+
+  # LowVirtOperatorCount - should fire when less than 75% of desired virt-operator pods are running
+  - interval: 1m
+    input_series:
+      - series: 'up{namespace="ci", pod="virt-operator-1"}'
+        values: '1+0x61'
+      - series: 'kube_deployment_spec_replicas{deployment="virt-operator", namespace="ci"}'
+        values: '4+0x61'
+
+    alert_rule_test:
+      # should not fire before 60m
+      - eval_time: 59m
+        alertname: LowVirtOperatorCount
+        exp_alerts: []
+      # should fire at 60m (1 out of 4 pods running = 25% < 75%)
+      - eval_time: 60m
+        alertname: LowVirtOperatorCount
+        exp_alerts:
+          - exp_annotations:
+              summary: "Less than 75% of desired virt-operator pods are running."
+              runbook_url: "https://kubevirt.io/monitoring/runbooks/LowVirtOperatorCount"
+            exp_labels:
+              severity: "warning"
+              operator_health_impact: "warning"
+              kubernetes_operator_part_of: "kubevirt"
+              kubernetes_operator_component: "kubevirt"
+
+  # LowVirtOperatorCount - should not fire when 75% or more of desired virt-operator pods are running
+  - interval: 1m
+    input_series:
+      - series: 'up{namespace="ci", pod="virt-operator-1"}'
+        values: '1+0x61'
+      - series: 'up{namespace="ci", pod="virt-operator-2"}'
+        values: '1+0x61'
+      - series: 'up{namespace="ci", pod="virt-operator-3"}'
+        values: '1+0x61'
+      - series: 'kube_deployment_spec_replicas{deployment="virt-operator", namespace="ci"}'
+        values: '4+0x61'
+
+    alert_rule_test:
+      - eval_time: 60m
+        alertname: LowVirtOperatorCount
+        exp_alerts: []

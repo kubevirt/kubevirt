@@ -19,6 +19,8 @@
 package alerts
 
 import (
+	"fmt"
+
 	promv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
@@ -64,10 +66,13 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "LowVirtControllersCount",
-			Expr:  intstr.FromString("(kubevirt_allocatable_nodes > 1) and (kubevirt_virt_controller_ready < 2)"),
-			For:   ptr.To(promv1.Duration("10m")),
+			Expr: intstr.FromString(fmt.Sprintf(
+				"kubevirt_virt_controller_up / on() kube_deployment_spec_replicas{deployment='virt-controller', namespace='%s'} < 0.75",
+				namespace,
+			)),
+			For: ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
-				summaryAnnotationKey: "More than one virt-controller should be ready if more than one worker node.",
+				summaryAnnotationKey: "Less than 75% of desired virt-controller pods are ready.",
 			},
 			Labels: map[string]string{
 				severityAlertLabelKey:        "warning",
