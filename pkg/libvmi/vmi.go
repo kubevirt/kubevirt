@@ -50,7 +50,7 @@ func RegisterDefaultOption(opt Option) {
 // randName returns a random name for a virtual machine
 func randName() string {
 	const randomPostfixLen = 5
-	return "testvmi" + "-" + rand.String(randomPostfixLen)
+	return "testvmi" + "-" + rand.String(randomPostfixLen) + "-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }
 
 func baseVmi(name string) *v1.VirtualMachineInstance {
