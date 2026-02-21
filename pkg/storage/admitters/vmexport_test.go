@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
@@ -44,53 +44,9 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 	snapshotApiGroup := "snapshot.kubevirt.io"
 	kubevirtApiGroup := "kubevirt.io"
 
-	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-	Context("With feature gate disabled", func() {
-		It("should reject anything", func() {
-			export := &exportv1.VirtualMachineExport{
-				Spec: exportv1.VirtualMachineExportSpec{},
-			}
-
-			ar := createExportAdmissionReview(export)
-			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
-			Expect(resp.Allowed).To(BeFalse())
-			Expect(resp.Result.Message).Should(Equal("vm export feature gate not enabled"))
-		})
-	})
-
-	Context("With feature gate enabled", func() {
-		enableFeatureGate := func(featureGate string) {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: []string{featureGate},
-						},
-					},
-				},
-			})
-		}
-		disableFeatureGates := func() {
-			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
-				Spec: v1.KubeVirtSpec{
-					Configuration: v1.KubeVirtConfiguration{
-						DeveloperConfiguration: &v1.DeveloperConfiguration{
-							FeatureGates: make([]string, 0),
-						},
-					},
-				},
-			})
-		}
-
-		BeforeEach(func() {
-			enableFeatureGate("VMExport")
-		})
-
-		AfterEach(func() {
-			disableFeatureGates()
-		})
-
+	Context("VMExport", func() {
 		It("should reject invalid request resource", func() {
 			ar := &admissionv1.AdmissionReview{
 				Request: &admissionv1.AdmissionRequest{

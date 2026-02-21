@@ -30,7 +30,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virt "kubevirt.io/api/core"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	"kubevirt.io/api/snapshot"
 
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -60,10 +60,6 @@ func (admitter *VMExportAdmitter) Admit(_ context.Context, ar *admissionv1.Admis
 	if ar.Request.Resource.Group != exportv1.SchemeGroupVersion.Group ||
 		ar.Request.Resource.Resource != "virtualmachineexports" {
 		return webhookutils.ToAdmissionResponseError(fmt.Errorf("unexpected resource %+v", ar.Request.Resource))
-	}
-
-	if ar.Request.Operation == admissionv1.Create && !admitter.Config.VMExportEnabled() {
-		return webhookutils.ToAdmissionResponseError(fmt.Errorf("vm export feature gate not enabled"))
 	}
 
 	vmExport := &exportv1.VirtualMachineExport{}

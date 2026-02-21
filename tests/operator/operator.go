@@ -1818,21 +1818,27 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("with VMExport feature gate toggled", func() {
+	Context("VMExport", func() {
 
 		AfterEach(func() {
-			kvconfig.EnableFeatureGate(featuregate.VMExportGate)
 			testsuite.WaitExportProxyReady()
 		})
 
 		It("should delete and recreate virt-exportproxy", func() {
 			testsuite.WaitExportProxyReady()
-			kvconfig.DisableFeatureGate(featuregate.VMExportGate)
 
+			By("Deleting the virt-exportproxy deployment")
+			err := virtClient.AppsV1().Deployments(originalKv.Namespace).Delete(context.TODO(), "virt-exportproxy", metav1.DeleteOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Waiting for the deployment to be deleted")
 			Eventually(func() error {
 				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
 				return err
 			}, time.Minute*5, time.Second*2).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+
+			By("Waiting for the operator to recreate the deployment")
+			testsuite.WaitExportProxyReady()
 		})
 	})
 
