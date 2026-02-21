@@ -55,6 +55,8 @@ default_targets="
     virt-exportserver
     virt-exportproxy
     virt-synchronization-controller
+    virt-template-apiserver
+    virt-template-controller
     alpine-container-disk-demo
     fedora-with-test-tooling-container-disk
     vm-killer

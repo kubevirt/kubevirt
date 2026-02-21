@@ -100,6 +100,8 @@ default_targets="
     virt-exportserver
     virt-exportproxy
     virt-synchronization-controller
+    virt-template-apiserver
+    virt-template-controller
     alpine-container-disk-demo
     fedora-with-test-tooling-container-disk
     vm-killer
@@ -219,7 +221,7 @@ build_image() {
 is_retagged_image() {
     local image_name=$1
     case "$image_name" in
-    fedora-with-test-tooling-container-disk | alpine-with-test-tooling-container-disk | fedora-realtime-container-disk | alpine-ext-kernel-boot-demo)
+    fedora-with-test-tooling-container-disk | alpine-with-test-tooling-container-disk | fedora-realtime-container-disk | alpine-ext-kernel-boot-demo | virt-template-apiserver | virt-template-controller)
         return 0
         ;;
     *)
@@ -273,6 +275,44 @@ retag_single_image() {
         ;;
     alpine-ext-kernel-boot-demo)
         SOURCE_IMAGE="quay.io/kubevirt/alpine-ext-kernel-boot-demo@sha256:de4bc8de772ff7570e6dda871ea9cdd502feeeff1973f16f84bfbd60ff8f4149"
+        ;;
+    virt-template-apiserver)
+        local normalized_arch=$(format_archname ${BUILD_ARCH} tag)
+        case ${normalized_arch} in
+        amd64)
+            DIGEST="sha256:c3b20cd9bc83cc9065998b78cffe1c1cea323231ad1c5678aeefe82a5d172846"
+            ;;
+        arm64)
+            DIGEST="sha256:dc6f6773fe84412f1a6cd6087523e44c6727d6e519f1223ea96e4d607aa90c85"
+            ;;
+        s390x)
+            DIGEST="sha256:0a2891de175e312a6ec9f4a4670c11e713b3a0ead2ff8c6bad30ff72e71bcf7b"
+            ;;
+        *)
+            echo "ERROR: Unsupported architecture ${normalized_arch} for virt-template-apiserver"
+            exit 1
+            ;;
+        esac
+        SOURCE_IMAGE="quay.io/kubevirt/virt-template-apiserver@${DIGEST}"
+        ;;
+    virt-template-controller)
+        local normalized_arch=$(format_archname ${BUILD_ARCH} tag)
+        case ${normalized_arch} in
+        amd64)
+            DIGEST="sha256:e68cf77970e57aaec88ead5da9862a83632c5ba35ee3e4511355b6fbd7d421a9"
+            ;;
+        arm64)
+            DIGEST="sha256:54122356de3461714e3dbbf2942bb6182e48b294f89ba08e57472cfc777534c5"
+            ;;
+        s390x)
+            DIGEST="sha256:c178ec45bf32c9553f6e962e020cdfed427e31d20a0c1fda9f8e148c58d39504"
+            ;;
+        *)
+            echo "ERROR: Unsupported architecture ${normalized_arch} for virt-template-controller"
+            exit 1
+            ;;
+        esac
+        SOURCE_IMAGE="quay.io/kubevirt/virt-template-controller@${DIGEST}"
         ;;
     *)
         echo "ERROR: Unknown retagged image: $image_name" >&2
