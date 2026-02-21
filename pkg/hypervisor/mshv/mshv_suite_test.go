@@ -17,27 +17,14 @@
  *
  */
 
-package hypervisor
+package mshv
 
 import (
-	v1 "kubevirt.io/api/core/v1"
+	"testing"
 
-	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
-	"kubevirt.io/kubevirt/pkg/hypervisor/mshv"
+	"kubevirt.io/client-go/testutils"
 )
 
-// Interface to abstract the hypervisor-specific node-level information.
-type HypervisorNodeInformation interface {
-	GetHypervisorDevice() string
-	GetVirtType() string
-}
-
-func NewHypervisorNodeInformation(hypervisor string) HypervisorNodeInformation {
-	switch hypervisor {
-	case v1.HyperVDirectHypervisorName:
-		return mshv.NewMshvHypervisorBackend()
-	// Other hypervisors can be added here
-	default:
-		return kvm.NewKvmHypervisorBackend()
-	}
+func TestMshv(t *testing.T) {
+	testutils.KubeVirtTestSuiteSetup(t)
 }
