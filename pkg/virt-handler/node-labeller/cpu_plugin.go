@@ -90,7 +90,7 @@ func (n *NodeLabeller) loadDomCapabilities() error {
 	knownModels := make([]string, 0)
 	for _, mode := range hostDomCapabilities.CPU.Mode {
 		if mode.Name == v1.CPUModeHostModel {
-			if !n.arch.supportsHostModel() {
+			if !n.arch.supportsCPUModels() {
 				log.Log.Warningf("host-model cpu mode is not supported for %s architecture", n.arch.arch())
 				continue
 			}
