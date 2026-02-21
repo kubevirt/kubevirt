@@ -934,7 +934,16 @@ func (ctrl *VMExportController) getExportPodName(vmExport *exportv1.VirtualMachi
 }
 
 func getExportPodVolumeName(pvc *corev1.PersistentVolumeClaim) string {
-	pvcName := strings.ReplaceAll(pvc.Name, ".", "-")
+	return getExportPodVolumeNameFromStr(pvc.Name)
+}
+
+// getExportPodVolumeNameFromStr sanitizes and hashes the PVC name to match the volume name used in the Pod.
+//
+// CRITICAL: This logic must stay strictly in sync with the volume naming logic used in 'createExportPod'.
+// If the logic in createExportPod changes (e.g. prefix or hashing algorithm), this function MUST be updated
+// to match, otherwise the export server will fail to locate the mounted volumes.
+func getExportPodVolumeNameFromStr(claimName string) string {
+	pvcName := strings.ReplaceAll(claimName, ".", "-")
 	// Using the formatted PVC name if it's under the max length.
 	if len(pvcName) <= validation.DNS1035LabelMaxLength {
 		return pvcName
