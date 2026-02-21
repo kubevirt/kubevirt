@@ -1279,7 +1279,7 @@ func (k *KubeVirtTestData) addAllWithExclusionMap(config *util.KubeVirtDeploymen
 	all = append(all, rbac.GetAllCluster()...)
 	all = append(all, rbac.GetAllApiServer(NAMESPACE)...)
 	all = append(all, rbac.GetAllHandler(NAMESPACE)...)
-	all = append(all, rbac.GetAllController(NAMESPACE)...)
+	all = append(all, rbac.GetAllController(NAMESPACE, true)...)
 	all = append(all, rbac.GetAllExportProxy(NAMESPACE)...)
 	all = append(all, rbac.GetAllSynchronizationController(NAMESPACE)...)
 

@@ -380,7 +380,7 @@ func getKubeVirtComponentsClusterRules() []rbacv1.PolicyRule {
 
 	// namespace doesn't matter, we are only interested in the rules of ClusterRoles
 	all := GetAllApiServer("")
-	all = append(all, GetAllController("")...)
+	all = append(all, GetAllController("", true)...)
 	all = append(all, GetAllHandler("")...)
 	all = append(all, GetAllExportProxy("")...)
 	all = append(all, GetAllSynchronizationController("")...)
@@ -431,7 +431,7 @@ func getKubeVirtComponentsRules() []rbacv1.PolicyRule {
 
 	// namespace doesn't matter, we are only interested in the rules
 	all := GetAllApiServer("")
-	all = append(all, GetAllController("")...)
+	all = append(all, GetAllController("", true)...)
 	all = append(all, GetAllHandler("")...)
 	all = append(all, GetAllExportProxy("")...)
 	all = append(all, GetAllSynchronizationController("")...)

@@ -769,12 +769,6 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - k8s.cni.cncf.io
-  resources:
-  - network-attachment-definitions
-  verbs:
-  - get
-- apiGroups:
   - apiextensions.k8s.io
   resources:
   - customresourcedefinitions
@@ -876,6 +870,12 @@ rules:
   verbs:
   - list
   - watch
+  - get
+- apiGroups:
+  - k8s.cni.cncf.io
+  resources:
+  - network-attachment-definitions
+  verbs:
   - get
 - apiGroups:
   - kubevirt.io
