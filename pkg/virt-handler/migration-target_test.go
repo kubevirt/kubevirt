@@ -57,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/safepath"
+	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
@@ -658,6 +659,51 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
+	})
+
+	It("should set CBT to Initializing after migration finalization when CBT was Enabled", func() {
+		vmi := api2.NewMinimalVMI("testvmi")
+		vmi.UID = vmiTestUUID
+		vmi.ObjectMeta.ResourceVersion = "1"
+		vmi.Status.Phase = v1.Running
+		vmi.Labels = make(map[string]string)
+		vmi.Status.NodeName = host
+		vmi.Labels[v1.MigrationTargetNodeNameLabel] = host
+		vmi.Status.Interfaces = make([]v1.VirtualMachineInstanceNetworkInterface, 0)
+		// Set CBT to Enabled before migration
+		cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingEnabled)
+		vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+			TargetNode:                     host,
+			TargetNodeAddress:              "127.0.0.1:12345",
+			SourceNode:                     "othernode",
+			MigrationUID:                   "123",
+			TargetNodeDomainDetected:       true,
+			TargetNodeDomainReadyTimestamp: pointer.P(metav1.Now()),
+			StartTimestamp:                 pointer.P(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
+			EndTimestamp:                   pointer.P(metav1.Now()),
+		}
+
+		domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+		domain.Status.Status = api.Running
+
+		domain.Spec.Metadata.KubeVirt.Migration = &api.MigrationMetadata{
+			UID:            "123",
+			StartTimestamp: pointer.P(metav1.NewTime(metav1.Now().Add(-1 * time.Minute))),
+			EndTimestamp:   pointer.P(metav1.Now()),
+		}
+
+		addVMI(vmi, domain)
+
+		client.EXPECT().Ping().AnyTimes()
+		client.EXPECT().FinalizeVirtualMachineMigration(gomock.Any(), gomock.Any()).Return(nil)
+
+		sanityExecute()
+
+		updatedVMI, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Get(context.TODO(), vmi.Name, metav1.GetOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(updatedVMI.Status.MigrationState.Completed).To(BeTrue())
+		// CBT should be set to Initializing to trigger checkpoint redefinition
+		Expect(cbt.CBTState(updatedVMI.Status.ChangedBlockTracking)).To(Equal(v1.ChangedBlockTrackingInitializing))
 	})
 
 	It("should signal target pod to early exit on failed migration", func() {
