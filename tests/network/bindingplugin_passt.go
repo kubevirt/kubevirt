@@ -341,12 +341,18 @@ var _ = Describe(
 						return migrateVmiAfterMigIP
 					}, 30*time.Second).ShouldNot(Equal(migrateVmiBeforeMigIP), "the VMI status should get a new IP after migration")
 
+					By("Wait for guest network to be ready after migration")
+					const defaultRouteTimeout = 20
+					Eventually(func() bool {
+						return libnet.HasDefaultRoute(migrateVMI, ipFamily, defaultRouteTimeout*time.Second)
+					}, 120*time.Second).Should(BeTrue())
+
 					By("Verify the VMIs can ping each other after migration")
 					Expect(libnet.PingFromVMConsole(migrateVMI, anotherVmiIP)).To(Succeed())
 					Expect(libnet.PingFromVMConsole(anotherVMI, migrateVmiAfterMigIP)).To(Succeed())
 				},
 					Entry("[IPv4]", k8sv1.IPv4Protocol),
-					Entry("[IPv6]", k8sv1.IPv6Protocol, decorators.Quarantine),
+					Entry("[IPv6]", k8sv1.IPv6Protocol),
 				)
 			})
 		}),
