@@ -191,9 +191,8 @@ type User struct {
 
 // DomainGuestInfo represent guest agent info for specific domain
 type DomainGuestInfo struct {
-	Interfaces     []InterfaceStatus
-	OSInfo         *GuestOSInfo
-	FSFreezeStatus *FSFreeze
+	Interfaces []InterfaceStatus
+	OSInfo     *GuestOSInfo
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

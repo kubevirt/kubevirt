@@ -774,14 +774,14 @@ func (EvacuateCancelOptions) SwaggerDoc() map[string]string {
 func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
-		"guestAgentVersion": "GAVersion is a version of currently installed guest agent",
-		"supportedCommands": "Return command list the guest agent supports\n+listType=atomic",
+		"guestAgentVersion": "GAVersion is a version of currently installed guest agent\nDeprecated: GAVersion is no longer populated by the agent poller.",
+		"supportedCommands": "Return command list the guest agent supports\nDeprecated: SupportedCommands is no longer populated by the agent poller.\n+listType=atomic",
 		"hostname":          "Hostname represents FQDN of a guest",
 		"os":                "OS contains the guest operating system information",
 		"timezone":          "Timezone is guest os current timezone",
 		"userList":          "UserList is a list of active guest OS users",
 		"fsInfo":            "FSInfo is a guest os filesystem information containing the disk mapping and disk mounts with usage",
-		"fsFreezeStatus":    "FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem.\nIt will be set to \"frozen\" if the request was made, or unset otherwise.\nThis does not reflect the actual state of the guest filesystem.",
+		"fsFreezeStatus":    "FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem.\nIt will be set to \"frozen\" if the request was made, or unset otherwise.\nThis does not reflect the actual state of the guest filesystem.\nDeprecated: FSFreezeStatus is no longer populated by the agent poller.",
 	}
 }
 

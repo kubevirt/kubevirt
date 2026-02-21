@@ -141,10 +141,7 @@ func startDomainEventMonitoring(
 	domainName string,
 	agentStore *agentpoller.AsyncAgentStore,
 	qemuAgentSysInterval time.Duration,
-	qemuAgentFileInterval time.Duration,
 	qemuAgentUserInterval time.Duration,
-	qemuAgentVersionInterval time.Duration,
-	qemuAgentFSFreezeStatusInterval time.Duration,
 	metadataCache *metadata.Cache,
 ) {
 	go func() {
@@ -156,7 +153,7 @@ func startDomainEventMonitoring(
 		}
 	}()
 
-	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentFileInterval, qemuAgentUserInterval, qemuAgentVersionInterval, qemuAgentFSFreezeStatusInterval, metadataCache)
+	err := notifier.StartDomainNotifier(domainConn, deleteNotificationSent, vmi, domainName, agentStore, qemuAgentSysInterval, qemuAgentUserInterval, metadataCache)
 	if err != nil {
 		panic(err)
 	}
@@ -359,10 +356,16 @@ func main() {
 	diskMemoryLimitBytes := pflag.Int64("disk-memory-limit", virtconfig.DefaultDiskVerificationMemoryLimitBytes, "Memory limit for disk verification")
 	ovmfPath := pflag.String("ovmf-path", "/usr/share/OVMF", "The directory that contains the EFI roms (like OVMF_CODE.fd)")
 	qemuAgentSysInterval := pflag.Duration("qemu-agent-sys-interval", 120*time.Second, "Interval between consecutive qemu agent calls for sys commands")
-	qemuAgentFileInterval := pflag.Duration("qemu-agent-file-interval", 300*time.Second, "Interval between consecutive qemu agent calls for file command")
+	pflag.Duration("qemu-agent-file-interval", 300*time.Second, "Deprecated: Interval between consecutive qemu agent calls for file command")
+	_ = pflag.CommandLine.MarkDeprecated("qemu-agent-file-interval", "this flag is obsolete and has no effect")
+	_ = pflag.CommandLine.MarkHidden("qemu-agent-file-interval")
 	qemuAgentUserInterval := pflag.Duration("qemu-agent-user-interval", 10*time.Second, "Interval between consecutive qemu agent calls for user command")
-	qemuAgentVersionInterval := pflag.Duration("qemu-agent-version-interval", 300*time.Second, "Interval between consecutive qemu agent calls for version command")
-	qemuAgentFSFreezeStatusInterval := pflag.Duration("qemu-fsfreeze-status-interval", 5*time.Second, "Interval between consecutive qemu agent calls for fsfreeze status command")
+	pflag.Duration("qemu-agent-version-interval", 300*time.Second, "Deprecated: Interval between consecutive qemu agent calls for version command")
+	_ = pflag.CommandLine.MarkDeprecated("qemu-agent-version-interval", "this flag is obsolete and has no effect")
+	_ = pflag.CommandLine.MarkHidden("qemu-agent-version-interval")
+	pflag.Duration("qemu-fsfreeze-status-interval", 5*time.Second, "Deprecated: Interval between consecutive qemu agent calls for fsfreeze status command")
+	_ = pflag.CommandLine.MarkDeprecated("qemu-fsfreeze-status-interval", "this flag is obsolete and has no effect")
+	_ = pflag.CommandLine.MarkHidden("qemu-fsfreeze-status-interval")
 	simulateCrash := pflag.Bool("simulate-crash", false, "Causes virt-launcher to immediately crash. This is used by functional tests to simulate crash loop scenarios.")
 	libvirtLogFilters := pflag.String("libvirt-log-filters", "", "Set custom log filters for libvirt")
 
@@ -485,7 +488,7 @@ func main() {
 
 	events := make(chan watch.Event, 2)
 	// Send domain notifications to virt-handler
-	startDomainEventMonitoring(notifier, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentFileInterval, *qemuAgentUserInterval, *qemuAgentVersionInterval, *qemuAgentFSFreezeStatusInterval, metadataCache)
+	startDomainEventMonitoring(notifier, domainConn, events, vmi, domainName, &agentStore, *qemuAgentSysInterval, *qemuAgentUserInterval, metadataCache)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
