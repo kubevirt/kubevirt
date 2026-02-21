@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"path/filepath"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -22,7 +23,6 @@ import (
 
 const (
 	VirtHandlerName                = "virt-handler"
-	kubeletPodsPath                = util.KubeletRoot + "/pods"
 	runtimesPath                   = "/var/run/kubevirt-libvirt-runtimes"
 	PrHelperName                   = "pr-helper"
 	prVolumeName                   = "pr-helper-socket-vol"
@@ -224,6 +224,10 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		"8186",
 		"--graceful-shutdown-seconds",
 		fmt.Sprintf("%d", handlerGracePeriod),
+		"--kubelet-root",
+		config.GetKubeletRootDir(),
+		"--kubelet-pods-dir",
+		filepath.Join(config.GetKubeletRootDir(), "pods"),
 		"-v",
 		config.GetVerbosity(),
 	}
@@ -314,8 +318,8 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		{"libvirt-runtimes", runtimesPath, runtimesPath, nil},
 		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
 		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
-		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
-		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},
+		{"kubelet-pods", filepath.Join(config.GetKubeletRootDir(), "pods"), "/pods", nil},
+		{"kubelet", config.GetKubeletRootDir(), config.GetKubeletRootDir(), &bidi},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
 	}
 
