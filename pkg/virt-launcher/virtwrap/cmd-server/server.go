@@ -822,11 +822,18 @@ func getBackupOptionsFromRequest(request *cmdv1.BackupRequest) (*backupv1.Backup
 		return nil, fmt.Errorf("no valid backup options object present in command server request: %v", err)
 	}
 
-	if options.Mode != backupv1.PushMode {
-		return nil, fmt.Errorf("currently only backup in push mode is supported")
-	}
-	if options.PushPath == nil {
-		return nil, fmt.Errorf("backup with push mode - pushPath wasn't provided")
+	switch options.Cmd {
+	case backupv1.Start:
+		if options.Mode != backupv1.PushMode {
+			return nil, fmt.Errorf("currently only backup in push mode is supported")
+		}
+		if options.PushPath == nil {
+			return nil, fmt.Errorf("backup with push mode - pushPath wasn't provided")
+		}
+	case backupv1.Abort:
+		return options, nil
+	default:
+		return nil, fmt.Errorf("cmd unsupported, backup command only supports start or abort")
 	}
 
 	return options, nil

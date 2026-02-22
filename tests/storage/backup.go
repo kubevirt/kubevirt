@@ -94,12 +94,12 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Creating the backup")
 		backupName := backupName(vm.Name)
-		createAndVerifyFullVMBackup(virtClient, backupName, vm.Name, vm.Namespace, targetPVC.Name)
+		createAndVerifyFullVMBackup(virtClient, backupName, vm.Name, vm.Namespace, targetPVC.Name, waitBackupSucceeded)
 		if expectedBackupCount > 1 {
 			By("Deleting the backup")
 			deleteVMBackup(virtClient, vm.Namespace, backupName)
 			By("Creating another backup")
-			createAndVerifyFullVMBackup(virtClient, backupName, vm.Name, vm.Namespace, targetPVC.Name)
+			createAndVerifyFullVMBackup(virtClient, backupName, vm.Name, vm.Namespace, targetPVC.Name, waitBackupSucceeded)
 		}
 		expectedDiskSize := resource.MustParse(cd.AlpineVolumeSize)
 		expectedDiskSizes := []int64{expectedDiskSize.Value()}
@@ -142,7 +142,7 @@ var _ = Describe(SIG("Backup", func() {
 		tracker := createBackupTracker(virtClient, vm)
 
 		By("Creating first full backup with tracker reference")
-		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name)
+		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
 		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
 		Expect(fullBackup.Status.IncludedVolumes).To(HaveLen(1), "Should have one included volume")
@@ -168,7 +168,7 @@ var _ = Describe(SIG("Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Creating second incremental backup with same tracker reference")
-		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name)
+		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(incrementalBackup.Status.Type).To(Equal(backupv1.Incremental), "Second backup should be Incremental")
 		Expect(incrementalBackup.Status.CheckpointName).ToNot(BeNil())
 		Expect(incrementalBackup.Status.IncludedVolumes).To(HaveLen(1), "Should have one included volume")
@@ -240,7 +240,7 @@ var _ = Describe(SIG("Backup", func() {
 		tracker := createBackupTracker(virtClient, vm)
 
 		By("Creating first full backup with tracker reference")
-		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name)
+		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
 		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
 		Expect(fullBackup.Status.IncludedVolumes).To(HaveLen(2), "Should have two included volumes")
@@ -271,7 +271,7 @@ var _ = Describe(SIG("Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		By("Creating second incremental backup with same tracker reference")
-		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name)
+		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(incrementalBackup.Status.Type).To(Equal(backupv1.Incremental), "Second backup should be Incremental")
 		Expect(incrementalBackup.Status.CheckpointName).ToNot(BeNil())
 		Expect(incrementalBackup.Status.IncludedVolumes).To(HaveLen(2), "Should have two included volumes")
@@ -322,7 +322,7 @@ var _ = Describe(SIG("Backup", func() {
 		tracker := createBackupTracker(virtClient, vm)
 
 		By("Creating first full backup with tracker reference")
-		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name)
+		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
 		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
 
@@ -382,7 +382,7 @@ var _ = Describe(SIG("Backup", func() {
 			"Checkpoint should be redefined with the same name after VM restart")
 
 		By("Creating second backup after VM restart - this should be incremental")
-		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name)
+		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(incrementalBackup.Status.Type).To(Equal(backupv1.Incremental),
 			"Backup after VM restart should be Incremental (checkpoint was redefined)")
 		Expect(incrementalBackup.Status.CheckpointName).ToNot(BeNil())
@@ -427,7 +427,7 @@ var _ = Describe(SIG("Backup", func() {
 		tracker := createBackupTracker(virtClient, vm)
 
 		By("Creating first full backup")
-		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name)
+		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
 		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
 		checkpointName := *fullBackup.Status.CheckpointName
@@ -473,7 +473,7 @@ var _ = Describe(SIG("Backup", func() {
 			"BackupTracker checkpoint should be cleared after bitmap corruption detected")
 
 		By("Creating second backup - should be Full since checkpoint was corrupted")
-		secondBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, secondBackupPVC.Name, tracker.Name)
+		secondBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, secondBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(secondBackup.Status.Type).To(Equal(backupv1.Full),
 			"Backup should fall back to Full when checkpoint was corrupted")
 
@@ -545,7 +545,7 @@ var _ = Describe(SIG("Backup", func() {
 		tracker := createBackupTracker(virtClient, vm)
 
 		By("Creating full backup with both boot disk and hotplug volume")
-		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name)
+		fullBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, fullBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(fullBackup.Status.Type).To(Equal(backupv1.Full), "First backup should be Full")
 		Expect(fullBackup.Status.CheckpointName).ToNot(BeNil())
 		Expect(fullBackup.Status.IncludedVolumes).To(HaveLen(2), "Should have two included volumes (boot + hotplug)")
@@ -634,7 +634,7 @@ var _ = Describe(SIG("Backup", func() {
 
 		By("Creating incremental backup after VM restart")
 		incrementalBackupPVC := libstorage.CreateFSPVC("incremental-backup-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
-		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name)
+		incrementalBackup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), vm.Namespace, incrementalBackupPVC.Name, tracker.Name, waitBackupSucceeded)
 		Expect(incrementalBackup.Status.Type).To(Equal(backupv1.Incremental),
 			"Backup after VM restart should be Incremental (checkpoint was redefined with remaining disk)")
 		Expect(incrementalBackup.Status.CheckpointName).ToNot(BeNil())
@@ -648,6 +648,58 @@ var _ = Describe(SIG("Backup", func() {
 		Expect(tracker.Status.LatestCheckpoint.Name).To(Equal(*incrementalBackup.Status.CheckpointName))
 		Expect(tracker.Status.LatestCheckpoint.Name).ToNot(Equal(firstCheckpoint.Name),
 			"Second checkpoint should have a different name")
+	})
+
+	It("Should handle backup failure due to insufficient target PVC size", func() {
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		smallFSDv := libdv.NewDataVolume(
+			libdv.WithNamespace(vm.Namespace),
+			libdv.WithForceBindAnnotation(),
+			libdv.WithBlankImageSource(),
+			libdv.WithStorage(
+				libdv.StorageWithFilesystemVolumeMode(),
+				libdv.StorageWithAccessMode(corev1.ReadWriteOnce),
+				libdv.StorageWithVolumeSize(cd.BlankVolumeSize),
+				libdv.StorageWithStorageClass(libstorage.Config.StorageClassCSI),
+			),
+		)
+		smallFSDv, err := virtClient.CdiClient().CdiV1beta1().DataVolumes(smallFSDv.Namespace).Create(context.Background(), smallFSDv, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		libstorage.EventuallyDV(smallFSDv, 180, matcher.HaveSucceeded())
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Creating full backup and wait for it to fail")
+		backup := createAndVerifyBackupWithTracker(virtClient, backupName(vm.Name), tracker.Namespace, smallFSDv.Name, tracker.Name, waitBackupFailed)
+		Expect(backup).ToNot(BeNil())
+		for _, cond := range backup.Status.Conditions {
+			if cond.Type == backupv1.ConditionDone {
+				Expect(cond.Reason).To(ContainSubstring("No space left on device"))
+			}
+		}
+
+		By("Verifying BackupTracker was not updated with a checkpoint")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status).To(BeNil())
 	})
 }))
 
@@ -711,23 +763,27 @@ func newBackupWithTracker(backupName, namespace, pvcName, trackerName string) *b
 	return vmBackup
 }
 
-func createAndVerifyFullVMBackup(virtClient kubecli.KubevirtClient, backupName, vmName, namespace, pvcName string) {
+type verifyBackupFunc func(virtClient kubecli.KubevirtClient, namespace string, backupName string) *backupv1.VirtualMachineBackup
+
+func createAndVerifyFullVMBackup(virtClient kubecli.KubevirtClient, backupName, vmName, namespace, pvcName string, verifyBackup verifyBackupFunc) *backupv1.VirtualMachineBackup {
 	vmbackup := newBackupWithSource(backupName, vmName, namespace, pvcName)
 
 	_, err := virtClient.VirtualMachineBackup(vmbackup.Namespace).Create(context.Background(), vmbackup, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	vmbackup = waitBackupSucceeded(virtClient, namespace, vmbackup.Name)
+	vmbackup = verifyBackup(virtClient, namespace, vmbackup.Name)
 	Expect(vmbackup.Status.Type).To(Equal(backupv1.Full))
+
+	return vmbackup
 }
 
-func createAndVerifyBackupWithTracker(virtClient kubecli.KubevirtClient, backupName, namespace, pvcName, trackerName string) *backupv1.VirtualMachineBackup {
+func createAndVerifyBackupWithTracker(virtClient kubecli.KubevirtClient, backupName, namespace, pvcName, trackerName string, verifyBackup verifyBackupFunc) *backupv1.VirtualMachineBackup {
 	vmbackup := newBackupWithTracker(backupName, namespace, pvcName, trackerName)
 
 	vmbackup, err := virtClient.VirtualMachineBackup(vmbackup.Namespace).Create(context.Background(), vmbackup, metav1.CreateOptions{})
 	Expect(err).ToNot(HaveOccurred())
 
-	return waitBackupSucceeded(virtClient, namespace, vmbackup.Name)
+	return verifyBackup(virtClient, namespace, vmbackup.Name)
 }
 
 func deleteVMBackup(virtClient kubecli.KubevirtClient, namespace string, backupName string) {
@@ -765,6 +821,35 @@ func waitBackupSucceeded(virtClient kubecli.KubevirtClient, namespace string, ba
 	))
 
 	events.ExpectEvent(vmbackup, corev1.EventTypeNormal, "VirtualMachineBackupCompletedSuccessfully")
+	return vmbackup
+}
+
+func waitBackupFailed(virtClient kubecli.KubevirtClient, namespace string, backupName string) *backupv1.VirtualMachineBackup {
+	var vmbackup *backupv1.VirtualMachineBackup
+
+	By(fmt.Sprintf("Waiting for VirtualMachineBackup %s/%s to succeed", namespace, backupName))
+	Eventually(func() *backupv1.VirtualMachineBackupStatus {
+		var err error
+		vmbackup, err = virtClient.VirtualMachineBackup(namespace).Get(context.Background(), backupName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		return vmbackup.Status
+	}, 180*time.Second, 2*time.Second).Should(And(
+		Not(BeNil()),
+		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"Conditions": ContainElements(
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":   Equal(backupv1.ConditionDone),
+					"Status": Equal(corev1.ConditionTrue),
+					"Reason": ContainSubstring("Backup has failed")}),
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":   Equal(backupv1.ConditionProgressing),
+					"Status": Equal(corev1.ConditionFalse)}),
+			),
+		})),
+	))
+
+	events.ExpectEvent(vmbackup, corev1.EventTypeWarning, "VirtualMachineBackupFailed")
 	return vmbackup
 }
 

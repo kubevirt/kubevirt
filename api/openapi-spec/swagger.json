@@ -18067,6 +18067,10 @@
       "description": "EndTimestamp is the timestamp when the backup ended",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
      },
+     "failed": {
+      "description": "Failed indicates that the backup failed",
+      "type": "boolean"
+     },
      "startTimestamp": {
       "description": "StartTimestamp is the timestamp when the backup started",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
