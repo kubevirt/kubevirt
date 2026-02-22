@@ -1313,10 +1313,18 @@ func newDeviceNamer(volumeStatuses []v1.VolumeStatus, disks []v1.Disk) map[strin
 	}
 
 	for _, disk := range disks {
-		if disk.Disk == nil {
+		var prefix string
+		switch {
+		case disk.Disk != nil:
+			prefix = getPrefixFromBus(disk.Disk.Bus)
+		case disk.LUN != nil:
+			prefix = getPrefixFromBus(disk.LUN.Bus)
+		case disk.CDRom != nil:
+			prefix = getPrefixFromBus(disk.CDRom.Bus)
+		default:
 			continue
 		}
-		prefix := getPrefixFromBus(disk.Disk.Bus)
+
 		if _, ok := prefixMap[prefix]; !ok {
 			prefixMap[prefix] = deviceNamer{
 				existingNameMap: make(map[string]string),
