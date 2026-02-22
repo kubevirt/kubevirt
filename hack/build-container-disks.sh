@@ -59,6 +59,7 @@ build_container_disk() {
     local url=$2
     local sha256=$3
     local package_dir=${4:-/disk}
+    local dest_filename=${5:-$(basename "$url")}
     local filename=$(basename "$url")
     local cached_file="${CACHE_DIR}/${filename}"
     local sha_file="${CACHE_DIR}/${filename}.sha256"
@@ -101,7 +102,7 @@ build_container_disk() {
     # Create Containerfile
     cat >"${CACHE_DIR}/Containerfile.${name}" <<DOCKERFILE
 FROM scratch
-COPY --chown=107:107 --chmod=0440 ${filename} ${package_dir}/${filename}
+COPY --chown=107:107 --chmod=0440 ${filename} ${package_dir}/${dest_filename}
 DOCKERFILE
 
     # Build image
@@ -133,7 +134,8 @@ amd64)
     build_container_disk "cirros-custom-container-disk-demo" \
         "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-x86_64-disk.img" \
         "932fcae93574e242dc3d772d5235061747dfe537668443a1f0567d893614b464" \
-        "/custom-disk"
+        "/custom-disk" \
+        "downloaded"
     ;;
 arm64)
     build_container_disk "alpine-container-disk-demo" \
@@ -147,7 +149,8 @@ arm64)
     build_container_disk "cirros-custom-container-disk-demo" \
         "https://download.cirros-cloud.net/0.5.2/cirros-0.5.2-aarch64-disk.img" \
         "889c1117647b3b16cfc47957931c6573bf8e755fc9098fdcad13727b6c9f2629" \
-        "/custom-disk"
+        "/custom-disk" \
+        "downloaded"
     ;;
 s390x)
     build_container_disk "alpine-container-disk-demo" \

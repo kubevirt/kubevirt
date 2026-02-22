@@ -276,7 +276,7 @@ retag_single_image() {
         SOURCE_IMAGE="quay.io/kubevirt/fedora-realtime-container-disk@sha256:f91379d202a5493aba9ce06870b5d1ada2c112f314530c9820a9ad07426aa565"
         ;;
     alpine-ext-kernel-boot-demo)
-        SOURCE_IMAGE="quay.io/kubevirt/alpine-ext-kernel-boot-demo@sha256:de4bc8de772ff7570e6dda871ea9cdd502feeeff1973f16f84bfbd60ff8f4149"
+        SOURCE_IMAGE="quay.io/kubevirt/alpine-ext-kernel-boot-demo@sha256:bccd990554f55623d96fa70bc7efc553dd617523ebca76919b917ad3ee616c1d"
         ;;
     virt-template-apiserver)
         local normalized_arch=$(format_archname ${BUILD_ARCH} tag)
