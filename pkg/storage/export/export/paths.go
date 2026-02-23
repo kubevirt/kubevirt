@@ -36,11 +36,19 @@ type VolumeInfo struct {
 	RawGzURI   string
 }
 
+// BackupInfo contains paths for a backup volume
+type BackupInfo struct {
+	Path    string
+	DataURI string
+	MapURI  string
+}
+
 // ServerPaths contains static paths and per-volume paths
 type ServerPaths struct {
 	VMURI     string
 	SecretURI string
 	Volumes   []VolumeInfo
+	Backups   []BackupInfo
 }
 
 // EnvironToMap converts the environment variables to a map
@@ -80,6 +88,15 @@ func CreateServerPaths(env map[string]string) *ServerPaths {
 			}
 			result.Volumes = append(result.Volumes, vi)
 		}
+		if strings.HasSuffix(k, "_BACKUP_PATH") {
+			envPrefix := strings.TrimSuffix(k, "_BACKUP_PATH")
+			bi := BackupInfo{
+				Path:    v,
+				DataURI: env[envPrefix+"_DATA_URI"],
+				MapURI:  env[envPrefix+"_MAP_URI"],
+			}
+			result.Backups = append(result.Backups, bi)
+		}
 	}
 	return result
 }
@@ -90,6 +107,17 @@ func (sp *ServerPaths) GetVolumeInfo(pvcName string) *VolumeInfo {
 		_, n := filepath.Split(filepath.Clean(v.Path))
 		if n == pvcName {
 			return &v
+		}
+	}
+	return nil
+}
+
+// GetBackupInfo returns the BackupInfo for a given VMBackup volume
+func (sp *ServerPaths) GetBackupInfo(volumeName string) *BackupInfo {
+	for _, b := range sp.Backups {
+		_, n := filepath.Split(filepath.Clean(b.Path))
+		if n == volumeName {
+			return &b
 		}
 	}
 	return nil
