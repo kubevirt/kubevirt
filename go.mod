@@ -174,7 +174,7 @@ replace (
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 
-	golang.org/x/crypto => github.com/openshift/golang-crypto v0.33.1-0.20250310193910-9003f682e581 // mitigates vulnerability of golang.org/x/crypto/ssh package while avoiding bumping the go version
+	golang.org/x/crypto => github.com/openshift/golang-crypto v0.33.1-0.20260212164730-3e9ce6e0b8f5
 
 	k8s.io/api => k8s.io/api v0.30.0
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.30.0
