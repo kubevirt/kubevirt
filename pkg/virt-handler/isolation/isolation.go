@@ -34,6 +34,7 @@ import (
 	"strconv"
 	"strings"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor/common"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 
 	ps "github.com/mitchellh/go-ps"
@@ -133,13 +134,15 @@ func (r *RealIsolationResult) PPid() int {
 	return r.ppid
 }
 
+var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
+
 // GetQEMUProcess encapsulates and exposes the logic to retrieve the QEMU process ID
 func GetQEMUProcess(r IsolationResult) (ps.Process, error) {
 	processes, err := ps.Processes()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get all processes: %v", err)
 	}
-	qemuProcess, err := findIsolatedQemuProcess(processes, r.PPid())
+	qemuProcess, err := common.FindIsolatedQemuProcess(qemuProcessExecutablePrefixes, processes, r.PPid())
 	if err != nil {
 		return nil, err
 	}

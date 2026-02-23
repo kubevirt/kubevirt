@@ -80,44 +80,6 @@ func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (Isolation
 	return NewIsolationResult(pid, ppid), nil
 }
 
-var qemuProcessExecutablePrefixes = []string{"qemu-system", "qemu-kvm"}
-
-// findIsolatedQemuProcess Returns the first occurrence of the QEMU process whose parent is PID"
-func findIsolatedQemuProcess(processes []ps.Process, pid int) (ps.Process, error) {
-	processes = childProcesses(processes, pid)
-	for _, execPrefix := range qemuProcessExecutablePrefixes {
-		if qemuProcess := lookupProcessByExecutablePrefix(processes, execPrefix); qemuProcess != nil {
-			return qemuProcess, nil
-		}
-	}
-
-	return nil, fmt.Errorf("no QEMU process found under process %d child processes", pid)
-}
-
-func FindVirtqemudProcess(res IsolationResult) (ps.Process, error) {
-	processes, err := ps.Processes()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get all processes: %v", err)
-	}
-	launcherPid := res.Pid()
-
-	for _, process := range processes {
-		// consider all processes that are virt-launcher children
-		if process.PPid() != launcherPid {
-			continue
-		}
-
-		// virtqemud process sets the memory lock limit before fork/exec-ing into qemu
-		if process.Executable() != "virtqemud" {
-			continue
-		}
-
-		return process, nil
-	}
-
-	return nil, nil
-}
-
 func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	safeSocket, err := safepath.NewFileNoFollow(socket)
 	if err != nil {
@@ -148,4 +110,15 @@ func (s *socketBasedIsolationDetector) getPid(socket string) (int, error) {
 	}
 
 	return int(ucreds.Pid), nil
+}
+
+func getPPid(pid int) (int, error) {
+	process, err := ps.FindProcess(pid)
+	if err != nil {
+		return -1, err
+	}
+	if process == nil {
+		return -1, fmt.Errorf("failed to find process with pid: %d", pid)
+	}
+	return process.PPid(), nil
 }
