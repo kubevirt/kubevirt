@@ -48,6 +48,12 @@ func main() {
 		TokenFile:  getTokenFile(),
 		Paths:      export.CreateServerPaths(export.EnvironToMap()),
 	}
+	if len(config.Paths.Backups) > 0 {
+		config.BackupUID = getBackupUID()
+		config.BackupType = getBackupType()
+		config.BackupCheckpoint = getBackupCheckpoint()
+		config.BackupCACert = []byte(getBackupCACert())
+	}
 	server := exportServer.NewExportServer(config)
 	service.Setup(server)
 	server.Run()
@@ -88,4 +94,33 @@ func getDeadline() (result time.Time) {
 		}
 	}
 	return
+}
+
+func getBackupUID() string {
+	backupUID := os.Getenv("BACKUP_UID")
+	if backupUID == "" {
+		panic("backup export but not backup UID provided")
+	}
+	return backupUID
+}
+
+func getBackupType() string {
+	backupType := os.Getenv("BACKUP_TYPE")
+	if backupType == "" {
+		panic("backup export but no backup type provided")
+	}
+	return backupType
+}
+
+func getBackupCheckpoint() string {
+	checkpointName := os.Getenv("BACKUP_CHECKPOINT")
+	return checkpointName
+}
+
+func getBackupCACert() string {
+	caCert := os.Getenv("BACKUP_CACERT")
+	if caCert == "" {
+		panic("backup export but no backup CA provided")
+	}
+	return caCert
 }

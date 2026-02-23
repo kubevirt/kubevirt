@@ -23,22 +23,30 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	goflag "flag"
 	"fmt"
 	"io"
 	golog "log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gzip "github.com/klauspost/pgzip"
 	flag "github.com/spf13/pflag"
+	"golang.org/x/net/http2"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -48,6 +56,10 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	nbdv1 "kubevirt.io/kubevirt/pkg/storage/cbt/nbd/v1"
+
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 
 	"kubevirt.io/kubevirt/pkg/service"
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
@@ -66,11 +78,17 @@ const (
 
 	external = "/external"
 	internal = "/internal"
+
+	defaultMapPageSize = 512
+	tunnelIdleTimeout  = 60 * time.Second
 )
 
-var excludeMap = map[string]struct{}{
-	"lost+found": {},
-}
+var (
+	excludeMap = map[string]struct{}{
+		"lost+found": {},
+	}
+	h2DummyAddr = &net.TCPAddr{}
+)
 
 type TokenGetterFunc func() (string, error)
 
@@ -80,8 +98,13 @@ type ExportServerConfig struct {
 	ListenAddr string
 
 	CertFile, KeyFile string
+	BackupCACert      []byte
 
 	TokenFile string
+
+	BackupUID        string
+	BackupType       string
+	BackupCheckpoint string
 
 	Paths *export.ServerPaths
 
@@ -107,6 +130,9 @@ type execReader struct {
 type exportServer struct {
 	ExportServerConfig
 	handler http.Handler
+
+	nbdClient nbdv1.NBDClient
+	nbdMu     sync.RWMutex
 }
 
 func (er *execReader) Read(p []byte) (int, error) {
@@ -135,6 +161,11 @@ func (s *exportServer) initHandler() {
 			log.Log.Infof("Handling path %s\n", path)
 			mux.Handle(path, tokenChecker(s.TokenGetter, handler))
 		}
+	}
+	for _, bi := range s.Paths.Backups {
+		log.Log.Infof("Handling backup path %s (Map) and %s (Data)\n", bi.MapURI, bi.DataURI)
+		mux.Handle(bi.MapURI, tokenChecker(s.TokenGetter, s.backupMapHandler(bi.Path)))
+		mux.Handle(bi.DataURI, tokenChecker(s.TokenGetter, s.backupDataHandler(bi.Path)))
 	}
 	if s.Paths.VMURI != "" {
 		mux.Handle(filepath.Join(internal, s.Paths.VMURI), tokenChecker(s.TokenGetter, s.VmHandler(s.Paths.Volumes, getInternalBasePath, getInternalCAConfigMap)))
@@ -194,12 +225,37 @@ func (s *exportServer) getHandlerMap(vi export.VolumeInfo) map[string]http.Handl
 func (s *exportServer) Run() {
 	s.initHandler()
 
+	clientCAPool := x509.NewCertPool()
+	if ok := clientCAPool.AppendCertsFromPEM(s.BackupCACert); !ok {
+		panic("failed to parse Backup CA")
+	}
+
+	tlsConfig := &tls.Config{
+		ClientCAs:  clientCAPool,
+		ClientAuth: tls.VerifyClientCertIfGiven,
+		MinVersion: tls.VersionTLS12,
+		NextProtos: []string{"h2", "http/1.1"},
+	}
+
+	rootHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodConnect {
+			s.handleTunnel(w, r)
+			return
+		}
+		s.handler.ServeHTTP(w, r)
+	})
+
 	srv := &http.Server{
-		Addr:    s.ListenAddr,
-		Handler: s.handler,
-		// Disable HTTP/2
-		// See CVE-2023-44487
-		TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
+		Addr:      s.ListenAddr,
+		Handler:   rootHandler,
+		TLSConfig: tlsConfig,
+	}
+
+	h2Server := &http2.Server{
+		IdleTimeout: tunnelIdleTimeout,
+	}
+	if err := http2.ConfigureServer(srv, h2Server); err != nil {
+		panic(err)
 	}
 
 	ch := make(chan error)
@@ -229,7 +285,9 @@ func (s *exportServer) AddFlags() {
 }
 
 func NewExportServer(config ExportServerConfig) service.Service {
-	es := &exportServer{ExportServerConfig: config}
+	es := &exportServer{
+		ExportServerConfig: config,
+	}
 
 	if es.ArchiveHandler == nil {
 		es.ArchiveHandler = archiveHandler
@@ -784,4 +842,287 @@ func secretHandler(tokenGetter TokenGetterFunc) http.Handler {
 
 func (s *exportServer) readyHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "OK")
+}
+
+func (s *exportServer) handleTunnel(w http.ResponseWriter, r *http.Request) {
+	if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+		log.Log.Error("tunnel rejected: no client certificate presented")
+		http.Error(w, "mTLS required", http.StatusUnauthorized)
+		return
+	}
+
+	expectedCN := fmt.Sprintf("kubevirt.io:system:client:%s", s.BackupUID)
+	clientCN := r.TLS.PeerCertificates[0].Subject.CommonName
+	if clientCN != expectedCN {
+		log.Log.Errorf("identity mismatch, cert: %s, expected: %s", clientCN, expectedCN)
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	s.nbdMu.Lock()
+	if s.nbdClient != nil {
+		s.nbdMu.Unlock()
+		_ = r.Body.Close()
+		log.Log.Warning("rejecting tunnel: active session already exists")
+		http.Error(w, "Conflict", http.StatusConflict)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.(http.Flusher).Flush()
+
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	conn := newH2ServerConn(r.Body, w, cancel)
+
+	var dialOnce sync.Once
+	clientConn, err := grpc.NewClient(
+		"passthrough:///backup",
+		grpc.WithContextDialer(func(_ context.Context, _ string) (net.Conn, error) {
+			var c net.Conn
+			dialOnce.Do(func() { c = conn })
+			if c != nil {
+				return c, nil
+			}
+			return nil, fmt.Errorf("tunnel connection is single-use; reconnect not supported")
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                10 * time.Second,
+			Timeout:             5 * time.Second,
+			PermitWithoutStream: true,
+		}),
+	)
+	if err != nil {
+		s.nbdMu.Unlock()
+		return
+	}
+
+	s.nbdClient = nbdv1.NewNBDClient(clientConn)
+	s.nbdMu.Unlock()
+
+	log.Log.Infof("Exclusive backup tunnel established for %s", s.BackupUID)
+
+	<-ctx.Done()
+
+	s.nbdMu.Lock()
+	clientConn.Close()
+	s.nbdClient = nil
+	s.nbdMu.Unlock()
+	log.Log.Info("Backup tunnel disconnected, listener reset")
+}
+
+type h2ServerConn struct {
+	r      io.ReadCloser
+	w      http.ResponseWriter
+	cancel context.CancelFunc
+	once   sync.Once
+}
+
+func newH2ServerConn(r io.ReadCloser, w http.ResponseWriter, cancel context.CancelFunc) *h2ServerConn {
+	return &h2ServerConn{r: r, w: w, cancel: cancel}
+}
+
+func (c *h2ServerConn) Read(b []byte) (int, error) { return c.r.Read(b) }
+
+func (c *h2ServerConn) Write(b []byte) (int, error) {
+	return c.w.Write(b)
+}
+
+func (c *h2ServerConn) Close() error {
+	c.once.Do(c.cancel)
+	return c.r.Close()
+}
+
+func (c *h2ServerConn) LocalAddr() net.Addr                { return h2DummyAddr }
+func (c *h2ServerConn) RemoteAddr() net.Addr               { return h2DummyAddr }
+func (c *h2ServerConn) SetDeadline(_ time.Time) error      { return nil }
+func (c *h2ServerConn) SetReadDeadline(_ time.Time) error  { return nil }
+func (c *h2ServerConn) SetWriteDeadline(_ time.Time) error { return nil }
+
+type ExportMapExtent struct {
+	Offset      uint64 `json:"offset"`
+	Length      uint64 `json:"length"`
+	Type        uint64 `json:"type"`
+	Description string `json:"description"`
+}
+
+type ExportMapResponse struct {
+	Extents    []ExportMapExtent `json:"extents"`
+	NextOffset *uint64           `json:"next_offset"`
+}
+
+func (s *exportServer) backupMapHandler(exportName string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		s.nbdMu.RLock()
+		client := s.nbdClient
+		s.nbdMu.RUnlock()
+		if client == nil {
+			http.Error(w, "Backup source (virt-launcher) not connected via tunnel", http.StatusServiceUnavailable)
+			return
+		}
+
+		offset := uint64(0)
+		length := uint64(0)
+		pageSize := defaultMapPageSize
+		query := req.URL.Query()
+
+		if offsetStr := query.Get("offset"); offsetStr != "" {
+			o, err := strconv.ParseUint(offsetStr, 10, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("invalid offset %q: %v", offsetStr, err), http.StatusBadRequest)
+				return
+			}
+			offset = o
+		}
+		if lengthStr := query.Get("length"); lengthStr != "" {
+			l, err := strconv.ParseUint(lengthStr, 10, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("invalid length %q: %v", lengthStr, err), http.StatusBadRequest)
+				return
+			}
+			length = l
+		}
+		if pageSizeStr := query.Get("page_size"); pageSizeStr != "" {
+			p, err := strconv.Atoi(pageSizeStr)
+			if err != nil || p <= 0 {
+				http.Error(w, fmt.Sprintf("invalid page_size %q", pageSizeStr), http.StatusBadRequest)
+				return
+			}
+			pageSize = p
+		}
+
+		var bitmapName string
+		if s.BackupType == string(backupv1.Incremental) && s.BackupCheckpoint != "" {
+			bitmapName = s.BackupCheckpoint
+		}
+
+		streamCtx, streamCancel := context.WithCancel(req.Context())
+		defer streamCancel()
+
+		stream, err := client.Map(streamCtx, &nbdv1.MapRequest{
+			ExportName: exportName,
+			BitmapName: bitmapName,
+			Offset:     offset,
+			Length:     length,
+		})
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to call map for export: %s", exportName)
+			log.Log.Reason(err).Error(errMsg)
+			http.Error(w, errMsg, http.StatusInternalServerError)
+			return
+		}
+
+		extents, nextOffsetPtr, err := collectMapPage(stream, pageSize)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to collect map extents for export: %s", exportName)
+			log.Log.Reason(err).Error(errMsg)
+			http.Error(w, errMsg, http.StatusInternalServerError)
+			return
+		}
+
+		page := ExportMapResponse{
+			Extents:    extents,
+			NextOffset: nextOffsetPtr,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(page); err != nil {
+			log.Log.Reason(err).Errorf("failed to encode map page for export %s", exportName)
+		}
+	})
+}
+
+func (s *exportServer) backupDataHandler(exportName string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		s.nbdMu.RLock()
+		client := s.nbdClient
+		s.nbdMu.RUnlock()
+
+		if client == nil {
+			http.Error(w, "Backup source not connected", http.StatusServiceUnavailable)
+			return
+		}
+
+		offset := uint64(0)
+		length := uint64(0)
+
+		query := req.URL.Query()
+		if offsetStr := query.Get("offset"); offsetStr != "" {
+			o, err := strconv.ParseUint(offsetStr, 10, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("invalid offset %q: %v", offsetStr, err), http.StatusBadRequest)
+				return
+			}
+			offset = o
+		}
+		if lengthStr := query.Get("length"); lengthStr != "" {
+			l, err := strconv.ParseUint(lengthStr, 10, 64)
+			if err != nil {
+				http.Error(w, fmt.Sprintf("invalid length %q: %v", lengthStr, err), http.StatusBadRequest)
+				return
+			}
+			length = l
+		}
+
+		stream, err := client.Read(req.Context(), &nbdv1.ReadRequest{
+			ExportName: exportName,
+			Offset:     offset,
+			Length:     length,
+		})
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to call read for export: %s", exportName), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/octet-stream")
+		for {
+			chunk, err := stream.Recv()
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				log.Log.Reason(err).Error("Tunnel stream interrupted")
+				panic(http.ErrAbortHandler)
+			}
+			if _, err := w.Write(chunk.Data); err != nil {
+				log.Log.Reason(err).Error("HTTP client disconnected during stream")
+				return
+			}
+		}
+	})
+}
+
+func collectMapPage(stream nbdv1.NBD_MapClient, pageSize int) ([]ExportMapExtent, *uint64, error) {
+	var extents []ExportMapExtent
+	for {
+		msg, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return extents, nil, nil
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, e := range msg.Extents {
+			if len(extents) >= pageSize {
+				return extents, &e.Offset, nil
+			}
+			extents = append(extents, ExportMapExtent{
+				Offset:      e.Offset,
+				Length:      e.Length,
+				Type:        e.Flags,
+				Description: e.Description,
+			})
+		}
+	}
 }
