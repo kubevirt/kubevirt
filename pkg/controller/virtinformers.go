@@ -744,6 +744,20 @@ func GetVirtualMachineExportInformerIndexers() cache.Indexers {
 
 			return nil, nil
 		},
+		"virtualmachinebackup": func(obj interface{}) ([]string, error) {
+			export, ok := obj.(*exportv1.VirtualMachineExport)
+			if !ok {
+				return nil, unexpectedObjectError
+			}
+
+			if export.Spec.Source.APIGroup != nil &&
+				*export.Spec.Source.APIGroup == backupv1.SchemeGroupVersion.Group &&
+				export.Spec.Source.Kind == "VirtualMachineBackup" {
+				return []string{fmt.Sprintf("%s/%s", export.Namespace, export.Spec.Source.Name)}, nil
+			}
+
+			return nil, nil
+		},
 	}
 }
 
