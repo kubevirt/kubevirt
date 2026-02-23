@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"k8s.io/apimachinery/pkg/types"
+	"libvirt.org/go/libvirtxml"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -162,5 +163,58 @@ var _ = Describe("Live migration source", func() {
 					localToMigrate: map[string]bool{vol: true},
 				})))
 		})
+	})
+
+	Context("getDiskPathFromSource", func() {
+		DescribeTable("path resolution",
+			func(source *libvirtxml.DomainDiskSource, expectedPath string, expectedErr bool) {
+				path, err := getDiskPathFromSource(source)
+				if expectedErr {
+					Expect(err).To(HaveOccurred())
+				} else {
+					Expect(err).ToNot(HaveOccurred())
+					Expect(path).To(Equal(expectedPath))
+				}
+			},
+			Entry("resolves block device path",
+				&libvirtxml.DomainDiskSource{Block: &libvirtxml.DomainDiskSourceBlock{Dev: "/dev/vda"}},
+				"/dev/vda", false),
+
+			Entry("resolves file path",
+				&libvirtxml.DomainDiskSource{File: &libvirtxml.DomainDiskSourceFile{File: "/test/disk.img"}},
+				"/test/disk.img", false),
+
+			Entry("resolves DataStore source path",
+				&libvirtxml.DomainDiskSource{
+					File: &libvirtxml.DomainDiskSourceFile{File: "/overlay/path"},
+					DataStore: &libvirtxml.DomainDiskDataStore{
+						Source: &libvirtxml.DomainDiskSource{
+							Block: &libvirtxml.DomainDiskSourceBlock{Dev: "/base/path"},
+						},
+					},
+				},
+				"/base/path", false),
+			Entry("returns error when DataStore source is nil",
+				&libvirtxml.DomainDiskSource{
+					File: &libvirtxml.DomainDiskSourceFile{File: "/overlay/path"},
+					DataStore: &libvirtxml.DomainDiskDataStore{
+						Source: nil,
+					},
+				},
+				"", true),
+			Entry("returns error when DataStore source has no path set",
+				&libvirtxml.DomainDiskSource{
+					File: &libvirtxml.DomainDiskSourceFile{File: "/overlay/path"},
+					DataStore: &libvirtxml.DomainDiskDataStore{
+						Source: &libvirtxml.DomainDiskSource{},
+					},
+				},
+				"", true),
+
+			Entry("returns error for nil source", nil, "", true),
+
+			Entry("returns error when no path is set in source",
+				&libvirtxml.DomainDiskSource{}, "", true),
+		)
 	})
 })
