@@ -4,6 +4,7 @@ go_library(
     name = "go_default_library",
     srcs = [
         "hypervisorbackend.go",
+        "realtime.go",
         "runtime.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/hypervisor/kvm",
@@ -20,6 +21,7 @@ go_library(
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/log:go_default_library",
         "//vendor/github.com/mitchellh/go-ps:go_default_library",
+        "//vendor/golang.org/x/sys/unix:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
     ],
@@ -30,10 +32,12 @@ go_test(
     srcs = [
         "hypervisorbackend_test.go",
         "kvm_suite_test.go",
+        "realtime_test.go",
     ],
     embed = [":go_default_library"],
     race = "on",
     deps = [
+        "//pkg/hypervisor/common:go_default_library",
         "//pkg/pointer:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
