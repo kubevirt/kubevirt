@@ -17,7 +17,7 @@
  *
  */
 
-package isolation
+package common
 
 import (
 	"fmt"
@@ -75,15 +75,4 @@ func SetProcessMemoryLockRLimit(pid int, size int64) error {
 	}
 
 	return nil
-}
-
-func getPPid(pid int) (int, error) {
-	process, err := ps.FindProcess(pid)
-	if err != nil {
-		return -1, err
-	}
-	if process == nil {
-		return -1, fmt.Errorf("failed to find process with pid: %d", pid)
-	}
-	return process.PPid(), nil
 }
