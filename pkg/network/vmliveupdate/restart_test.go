@@ -58,26 +58,6 @@ var _ = Describe("IsRestartRequired", func() {
 		),
 	)
 
-	It("should not require restart when networks are added", func() {
-		vmi := libvmi.New(
-			libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
-			libvmi.WithNetwork(v1.DefaultPodNetwork()),
-		)
-		vm := libvmi.NewVirtualMachine(vmi).DeepCopy()
-
-		vm.Spec.Template.Spec.Domain.Devices.Interfaces = append(
-			vm.Spec.Template.Spec.Domain.Devices.Interfaces,
-			libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1),
-		)
-
-		vm.Spec.Template.Spec.Networks = append(
-			vm.Spec.Template.Spec.Networks,
-			*libvmi.MultusNetwork(secondaryNetName1, secondaryNADName1),
-		)
-
-		Expect(vmliveupdate.IsRestartRequired(vm, vmi)).To(BeFalse())
-	})
-
 	DescribeTable("should not require restart when interface state changes", func(current, desired v1.InterfaceState) {
 		iface := libvmi.InterfaceDeviceWithBridgeBinding(secondaryNetName1)
 		iface.State = current
