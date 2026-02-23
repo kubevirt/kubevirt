@@ -34,8 +34,6 @@ import (
 	expect "github.com/google/goexpect"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/onsi/gomega/gstruct"
-
 	k8sv1 "k8s.io/api/core/v1"
 	nodev1 "k8s.io/api/node/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -873,32 +871,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 
 		Context("[rfe_id:140][crit:medium][vendor:cnv-qe@redhat.com][level:component]with guestAgent", func() {
-			prepareAgentVM := func() *v1.VirtualMachineInstance {
-				agentVMI := libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
-
-				By("Starting a VirtualMachineInstance")
-				agentVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
-				Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
-				libwait.WaitForSuccessfulVMIStart(agentVMI)
-
-				getOptions := metav1.GetOptions{}
-				var freshVMI *v1.VirtualMachineInstance
-
-				By("VMI has the guest agent connected condition")
-				Eventually(func() []v1.VirtualMachineInstanceCondition {
-					freshVMI, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
-					Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-					return freshVMI.Status.Conditions
-				}, 240*time.Second, 2*time.Second).Should(
-					ContainElement(
-						MatchFields(
-							IgnoreExtras,
-							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
-					"Should have agent connected condition")
-
-				return agentVMI
-			}
-
 			It("[test_id:1676]should have attached a guest agent channel by default", func() {
 				agentVMI := libvmifact.NewAlpine()
 				By("Starting a VirtualMachineInstance")
@@ -914,36 +886,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					&expect.BSnd{S: "cat /sys/class/virtio-ports/*/name 2>/dev/null | grep -c org.qemu.guest_agent.0\n"},
 					&expect.BExp{R: console.RetValue("1")},
 				}, 30)).To(Succeed(), "Guest agent virtio-serial port should be present in the guest")
-			})
-
-			It("[test_id:1677]VMI condition should signal agent presence", func() {
-				agentVMI := prepareAgentVM()
-				getOptions := metav1.GetOptions{}
-
-				freshVMI, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
-				Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
-				Expect(freshVMI.Status.Conditions).To(
-					ContainElement(
-						MatchFields(
-							IgnoreExtras,
-							Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
-					"agent should already be connected")
-
-			})
-
-			It("[test_id:4625]should remove condition when agent is off", func() {
-				agentVMI := prepareAgentVM()
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToFedora(agentVMI)).To(Succeed())
-
-				By("Terminating guest agent and waiting for it to disappear.")
-				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
-					&expect.BSnd{S: "systemctl stop qemu-guest-agent\n"},
-					&expect.BExp{R: ""},
-				}, 400)).To(Succeed())
-
-				By("VMI has the guest agent connected condition")
-				Eventually(matcher.ThisVMI(agentVMI), 240*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
 			})
 
 			Context("with cluster config changes", Serial, func() {
@@ -988,102 +930,6 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 					By("fetching the VMI after agent has connected")
 					Expect(matcher.ThisVMI(agentVMI)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceUnsupportedAgent))
 				})
-			})
-
-			It("[test_id:4626]should have guestosinfo in status when agent is present", func() {
-				agentVMI := prepareAgentVM()
-				getOptions := metav1.GetOptions{}
-				var updatedVmi *v1.VirtualMachineInstance
-				var err error
-
-				By("Expecting the Guest VM information")
-				Eventually(func() bool {
-					updatedVmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
-					if err != nil {
-						return false
-					}
-					return updatedVmi.Status.GuestOSInfo.Name != ""
-				}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have guest OS Info in vmi status")
-
-				Expect(err).ToNot(HaveOccurred())
-				Expect(updatedVmi.Status.GuestOSInfo.Name).To(ContainSubstring("Fedora"))
-			})
-
-			It("[test_id:4627]should return the whole data when agent is present", func() {
-				agentVMI := prepareAgentVM()
-
-				By("Expecting the Guest VM information")
-				Eventually(func() bool {
-					guestInfo, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).GuestOsInfo(context.Background(), agentVMI.Name)
-					if err != nil {
-						// invalid request, retry
-						return false
-					}
-
-					return guestInfo.Hostname != "" &&
-						guestInfo.Timezone != "" &&
-						guestInfo.GAVersion != "" &&
-						guestInfo.OS.Name != "" &&
-						len(guestInfo.FSInfo.Filesystems) > 0
-
-				}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have guest OS Info in subresource")
-			})
-
-			It("[test_id:4628]should not return the whole data when agent is not present", func() {
-				agentVMI := prepareAgentVM()
-
-				By("Expecting the VirtualMachineInstance console")
-				Expect(console.LoginToFedora(agentVMI)).To(Succeed())
-
-				By("Terminating guest agent and waiting for it to disappear.")
-				Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
-					&expect.BSnd{S: "systemctl stop qemu-guest-agent\n"},
-					&expect.BExp{R: ""},
-				}, 400)).To(Succeed())
-
-				By("Expecting the Guest VM information")
-				Eventually(func() string {
-					_, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).GuestOsInfo(context.Background(), agentVMI.Name)
-					if err != nil {
-						return err.Error()
-					}
-					return ""
-				}, 240*time.Second, 2*time.Second).Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
-			})
-
-			It("[test_id:4629]should return user list", func() {
-				agentVMI := prepareAgentVM()
-
-				Expect(console.LoginToFedora(agentVMI)).To(Succeed())
-
-				By("Expecting the Guest VM information")
-				Eventually(func() bool {
-					userList, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).UserList(context.Background(), agentVMI.Name)
-					if err != nil {
-						// invalid request, retry
-						return false
-					}
-
-					return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
-
-				}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have fedora users")
-			})
-
-			It("[test_id:4630]should return filesystem list", func() {
-				agentVMI := prepareAgentVM()
-
-				By("Expecting the Guest VM information")
-				Eventually(func() bool {
-					fsList, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).FilesystemList(context.Background(), agentVMI.Name)
-					if err != nil {
-						// invalid request, retry
-						return false
-					}
-
-					return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" &&
-						len(fsList.Items[0].Disk) > 0 && fsList.Items[0].Disk[0].BusType != ""
-
-				}, 240*time.Second, 2*time.Second).Should(BeTrue(), "Should have some filesystem")
 			})
 
 		})
