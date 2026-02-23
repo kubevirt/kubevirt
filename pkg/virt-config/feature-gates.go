@@ -30,7 +30,8 @@ import (
 */
 
 func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
-	if fg := featuregate.FeatureGateInfo(featureGate); fg != nil && fg.State == featuregate.GA {
+	fg := featuregate.FeatureGateInfo(featureGate)
+	if fg != nil && fg.State == featuregate.GA {
 		return true
 	}
 
@@ -40,6 +41,10 @@ func (config *ClusterConfig) isFeatureGateEnabled(featureGate string) bool {
 
 	if isExplicitlyDisabled := slices.Contains(config.GetConfig().DeveloperConfiguration.DisabledFeatureGates, featureGate); isExplicitlyDisabled {
 		return false
+	}
+
+	if fg != nil && fg.EnabledByDefault {
+		return true
 	}
 
 	return false
