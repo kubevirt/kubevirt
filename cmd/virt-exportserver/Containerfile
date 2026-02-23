@@ -1,30 +1,49 @@
 ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2510281240-82d14f4b41
 ARG DISTROLESS_BASE_IMAGE=gcr.io/distroless/base-debian12:latest
+ARG CENTOS_STREAM_VERSION=9
 
 FROM ${BUILDER_IMAGE} AS builder
 
 ARG BUILD_ARCH=amd64
+ARG CENTOS_STREAM_VERSION=9
 ARG KUBEVIRT_VERSION
 
 WORKDIR /workspace
 
 COPY . .
 
+# Build the exportserverbase RPM layer using Bazel (includes /usr/bin/tar needed
+# to create archive-type exports)
+RUN source /etc/profile.d/gimme.sh && \
+    export KUBEVIRT_BOOTSTRAPPING=true && \
+    case ${BUILD_ARCH} in \
+        amd64|x86_64) BAZEL_ARCH="x86_64" ;; \
+        arm64|aarch64|crossbuild-aarch64) BAZEL_ARCH="aarch64" ;; \
+        s390x|crossbuild-s390x) BAZEL_ARCH="s390x" ;; \
+        *) echo "ERROR: Unsupported BUILD_ARCH: ${BUILD_ARCH}"; exit 1 ;; \
+    esac && \
+    bazel build --config=cs${CENTOS_STREAM_VERSION} //rpm:exportserverbase_${BAZEL_ARCH} && \
+    mkdir -p /rootfs && \
+    tar -xf bazel-bin/rpm/exportserverbase_${BAZEL_ARCH}_cs${CENTOS_STREAM_VERSION}.tar -C /rootfs \
+        --transform='s,^\./var/run/,./run/,x' \
+        --overwrite && \
+    ln -s ../run /rootfs/var/run
+
 RUN source /etc/profile.d/gimme.sh && \
     BIN_NAME=virt-exportserver KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/virt-exportserver
 
-RUN echo "nonroot-user:x:1001:1001:nonroot user:/home/nonroot-user:/sbin/nologin" > /tmp/passwd
+RUN echo "nonroot-user:x:1001:1001:nonroot user:/home/nonroot-user:/sbin/nologin" >> /rootfs/etc/passwd
 
 FROM ${DISTROLESS_BASE_IMAGE}
 
 ARG BUILD_ARCH=amd64
 ARG KUBEVIRT_VERSION
 
+COPY --from=builder /rootfs/ /
+
 COPY --from=builder /workspace/_out/cmd/virt-exportserver/virt-exportserver /usr/bin/virt-exportserver
 
 COPY --from=builder /workspace/.version /.version
-
-COPY --from=builder --chmod=0644 /tmp/passwd /etc/passwd
 
 USER 1001
 
