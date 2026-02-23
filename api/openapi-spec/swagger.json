@@ -19972,13 +19972,31 @@
     "description": "BackupOptions are options used to configure virtual machine backup job",
     "type": "object",
     "properties": {
+     "backupCert": {
+      "type": "string",
+      "format": "byte"
+     },
+     "backupKey": {
+      "type": "string",
+      "format": "byte"
+     },
      "backupName": {
       "type": "string"
      },
      "backupStartTime": {
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
      },
+     "caCert": {
+      "type": "string",
+      "format": "byte"
+     },
      "cmd": {
+      "type": "string"
+     },
+     "exportServerAddr": {
+      "type": "string"
+     },
+     "exportServerName": {
       "type": "string"
      },
      "incremental": {
@@ -20003,10 +20021,18 @@
      "diskTarget"
     ],
     "properties": {
+     "dataEndpoint": {
+      "description": "DataEndpoint is the URL of the endpoint for read for pull mode",
+      "type": "string"
+     },
      "diskTarget": {
       "description": "DiskTarget is the disk target device name at backup time",
       "type": "string",
       "default": ""
+     },
+     "mapEndpoint": {
+      "description": "MapEndpoint is the URL of the endpoint for map for pull mode",
+      "type": "string"
      },
      "volumeName": {
       "description": "VolumeName is the volume name from VMI spec",
@@ -20244,6 +20270,14 @@
       "description": "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
       "default": {},
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "tokenSecretRef": {
+      "description": "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
+      "type": "string"
+     },
+     "ttlDuration": {
+      "description": "TtlDuration limits the lifetime of a pull mode backup and its export If this field is set, after this duration has passed from counting from CreationTimestamp, the backup is eligible to be automatically considered as complete. If this field is omitted, a reasonable default is applied.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
      }
     }
    },
@@ -20263,6 +20297,10 @@
        "$ref": "#/definitions/v1alpha1.Condition"
       },
       "x-kubernetes-list-type": "atomic"
+     },
+     "endpointCert": {
+      "description": "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
+      "type": "string"
      },
      "includedVolumes": {
       "description": "IncludedVolumes lists the volumes that were included in the backup",

@@ -24,6 +24,7 @@ Copyright The KubeVirt Authors.
 package v1alpha1
 
 import (
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -68,6 +69,31 @@ func (in *BackupOptions) DeepCopyInto(out *BackupOptions) {
 		in, out := &in.TargetPath, &out.TargetPath
 		*out = new(string)
 		**out = **in
+	}
+	if in.ExportServerAddr != nil {
+		in, out := &in.ExportServerAddr, &out.ExportServerAddr
+		*out = new(string)
+		**out = **in
+	}
+	if in.ExportServerName != nil {
+		in, out := &in.ExportServerName, &out.ExportServerName
+		*out = new(string)
+		**out = **in
+	}
+	if in.BackupKey != nil {
+		in, out := &in.BackupKey, &out.BackupKey
+		*out = make([]byte, len(*in))
+		copy(*out, *in)
+	}
+	if in.BackupCert != nil {
+		in, out := &in.BackupCert, &out.BackupCert
+		*out = make([]byte, len(*in))
+		copy(*out, *in)
+	}
+	if in.CACert != nil {
+		in, out := &in.CACert, &out.CACert
+		*out = make([]byte, len(*in))
+		copy(*out, *in)
 	}
 	return
 }
@@ -195,6 +221,11 @@ func (in *VirtualMachineBackupSpec) DeepCopyInto(out *VirtualMachineBackupSpec) 
 		*out = new(string)
 		**out = **in
 	}
+	if in.TTLDuration != nil {
+		in, out := &in.TTLDuration, &out.TTLDuration
+		*out = new(v1.Duration)
+		**out = **in
+	}
 	return
 }
 
@@ -220,6 +251,11 @@ func (in *VirtualMachineBackupStatus) DeepCopyInto(out *VirtualMachineBackupStat
 	}
 	if in.CheckpointName != nil {
 		in, out := &in.CheckpointName, &out.CheckpointName
+		*out = new(string)
+		**out = **in
+	}
+	if in.EndpointCert != nil {
+		in, out := &in.EndpointCert, &out.EndpointCert
 		*out = new(string)
 		**out = **in
 	}

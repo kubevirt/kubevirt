@@ -8479,9 +8479,17 @@ var CRDsValidation map[string]string = map[string]string{
                     description: BackupVolumeInfo contains information about a volume
                       included in a backup
                     properties:
+                      dataEndpoint:
+                        description: DataEndpoint is the URL of the endpoint for read
+                          for pull mode
+                        type: string
                       diskTarget:
                         description: DiskTarget is the disk target device name at
                           backup time
+                        type: string
+                      mapEndpoint:
+                        description: MapEndpoint is the URL of the endpoint for map
+                          for pull mode
                         type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
@@ -9175,6 +9183,18 @@ var CRDsValidation map[string]string = map[string]string{
               self.kind == ''VirtualMachineBackupTracker'')'
           - message: name is required
             rule: self.name != ''
+        tokenSecretRef:
+          description: |-
+            TokenSecretRef is the name of the secret that
+            will be used to pull the backup from an associated endpoint
+          type: string
+        ttlDuration:
+          description: |-
+            TtlDuration limits the lifetime of a pull mode backup and its export
+            If this field is set, after this duration has passed from counting from CreationTimestamp,
+            the backup is eligible to be automatically considered as complete.
+            If this field is omitted, a reasonable default is applied.
+          type: string
       required:
       - source
       type: object
@@ -9183,6 +9203,9 @@ var CRDsValidation map[string]string = map[string]string{
         rule: self == oldSelf
       - message: pvcName is required
         rule: has(self.pvcName) && self.pvcName != ""
+      - message: tokenSecretRef is required when mode is Pull
+        rule: '!has(self.mode) || self.mode != ''Pull'' || (has(self.tokenSecretRef)
+          && self.tokenSecretRef != "")'
     status:
       description: VirtualMachineBackupStatus is the status for a VirtualMachineBackup
         resource
@@ -9218,6 +9241,11 @@ var CRDsValidation map[string]string = map[string]string{
             type: object
           type: array
           x-kubernetes-list-type: atomic
+        endpointCert:
+          description: |-
+            EndpointCert is the raw CACert that is to be used when connecting
+            to an exported backup endpoint in pull mode.
+          type: string
         includedVolumes:
           description: IncludedVolumes lists the volumes that were included in the
             backup
@@ -9225,8 +9253,16 @@ var CRDsValidation map[string]string = map[string]string{
             description: BackupVolumeInfo contains information about a volume included
               in a backup
             properties:
+              dataEndpoint:
+                description: DataEndpoint is the URL of the endpoint for read for
+                  pull mode
+                type: string
               diskTarget:
                 description: DiskTarget is the disk target device name at backup time
+                type: string
+              mapEndpoint:
+                description: MapEndpoint is the URL of the endpoint for map for pull
+                  mode
                 type: string
               volumeName:
                 description: VolumeName is the volume name from VMI spec
@@ -9330,9 +9366,17 @@ var CRDsValidation map[string]string = map[string]string{
                 description: BackupVolumeInfo contains information about a volume
                   included in a backup
                 properties:
+                  dataEndpoint:
+                    description: DataEndpoint is the URL of the endpoint for read
+                      for pull mode
+                    type: string
                   diskTarget:
                     description: DiskTarget is the disk target device name at backup
                       time
+                    type: string
+                  mapEndpoint:
+                    description: MapEndpoint is the URL of the endpoint for map for
+                      pull mode
                     type: string
                   volumeName:
                     description: VolumeName is the volume name from VMI spec
@@ -14456,9 +14500,17 @@ var CRDsValidation map[string]string = map[string]string{
                     description: BackupVolumeInfo contains information about a volume
                       included in a backup
                     properties:
+                      dataEndpoint:
+                        description: DataEndpoint is the URL of the endpoint for read
+                          for pull mode
+                        type: string
                       diskTarget:
                         description: DiskTarget is the disk target device name at
                           backup time
+                        type: string
+                      mapEndpoint:
+                        description: MapEndpoint is the URL of the endpoint for map
+                          for pull mode
                         type: string
                       volumeName:
                         description: VolumeName is the volume name from VMI spec
@@ -31548,9 +31600,17 @@ var CRDsValidation map[string]string = map[string]string{
                                 description: BackupVolumeInfo contains information
                                   about a volume included in a backup
                                 properties:
+                                  dataEndpoint:
+                                    description: DataEndpoint is the URL of the endpoint
+                                      for read for pull mode
+                                    type: string
                                   diskTarget:
                                     description: DiskTarget is the disk target device
                                       name at backup time
+                                    type: string
+                                  mapEndpoint:
+                                    description: MapEndpoint is the URL of the endpoint
+                                      for map for pull mode
                                     type: string
                                   volumeName:
                                     description: VolumeName is the volume name from

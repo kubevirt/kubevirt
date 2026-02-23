@@ -832,6 +832,26 @@ func getBackupOptionsFromRequest(request *cmdv1.BackupRequest) (*backupv1.Backup
 		default:
 			return nil, fmt.Errorf("unknown backup mode: only Push and Pull are supported")
 		}
+	case backupv1.Export:
+		if options.Mode != backupv1.PullMode {
+			return nil, fmt.Errorf("can only export Pull mode backup")
+		}
+		if options.ExportServerAddr == nil {
+			return nil, fmt.Errorf("backup export server address wasn't provided")
+		}
+		if options.ExportServerName == nil {
+			return nil, fmt.Errorf("backup export server name wasn't provided")
+		}
+		if len(options.BackupCert) == 0 {
+			return nil, fmt.Errorf("backup certificate wasn't provided")
+		}
+		if len(options.BackupKey) == 0 {
+			return nil, fmt.Errorf("backup key wasn't provided")
+		}
+		if len(options.CACert) == 0 {
+			return nil, fmt.Errorf("backup export server CA cert wasn't provided")
+		}
+		return options, nil
 	case backupv1.Abort:
 		return options, nil
 	default:

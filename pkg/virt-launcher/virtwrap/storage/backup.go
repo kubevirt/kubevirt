@@ -364,27 +364,10 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 
 func (m *StorageManager) AbortVirtualMachineBackup(vmi *v1.VirtualMachineInstance, backupOptions *backupv1.BackupOptions) error {
 	backupMetadata, exists := m.metadataCache.Backup.Load()
-	if err := shouldAbort(exists, backupMetadata, backupOptions); err != nil {
-		return err
+	if err := checkBackupEligibility(exists, backupMetadata, backupOptions); err != nil {
+		return fmt.Errorf("failed to abort backup: %w", err)
 	}
 	return m.abortBackup(vmi, backupMetadata)
-}
-
-func shouldAbort(exists bool, backupMetadata api.BackupMetadata, backupOptions *backupv1.BackupOptions) error {
-	const failedAbort = "failed to abort backup: %s"
-	if !exists || backupMetadata.Name == "" {
-		return fmt.Errorf(failedAbort, "could not find ongoing backup")
-	}
-	if backupMetadata.StartTimestamp == nil {
-		return fmt.Errorf(failedAbort, "backup did not start yet")
-	}
-	if backupMetadata.Name != backupOptions.BackupName || !backupMetadata.StartTimestamp.Equal(backupOptions.BackupStartTime) {
-		return fmt.Errorf(failedAbort, "requested backup differs from ongoing one")
-	}
-	if backupMetadata.Completed {
-		return fmt.Errorf(failedAbort, "backup already completed")
-	}
-	return nil
 }
 
 func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetadata api.BackupMetadata) error {
@@ -411,6 +394,37 @@ func (m *StorageManager) abortBackup(vmi *v1.VirtualMachineInstance, backupMetad
 	}
 
 	log.Log.Object(vmi).Info("backup job abort initiated successfully")
+	return nil
+}
+
+func (m *StorageManager) ExportVirtualMachineBackup(backupOptions *backupv1.BackupOptions) error {
+	backupMetadata, exists := m.metadataCache.Backup.Load()
+	if err := checkBackupEligibility(exists, backupMetadata, backupOptions); err != nil {
+		return err
+	}
+	return m.initiateBackupTunnel(backupOptions)
+}
+
+func (m *StorageManager) initiateBackupTunnel(backupOptions *backupv1.BackupOptions) error {
+	m.backupTunnelMu.Lock()
+	defer m.backupTunnelMu.Unlock()
+
+	backupSock := filepath.Join(pullBackupSocketDir, pullBackupSocketName)
+	if _, err := os.Stat(backupSock); err != nil {
+		return fmt.Errorf("cannot initialize backup tunnel: %w", err)
+	}
+
+	if m.activeBackupTunnel != nil {
+		m.activeBackupTunnel.Stop()
+	}
+
+	tunnel := newBackupTunnelManager(*backupOptions.ExportServerAddr, *backupOptions.ExportServerName, backupSock, backupOptions.CACert, backupOptions.BackupCert, backupOptions.BackupKey)
+	if err := tunnel.Start(); err != nil {
+		return fmt.Errorf("failed to initialize backup tunnel: %w", err)
+	}
+
+	m.activeBackupTunnel = tunnel
+
 	return nil
 }
 
@@ -525,4 +539,21 @@ func findDisksWithCheckpointBitmap(dom cli.VirDomain, checkpointName string) (*a
 	}
 
 	return checkpointDisks, disksWithoutBitmap, nil
+}
+
+func checkBackupEligibility(exists bool, backupMetadata api.BackupMetadata, backupOptions *backupv1.BackupOptions) error {
+	if !exists || backupMetadata.Name == "" {
+		return fmt.Errorf("could not find ongoing backup")
+	}
+	if backupMetadata.StartTimestamp == nil {
+		return fmt.Errorf("backup did not start yet")
+	}
+	if backupMetadata.Name != backupOptions.BackupName || !backupMetadata.StartTimestamp.Equal(backupOptions.BackupStartTime) {
+		return fmt.Errorf("requested backup differs from ongoing one")
+	}
+	if backupMetadata.Completed {
+		return fmt.Errorf("backup already completed")
+	}
+	return nil
+
 }
