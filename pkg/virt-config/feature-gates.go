@@ -213,8 +213,8 @@ func (config *ClusterConfig) PodSecondaryInterfaceNamingUpgradeEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.PodSecondaryInterfaceNamingUpgrade)
 }
 
-func (config *ClusterConfig) ShouldDisableNADResourceInjection() bool {
-	return config.isFeatureGateEnabled(featuregate.DisableNADResourceInjection)
+func (config *ClusterConfig) ExternalNetResourceInjectionEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.ExternalNetResourceInjection)
 }
 
 func (config *ClusterConfig) RebootPolicyEnabled() bool {

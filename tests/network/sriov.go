@@ -98,7 +98,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		Expect(validateSRIOVSetup(sriovResourceName, 1)).To(Succeed(),
 			"Sriov is not enabled in this environment: %v. Skip these tests using - export FUNC_TEST_ARGS='--label-filter=!SRIOV'")
 
-		config.EnableFeatureGate(featuregate.DisableNADResourceInjection)
+		config.EnableFeatureGate(featuregate.ExternalNetResourceInjection)
 	})
 
 	Context("VMI connected to single SRIOV network", func() {

@@ -5950,9 +5950,9 @@ var _ = Describe("Template", func() {
 	})
 
 	Context("NAD query disablement", func() {
-		It("Should not query NAD when DisableNADResourceInjection is enabled", func() {
+		It("Should not query NAD when ExternalNetResourceInjection is enabled", func() {
 			config, kvStore, svc = configFactory(defaultArch)
-			enableFeatureGate(featuregate.DisableNADResourceInjection)
+			enableFeatureGate(featuregate.ExternalNetResourceInjection)
 
 			svc = NewTemplateService("kubevirt/virt-launcher",
 				240,
