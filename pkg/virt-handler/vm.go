@@ -28,7 +28,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -2099,7 +2098,8 @@ func (c *VirtualMachineController) handleStartingVMI(
 }
 
 func (c *VirtualMachineController) adjustResources(vmi *v1.VirtualMachineInstance) error {
-	err := adjustQemuProcessMemoryLimits(c.podIsolationDetector, vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	err := c.hypervisorRuntime.AdjustResources(vmi, c.clusterConfig.GetConfig())
+
 	if err != nil {
 		return fmt.Errorf("failed to adjust resources: %v", err)
 	}
@@ -2200,7 +2200,7 @@ func (c *VirtualMachineController) hotplugSriovInterfacesCommand(vmi *v1.Virtual
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
-	if err := adjustQemuProcessMemoryLimits(c.podIsolationDetector, vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
+	if err := c.hypervisorRuntime.AdjustResources(vmi, c.clusterConfig.GetConfig()); err != nil {
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), err.Error())
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
@@ -2499,63 +2499,4 @@ func (c *VirtualMachineController) updateBackupStatus(vmi *v1.VirtualMachineInst
 			vmi.Status.ChangedBlockTracking.BackupStatus.Volumes = volumes
 		}
 	}
-}
-
-// adjustQemuProcessMemoryLimits adjusts QEMU process MEMLOCK rlimits that runs inside
-// virt-launcher pod on the given VMI according to its spec.
-// Only VMI's with VFIO devices (e.g: SRIOV, GPU), SEV or RealTime workloads require QEMU process MEMLOCK adjustment.
-func adjustQemuProcessMemoryLimits(podIsoDetector isolation.PodIsolationDetector, vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
-		return nil
-	}
-
-	isolationResult, err := podIsoDetector.Detect(vmi)
-	if err != nil {
-		return err
-	}
-
-	var targetProcess ps.Process
-	if vmi.IsRunning() {
-		targetProcess, err = isolation.GetQEMUProcess(isolationResult)
-		if err != nil {
-			return err
-		}
-	} else {
-		targetProcess, err = isolation.FindVirtqemudProcess(isolationResult)
-		if err != nil {
-			return err
-		}
-		// If the virtqemud process is not found, do nothing
-		if targetProcess == nil {
-			return nil
-		}
-	}
-
-	qemuProcessID := targetProcess.Pid()
-
-	// make the best estimate for memory required by libvirt
-	memlockSize := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-	// Add max memory assigned to the VM
-	var vmiBaseMemory *resource.Quantity
-
-	switch {
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.MaxGuest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.MaxGuest
-	case vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-	case vmi.Spec.Domain.Resources.Requests.Memory() != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-	case vmi.Spec.Domain.Memory != nil:
-		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-	}
-
-	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
-
-	if err := isolation.SetProcessMemoryLockRLimit(qemuProcessID, memlockSize.Value()); err != nil {
-		return fmt.Errorf("failed to set process %d memlock rlimit to %d: %v", qemuProcessID, memlockSize.Value(), err)
-	}
-	log.Log.V(5).Object(vmi).Infof("set process %+v memlock rlimits to: Cur: %[2]d Max:%[2]d",
-		targetProcess, memlockSize.Value())
-
-	return nil
 }

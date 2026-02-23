@@ -31,8 +31,6 @@ import (
 
 	"kubevirt.io/client-go/api"
 
-	"github.com/mitchellh/go-ps"
-
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/unsafepath"
@@ -116,42 +114,5 @@ var _ = Describe("Isolation Detector", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(unsafepath.UnsafeAbsolute(root.Raw())).To(Equal(fmt.Sprintf("/proc/%d/root", os.Getpid())))
 		})
-	})
-})
-
-var _ = Describe("findIsolatedQemuProcess", func() {
-	const virtLauncherPid = 1
-	fakeProcess1 := ProcessStub{pid: virtLauncherPid, ppid: 0, binary: "fake-process-1"}
-	fakeProcess2 := ProcessStub{pid: 26, ppid: virtLauncherPid, binary: "fake-process-2"}
-	fakeProcess3 := ProcessStub{pid: 226, ppid: 26, binary: "fake-process-3"}
-	virtLauncherProcesses := []ps.Process{
-		fakeProcess1,
-		fakeProcess2,
-		fakeProcess3}
-
-	qemuKvmProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-kvm"}
-	qemuSystemProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-system-x86_64"}
-
-	DescribeTable("should return QEMU process",
-		func(processes []ps.Process, pid int, expectedProcess ps.Process) {
-			proc, err := findIsolatedQemuProcess(processes, pid)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(proc).To(Equal(expectedProcess))
-		},
-		Entry("when qemu-kvm binary running",
-			append(virtLauncherProcesses, qemuKvmProc),
-			virtLauncherPid,
-			qemuKvmProc,
-		),
-		Entry("when qemu-system binary running",
-			append(virtLauncherProcesses, qemuSystemProc),
-			virtLauncherPid,
-			qemuSystemProc,
-		),
-	)
-	It("should fail when no QEMU process exists", func() {
-		proc, err := findIsolatedQemuProcess(virtLauncherProcesses, virtLauncherPid)
-		Expect(err).To(HaveOccurred())
-		Expect(proc).To(BeNil())
 	})
 })
