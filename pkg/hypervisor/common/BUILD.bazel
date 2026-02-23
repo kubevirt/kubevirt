@@ -5,6 +5,8 @@ go_library(
     srcs = [
         "process.go",
         "qemu.go",
+        "setsched.go",
+        "vcpu.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/hypervisor/common",
     visibility = ["//visibility:public"],
@@ -21,6 +23,7 @@ go_test(
         "process_test.go",
     ],
     embed = [":go_default_library"],
+    race = "on",
     deps = [
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
         "//vendor/github.com/mitchellh/go-ps:go_default_library",
