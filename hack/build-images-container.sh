@@ -131,6 +131,13 @@ if [[ "${BUILD_ARCH}" != "s390x" ]]; then
     "
 fi
 
+# Add libguestfs-tools for x86_64 and s390x only (not arm64)
+if [[ "${BUILD_ARCH}" != "arm64" && "${BUILD_ARCH}" != "aarch64" && "${BUILD_ARCH}" != "crossbuild-aarch64" ]]; then
+    default_targets+="
+        libguestfs-tools
+    "
+fi
+
 # Allow override via PUSH_TARGETS
 BUILD_TARGETS=(${PUSH_TARGETS:-${default_targets}})
 
