@@ -17,7 +17,7 @@
  *
  */
 
-package virthandler
+package common
 
 import (
 	"fmt"
@@ -26,21 +26,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	v1 "kubevirt.io/api/core/v1"
-
-	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
-)
-
-type maskType bool
-
-type cpuMask struct {
-	mask map[string]maskType
-}
-
-const (
-	enabled  maskType = true
-	disabled maskType = false
 )
 
 var (
@@ -48,56 +33,27 @@ var (
 	cpuRangeRegex  = regexp.MustCompile(`^(\d+)-(\d+)$`)
 	negateCPURegex = regexp.MustCompile(`^\^(\d+)$`)
 	singleCPURegex = regexp.MustCompile(`^(\d+)$`)
-
-	// parse thread comm value expression
-	vcpuRegex = regexp.MustCompile(`^CPU (\d+)/KVM\n$`) // These threads follow this naming pattern as their command value (/proc/{pid}/task/{taskid}/comm)
-	// QEMU uses threads to represent vCPUs.
-
 )
 
-// configureRealTimeVCPUs parses the realtime mask value and configured the selected vcpus
-// for real time workloads by setting the scheduler to FIFO and process priority equal to 1.
-func (c *VirtualMachineController) configureVCPUScheduler(vmi *v1.VirtualMachineInstance) error {
-	res, err := c.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return err
-	}
-	qemuProcess, err := isolation.GetQEMUProcess(res)
-	if err != nil {
-		return err
-	}
-	vcpus, err := getVCPUThreadIDs(qemuProcess.Pid())
-	if err != nil {
-		return err
-	}
-	mask, err := parseCPUMask(vmi.Spec.Domain.CPU.Realtime.Mask)
-	if err != nil {
-		return err
-	}
-	for vcpuID, threadID := range vcpus {
-		if mask.isEnabled(vcpuID) {
-			param := schedParam{priority: 1}
-			tid, err := strconv.Atoi(threadID)
-			if err != nil {
-				return err
-			}
-			err = schedSetScheduler(tid, schedFIFO, param)
-			if err != nil {
-				return fmt.Errorf("failed to set FIFO scheduling and priority 1 for thread %d: %w", tid, err)
-			}
-		}
-	}
-	return nil
+type MaskType bool
+
+type CPUMask struct {
+	Mask map[string]MaskType
 }
 
-func isVCPU(comm []byte) (string, bool) {
+const (
+	Enabled  MaskType = true
+	Disabled MaskType = false
+)
+
+func IsVCPU(comm []byte, vcpuRegex *regexp.Regexp) (string, bool) {
 	if !vcpuRegex.MatchString(string(comm)) {
 		return "", false
 	}
 	v := vcpuRegex.FindSubmatch(comm)
 	return string(v[1]), true
 }
-func getVCPUThreadIDs(pid int) (map[string]string, error) {
+func GetVCPUThreadIDs(pid int, vcpuRegex *regexp.Regexp) (map[string]string, error) {
 
 	p := filepath.Join(string(os.PathSeparator), "proc", strconv.Itoa(pid), "task")
 	d, err := os.ReadDir(p)
@@ -111,7 +67,7 @@ func getVCPUThreadIDs(pid int) (map[string]string, error) {
 			if err != nil {
 				return nil, err
 			}
-			if v, ok := isVCPU(c); ok {
+			if v, ok := IsVCPU(c, vcpuRegex); ok {
 				ret[v] = f.Name()
 			}
 		}
@@ -119,18 +75,18 @@ func getVCPUThreadIDs(pid int) (map[string]string, error) {
 	return ret, nil
 }
 
-// parseCPUMask parses the mask and maps the results into a structure that contains which
+// ParseCPUMask parses the mask and maps the results into a structure that contains which
 // CPUs are enabled or disabled for the scheduling and priority changes.
 // This implementation reimplements the libvirt parsing logic defined here:
 // https://github.com/libvirt/libvirt/blob/56de80cb793aa7aedc45572f8b6ec3fc32c99309/src/util/virbitmap.c#L382
-// except that in this case it uses a map[string]maskType instead of a bit array.
-func parseCPUMask(mask string) (*cpuMask, error) {
+// except that in this case it uses a map[string]MaskType instead of a bit array.
+func ParseCPUMask(mask string) (*CPUMask, error) {
 
-	vcpus := cpuMask{}
+	vcpus := CPUMask{}
 	if len(mask) == 0 {
 		return &vcpus, nil
 	}
-	vcpus.mask = make(map[string]maskType)
+	vcpus.Mask = make(map[string]MaskType)
 
 	masks := strings.Split(mask, ",")
 	for _, i := range masks {
@@ -158,7 +114,7 @@ func parseCPUMask(mask string) (*cpuMask, error) {
 			for id := startID; id <= endID; id++ {
 				vid := strconv.Itoa(id)
 				if !vcpus.has(vid) {
-					vcpus.set(vid, enabled)
+					vcpus.set(vid, Enabled)
 				}
 			}
 		case singleCPURegex.MatchString(m):
@@ -171,7 +127,7 @@ func parseCPUMask(mask string) (*cpuMask, error) {
 				return nil, fmt.Errorf("invalid vcpu index `%d`", vid)
 			}
 			if !vcpus.has(string(match[1])) {
-				vcpus.set(string(match[1]), enabled)
+				vcpus.set(string(match[1]), Enabled)
 			}
 		case negateCPURegex.MatchString(m):
 			match := negateCPURegex.FindSubmatch([]byte(m))
@@ -182,7 +138,7 @@ func parseCPUMask(mask string) (*cpuMask, error) {
 			if vid < 0 {
 				return nil, fmt.Errorf("invalid vcpu index `%d`", vid)
 			}
-			vcpus.set(string(match[1]), disabled)
+			vcpus.set(string(match[1]), Disabled)
 		default:
 			return nil, fmt.Errorf("invalid mask value '%s' in '%s'", i, mask)
 		}
@@ -190,21 +146,21 @@ func parseCPUMask(mask string) (*cpuMask, error) {
 	return &vcpus, nil
 }
 
-func (c cpuMask) isEnabled(vcpuID string) bool {
-	if len(c.mask) == 0 {
+func (c CPUMask) IsEnabled(vcpuID string) bool {
+	if len(c.Mask) == 0 {
 		return true
 	}
-	if t, ok := c.mask[vcpuID]; ok {
-		return t == enabled
+	if t, ok := c.Mask[vcpuID]; ok {
+		return t == Enabled
 	}
 	return false
 }
 
-func (c *cpuMask) has(vcpuID string) bool {
-	_, ok := c.mask[vcpuID]
+func (c *CPUMask) has(vcpuID string) bool {
+	_, ok := c.Mask[vcpuID]
 	return ok
 }
 
-func (c *cpuMask) set(vcpuID string, mtype maskType) {
-	c.mask[vcpuID] = mtype
+func (c *CPUMask) set(vcpuID string, mtype MaskType) {
+	c.Mask[vcpuID] = mtype
 }

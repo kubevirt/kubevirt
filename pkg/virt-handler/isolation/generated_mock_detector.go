@@ -40,20 +40,6 @@ func (m *MockPodIsolationDetector) EXPECT() *MockPodIsolationDetectorMockRecorde
 	return m.recorder
 }
 
-// AdjustResources mocks base method.
-func (m *MockPodIsolationDetector) AdjustResources(vm *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AdjustResources", vm, additionalOverheadRatio)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// AdjustResources indicates an expected call of AdjustResources.
-func (mr *MockPodIsolationDetectorMockRecorder) AdjustResources(vm, additionalOverheadRatio any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AdjustResources", reflect.TypeOf((*MockPodIsolationDetector)(nil).AdjustResources), vm, additionalOverheadRatio)
-}
-
 // Detect mocks base method.
 func (m *MockPodIsolationDetector) Detect(vm *v1.VirtualMachineInstance) (IsolationResult, error) {
 	m.ctrl.T.Helper()
