@@ -95,7 +95,7 @@ func ExpectResumingNodeLabellerToSucceed(nodeName string, virtClient kubecli.Kub
 	// makes sure always resides on any node) will be removed. After node-labeller is enabled again, the
 	// host model label would be expected to show up again on the node.
 	By(fmt.Sprintf("Removing host model label %s from node %s (so we can later expect it to return)", v1.HostModelCPULabel, nodeName))
-	for _, label := range node.Labels {
+	for label := range node.Labels {
 		if strings.HasPrefix(label, v1.HostModelCPULabel) {
 			libnode.RemoveLabelFromNode(nodeName, label)
 		}
