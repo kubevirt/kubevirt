@@ -10620,6 +10620,43 @@ var CRDsValidation map[string]string = map[string]string{
               description: VirtualMachineExportLink contains a list of volumes available
                 for export, as well as the URLs to obtain these volumes
               properties:
+                backups:
+                  description: Backups is a list of available backups for the export
+                  items:
+                    description: VirtualMachineExportBackup contains the URL and available
+                      formats for the exported backup
+                    properties:
+                      endpoints:
+                        items:
+                          description: VirtualMachineExportBackupEndpoint contains
+                            the endpoint type and URL to interact with a backup export
+                          properties:
+                            endpoint:
+                              description: Endpoint is the endpoint of the backup
+                                export at the specified URL
+                              type: string
+                            url:
+                              description: Url is the url that contains the volume
+                                in the format specified
+                              type: string
+                          required:
+                          - endpoint
+                          - url
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - endpoint
+                        x-kubernetes-list-type: map
+                      name:
+                        description: Name is the name of the exported volume
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 cert:
                   description: Cert is the public CA certificate base64 encoded
                   type: string
@@ -10689,6 +10726,43 @@ var CRDsValidation map[string]string = map[string]string{
               description: VirtualMachineExportLink contains a list of volumes available
                 for export, as well as the URLs to obtain these volumes
               properties:
+                backups:
+                  description: Backups is a list of available backups for the export
+                  items:
+                    description: VirtualMachineExportBackup contains the URL and available
+                      formats for the exported backup
+                    properties:
+                      endpoints:
+                        items:
+                          description: VirtualMachineExportBackupEndpoint contains
+                            the endpoint type and URL to interact with a backup export
+                          properties:
+                            endpoint:
+                              description: Endpoint is the endpoint of the backup
+                                export at the specified URL
+                              type: string
+                            url:
+                              description: Url is the url that contains the volume
+                                in the format specified
+                              type: string
+                          required:
+                          - endpoint
+                          - url
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - endpoint
+                        x-kubernetes-list-type: map
+                      name:
+                        description: Name is the name of the exported volume
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  type: array
+                  x-kubernetes-list-map-keys:
+                  - name
+                  x-kubernetes-list-type: map
                 cert:
                   description: Cert is the public CA certificate base64 encoded
                   type: string

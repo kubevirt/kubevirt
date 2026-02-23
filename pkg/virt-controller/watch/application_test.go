@@ -252,6 +252,7 @@ var _ = Describe("Application", func() {
 			PreferenceInformer:          preferenceInformer,
 			ClusterPreferenceInformer:   clusterPreferenceInformer,
 			ControllerRevisionInformer:  controllerRevisionInformer,
+			VMBackupInformer:            backupInformer,
 		}
 		_ = app.exportController.Init()
 		app.persistentVolumeClaimInformer = pvcInformer

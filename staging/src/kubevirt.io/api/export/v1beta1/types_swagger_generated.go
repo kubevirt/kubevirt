@@ -50,6 +50,7 @@ func (VirtualMachineExportLink) SwaggerDoc() map[string]string {
 		"":          "VirtualMachineExportLink contains a list of volumes available for export, as well as the URLs to obtain these volumes",
 		"cert":      "Cert is the public CA certificate base64 encoded",
 		"volumes":   "Volumes is a list of available volumes to export\n+listType=map\n+listMapKey=name\n+optional",
+		"backups":   "Backups is a list of available backups for the export\n+listType=map\n+listMapKey=name\n+optional",
 		"manifests": "Manifests is a list of available manifests for the export\n+listType=map\n+listMapKey=type\n+optional",
 	}
 }
@@ -75,6 +76,22 @@ func (VirtualMachineExportVolumeFormat) SwaggerDoc() map[string]string {
 		"":       "VirtualMachineExportVolumeFormat contains the format type and URL to get the volume in that format",
 		"format": "Format is the format of the image at the specified URL",
 		"url":    "Url is the url that contains the volume in the format specified",
+	}
+}
+
+func (VirtualMachineExportBackup) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":          "VirtualMachineExportBackup contains the URL and available formats for the exported backup",
+		"name":      "Name is the name of the exported volume",
+		"endpoints": "+listType=map\n+listMapKey=endpoint\n+optional",
+	}
+}
+
+func (VirtualMachineExportBackupEndpoint) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"":         "VirtualMachineExportBackupEndpoint contains the endpoint type and URL to interact with a backup export",
+		"endpoint": "Endpoint is the endpoint of the backup export at the specified URL",
+		"url":      "Url is the url that contains the volume in the format specified",
 	}
 }
 

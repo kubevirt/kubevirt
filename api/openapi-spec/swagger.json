@@ -21464,6 +21464,51 @@
      }
     }
    },
+   "v1beta1.VirtualMachineExportBackup": {
+    "description": "VirtualMachineExportBackup contains the URL and available formats for the exported backup",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "endpoints": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VirtualMachineExportBackupEndpoint"
+      },
+      "x-kubernetes-list-map-keys": [
+       "endpoint"
+      ],
+      "x-kubernetes-list-type": "map"
+     },
+     "name": {
+      "description": "Name is the name of the exported volume",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1beta1.VirtualMachineExportBackupEndpoint": {
+    "description": "VirtualMachineExportBackupEndpoint contains the endpoint type and URL to interact with a backup export",
+    "type": "object",
+    "required": [
+     "endpoint",
+     "url"
+    ],
+    "properties": {
+     "endpoint": {
+      "description": "Endpoint is the endpoint of the backup export at the specified URL",
+      "type": "string",
+      "default": ""
+     },
+     "url": {
+      "description": "Url is the url that contains the volume in the format specified",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1beta1.VirtualMachineExportLink": {
     "description": "VirtualMachineExportLink contains a list of volumes available for export, as well as the URLs to obtain these volumes",
     "type": "object",
@@ -21471,6 +21516,18 @@
      "cert"
     ],
     "properties": {
+     "backups": {
+      "description": "Backups is a list of available backups for the export",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VirtualMachineExportBackup"
+      },
+      "x-kubernetes-list-map-keys": [
+       "name"
+      ],
+      "x-kubernetes-list-type": "map"
+     },
      "cert": {
       "description": "Cert is the public CA certificate base64 encoded",
       "type": "string",
