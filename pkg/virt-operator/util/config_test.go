@@ -413,4 +413,51 @@ var _ = Describe("Operator Config", func() {
 					version:   "latest",
 				}))
 	})
+
+	Context("KubeletRootDir", func() {
+		DescribeTable(" KubeletRootDir set from Handler kubelet-root flag",
+			func(kv *v1.KubeVirt, expectKubeletRootDir string) {
+				Expect(envVarManager.Setenv(VirtOperatorImageEnvName, "registry.io/kubevirt/virt-operator:v1.2.3")).To(Succeed())
+				err := VerifyEnv()
+				Expect(err).ToNot(HaveOccurred())
+
+				config := GetTargetConfigFromKVWithEnvVarManager(kv, envVarManager)
+				Expect(config.KubeletRootDir).To(Equal(expectKubeletRootDir))
+			},
+			Entry("when CustomizeComponents.Flags.Handler has kubelet-root set",
+				&v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						CustomizeComponents: v1.CustomizeComponents{
+							Flags: &v1.Flags{
+								Handler: map[string]string{"kubelet-root": "/custom/kubelet/root"},
+							},
+						},
+					},
+				},
+				"/custom/kubelet/root"),
+			Entry("when CustomizeComponents.Flags is nil",
+				&v1.KubeVirt{Spec: v1.KubeVirtSpec{}},
+				""),
+			Entry("when CustomizeComponents.Flags.Handler is nil",
+				&v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						CustomizeComponents: v1.CustomizeComponents{
+							Flags: &v1.Flags{},
+						},
+					},
+				},
+				""),
+			Entry("when kubelet-root flag is empty",
+				&v1.KubeVirt{
+					Spec: v1.KubeVirtSpec{
+						CustomizeComponents: v1.CustomizeComponents{
+							Flags: &v1.Flags{
+								Handler: map[string]string{"kubelet-root": ""},
+							},
+						},
+					},
+				},
+				""),
+		)
+	})
 })

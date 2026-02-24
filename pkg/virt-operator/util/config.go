@@ -157,6 +157,10 @@ type KubeVirtDeploymentConfig struct {
 
 	// the images names of every image we use
 	ComponentImages
+	// KubeletRootDir is the path to the kubelet root directory on the node (e.g. /var/lib/kubelet).
+	// When set, the install strategy is generated with virt-handler volumes using this path.
+	KubeletRootDir string `json:"kubeletRootDir,omitempty" optional:"true"`
+
 	// everything else, which can e.g. come from KubeVirt CR spec
 	AdditionalProperties map[string]string `json:"additionalProperties,omitempty" optional:"true"`
 
@@ -203,11 +207,15 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
-	return getConfig(kv.Spec.ImageRegistry,
+	config := getConfig(kv.Spec.ImageRegistry,
 		kv.Spec.ImageTag,
 		kv.Namespace,
 		additionalProperties,
 		envVarManager)
+	if kv.Spec.CustomizeComponents.Flags != nil && kv.Spec.CustomizeComponents.Flags.Handler != nil && kv.Spec.CustomizeComponents.Flags.Handler["kubelet-root"] != "" {
+		config.KubeletRootDir = kv.Spec.CustomizeComponents.Flags.Handler["kubelet-root"]
+	}
+	return config
 }
 
 func isFeatureGateEnabledInKvConfig(kvConfig *v1.KubeVirtConfiguration, featureGate string) bool {
@@ -703,6 +711,10 @@ func fieldsToString(v reflect.Value) string {
 
 func (c *KubeVirtDeploymentConfig) GetDeploymentID() string {
 	return c.ID
+}
+
+func (c *KubeVirtDeploymentConfig) GetKubeletRootDir() string {
+	return c.KubeletRootDir
 }
 
 func (c *KubeVirtDeploymentConfig) GetJson() (string, error) {

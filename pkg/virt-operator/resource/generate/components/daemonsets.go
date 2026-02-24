@@ -22,7 +22,6 @@ import (
 
 const (
 	VirtHandlerName                = "virt-handler"
-	kubeletPodsPath                = util.KubeletRoot + "/pods"
 	runtimesPath                   = "/var/run/kubevirt-libvirt-runtimes"
 	PrHelperName                   = "pr-helper"
 	prVolumeName                   = "pr-helper-socket-vol"
@@ -68,7 +67,13 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
 }
 
 func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productName, productVersion, productComponent string) *appsv1.DaemonSet {
+	kubeletRootDir  := util.KubeletRoot
+	kubeletPodsPath := kubeletRootDir + "/pods"
 
+	if config.GetKubeletRootDir() != "" {
+		kubeletRootDir = config.GetKubeletRootDir()
+		kubeletPodsPath = kubeletRootDir + "/pods"
+	}
 	deploymentName := VirtHandlerName
 	imageName := fmt.Sprintf("%s%s", config.GetImagePrefix(), deploymentName)
 	image := config.VirtHandlerImage
@@ -315,7 +320,7 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 		{"virt-share-dir", util.VirtShareDir, util.VirtShareDir, &bidi},
 		{"virt-private-dir", util.VirtPrivateDir, util.VirtPrivateDir, nil},
 		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
-		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},
+		{"kubelet", kubeletRootDir, kubeletRootDir, &bidi},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
 	}
 
@@ -384,22 +389,24 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 					Path: reservation.GetPrHelperSocketDir(),
 					Type: &directoryOrCreate,
 				},
-			}}, corev1.Volume{
+			},
+		}, corev1.Volume{
 			Name: devDirVol,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: "/dev",
 				},
-			}}, corev1.Volume{
+			},
+		}, corev1.Volume{
 			Name: etcMultipath,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: "/etc/multipath",
 					Type: pointer.P(corev1.HostPathDirectoryOrCreate),
 				},
-			}})
+			},
+		})
 		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, config.GetImagePullPolicy()))
 	}
 	return daemonset
-
 }
