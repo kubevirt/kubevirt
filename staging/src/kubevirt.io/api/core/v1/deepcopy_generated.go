@@ -3637,6 +3637,11 @@ func (in *MigrationConfiguration) DeepCopyInto(out *MigrationConfiguration) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.AllowMigrationNetworkFallback != nil {
+		in, out := &in.AllowMigrationNetworkFallback, &out.AllowMigrationNetworkFallback
+		*out = new(bool)
+		**out = **in
+	}
 	if in.MatchSELinuxLevelOnMigration != nil {
 		in, out := &in.MatchSELinuxLevelOnMigration, &out.MatchSELinuxLevelOnMigration
 		*out = new(bool)
