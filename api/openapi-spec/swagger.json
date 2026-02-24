@@ -14260,6 +14260,24 @@
      }
     }
    },
+   "v1.ContainerPathVolumeSource": {
+    "description": "ContainerPathVolumeSource represents a path from the virt-launcher container to be exposed to the VM via virtiofs. The path must correspond to an existing volumeMount in the virt-launcher pod's compute container.",
+    "type": "object",
+    "required": [
+     "path"
+    ],
+    "properties": {
+     "path": {
+      "description": "Path is the absolute path within the virt-launcher container to expose to the VM. The path must correspond to an existing volumeMount in the compute container.",
+      "type": "string",
+      "default": ""
+     },
+     "readOnly": {
+      "description": "ReadOnly controls whether the volume is exposed as read-only to the VM. Defaults to true. Write access is not currently supported.",
+      "type": "boolean"
+     }
+    }
+   },
    "v1.ControllerRevisionRef": {
     "type": "object",
     "properties": {
@@ -19753,6 +19771,10 @@
      "containerDisk": {
       "description": "ContainerDisk references a docker image, embedding a qcow or raw disk. More info: https://kubevirt.gitbooks.io/user-guide/registry-disk.html",
       "$ref": "#/definitions/v1.ContainerDiskSource"
+     },
+     "containerPath": {
+      "description": "ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs. The path must correspond to an existing volumeMount in the compute container.",
+      "$ref": "#/definitions/v1.ContainerPathVolumeSource"
      },
      "dataVolume": {
       "description": "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",

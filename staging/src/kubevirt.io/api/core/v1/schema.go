@@ -135,6 +135,24 @@ type ServiceAccountVolumeSource struct {
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
+// ContainerPathVolumeSource represents a path from the virt-launcher container
+// to be exposed to the VM via virtiofs. The path must correspond to an existing
+// volumeMount in the virt-launcher pod's compute container.
+type ContainerPathVolumeSource struct {
+	// Path is the absolute path within the virt-launcher container to expose to the VM.
+	// The path must correspond to an existing volumeMount in the compute container.
+	// +kubebuilder:validation:MaxLength=4096
+	// +kubebuilder:validation:XValidation:rule="self.startsWith('/')",message="path must be absolute (start with '/')"
+	// +kubebuilder:validation:XValidation:rule="!self.contains('..')",message="path must not contain '..'"
+	Path string `json:"path"`
+	// ReadOnly controls whether the volume is exposed as read-only to the VM.
+	// Defaults to true. Write access is not currently supported.
+	// +optional
+	// +kubebuilder:default:=true
+	// +kubebuilder:validation:XValidation:rule="self == true",message="readOnly must be true, write access is not supported"
+	ReadOnly *bool `json:"readOnly,omitempty"`
+}
+
 // DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest
 // metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
 type DownwardMetricsVolumeSource struct {
@@ -941,6 +959,10 @@ type VolumeSource struct {
 	DownwardMetrics *DownwardMetricsVolumeSource `json:"downwardMetrics,omitempty"`
 	// MemoryDump is attached to the virt launcher and is populated with a memory dump of the vmi
 	MemoryDump *MemoryDumpVolumeSource `json:"memoryDump,omitempty"`
+	// ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.
+	// The path must correspond to an existing volumeMount in the compute container.
+	// +optional
+	ContainerPath *ContainerPathVolumeSource `json:"containerPath,omitempty"`
 }
 
 // HotplugVolumeSource Represents the source of a volume to mount which are capable

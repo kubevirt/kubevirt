@@ -65,6 +65,7 @@ import (
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
+	"kubevirt.io/kubevirt/pkg/virtiofs"
 	"kubevirt.io/kubevirt/tools/vms-generator/utils"
 )
 
@@ -3668,7 +3669,7 @@ var _ = Describe("Template", func() {
 						DedicatedCPUPlacement: true,
 					}
 				}
-				res := resourcesForVirtioFSContainer(dedicatedCpu, quaranteedQos, clusterConfig)
+				res := virtiofs.ResourcesForVirtioFSContainer(dedicatedCpu, quaranteedQos, clusterConfig)
 				Expect(res.Requests).To(BeEquivalentTo(expectedReq))
 				Expect(res.Limits).To(BeEquivalentTo(expectedLim))
 			},

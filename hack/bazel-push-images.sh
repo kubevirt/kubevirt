@@ -40,6 +40,7 @@ default_targets="
     sidecar-shim
     disks-images-provider
     libguestfs-tools
+    test-helpers
 "
 
 # Add additional images for s390x only

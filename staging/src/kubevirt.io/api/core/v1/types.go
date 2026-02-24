@@ -803,6 +803,11 @@ const (
 
 	// GuestNotRunningReason indicates on the Ready condition on the VMI if the underlying guest VM is not running
 	GuestNotRunningReason = "GuestNotRunning"
+
+	// ContainerPathVolumesDisabledReason indicates that the VMI has ContainerPath volumes but the feature gate is disabled
+	ContainerPathVolumesDisabledReason = "ContainerPathVolumesDisabled"
+	// MissingVirtiofsContainersReason indicates that expected virtiofs containers for ContainerPath volumes are missing from the pod
+	MissingVirtiofsContainersReason = "MissingVirtiofsContainers"
 )
 
 type VirtualMachineInstanceMigrationConditionType string

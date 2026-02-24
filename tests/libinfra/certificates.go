@@ -22,7 +22,10 @@ package libinfra
 import (
 	"context"
 	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/onsi/gomega"
@@ -85,4 +88,41 @@ func EnsurePodsCertIsSynced(labelSelector string, namespace string, port string)
 		return certs[0]
 	}
 	return nil
+}
+
+// GenerateWebhookCertificates generates a self-signed certificate for a webhook service.
+// Returns the certificate PEM, private key PEM, and CA bundle PEM for use in MutatingWebhookConfiguration.
+func GenerateWebhookCertificates(serviceName, namespace string, duration time.Duration) (certPEM, keyPEM, caBundlePEM []byte, err error) {
+	key, err := cert.NewRSAPrivateKey()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to generate private key: %w", err)
+	}
+
+	config := cert.Config{
+		CommonName: fmt.Sprintf("%s.%s.svc", serviceName, namespace),
+	}
+	config.AltNames.DNSNames = []string{
+		serviceName,
+		fmt.Sprintf("%s.%s", serviceName, namespace),
+		fmt.Sprintf("%s.%s.svc", serviceName, namespace),
+	}
+
+	certificate, err := cert.NewSelfSignedCACert(config, key, duration)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to generate certificate: %w", err)
+	}
+
+	certPEMBlock := &pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw}
+	certPEMBuf := &strings.Builder{}
+	if err := pem.Encode(certPEMBuf, certPEMBlock); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to encode certificate: %w", err)
+	}
+
+	keyPEMBlock := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}
+	keyPEMBuf := &strings.Builder{}
+	if err := pem.Encode(keyPEMBuf, keyPEMBlock); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to encode private key: %w", err)
+	}
+
+	return []byte(certPEMBuf.String()), []byte(keyPEMBuf.String()), []byte(certPEMBuf.String()), nil
 }

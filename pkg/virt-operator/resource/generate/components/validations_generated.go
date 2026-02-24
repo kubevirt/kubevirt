@@ -8096,6 +8096,35 @@ var CRDsValidation map[string]string = map[string]string{
                         required:
                         - image
                         type: object
+                      containerPath:
+                        description: |-
+                          ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.
+                          The path must correspond to an existing volumeMount in the compute container.
+                        properties:
+                          path:
+                            description: |-
+                              Path is the absolute path within the virt-launcher container to expose to the VM.
+                              The path must correspond to an existing volumeMount in the compute container.
+                            maxLength: 4096
+                            type: string
+                            x-kubernetes-validations:
+                            - message: path must be absolute (start with '/')
+                              rule: self.startsWith('/')
+                            - message: path must not contain '..'
+                              rule: '!self.contains(''..'')'
+                          readOnly:
+                            default: true
+                            description: |-
+                              ReadOnly controls whether the volume is exposed as read-only to the VM.
+                              Defaults to true. Write access is not currently supported.
+                            type: boolean
+                            x-kubernetes-validations:
+                            - message: readOnly must be true, write access is not
+                                supported
+                              rule: self == true
+                        required:
+                        - path
+                        type: object
                       dataVolume:
                         description: |-
                           DataVolume represents the dynamic creation a PVC for this volume as well as
@@ -13973,6 +14002,34 @@ var CRDsValidation map[string]string = map[string]string{
                     type: string
                 required:
                 - image
+                type: object
+              containerPath:
+                description: |-
+                  ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.
+                  The path must correspond to an existing volumeMount in the compute container.
+                properties:
+                  path:
+                    description: |-
+                      Path is the absolute path within the virt-launcher container to expose to the VM.
+                      The path must correspond to an existing volumeMount in the compute container.
+                    maxLength: 4096
+                    type: string
+                    x-kubernetes-validations:
+                    - message: path must be absolute (start with '/')
+                      rule: self.startsWith('/')
+                    - message: path must not contain '..'
+                      rule: '!self.contains(''..'')'
+                  readOnly:
+                    default: true
+                    description: |-
+                      ReadOnly controls whether the volume is exposed as read-only to the VM.
+                      Defaults to true. Write access is not currently supported.
+                    type: boolean
+                    x-kubernetes-validations:
+                    - message: readOnly must be true, write access is not supported
+                      rule: self == true
+                required:
+                - path
                 type: object
               dataVolume:
                 description: |-
@@ -20377,6 +20434,35 @@ var CRDsValidation map[string]string = map[string]string{
                         required:
                         - image
                         type: object
+                      containerPath:
+                        description: |-
+                          ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.
+                          The path must correspond to an existing volumeMount in the compute container.
+                        properties:
+                          path:
+                            description: |-
+                              Path is the absolute path within the virt-launcher container to expose to the VM.
+                              The path must correspond to an existing volumeMount in the compute container.
+                            maxLength: 4096
+                            type: string
+                            x-kubernetes-validations:
+                            - message: path must be absolute (start with '/')
+                              rule: self.startsWith('/')
+                            - message: path must not contain '..'
+                              rule: '!self.contains(''..'')'
+                          readOnly:
+                            default: true
+                            description: |-
+                              ReadOnly controls whether the volume is exposed as read-only to the VM.
+                              Defaults to true. Write access is not currently supported.
+                            type: boolean
+                            x-kubernetes-validations:
+                            - message: readOnly must be true, write access is not
+                                supported
+                              rule: self == true
+                        required:
+                        - path
+                        type: object
                       dataVolume:
                         description: |-
                           DataVolume represents the dynamic creation a PVC for this volume as well as
@@ -25433,6 +25519,35 @@ var CRDsValidation map[string]string = map[string]string{
                                     type: string
                                 required:
                                 - image
+                                type: object
+                              containerPath:
+                                description: |-
+                                  ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.
+                                  The path must correspond to an existing volumeMount in the compute container.
+                                properties:
+                                  path:
+                                    description: |-
+                                      Path is the absolute path within the virt-launcher container to expose to the VM.
+                                      The path must correspond to an existing volumeMount in the compute container.
+                                    maxLength: 4096
+                                    type: string
+                                    x-kubernetes-validations:
+                                    - message: path must be absolute (start with '/')
+                                      rule: self.startsWith('/')
+                                    - message: path must not contain '..'
+                                      rule: '!self.contains(''..'')'
+                                  readOnly:
+                                    default: true
+                                    description: |-
+                                      ReadOnly controls whether the volume is exposed as read-only to the VM.
+                                      Defaults to true. Write access is not currently supported.
+                                    type: boolean
+                                    x-kubernetes-validations:
+                                    - message: readOnly must be true, write access
+                                        is not supported
+                                      rule: self == true
+                                required:
+                                - path
                                 type: object
                               dataVolume:
                                 description: |-
@@ -30950,6 +31065,36 @@ var CRDsValidation map[string]string = map[string]string{
                                         type: string
                                     required:
                                     - image
+                                    type: object
+                                  containerPath:
+                                    description: |-
+                                      ContainerPath exposes a path from the virt-launcher container to the VM via virtiofs.
+                                      The path must correspond to an existing volumeMount in the compute container.
+                                    properties:
+                                      path:
+                                        description: |-
+                                          Path is the absolute path within the virt-launcher container to expose to the VM.
+                                          The path must correspond to an existing volumeMount in the compute container.
+                                        maxLength: 4096
+                                        type: string
+                                        x-kubernetes-validations:
+                                        - message: path must be absolute (start with
+                                            '/')
+                                          rule: self.startsWith('/')
+                                        - message: path must not contain '..'
+                                          rule: '!self.contains(''..'')'
+                                      readOnly:
+                                        default: true
+                                        description: |-
+                                          ReadOnly controls whether the volume is exposed as read-only to the VM.
+                                          Defaults to true. Write access is not currently supported.
+                                        type: boolean
+                                        x-kubernetes-validations:
+                                        - message: readOnly must be true, write access
+                                            is not supported
+                                          rule: self == true
+                                    required:
+                                    - path
                                     type: object
                                   dataVolume:
                                     description: |-

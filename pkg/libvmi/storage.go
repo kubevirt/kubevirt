@@ -150,6 +150,15 @@ func WithFilesystemDV(dataVolumeName string) Option {
 	}
 }
 
+// WithFilesystemContainerPath specifies a filesystem backed by a container path.
+// This is used to expose paths from the virt-launcher container to the guest via virtiofs.
+func WithFilesystemContainerPath(name, path string) Option {
+	return func(vmi *v1.VirtualMachineInstance) {
+		addFilesystem(vmi, newVirtiofsFilesystem(name))
+		addVolume(vmi, newContainerPathVolume(name, path))
+	}
+}
+
 func WithPersistentVolumeClaimLun(diskName, pvcName string, reservation bool) Option {
 	return func(vmi *v1.VirtualMachineInstance) {
 		addDisk(vmi, newLun(diskName, reservation))
@@ -373,6 +382,17 @@ func newEmptyDisk(name string, capacity resource.Quantity) v1.Volume {
 		VolumeSource: v1.VolumeSource{
 			EmptyDisk: &v1.EmptyDiskSource{
 				Capacity: capacity,
+			},
+		},
+	}
+}
+
+func newContainerPathVolume(name, path string) v1.Volume {
+	return v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			ContainerPath: &v1.ContainerPathVolumeSource{
+				Path: path,
 			},
 		},
 	}
