@@ -25,6 +25,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/csv"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tools/util"
 )
 
@@ -105,7 +106,15 @@ func main() {
 	}
 
 	if *dumpNetworkPolicies {
+		virtTemplateResources, err := components.NewVirtTemplateResources(&operatorutil.KubeVirtDeploymentConfig{
+			Namespace: *namespace,
+		})
+		if err != nil {
+			panic(err)
+		}
+
 		kvNPs := components.NewKubeVirtNetworkPolicies(*namespace)
+		kvNPs = append(kvNPs, virtTemplateResources.NetworkPolicies...)
 		for _, v := range kvNPs {
 			util.MarshallObject(v, os.Stdout)
 		}
