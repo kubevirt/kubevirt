@@ -648,7 +648,14 @@ func (c *Controller) isChangedNodePlacement(pod, templatePod *k8sv1.Pod) (bool, 
 		}
 	}
 
-	return !equality.Semantic.DeepEqual(pod.Spec.NodeSelector, templatePod.Spec.NodeSelector) ||
+	// Exclude kubevirt.io/schedulable from NodeSelector comparison - it is added by the
+	// cluster for scheduling and should not affect NodePlacement condition.
+	podNodeSelector := maps.Clone(pod.Spec.NodeSelector)
+	delete(podNodeSelector, virtv1.NodeSchedulable)
+	templateNodeSelector := maps.Clone(templatePod.Spec.NodeSelector)
+	delete(templateNodeSelector, virtv1.NodeSchedulable)
+
+	return !equality.Semantic.DeepEqual(podNodeSelector, templateNodeSelector) ||
 		!equality.Semantic.DeepEqual(pod.Spec.Affinity, templatePod.Spec.Affinity), nil
 }
 
