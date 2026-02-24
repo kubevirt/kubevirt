@@ -36,6 +36,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
+	operatorutil "kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tools/util"
 )
 
@@ -196,7 +197,15 @@ func main() {
 			panic(err)
 		}
 	case "networkpolicies":
+		virtTemplateResources, err := components.NewVirtTemplateResources(&operatorutil.KubeVirtDeploymentConfig{
+			Namespace: *namespace,
+		})
+		if err != nil {
+			panic(err)
+		}
+
 		networkPolicies := components.NewKubeVirtNetworkPolicies(*namespace)
+		networkPolicies = append(networkPolicies, virtTemplateResources.NetworkPolicies...)
 		for _, networkPolicy := range networkPolicies {
 			err := util.MarshallObject(networkPolicy, os.Stdout)
 			if err != nil {

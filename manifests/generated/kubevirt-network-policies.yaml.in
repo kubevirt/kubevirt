@@ -202,3 +202,63 @@ spec:
       kubevirt.io: virt-handler
   policyTypes:
   - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-allow-apiserver-ingress
+  name: virt-template-allow-apiserver-ingress
+  namespace: {{.Namespace}}
+spec:
+  ingress:
+  - ports:
+    - port: 9443
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: virt-template
+      control-plane: apiserver
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-allow-metrics-traffic
+  name: virt-template-allow-metrics-traffic
+  namespace: {{.Namespace}}
+spec:
+  ingress:
+  - ports:
+    - port: 8443
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: virt-template
+      control-plane: controller-manager
+  policyTypes:
+  - Ingress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/name: virt-template
+    kubevirt.io: virt-template-allow-webhook-traffic
+  name: virt-template-allow-webhook-traffic
+  namespace: {{.Namespace}}
+spec:
+  ingress:
+  - ports:
+    - port: 9443
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: virt-template
+      control-plane: controller-manager
+  policyTypes:
+  - Ingress
