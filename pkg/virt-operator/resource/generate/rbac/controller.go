@@ -35,10 +35,10 @@ import (
 	"kubevirt.io/api/migrations"
 )
 
-func GetAllController(namespace string) []runtime.Object {
+func GetAllController(namespace string, includeNADRules bool) []runtime.Object {
 	return []runtime.Object{
 		newControllerServiceAccount(namespace),
-		newControllerClusterRole(),
+		newControllerClusterRole(includeNADRules),
 		newControllerClusterRoleBinding(namespace),
 		newControllerRole(namespace),
 		newControllerRoleBinding(namespace),
@@ -157,7 +157,7 @@ func newControllerRoleBinding(namespace string) *rbacv1.RoleBinding {
 	}
 }
 
-func newControllerClusterRole() *rbacv1.ClusterRole {
+func baseControllerClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "rbac.authorization.k8s.io/v1",
@@ -445,15 +445,6 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 			{
 				APIGroups: []string{
-					"k8s.cni.cncf.io",
-				},
-				Resources: []string{
-					"network-attachment-definitions",
-				},
-				Verbs: []string{"get"},
-			},
-			{
-				APIGroups: []string{
 					"apiextensions.k8s.io",
 				},
 				Resources: []string{
@@ -608,6 +599,22 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 			},
 		},
 	}
+}
+
+func newControllerClusterRole(includeNADRules bool) *rbacv1.ClusterRole {
+	cr := baseControllerClusterRole()
+	if includeNADRules {
+		cr.Rules = append(cr.Rules, rbacv1.PolicyRule{
+			APIGroups: []string{
+				"k8s.cni.cncf.io",
+			},
+			Resources: []string{
+				"network-attachment-definitions",
+			},
+			Verbs: []string{"get"},
+		})
+	}
+	return cr
 }
 
 func newControllerClusterRoleBinding(namespace string) *rbacv1.ClusterRoleBinding {
