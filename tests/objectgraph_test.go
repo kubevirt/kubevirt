@@ -36,6 +36,7 @@ import (
 
 	libdv "kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
@@ -68,6 +69,9 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 				ObjectMeta: metav1.ObjectMeta{
 					GenerateName: "test-pvc-",
 					Namespace:    testsuite.GetTestNamespace(nil),
+					Labels: map[string]string{
+						storagetypes.LabelApplyStorageProfile: "true",
+					},
 				},
 				Spec: corev1.PersistentVolumeClaimSpec{
 					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
@@ -155,7 +159,7 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 
 		It("should detect hotplugged disks in the object graph", func() {
 			By("Hotplugging a disk")
-			hotplugPVC := libstorage.NewPVC("hotplug-pvc", "1Gi", "")
+			hotplugPVC := libstorage.NewPVC("hotplug-pvc", "1Gi", "", libstorage.WithStorageProfile())
 			hotplugPVC, err := virtClient.CoreV1().PersistentVolumeClaims(testsuite.GetTestNamespace(nil)).Create(context.Background(), hotplugPVC, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
