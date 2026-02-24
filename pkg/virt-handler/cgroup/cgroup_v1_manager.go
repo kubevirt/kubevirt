@@ -119,7 +119,7 @@ func getCurrentlyDefinedRules(runcManager runc_cgroups.Manager) ([]*devices.Rule
 		return nil, fmt.Errorf("error reading current rules: %v", err)
 	}
 
-	emulator, err := cgroup_devices.EmulatorFromList(bytes.NewBufferString(currentRulesStr))
+	emulator, err := cgroup_devices.emulatorFromList(bytes.NewBufferString(currentRulesStr))
 	if err != nil {
 		return nil, fmt.Errorf("error creating emulator out of current rules: %v", err)
 	}
