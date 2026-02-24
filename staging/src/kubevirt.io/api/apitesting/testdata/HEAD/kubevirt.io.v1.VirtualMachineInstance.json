@@ -1000,6 +1000,7 @@
         "allowWorkloadDisruption": true,
         "disableTLS": true,
         "network": "networkValue",
+        "allowMigrationNetworkFallback": true,
         "matchSELinuxLevelOnMigration": true
       },
       "targetCPUSet": [

@@ -179,6 +179,7 @@ spec:
     memBalloonStatsPeriod: 4294967275
     migrations:
       allowAutoConverge: true
+      allowMigrationNetworkFallback: true
       allowPostCopy: true
       allowWorkloadDisruption: true
       bandwidthPerMigration: "0"

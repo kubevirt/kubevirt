@@ -724,6 +724,7 @@ status:
     failureReason: failureReasonValue
     migrationConfiguration:
       allowAutoConverge: true
+      allowMigrationNetworkFallback: true
       allowPostCopy: true
       allowWorkloadDisruption: true
       bandwidthPerMigration: "0"

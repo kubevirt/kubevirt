@@ -1034,6 +1034,7 @@ func (MigrationConfiguration) SwaggerDoc() map[string]string {
 		"allowWorkloadDisruption":           "AllowWorkloadDisruption indicates that the migration shouldn't be\ncanceled after acceptableCompletionTime is exceeded. Instead, if\npermitted, migration will be switched to post-copy or the VMI will be\npaused to allow the migration to complete",
 		"disableTLS":                        "When set to true, DisableTLS will disable the additional layer of live migration encryption\nprovided by KubeVirt. This is usually a bad idea. Defaults to false",
 		"network":                           "Network is the name of the CNI network to use for live migrations. By default, migrations go\nthrough the pod network.",
+		"allowMigrationNetworkFallback":     "AllowMigrationNetworkFallback specifies whether to fall back to the pod network when the\nconfigured migration network (Network) does not give us an IP (broken). When false or unset,\nmigrations fail if the migration network is broken. When true, if the migration network is broken,\nmigrations use the pod network instead. Defaults to false.",
 		"matchSELinuxLevelOnMigration":      "By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.\nWhen set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.\nThat will ensure the target virt-launcher doesn't share categories with another pod on the node.\nHowever, migrations will fail when using RWX volumes that don't automatically deal with SELinux levels.",
 	}
 }

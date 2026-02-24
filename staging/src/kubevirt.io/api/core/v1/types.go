@@ -3350,6 +3350,11 @@ type MigrationConfiguration struct {
 	// Network is the name of the CNI network to use for live migrations. By default, migrations go
 	// through the pod network.
 	Network *string `json:"network,omitempty"`
+	// AllowMigrationNetworkFallback specifies whether to fall back to the pod network when the
+	// configured migration network (Network) does not give us an IP (broken). When false or unset,
+	// migrations fail if the migration network is broken. When true, if the migration network is broken,
+	// migrations use the pod network instead. Defaults to false.
+	AllowMigrationNetworkFallback *bool `json:"allowMigrationNetworkFallback,omitempty"`
 	// By default, the SELinux level of target virt-launcher pods is forced to the level of the source virt-launcher.
 	// When set to true, MatchSELinuxLevelOnMigration lets the CRI auto-assign a random level to the target.
 	// That will ensure the target virt-launcher doesn't share categories with another pod on the node.

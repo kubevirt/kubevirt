@@ -1350,6 +1350,13 @@ var CRDsValidation map[string]string = map[string]string{
                     AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
                     guarantee successful VMI live migrations. Defaults to false
                   type: boolean
+                allowMigrationNetworkFallback:
+                  description: |-
+                    AllowMigrationNetworkFallback specifies whether to fall back to the pod network when the
+                    configured migration network (Network) does not give us an IP (broken). When false or unset,
+                    migrations fail if the migration network is broken. When true, if the migration network is broken,
+                    migrations use the pod network instead. Defaults to false.
+                  type: boolean
                 allowPostCopy:
                   description: |-
                     AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs
@@ -14836,6 +14843,13 @@ var CRDsValidation map[string]string = map[string]string{
                     AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
                     guarantee successful VMI live migrations. Defaults to false
                   type: boolean
+                allowMigrationNetworkFallback:
+                  description: |-
+                    AllowMigrationNetworkFallback specifies whether to fall back to the pod network when the
+                    configured migration network (Network) does not give us an IP (broken). When false or unset,
+                    migrations fail if the migration network is broken. When true, if the migration network is broken,
+                    migrations use the pod network instead. Defaults to false.
+                  type: boolean
                 allowPostCopy:
                   description: |-
                     AllowPostCopy enables post-copy live migrations. Such migrations allow even the busiest VMIs
@@ -15428,6 +15442,13 @@ var CRDsValidation map[string]string = map[string]string{
                   description: |-
                     AllowAutoConverge allows the platform to compromise performance/availability of VMIs to
                     guarantee successful VMI live migrations. Defaults to false
+                  type: boolean
+                allowMigrationNetworkFallback:
+                  description: |-
+                    AllowMigrationNetworkFallback specifies whether to fall back to the pod network when the
+                    configured migration network (Network) does not give us an IP (broken). When false or unset,
+                    migrations fail if the migration network is broken. When true, if the migration network is broken,
+                    migrations use the pod network instead. Defaults to false.
                   type: boolean
                 allowPostCopy:
                   description: |-
