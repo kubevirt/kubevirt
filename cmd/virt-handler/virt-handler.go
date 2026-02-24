@@ -361,7 +361,11 @@ func (app *virtHandlerApp) Run() {
 	}
 
 	migrationIpAddress := app.PodIpAddress
-	migrationIpAddress, err = virthandler.FindMigrationIP(migrationIpAddress)
+	allowFallback := false
+	if mc := app.clusterConfig.GetMigrationConfiguration(); mc != nil && mc.AllowMigrationNetworkFallback != nil && *mc.AllowMigrationNetworkFallback {
+		allowFallback = true
+	}
+	migrationIpAddress, err = virthandler.FindMigrationIP(migrationIpAddress, allowFallback)
 	if err != nil {
 		panic(err)
 	}
