@@ -180,7 +180,7 @@ get_containerfile_path() {
         echo "cmd/sidecars/network-slirp-binding/Containerfile"
         ;;
     network-passt-binding)
-        echo "cmd/cniplugins/passt-binding/Containerfile"
+        echo "cmd/sidecars/network-passt-binding/Containerfile"
         ;;
     network-passt-binding-cni)
         echo "cmd/cniplugins/passt-binding/cmd/Containerfile"
