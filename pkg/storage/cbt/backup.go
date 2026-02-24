@@ -1253,7 +1253,7 @@ func resolveCompletion(backup *backupv1.VirtualMachineBackup, status *v1.Virtual
 		}
 	}
 
-	if status.BackupMsg != nil {
+	if status.BackupMsg != nil && isPushMode(backup) {
 		log.Log.Object(backup).Infof(backupCompletedWithWarningMsg, *status.BackupMsg)
 		return &SyncInfo{
 			event:  backupCompletedWithWarningEvent,

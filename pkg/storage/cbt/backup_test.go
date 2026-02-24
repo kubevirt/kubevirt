@@ -1488,10 +1488,8 @@ var _ = Describe("Backup Controller", func() {
 
 	Context("resolveCompletion", func() {
 		DescribeTable("should correctly resolve completion status",
-			func(isFailed bool, msg *string, expectedEvent string, expectedReason string) {
-				// Using your project's existing helpers
-				backup := createBackup(backupName, vmName, pvcName, backupv1.PullMode)
-
+			func(isFailed bool, msg *string, expectedEvent string, expectedReason string, mode backupv1.BackupMode) {
+				backup := createBackup(backupName, vmName, pvcName, mode)
 				backupStatus := &v1.VirtualMachineInstanceBackupStatus{
 					Failed:    isFailed,
 					BackupMsg: msg,
@@ -1505,18 +1503,27 @@ var _ = Describe("Backup Controller", func() {
 			Entry("failure with a message",
 				true, pointer.P("disk error"),
 				backupFailedEvent, fmt.Sprintf(backupFailed, "disk error"),
+				backupv1.PushMode,
 			),
 			Entry("failure without a message (nil check)",
 				true, nil,
 				backupFailedEvent, fmt.Sprintf(backupFailed, "unknown, no completion message"),
+				backupv1.PushMode,
 			),
 			Entry("success with a warning message",
 				false, pointer.P("quiesce failed"),
 				backupCompletedWithWarningEvent, fmt.Sprintf(backupCompletedWithWarningMsg, "quiesce failed"),
+				backupv1.PushMode,
 			),
 			Entry("success",
 				false, nil,
 				backupCompletedEvent, backupCompleted,
+				backupv1.PushMode,
+			),
+			Entry("success with pull mode",
+				false, pointer.P("operation canceled"),
+				backupCompletedEvent, backupCompleted,
+				backupv1.PullMode,
 			),
 		)
 	})
