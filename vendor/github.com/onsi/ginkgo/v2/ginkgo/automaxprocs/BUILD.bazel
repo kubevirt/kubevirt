@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "automaxprocs.go",
+        "cgroup.go",
+        "cgroups.go",
+        "cgroups2.go",
+        "cpu_quota_linux.go",
+        "cpu_quota_unsupported.go",
+        "errors.go",
+        "mountpoint.go",
+        "runtime.go",
+        "subsys.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/ginkgo/v2/ginkgo/automaxprocs",
+    importpath = "github.com/onsi/ginkgo/v2/ginkgo/automaxprocs",
+    visibility = ["//visibility:public"],
+)

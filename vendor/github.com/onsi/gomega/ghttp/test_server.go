@@ -254,7 +254,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}()
 
 	if s.Writer != nil {
-		s.Writer.Write([]byte(fmt.Sprintf("GHTTP Received Request: %s - %s\n", req.Method, req.URL)))
+		s.Writer.Write(fmt.Appendf(nil, "GHTTP Received Request: %s - %s\n", req.Method, req.URL))
 	}
 
 	s.receivedRequests = append(s.receivedRequests, req)
@@ -292,7 +292,7 @@ func (s *Server) ReceivedRequests() []*http.Request {
 // the passed in method and path.
 //
 // The path may be either a string object or a *regexp.Regexp.
-func (s *Server) RouteToHandler(method string, path interface{}, handler http.HandlerFunc) {
+func (s *Server) RouteToHandler(method string, path any, handler http.HandlerFunc) {
 	s.rwMutex.Lock()
 	defer s.rwMutex.Unlock()
 

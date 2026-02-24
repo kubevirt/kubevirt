@@ -1066,7 +1066,8 @@
               "url": "urlValue",
               "diskId": "diskIdValue",
               "secretRef": "secretRefValue",
-              "certConfigMap": "certConfigMapValue"
+              "certConfigMap": "certConfigMapValue",
+              "insecureSkipVerify": true
             },
             "vddk": {
               "url": "urlValue",

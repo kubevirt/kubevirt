@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "doc.go",
+        "initialism_index.go",
+        "name_lexem.go",
+        "name_mangler.go",
+        "options.go",
+        "pools.go",
+        "split.go",
+        "string_bytes.go",
+        "util.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/go-openapi/swag/mangling",
+    importpath = "github.com/go-openapi/swag/mangling",
+    visibility = ["//visibility:public"],
+)

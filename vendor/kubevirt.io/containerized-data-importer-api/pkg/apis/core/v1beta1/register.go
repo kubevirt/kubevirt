@@ -8,8 +8,11 @@ import (
 	"kubevirt.io/containerized-data-importer-api/pkg/apis/core"
 )
 
-// SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = schema.GroupVersion{Group: core.GroupName, Version: "v1beta1"}
+// SchemeGroupVersion and GroupVersion is group version used to register these objects
+var (
+	SchemeGroupVersion = schema.GroupVersion{Group: core.GroupName, Version: "v1beta1"}
+	GroupVersion       = schema.GroupVersion{Group: core.GroupName, Version: "v1beta1"}
+)
 
 // CDIGroupVersionKind group version kind
 var CDIGroupVersionKind = schema.GroupVersionKind{Group: SchemeGroupVersion.Group, Version: SchemeGroupVersion.Version, Kind: "CDI"}

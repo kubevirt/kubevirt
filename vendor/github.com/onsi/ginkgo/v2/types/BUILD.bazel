@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 go_library(
     name = "go_default_library",
     srcs = [
+        "around_node.go",
         "code_location.go",
         "config.go",
         "deprecated_types.go",
@@ -13,11 +14,15 @@ go_library(
         "flags.go",
         "label_filter.go",
         "report_entry.go",
+        "semver_filter.go",
         "types.go",
         "version.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/github.com/onsi/ginkgo/v2/types",
     importpath = "github.com/onsi/ginkgo/v2/types",
     visibility = ["//visibility:public"],
-    deps = ["//vendor/github.com/onsi/ginkgo/v2/formatter:go_default_library"],
+    deps = [
+        "//vendor/github.com/Masterminds/semver/v3:go_default_library",
+        "//vendor/github.com/onsi/ginkgo/v2/formatter:go_default_library",
+    ],
 )
