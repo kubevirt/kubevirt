@@ -165,10 +165,6 @@ func (app *synchronizationControllerApp) Run() {
 	defer cancel()
 	app.ctx = ctx
 
-	envIP, _ := os.LookupEnv("MY_POD_IP")
-	ip, err := virthandler.FindMigrationIP(envIP)
-	app.ip = ip
-
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtControllerQPS, virtconfig.DefaultVirtHandlerBurst))
@@ -231,6 +227,16 @@ func (app *synchronizationControllerApp) Run() {
 	if err := app.setupTLS(factory); err != nil {
 		log.Log.Criticalf("Error constructing migration tls config: %v", err)
 		os.Exit(2)
+	}
+
+	envIP, _ := os.LookupEnv("MY_POD_IP")
+	allowFallback := false
+	if mc := app.clusterConfig.GetMigrationConfiguration(); mc != nil && mc.AllowMigrationNetworkFallback != nil && *mc.AllowMigrationNetworkFallback {
+		allowFallback = true
+	}
+	app.ip, err = virthandler.FindMigrationIP(envIP, allowFallback)
+	if err != nil {
+		panic(err)
 	}
 
 	stop := app.ctx.Done()
