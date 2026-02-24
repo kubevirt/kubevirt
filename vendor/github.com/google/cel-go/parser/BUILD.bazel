@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = [
+        "errors.go",
+        "helper.go",
+        "input.go",
+        "macro.go",
+        "options.go",
+        "parser.go",
+        "unescape.go",
+        "unparser.go",
+    ],
+    importmap = "kubevirt.io/kubevirt/vendor/github.com/google/cel-go/parser",
+    importpath = "github.com/google/cel-go/parser",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//vendor/github.com/antlr4-go/antlr/v4:go_default_library",
+        "//vendor/github.com/google/cel-go/common:go_default_library",
+        "//vendor/github.com/google/cel-go/common/ast:go_default_library",
+        "//vendor/github.com/google/cel-go/common/operators:go_default_library",
+        "//vendor/github.com/google/cel-go/common/runes:go_default_library",
+        "//vendor/github.com/google/cel-go/common/types:go_default_library",
+        "//vendor/github.com/google/cel-go/common/types/ref:go_default_library",
+        "//vendor/github.com/google/cel-go/parser/gen:go_default_library",
+    ],
+)
