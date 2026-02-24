@@ -98,6 +98,9 @@ const (
 	AdditionalPropertiesExternalNetResourceInjection = "ExternalNetResourceInjection"
 
 	// lookup key in AdditionalProperties
+	AdditionalPropertiesOptOutRoleAggregation = "OptOutRoleAggregation"
+
+	// lookup key in AdditionalProperties
 	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
 	DefaultSynchronizationPort              int32 = 9185
 
@@ -192,6 +195,10 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 	hypervisor := virtconfig.GetHypervisorFromKvConfig(&kv.Spec.Configuration, isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.ConfigurableHypervisor))
 	additionalProperties[AdditionalPropertiesHypervisorName] = hypervisor.Name
 
+	if kv.Spec.Configuration.RoleAggregationStrategy != nil &&
+		*kv.Spec.Configuration.RoleAggregationStrategy == v1.RoleAggregationStrategyManual {
+		additionalProperties[AdditionalPropertiesOptOutRoleAggregation] = ""
+	}
 	// don't use status.target* here, as that is always set, but we need to know if it was set by the spec and with that
 	// overriding shasums from env vars
 	return getConfig(kv.Spec.ImageRegistry,
@@ -550,6 +557,11 @@ func (c *KubeVirtDeploymentConfig) VirtTemplateDeploymentEnabled() bool {
 
 func (c *KubeVirtDeploymentConfig) ExternalNetResourceInjectionEnabled() bool {
 	_, enabled := c.AdditionalProperties[AdditionalPropertiesExternalNetResourceInjection]
+	return enabled
+}
+
+func (c *KubeVirtDeploymentConfig) OptOutRoleAggregationEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesOptOutRoleAggregation]
 	return enabled
 }
 

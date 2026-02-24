@@ -83,6 +83,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/rbac"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 	"kubevirt.io/kubevirt/tests/clientcmd"
 	"kubevirt.io/kubevirt/tests/console"
@@ -2474,6 +2475,53 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 				}
 			}
 			Expect(count).To(Equal(2))
+		})
+	})
+
+	Context("RoleAggregationStrategy", func() {
+		clusterRolesWithAggregateLabels := map[string]string{
+			rbac.ClusterRoleAdmin: "rbac.authorization.k8s.io/aggregate-to-admin",
+			rbac.ClusterRoleEdit:  "rbac.authorization.k8s.io/aggregate-to-edit",
+			rbac.ClusterRoleView:  "rbac.authorization.k8s.io/aggregate-to-view",
+		}
+
+		It("should remove aggregate labels when set to Manual and restore them when set to AggregateToDefault", func() {
+			By("Verifying aggregate labels are present by default")
+			for name, labelKey := range clusterRolesWithAggregateLabels {
+				clusterRole, err := kubevirt.Client().RbacV1().ClusterRoles().Get(context.Background(), name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(clusterRole.Labels).To(HaveKeyWithValue(labelKey, "true"),
+					"ClusterRole %s should have label %s", name, labelKey)
+			}
+
+			By("Setting RoleAggregationStrategy to Manual")
+			kv := kvconfig.UpdateKubeVirtConfigValueAndWait(v1.KubeVirtConfiguration{
+				RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+			})
+
+			By("Verifying aggregate labels are removed")
+			Eventually(func(g Gomega) {
+				for name, labelKey := range clusterRolesWithAggregateLabels {
+					clusterRole, err := kubevirt.Client().RbacV1().ClusterRoles().Get(context.Background(), name, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(clusterRole.Labels).ToNot(HaveKey(labelKey),
+						"ClusterRole %s should not have label %s when RoleAggregationStrategy is Manual", name, labelKey)
+				}
+			}, 60*time.Second, time.Second).Should(Succeed())
+
+			By("Setting RoleAggregationStrategy to AggregateToDefault")
+			kv.Spec.Configuration.RoleAggregationStrategy = pointer.P(v1.RoleAggregationStrategyAggregateToDefault)
+			kvconfig.UpdateKubeVirtConfigValueAndWait(kv.Spec.Configuration)
+
+			By("Verifying aggregate labels are restored")
+			Eventually(func(g Gomega) {
+				for name, labelKey := range clusterRolesWithAggregateLabels {
+					clusterRole, err := kubevirt.Client().RbacV1().ClusterRoles().Get(context.Background(), name, metav1.GetOptions{})
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(clusterRole.Labels).To(HaveKeyWithValue(labelKey, "true"),
+						"ClusterRole %s should have label %s when RoleAggregationStrategy is AggregateToDefault", name, labelKey)
+				}
+			}, 60*time.Second, time.Second).Should(Succeed())
 		})
 	})
 })
