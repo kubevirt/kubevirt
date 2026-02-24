@@ -184,6 +184,7 @@ aliases:
     - xpivarc
   sig-buildsystem-reviewers:
     - brianmcarey
+    - dollierp
     - enp0s3
     - xpivarc
 
