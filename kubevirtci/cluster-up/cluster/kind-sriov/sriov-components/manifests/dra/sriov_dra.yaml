@@ -109,6 +109,9 @@ metadata:
   name: sriov-dra-dra-driver-sriov-chart-role
   namespace: dra-driver-sriov
 rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
 - apiGroups: ["resource.k8s.io"]
   resources: ["resourceclaims"]
   verbs: ["get"]
@@ -199,7 +202,7 @@ spec:
       - name: plugin
         securityContext:
           privileged: true
-        image: ghcr.io/k8snetworkplumbingwg/dra-driver-sriov:4889196
+        image: quay.io/oshoval/dra-driver-sriov:mac
         imagePullPolicy: Always
         command:
           # - dlv
