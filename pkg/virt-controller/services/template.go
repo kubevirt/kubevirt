@@ -49,7 +49,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery"
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/hooks"
-	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	"kubevirt.io/kubevirt/pkg/network/downwardapi"
 	"kubevirt.io/kubevirt/pkg/network/istio"
 	"kubevirt.io/kubevirt/pkg/network/multus"
@@ -1523,20 +1522,7 @@ func (t *TemplateService) doesVMIRequireAutoCPULimits(vmi *v1.VirtualMachineInst
 }
 
 func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, networkToResourceMap map[string]string) VMIResourcePredicates {
-	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
-	vmiCPUArch := vmi.Spec.Architecture
-	if vmiCPUArch == "" {
-		vmiCPUArch = t.clusterConfig.GetClusterCPUArch()
-	}
-	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, t.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
-
-	if t.netBindingPluginMemoryCalculator != nil {
-		memoryOverhead.Add(
-			t.netBindingPluginMemoryCalculator.Calculate(vmi, t.clusterConfig.GetNetworkBindings()),
-		)
-	}
-
-	metrics.SetVmiLaucherMemoryOverhead(vmi, memoryOverhead)
+	memoryOverhead := CalculateMemoryOverhead(t.clusterConfig, t.netBindingPluginMemoryCalculator, vmi)
 	withCPULimits := t.doesVMIRequireAutoCPULimits(vmi)
 	additionalCPUs := uint32(0)
 	if vmi.Spec.Domain.IOThreadsPolicy != nil &&
@@ -1570,6 +1556,23 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 		},
 	}
+}
+
+func CalculateMemoryOverhead(clusterConfig *virtconfig.ClusterConfig, netBindingPluginMemoryCalculator netBindingPluginMemoryCalculator, vmi *v1.VirtualMachineInstance) resource.Quantity {
+	// Set default with vmi Architecture. compatible with multi-architecture hybrid environments
+	vmiCPUArch := vmi.Spec.Architecture
+	if vmiCPUArch == "" {
+		vmiCPUArch = clusterConfig.GetClusterCPUArch()
+	}
+	memoryOverhead := GetMemoryOverhead(vmi, vmiCPUArch, clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+
+	if netBindingPluginMemoryCalculator != nil {
+		memoryOverhead.Add(
+			netBindingPluginMemoryCalculator.Calculate(vmi, clusterConfig.GetNetworkBindings()),
+		)
+	}
+
+	return memoryOverhead
 }
 
 func (t *TemplateService) doesVMIRequireAutoMemoryLimits(vmi *v1.VirtualMachineInstance) bool {
