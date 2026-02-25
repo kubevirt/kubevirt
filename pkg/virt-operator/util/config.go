@@ -95,7 +95,7 @@ const (
 	AdditionalPropertiesHypervisorName = "HypervisorName"
 
 	// lookup key in AdditionalProperties
-	AdditionalPropertiesDisableNADResourceInjection = "DisableNADResourceInjection"
+	AdditionalPropertiesExternalNetResourceInjection = "ExternalNetResourceInjection"
 
 	// lookup key in AdditionalProperties
 	AdditionalPropertiesSynchronizationPort       = "SynchronizationPort"
@@ -185,8 +185,8 @@ func GetTargetConfigFromKVWithEnvVarManager(kv *v1.KubeVirt, envVarManager EnvVa
 		}
 	}
 
-	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.DisableNADResourceInjection) {
-		additionalProperties[AdditionalPropertiesDisableNADResourceInjection] = ""
+	if isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.ExternalNetResourceInjection) {
+		additionalProperties[AdditionalPropertiesExternalNetResourceInjection] = ""
 	}
 
 	hypervisor := virtconfig.GetHypervisorFromKvConfig(&kv.Spec.Configuration, isFeatureGateEnabledInKvConfig(&kv.Spec.Configuration, featuregate.ConfigurableHypervisor))
@@ -548,8 +548,8 @@ func (c *KubeVirtDeploymentConfig) VirtTemplateDeploymentEnabled() bool {
 	return enabled
 }
 
-func (c *KubeVirtDeploymentConfig) ShouldDisableNADResourceInjection() bool {
-	_, enabled := c.AdditionalProperties[AdditionalPropertiesDisableNADResourceInjection]
+func (c *KubeVirtDeploymentConfig) ExternalNetResourceInjectionEnabled() bool {
+	_, enabled := c.AdditionalProperties[AdditionalPropertiesExternalNetResourceInjection]
 	return enabled
 }
 

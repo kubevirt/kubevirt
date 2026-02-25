@@ -362,7 +362,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	var networkToResourceMap map[string]string
-	if !t.clusterConfig.ShouldDisableNADResourceInjection() {
+	if !t.clusterConfig.ExternalNetResourceInjectionEnabled() {
 		var err error
 		networkToResourceMap, err = multus.NetworkToResource(t.virtClient, vmi)
 		if err != nil {

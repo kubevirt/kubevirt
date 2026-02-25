@@ -512,7 +512,7 @@ func GenerateCurrentInstallStrategy(config *operatorutil.KubeVirtDeploymentConfi
 	rbaclist := make([]runtime.Object, 0)
 	rbaclist = append(rbaclist, rbac.GetAllCluster()...)
 	rbaclist = append(rbaclist, rbac.GetAllApiServer(config.GetNamespace())...)
-	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace(), !config.ShouldDisableNADResourceInjection())...)
+	rbaclist = append(rbaclist, rbac.GetAllController(config.GetNamespace(), !config.ExternalNetResourceInjectionEnabled())...)
 	rbaclist = append(rbaclist, rbac.GetAllHandler(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllExportProxy(config.GetNamespace())...)
 	rbaclist = append(rbaclist, rbac.GetAllSynchronizationController(config.GetNamespace())...)
