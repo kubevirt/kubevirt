@@ -1273,6 +1273,168 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Field).To(Equal("fake.HostDevices"))
 		})
 
+		It("should reject network with resourceClaim when NetworkDevicesWithDRA feature gate is disabled", func() {
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Networks = []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "claim1",
+							RequestName: "vf",
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "dra-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.networks"))
+		})
+
+		It("should accept network with resourceClaim when NetworkDevicesWithDRA feature gate is enabled", func() {
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate)
+			defer disableFeatureGates()
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Networks = []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "claim1",
+							RequestName: "vf",
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "dra-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+			}
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+				{Name: "claim1"},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(BeEmpty())
+		})
+
+		It("should reject network with resourceClaim referencing non-existent spec.resourceClaims entry", func() {
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate)
+			defer disableFeatureGates()
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Networks = []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "nonexistent-claim",
+							RequestName: "vf",
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "dra-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Field).To(Equal("fake.networks[0].resourceClaim.claimName"))
+		})
+
+		It("should reject duplicate claimName/requestName across DRA networks", func() {
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate)
+			defer disableFeatureGates()
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Networks = []v1.Network{
+				{
+					Name: "dra-net-1",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "claim1",
+							RequestName: "vf",
+						},
+					},
+				},
+				{
+					Name: "dra-net-2",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "claim1",
+							RequestName: "vf",
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "dra-net-1", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+				{Name: "dra-net-2", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+			}
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+				{Name: "claim1"},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("duplicate claimName/requestName"))
+		})
+
+		It("should reject mixing Multus-based and DRA-based SR-IOV in the same VMI", func() {
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate)
+			defer disableFeatureGates()
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Networks = []v1.Network{
+				{
+					Name:          "multus-sriov",
+					NetworkSource: v1.NetworkSource{Multus: &v1.MultusNetwork{NetworkName: "sriov-nad"}},
+				},
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "claim1",
+							RequestName: "vf",
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "multus-sriov", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+				{Name: "dra-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{SRIOV: &v1.InterfaceSRIOV{}}},
+			}
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+				{Name: "claim1"},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("mixing Multus-based and DRA-based SR-IOV"))
+		})
+
+		It("should reject DRA network with non-SRIOV interface binding", func() {
+			enableFeatureGates(featuregate.NetworkDevicesWithDRAGate)
+			defer disableFeatureGates()
+			vmi := api.NewMinimalVMI("testvm")
+			vmi.Spec.Networks = []v1.Network{
+				{
+					Name: "dra-net",
+					NetworkSource: v1.NetworkSource{
+						ResourceClaim: &v1.ResourceClaimNetworkSource{
+							ClaimName:   "claim1",
+							RequestName: "vf",
+						},
+					},
+				},
+			}
+			vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{
+				{Name: "dra-net", InterfaceBindingMethod: v1.InterfaceBindingMethod{Bridge: &v1.InterfaceBridge{}}},
+			}
+			vmi.Spec.ResourceClaims = []k8sv1.PodResourceClaim{
+				{Name: "claim1"},
+			}
+			causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("fake"), &vmi.Spec, config)
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Message).To(ContainSubstring("requires an SR-IOV interface binding"))
+		})
+
 		It("should accept host devices that are not permitted in the hostdev config", func() {
 			kvConfig := kv.DeepCopy()
 			kvConfig.Spec.Configuration.DeveloperConfiguration.FeatureGates = []string{featuregate.HostDevicesGate}
