@@ -214,3 +214,18 @@ func decodeMetadataFromStream(dec *json.Decoder) (*metadata.DeviceMetadata, erro
 	}
 	return nil, fmt.Errorf("no metadata objects found in stream")
 }
+
+// HasNetworkDRA returns true if any of the networks use DRA.
+func HasNetworkDRA(networks []v1.Network) bool {
+	for _, net := range networks {
+		if IsNetworkDRA(net) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsNetworkDRA returns true if the network source is a ResourceClaim.
+func IsNetworkDRA(net v1.Network) bool {
+	return net.NetworkSource.ResourceClaim != nil
+}
