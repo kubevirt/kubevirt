@@ -999,7 +999,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 
 	// Construct the DomainBuilder specific to the hypervisor
-	if err := hypervisor.MakeDomainBuilder(v1.KvmHypervisorName, vmi, c).Build(vmi, domain); err != nil {
+	if err := hypervisor.MakeDomainBuilder(c.HypervisorName, vmi, c).Build(vmi, domain); err != nil {
 		return err
 	}
 
