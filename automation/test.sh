@@ -177,6 +177,8 @@ fi
 if [[ $TARGET =~ sriov.* ]]; then
   if [[ $TARGET =~ kind.* ]]; then
     export KUBEVIRT_NUM_NODES=3
+    # TODO do this only for DRA SR-IOV tests
+    export KUBEVIRT_USE_DRA=true
   fi
   export KUBEVIRT_DEPLOY_CDI="false"
   export KUBEVIRT_VERBOSITY=${KUBEVIRT_VERBOSITY:-"virtLauncher:3,virtHandler:3"}
@@ -571,6 +573,9 @@ if [[ -z ${KUBEVIRT_E2E_FOCUS} && -z ${KUBEVIRT_E2E_SKIP} && -z ${label_filter} 
     label_filter='(SRIOV)'
   elif [[ $TARGET =~ emulated-igb ]]; then
     label_filter='(SRIOV)'
+    # Enable NetworkDevicesWithDRA feature gate for DRA SR-IOV tests
+    kubectl patch kubevirt -n kubevirt kubevirt --type=merge -p='{"spec":{"configuration":{"developerConfiguration":{"featureGates":["NetworkDevicesWithDRA"]}}}}'
+    label_filter='(DRA-Network)'
   elif [[ $TARGET =~ gpu.* ]]; then
     label_filter='(GPU)'
   else
