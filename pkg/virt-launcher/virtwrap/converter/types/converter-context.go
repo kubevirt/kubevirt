@@ -70,4 +70,5 @@ type ConverterContext struct {
 	SerialConsoleLog                bool
 	PCINUMAAwareTopologyEnabled     bool
 	DomainAttachmentByInterfaceName map[string]string
+	HypervisorName                  string
 }
