@@ -9,6 +9,7 @@ go_library(
         "mac.go",
         "netattachdef.go",
         "ping.go",
+        "route.go",
         "skips.go",
         "validation.go",
         "vmibuilder.go",
