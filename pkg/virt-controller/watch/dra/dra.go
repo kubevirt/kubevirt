@@ -29,7 +29,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	k8sv1 "k8s.io/api/core/v1"
-	resourcev1beta1 "k8s.io/api/resource/v1beta1"
+	resourcev1 "k8s.io/api/resource/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -580,7 +580,7 @@ func getResourceClaimNameForDevice(claimName string, pod *k8sv1.Pod) *string {
 	return nil
 }
 
-func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourceClaimName, requestName string) (*resourcev1beta1.DeviceRequestAllocationResult, error) {
+func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourceClaimName, requestName string) (*resourcev1.DeviceRequestAllocationResult, error) {
 	key := controller.NamespacedKey(resourceClaimNamespace, resourceClaimName)
 	obj, exists, err := c.resourceClaimIndexer.GetByKey(key)
 	if err != nil {
@@ -589,7 +589,7 @@ func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourc
 	if !exists {
 		return nil, fmt.Errorf("resource claim %s does not exist", key)
 	}
-	resourceClaim := obj.(*resourcev1beta1.ResourceClaim)
+	resourceClaim := obj.(*resourcev1.ResourceClaim)
 
 	if resourceClaim.Status.Allocation == nil {
 		return nil, nil
@@ -618,7 +618,7 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, d
 	}
 
 	for _, obj := range resourceSlices {
-		rs := obj.(*resourcev1beta1.ResourceSlice)
+		rs := obj.(*resourcev1.ResourceSlice)
 		if rs.Spec.Driver == driverName {
 			for _, device := range rs.Spec.Devices {
 				if device.Name == deviceName {
@@ -629,7 +629,7 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, d
 						usbAddress *v1.USBAddress
 					)
 
-					for key, value := range device.Basic.Attributes {
+					for key, value := range device.Attributes {
 						if string(key) == PCIAddressDeviceAttributeKey && value.StringValue != nil {
 							pciAddress = *value.StringValue
 						} else if string(key) == MDevUUIDDeviceAttributeKey && value.StringValue != nil {
@@ -654,11 +654,14 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, d
 }
 
 func indexResourceSliceByNodeName(obj interface{}) ([]string, error) {
-	rs, ok := obj.(*resourcev1beta1.ResourceSlice)
+	rs, ok := obj.(*resourcev1.ResourceSlice)
 	if !ok {
 		return nil, nil
 	}
-	return []string{rs.Spec.NodeName}, nil
+	if rs.Spec.NodeName != nil {
+		return []string{*rs.Spec.NodeName}, nil
+	}
+	return []string{""}, nil
 }
 
 func (c *DRAStatusController) getHostDevicesFromVMISpec(vmi *v1.VirtualMachineInstance) ([]DeviceInfo, error) {

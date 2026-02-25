@@ -54,7 +54,7 @@ type FileTransferOption struct {
 
 // KnownSize is intended for reader whose size is already known before reading.
 type KnownSize interface {
-	// return num in bytes
+	// Size returns num in bytes
 	Size() int64
 }
 
@@ -75,12 +75,13 @@ func (c *Client) CopyFileToRemote(localFile string, remoteLoc string, opt *FileT
 }
 
 // CopyToRemote copies content from reader to remoteTarget.
-// The reader must implement "KnownSize" interface except *os.File.
+// The reader must implement KnownSize interface except *os.File.
 //
 // Currently, it supports following readers:
 //   - *os.File
 //   - *strings.Reader
 //   - *bytes.Reader
+//
 // Note that the last part of remoteTarget will be used as filename if unspecified.
 //
 // It's CALLER'S responsibility to CLOSE the file if an *os.File is supplied.
@@ -179,6 +180,10 @@ type DirTransferOption struct {
 	// Default: 0 (Means no limit)
 	// TODO: not implemented yet
 	SpeedLimit int64
+	// ContentOnly skips creating the source directory on the receiving side, and
+	// only transfers the source directory's contents.
+	// Default: false
+	ContentOnly bool
 }
 
 // CopyDirToRemote recursively copies a directory to remoteDir.
@@ -268,7 +273,9 @@ func traverseDir(ctx context.Context, rootDir bool, dir *os.File, opt *DirTransf
 		return
 	}
 
-	deliverDir(ctx, curDirStat, opt, jobCh)
+	if !(rootDir && opt.ContentOnly) {
+		deliverDir(ctx, curDirStat, opt, jobCh)
+	}
 
 	var subDirs []os.FileInfo
 	for i := range list {
@@ -465,18 +472,19 @@ func (c *Client) copyFromRemote(remoteFile, localFile string, lw io.Writer, opt 
 // If localFile is a directory, the name of remoteFile will be used.
 //
 // For example:
+//
 //   - CopyFileFromRemote("/remote/file1", "/local/fileNotExist", &FileTransferOption)
-//     - Result: "/remote/file1" -> "/local/file2"
-//       The "fileNotExist" will be created.
+//     Result: "/remote/file1" -> "/local/file2"
+//     The "fileNotExist" will be created.
 //
 //   - CopyFileFromRemote("/remote/file1", "/local/fileExist", &FileTransferOption)
-//     - Result: "/remote/file1" -> "/local/fileExist"
-//       The "fileExist" will be truncated for writing.
+//     Result: "/remote/file1" -> "/local/fileExist"
+//     The "fileExist" will be truncated for writing.
 //
 //   - CopyFileFromRemote("/remote/file1", "/local/dir", &FileTransferOption)
-//     - Result: "/remote/file1" -> "/local/dir/file1"
-//       The "file1" will be used as filename and stored under "/local/dir" directory.
-//       Note that "/local/dir" must exist in this case.
+//     Result: "/remote/file1" -> "/local/dir/file1"
+//     The "file1" will be used as filename and stored under "/local/dir" directory.
+//     Note that "/local/dir" must exist in this case.
 func (c *Client) CopyFileFromRemote(remoteFile, localFile string, opt *FileTransferOption) error {
 	if opt == nil {
 		return ErrNoTransferOption
@@ -506,7 +514,7 @@ func (c *Client) CopyFileFromRemote(remoteFile, localFile string, opt *FileTrans
 //
 // For example:
 //   - CopyDirFromRemote("/remote/dir1", "/local/dir2", &DirTransferOption{})
-//     - Results: "remote/dir1/<contents>" -> "/local/dir2/<contents>"
+//     Results: "remote/dir1/<contents>" -> "/local/dir2/<contents>"
 func (c *Client) CopyDirFromRemote(remoteDir, localDir string, opt *DirTransferOption) error {
 	if opt == nil {
 		return ErrNoTransferOption

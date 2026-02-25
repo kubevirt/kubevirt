@@ -286,7 +286,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		// since a random port is generated, we have to create the proxy
 		// here in order to know what port will be in the update.
-		err = controller.handleTargetMigrationProxy(vmi)
+		err = controller.handleTargetMigrationProxy(vmi, client)
 		Expect(err).NotTo(HaveOccurred())
 
 		destSrcPorts := controller.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
@@ -333,7 +333,7 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 
 		// since a random port is generated, we have to create the proxy
 		// here in order to know what port will be in the update.
-		err = controller.handleTargetMigrationProxy(vmi)
+		err = controller.handleTargetMigrationProxy(vmi, client)
 		Expect(err).NotTo(HaveOccurred())
 
 		destSrcPorts := controller.migrationProxy.GetTargetListenerPorts(string(vmi.UID))

@@ -22,11 +22,15 @@ package watch
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	golog "log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	resourcev1 "k8s.io/api/resource/v1"
+	"k8s.io/client-go/discovery"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -337,7 +341,7 @@ func Execute() {
 
 	if err := app.kubeVirtInformer.SetWatchErrorHandler(func(r *cache.Reflector, err error) {
 		apiHealthVersion.Clear()
-		cache.DefaultWatchErrorHandler(r, err)
+		cache.DefaultWatchErrorHandler(ctx, r, err)
 	}); err != nil {
 		golog.Fatalf("failed to set the watch error handler: %v", err)
 	}
@@ -370,14 +374,20 @@ func Execute() {
 
 	app.vmiInformer = app.informerFactory.VMI()
 	app.kvPodInformer = app.informerFactory.KubeVirtPod()
-	if app.isDRAEnabled {
+
+	isResourceV1Enabled, err := isResourceV1Enabled(app.clientSet)
+	if err != nil {
+		golog.Fatal(fmt.Errorf("failed to check if ResourceV1 is available: %v", err))
+	}
+
+	if app.isDRAEnabled && isResourceV1Enabled {
 		app.resourceClaimInformer = app.informerFactory.ResourceClaim()
 		app.resourceSliceInformer = app.informerFactory.ResourceSlice()
 		log.Log.Infof("One of DRA FG detected, DRA integration enabled")
 	} else {
 		app.resourceClaimInformer = app.informerFactory.DummyResourceClaim()
 		app.resourceSliceInformer = app.informerFactory.DummyResourceSlice()
-		log.Log.Infof("No DRA FG detected, DRA integration disabled")
+		log.Log.Infof("No DRA FG detected or ResourceV1 not available, DRA integration disabled")
 	}
 	app.nodeInformer = app.informerFactory.KubeVirtNode()
 	app.namespaceStore = app.informerFactory.Namespace().GetStore()
@@ -1137,4 +1147,19 @@ func (vca *VirtControllerApp) setupLeaderElector() (err error) {
 		})
 
 	return
+}
+
+func isResourceV1Enabled(clientset kubecli.KubevirtClient) (bool, error) {
+	_, apis, err := clientset.DiscoveryClient().ServerGroupsAndResources()
+	if err != nil && !discovery.IsGroupDiscoveryFailedError(err) {
+		return false, err
+	}
+
+	for _, api := range apis {
+		if api.GroupVersion == resourcev1.SchemeGroupVersion.String() {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

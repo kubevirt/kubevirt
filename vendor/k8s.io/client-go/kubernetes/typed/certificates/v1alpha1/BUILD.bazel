@@ -7,6 +7,7 @@ go_library(
         "clustertrustbundle.go",
         "doc.go",
         "generated_expansion.go",
+        "podcertificaterequest.go",
     ],
     importmap = "kubevirt.io/kubevirt/vendor/k8s.io/client-go/kubernetes/typed/certificates/v1alpha1",
     importpath = "k8s.io/client-go/kubernetes/typed/certificates/v1alpha1",

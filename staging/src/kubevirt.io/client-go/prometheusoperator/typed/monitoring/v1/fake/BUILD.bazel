@@ -18,6 +18,7 @@ go_library(
     deps = [
         "//staging/src/kubevirt.io/client-go/prometheusoperator/typed/monitoring/v1:go_default_library",
         "//vendor/github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1:go_default_library",
+        "//vendor/k8s.io/api/autoscaling/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/labels:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",

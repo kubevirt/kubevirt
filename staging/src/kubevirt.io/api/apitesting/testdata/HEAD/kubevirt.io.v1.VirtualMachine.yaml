@@ -127,6 +127,8 @@ spec:
         registry:
           certConfigMap: certConfigMapValue
           imageStream: imageStreamValue
+          platform:
+            architecture: architectureValue
           pullMethod: pullMethodValue
           secretRef: secretRefValue
           url: urlValue
@@ -140,6 +142,7 @@ spec:
         upload: {}
         vddk:
           backingFile: backingFileValue
+          extraArgs: extraArgsValue
           initImageURL: initImageURLValue
           secretRef: secretRefValue
           thumbprint: thumbprintValue

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -276,7 +275,7 @@ func setupDebug(errReader io.Reader) {
 	if DebugMode {
 		go io.Copy(os.Stderr, errReader)
 	} else {
-		go io.Copy(ioutil.Discard, errReader)
+		go io.Copy(io.Discard, errReader)
 	}
 }
 

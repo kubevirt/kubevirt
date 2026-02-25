@@ -389,12 +389,12 @@ var _ = Describe("HotplugVolume", func() {
 			By("Mounting and validating expected rule is set")
 			setExpectedCgroupRuns(2)
 			expectCgroupRule(devices.BlockDevice, 482, 64, true)
-			err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
+			_, err = m.mountBlockHotplugVolume(vmi, "testvolume", blockSourcePodUID, record, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Unmounting, we verify the reverse process happens")
 			expectCgroupRule(devices.BlockDevice, 482, 64, false)
-			err = m.unmountBlockHotplugVolumes(deviceFile, cgroupManagerMock)
+			_, err = m.unmountBlockHotplugVolumes(deviceFile, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -470,7 +470,7 @@ var _ = Describe("HotplugVolume", func() {
 			By("Mounting and validating expected rule is set")
 			setExpectedCgroupRuns(1)
 			expectCgroupRule(devices.BlockDevice, 482, 64, false)
-			err = m.unmountBlockHotplugVolumes(deviceFileName, cgroupManagerMock)
+			_, err = m.unmountBlockHotplugVolumes(deviceFileName, cgroupManagerMock)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -481,7 +481,7 @@ var _ = Describe("HotplugVolume", func() {
 			deviceFileName, err := newFile(tempDir, "devicefile")
 			Expect(err).ToNot(HaveOccurred())
 			os.Remove(unsafepath.UnsafeAbsolute(deviceFileName.Raw()))
-			err = m.unmountBlockHotplugVolumes(deviceFileName, cgroupManagerMock)
+			_, err = m.unmountBlockHotplugVolumes(deviceFileName, cgroupManagerMock)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no such file or directory"))
 		})

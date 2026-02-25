@@ -4,8 +4,7 @@ kind: ResourceClaimTemplate
 metadata:
   name: pgpu-resource-claim-tmpl
 spec:
-  metadata:
-    creationTimestamp: null
+  metadata: {}
   spec:
     devices:
       requests:

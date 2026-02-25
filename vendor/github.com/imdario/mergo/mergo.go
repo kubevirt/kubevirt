@@ -17,10 +17,9 @@ import (
 var (
 	ErrNilArguments                = errors.New("src and dst must not be nil")
 	ErrDifferentArgumentsTypes     = errors.New("src and dst must be of same type")
-	ErrNotSupported                = errors.New("only structs, maps, and slices are supported")
+	ErrNotSupported                = errors.New("only structs and maps are supported")
 	ErrExpectedMapAsDestination    = errors.New("dst was expected to be a map")
 	ErrExpectedStructAsDestination = errors.New("dst was expected to be a struct")
-	ErrNonPointerArgument          = errors.New("dst must be a pointer")
 )
 
 // During deepMerge, must keep track of checks that are
@@ -28,13 +27,13 @@ var (
 // checks in progress are true when it reencounters them.
 // Visited are stored in a map indexed by 17 * a1 + a2;
 type visit struct {
+	ptr  uintptr
 	typ  reflect.Type
 	next *visit
-	ptr  uintptr
 }
 
 // From src/pkg/encoding/json/encode.go.
-func isEmptyValue(v reflect.Value, shouldDereference bool) bool {
+func isEmptyValue(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
 		return v.Len() == 0
@@ -50,10 +49,7 @@ func isEmptyValue(v reflect.Value, shouldDereference bool) bool {
 		if v.IsNil() {
 			return true
 		}
-		if shouldDereference {
-			return isEmptyValue(v.Elem(), shouldDereference)
-		}
-		return false
+		return isEmptyValue(v.Elem())
 	case reflect.Func:
 		return v.IsNil()
 	case reflect.Invalid:
@@ -68,7 +64,7 @@ func resolveValues(dst, src interface{}) (vDst, vSrc reflect.Value, err error) {
 		return
 	}
 	vDst = reflect.ValueOf(dst).Elem()
-	if vDst.Kind() != reflect.Struct && vDst.Kind() != reflect.Map && vDst.Kind() != reflect.Slice {
+	if vDst.Kind() != reflect.Struct && vDst.Kind() != reflect.Map {
 		err = ErrNotSupported
 		return
 	}
@@ -78,4 +74,24 @@ func resolveValues(dst, src interface{}) (vDst, vSrc reflect.Value, err error) {
 		vSrc = vSrc.Elem()
 	}
 	return
+}
+
+// Traverses recursively both values, assigning src's fields values to dst.
+// The map argument tracks comparisons that have already been seen, which allows
+// short circuiting on recursive types.
+func deeper(dst, src reflect.Value, visited map[uintptr]*visit, depth int) (err error) {
+	if dst.CanAddr() {
+		addr := dst.UnsafeAddr()
+		h := 17 * addr
+		seen := visited[h]
+		typ := dst.Type()
+		for p := seen; p != nil; p = p.next {
+			if p.ptr == addr && p.typ == typ {
+				return nil
+			}
+		}
+		// Remember, remember...
+		visited[h] = &visit{addr, typ, seen}
+	}
+	return // TODO refactor
 }
