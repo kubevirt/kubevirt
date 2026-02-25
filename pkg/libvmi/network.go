@@ -156,6 +156,16 @@ func DRANetwork(name, claimName, requestName string) *kvirtv1.Network {
 	}
 }
 
+// WithResourceClaimTemplate adds a ResourceClaim reference using a template
+func WithResourceClaimTemplate(claimName, templateName string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Spec.ResourceClaims = append(vmi.Spec.ResourceClaims, kvirtv1.VirtualMachineInstanceResourceClaim{
+			Name:                      claimName,
+			ResourceClaimTemplateName: &templateName,
+		})
+	}
+}
+
 // WithHostname sets the hostname parameter.
 func WithHostname(hostname string) Option {
 	return func(vmi *kvirtv1.VirtualMachineInstance) {
