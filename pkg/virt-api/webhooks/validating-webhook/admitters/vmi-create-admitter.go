@@ -38,6 +38,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
+	"kubevirt.io/kubevirt/pkg/dra"
 	draadmitter "kubevirt.io/kubevirt/pkg/dra/admitter"
 	"kubevirt.io/kubevirt/pkg/hooks"
 	netadmitter "kubevirt.io/kubevirt/pkg/network/admitter"
@@ -228,6 +229,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateLiveMigration(field, spec, config)...)
 	causes = append(causes, validateMDEVRamFB(field, spec)...)
 	causes = append(causes, validateHostDevicesWithPassthroughEnabled(field, spec, config)...)
+	causes = append(causes, validateNetworkDevicesWithDRA(field, spec, config)...)
 	causes = append(causes, validateSoundDevices(field, spec)...)
 	causes = append(causes, validateLaunchSecurity(field, spec, config)...)
 	causes = append(causes, validateVSOCK(field, spec, config)...)
@@ -555,6 +557,80 @@ func validateHostDevicesWithPassthroughEnabled(field *k8sfield.Path, spec *v1.Vi
 			Field:   field.Child("HostDevices").String(),
 		})
 	}
+	return causes
+}
+
+func validateNetworkDevicesWithDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if !dra.HasNetworkDRA(spec.Networks) {
+		return causes
+	}
+
+	if !config.NetworkDevicesWithDRAGateEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "NetworkDevicesWithDRA feature gate is not enabled in kubevirt-config",
+			Field:   field.Child("networks").String(),
+		})
+		return causes
+	}
+
+	hasMultusSRIOV := false
+	seen := map[string]bool{}
+	for idx, net := range spec.Networks {
+		if net.ResourceClaim == nil {
+			if net.Multus != nil {
+				iface := vmispec.LookupInterfaceByName(spec.Domain.Devices.Interfaces, net.Name)
+				if iface != nil && iface.SRIOV != nil {
+					hasMultusSRIOV = true
+				}
+			}
+			continue
+		}
+		found := false
+		for _, rc := range spec.ResourceClaims {
+			if rc.Name == net.ResourceClaim.ClaimName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueNotFound,
+				Message: fmt.Sprintf("network references resourceClaim %q which is not defined in spec.resourceClaims", net.ResourceClaim.ClaimName),
+				Field:   field.Child("networks").Index(idx).Child("resourceClaim", "claimName").String(),
+			})
+		}
+
+		iface := vmispec.LookupInterfaceByName(spec.Domain.Devices.Interfaces, net.Name)
+		if iface != nil && iface.SRIOV == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: fmt.Sprintf("DRA network %q requires an SR-IOV interface binding", net.Name),
+				Field:   field.Child("domain", "devices", "interfaces").String(),
+			})
+		}
+
+		key := net.ResourceClaim.ClaimName + "/" + net.ResourceClaim.RequestName
+		if seen[key] {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("duplicate claimName/requestName combination %q", key),
+				Field:   field.Child("networks").Index(idx).String(),
+			})
+		}
+		seen[key] = true
+	}
+
+	if hasMultusSRIOV {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "mixing Multus-based and DRA-based SR-IOV in the same VMI is not supported",
+			Field:   field.Child("networks").String(),
+		})
+	}
+
 	return causes
 }
 
