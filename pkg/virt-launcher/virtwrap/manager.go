@@ -1042,10 +1042,10 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 
 	// Check hypervisor device availability
 	hypervisorDevicePath := "/dev/" + hypervisor.NewLauncherHypervisorResources(l.hypervisorName).GetHypervisorDevice()
-	hypervisorAvailable := true
+	hypervisorDeviceAvailable := true
 	if _, err := os.Stat(hypervisorDevicePath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			hypervisorAvailable = false
+			hypervisorDeviceAvailable = false
 		} else {
 			return nil, fmt.Errorf("failed to stat hypervisor device %s: %w", hypervisorDevicePath, err)
 		}
@@ -1056,7 +1056,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		Architecture:              arch.NewConverter(runtime.GOARCH),
 		VirtualMachine:            vmi,
 		AllowEmulation:            allowEmulation,
-		HypervisorDeviceAvailable: hypervisorAvailable,
+		HypervisorDeviceAvailable: hypervisorDeviceAvailable,
 		CPUSet:                    podCPUSet,
 		IsBlockPVC:                isBlockPVCMap,
 		IsBlockDV:                 isBlockDVMap,
@@ -1069,6 +1069,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		UseLaunchSecurityPV:       kutil.IsSecureExecutionVMI(vmi),
 		FreePageReporting:         isFreePageReportingEnabled(false, vmi),
 		SerialConsoleLog:          isSerialConsoleLogEnabled(false, vmi),
+		HypervisorName:            l.hypervisorName,
 	}
 
 	if options != nil {
