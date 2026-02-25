@@ -28,6 +28,7 @@ var (
 	SEVSNP          = Label("SEVSNP")
 	SecureExecution = Label("secure-execution")
 	SRIOV           = Label("SRIOV")
+	DRANetwork      = Label("DRA-Network")
 	StorageReq      = Label("storage-req")
 	Multus          = Label("Multus")
 	Macvtap         = Label("Macvtap")
