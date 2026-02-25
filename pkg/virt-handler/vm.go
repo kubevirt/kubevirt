@@ -34,6 +34,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/unsafepath"
 	checksum_controller "kubevirt.io/kubevirt/pkg/virt-handler/checksum-controller"
+	hotplug_hostdevice "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
 
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
@@ -131,6 +132,7 @@ type VirtualMachineController struct {
 	nam                         *migrations.NetworkAccessibilityManager
 	checksumCtrl                *checksum_controller.Controller
 	pvcDiskImgCreator           func() hostdisk.PVCDiskImgCreator
+	hostDeviceAttacher          hotplug_hostdevice.HostDeviceAttacher
 }
 
 var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
@@ -179,8 +181,13 @@ func NewVirtualMachineController(
 		return nil, err
 	}
 
-	hotplugState := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")
-	if err := os.MkdirAll(hotplugState, 0700); err != nil {
+	volumeHotplugState := filepath.Join(virtPrivateDir, "hotplug-volume-mount-state")
+	if err := os.MkdirAll(volumeHotplugState, 0700); err != nil {
+		return nil, err
+	}
+
+	hostDeviceState := filepath.Join(virtPrivateDir, "hotplug-hostdevice-state")
+	if err := os.MkdirAll(hostDeviceState, 0700); err != nil {
 		return nil, err
 	}
 
@@ -211,14 +218,15 @@ func NewVirtualMachineController(
 			clusterConfig,
 			hotplugdisk.NewHotplugDiskManager(kubeletPodsDir),
 		),
-		nam: migrations.NewNetworkAccessibilityManager(clientset),
+		nam:                migrations.NewNetworkAccessibilityManager(clientset),
+		hostDeviceAttacher: hotplug_hostdevice.NewHostDeviceAttacher(hostDeviceState),
 	}
 
 	pvcDiskImgCreator := func() hostdisk.PVCDiskImgCreator {
 		return hostdisk.NewPVCDiskImgCreator(recorder, c.clusterConfig.GetLessPVCSpaceToleration(), c.clusterConfig.GetMinimumReservePVCBytes())
 	}
 	c.pvcDiskImgCreator = pvcDiskImgCreator
-	c.hotplugVolumeMounter = hotplug_volume.NewVolumeMounterWithCreator(filepath.Join(virtPrivateDir, "hotplug-volume-mount-state"), kubeletPodsDir, "master", pvcDiskImgCreator)
+	c.hotplugVolumeMounter = hotplug_volume.NewVolumeMounterWithCreator(volumeHotplugState, kubeletPodsDir, "master", pvcDiskImgCreator)
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.addDeleteFunc,
@@ -485,6 +493,14 @@ func canUpdateToUnmounted(currentPhase v1.VolumePhase) bool {
 	return currentPhase == v1.VolumeReady || currentPhase == v1.HotplugVolumeMounted || currentPhase == v1.HotplugVolumeAttachedToNode
 }
 
+func canUpdateToAttached(currentPhase v1.DevicePhase) bool {
+	return currentPhase == v1.DeviceAttachedToNode
+}
+
+func canUpdateToUnAttached(currentPhase v1.DevicePhase) bool {
+	return currentPhase == v1.DeviceReady || currentPhase == v1.DeviceAttachedToPod || currentPhase == v1.DeviceAttachedToNode
+}
+
 func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.VirtualMachineInstance, newStatusMap map[string]v1.VolumeStatus) {
 	newStatusMapCopy := make(map[string]v1.VolumeStatus)
 	for k, v := range newStatusMap {
@@ -505,6 +521,32 @@ func (c *VirtualMachineController) generateEventsForVolumeStatusChange(vmi *v1.V
 	// Send events for any new statuses.
 	for _, v := range newStatusMapCopy {
 		c.recorder.Event(vmi, k8sv1.EventTypeNormal, v.Reason, v.Message)
+	}
+}
+
+func (c *VirtualMachineController) generateEventsForHostDevicesStatusChange(vmi *v1.VirtualMachineInstance, newStatusMap map[string]v1.DeviceStatusInfo) {
+	newStatusMapCopy := make(map[string]v1.DeviceStatusInfo, len(newStatusMap))
+	for k, v := range newStatusMap {
+		newStatusMapCopy[k] = v
+	}
+
+	if vmi.Status.DeviceStatus != nil {
+		for _, oldStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+			newStatus, ok := newStatusMap[oldStatus.Name]
+			if !ok {
+				// status got removed
+				c.recorder.Event(vmi, k8sv1.EventTypeNormal, string(v1.HostDeviceUnpluggedReason), fmt.Sprintf("HostDevice %s has been unplugged", oldStatus.Name))
+				continue
+			}
+			if newStatus.Phase != oldStatus.Phase {
+				c.recorder.Event(vmi, k8sv1.EventTypeNormal, string(newStatus.Reason), newStatus.Message)
+			}
+			delete(newStatusMap, newStatus.Name)
+		}
+	}
+	// Send events for any new statuses.
+	for _, v := range newStatusMapCopy {
+		c.recorder.Event(vmi, k8sv1.EventTypeNormal, string(v.Reason), v.Message)
 	}
 }
 
@@ -550,6 +592,43 @@ func (c *VirtualMachineController) updateHotplugVolumeStatus(vmi *v1.VirtualMach
 		volumeStatus.Reason = VolumeReadyReason
 	}
 	return volumeStatus, needsRefresh
+}
+
+func (c *VirtualMachineController) updateHotplugHostDeviceStatus(vmi *v1.VirtualMachineInstance, hostDeviceStatus v1.DeviceStatusInfo, specHostDeviceSet map[string]struct{}) (v1.DeviceStatusInfo, bool) {
+	needsRefresh := false
+	if hostDeviceStatus.Address == "" {
+		needsRefresh = true
+
+		attached, err := c.hostDeviceAttacher.IsAttached(vmi, hostDeviceStatus.Name, hostDeviceStatus.Hotplug.AttachPodUID)
+		if err != nil {
+			log.Log.Object(vmi).Errorf("error occurred while checking if hostDevice is attached: %v", err)
+		}
+
+		if attached {
+			if _, ok := specHostDeviceSet[hostDeviceStatus.Name]; ok && canUpdateToAttached(hostDeviceStatus.Phase) {
+				log.DefaultLogger().Infof("Marking hostDevice %s as attached in pod, it can now be attached", hostDeviceStatus.Name)
+				hostDeviceStatus.Phase = v1.DeviceAttachedToPod
+				hostDeviceStatus.Message = fmt.Sprintf("HostDevice %s has been attached in virt-launcher pod", hostDeviceStatus.Name)
+				hostDeviceStatus.Reason = v1.HostDeviceAttachedToPodReason
+			}
+		} else {
+			if _, ok := specHostDeviceSet[hostDeviceStatus.Name]; !ok && canUpdateToUnAttached(hostDeviceStatus.Phase) {
+				log.DefaultLogger().Infof("Marking HostDevice %s as unattached from pod, it can now be detached", hostDeviceStatus.Name)
+				// Not attached.
+				hostDeviceStatus.Phase = v1.DeviceDetachedFromPod
+				hostDeviceStatus.Message = fmt.Sprintf("HostDevice %s has been unattached from virt-launcher pod", hostDeviceStatus.Name)
+				hostDeviceStatus.Reason = v1.HostDeviceDetachedFromPodReason
+			}
+		}
+
+	} else {
+		// Successfully attached to VM.
+		hostDeviceStatus.Phase = v1.DeviceReady
+		hostDeviceStatus.Message = fmt.Sprintf("Successfully attach hotplugged hostDevise %s to VM", hostDeviceStatus.Name)
+		hostDeviceStatus.Reason = v1.HostDeviceReadyReason
+	}
+
+	return hostDeviceStatus, needsRefresh
 }
 
 func needToComputeChecksums(vmi *v1.VirtualMachineInstance) bool {
@@ -713,6 +792,56 @@ func (c *VirtualMachineController) updateVolumeStatusesFromDomain(vmi *v1.Virtua
 	vmi.Status.VolumeStatus = newStatuses
 
 	return hasHotplug
+}
+
+func (c *VirtualMachineController) updateDRAHostDeviceStatusesFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
+	draHostDeviceMap := make(map[string]string)
+	if domain != nil {
+		for _, hd := range domain.Spec.Devices.HostDevices {
+			if hd.Address != nil {
+				switch hd.Type {
+				case "usb":
+					name := hd.Alias.GetName()
+					name = strings.TrimPrefix(name, "dra-hotplug-hostdevice-")
+					draHostDeviceMap[name] = fmt.Sprintf("%s:%s", hd.Address.Bus, hd.Address.Port)
+				}
+			}
+		}
+	}
+
+	hostDeviceSet := make(map[string]struct{}, len(vmi.Spec.Domain.Devices.HostDevices))
+	for _, hd := range vmi.Spec.Domain.Devices.HostDevices {
+		hostDeviceSet[hd.Name] = struct{}{}
+	}
+
+	needsRefresh := false
+	newStatusMap := make(map[string]v1.DeviceStatusInfo)
+	var newStatuses []v1.DeviceStatusInfo
+
+	if vmi.Status.DeviceStatus != nil {
+		for _, hostDeviceStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+			tmpNeedsRefresh := false
+
+			hostDeviceStatus.Address = draHostDeviceMap[hostDeviceStatus.Name]
+			if hostDeviceStatus.Hotplug != nil {
+				hostDeviceStatus, tmpNeedsRefresh = c.updateHotplugHostDeviceStatus(vmi, hostDeviceStatus, hostDeviceSet)
+				needsRefresh = needsRefresh || tmpNeedsRefresh
+			}
+
+			newStatuses = append(newStatuses, hostDeviceStatus)
+			newStatusMap[hostDeviceStatus.Name] = hostDeviceStatus
+		}
+
+		sort.SliceStable(newStatuses, func(i, j int) bool {
+			return strings.Compare(newStatuses[i].Name, newStatuses[j].Name) == -1
+		})
+
+		if needsRefresh {
+			c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second)
+		}
+		c.generateEventsForHostDevicesStatusChange(vmi, newStatusMap)
+		vmi.Status.DeviceStatus.HostDeviceStatuses = newStatuses
+	}
 }
 
 func (c *VirtualMachineController) updateGuestInfoFromDomain(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
@@ -1181,6 +1310,7 @@ func (c *VirtualMachineController) updateVMIStatusFromDomain(vmi *v1.VirtualMach
 	}
 	c.updateGuestInfoFromDomain(vmi, domain)
 	c.updateVolumeStatusesFromDomain(vmi, domain)
+	c.updateDRAHostDeviceStatusesFromDomain(vmi, domain)
 	c.updateFSFreezeStatus(vmi, domain)
 	c.updateMachineType(vmi, domain)
 	if err = c.updateMemoryInfo(vmi, domain); err != nil {
@@ -1694,6 +1824,10 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 		return err
 	}
 
+	if err := c.hostDeviceAttacher.DetachAll(vmi, cgroupManager); err != nil {
+		return err
+	}
+
 	c.teardownNetwork(vmi)
 
 	c.sriovHotplugExecutorPool.Delete(vmi.UID)
@@ -2166,6 +2300,32 @@ func (c *VirtualMachineController) handleVMIState(vmi *v1.VirtualMachineInstance
 func (c *VirtualMachineController) handleRunningVMI(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, errorTolerantFeaturesError *[]error) error {
 	if err := c.hotplugSriovInterfaces(vmi); err != nil {
 		log.Log.Object(vmi).Error(err.Error())
+	}
+
+	// TODO: separate hotplug sriov and host devices
+	if c.clusterConfig.HotplugHostDevicesWithDRAEnabled() {
+		if err := c.hostDeviceAttacher.Attach(vmi, cgroupManager); err != nil {
+			if !goerror.Is(err, os.ErrNotExist) {
+				return err
+			}
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "AttachHostDeviceFailed", err.Error())
+		} else {
+			client, err := c.launcherClients.GetVerifiedLauncherClient(vmi)
+			if err != nil {
+				return err
+			}
+			if err := c.HotplugHostDevices(client, vmi); err != nil {
+				return err
+			}
+		}
+
+		// TODO: Detach unnecessary devices from vm
+		// HotplugHostDevices not only attach devices, but detach unnecessary devices from vm
+		// Detach them devices from pod
+		if err := c.hostDeviceAttacher.Detach(vmi, cgroupManager); err != nil {
+			c.recorder.Event(vmi, k8sv1.EventTypeWarning, "DetachHostDeviceFailed", "Failed to detach unnecessary host devices")
+			return err
+		}
 	}
 
 	_, err := c.hotplugContainerDiskMounter.MountAndVerify(vmi)

@@ -140,8 +140,13 @@ func newDecorateHook(iface v1.Interface) func(hostDevice *api.HostDevice) error 
 }
 
 func SafelyDetachHostDevices(domainSpec *api.DomainSpec, eventDetach hostdevice.EventRegistrar, dom hostdevice.DeviceDetacher, timeout time.Duration) error {
-	sriovDevices := hostdevice.FilterHostDevicesByAlias(domainSpec.Devices.HostDevices, deviceinfo.SRIOVAliasPrefix)
+	sriovDevices := FilterSRIOVHostDevicesByAlias(domainSpec.Devices.HostDevices)
 	return hostdevice.SafelyDetachHostDevices(sriovDevices, eventDetach, dom, timeout)
+}
+
+func FilterSRIOVHostDevicesByAlias(hostDevices []api.HostDevice) []api.HostDevice {
+	sriovHostDevices := hostdevice.FilterHostDevicesByAlias(hostDevices, deviceinfo.SRIOVAliasPrefix)
+	return sriovHostDevices
 }
 
 func GetHostDevicesToAttach(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) ([]api.HostDevice, error) {

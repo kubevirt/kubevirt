@@ -952,7 +952,8 @@
           {
             "name": "nameValue",
             "resourceClaimName": "resourceClaimNameValue",
-            "resourceClaimTemplateName": "resourceClaimTemplateNameValue"
+            "resourceClaimTemplateName": "resourceClaimTemplateNameValue",
+            "hotpluggable": true
           }
         ]
       }
@@ -1250,6 +1251,35 @@
           ]
         },
         "removeVolumeOptions": {
+          "name": "nameValue",
+          "dryRun": [
+            "dryRunValue"
+          ]
+        }
+      }
+    ],
+    "resourceClaimRequests": [
+      {
+        "addResourceClaimOptions": {
+          "name": "nameValue",
+          "hostDevice": {
+            "name": "nameValue",
+            "deviceName": "deviceNameValue",
+            "claimName": "claimNameValue",
+            "requestName": "requestNameValue",
+            "tag": "tagValue"
+          },
+          "resourceClaim": {
+            "name": "nameValue",
+            "resourceClaimName": "resourceClaimNameValue",
+            "resourceClaimTemplateName": "resourceClaimTemplateNameValue",
+            "hotpluggable": true
+          },
+          "dryRun": [
+            "dryRunValue"
+          ]
+        },
+        "removeResourceClaimOptions": {
           "name": "nameValue",
           "dryRun": [
             "dryRunValue"

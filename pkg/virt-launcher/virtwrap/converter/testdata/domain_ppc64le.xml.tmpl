@@ -28,7 +28,7 @@
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
     </channel>
-    <controller type="usb" index="0" model="qemu-xhci"></controller>
+    <controller type="usb" index="0" model="qemu-xhci" ports="16"></controller>
     <controller type="virtio-serial" index="0" model="virtio-non-transitional"></controller>
     <video>
       <model type="vga" heads="1" vram="16384"></model>

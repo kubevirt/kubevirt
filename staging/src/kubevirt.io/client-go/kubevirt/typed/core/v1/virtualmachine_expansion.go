@@ -26,6 +26,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
 	v1 "kubevirt.io/api/core/v1"
 )
 
@@ -43,6 +44,8 @@ type VirtualMachineExpansion interface {
 	Migrate(ctx context.Context, name string, migrateOptions *v1.MigrateOptions) error
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
+	AddResourceClaim(ctx context.Context, name string, addResourceClaimOptions *v1.AddResourceClaimOptions) error
+	RemoveResourceClaim(ctx context.Context, name string, removeResourceClaimOptions *v1.RemoveResourceClaimOptions) error
 	PortForward(name string, port int, protocol string) (StreamInterface, error)
 	MemoryDump(ctx context.Context, name string, memoryDumpRequest *v1.VirtualMachineMemoryDumpRequest) error
 	RemoveMemoryDump(ctx context.Context, name string) error
@@ -218,4 +221,38 @@ func (c *virtualMachines) ObjectGraph(ctx context.Context, name string, objectGr
 		Into(&objectGraph)
 
 	return objectGraph, err
+}
+
+func (c *virtualMachines) AddResourceClaim(ctx context.Context, name string, addResourceClaimOptions *v1.AddResourceClaimOptions) error {
+	body, err := json.Marshal(addResourceClaimOptions)
+	if err != nil {
+		return err
+	}
+
+	return c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachines").
+		Name(name).
+		SubResource("addresourceclaim").
+		Body(body).
+		Do(ctx).
+		Error()
+}
+
+func (c *virtualMachines) RemoveResourceClaim(ctx context.Context, name string, removeResourceClaimOptions *v1.RemoveResourceClaimOptions) error {
+	body, err := json.Marshal(removeResourceClaimOptions)
+	if err != nil {
+		return err
+	}
+
+	return c.GetClient().Put().
+		AbsPath(fmt.Sprintf(vmSubresourceURLFmt, v1.ApiStorageVersion)).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachines").
+		Name(name).
+		SubResource("removeresourceclaim").
+		Body(body).
+		Do(ctx).
+		Error()
 }

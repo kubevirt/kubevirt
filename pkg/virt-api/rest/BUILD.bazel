@@ -14,6 +14,7 @@ go_library(
         "objectgraph.go",
         "portforward.go",
         "profiler.go",
+        "resourceclaims.go",
         "sev.go",
         "streamer.go",
         "subresource.go",

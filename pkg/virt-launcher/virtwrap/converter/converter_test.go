@@ -1419,7 +1419,7 @@ var _ = Describe("Converter", func() {
 			}))
 		})
 
-		DescribeTable("usb redirection", func(arch string, expectedModel string) {
+		DescribeTable("usb redirection", func(arch string, expectedModel string, expectedPorts *uint) {
 			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
 			vmi.Spec.Domain.Devices.ClientPassthrough = &v1.ClientPassthroughDevices{}
 			c.Architecture = archconverter.NewConverter(arch)
@@ -1429,12 +1429,13 @@ var _ = Describe("Converter", func() {
 				Type:  "usb",
 				Index: "0",
 				Model: expectedModel,
+				Ports: expectedPorts,
 			}))
 		},
-			Entry("should be enabled on amd64 when number of USB client devices > 0", amd64, "qemu-xhci"),
-			Entry("should be enabled on ppc64le ", ppc64le, "qemu-xhci"),
-			Entry("should be enabled on arm64 ", arm64, "qemu-xhci"),
-			Entry("should be disabled on s390x", s390x, "none"),
+			Entry("should be enabled on amd64 when number of USB client devices > 0", amd64, "qemu-xhci", pointer.P(uint(16))),
+			Entry("should be enabled on ppc64le ", ppc64le, "qemu-xhci", pointer.P(uint(16))),
+			Entry("should be enabled on arm64 ", arm64, "qemu-xhci", pointer.P(uint(16))),
+			Entry("should be disabled on s390x", s390x, "none", nil),
 		)
 
 		It("should not enable usb redirection when numberOfDevices == 0", func() {

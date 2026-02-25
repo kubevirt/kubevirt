@@ -7384,14 +7384,9 @@ var CRDsValidation map[string]string = map[string]string{
                     This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
                     This feature is in alpha.
                   items:
-                    description: |-
-                      PodResourceClaim references exactly one ResourceClaim, either directly
-                      or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                      for the pod.
-
-                      It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                      Containers that need access to the ResourceClaim reference it with this name.
                     properties:
+                      hotpluggable:
+                        type: boolean
                       name:
                         description: |-
                           Name uniquely identifies this resource claim inside the pod.
@@ -8292,6 +8287,130 @@ var CRDsValidation map[string]string = map[string]string{
         ready:
           description: Ready indicates if the virtual machine is running and ready
           type: boolean
+        resourceClaimRequests:
+          description: |-
+            ResourceClaimRequests indicates a list of resource claims add or remove from the VMI template and
+            hotplug on an active running VMI.
+          items:
+            properties:
+              addResourceClaimOptions:
+                description: |-
+                  AddResourceClaimOptions when set indicates a resource claim should be added.
+                  The details within this field specify how to add the resource claim
+                properties:
+                  dryRun:
+                    description: |-
+                      When present, indicates that modifications should not be
+                      persisted. An invalid or unrecognized dryRun directive will
+                      result in an error response and no further processing of the
+                      request. Valid values are:
+                      - All: all dry run stages will be processed
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  hostDevice:
+                    description: HostDevice represents the host device that will be
+                      plugged into the running VMI
+                    properties:
+                      claimName:
+                        description: |-
+                          ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+                          device is allocated
+                        type: string
+                      deviceName:
+                        description: DeviceName is the name of the device provisioned
+                          by device-plugins
+                        type: string
+                      name:
+                        type: string
+                      requestName:
+                        description: |-
+                          RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
+                          device is requested
+                        type: string
+                      tag:
+                        description: If specified, the virtual network interface address
+                          and its tag will be provided to the guest via config drive
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  name:
+                    description: |-
+                      Name represents the name that will be used to map the
+                      device to the corresponding resource claim. This overrides any name
+                      that is set in the Device struct itself.
+                    type: string
+                  resourceClaim:
+                    description: ResourceClaim represents the resource claim to map
+                      to the host device
+                    properties:
+                      hotpluggable:
+                        type: boolean
+                      name:
+                        description: |-
+                          Name uniquely identifies this resource claim inside the pod.
+                          This must be a DNS_LABEL.
+                        type: string
+                      resourceClaimName:
+                        description: |-
+                          ResourceClaimName is the name of a ResourceClaim object in the same
+                          namespace as this pod.
+
+                          Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                          be set.
+                        type: string
+                      resourceClaimTemplateName:
+                        description: |-
+                          ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+                          object in the same namespace as this pod.
+
+                          The template will be used to create a new ResourceClaim, which will
+                          be bound to this pod. When this pod is deleted, the ResourceClaim
+                          will also be deleted. The pod name and resource name, along with a
+                          generated component, will be used to form a unique name for the
+                          ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
+
+                          This field is immutable and no changes will be made to the
+                          corresponding ResourceClaim by the control plane after creating the
+                          ResourceClaim.
+
+                          Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                          be set.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                required:
+                - hostDevice
+                - name
+                - resourceClaim
+                type: object
+              removeResourceClaimOptions:
+                description: |-
+                  RemoveResourceClaimOptions when set indicates a resource claim should be removed.
+                  The details within this field specify how to remove the resource claim
+                properties:
+                  dryRun:
+                    description: |-
+                      When present, indicates that modifications should not be
+                      persisted. An invalid or unrecognized dryRun directive will
+                      result in an error response and no further processing of the
+                      request. Valid values are:
+                      - All: all dry run stages will be processed
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+            type: object
+          type: array
+          x-kubernetes-list-type: atomic
         restoreInProgress:
           description: RestoreInProgress is the name of the VirtualMachineRestore
             currently executing
@@ -12844,14 +12963,9 @@ var CRDsValidation map[string]string = map[string]string{
             This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
             This feature is in alpha.
           items:
-            description: |-
-              PodResourceClaim references exactly one ResourceClaim, either directly
-              or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-              for the pod.
-
-              It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-              Containers that need access to the ResourceClaim reference it with this name.
             properties:
+              hotpluggable:
+                type: boolean
               name:
                 description: |-
                   Name uniquely identifies this resource claim inside the pod.
@@ -13660,6 +13774,8 @@ var CRDsValidation map[string]string = map[string]string{
               description: GPUStatuses reflects the state of GPUs requested in spec.domain.devices.gpus
               items:
                 properties:
+                  address:
+                    type: string
                   deviceResourceClaimStatus:
                     description: DeviceResourceClaimStatus reflects the DRA related
                       information for the device
@@ -13701,9 +13817,28 @@ var CRDsValidation map[string]string = map[string]string{
                           claims object used to provision this resource
                         type: string
                     type: object
+                  hotplug:
+                    properties:
+                      attachPodName:
+                        description: AttachPodName is the name of the pod used to
+                          attach the device to the node.
+                        type: string
+                      attachPodUID:
+                        description: AttachPodUID is the UID of the pod used to attach
+                          the device to the node.
+                        type: string
+                    type: object
+                  message:
+                    type: string
                   name:
                     description: Name of the device as specified in spec.domain.devices.gpus.name
                       or spec.domain.devices.hostDevices.name
+                    type: string
+                  phase:
+                    description: DevicePhase indicates the current phase of the hotplug
+                      process.
+                    type: string
+                  reason:
                     type: string
                 required:
                 - name
@@ -13716,6 +13851,8 @@ var CRDsValidation map[string]string = map[string]string{
                 DRA
               items:
                 properties:
+                  address:
+                    type: string
                   deviceResourceClaimStatus:
                     description: DeviceResourceClaimStatus reflects the DRA related
                       information for the device
@@ -13757,9 +13894,28 @@ var CRDsValidation map[string]string = map[string]string{
                           claims object used to provision this resource
                         type: string
                     type: object
+                  hotplug:
+                    properties:
+                      attachPodName:
+                        description: AttachPodName is the name of the pod used to
+                          attach the device to the node.
+                        type: string
+                      attachPodUID:
+                        description: AttachPodUID is the UID of the pod used to attach
+                          the device to the node.
+                        type: string
+                    type: object
+                  message:
+                    type: string
                   name:
                     description: Name of the device as specified in spec.domain.devices.gpus.name
                       or spec.domain.devices.hostDevices.name
+                    type: string
+                  phase:
+                    description: DevicePhase indicates the current phase of the hotplug
+                      process.
+                    type: string
+                  reason:
                     type: string
                 required:
                 - name
@@ -19061,14 +19217,9 @@ var CRDsValidation map[string]string = map[string]string{
                     This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
                     This feature is in alpha.
                   items:
-                    description: |-
-                      PodResourceClaim references exactly one ResourceClaim, either directly
-                      or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                      for the pod.
-
-                      It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                      Containers that need access to the ResourceClaim reference it with this name.
                     properties:
+                      hotpluggable:
+                        type: boolean
                       name:
                         description: |-
                           Name uniquely identifies this resource claim inside the pod.
@@ -23752,14 +23903,9 @@ var CRDsValidation map[string]string = map[string]string{
                             This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
                             This feature is in alpha.
                           items:
-                            description: |-
-                              PodResourceClaim references exactly one ResourceClaim, either directly
-                              or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                              for the pod.
-
-                              It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                              Containers that need access to the ResourceClaim reference it with this name.
                             properties:
+                              hotpluggable:
+                                type: boolean
                               name:
                                 description: |-
                                   Name uniquely identifies this resource claim inside the pod.
@@ -29118,14 +29264,9 @@ var CRDsValidation map[string]string = map[string]string{
                                 This field should only be configured if one of the feature-gates GPUsWithDRA or HostDevicesWithDRA is enabled.
                                 This feature is in alpha.
                               items:
-                                description: |-
-                                  PodResourceClaim references exactly one ResourceClaim, either directly
-                                  or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim
-                                  for the pod.
-
-                                  It adds a name to it that uniquely identifies the ResourceClaim inside the Pod.
-                                  Containers that need access to the ResourceClaim reference it with this name.
                                 properties:
+                                  hotpluggable:
+                                    type: boolean
                                   name:
                                     description: |-
                                       Name uniquely identifies this resource claim inside the pod.
@@ -30052,6 +30193,131 @@ var CRDsValidation map[string]string = map[string]string{
                       description: Ready indicates if the virtual machine is running
                         and ready
                       type: boolean
+                    resourceClaimRequests:
+                      description: |-
+                        ResourceClaimRequests indicates a list of resource claims add or remove from the VMI template and
+                        hotplug on an active running VMI.
+                      items:
+                        properties:
+                          addResourceClaimOptions:
+                            description: |-
+                              AddResourceClaimOptions when set indicates a resource claim should be added.
+                              The details within this field specify how to add the resource claim
+                            properties:
+                              dryRun:
+                                description: |-
+                                  When present, indicates that modifications should not be
+                                  persisted. An invalid or unrecognized dryRun directive will
+                                  result in an error response and no further processing of the
+                                  request. Valid values are:
+                                  - All: all dry run stages will be processed
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              hostDevice:
+                                description: HostDevice represents the host device
+                                  that will be plugged into the running VMI
+                                properties:
+                                  claimName:
+                                    description: |-
+                                      ClaimName needs to be provided from the list vmi.spec.resourceClaims[].name where this
+                                      device is allocated
+                                    type: string
+                                  deviceName:
+                                    description: DeviceName is the name of the device
+                                      provisioned by device-plugins
+                                    type: string
+                                  name:
+                                    type: string
+                                  requestName:
+                                    description: |-
+                                      RequestName needs to be provided from resourceClaim.spec.devices.requests[].name where this
+                                      device is requested
+                                    type: string
+                                  tag:
+                                    description: If specified, the virtual network
+                                      interface address and its tag will be provided
+                                      to the guest via config drive
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              name:
+                                description: |-
+                                  Name represents the name that will be used to map the
+                                  device to the corresponding resource claim. This overrides any name
+                                  that is set in the Device struct itself.
+                                type: string
+                              resourceClaim:
+                                description: ResourceClaim represents the resource
+                                  claim to map to the host device
+                                properties:
+                                  hotpluggable:
+                                    type: boolean
+                                  name:
+                                    description: |-
+                                      Name uniquely identifies this resource claim inside the pod.
+                                      This must be a DNS_LABEL.
+                                    type: string
+                                  resourceClaimName:
+                                    description: |-
+                                      ResourceClaimName is the name of a ResourceClaim object in the same
+                                      namespace as this pod.
+
+                                      Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                                      be set.
+                                    type: string
+                                  resourceClaimTemplateName:
+                                    description: |-
+                                      ResourceClaimTemplateName is the name of a ResourceClaimTemplate
+                                      object in the same namespace as this pod.
+
+                                      The template will be used to create a new ResourceClaim, which will
+                                      be bound to this pod. When this pod is deleted, the ResourceClaim
+                                      will also be deleted. The pod name and resource name, along with a
+                                      generated component, will be used to form a unique name for the
+                                      ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.
+
+                                      This field is immutable and no changes will be made to the
+                                      corresponding ResourceClaim by the control plane after creating the
+                                      ResourceClaim.
+
+                                      Exactly one of ResourceClaimName and ResourceClaimTemplateName must
+                                      be set.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                            required:
+                            - hostDevice
+                            - name
+                            - resourceClaim
+                            type: object
+                          removeResourceClaimOptions:
+                            description: |-
+                              RemoveResourceClaimOptions when set indicates a resource claim should be removed.
+                              The details within this field specify how to remove the resource claim
+                            properties:
+                              dryRun:
+                                description: |-
+                                  When present, indicates that modifications should not be
+                                  persisted. An invalid or unrecognized dryRun directive will
+                                  result in an error response and no further processing of the
+                                  request. Valid values are:
+                                  - All: all dry run stages will be processed
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              name:
+                                type: string
+                            required:
+                            - name
+                            type: object
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
                     restoreInProgress:
                       description: RestoreInProgress is the name of the VirtualMachineRestore
                         currently executing

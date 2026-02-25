@@ -23,6 +23,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"kubevirt.io/api/clone"
 	"kubevirt.io/api/export"
 	"kubevirt.io/api/pool"
@@ -55,16 +56,18 @@ const (
 	apiVMClones           = "virtualmachineclones"
 	apiVMPools            = "virtualmachinepools"
 
-	apiVMExpandSpec   = "virtualmachines/expand-spec"
-	apiVMPortForward  = "virtualmachines/portforward"
-	apiVMStart        = "virtualmachines/start"
-	apiVMStop         = "virtualmachines/stop"
-	apiVMRestart      = "virtualmachines/restart"
-	apiVMAddVolume    = "virtualmachines/addvolume"
-	apiVMRemoveVolume = "virtualmachines/removevolume"
-	apiVMMigrate      = "virtualmachines/migrate"
-	apiVMMemoryDump   = "virtualmachines/memorydump"
-	apiVMObjectGraph  = "virtualmachines/objectgraph"
+	apiVMExpandSpec          = "virtualmachines/expand-spec"
+	apiVMPortForward         = "virtualmachines/portforward"
+	apiVMStart               = "virtualmachines/start"
+	apiVMStop                = "virtualmachines/stop"
+	apiVMRestart             = "virtualmachines/restart"
+	apiVMAddVolume           = "virtualmachines/addvolume"
+	apiVMRemoveVolume        = "virtualmachines/removevolume"
+	apiVMAddResourceClaim    = "virtualmachines/addresourceclaim"
+	apiVMRemoveResourceClaim = "virtualmachines/removeresourceclaim"
+	apiVMMigrate             = "virtualmachines/migrate"
+	apiVMMemoryDump          = "virtualmachines/memorydump"
+	apiVMObjectGraph         = "virtualmachines/objectgraph"
 
 	apiVMInstancesConsole                   = "virtualmachineinstances/console"
 	apiVMInstancesVNC                       = "virtualmachineinstances/vnc"
@@ -74,6 +77,8 @@ const (
 	apiVMInstancesUnpause                   = "virtualmachineinstances/unpause"
 	apiVMInstancesAddVolume                 = "virtualmachineinstances/addvolume"
 	apiVMInstancesRemoveVolume              = "virtualmachineinstances/removevolume"
+	apiVMInstancesAddResourceClaim          = "virtualmachineinstances/addresourceclaim"
+	apiVMInstancesRemoveResourceClaim       = "virtualmachineinstances/removeresourceclaim"
 	apiVMInstancesFreeze                    = "virtualmachineinstances/freeze"
 	apiVMInstancesUnfreeze                  = "virtualmachineinstances/unfreeze"
 	apiVMInstancesSoftReboot                = "virtualmachineinstances/softreboot"
@@ -221,6 +226,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesUnpause,
 					apiVMInstancesAddVolume,
 					apiVMInstancesRemoveVolume,
+					apiVMInstancesAddResourceClaim,
+					apiVMInstancesRemoveResourceClaim,
 					apiVMInstancesFreeze,
 					apiVMInstancesUnfreeze,
 					apiVMInstancesSoftReboot,
@@ -254,6 +261,8 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
 					apiVMRestart,
 					apiVMAddVolume,
 					apiVMRemoveVolume,
+					apiVMAddResourceClaim,
+					apiVMRemoveResourceClaim,
 					apiVMMemoryDump,
 				},
 				Verbs: []string{
@@ -416,6 +425,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMInstancesUnpause,
 					apiVMInstancesAddVolume,
 					apiVMInstancesRemoveVolume,
+					apiVMInstancesAddResourceClaim,
+					apiVMInstancesRemoveResourceClaim,
 					apiVMInstancesFreeze,
 					apiVMInstancesUnfreeze,
 					apiVMInstancesSoftReboot,
@@ -449,6 +460,8 @@ func newEditClusterRole() *rbacv1.ClusterRole {
 					apiVMRestart,
 					apiVMAddVolume,
 					apiVMRemoveVolume,
+					apiVMAddResourceClaim,
+					apiVMRemoveResourceClaim,
 					apiVMMemoryDump,
 				},
 				Verbs: []string{

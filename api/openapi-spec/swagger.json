@@ -8182,6 +8182,55 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/addresourceclaim": {
+    "put": {
+     "description": "Add a resource claim and host device to a running Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1vmi-addresourceclaim",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddResourceClaimOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine Instance",
@@ -8592,6 +8641,55 @@
      },
      {
       "$ref": "#/parameters/protocol-B-mX08es"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/removeresourceclaim": {
+    "put": {
+     "description": "Removes a resource claim and host device from a running Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1vmi-removeresourceclaim",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveResourceClaimOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
      }
     ]
    },
@@ -9118,6 +9216,55 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/addresourceclaim": {
+    "put": {
+     "description": "Add a resource claim and host device to a running Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1vm-addresourceclaim",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddResourceClaimOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
@@ -9516,6 +9663,55 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/removeresourceclaim": {
+    "put": {
+     "description": "Removes a resource claim and host device from a running Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1vm-removeresourceclaim",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveResourceClaimOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/removevolume": {
     "put": {
      "description": "Removes a volume and disk from a running Virtual Machine.",
@@ -9895,6 +10091,55 @@
      }
     },
     "parameters": [
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/addresourceclaim": {
+    "put": {
+     "description": "Add a resource claim and host device to a running Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3vmi-addresourceclaim",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddResourceClaimOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
      {
       "$ref": "#/parameters/namespace-nfszEHZ0"
      }
@@ -10310,6 +10555,55 @@
      },
      {
       "$ref": "#/parameters/protocol-B-mX08es"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/removeresourceclaim": {
+    "put": {
+     "description": "Removes a resource claim and host device from a running Virtual Machine Instance",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3vmi-removeresourceclaim",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveResourceClaimOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
      }
     ]
    },
@@ -10836,6 +11130,55 @@
      }
     ]
    },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/addresourceclaim": {
+    "put": {
+     "description": "Add a resource claim and host device to a running Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3vm-addresourceclaim",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.AddResourceClaimOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/addvolume": {
     "put": {
      "description": "Add a volume and disk to a running Virtual Machine.",
@@ -11217,6 +11560,55 @@
        "schema": {
         "type": "string"
        }
+      }
+     }
+    },
+    "parameters": [
+     {
+      "uniqueItems": true,
+      "type": "string",
+      "description": "Name of the resource",
+      "name": "name",
+      "in": "path",
+      "required": true
+     },
+     {
+      "$ref": "#/parameters/namespace-nfszEHZ0"
+     }
+    ]
+   },
+   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/removeresourceclaim": {
+    "put": {
+     "description": "Removes a resource claim and host device from a running Virtual Machine.",
+     "consumes": [
+      "*/*"
+     ],
+     "operationId": "v1alpha3vm-removeresourceclaim",
+     "parameters": [
+      {
+       "name": "body",
+       "in": "body",
+       "required": true,
+       "schema": {
+        "$ref": "#/definitions/v1.RemoveResourceClaimOptions"
+       }
+      }
+     ],
+     "responses": {
+      "200": {
+       "description": "OK",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "400": {
+       "description": "Bad Request",
+       "schema": {
+        "type": "string"
+       }
+      },
+      "401": {
+       "description": "Unauthorized"
       }
      }
     },
@@ -12016,28 +12408,6 @@
      },
      "value": {
       "description": "Value is this DNS resolver option's value.",
-      "type": "string"
-     }
-    }
-   },
-   "k8s.io.api.core.v1.PodResourceClaim": {
-    "description": "PodResourceClaim references exactly one ResourceClaim, either directly or by naming a ResourceClaimTemplate which is then turned into a ResourceClaim for the pod.\n\nIt adds a name to it that uniquely identifies the ResourceClaim inside the Pod. Containers that need access to the ResourceClaim reference it with this name.",
-    "type": "object",
-    "required": [
-     "name"
-    ],
-    "properties": {
-     "name": {
-      "description": "Name uniquely identifies this resource claim inside the pod. This must be a DNS_LABEL.",
-      "type": "string",
-      "default": ""
-     },
-     "resourceClaimName": {
-      "description": "ResourceClaimName is the name of a ResourceClaim object in the same namespace as this pod.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
-      "type": "string"
-     },
-     "resourceClaimTemplateName": {
-      "description": "ResourceClaimTemplateName is the name of a ResourceClaimTemplate object in the same namespace as this pod.\n\nThe template will be used to create a new ResourceClaim, which will be bound to this pod. When this pod is deleted, the ResourceClaim will also be deleted. The pod name and resource name, along with a generated component, will be used to form a unique name for the ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.\n\nThis field is immutable and no changes will be made to the corresponding ResourceClaim by the control plane after creating the ResourceClaim.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
       "type": "string"
      }
     }
@@ -13030,6 +13400,38 @@
      }
     }
    },
+   "v1.AddResourceClaimOptions": {
+    "type": "object",
+    "required": [
+     "name",
+     "hostDevice",
+     "resourceClaim"
+    ],
+    "properties": {
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "hostDevice": {
+      "description": "HostDevice represents the host device that will be plugged into the running VMI",
+      "$ref": "#/definitions/v1.HostDevice"
+     },
+     "name": {
+      "description": "Name represents the name that will be used to map the device to the corresponding resource claim. This overrides any name that is set in the Device struct itself.",
+      "type": "string",
+      "default": ""
+     },
+     "resourceClaim": {
+      "description": "ResourceClaim represents the resource claim to map to the host device",
+      "$ref": "#/definitions/v1.ResourceClaim"
+     }
+    }
+   },
    "v1.AddVolumeOptions": {
     "description": "AddVolumeOptions is provided when dynamically hot plugging a volume and disk",
     "type": "object",
@@ -13801,14 +14203,29 @@
      "name"
     ],
     "properties": {
+     "address": {
+      "type": "string"
+     },
      "deviceResourceClaimStatus": {
       "description": "DeviceResourceClaimStatus reflects the DRA related information for the device",
       "$ref": "#/definitions/v1.DeviceResourceClaimStatus"
+     },
+     "hotplug": {
+      "$ref": "#/definitions/v1.HotplugDeviceStatus"
+     },
+     "message": {
+      "type": "string"
      },
      "name": {
       "description": "Name of the device as specified in spec.domain.devices.gpus.name or spec.domain.devices.hostDevices.name",
       "type": "string",
       "default": ""
+     },
+     "phase": {
+      "type": "string"
+     },
+     "reason": {
+      "type": "string"
      }
     }
    },
@@ -14628,6 +15045,19 @@
       "description": "Contains information if disk.img exists or should be created allowed options are 'Disk' and 'DiskOrCreate'",
       "type": "string",
       "default": ""
+     }
+    }
+   },
+   "v1.HotplugDeviceStatus": {
+    "type": "object",
+    "properties": {
+     "attachPodName": {
+      "description": "AttachPodName is the name of the pod used to attach the device to the node.",
+      "type": "string"
+     },
+     "attachPodUID": {
+      "description": "AttachPodUID is the UID of the pod used to attach the device to the node.",
+      "type": "string"
      }
     }
    },
@@ -16346,6 +16776,27 @@
      }
     }
    },
+   "v1.RemoveResourceClaimOptions": {
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "dryRun": {
+      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
+      "type": "array",
+      "items": {
+       "type": "string",
+       "default": ""
+      },
+      "x-kubernetes-list-type": "atomic"
+     },
+     "name": {
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1.RemoveVolumeOptions": {
     "description": "RemoveVolumeOptions is provided when dynamically hot unplugging volume and disk",
     "type": "object",
@@ -16366,6 +16817,30 @@
       "description": "Name represents the name that maps to both the disk and volume that should be removed",
       "type": "string",
       "default": ""
+     }
+    }
+   },
+   "v1.ResourceClaim": {
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "hotpluggable": {
+      "type": "boolean"
+     },
+     "name": {
+      "description": "Name uniquely identifies this resource claim inside the pod. This must be a DNS_LABEL.",
+      "type": "string",
+      "default": ""
+     },
+     "resourceClaimName": {
+      "description": "ResourceClaimName is the name of a ResourceClaim object in the same namespace as this pod.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
+      "type": "string"
+     },
+     "resourceClaimTemplateName": {
+      "description": "ResourceClaimTemplateName is the name of a ResourceClaimTemplate object in the same namespace as this pod.\n\nThe template will be used to create a new ResourceClaim, which will be bound to this pod. When this pod is deleted, the ResourceClaim will also be deleted. The pod name and resource name, along with a generated component, will be used to form a unique name for the ResourceClaim, which will be recorded in pod.status.resourceClaimStatuses.\n\nThis field is immutable and no changes will be made to the corresponding ResourceClaim by the control plane after creating the ResourceClaim.\n\nExactly one of ResourceClaimName and ResourceClaimTemplateName must be set.",
+      "type": "string"
      }
     }
    },
@@ -18281,7 +18756,7 @@
       "type": "array",
       "items": {
        "default": {},
-       "$ref": "#/definitions/k8s.io.api.core.v1.PodResourceClaim"
+       "$ref": "#/definitions/v1.ResourceClaim"
       },
       "x-kubernetes-list-map-keys": [
        "name"
@@ -18583,6 +19058,19 @@
      }
     }
    },
+   "v1.VirtualMachineResourceClaimRequest": {
+    "type": "object",
+    "properties": {
+     "addResourceClaimOptions": {
+      "description": "AddResourceClaimOptions when set indicates a resource claim should be added. The details within this field specify how to add the resource claim",
+      "$ref": "#/definitions/v1.AddResourceClaimOptions"
+     },
+     "removeResourceClaimOptions": {
+      "description": "RemoveResourceClaimOptions when set indicates a resource claim should be removed. The details within this field specify how to remove the resource claim",
+      "$ref": "#/definitions/v1.RemoveResourceClaimOptions"
+     }
+    }
+   },
    "v1.VirtualMachineSpec": {
     "description": "VirtualMachineSpec describes how the proper VirtualMachine should look like",
     "type": "object",
@@ -18711,6 +19199,15 @@
      "ready": {
       "description": "Ready indicates if the virtual machine is running and ready",
       "type": "boolean"
+     },
+     "resourceClaimRequests": {
+      "description": "ResourceClaimRequests indicates a list of resource claims add or remove from the VMI template and hotplug on an active running VMI.",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1.VirtualMachineResourceClaimRequest"
+      },
+      "x-kubernetes-list-type": "atomic"
      },
      "restoreInProgress": {
       "description": "RestoreInProgress is the name of the VirtualMachineRestore currently executing",

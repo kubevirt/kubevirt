@@ -651,7 +651,7 @@ func maxSlice(slice []int) int {
 	return max
 }
 
-// HotplugHostDevices attach host-devices to running domain, currently only SRIOV host-devices are supported.
+// HotplugHostDevices attach host-devices to running domain, currently only SRIOV host-devices and dra usb host-devices are supported.
 // This operation runs in the background, only one hotplug operation can occur at a time.
 func (l *LibvirtDomainManager) HotplugHostDevices(vmi *v1.VirtualMachineInstance) error {
 	select {
@@ -667,7 +667,13 @@ func (l *LibvirtDomainManager) HotplugHostDevices(vmi *v1.VirtualMachineInstance
 		if vmi != nil {
 			origSpec = vmi.Spec.DeepCopy()
 		}
+		log.Log.Object(vmi).Info("hot-plug host-devices")
 		if err := l.hotPlugHostDevices(vmi); err != nil {
+			log.Log.Object(vmi).Error(err.Error())
+		}
+
+		log.Log.Object(vmi).Info("hot-unplug unnecessary host-devices")
+		if err := l.hotUnplugUnnecessaryHostDevices(vmi); err != nil {
 			log.Log.Object(vmi).Error(err.Error())
 		}
 
@@ -703,13 +709,73 @@ func (l *LibvirtDomainManager) hotPlugHostDevices(vmi *v1.VirtualMachineInstance
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
+	var hostDevices []api.HostDevice
 	sriovHostDevices, err := sriov.GetHostDevicesToAttach(vmi, domainSpec)
 	if err != nil {
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
+	hostDevices = append(hostDevices, sriovHostDevices...)
 
-	if err := hostdevice.AttachHostDevices(domain, sriovHostDevices); err != nil {
-		return fmt.Errorf("%s: %v", errMsgPrefix, hostdevice.AttachHostDevices(domain, sriovHostDevices))
+	usbHostDevices, err := dra.GetDRAUSBHostDevicesToAttach(vmi, domainSpec)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+	hostDevices = append(hostDevices, usbHostDevices...)
+
+	if err := hostdevice.AttachHostDevices(domain, hostDevices); err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
+	return nil
+}
+
+func (l *LibvirtDomainManager) hotUnplugUnnecessaryHostDevices(vmi *v1.VirtualMachineInstance) error {
+	if vmi == nil {
+		return fmt.Errorf("VMI is nil")
+	}
+
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	const errMsgPrefix = "failed to hot-unplug unnecessary host-devices"
+
+	domainName := api.VMINamespaceKeyFunc(vmi)
+	domain, err := l.virConn.LookupDomainByName(domainName)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+	defer domain.Free()
+
+	domainSpec, err := util.GetDomainSpecWithFlags(domain, 0)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
+	var hostDevices []api.HostDevice
+	usbHostDevices, err := dra.GetDRAUSBHostDevicesToDetach(vmi, domainSpec)
+	if err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+	hostDevices = append(hostDevices, usbHostDevices...)
+
+	if err = safelyDetachHostDevices(hostDevices, l.virConn, domain); err != nil {
+		return fmt.Errorf("%s: %v", errMsgPrefix, err)
+	}
+
+	return nil
+}
+
+func safelyDetachHostDevices(hostDevices []api.HostDevice, virConn cli.Connection, domain cli.VirDomain) error {
+	eventChan := make(chan interface{}, hostdevice.MaxConcurrentHotPlugDevicesEvents)
+	var callback libvirt.DomainEventDeviceRemovedCallback = func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventDeviceRemoved) {
+		eventChan <- event.DevAlias
+	}
+
+	domainEvent := cli.NewDomainEventDeviceRemoved(virConn, domain, callback, eventChan)
+	const waitForDetachTimeout = 30 * time.Second
+
+	if err := hostdevice.SafelyDetachHostDevices(hostDevices, domainEvent, domain, waitForDetachTimeout); err != nil {
+		return fmt.Errorf("failed to safely detach host devices: %w", err)
 	}
 
 	return nil

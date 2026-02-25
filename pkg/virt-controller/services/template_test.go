@@ -4146,7 +4146,7 @@ var _ = Describe("Template", func() {
 
 			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
 			claimMap := map[string]*k8sv1.PersistentVolumeClaim{}
-			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap)
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, nil, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 
 			runUser := int64(util.NonRootUID)
@@ -4175,7 +4175,7 @@ var _ = Describe("Template", func() {
 
 			vmi.Status.SelinuxContext = "test_u:test_r:test_t:s0"
 			claimMap := map[string]*k8sv1.PersistentVolumeClaim{}
-			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap)
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, nil, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 
 			Expect(pod.Spec.Tolerations).To(BeEquivalentTo(vmi.Spec.Tolerations))
@@ -4224,7 +4224,7 @@ var _ = Describe("Template", func() {
 					},
 				},
 			})
-			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap)
+			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, nil, ownerPod, vmi, claimMap)
 			prop := k8sv1.MountPropagationHostToContainer
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(2))
@@ -4271,7 +4271,7 @@ var _ = Describe("Template", func() {
 					},
 				},
 			})
-			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, ownerPod, vmi, claimMap)
+			pod, err := svc.RenderHotplugAttachmentPodTemplate(volumes, nil, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pod.Spec.Containers[0].VolumeDevices).ToNot(BeNil())
 			Expect(pod.Spec.Containers[0].VolumeDevices).To(Equal([]k8sv1.VolumeDevice{
@@ -4344,7 +4344,7 @@ var _ = Describe("Template", func() {
 				},
 			}
 			claimMap := map[string]*k8sv1.PersistentVolumeClaim{}
-			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, ownerPod, vmi, claimMap)
+			pod, err := svc.RenderHotplugAttachmentPodTemplate([]*v1.Volume{}, nil, ownerPod, vmi, claimMap)
 			Expect(err).ToNot(HaveOccurred())
 			verifyPodRequestLimits(pod)
 		})

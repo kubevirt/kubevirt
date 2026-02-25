@@ -117,6 +117,17 @@ func IsBlockDevice(path *safepath.Path) (bool, error) {
 	return true, nil
 }
 
+func IsCharacterDevice(path *safepath.Path) (bool, error) {
+	fileInfo, err := safepath.StatAtNoFollow(path)
+	if err != nil {
+		return false, fmt.Errorf("error checking for caracter device: %v", err)
+	}
+	if fileInfo.IsDir() || (fileInfo.Mode()&os.ModeCharDevice) == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
 func (r *RealIsolationResult) MountRoot() (*safepath.Path, error) {
 	return safepath.JoinAndResolveWithRelativeRoot(fmt.Sprintf("/proc/%d/root", r.pid))
 }

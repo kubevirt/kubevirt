@@ -684,7 +684,8 @@ spec:
           port: portValue
         timeoutSeconds: -14
       resourceClaims:
-      - name: nameValue
+      - hotpluggable: true
+        name: nameValue
         resourceClaimName: resourceClaimNameValue
         resourceClaimTemplateName: resourceClaimTemplateNameValue
       schedulerName: schedulerNameValue
@@ -826,6 +827,26 @@ status:
     name: nameValue
   printableStatus: printableStatusValue
   ready: true
+  resourceClaimRequests:
+  - addResourceClaimOptions:
+      dryRun:
+      - dryRunValue
+      hostDevice:
+        claimName: claimNameValue
+        deviceName: deviceNameValue
+        name: nameValue
+        requestName: requestNameValue
+        tag: tagValue
+      name: nameValue
+      resourceClaim:
+        hotpluggable: true
+        name: nameValue
+        resourceClaimName: resourceClaimNameValue
+        resourceClaimTemplateName: resourceClaimTemplateNameValue
+    removeResourceClaimOptions:
+      dryRun:
+      - dryRunValue
+      name: nameValue
   restoreInProgress: restoreInProgressValue
   runStrategy: runStrategyValue
   snapshotInProgress: snapshotInProgressValue

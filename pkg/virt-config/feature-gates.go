@@ -212,3 +212,7 @@ func (config *ClusterConfig) HostDevicesWithDRAEnabled() bool {
 func (config *ClusterConfig) DecentralizedLiveMigrationEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.DecentralizedLiveMigration)
 }
+
+func (config *ClusterConfig) HotplugHostDevicesWithDRAEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.HotplugHostDevicesWithDRAGate)
+}

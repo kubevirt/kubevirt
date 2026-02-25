@@ -665,6 +665,8 @@ rules:
   resources:
   - virtualmachines/addvolume
   - virtualmachines/removevolume
+  - virtualmachines/addresourceclaim
+  - virtualmachines/removeresourceclaim
   verbs:
   - update
 - apiGroups:
@@ -673,6 +675,8 @@ rules:
   - virtualmachines/stop
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
+  - virtualmachineinstances/addresourceclaim
+  - virtualmachineinstances/removeresourceclaim
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/reset
@@ -957,6 +961,8 @@ rules:
   - virtualmachineinstances/unpause
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
+  - virtualmachineinstances/addresourceclaim
+  - virtualmachineinstances/removeresourceclaim
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
@@ -980,6 +986,8 @@ rules:
   - virtualmachines/restart
   - virtualmachines/addvolume
   - virtualmachines/removevolume
+  - virtualmachines/addresourceclaim
+  - virtualmachines/removeresourceclaim
   - virtualmachines/memorydump
   verbs:
   - update
@@ -1115,6 +1123,8 @@ rules:
   - virtualmachineinstances/unpause
   - virtualmachineinstances/addvolume
   - virtualmachineinstances/removevolume
+  - virtualmachineinstances/addresourceclaim
+  - virtualmachineinstances/removeresourceclaim
   - virtualmachineinstances/freeze
   - virtualmachineinstances/unfreeze
   - virtualmachineinstances/softreboot
@@ -1138,6 +1148,8 @@ rules:
   - virtualmachines/restart
   - virtualmachines/addvolume
   - virtualmachines/removevolume
+  - virtualmachines/addresourceclaim
+  - virtualmachines/removeresourceclaim
   - virtualmachines/memorydump
   verbs:
   - update

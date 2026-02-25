@@ -35,9 +35,10 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	container_disk "kubevirt.io/kubevirt/pkg/container-disk"
 )
@@ -332,6 +333,64 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
 	return vmiSpec
 }
 
+func ApplyResourceClaimRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request *v1.VirtualMachineResourceClaimRequest) *v1.VirtualMachineInstanceSpec {
+	if request.AddResourceClaimOptions != nil {
+		alreadyAdded := false
+		for _, resourceClaim := range vmiSpec.ResourceClaims {
+			if resourceClaim.Name == request.AddResourceClaimOptions.Name {
+				alreadyAdded = true
+				break
+			}
+		}
+
+		if !alreadyAdded {
+			newResourceClaim := v1.ResourceClaim{
+				PodResourceClaim: k8sv1.PodResourceClaim{
+					Name: request.AddResourceClaimOptions.Name,
+				},
+				Hotpluggable: true,
+			}
+
+			if request.AddResourceClaimOptions.ResourceClaim.ResourceClaimTemplateName != nil {
+				newResourceClaim.ResourceClaimTemplateName = request.AddResourceClaimOptions.ResourceClaim.ResourceClaimTemplateName
+			} else if request.AddResourceClaimOptions.ResourceClaim.ResourceClaimName != nil {
+				newResourceClaim.ResourceClaimName = request.AddResourceClaimOptions.ResourceClaim.ResourceClaimName
+			}
+
+			vmiSpec.ResourceClaims = append(vmiSpec.ResourceClaims, newResourceClaim)
+
+			if request.AddResourceClaimOptions.HostDevice != nil {
+				newHostDevice := request.AddResourceClaimOptions.HostDevice.DeepCopy()
+				newHostDevice.Name = request.AddResourceClaimOptions.Name
+
+				vmiSpec.Domain.Devices.HostDevices = append(vmiSpec.Domain.Devices.HostDevices, *newHostDevice)
+			}
+		}
+
+	} else if request.RemoveResourceClaimOptions != nil {
+		var (
+			newResourceClaimsList []v1.ResourceClaim
+			newHostDevicesList    []v1.HostDevice
+		)
+
+		for _, resourceClaim := range vmiSpec.ResourceClaims {
+			if resourceClaim.Name != request.RemoveResourceClaimOptions.Name {
+				newResourceClaimsList = append(newResourceClaimsList, resourceClaim)
+			}
+		}
+		for _, hostDevice := range vmiSpec.Domain.Devices.HostDevices {
+			if hostDevice.Name != request.RemoveResourceClaimOptions.Name {
+				newHostDevicesList = append(newHostDevicesList, hostDevice)
+			}
+		}
+
+		vmiSpec.ResourceClaims = newResourceClaimsList
+		vmiSpec.Domain.Devices.HostDevices = newHostDevicesList
+	}
+
+	return vmiSpec
+}
+
 func CurrentVMIPod(vmi *v1.VirtualMachineInstance, podIndexer cache.Indexer) (*k8sv1.Pod, error) {
 
 	// current pod is the most recent pod created on the current VMI node
@@ -583,4 +642,30 @@ func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Po
 		}
 	}
 	return hotplugVolumes
+}
+
+func GetHotplugResourceClaims(vmi *v1.VirtualMachineInstance) []*v1.ResourceClaim {
+	var hotplugResourceClaims []*v1.ResourceClaim
+	for _, resourceClaim := range vmi.Spec.ResourceClaims {
+		if resourceClaim.Hotpluggable {
+			hotplugResourceClaims = append(hotplugResourceClaims, resourceClaim.DeepCopy())
+		}
+	}
+	return hotplugResourceClaims
+}
+
+func GetResourceClaimsByName(spec *v1.VirtualMachineInstanceSpec) map[string]*v1.ResourceClaim {
+	claims := make(map[string]*v1.ResourceClaim, len(spec.ResourceClaims))
+	for _, claim := range spec.ResourceClaims {
+		claims[claim.Name] = &claim
+	}
+	return claims
+}
+
+func GetHostDevicesByName(spec *v1.VirtualMachineInstanceSpec) map[string]*v1.HostDevice {
+	devices := make(map[string]*v1.HostDevice, len(spec.Domain.Devices.HostDevices))
+	for _, device := range spec.Domain.Devices.HostDevices {
+		devices[device.Name] = &device
+	}
+	return devices
 }

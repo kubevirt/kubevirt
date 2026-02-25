@@ -124,6 +124,11 @@ const (
 	//
 	// PasstIPStackMigration enables seamless migration with passt network binding.
 	PasstIPStackMigration = "PasstIPStackMigration"
+
+	// Owner: @yaroslavborbat
+	// Alpha: v1.6.2
+	// HotplugHostDevicesWithDRAGate allows hotplug host devices with DRA to a VirtualMachineInstance.
+	HotplugHostDevicesWithDRAGate = "HotplugHostDevicesWithDRA"
 )
 
 func init() {
@@ -157,4 +162,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: PasstIPStackMigration, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: HotplugHostDevicesWithDRAGate, State: Alpha})
 }

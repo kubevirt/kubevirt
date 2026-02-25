@@ -43,6 +43,10 @@ func (VirtualMachineInstanceSpec) SwaggerDoc() map[string]string {
 	}
 }
 
+func (ResourceClaim) SwaggerDoc() map[string]string {
+	return map[string]string{}
+}
+
 func (VirtualMachineInstancePhaseTransitionTimestamp) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"":                         "VirtualMachineInstancePhaseTransitionTimestamp gives a timestamp in relation to when a phase is set on a vmi",
@@ -203,6 +207,13 @@ func (HotplugVolumeStatus) SwaggerDoc() map[string]string {
 		"":              "HotplugVolumeStatus represents the hotplug status of the volume",
 		"attachPodName": "AttachPodName is the name of the pod used to attach the volume to the node.",
 		"attachPodUID":  "AttachPodUID is the UID of the pod used to attach the volume to the node.",
+	}
+}
+
+func (HotplugDeviceStatus) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"attachPodName": "AttachPodName is the name of the pod used to attach the device to the node.",
+		"attachPodUID":  "AttachPodUID is the UID of the pod used to attach the device to the node.",
 	}
 }
 
@@ -497,6 +508,7 @@ func (VirtualMachineStatus) SwaggerDoc() map[string]string {
 		"conditions":             "Hold the state information of the VirtualMachine and its VirtualMachineInstance",
 		"stateChangeRequests":    "StateChangeRequests indicates a list of actions that should be taken on a VMI\ne.g. stop a specific VMI then start a new one.",
 		"volumeRequests":         "VolumeRequests indicates a list of volumes add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
+		"resourceClaimRequests":  "ResourceClaimRequests indicates a list of resource claims add or remove from the VMI template and\nhotplug on an active running VMI.\n+listType=atomic",
 		"volumeSnapshotStatuses": "VolumeSnapshotStatuses indicates a list of statuses whether snapshotting is\nsupported by each volume.",
 		"startFailure":           "StartFailure tracks consecutive VMI startup failures for the purposes of\ncrash loop backoffs\n+nullable\n+optional",
 		"memoryDumpRequest":      "MemoryDumpRequest tracks memory dump request phase and info of getting a memory\ndump to the given pvc\n+nullable\n+optional",
@@ -542,6 +554,13 @@ func (VolumeSnapshotStatus) SwaggerDoc() map[string]string {
 		"name":    "Volume name",
 		"enabled": "True if the volume supports snapshotting",
 		"reason":  "Empty if snapshotting is enabled, contains reason otherwise",
+	}
+}
+
+func (VirtualMachineResourceClaimRequest) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"addResourceClaimOptions":    "AddResourceClaimOptions when set indicates a resource claim should be added.\nThe details within this field specify how to add the resource claim",
+		"removeResourceClaimOptions": "RemoveResourceClaimOptions when set indicates a resource claim should be removed.\nThe details within this field specify how to remove the resource claim",
 	}
 }
 
@@ -837,6 +856,21 @@ func (AddVolumeOptions) SwaggerDoc() map[string]string {
 		"disk":         "Disk represents the hotplug disk that will be plugged into the running VMI",
 		"volumeSource": "VolumeSource represents the source of the volume to map to the disk.",
 		"dryRun":       "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
+func (AddResourceClaimOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"name":          "Name represents the name that will be used to map the\ndevice to the corresponding resource claim. This overrides any name\nthat is set in the Device struct itself.",
+		"hostDevice":    "HostDevice represents the host device that will be plugged into the running VMI",
+		"resourceClaim": "ResourceClaim represents the resource claim to map to the host device",
+		"dryRun":        "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
+	}
+}
+
+func (RemoveResourceClaimOptions) SwaggerDoc() map[string]string {
+	return map[string]string{
+		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
 	}
 }
 

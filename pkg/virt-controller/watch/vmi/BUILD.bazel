@@ -4,7 +4,9 @@ go_library(
     name = "go_default_library",
     srcs = [
         "datavolumes.go",
+        "hotplug.go",
         "lifecycle.go",
+        "resourceclaim-hotplug.go",
         "storage.go",
         "vmi.go",
         "volume-hotplug.go",
@@ -53,6 +55,7 @@ go_library(
 go_test(
     name = "go_default_test",
     srcs = [
+        "resourceclaim-hotplug_test.go",
         "vmi_suite_test.go",
         "vmi_test.go",
     ],

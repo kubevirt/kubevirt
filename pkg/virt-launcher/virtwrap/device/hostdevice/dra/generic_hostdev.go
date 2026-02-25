@@ -21,7 +21,6 @@ package dra
 
 import (
 	"fmt"
-	"strconv"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -33,6 +32,7 @@ import (
 const (
 	failedCreateGenericHostDevicesFmt = "failed to create dra generic host-devices: %v"
 	DRAHostDeviceAliasPrefix          = "dra-hostdevice-"
+	DRAHotplugHostDeviceAliasPrefix   = "dra-hotplug-hostdevice-"
 )
 
 func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
@@ -41,7 +41,7 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 		return hostDevices, nil
 	}
 
-	draUSBHostDevices, err := getDRAUSBHostDevices(vmi)
+	draUSBHostDevices, _, err := getDRAUSBHostDevices(vmi)
 	if err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
 	}
@@ -60,43 +60,22 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 	hostDevices = append(hostDevices, draPCIHostDevices...)
 	hostDevices = append(hostDevices, draMDEVHostDevices...)
 
-	if err := validateCreationOfDRAHostDevices(vmi.Spec.Domain.Devices.HostDevices, hostDevices); err != nil {
+	hotpluggableNames := make(map[string]struct{})
+	for _, resourceClaim := range vmi.Spec.ResourceClaims {
+		if resourceClaim.Hotpluggable {
+			hotpluggableNames[resourceClaim.Name] = struct{}{}
+		}
+	}
+
+	if err := validateCreationOfDRAHostDevices(vmi.Spec.Domain.Devices.HostDevices, hostDevices, hotpluggableNames); err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
 	}
 
 	return hostDevices, nil
 }
 
-func getDRAUSBHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	var hostDevices []api.HostDevice
-	if vmi.Status.DeviceStatus == nil {
-		return hostDevices, fmt.Errorf("vmi has dra usb devices but no device status found")
-	}
-
-	for _, hdStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
-		hdStatus := hdStatus.DeepCopy()
-		if hdStatus.DeviceResourceClaimStatus != nil && hdStatus.DeviceResourceClaimStatus.Attributes != nil {
-			if usbAddress := hdStatus.DeviceResourceClaimStatus.Attributes.USBAddress; usbAddress != nil {
-				hostDevices = append(hostDevices, api.HostDevice{
-					Type:  api.HostDeviceUSB,
-					Mode:  "subsystem",
-					Alias: api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hdStatus.Name),
-					Source: api.HostDeviceSource{
-						Address: &api.Address{
-							Bus:    strconv.FormatInt(usbAddress.Bus, 10),
-							Device: strconv.FormatInt(usbAddress.DeviceNumber, 10),
-						},
-					},
-				})
-			}
-		}
-	}
-
-	return hostDevices, nil
-}
-
 func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	hostDevices := []api.HostDevice{}
+	var hostDevices []api.HostDevice
 	if vmi.Status.DeviceStatus == nil {
 		return hostDevices, fmt.Errorf("vmi has dra host-devices devices but no device status found")
 	}
@@ -122,7 +101,7 @@ func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 }
 
 func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	hostDevices := []api.HostDevice{}
+	var hostDevices []api.HostDevice
 	if vmi.Status.DeviceStatus == nil {
 		return hostDevices, fmt.Errorf("vmi has dra host-devices devices but no device status found")
 	}
@@ -147,10 +126,11 @@ func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, er
 	return hostDevices, nil
 }
 
-func validateCreationOfDRAHostDevices(genericHostDevices []v1.HostDevice, hostDevices []api.HostDevice) error {
+func validateCreationOfDRAHostDevices(genericHostDevices []v1.HostDevice, hostDevices []api.HostDevice, hottplagableNames map[string]struct{}) error {
 	var hostDevsWithDRA []v1.HostDevice
 	for _, hd := range genericHostDevices {
-		if drautil.IsHostDeviceDRA(hd) {
+		// skip hotpluggable host devices and devices with DRA
+		if _, ok := hottplagableNames[hd.Name]; !ok && drautil.IsHostDeviceDRA(hd) {
 			hostDevsWithDRA = append(hostDevsWithDRA, hd)
 		}
 	}

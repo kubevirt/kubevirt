@@ -488,7 +488,8 @@ spec:
       port: portValue
     timeoutSeconds: -14
   resourceClaims:
-  - name: nameValue
+  - hotpluggable: true
+    name: nameValue
     resourceClaimName: resourceClaimNameValue
     resourceClaimTemplateName: resourceClaimTemplateNameValue
   schedulerName: schedulerNameValue
@@ -611,7 +612,8 @@ status:
     threads: 4294967289
   deviceStatus:
     gpuStatuses:
-    - deviceResourceClaimStatus:
+    - address: addressValue
+      deviceResourceClaimStatus:
         attributes:
           mDevUUID: mDevUUIDValue
           pciAddress: pciAddressValue
@@ -620,9 +622,16 @@ status:
             deviceNumber: -12
         name: nameValue
         resourceClaimName: resourceClaimNameValue
+      hotplug:
+        attachPodName: attachPodNameValue
+        attachPodUID: attachPodUIDValue
+      message: messageValue
       name: nameValue
+      phase: phaseValue
+      reason: reasonValue
     hostDeviceStatuses:
-    - deviceResourceClaimStatus:
+    - address: addressValue
+      deviceResourceClaimStatus:
         attributes:
           mDevUUID: mDevUUIDValue
           pciAddress: pciAddressValue
@@ -631,7 +640,13 @@ status:
             deviceNumber: -12
         name: nameValue
         resourceClaimName: resourceClaimNameValue
+      hotplug:
+        attachPodName: attachPodNameValue
+        attachPodUID: attachPodUIDValue
+      message: messageValue
       name: nameValue
+      phase: phaseValue
+      reason: reasonValue
   evacuationNodeName: evacuationNodeNameValue
   fsFreezeStatus: fsFreezeStatusValue
   guestOSInfo:

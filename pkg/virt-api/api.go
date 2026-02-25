@@ -637,6 +637,46 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("addresourceclaim")).
+			To(subresourceApp.VMIAddResourceClaimRequestHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.AddResourceClaimOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vmi-addresourceclaim").
+			Doc("Add a resource claim and host device to a running Virtual Machine Instance").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("removeresourceclaim")).
+			To(subresourceApp.VMIRemoveResourceClaimRequestHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.RemoveResourceClaimOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vmi-removeresourceclaim").
+			Doc("Removes a resource claim and host device from a running Virtual Machine Instance").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("addresourceclaim")).
+			To(subresourceApp.VMAddResourceClaimRequestHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.AddResourceClaimOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vm-addresourceclaim").
+			Doc("Add a resource claim and host device to a running Virtual Machine.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("removeresourceclaim")).
+			To(subresourceApp.VMRemoveResourceClaimRequestHandler).
+			Consumes(mime.MIME_ANY).
+			Reads(v1.RemoveResourceClaimOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vm-removeresourceclaim").
+			Doc("Removes a resource claim and host device from a running Virtual Machine.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
 		// Return empty api resource list.
 		// K8s expects to be able to retrieve a resource list for each aggregated
 		// app in order to discover what resources it provides. Without returning
@@ -720,6 +760,14 @@ func (app *virtAPIApp) composeSubresources() {
 						Namespaced: true,
 					},
 					{
+						Name:       "virtualmachines/addresourceclaim",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachines/removeresourceclaim",
+						Namespaced: true,
+					},
+					{
 						Name:       "virtualmachineinstances/guestosinfo",
 						Namespaced: true,
 					},
@@ -761,6 +809,14 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/evacuatecancel",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/addresourceclaim",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/removeresourceclaim",
 						Namespaced: true,
 					},
 				}

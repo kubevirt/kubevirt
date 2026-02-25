@@ -11,6 +11,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/downwardmetrics"
@@ -192,10 +193,21 @@ func WithHostDevicesDevicePlugins(hostDevices []v1.HostDevice) ResourceRendererO
 }
 
 // WithHostDevicesDRA adds ResourceClaims for HostDevices provisioned via DRA.
-func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
+func WithHostDevicesDRA(hostDevices []v1.HostDevice, resourceClaims []v1.ResourceClaim) ResourceRendererOption {
+	hotpluggable := make(map[string]struct{})
+	for _, claim := range resourceClaims {
+		if claim.Hotpluggable {
+			hotpluggable[claim.Name] = struct{}{}
+		}
+	}
+
 	return func(r *ResourceRenderer) {
 		resources := r.ResourceRequirements()
 		for _, hd := range hostDevices {
+			if _, ok := hotpluggable[hd.Name]; ok {
+				// Skip hotpluggable devices
+				continue
+			}
 			if hd.DeviceName == "" && hd.ClaimRequest != nil && hd.ClaimRequest.ClaimName != nil && hd.ClaimRequest.RequestName != nil {
 				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
 					Name:    *hd.ClaimRequest.ClaimName,

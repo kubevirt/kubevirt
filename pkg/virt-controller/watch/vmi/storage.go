@@ -149,7 +149,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		return err
 	}
 
-	attachmentPod, _ := getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
+	attachmentPod, _ := getActiveAndOldAttachmentPodsForVolumes(hotplugVolumes, attachmentPods)
 
 	newStatus := make([]virtv1.VolumeStatus, 0)
 
@@ -160,14 +160,14 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 		}
 	}
 
-	for i, volume := range vmi.Spec.Volumes {
+	for _, volume := range vmi.Spec.Volumes {
 		status := virtv1.VolumeStatus{}
 		if existingStatus, ok := oldStatusMap[volume.Name]; ok {
 			status = existingStatus
 		} else {
 			status.Name = volume.Name
 		}
-		// Remove from map so I can detect existing volumes that have been removed from spec.
+		// Remove from the map, so I can detect existing volumes that have been removed from spec.
 		delete(oldStatusMap, volume.Name)
 
 		//if hotplugVolume, ok := hotplugVolumesMap[volume.Name]; ok {
@@ -193,7 +193,7 @@ func (c *Controller) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, virt
 					if !c.volumeReady(status.Phase) {
 						status.HotplugVolume.AttachPodUID = ""
 						// Volume is not hotplugged in VM and Pod is gone, or hasn't been created yet, check for the PVC associated with the volume to set phase and message
-						phase, reason, message := c.getVolumePhaseMessageReason(&vmi.Spec.Volumes[i], vmi.Namespace)
+						phase, reason, message := c.getVolumePhaseMessageReason(&volume, vmi.Namespace)
 						status.Phase = phase
 						log.Log.V(3).Infof("Setting phase %s for volume %s", phase, volume.Name)
 						status.Message = message

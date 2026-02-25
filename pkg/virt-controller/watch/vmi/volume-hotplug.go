@@ -22,12 +22,8 @@ package vmi
 import (
 	"errors"
 	"fmt"
-	"sort"
-	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -35,12 +31,11 @@ import (
 
 	container_disk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/controller"
-	"kubevirt.io/kubevirt/pkg/pointer"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
-func needsHandleHotplug(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
+func needsHandleVolumeHotplug(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
 	if len(hotplugAttachmentPods) > 1 {
 		return true
 	}
@@ -51,81 +46,10 @@ func needsHandleHotplug(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8
 	return len(hotplugVolumes) > 0 || len(hotplugAttachmentPods) > 0
 }
 
-func getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
-	sort.Slice(hotplugAttachmentPods, func(i, j int) bool {
-		return hotplugAttachmentPods[i].CreationTimestamp.Time.Before(hotplugAttachmentPods[j].CreationTimestamp.Time)
+func getActiveAndOldAttachmentPodsForVolumes(readyHotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) (*k8sv1.Pod, []*k8sv1.Pod) {
+	return getActiveAndOldAttachmentPods(hotplugAttachmentPods, func(attachmentPod *k8sv1.Pod) bool {
+		return podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes)
 	})
-
-	var currentPod *k8sv1.Pod
-	oldPods := make([]*k8sv1.Pod, 0)
-	for _, attachmentPod := range hotplugAttachmentPods {
-		if !podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {
-			oldPods = append(oldPods, attachmentPod)
-		} else {
-			if currentPod != nil {
-				oldPods = append(oldPods, currentPod)
-			}
-			currentPod = attachmentPod
-		}
-	}
-	sort.Slice(oldPods, func(i, j int) bool {
-		return oldPods[i].CreationTimestamp.Time.After(oldPods[j].CreationTimestamp.Time)
-	})
-	return currentPod, oldPods
-}
-
-// cleanupAttachmentPods deletes all old attachment pods when the following is true
-// 1. There is a currentPod that is running. (not nil and phase.Status == Running)
-// 2. There are no readyVolumes (numReadyVolumes == 0)
-// 3. The newest oldPod is not running and not marked for deletion.
-// If any of those are true, it will not delete the newest oldPod, since that one is the latest
-// pod that is closest to the desired state.
-func (c *Controller) cleanupAttachmentPods(currentPod *k8sv1.Pod, oldPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, numReadyVolumes int) common.SyncError {
-	foundRunning := false
-
-	var statusMap = make(map[string]v1.VolumeStatus)
-	for _, vs := range vmi.Status.VolumeStatus {
-		if vs.HotplugVolume != nil {
-			statusMap[vs.Name] = vs
-		}
-	}
-
-	for _, vmiVolume := range vmi.Spec.Volumes {
-		if storagetypes.IsHotplugVolume(&vmiVolume) {
-			delete(statusMap, vmiVolume.Name)
-		}
-	}
-
-	currentPodIsNotRunning := currentPod == nil || currentPod.Status.Phase != k8sv1.PodRunning
-	for _, attachmentPod := range oldPods {
-		if !foundRunning &&
-			attachmentPod.Status.Phase == k8sv1.PodRunning && attachmentPod.DeletionTimestamp == nil &&
-			numReadyVolumes > 0 &&
-			currentPodIsNotRunning {
-			foundRunning = true
-			continue
-		}
-		volumesNotReadyForDelete := 0
-
-		for _, podVolume := range attachmentPod.Spec.Volumes {
-			volumeStatus, ok := statusMap[podVolume.Name]
-			if ok && !volumeReadyForPodDelete(volumeStatus.Phase) {
-				volumesNotReadyForDelete++
-			}
-		}
-
-		if volumesNotReadyForDelete > 0 {
-			log.Log.Object(vmi).V(3).Infof("Not deleting attachment pod %s, because there are still %d volumes to be unmounted", attachmentPod.Name, volumesNotReadyForDelete)
-			continue
-		}
-
-		if err := c.deleteAttachmentPod(vmi, attachmentPod); err != nil {
-			return common.NewSyncError(fmt.Errorf("Error deleting attachment pod %v", err), controller.FailedDeletePodReason)
-		}
-
-		log.Log.Object(vmi).V(3).Infof("Deleted attachment pod %s", attachmentPod.Name)
-	}
-	return nil
 }
 
 func volumeReadyForPodDelete(phase v1.VolumePhase) bool {
@@ -138,7 +62,7 @@ func volumeReadyForPodDelete(phase v1.VolumePhase) bool {
 	return true
 }
 
-func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod, vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) common.SyncError {
+func (c *Controller) getReadyHotplugVolumes(hotplugVolumes []*v1.Volume, vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, dataVolumes []*cdiv1.DataVolume) ([]*v1.Volume, common.SyncError) {
 	logger := log.Log.Object(vmi)
 
 	readyHotplugVolumes := make([]*v1.Volume, 0)
@@ -151,14 +75,14 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 		var err error
 		ready, wffc, err := storagetypes.VolumeReadyToAttachToNode(vmi.Namespace, *volume, dataVolumes, c.dataVolumeIndexer, c.pvcIndexer)
 		if err != nil {
-			return common.NewSyncError(fmt.Errorf("Error determining volume status %v", err), controller.PVCNotReadyReason)
+			return nil, common.NewSyncError(fmt.Errorf("Error determining volume status %v", err), controller.PVCNotReadyReason)
 		}
 		if wffc {
 			// Volume in WaitForFirstConsumer, it has not been populated by CDI yet. create a dummy pod
 			logger.V(1).Infof("Volume %s/%s is in WaitForFistConsumer, triggering population", vmi.Namespace, volume.Name)
 			syncError := c.triggerHotplugPopulation(volume, vmi, virtLauncherPod)
 			if syncError != nil {
-				return syncError
+				return nil, syncError
 			}
 			continue
 		}
@@ -169,44 +93,7 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 		}
 		readyHotplugVolumes = append(readyHotplugVolumes, volume)
 	}
-
-	currentPod, oldPods := getActiveAndOldAttachmentPods(readyHotplugVolumes, hotplugAttachmentPods)
-	if currentPod == nil && !hasPendingPods(oldPods) && len(readyHotplugVolumes) > 0 {
-		if rateLimited, waitTime := c.requeueAfter(oldPods, time.Duration(len(readyHotplugVolumes)/-10)); rateLimited {
-			key, err := controller.KeyFunc(vmi)
-			if err != nil {
-				logger.Object(vmi).Reason(err).Error("failed to extract key from virtualmachine.")
-				return common.NewSyncError(fmt.Errorf("failed to extract key from virtualmachine. %v", err), controller.FailedHotplugSyncReason)
-			}
-			c.Queue.AddAfter(key, waitTime)
-		} else {
-			if newPod, err := c.createAttachmentPod(vmi, virtLauncherPod, readyHotplugVolumes); err != nil {
-				return err
-			} else {
-				currentPod = newPod
-			}
-		}
-	}
-	if err := c.cleanupAttachmentPods(currentPod, oldPods, vmi, len(readyHotplugVolumes)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Controller) createAttachmentPod(vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, volumes []*v1.Volume) (*k8sv1.Pod, common.SyncError) {
-	attachmentPodTemplate, _ := c.createAttachmentPodTemplate(vmi, virtLauncherPod, volumes)
-	if attachmentPodTemplate == nil {
-		return nil, nil
-	}
-	vmiKey := controller.VirtualMachineInstanceKey(vmi)
-	pod, err := c.createPod(vmiKey, vmi.Namespace, attachmentPodTemplate)
-	if err != nil {
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedCreatePodReason, "Error creating attachment pod: %v", err)
-		return nil, common.NewSyncError(fmt.Errorf("Error creating attachment pod %v", err), controller.FailedCreatePodReason)
-	}
-	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulCreatePodReason, "Created attachment pod %s", pod.Name)
-	return pod, nil
+	return readyHotplugVolumes, nil
 }
 
 func (c *Controller) triggerHotplugPopulation(volume *v1.Volume, vmi *v1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod) common.SyncError {
@@ -226,74 +113,6 @@ func (c *Controller) triggerHotplugPopulation(volume *v1.Volume, vmi *v1.Virtual
 	return nil
 }
 
-func syncHotplugCondition(vmi *v1.VirtualMachineInstance, conditionType v1.VirtualMachineInstanceConditionType) {
-	vmiConditions := controller.NewVirtualMachineInstanceConditionManager()
-	condition := v1.VirtualMachineInstanceCondition{
-		Type:   conditionType,
-		Status: k8sv1.ConditionTrue,
-	}
-	if !vmiConditions.HasCondition(vmi, condition.Type) {
-		vmiConditions.UpdateCondition(vmi, &condition)
-		log.Log.Object(vmi).V(4).Infof("adding hotplug condition %s", conditionType)
-	}
-}
-
-func canMoveToAttachedPhase(currentPhase v1.VolumePhase) bool {
-	return currentPhase == "" || currentPhase == v1.VolumeBound || currentPhase == v1.VolumePending
-}
-
-func findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
-	for _, pod := range attachmentPods {
-		for _, podVolume := range pod.Spec.Volumes {
-			if podVolume.Name == volumeName {
-				return pod
-			}
-		}
-	}
-	return nil
-}
-
-func (c *Controller) createAttachmentPodTemplate(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Pod, volumes []*v1.Volume) (*k8sv1.Pod, error) {
-	logger := log.Log.Object(vmi)
-
-	var hasContainerDisk bool
-	var newVolumes []*v1.Volume
-	for _, volume := range volumes {
-		if volume.VolumeSource.ContainerDisk != nil {
-			hasContainerDisk = true
-			continue
-		}
-		newVolumes = append(newVolumes, volume)
-	}
-
-	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(newVolumes, c.pvcIndexer, virtlauncherPod.Namespace)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get PVC map: %v", err)
-	}
-	for volumeName, pvc := range volumeNamesPVCMap {
-		//Verify the PVC is ready to be used.
-		populated, err := cdiv1.IsSucceededOrPendingPopulation(pvc, func(name, namespace string) (*cdiv1.DataVolume, error) {
-			dv, exists, _ := c.dataVolumeIndexer.GetByKey(fmt.Sprintf("%s/%s", namespace, name))
-			if !exists {
-				return nil, fmt.Errorf("unable to find datavolume %s/%s", namespace, name)
-			}
-			return dv.(*cdiv1.DataVolume), nil
-		})
-		if err != nil {
-			return nil, err
-		}
-		if !populated {
-			logger.Infof("Unable to hotplug, claim %s found, but not ready", pvc.Name)
-			delete(volumeNamesPVCMap, volumeName)
-		}
-	}
-
-	if len(volumeNamesPVCMap) > 0 || hasContainerDisk {
-		return c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap)
-	}
-	return nil, err
-}
-
 func (c *Controller) createAttachmentPopulateTriggerPodTemplate(volume *v1.Volume, virtlauncherPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
 	claimName := storagetypes.PVCNameFromVirtVolume(volume)
 	if claimName == "" {
@@ -311,74 +130,18 @@ func (c *Controller) createAttachmentPopulateTriggerPodTemplate(volume *v1.Volum
 	return pod, err
 }
 
-func (c *Controller) deleteAllAttachmentPods(vmi *v1.VirtualMachineInstance) error {
-	virtlauncherPod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
-	if err != nil {
-		return err
-	}
-	if virtlauncherPod != nil {
-		attachmentPods, err := controller.AttachmentPods(virtlauncherPod, c.podIndexer)
-		if err != nil {
-			return err
-		}
-		for _, attachmentPod := range attachmentPods {
-			err := c.deleteAttachmentPod(vmi, attachmentPod)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return err
+func canMoveToAttachedPhase(currentPhase v1.VolumePhase) bool {
+	return currentPhase == "" || currentPhase == v1.VolumeBound || currentPhase == v1.VolumePending
+}
+
+func findAttachmentPodByVolumeName(volumeName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
+	for _, pod := range attachmentPods {
+		for _, podVolume := range pod.Spec.Volumes {
+			if podVolume.Name == volumeName {
+				return pod
 			}
 		}
 	}
-	return nil
-}
-
-func (c *Controller) deleteOrphanedAttachmentPods(vmi *v1.VirtualMachineInstance) error {
-	pods, err := c.listPodsFromNamespace(vmi.Namespace)
-	if err != nil {
-		return fmt.Errorf("failed to list pods from namespace %s: %v", vmi.Namespace, err)
-	}
-
-	for _, pod := range pods {
-		if !controller.IsControlledBy(pod, vmi) {
-			continue
-		}
-
-		if !controller.PodIsDown(pod) {
-			continue
-		}
-
-		attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
-		if err != nil {
-			log.Log.Reason(err).Errorf("failed to get attachment pods %s: %v", controller.PodKey(pod), err)
-			// do not return; continue the cleanup...
-			continue
-		}
-
-		for _, attachmentPod := range attachmentPods {
-			if err := c.deleteAttachmentPod(vmi, attachmentPod); err != nil {
-				log.Log.Reason(err).Errorf("failed to delete attachment pod %s: %v", controller.PodKey(attachmentPod), err)
-				// do not return; continue the cleanup...
-			}
-		}
-	}
-
-	return nil
-}
-
-func (c *Controller) deleteAttachmentPod(vmi *v1.VirtualMachineInstance, attachmentPod *k8sv1.Pod) error {
-	if attachmentPod.DeletionTimestamp != nil {
-		return nil
-	}
-
-	vmiKey := controller.VirtualMachineInstanceKey(vmi)
-
-	err := c.deletePod(vmiKey, attachmentPod, metav1.DeleteOptions{
-		GracePeriodSeconds: pointer.P(int64(0)),
-	})
-	if err != nil {
-		c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, controller.FailedDeletePodReason, "Failed to delete attachment pod %s", attachmentPod.Name)
-		return err
-	}
-	c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, controller.SuccessfulDeletePodReason, "Deleted attachment pod %s", attachmentPod.Name)
 	return nil
 }
 
@@ -422,21 +185,4 @@ func podVolumesMatchesReadyVolumes(attachmentPod *k8sv1.Pod, volumes []*v1.Volum
 		delete(podVolumeMap, volume.Name)
 	}
 	return len(podVolumeMap) == 0 && len(containerDisksNames) == 0
-}
-
-func hasPendingPods(pods []*k8sv1.Pod) bool {
-	for _, pod := range pods {
-		if pod.Status.Phase == k8sv1.PodRunning || pod.Status.Phase == k8sv1.PodSucceeded || pod.Status.Phase == k8sv1.PodFailed {
-			continue
-		}
-		return true
-	}
-	return false
-}
-
-func (c *Controller) requeueAfter(oldPods []*k8sv1.Pod, threshold time.Duration) (bool, time.Duration) {
-	if len(oldPods) > 0 && oldPods[0].CreationTimestamp.Time.After(time.Now().Add(-1*threshold)) {
-		return true, threshold - time.Since(oldPods[0].CreationTimestamp.Time)
-	}
-	return false, 0
 }

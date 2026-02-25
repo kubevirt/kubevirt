@@ -82,6 +82,7 @@ const (
 	varCacheLibvirt              = "/var/cache/libvirt"
 	tmp                          = "/tmp"
 	varLibSWTPMLocalCA           = "/var/lib/swtpm-localca"
+	devBusUsb                    = "/dev/bus/usb"
 	varLogVolumeName             = "var-log"
 	etcLibvirtVolumeName         = "etc-libvirt"
 	varLibLibvirtVolumeName      = "var-lib-libvirt"
@@ -89,6 +90,7 @@ const (
 	varRunVolumeName             = "var-run"
 	tmpVolumeName                = "tmp"
 	varLibSWTPMLocalCAVolumeName = "var-lib-swtpm-localca"
+	devBusUsbVolumeName          = "dev-bus-usb"
 )
 
 const KvmDevice = "devices.virtualization.deckhouse.io/kvm"
@@ -154,7 +156,7 @@ type targetAnnotationsGenerator interface {
 type TemplateService interface {
 	RenderMigrationManifest(vmi *v1.VirtualMachineInstance, migration *v1.VirtualMachineInstanceMigration, sourcePod *k8sv1.Pod) (*k8sv1.Pod, error)
 	RenderLaunchManifest(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error)
-	RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
+	RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, resourceClaims []*v1.ResourceClaim, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error)
 	RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error)
 	RenderLaunchManifestNoVm(*v1.VirtualMachineInstance) (*k8sv1.Pod, error)
 	RenderExporterManifest(vmExport *exportv1.VirtualMachineExport, namePrefix string) *k8sv1.Pod
@@ -666,7 +668,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			SchedulerName:                 vmi.Spec.SchedulerName,
 			Tolerations:                   vmi.Spec.Tolerations,
 			TopologySpreadConstraints:     vmi.Spec.TopologySpreadConstraints,
-			ResourceClaims:                vmi.Spec.ResourceClaims,
+			ResourceClaims:                toResourceClaimsWithoutHotplugs(vmi.Spec.ResourceClaims),
 		},
 	}
 
@@ -1002,7 +1004,7 @@ func (t *templateService) containerForHotplugContainerDisk(ctrName, volName stri
 	}
 }
 
-func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {
+func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volume, resourceClaims []*v1.ResourceClaim, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, claimMap map[string]*k8sv1.PersistentVolumeClaim) (*k8sv1.Pod, error) {
 	zero := int64(0)
 	runUser := int64(util.NonRootUID)
 	sharedMount := k8sv1.MountPropagationHostToContainer
@@ -1086,6 +1088,9 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 			DNSPolicy:                     k8sv1.DNSClusterFirstWithHostNet,
 		},
 	}
+
+	t.addHotplugDevices(vmi, pod, resourceClaims)
+
 	first := true
 	for i, vol := range vmi.Spec.Volumes {
 		if vol.ContainerDisk == nil || !vol.ContainerDisk.Hotpluggable {
@@ -1168,6 +1173,38 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
 	}
 
 	return pod, nil
+}
+
+func (t *templateService) addHotplugDevices(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod, resourceClaims []*v1.ResourceClaim) {
+	if !t.clusterConfig.HotplugHostDevicesWithDRAEnabled() {
+		return
+	}
+	podResourceClaims := make([]k8sv1.PodResourceClaim, len(resourceClaims))
+	resourceClaimNames := make(map[string]struct{})
+	for i, resourceClaim := range resourceClaims {
+		podResourceClaims[i] = resourceClaim.PodResourceClaim
+		resourceClaimNames[resourceClaim.Name] = struct{}{}
+	}
+	if len(podResourceClaims) > 0 {
+		pod.Spec.ResourceClaims = podResourceClaims
+	}
+
+	for _, device := range vmi.Spec.Domain.Devices.HostDevices {
+		if _, ok := resourceClaimNames[device.Name]; !ok {
+			continue
+		}
+
+		if device.ClaimRequest == nil || device.ClaimRequest.RequestName == nil {
+			log.Log.Error(fmt.Sprintf("Skipping device %s with no claim request with request name", device.Name))
+			continue
+		}
+
+		pod.Spec.Containers[0].Resources.Claims = append(pod.Spec.Containers[0].Resources.Claims, k8sv1.ResourceClaim{
+			Name:    device.Name,
+			Request: *device.RequestName,
+		})
+	}
+
 }
 
 func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.Volume, ownerPod *k8sv1.Pod, vmi *v1.VirtualMachineInstance, pvcName string, isBlock bool, tempPod bool) (*k8sv1.Pod, error) {
@@ -1698,7 +1735,7 @@ func (t *templateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 			NewVMIResourceRule(isHostDevVMIDevicePlugins, WithHostDevicesDevicePlugins(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(func(vmi *v1.VirtualMachineInstance) bool {
 				return t.clusterConfig.HostDevicesWithDRAEnabled() && isHostDevVMIDRA(vmi)
-			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
+			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices, vmi.Spec.ResourceClaims)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 		},
@@ -1838,4 +1875,14 @@ func isHostDevVMIDRA(vmi *v1.VirtualMachineInstance) bool {
 	}
 
 	return false
+}
+
+func toResourceClaimsWithoutHotplugs(claims []v1.ResourceClaim) []k8sv1.PodResourceClaim {
+	var result []k8sv1.PodResourceClaim
+	for _, claim := range claims {
+		if !claim.Hotpluggable {
+			result = append(result, claim.PodResourceClaim)
+		}
+	}
+	return result
 }

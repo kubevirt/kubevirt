@@ -21,8 +21,10 @@ package dra
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -49,6 +51,7 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
+	watchvmi "kubevirt.io/kubevirt/pkg/virt-controller/watch/vmi"
 )
 
 const (
@@ -65,6 +68,7 @@ const (
 )
 
 type DeviceInfo struct {
+	AttachmentPod      *k8sv1.Pod
 	VMISpecClaimName   string
 	VMISpecRequestName string
 	*v1.DeviceStatusInfo
@@ -145,9 +149,18 @@ func NewDRAStatusController(
 func (c *DRAStatusController) enqueueVirtualMachine(obj interface{}) {
 	vmi := obj.(*v1.VirtualMachineInstance)
 	logger := log.Log.Object(vmi)
+	// When the machine is in the running state, we should only reconcile hotplugged devices, as non-hotplugged ones are reconciled before the VMI starts.
 	if vmi.Status.Phase == v1.Running {
-		logger.V(6).Infof("skipping enqueing vmi to dra status controller queue")
-		return
+		if c.clusterConfig.HotplugHostDevicesWithDRAEnabled() {
+			hotplugResourceClaims := controller.GetHotplugResourceClaims(vmi)
+			if len(hotplugResourceClaims) == 0 {
+				logger.V(6).Infof("skipping enqueuing vmi to dra status controller queue")
+				return
+			}
+		} else {
+			logger.V(6).Infof("skipping enqueing vmi to dra status controller queue")
+			return
+		}
 	}
 
 	key, err := controller.KeyFunc(vmi)
@@ -426,12 +439,12 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *v1.V
 	}
 
 	if c.clusterConfig.HostDevicesWithDRAEnabled() {
-		hostDeviceInfo, err := c.getHostDevicesFromVMISpec(vmi)
+		hostDeviceInfo, err := c.getHostDevicesFromVMISpec(vmi, pod)
 		if err != nil {
 			return err
 		}
 
-		hostDeviceStatuses, err = c.getHostDeviceStatuses(hostDeviceInfo, pod)
+		hostDeviceStatuses, err = c.getHostDeviceStatuses(vmi, hostDeviceInfo, pod)
 		if err != nil {
 			return err
 		}
@@ -480,9 +493,6 @@ func (c *DRAStatusController) updateStatus(logger *log.FilteredLogger, vmi *v1.V
 }
 
 func isPodResourceClaimStatusFilled(logger *log.FilteredLogger, pod *k8sv1.Pod) bool {
-	if pod.Status.ResourceClaimStatuses == nil {
-		return false
-	}
 	if len(pod.Spec.ResourceClaims) != len(pod.Status.ResourceClaimStatuses) {
 		var want, got []string
 		for _, status := range pod.Status.ResourceClaimStatuses {
@@ -543,7 +553,7 @@ func (c *DRAStatusController) getGPUStatus(gpuInfo DeviceInfo, pod *k8sv1.Pod) (
 		return gpuStatus, nil
 	}
 
-	device, err := c.getAllocatedDevice(pod.Namespace, *gpuStatus.DeviceResourceClaimStatus.ResourceClaimName, gpuInfo.VMISpecRequestName)
+	_, device, err := c.getAllocatedDevice(pod.Namespace, *gpuStatus.DeviceResourceClaimStatus.ResourceClaimName, gpuInfo.VMISpecRequestName)
 	if err != nil {
 		return gpuStatus, err
 	}
@@ -552,9 +562,12 @@ func (c *DRAStatusController) getGPUStatus(gpuInfo DeviceInfo, pod *k8sv1.Pod) (
 	}
 
 	gpuStatus.DeviceResourceClaimStatus.Name = &device.Device
-	pciAddress, mDevUUID, usbAddress, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
+	pciAddress, mDevUUID, _, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
 	if err != nil {
 		return gpuStatus, err
+	}
+	if pciAddress == "" && mDevUUID == "" {
+		return gpuStatus, fmt.Errorf("failed to get pciAddress or mdevUUID for gpu %s", gpuInfo.VMISpecClaimName)
 	}
 	attrs := v1.DeviceAttribute{}
 	if pciAddress != "" {
@@ -562,9 +575,6 @@ func (c *DRAStatusController) getGPUStatus(gpuInfo DeviceInfo, pod *k8sv1.Pod) (
 	}
 	if mDevUUID != "" {
 		attrs.MDevUUID = &mDevUUID
-	}
-	if usbAddress != nil {
-		attrs.USBAddress = usbAddress
 	}
 	gpuStatus.DeviceResourceClaimStatus.Attributes = &attrs
 
@@ -577,48 +587,55 @@ func getResourceClaimNameForDevice(claimName string, pod *k8sv1.Pod) *string {
 			return rc.ResourceClaimName
 		}
 	}
+
+	for _, rc := range pod.Spec.ResourceClaims {
+		if rc.Name == claimName {
+			return rc.ResourceClaimName
+		}
+	}
+
 	return nil
 }
 
-func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourceClaimName, requestName string) (*resourcev1.DeviceRequestAllocationResult, error) {
+func (c *DRAStatusController) getAllocatedDevice(resourceClaimNamespace, resourceClaimName, requestName string) (*resourcev1.ResourceClaim, *resourcev1.DeviceRequestAllocationResult, error) {
 	key := controller.NamespacedKey(resourceClaimNamespace, resourceClaimName)
 	obj, exists, err := c.resourceClaimIndexer.GetByKey(key)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if !exists {
-		return nil, fmt.Errorf("resource claim %s does not exist", key)
+		return nil, nil, fmt.Errorf("resource claim %s does not exist", key)
 	}
 	resourceClaim := obj.(*resourcev1.ResourceClaim)
 
 	if resourceClaim.Status.Allocation == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if resourceClaim.Status.Allocation.Devices.Results == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	for _, status := range resourceClaim.Status.Allocation.Devices.Results {
 		if status.Request == requestName {
-			return status.DeepCopy(), nil
+			return resourceClaim, status.DeepCopy(), nil
 		}
 	}
 
-	return nil, nil
+	return nil, nil, nil
+}
+
+func (c *DRAStatusController) getUSBDeviceAttributeFromClaim(claim *resourcev1.ResourceClaim, deviceName string) (*v1.USBAddress, error) {
+	return getUsbDeckhouseVirtualizationDeviceInfos(claim, deviceName)
 }
 
 // getDeviceAttributes returns the pciAddress, mdevUUID, usbAddress of the device. It will return all if found, otherwise it will return empty strings or nil.
 func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, driverName string) (string, string, *v1.USBAddress, error) {
-	resourceSlices, err := c.resourceSliceIndexer.ByIndex(indexByNodeName, nodeName)
+	resourceSlices, err := c.getResourceSlices(nodeName)
 	if err != nil {
 		return "", "", nil, err
 	}
-	if len(resourceSlices) == 0 {
-		return "", "", nil, fmt.Errorf("no resource slice objects found in cache")
-	}
 
-	for _, obj := range resourceSlices {
-		rs := obj.(*resourcev1.ResourceSlice)
+	for _, rs := range resourceSlices {
 		if rs.Spec.Driver == driverName {
 			for _, device := range rs.Spec.Devices {
 				if device.Name == deviceName {
@@ -653,6 +670,36 @@ func (c *DRAStatusController) getDeviceAttributes(nodeName string, deviceName, d
 	return "", "", nil, nil
 }
 
+func (c *DRAStatusController) getResourceSlices(nodeName string) ([]*resourcev1.ResourceSlice, error) {
+	byNode, err := c.resourceSliceIndexer.ByIndex(indexByNodeName, nodeName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get resource slices by node name: %v", err)
+	}
+	shared, err := c.resourceSliceIndexer.ByIndex(indexByNodeName, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get shared resource slices: %v", err)
+	}
+
+	resourceSlices := make([]*resourcev1.ResourceSlice, 0, len(byNode)+len(shared))
+	exists := make(map[string]struct{})
+
+	for _, obj := range byNode {
+		rs := obj.(*resourcev1.ResourceSlice)
+		resourceSlices = append(resourceSlices, rs)
+		exists[rs.Name] = struct{}{}
+	}
+
+	for _, obj := range shared {
+		rs := obj.(*resourcev1.ResourceSlice)
+		if _, ok := exists[rs.Name]; !ok {
+			resourceSlices = append(resourceSlices, rs)
+			exists[rs.Name] = struct{}{}
+		}
+	}
+
+	return resourceSlices, nil
+}
+
 func indexResourceSliceByNodeName(obj interface{}) ([]string, error) {
 	rs, ok := obj.(*resourcev1.ResourceSlice)
 	if !ok {
@@ -664,49 +711,140 @@ func indexResourceSliceByNodeName(obj interface{}) ([]string, error) {
 	return []string{""}, nil
 }
 
-func (c *DRAStatusController) getHostDevicesFromVMISpec(vmi *v1.VirtualMachineInstance) ([]DeviceInfo, error) {
+func (c *DRAStatusController) getHostDevicesFromVMISpec(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) ([]DeviceInfo, error) {
+	attachmentPod, hotplugDevices, err := c.getAttachmentPodAndHotplugDeviceStatuses(vmi, pod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get hotplug device statuses: %v", err)
+	}
+
+	oldDeviceStatuses := make(map[string]v1.DeviceStatusInfo)
+	if vmi.Status.DeviceStatus != nil {
+		for _, deviceStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+			oldDeviceStatuses[deviceStatus.Name] = deviceStatus
+		}
+	}
+
 	var hostDevices []DeviceInfo
 	for _, hostDevice := range vmi.Spec.Domain.Devices.HostDevices {
 		if !drautil.IsHostDeviceDRA(hostDevice) {
 			continue
 		}
 		hostDevices = append(hostDevices, DeviceInfo{
+			AttachmentPod:      attachmentPod,
 			VMISpecClaimName:   *hostDevice.ClaimRequest.ClaimName,
 			VMISpecRequestName: *hostDevice.ClaimRequest.RequestName,
 			DeviceStatusInfo: &v1.DeviceStatusInfo{
 				Name:                      hostDevice.Name,
 				DeviceResourceClaimStatus: nil,
+				Hotplug:                   hotplugDevices[hostDevice.Name],
+
+				Address: oldDeviceStatuses[hostDevice.Name].Address,
+				Phase:   oldDeviceStatuses[hostDevice.Name].Phase,
+				Reason:  oldDeviceStatuses[hostDevice.Name].Reason,
+				Message: oldDeviceStatuses[hostDevice.Name].Message,
 			},
 		})
 	}
 	return hostDevices, nil
 }
 
-func (c *DRAStatusController) getHostDeviceStatuses(hostDeviceInfos []DeviceInfo, pod *k8sv1.Pod) ([]v1.DeviceStatusInfo, error) {
+func (c *DRAStatusController) getHostDeviceStatuses(vmi *v1.VirtualMachineInstance, hostDeviceInfos []DeviceInfo, pod *k8sv1.Pod) ([]v1.DeviceStatusInfo, error) {
 	statuses := make([]v1.DeviceStatusInfo, 0, len(hostDeviceInfos))
 	for _, info := range hostDeviceInfos {
-		st, err := c.getHostDeviceStatus(info, pod)
-		if err != nil {
-			return nil, err
+		if info.Hotplug != nil {
+			if info.AttachmentPod != nil {
+				status, err := c.fillResourceClaimStatus(vmi, info, info.AttachmentPod)
+				if err != nil {
+					return nil, err
+				}
+				if status.DeviceResourceClaimStatus != nil && status.Phase != v1.DeviceAttachedToPod && status.Phase != v1.DeviceReady {
+					status.Phase = v1.DeviceAttachedToNode
+					status.Message = "Device is attached to node"
+					status.Reason = v1.HostDeviceAttachedToNodeReason
+				}
+
+				statuses = append(statuses, status)
+			} else {
+				status := *info.DeviceStatusInfo
+				status.Phase = v1.DevicePending
+				status.Message = "Attachment pod not found"
+				status.Reason = v1.HostDeviceAttachmentPodNotFound
+
+				statuses = append(statuses, status)
+			}
+		} else {
+			status, err := c.fillResourceClaimStatus(vmi, info, pod)
+			if err != nil {
+				return nil, err
+			}
+
+			status.Phase = v1.DeviceReady
+			status.Message = "Device is ready"
+			status.Reason = v1.HostDeviceReadyReason
+
+			statuses = append(statuses, status)
 		}
-		statuses = append(statuses, st)
 	}
+
+	// We have updated the status of current hostDevices, but if a hostDevice was removed, we want to keep that status, until there is no
+	// associated pod, then remove it. Any statuses left in the map are statuses without a matching volume in the spec.
+
+	attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
+	if err != nil {
+		return nil, err
+	}
+
+	statusNames := make(map[string]struct{}, len(statuses))
+	for _, status := range statuses {
+		statusNames[status.Name] = struct{}{}
+	}
+
+	if vmi.Status.DeviceStatus != nil {
+		for _, deviceStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
+			if deviceStatus.Hotplug == nil {
+				continue
+			}
+			if _, exists := statusNames[deviceStatus.Name]; exists {
+				continue
+			}
+
+			attachmentPod := findAttachmentPodByResourceClaimName(deviceStatus.Name, attachmentPods)
+			if attachmentPod != nil {
+				deviceStatus.Hotplug.AttachPodUID = attachmentPod.UID
+				deviceStatus.Hotplug.AttachPodName = attachmentPod.Name
+				deviceStatus.Phase = phaseForUnpluggedHostDevice(deviceStatus.Phase)
+				log.Log.V(3).Infof("Setting phase %s for hostDevice %s", deviceStatus.Phase, deviceStatus.Name)
+				if deviceStatus.Phase == v1.DeviceDetaching && attachmentPod.DeletionTimestamp != nil {
+					deviceStatus.Message = fmt.Sprintf("Deleted hotplug attachment pod %s, for hostDevice %s", attachmentPod.Name, deviceStatus.Name)
+					deviceStatus.Reason = controller.SuccessfulDeletePodReason
+					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, string(deviceStatus.Reason), deviceStatus.Message)
+				}
+
+				statuses = append(statuses, deviceStatus)
+			} else {
+				log.Log.Object(vmi).V(3).Infof("Deleted status for hostDevice %s", deviceStatus.Name)
+			}
+		}
+	}
+
+	sort.SliceStable(statuses, func(i, j int) bool {
+		return strings.Compare(statuses[i].Name, statuses[j].Name) == -1
+	})
+
 	return statuses, nil
 }
 
-func (c *DRAStatusController) getHostDeviceStatus(hostDeviceInfo DeviceInfo, pod *k8sv1.Pod) (v1.DeviceStatusInfo, error) {
-	hostDeviceStatus := v1.DeviceStatusInfo{
-		Name: hostDeviceInfo.Name,
-		DeviceResourceClaimStatus: &v1.DeviceResourceClaimStatus{
-			ResourceClaimName: getResourceClaimNameForDevice(hostDeviceInfo.VMISpecClaimName, pod),
-		},
+func (c *DRAStatusController) fillResourceClaimStatus(vmi *v1.VirtualMachineInstance, hostDeviceInfo DeviceInfo, pod *k8sv1.Pod) (v1.DeviceStatusInfo, error) {
+	hostDeviceStatus := *hostDeviceInfo.DeviceStatusInfo
+	hostDeviceStatus.DeviceResourceClaimStatus = &v1.DeviceResourceClaimStatus{
+		ResourceClaimName: getResourceClaimNameForDevice(hostDeviceInfo.VMISpecClaimName, pod),
 	}
 
 	if hostDeviceStatus.DeviceResourceClaimStatus.ResourceClaimName == nil {
 		return hostDeviceStatus, nil
 	}
 
-	device, err := c.getAllocatedDevice(pod.Namespace, *hostDeviceStatus.DeviceResourceClaimStatus.ResourceClaimName, hostDeviceInfo.VMISpecRequestName)
+	claim, device, err := c.getAllocatedDevice(pod.Namespace, *hostDeviceStatus.DeviceResourceClaimStatus.ResourceClaimName, hostDeviceInfo.VMISpecRequestName)
 	if err != nil {
 		return hostDeviceStatus, err
 	}
@@ -715,10 +853,13 @@ func (c *DRAStatusController) getHostDeviceStatus(hostDeviceInfo DeviceInfo, pod
 	}
 
 	hostDeviceStatus.DeviceResourceClaimStatus.Name = &device.Device
+
 	pciAddress, mDevUUID, usbAddress, err := c.getDeviceAttributes(pod.Spec.NodeName, device.Device, device.Driver)
 	if err != nil {
 		return hostDeviceStatus, err
+
 	}
+
 	attrs := v1.DeviceAttribute{}
 	if pciAddress != "" {
 		attrs.PCIAddress = &pciAddress
@@ -727,11 +868,69 @@ func (c *DRAStatusController) getHostDeviceStatus(hostDeviceInfo DeviceInfo, pod
 		attrs.MDevUUID = &mDevUUID
 	}
 	if usbAddress != nil {
+		// replace usbaddress from annotation
+		usbAddress, err = c.getUSBDeviceAttributeFromClaim(claim, device.Device)
+		if err != nil {
+			return hostDeviceStatus, fmt.Errorf("failed to get usb address for host device %s: %w", device.Device, err)
+		}
+		if usbAddress == nil {
+			key, err := controller.KeyFunc(vmi)
+			if err != nil {
+				log.Log.Object(vmi).Object(vmi).Reason(err).Error("Failed to extract key from VirtualMachineInstance.")
+				return hostDeviceStatus, err
+			}
+			c.queue.AddAfter(key, time.Second*5)
+		}
 		attrs.USBAddress = usbAddress
 	}
 	hostDeviceStatus.DeviceResourceClaimStatus.Attributes = &attrs
 
 	return hostDeviceStatus, nil
+}
+
+func (c *DRAStatusController) getAttachmentPodAndHotplugDeviceStatuses(vmi *v1.VirtualMachineInstance, pod *k8sv1.Pod) (*k8sv1.Pod, map[string]*v1.HotplugDeviceStatus, error) {
+	if !c.clusterConfig.HotplugHostDevicesWithDRAEnabled() {
+		return nil, nil, nil
+	}
+
+	hotplugDevices := make(map[string]*v1.HotplugDeviceStatus)
+
+	hotplugResourceClaims := controller.GetHotplugResourceClaims(vmi)
+	hotplugResourceClaimsSet := make(map[string]struct{})
+	for _, resourceClaim := range hotplugResourceClaims {
+		hotplugResourceClaimsSet[resourceClaim.Name] = struct{}{}
+	}
+
+	attachmentPods, err := controller.AttachmentPods(pod, c.podIndexer)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	activeAttachmentPod, _ := watchvmi.GetActiveAndOldAttachmentPodsForResourceClaims(hotplugResourceClaims, attachmentPods)
+
+	for _, resourceClaim := range vmi.Spec.ResourceClaims {
+		if _, ok := hotplugResourceClaimsSet[resourceClaim.Name]; ok {
+			hotplug := &v1.HotplugDeviceStatus{}
+
+			if activeAttachmentPod != nil {
+				hotplug.AttachPodName = activeAttachmentPod.Name
+				var isReady bool
+				for _, cs := range activeAttachmentPod.Status.ContainerStatuses {
+					// TODO: remove -disk suffix in the future. Initially, hotplug was only for disks, but now it's for resource claims too.
+					if cs.Name == "d8v-hotplug-disk" {
+						isReady = cs.Ready
+						break
+					}
+				}
+				if isReady {
+					hotplug.AttachPodUID = activeAttachmentPod.UID
+				}
+			}
+			hotplugDevices[resourceClaim.Name] = hotplug
+		}
+	}
+
+	return activeAttachmentPod, hotplugDevices, nil
 }
 
 func resolveUSBAddress(usbAddress string) (*v1.USBAddress, error) {
@@ -754,4 +953,55 @@ func resolveUSBAddress(usbAddress string) (*v1.USBAddress, error) {
 		Bus:          int64(bus),
 		DeviceNumber: int64(deviceNumber),
 	}, nil
+}
+
+type usbDeckhouseVirtualizationDeviceInfo struct {
+	DeviceName string `json:"deviceName"`
+	UsbAddress string `json:"usbAddress"`
+}
+
+func getUsbDeckhouseVirtualizationDeviceInfos(claim *resourcev1.ResourceClaim, deviceName string) (*v1.USBAddress, error) {
+	const annUSBDeviceAddresses = "usb.virtualization.deckhouse.io/device-addresses"
+
+	anno, ok := claim.Annotations[annUSBDeviceAddresses]
+	if ok {
+		var usbGatewayDevices []usbDeckhouseVirtualizationDeviceInfo
+		err := json.Unmarshal([]byte(anno), &usbGatewayDevices)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal annotation: %w", err)
+		}
+
+		for _, dev := range usbGatewayDevices {
+			if dev.DeviceName == deviceName {
+				usbAddress, err := resolveUSBAddress(dev.UsbAddress)
+				if err != nil {
+					return nil, err
+				}
+				return usbAddress, nil
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func findAttachmentPodByResourceClaimName(resourceClaimName string, attachmentPods []*k8sv1.Pod) *k8sv1.Pod {
+	for _, pod := range attachmentPods {
+		for _, podResourceClaim := range pod.Spec.ResourceClaims {
+			if podResourceClaim.Name == resourceClaimName {
+				return pod
+			}
+		}
+	}
+	return nil
+}
+
+func phaseForUnpluggedHostDevice(phase v1.DevicePhase) v1.DevicePhase {
+	switch phase {
+	case v1.DeviceReady:
+		return v1.DeviceReady
+	case v1.DeviceAttachedToPod:
+		return v1.DeviceAttachedToPod
+	}
+	return v1.DeviceDetaching
 }

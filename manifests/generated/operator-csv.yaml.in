@@ -639,6 +639,8 @@ spec:
           resources:
           - virtualmachines/addvolume
           - virtualmachines/removevolume
+          - virtualmachines/addresourceclaim
+          - virtualmachines/removeresourceclaim
           verbs:
           - update
         - apiGroups:
@@ -647,6 +649,8 @@ spec:
           - virtualmachines/stop
           - virtualmachineinstances/addvolume
           - virtualmachineinstances/removevolume
+          - virtualmachineinstances/addresourceclaim
+          - virtualmachineinstances/removeresourceclaim
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/reset
@@ -931,6 +935,8 @@ spec:
           - virtualmachineinstances/unpause
           - virtualmachineinstances/addvolume
           - virtualmachineinstances/removevolume
+          - virtualmachineinstances/addresourceclaim
+          - virtualmachineinstances/removeresourceclaim
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
@@ -954,6 +960,8 @@ spec:
           - virtualmachines/restart
           - virtualmachines/addvolume
           - virtualmachines/removevolume
+          - virtualmachines/addresourceclaim
+          - virtualmachines/removeresourceclaim
           - virtualmachines/memorydump
           verbs:
           - update
@@ -1089,6 +1097,8 @@ spec:
           - virtualmachineinstances/unpause
           - virtualmachineinstances/addvolume
           - virtualmachineinstances/removevolume
+          - virtualmachineinstances/addresourceclaim
+          - virtualmachineinstances/removeresourceclaim
           - virtualmachineinstances/freeze
           - virtualmachineinstances/unfreeze
           - virtualmachineinstances/softreboot
@@ -1112,6 +1122,8 @@ spec:
           - virtualmachines/restart
           - virtualmachines/addvolume
           - virtualmachines/removevolume
+          - virtualmachines/addresourceclaim
+          - virtualmachines/removeresourceclaim
           - virtualmachines/memorydump
           verbs:
           - update

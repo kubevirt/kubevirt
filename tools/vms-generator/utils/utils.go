@@ -27,6 +27,7 @@ import (
 	resourcev1beta1 "k8s.io/api/resource/v1beta1"
 
 	"k8s.io/apimachinery/pkg/util/rand"
+
 	"kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -35,10 +36,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
 	v1 "kubevirt.io/api/core/v1"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	poolv1 "kubevirt.io/api/pool/v1alpha1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -1013,11 +1015,13 @@ func getDRAGPUDevice(claimName string) []v1.GPU {
 	}
 }
 
-func getDRAGPUPodResourceClaims() []k8sv1.PodResourceClaim {
-	return []k8sv1.PodResourceClaim{
+func getDRAGPUPodResourceClaims() []v1.ResourceClaim {
+	return []v1.ResourceClaim{
 		{
-			Name:                      DRAResourceClaimName,
-			ResourceClaimTemplateName: pointer.P(ResourceClaimTemplatePGPU),
+			PodResourceClaim: k8sv1.PodResourceClaim{
+				Name:                      DRAResourceClaimName,
+				ResourceClaimTemplateName: pointer.P(ResourceClaimTemplatePGPU),
+			},
 		},
 	}
 }

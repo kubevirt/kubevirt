@@ -37,6 +37,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
+
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
@@ -51,7 +53,6 @@ import (
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cli"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/sriov"
 	domainerrors "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/errors"
 	convxml "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/libvirtxml"
@@ -128,20 +129,18 @@ func hotUnplugHostDevices(virConn cli.Connection, dom cli.VirDomain) error {
 		return err
 	}
 
-	eventChan := make(chan interface{}, hostdevice.MaxConcurrentHotPlugDevicesEvents)
-	var callback libvirt.DomainEventDeviceRemovedCallback = func(c *libvirt.Connect, d *libvirt.Domain, event *libvirt.DomainEventDeviceRemoved) {
-		eventChan <- event.DevAlias
-	}
+	var hostDevices []api.HostDevice
 
-	if domainEvent := cli.NewDomainEventDeviceRemoved(virConn, dom, callback, eventChan); domainEvent != nil {
-		const waitForDetachTimeout = 30 * time.Second
-		err := sriov.SafelyDetachHostDevices(domainSpec, domainEvent, dom, waitForDetachTimeout)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	sriovDevices := sriov.FilterSRIOVHostDevicesByAlias(domainSpec.Devices.HostDevices)
+	hostDevices = append(hostDevices, sriovDevices...)
+
+	usbDevices := dra.FilterUSBHostDevicesByAlias(domainSpec.Devices.HostDevices, true)
+	hostDevices = append(hostDevices, usbDevices...)
+
+	err = safelyDetachHostDevices(hostDevices, virConn, dom)
+	return err
 }
+
 func generateDomainForTargetCPUSetAndTopology(vmi *v1.VirtualMachineInstance, domSpec *api.DomainSpec) (*api.Domain, error) {
 	var targetTopology cmdv1.Topology
 	targetNodeCPUSet := vmi.Status.MigrationState.TargetCPUSet

@@ -393,6 +393,8 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 				Resources: []string{
 					"virtualmachines/addvolume",
 					"virtualmachines/removevolume",
+					"virtualmachines/addresourceclaim",
+					"virtualmachines/removeresourceclaim",
 				},
 				Verbs: []string{
 					"update",
@@ -406,6 +408,8 @@ func newControllerClusterRole() *rbacv1.ClusterRole {
 					"virtualmachines/stop",
 					"virtualmachineinstances/addvolume",
 					"virtualmachineinstances/removevolume",
+					"virtualmachineinstances/addresourceclaim",
+					"virtualmachineinstances/removeresourceclaim",
 					"virtualmachineinstances/freeze",
 					"virtualmachineinstances/unfreeze",
 					"virtualmachineinstances/reset",

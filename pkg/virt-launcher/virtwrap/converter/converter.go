@@ -1799,6 +1799,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	}
 	if c.Architecture.IsUSBNeeded(vmi) {
 		usbController.Model = "qemu-xhci"
+		usbController.Ports = pointer.P(uint(15))
 	}
 	domain.Spec.Devices.Controllers = append(domain.Spec.Devices.Controllers, usbController)
 

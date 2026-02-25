@@ -58,6 +58,8 @@ type VirtualMachineInstanceExpansion interface {
 	ObjectGraph(ctx context.Context, name string, objectGraphOptions *v1.ObjectGraphOptions) (v1.ObjectGraphNode, error)
 	AddVolume(ctx context.Context, name string, addVolumeOptions *v1.AddVolumeOptions) error
 	RemoveVolume(ctx context.Context, name string, removeVolumeOptions *v1.RemoveVolumeOptions) error
+	AddResourceClaim(ctx context.Context, name string, addResourceClaimOptions *v1.AddResourceClaimOptions) error
+	RemoveResourceClaim(ctx context.Context, name string, removeResourceClaimOptions *v1.RemoveResourceClaimOptions) error
 	VSOCK(name string, options *v1.VSOCKOptions) (StreamInterface, error)
 	SEVFetchCertChain(ctx context.Context, name string) (v1.SEVPlatformInfo, error)
 	SEVQueryLaunchMeasurement(ctx context.Context, name string) (v1.SEVMeasurementInfo, error)
@@ -398,5 +400,39 @@ func (c *virtualMachineInstances) SEVInjectLaunchSecret(ctx context.Context, nam
 		SubResource("sev", "injectlaunchsecret").
 		Body(body).
 		Do(context.Background()).
+		Error()
+}
+
+func (c *virtualMachineInstances) AddResourceClaim(ctx context.Context, name string, addResourceClaimOptions *v1.AddResourceClaimOptions) error {
+	body, err := json.Marshal(addResourceClaimOptions)
+	if err != nil {
+		return err
+	}
+
+	return c.GetClient().Put().
+		AbsPath(vmiSubresourceVirtualizationURL).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachines").
+		Name(name).
+		SubResource("addresourceclaim").
+		Body(body).
+		Do(ctx).
+		Error()
+}
+
+func (c *virtualMachineInstances) RemoveResourceClaim(ctx context.Context, name string, removeResourceClaimOptions *v1.RemoveResourceClaimOptions) error {
+	body, err := json.Marshal(removeResourceClaimOptions)
+	if err != nil {
+		return err
+	}
+
+	return c.GetClient().Put().
+		AbsPath(vmiSubresourceVirtualizationURL).
+		Namespace(c.GetNamespace()).
+		Resource("virtualmachines").
+		Name(name).
+		SubResource("removeresourceclaim").
+		Body(body).
+		Do(ctx).
 		Error()
 }

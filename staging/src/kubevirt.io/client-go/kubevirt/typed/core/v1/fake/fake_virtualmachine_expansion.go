@@ -111,3 +111,17 @@ func (c *FakeVirtualMachines) ObjectGraph(ctx context.Context, name string, obje
 
 	return *obj.(*v1.ObjectGraphNode), err
 }
+
+func (c *FakeVirtualMachines) AddResourceClaim(ctx context.Context, name string, addResourceClaimOptions *v1.AddResourceClaimOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "addresourceclaim", name, addResourceClaimOptions), nil)
+
+	return err
+}
+
+func (c *FakeVirtualMachines) RemoveResourceClaim(ctx context.Context, name string, removeResourceClaimOptions *v1.RemoveResourceClaimOptions) error {
+	_, err := c.Fake.
+		Invokes(fake2.NewPutSubresourceAction(virtualmachinesResource, c.ns, "removeresourceclaim", name, removeResourceClaimOptions), nil)
+
+	return err
+}

@@ -167,6 +167,13 @@ func (admitter *VMsAdmitter) Admit(ctx context.Context, ar *admissionv1.Admissio
 		return webhookutils.ToAdmissionResponse(causes)
 	}
 
+	causes, err = admitter.validateResourceClaimRequests(ctx, &vm)
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	} else if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
 	isDryRun := ar.Request.DryRun != nil && *ar.Request.DryRun
 	if !isDryRun && ar.Request.Operation == admissionv1.Create {
 		metrics.NewVMCreated(&vm)
@@ -190,6 +197,13 @@ func (admitter *VMsAdmitter) AdmitStatus(ctx context.Context, ar *admissionv1.Ad
 	}
 
 	causes, err := admitter.validateVolumeRequests(ctx, vm)
+	if err != nil {
+		return webhookutils.ToAdmissionResponseError(err)
+	} else if len(causes) > 0 {
+		return webhookutils.ToAdmissionResponse(causes)
+	}
+
+	causes, err = admitter.validateResourceClaimRequests(ctx, vm)
 	if err != nil {
 		return webhookutils.ToAdmissionResponseError(err)
 	} else if len(causes) > 0 {
@@ -509,6 +523,212 @@ func validateHotplugDiskConfiguration(disk *v1.Disk, name, messagePrefix, field 
 		return []metav1.StatusCause{{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("%s for [%s] requires virtio bus for IOThreads.", messagePrefix, name),
+			Field:   field,
+		}}
+	}
+
+	return nil
+}
+
+func (admitter *VMsAdmitter) validateResourceClaimRequests(ctx context.Context, vm *v1.VirtualMachine) ([]metav1.StatusCause, error) {
+	if len(vm.Status.ResourceClaimRequests) == 0 {
+		return nil, nil
+	}
+
+	curVMAddRequestsMap := make(map[string]*v1.VirtualMachineResourceClaimRequest)
+	curVMRemoveRequestsMap := make(map[string]*v1.VirtualMachineResourceClaimRequest)
+
+	vmResourceClaimMap := make(map[string]v1.ResourceClaim)
+	vmiResourceClaimMap := make(map[string]v1.ResourceClaim)
+
+	vmi := &v1.VirtualMachineInstance{}
+	vmiExists := false
+
+	// get VMI if vm is active
+	if vm.Status.Ready {
+		var err error
+
+		vmi, err = admitter.VirtClient.VirtualMachineInstance(vm.Namespace).Get(ctx, vm.Name, metav1.GetOptions{})
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, err
+		} else if err == nil && vmi.DeletionTimestamp == nil {
+			// ignore validating the vmi if it is being deleted
+			vmiExists = true
+		}
+	}
+
+	if vmiExists {
+		for _, resourceClaim := range vmi.Spec.ResourceClaims {
+			vmiResourceClaimMap[resourceClaim.Name] = resourceClaim
+		}
+	}
+
+	for _, resourceClaim := range vm.Spec.Template.Spec.ResourceClaims {
+		vmResourceClaimMap[resourceClaim.Name] = resourceClaim
+	}
+
+	newSpec := vm.Spec.Template.Spec.DeepCopy()
+	for _, resourceClaimRequest := range vm.Status.ResourceClaimRequests {
+		resourceClaimRequest := resourceClaimRequest
+
+		if resourceClaimRequest.AddResourceClaimOptions != nil && resourceClaimRequest.RemoveResourceClaimOptions != nil {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "ResourceClaimRequests require either addResourceClaimOptions or removeResourceClaimOptions to be set, not both",
+				Field:   k8sfield.NewPath("Status", "resourceClaimRequests").String(),
+			}}, nil
+		} else if resourceClaimRequest.AddResourceClaimOptions != nil {
+			name := resourceClaimRequest.AddResourceClaimOptions.Name
+
+			_, ok := curVMAddRequestsMap[name]
+			if ok {
+				return []metav1.StatusCause{{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("AddResourceClaim request for [%s] aleady exists", name),
+					Field:   k8sfield.NewPath("Status", "resourceClaimRequests").String(),
+				}}, nil
+			}
+
+			// Validate the host device is configured properly
+			invalidHostDeviceStatusCause := validateHotplugHostDeviceConfiguration(
+				resourceClaimRequest.AddResourceClaimOptions.HostDevice, name,
+				"AddResourceClaim request",
+				k8sfield.NewPath("Status", "resourceClaimRequests").String(),
+			)
+			if invalidHostDeviceStatusCause != nil {
+				return invalidHostDeviceStatusCause, nil
+			}
+
+			newResourceClaim := v1.ResourceClaim{}
+			if resourceClaimRequest.AddResourceClaimOptions.ResourceClaim != nil {
+				newResourceClaim = *resourceClaimRequest.AddResourceClaimOptions.ResourceClaim
+			}
+
+			vmResourceClaim, ok := vmResourceClaimMap[name]
+			if ok && !equality.Semantic.DeepEqual(newResourceClaim, vmResourceClaim) {
+				return []metav1.StatusCause{{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("AddResourceClaim request for [%s] conflicts with an existing resource claim of the same name on the vmi template.", name),
+					Field:   k8sfield.NewPath("Status", "resourceClaimRequests").String(),
+				}}, nil
+			}
+
+			vmiResourceClaim, ok := vmiResourceClaimMap[name]
+			if ok && !equality.Semantic.DeepEqual(newResourceClaim, vmiResourceClaim) {
+				return []metav1.StatusCause{{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("AddResourceClaim request for [%s] conflicts with an existing resource claim of the same name on currently running vmi", name),
+					Field:   k8sfield.NewPath("Status", "resourceClaimRequests").String(),
+				}}, nil
+			}
+
+			curVMAddRequestsMap[name] = &resourceClaimRequest
+
+		} else if resourceClaimRequest.RemoveResourceClaimOptions != nil {
+			name := resourceClaimRequest.RemoveResourceClaimOptions.Name
+
+			_, ok := curVMRemoveRequestsMap[name]
+			if ok {
+				return []metav1.StatusCause{{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: fmt.Sprintf("RemoveResourceClaim request for [%s] aleady exists", name),
+					Field:   k8sfield.NewPath("Status", "resourceClaimRequests").String(),
+				}}, nil
+			}
+
+			curVMRemoveRequestsMap[name] = &resourceClaimRequest
+		} else {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueInvalid,
+				Message: "ResourceClaimRequests require one of either addResourceClaimOptions or removeResourceClaimOptions to be set",
+				Field:   k8sfield.NewPath("Status", "resourceClaimRequests").String(),
+			}}, nil
+		}
+		newSpec = controller.ApplyResourceClaimRequestOnVMISpec(newSpec, &resourceClaimRequest)
+
+		if vmiExists {
+			vmi.Spec = *controller.ApplyResourceClaimRequestOnVMISpec(&vmi.Spec, &resourceClaimRequest)
+		}
+	}
+
+	// this simulates injecting the changes into the VMI template and validates it will work.
+	causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec", "template", "spec"), newSpec, admitter.ClusterConfig)
+	if len(causes) > 0 {
+		return causes, nil
+	}
+
+	// This simulates injecting the changes directly into the vmi, if the vmi exists
+	if vmiExists {
+		causes := ValidateVirtualMachineInstanceSpec(k8sfield.NewPath("spec", "template", "spec"), &vmi.Spec, admitter.ClusterConfig)
+		if len(causes) > 0 {
+			return causes, nil
+		}
+
+		if migrationutil.IsMigrating(vmi) {
+			return []metav1.StatusCause{{
+				Type:    metav1.CauseTypeFieldValueNotSupported,
+				Message: fmt.Sprintf("Cannot handle resource claim requests while VMI migration is in progress"),
+				Field:   k8sfield.NewPath("spec").String(),
+			}}, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func validateHotplugHostDeviceConfiguration(hostDevice *v1.HostDevice, name, messagePrefix, field string) []metav1.StatusCause {
+	if hostDevice == nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] requires the hostDevice field to be set.", messagePrefix, name),
+			Field:   field,
+		}}
+	}
+
+	if hostDevice.Name == "" {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] requires the hostDevice.name field to be set.", messagePrefix, name),
+			Field:   field,
+		}}
+	}
+
+	if hostDevice.DeviceName != "" {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] requires the hostDevice.deviceName field to be empty.", messagePrefix, name),
+			Field:   field,
+		}}
+	}
+
+	if hostDevice.Tag != "" {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] requires the hostDevice.tag field to be empty.", messagePrefix, name),
+			Field:   field,
+		}}
+	}
+
+	if hostDevice.ClaimRequest == nil {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] requires the claimRequest field to be set.", messagePrefix, name),
+			Field:   field,
+		}}
+	}
+
+	if hostDevice.ClaimRequest.ClaimName == nil || *hostDevice.ClaimRequest.ClaimName == "" {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] requires the claimRequest.claimName field to be set.", messagePrefix, name),
+			Field:   field,
+		}}
+	}
+
+	if hostDevice.ClaimRequest.RequestName == nil || *hostDevice.ClaimRequest.RequestName == "" {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: fmt.Sprintf("%s for [%s] requires the claimRequest.requestName field to be set.", messagePrefix, name),
 			Field:   field,
 		}}
 	}
