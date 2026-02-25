@@ -25,11 +25,13 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 )
 
 var _ = Describe("Network", func() {
 	podNetwork := createPodNetwork("default")
+	draNetwork := *libvmi.DRANetwork("dra-net", "sriov", "vf1")
 	multusDefaultNetwork := createMultusDefaultNetwork("network0", "default/nad0")
 	multusSecondaryNetwork1 := createMultusSecondaryNetwork("network1", "default/nad1")
 	multusSecondaryNetwork2 := createMultusSecondaryNetwork("network2", "default/nad2")
@@ -58,11 +60,21 @@ var _ = Describe("Network", func() {
 			}),
 	)
 
+	DescribeTable("should detect whether any network uses DRA", func(inputNetworks []v1.Network, expected bool) {
+		Expect(vmispec.HasNetworkDRA(inputNetworks)).To(Equal(expected))
+	},
+		Entry("when there are no networks", []v1.Network{}, false),
+		Entry("when there are only pod and multus networks", []v1.Network{podNetwork, multusSecondaryNetwork1}, false),
+		Entry("when there is a DRA network", []v1.Network{podNetwork, draNetwork}, true),
+	)
+
 	DescribeTable("should fail to return the default network", func(inputNetworks []v1.Network) {
 		Expect(vmispec.LookUpDefaultNetwork(inputNetworks)).To(BeNil())
 	},
 		Entry("when there are no networks", []v1.Network{}),
 		Entry("when there are no default networks", []v1.Network{multusSecondaryNetwork1, multusSecondaryNetwork2}),
+		Entry("when there is only a DRA network", []v1.Network{draNetwork}),
+		Entry("when there are only DRA and secondary Multus networks", []v1.Network{draNetwork, multusSecondaryNetwork1}),
 	)
 	DescribeTable("should succeed to return the default network", func(inputNetworks []v1.Network, expectNetwork *v1.Network) {
 		Expect(vmispec.LookUpDefaultNetwork(inputNetworks)).To(Equal(expectNetwork))
@@ -82,6 +94,14 @@ var _ = Describe("Network", func() {
 				multusSecondaryNetwork2,
 			},
 			&multusDefaultNetwork,
+		),
+		Entry("when a DRA network appears before pod network",
+			[]v1.Network{
+				draNetwork,
+				podNetwork,
+				multusSecondaryNetwork1,
+			},
+			&podNetwork,
 		),
 	)
 })
