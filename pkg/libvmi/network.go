@@ -20,6 +20,8 @@
 package libvmi
 
 import (
+	k8sv1 "k8s.io/api/core/v1"
+
 	kvirtv1 "kubevirt.io/api/core/v1"
 )
 
@@ -141,6 +143,16 @@ func DRANetwork(name, claimName, requestName string) *kvirtv1.Network {
 				RequestName: requestName,
 			},
 		},
+	}
+}
+
+// WithResourceClaimTemplate adds a ResourceClaim reference using a template
+func WithResourceClaimTemplate(claimName, templateName string) Option {
+	return func(vmi *kvirtv1.VirtualMachineInstance) {
+		vmi.Spec.ResourceClaims = append(vmi.Spec.ResourceClaims, k8sv1.PodResourceClaim{
+			Name:                      claimName,
+			ResourceClaimTemplateName: &templateName,
+		})
 	}
 }
 
