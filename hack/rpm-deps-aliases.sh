@@ -39,6 +39,9 @@ TARGETS=(
     "sidecar-shim_x86_64"
     "sidecar-shim_aarch64"
     "sidecar-shim_s390x"
+    "libnbd-devel_x86_64"
+    "libnbd-devel_aarch64"
+    "libnbd-devel_s390x"
 )
 
 BUILD_FILE="${KUBEVIRT_DIR}/rpm/BUILD.bazel"

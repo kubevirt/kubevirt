@@ -3547,6 +3547,8 @@ kubevirt.io/virt-template-client-go v0.1.7 h1:J2or5doHPZPFus2Ut9V2DA8FnbQnOjHkBT
 kubevirt.io/virt-template-client-go v0.1.7/go.mod h1:yLp4S9oImEHhdK91cB/byg7p3q1GD62jxcJJqqntkc8=
 kubevirt.io/virt-template-engine v0.1.7 h1:hNW4k2xk+FbettTcxaJwkbmqoRk4bYSbZWI4od6i1VY=
 kubevirt.io/virt-template-engine v0.1.7/go.mod h1:8lMdQGbOVOM9N8R9W9C1HFghX3S0wmg19zp97l/4fyY=
+libguestfs.org/libnbd v1.25.2-5-g48df7c4d2b h1:+d9r0xLy2N3OhCQNTbxIfq6lfa75POVcZaKm44WCoac=
+libguestfs.org/libnbd v1.25.2-5-g48df7c4d2b/go.mod h1:pSICAuDOpSGplmGmaZ8QettnBAT3IUJFcBU1bVgWgk4=
 libvirt.org/go/libvirt v1.11005.0 h1:3ff08ii8h9XSe0OPmTCSUJ/3Nj+ssCAYhC6MK6ppwow=
 libvirt.org/go/libvirt v1.11005.0/go.mod h1:1WiFE8EjZfq+FCVog+rvr1yatKbKZ9FaFMZgEqxEJqQ=
 libvirt.org/go/libvirtxml v1.11000.1 h1:xbqKCYJRr3QPamY0PKE/exAGgTCosH5s4vB6NPXGcFY=

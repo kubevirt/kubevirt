@@ -27,6 +27,7 @@ if [ "${KUBEVIRT_CENTOS_STREAM_VERSION}" = "10" ]; then
     PASST_VERSION=${PASST_VERSION:-}
     VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-}
     SWTPM_VERSION=${SWTPM_VERSION:-}
+    LIBNBD_VERSION=${LIBNBD_VERSION:-}
 else
     # CS9 defaults (current pinned versions)
     LIBVIRT_VERSION=${LIBVIRT_VERSION:-0:11.9.0-1.el9}
@@ -38,6 +39,7 @@ else
     PASST_VERSION=${PASST_VERSION:-0:0^20250512.g8ec1341-2.el9}
     VIRTIOFSD_VERSION=${VIRTIOFSD_VERSION:-0:1.13.0-1.el9}
     SWTPM_VERSION=${SWTPM_VERSION:-0:0.8.0-2.el9}
+    LIBNBD_VERSION=${LIBNBD_VERSION:-0:1.20.3-4.el9}
 fi
 
 SINGLE_ARCH=${SINGLE_ARCH:-""}
@@ -124,6 +126,11 @@ libvirtdevel_extra="
   lz4-libs
 "
 
+# create a rpmtree for libnbd-devel.
+libnbddevel_main="
+  libnbd-devel-${LIBNBD_VERSION}
+"
+
 # TODO: Remove the sssd-client and use a better sssd config
 # This requires a way to inject files into the sandbox via bazeldnf
 sandboxroot_main="
@@ -171,6 +178,7 @@ launcherbase_extra="
   tar
   virtiofsd-${VIRTIOFSD_VERSION}
   xorriso
+  libnbd-${LIBNBD_VERSION}
 "
 
 handlerbase_main="
@@ -250,6 +258,17 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         $centos_extra \
         $libvirtdevel_main \
         $libvirtdevel_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libnbd-devel_x86_64${TARGET_SUFFIX} \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libnbddevel_main
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -363,6 +382,11 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "x86_64" ]; then
         --config=${CS_CONFIG} \
         //rpm:ldd_x86_64${TARGET_SUFFIX}
 
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_libnbd_x86_64${TARGET_SUFFIX}
+
     # Note: sandbox regeneration is done separately after all targets are generated
     # by calling hack/regenerate-sandboxes.sh
 fi
@@ -392,6 +416,17 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         $centos_extra \
         $libvirtdevel_main \
         $libvirtdevel_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libnbd-devel_aarch64${TARGET_SUFFIX} --arch aarch64 \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libnbddevel_main
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -487,6 +522,11 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "aarch64" ]; then
         --config=${CS_CONFIG} \
         //rpm:ldd_aarch64${TARGET_SUFFIX}
 
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_libnbd_aarch64${TARGET_SUFFIX}
+
     # Note: sandbox regeneration is done separately
 fi
 
@@ -515,6 +555,17 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         $centos_extra \
         $libvirtdevel_main \
         $libvirtdevel_extra
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        //:bazeldnf -- rpmtree \
+        --public --nobest \
+        --name libnbd-devel_s390x${TARGET_SUFFIX} --arch s390x \
+        --basesystem ${BASESYSTEM} \
+        ${bazeldnf_repos} \
+        $centos_main \
+        $centos_extra \
+        $libnbddevel_main
 
     bazel run \
         --config=${ARCHITECTURE} \
@@ -616,6 +667,11 @@ if [ -z "${SINGLE_ARCH}" ] || [ "${SINGLE_ARCH}" == "s390x" ]; then
         --config=${ARCHITECTURE} \
         --config=${CS_CONFIG} \
         //rpm:ldd_s390x${TARGET_SUFFIX}
+
+    bazel run \
+        --config=${ARCHITECTURE} \
+        --config=${CS_CONFIG} \
+        //rpm:ldd_libnbd_s390x${TARGET_SUFFIX}
 
     # Note: sandbox regeneration is done separately
 fi
