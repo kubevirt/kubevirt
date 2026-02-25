@@ -237,8 +237,6 @@ type VirtualMachineInstanceStatus struct {
 	// A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'
 	// +optional
 	Reason VirtualMachineInstanceReason `json:"reason,omitempty"`
-	// A brief CamelCase message indicating details about how the machine shutdown was initiated.
-	ShutdownInitiatedBy VirtualMachineInstanceShutdownInitiatedBy `json:"shutdownInitiatedBy,omitempty"`
 	// Conditions are specific points in VirtualMachineInstance's pod runtime.
 	Conditions []VirtualMachineInstanceCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.
@@ -340,7 +338,7 @@ type VirtualMachineInstanceStatus struct {
 	ChangedBlockTracking *ChangedBlockTrackingStatus `json:"changedBlockTracking,omitempty" optional:"true"`
 }
 
-// VirtualMachineInstanceReason is a label for the condition of a VirtualMachineInstance at the current time.
+// VirtualMachineInstanceReason is a label for the reason of the state of a VirtualMachineInstance.
 type VirtualMachineInstanceReason string
 
 // These are the valid reasons of vmis.
@@ -352,31 +350,10 @@ const (
 	// an action was taken because virt-handler became unresponsive.
 	NodeUnresponsiveReason VirtualMachineInstanceReason = "NodeUnresponsive"
 
-	ShutdownReason VirtualMachineInstanceReason = "Shutdown"
-	CrashedReason  VirtualMachineInstanceReason = "Crashed"
-	UnknownReason  VirtualMachineInstanceReason = "Unknown"
-
-	MigratedReason         VirtualMachineInstanceReason = "Migrated"
-	MigrationTimeoutReason VirtualMachineInstanceReason = "MigrationTimeout"
-	MigrationFailedReason  VirtualMachineInstanceReason = "MigrationFailedReason"
-
-	VirtLauncherUnresponsiveReason          VirtualMachineInstanceReason = "VirtLauncherUnresponsive"
-	VirtLauncherCrashedReason               VirtualMachineInstanceReason = "VirtLauncherCrashed"
-	VirtLauncherSecureBootUnsupportedReason VirtualMachineInstanceReason = "VirtLauncherSecureBootUnsupported"
-	VirtLauncherIrrecoverableReason         VirtualMachineInstanceReason = "VirtLauncherIrrecoverableReason"
-)
-
-// VirtualMachineInstanceShutdownInitiatedBy indicated the reason for initiating shutdown.
-type VirtualMachineInstanceShutdownInitiatedBy string
-
-// These are the valid shutdown initiation sources of vmis.
-const (
-	// When a VirtualMachineInstance Object is first initialized,
-	// or when the shutdown is initiated by the user.
-	VmiShutdownInitiatedByUnset VirtualMachineInstanceShutdownInitiatedBy = ""
-
-	PodDeletionShutdownInitiatedBy VirtualMachineInstanceShutdownInitiatedBy = "PodDeletion"
-	VMIDeletionShutdownInitiatedBy VirtualMachineInstanceShutdownInitiatedBy = "VMIDeletion"
+	// Reasons reflecting domain state changes
+	ShutdownReason  VirtualMachineInstanceReason = "Shutdown"
+	CrashedReason   VirtualMachineInstanceReason = "Crashed"
+	DestroyedReason VirtualMachineInstanceReason = "Destroyed"
 )
 
 // DeviceStatus has the information of all devices allocated spec.domain.devices

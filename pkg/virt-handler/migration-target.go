@@ -401,7 +401,6 @@ func (c *MigrationTargetController) finalCleanup(vmi *v1.VirtualMachineInstance,
 			// Ensuring failed post-copy migrations don't lead to a successful VMI, shouldn't be needed
 			c.logger.Object(vmi).Warning("VMI status wrongly set to succeeded, this shouldn't happen, fixing VMI phase")
 			vmi.Status.Phase = v1.Failed
-			vmi.Status.Reason = v1.MigrationFailedReason
 		}
 	}
 
