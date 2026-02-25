@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "domain-builder-factory.go",
         "hypervisornodeinformation.go",
         "launcherhypervisorresources.go",
     ],
@@ -10,6 +11,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/hypervisor/kvm:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
     ],
