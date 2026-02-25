@@ -623,17 +623,21 @@ func NewVirtualMachineExportCrd() (*extv1.CustomResourceDefinition, error) {
 		Group: exportv1.SchemeGroupVersion.Group,
 		Versions: []extv1.CustomResourceDefinitionVersion{
 			{
-				Name:    exportv1alpha1.SchemeGroupVersion.Version,
-				Served:  true,
-				Storage: false,
+				Name:               exportv1alpha1.SchemeGroupVersion.Version,
+				Served:             true,
+				Storage:            false,
+				Deprecated:         true,
+				DeprecationWarning: pointer.P("export.kubevirt.io/v1alpha1 VirtualMachineExport is now deprecated and will be removed in a future version."),
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
 			},
 			{
-				Name:    exportv1beta1.SchemeGroupVersion.Version,
-				Served:  true,
-				Storage: false,
+				Name:               exportv1beta1.SchemeGroupVersion.Version,
+				Served:             true,
+				Storage:            false,
+				Deprecated:         true,
+				DeprecationWarning: pointer.P("export.kubevirt.io/v1beta1 VirtualMachineExport is now deprecated and will be removed in a future version."),
 				Subresources: &extv1.CustomResourceSubresources{
 					Status: &extv1.CustomResourceSubresourceStatus{},
 				},
