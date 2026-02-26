@@ -74,7 +74,7 @@ func (matcher *MetricMatcher) Match(actual interface{}) (success bool, err error
 
 	nameToMatch := matcher.Metric.GetOpts().Name
 	if matcher.Metric.GetType() == operatormetrics.HistogramType || matcher.Metric.GetType() == operatormetrics.HistogramVecType {
-		nameToMatch = nameToMatch + prometheusHistogramBucketSuffix
+		nameToMatch += prometheusHistogramBucketSuffix
 	}
 
 	if actualName != nameToMatch {

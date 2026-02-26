@@ -20,8 +20,8 @@
 package domainstats
 
 const (
-	nanosecondsPerSecond = 1_000_000_000
-	bytesPerKibibyte     = 1024
+	nanosecondsPerSecond float64 = 1_000_000_000
+	bytesPerKibibyte     float64 = 1024
 )
 
 func nanosecondsToSeconds(ns uint64) float64 {
