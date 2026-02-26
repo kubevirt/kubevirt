@@ -35,4 +35,8 @@ const (
 
 	// PostBackupHookCommandAnnotation specifies the command to execute.
 	PostBackupHookCommandAnnotation = "post.hook.backup.velero.io/command"
+
+	// SkipHooksAnnotation signals that Velero backup freeze/unfreeze hooks should not be injected in virt-launcher.
+	// Can be set on VM or VMI. Value must be "true" to skip hook injection.
+	SkipHooksAnnotation = "kubevirt.io/skip-backup-hooks"
 )
