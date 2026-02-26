@@ -22,6 +22,7 @@ go_library(
         "//pkg/storage/hotplug:go_default_library",
         "//pkg/storage/memorydump:go_default_library",
         "//pkg/storage/types:go_default_library",
+        "//pkg/storage/velero:go_default_library",
         "//pkg/util:go_default_library",
         "//pkg/util/hardware:go_default_library",
         "//pkg/util/migrations:go_default_library",

@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	backupapi "kubevirt.io/api/backup"
@@ -47,6 +48,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/pointer"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	backup "kubevirt.io/kubevirt/pkg/storage/cbt"
+	"kubevirt.io/kubevirt/pkg/storage/velero"
 
 	"kubevirt.io/kubevirt/tests/console"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -55,8 +57,10 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
 	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libstorage"
+	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
@@ -701,7 +705,104 @@ var _ = Describe(SIG("Backup", func() {
 		Expect(err).ToNot(HaveOccurred())
 		Expect(tracker.Status).To(BeNil())
 	})
+
+	Context("Velero backup hooks injection", Serial, func() {
+		It("should dynamically sync hooks annotations based on KubeVirt CR annotation", func() {
+			vmi := libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)))
+
+			By("Creating VMI without skip-backup-hooks annotation")
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi), 300*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Running))
+
+			By("Verifying launcher pod has Velero backup hooks annotations")
+			pod := getPodByVMI(vmi)
+			Expect(pod.Annotations).To(HaveKey(velero.PreBackupHookContainerAnnotation))
+
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			originalKvAnnotations := kv.Annotations
+			if originalKvAnnotations == nil {
+				originalKvAnnotations = make(map[string]string)
+			}
+			_, hadSkipAnnotation := originalKvAnnotations[velero.SkipHooksAnnotation]
+
+			By("Adding skip-backup-hooks annotation to KubeVirt CR")
+			patchData := fmt.Appendf(nil, `{"metadata":{"annotations":{%q:"true"}}}`, velero.SkipHooksAnnotation)
+			kv, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying launcher pod Velero annotations are removed")
+			Eventually(func() bool {
+				pod = getPodByVMI(vmi)
+				_, hasPreHook := pod.Annotations[velero.PreBackupHookContainerAnnotation]
+				_, hasPostHook := pod.Annotations[velero.PostBackupHookContainerAnnotation]
+				return !hasPreHook && !hasPostHook
+			}, 60*time.Second, 1*time.Second).Should(BeTrue(), "Velero hook annotations should be removed from launcher pod when KubeVirt CR annotation is set")
+
+			By("Restoring KubeVirt CR annotations to original state")
+			if hadSkipAnnotation {
+				patchData = fmt.Appendf(nil, `{"metadata":{"annotations":{%q:%q}}}`, velero.SkipHooksAnnotation, originalKvAnnotations[velero.SkipHooksAnnotation])
+			} else {
+				patchData = fmt.Appendf(nil, `{"metadata":{"annotations":{%q:null}}}`, velero.SkipHooksAnnotation)
+			}
+			kv, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Verifying launcher pod Velero annotations are added back")
+			Eventually(func() bool {
+				pod = getPodByVMI(vmi)
+				return pod.Annotations[velero.PreBackupHookContainerAnnotation] == "compute" &&
+					pod.Annotations[velero.PostBackupHookContainerAnnotation] == "compute"
+			}, 60*time.Second, 1*time.Second).Should(BeTrue())
+		})
+
+		It("VMI annotation should take precedence over KubeVirt CR annotation", func() {
+			By("Getting KubeVirt CR and setting skip annotation to true")
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			originalKvAnnotations := kv.Annotations
+			if originalKvAnnotations == nil {
+				originalKvAnnotations = make(map[string]string)
+			}
+			_, hadSkipAnnotation := originalKvAnnotations[velero.SkipHooksAnnotation]
+
+			patchData := fmt.Appendf(nil, `{"metadata":{"annotations":{%q:"true"}}}`, velero.SkipHooksAnnotation)
+			kv, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating VMI with skip-backup-hooks=false annotation (opposite of KubeVirt CR)")
+			vmi := libvmifact.NewAlpineWithTestTooling(
+				libvmi.WithNamespace(testsuite.GetTestNamespace(nil)),
+				libvmi.WithAnnotation(velero.SkipHooksAnnotation, "false"))
+
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Eventually(matcher.ThisVMI(vmi), 300*time.Second, 1*time.Second).Should(matcher.BeInPhase(v1.Running))
+
+			By("Verifying launcher pod has Velero annotations (VMI annotation takes precedence)")
+			pod := getPodByVMI(vmi)
+			Expect(pod.Annotations).To(HaveKey(velero.PreBackupHookContainerAnnotation), "VMI annotation should override KubeVirt CR annotation")
+			Expect(pod.Annotations).To(HaveKey(velero.PostBackupHookContainerAnnotation))
+			Expect(pod.Annotations[velero.PreBackupHookContainerAnnotation]).To(Equal("compute"))
+
+			By("Restoring KubeVirt CR annotations to original state")
+			if hadSkipAnnotation {
+				patchData = fmt.Appendf(nil, `{"metadata":{"annotations":{%q:%q}}}`, velero.SkipHooksAnnotation, originalKvAnnotations[velero.SkipHooksAnnotation])
+			} else {
+				patchData = fmt.Appendf(nil, `{"metadata":{"annotations":{%q:null}}}`, velero.SkipHooksAnnotation)
+			}
+			_, err = virtClient.KubeVirt(kv.Namespace).Patch(context.Background(), kv.Name, types.MergePatchType, patchData, metav1.PatchOptions{})
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
 }))
+
+func getPodByVMI(vmi *v1.VirtualMachineInstance) *corev1.Pod {
+	pod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	ExpectWithOffset(1, pod).ToNot(BeNil())
+	return pod
+}
 
 func backupName(vmName string) string {
 	return "vmbackup-" + vmName + rand.String(5)
