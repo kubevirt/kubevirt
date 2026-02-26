@@ -10,6 +10,7 @@ pkg/controller/testing
 pkg/instancetype
 pkg/libvmi
 pkg/monitoring/metrics/virt-api
+pkg/monitoring/metrics/virt-handler
 pkg/monitoring/metrics/virt-operator
 pkg/monitoring/rules
 pkg/network/admitter

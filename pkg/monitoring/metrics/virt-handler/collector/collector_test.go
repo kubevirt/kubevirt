@@ -32,7 +32,7 @@ import (
 var _ = Describe("Collector", func() {
 	var vmis []*k6tv1.VirtualMachineInstance
 
-	var newCollector = func(retries int) Collector {
+	newCollector := func(retries int) Collector {
 		fakeMapper := func(vmi []*k6tv1.VirtualMachineInstance) vmiSocketMap {
 			m := vmiSocketMap{}
 			for _, vmi := range vmi {
@@ -99,7 +99,6 @@ var _ = Describe("Collector", func() {
 			Expect(skipped).To(HaveLen(1))
 			Expect(skipped[0]).To(Equal("a"))
 			Expect(completed).To(BeTrue())
-
 		})
 
 		It("should resume scraping when unblocks", func() {

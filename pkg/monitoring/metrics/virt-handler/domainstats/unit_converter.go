@@ -19,10 +19,15 @@
 
 package domainstats
 
+const (
+	nanosecondsPerSecond = 1_000_000_000
+	bytesPerKibibyte     = 1024
+)
+
 func nanosecondsToSeconds(ns uint64) float64 {
-	return float64(ns) / 1000000000
+	return float64(ns) / nanosecondsPerSecond
 }
 
 func kibibytesToBytes(kibibytes uint64) float64 {
-	return float64(kibibytes) * 1024
+	return float64(kibibytes) * bytesPerKibibyte
 }

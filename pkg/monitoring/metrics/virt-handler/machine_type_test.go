@@ -17,7 +17,7 @@
  *
  */
 
-package virt_handler
+package virthandler
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -30,7 +30,7 @@ import (
 var _ = Describe("deprecated machine types metric", func() {
 	Context("ReportDeprecatedMachineTypes", func() {
 		BeforeEach(func() {
-			operatormetrics.UnregisterMetrics(machineTypeMetrics)
+			Expect(operatormetrics.UnregisterMetrics(machineTypeMetrics)).To(Succeed())
 			Expect(operatormetrics.RegisterMetrics(machineTypeMetrics)).To(Succeed())
 		})
 

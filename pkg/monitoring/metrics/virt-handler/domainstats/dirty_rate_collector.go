@@ -26,17 +26,15 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/collector"
 )
 
-var (
-	DomainDirtyRateStatsCollector = operatormetrics.Collector{
-		Metrics:         domainStatsMetrics(dirtyRateMetrics{}),
-		CollectCallback: domainDirtyRateStatsCollectorCallback,
-	}
-)
+var DomainDirtyRateStatsCollector = operatormetrics.Collector{
+	Metrics:         domainStatsMetrics(dirtyRateMetrics{}),
+	CollectCallback: domainDirtyRateStatsCollectorCallback,
+}
 
 func domainDirtyRateStatsCollectorCallback() []operatormetrics.CollectorResult {
 	cachedObjs := settings.vmiInformer.GetStore().List()
 	if len(cachedObjs) == 0 {
-		log.Log.V(4).Infof("No VMIs detected")
+		log.Log.V(logVerbosityDebug).Infof("No VMIs detected")
 		return []operatormetrics.CollectorResult{}
 	}
 
@@ -50,7 +48,9 @@ func domainDirtyRateStatsCollectorCallback() []operatormetrics.CollectorResult {
 	return execDomainDirtyRateStatsCollector(concCollector, vmis)
 }
 
-func execDomainDirtyRateStatsCollector(concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.CollectorResult {
+func execDomainDirtyRateStatsCollector(
+	concCollector collector.Collector, vmis []*k6tv1.VirtualMachineInstance,
+) []operatormetrics.CollectorResult {
 	scraper := NewDomainsDirtyRateStatsScraper(len(vmis))
 	go concCollector.Collect(vmis, scraper, PrometheusCollectionTimeout)
 

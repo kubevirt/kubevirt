@@ -56,8 +56,10 @@ func (filesystemMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []oper
 			"file_system_type": fsStat.FileSystemType,
 		}
 
-		crs = append(crs, vmiReport.newCollectorResultWithLabels(filesystemCapacityBytes, float64(fsStat.TotalBytes), fsLabels))
-		crs = append(crs, vmiReport.newCollectorResultWithLabels(filesystemUsedBytes, float64(fsStat.UsedBytes), fsLabels))
+		crs = append(crs,
+			vmiReport.newCollectorResultWithLabels(filesystemCapacityBytes, float64(fsStat.TotalBytes), fsLabels),
+			vmiReport.newCollectorResultWithLabels(filesystemUsedBytes, float64(fsStat.UsedBytes), fsLabels),
+		)
 	}
 
 	return crs
