@@ -31,8 +31,6 @@ import (
 	"syscall"
 	"time"
 
-	builderv3 "k8s.io/kube-openapi/pkg/builder3"
-	"k8s.io/kube-openapi/pkg/common/restfuladapter"
 	"k8s.io/kube-openapi/pkg/validation/spec"
 
 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
@@ -56,8 +54,6 @@ import (
 	"kubevirt.io/client-go/log"
 	clientutil "kubevirt.io/client-go/util"
 	virtversion "kubevirt.io/client-go/version"
-
-	v12 "kubevirt.io/client-go/api"
 
 	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	"kubevirt.io/kubevirt/pkg/controller"
@@ -942,18 +938,21 @@ func (app *virtAPIApp) Compose() {
 }
 
 func (app *virtAPIApp) ConfigureOpenAPIService() {
-	config := openapi.CreateV3Config()
-	config.GetDefinitions = v12.GetOpenAPIDefinitions
-	spec, err := builderv3.BuildOpenAPISpecFromRoutes(restfuladapter.AdaptWebServices(restful.RegisteredWebServices()), config)
-	if err != nil {
-		panic(err)
-	}
-
 	ws := new(restful.WebService)
 	ws.Path("/swaggerapi")
 	ws.Produces(restful.MIME_JSON)
+
+	version := v1.SubresourceGroupVersions[0]
+	gvPath := fmt.Sprintf("apis/%s/%s", version.Group, version.Version)
 	f := func(req *restful.Request, resp *restful.Response) {
-		resp.WriteAsJson(spec)
+		specBytes, _, err := v3SpecCache.GetV3Spec(gvPath)
+		if err != nil {
+			log.Log.Reason(err).Errorf("failed to get OpenAPI v3 spec for %s", gvPath)
+			resp.WriteErrorString(http.StatusInternalServerError, "failed to get OpenAPI v3 spec")
+			return
+		}
+		resp.ResponseWriter.Header().Set("Content-Type", restful.MIME_JSON)
+		resp.ResponseWriter.Write(specBytes)
 	}
 	ws.Route(ws.GET("/").To(f))
 
