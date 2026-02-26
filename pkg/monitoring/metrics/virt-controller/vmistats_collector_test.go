@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -154,44 +154,8 @@ var _ = Describe("VMI Stats Collector", func() {
 		})
 
 		It("should update the vmi_pod label correctly after migration", func() {
-			originalPod := &k8sv1.Pod{
-				ObjectMeta: newPodMetaForInformer("virt-launcher-originalpod", "test-ns", "test-vmi-uid"),
-				Spec: k8sv1.PodSpec{
-					NodeName: "initial-node",
-				},
-				Status: k8sv1.PodStatus{
-					Phase: k8sv1.PodRunning,
-				},
-			}
-			targetPod := &k8sv1.Pod{
-				ObjectMeta: newPodMetaForInformer("virt-launcher-targetpod", "test-ns", "test-vmi-uid"),
-				Spec: k8sv1.PodSpec{
-					NodeName: "target-node",
-				},
-				Status: k8sv1.PodStatus{
-					Phase: k8sv1.PodRunning,
-				},
-			}
-
-			_ = indexers.KVPod.Add(originalPod)
-			_ = indexers.KVPod.Add(targetPod)
-
-			vmi := &k6tv1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vmi",
-					Namespace: "test-ns",
-					UID:       "test-vmi-uid",
-				},
-				Status: k6tv1.VirtualMachineInstanceStatus{
-					Phase:    "Running",
-					NodeName: "target-node",
-					MigrationState: &k6tv1.VirtualMachineInstanceMigrationState{
-						TargetPod: "virt-launcher-targetpod",
-						Completed: true,
-						Failed:    false,
-					},
-				},
-			}
+			setupMigrationPods()
+			vmi := createMigrationVMI("target-node", "virt-launcher-targetpod", true, false)
 
 			cr := collectVMIInfo(vmi)
 
@@ -203,44 +167,8 @@ var _ = Describe("VMI Stats Collector", func() {
 		})
 
 		It("should return the original pod when migration failed", func() {
-			originalPod := &k8sv1.Pod{
-				ObjectMeta: newPodMetaForInformer("virt-launcher-originalpod", "test-ns", "test-vmi-uid"),
-				Spec: k8sv1.PodSpec{
-					NodeName: "initial-node",
-				},
-				Status: k8sv1.PodStatus{
-					Phase: k8sv1.PodRunning,
-				},
-			}
-			targetPod := &k8sv1.Pod{
-				ObjectMeta: newPodMetaForInformer("virt-launcher-targetpod", "test-ns", "test-vmi-uid"),
-				Spec: k8sv1.PodSpec{
-					NodeName: "target-node",
-				},
-				Status: k8sv1.PodStatus{
-					Phase: k8sv1.PodRunning,
-				},
-			}
-
-			_ = indexers.KVPod.Add(originalPod)
-			_ = indexers.KVPod.Add(targetPod)
-
-			vmi := &k6tv1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vmi",
-					Namespace: "test-ns",
-					UID:       "test-vmi-uid",
-				},
-				Status: k6tv1.VirtualMachineInstanceStatus{
-					Phase:    "Running",
-					NodeName: "initial-node",
-					MigrationState: &k6tv1.VirtualMachineInstanceMigrationState{
-						TargetPod: "virt-launcher-targetpod",
-						Completed: true,
-						Failed:    true,
-					},
-				},
-			}
+			setupMigrationPods()
+			vmi := createMigrationVMI("initial-node", "virt-launcher-targetpod", true, true)
 
 			cr := collectVMIInfo(vmi)
 
@@ -251,7 +179,7 @@ var _ = Describe("VMI Stats Collector", func() {
 			Expect(cr.Labels[16]).To(Equal("virt-launcher-originalpod"))
 		})
 
-		DescribeTable("should show instance type value correctly", func(instanceTypeAnnotationKey string, instanceType string, expected string) {
+		DescribeTable("should show instance type value correctly", func(instanceTypeAnnotationKey, instanceType, expected string) {
 			annotations := map[string]string{}
 			if instanceType != "" {
 				annotations[instanceTypeAnnotationKey] = instanceType
@@ -288,7 +216,7 @@ var _ = Describe("VMI Stats Collector", func() {
 			Entry("with custom cluster instance type expect <other>", k6tv1.ClusterInstancetypeAnnotation, "ci-unmanaged", "<other>"),
 		)
 
-		DescribeTable("should show preference value correctly", func(preferenceAnnotationKey string, preference string, expected string) {
+		DescribeTable("should show preference value correctly", func(preferenceAnnotationKey, preference, expected string) {
 			annotations := map[string]string{}
 			if preference != "" {
 				annotations[preferenceAnnotationKey] = preference
@@ -327,24 +255,25 @@ var _ = Describe("VMI Stats Collector", func() {
 	})
 
 	Context("VMI Eviction blocker", func() {
-
 		liveMigrateEvictPolicy := k6tv1.EvictionStrategyLiveMigrate
-		DescribeTable("Add eviction alert metrics", func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
-			vmiInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
-			stores.VMI = vmiInformer.GetStore()
+		DescribeTable("Add eviction alert metrics",
+			func(evictionPolicy *k6tv1.EvictionStrategy, migrateCondStatus k8sv1.ConditionStatus, expectedVal float64) {
+				vmiInformer, _ := testutils.NewFakeInformerFor(&k6tv1.VirtualMachineInstance{})
+				stores.VMI = vmiInformer.GetStore()
 
-			ch := make(chan prometheus.Metric, 1)
-			defer close(ch)
+				ch := make(chan prometheus.Metric, 1)
+				defer close(ch)
 
-			vmi := createVMIForEviction(evictionPolicy, migrateCondStatus)
+				vmi := createVMIForEviction(evictionPolicy, migrateCondStatus)
 
-			evictionBlockerResultMetric := getEvictionBlocker(vmi)
-			Expect(evictionBlockerResultMetric).ToNot(BeNil())
-			Expect(evictionBlockerResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_non_evictable"))
-			Expect(evictionBlockerResultMetric.Value).To(BeEquivalentTo(expectedVal))
-		},
+				evictionBlockerResultMetric := getEvictionBlocker(vmi)
+				Expect(evictionBlockerResultMetric).ToNot(BeNil())
+				Expect(evictionBlockerResultMetric.Metric.GetOpts().Name).To(ContainSubstring("kubevirt_vmi_non_evictable"))
+				Expect(evictionBlockerResultMetric.Value).To(BeEquivalentTo(expectedVal))
+			},
 			Entry("VMI Eviction policy set to LiveMigration and vm is not migratable", &liveMigrateEvictPolicy, k8sv1.ConditionFalse, 1.0),
-			Entry("VMI Eviction policy set to LiveMigration and vm migratable status is not known", &liveMigrateEvictPolicy, k8sv1.ConditionUnknown, 1.0),
+			Entry("VMI Eviction policy set to LiveMigration and vm migratable status is not known",
+				&liveMigrateEvictPolicy, k8sv1.ConditionUnknown, 1.0),
 			Entry("VMI Eviction policy set to LiveMigration and vm is migratable", &liveMigrateEvictPolicy, k8sv1.ConditionTrue, 0.0),
 			Entry("VMI Eviction policy is not set and vm is not migratable", nil, k8sv1.ConditionFalse, 0.0),
 			Entry("VMI Eviction policy is not set and vm is migratable", nil, k8sv1.ConditionTrue, 0.0),
@@ -525,60 +454,15 @@ var _ = Describe("VMI Stats Collector", func() {
 
 	Context("VMI vNIC info", func() {
 		It("should collect kubevirt_vmi_vnic_info metric with correct labels", func() {
+			ifaces, nets := newVNICTestInterfaces()
 			vmi := &k6tv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "test-ns",
 					Name:      "test-vmi",
 				},
 				Spec: k6tv1.VirtualMachineInstanceSpec{
-					Domain: k6tv1.DomainSpec{
-						Devices: k6tv1.Devices{
-							Interfaces: []k6tv1.Interface{
-								{
-									Name: "iface1",
-									InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
-										Bridge: &k6tv1.InterfaceBridge{},
-									},
-									Model: "virtio",
-								},
-								{
-									Name: "iface2",
-									InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
-										Masquerade: &k6tv1.InterfaceMasquerade{},
-									},
-									Model: "e1000e",
-								},
-								{
-									Name: "iface3",
-									InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
-										SRIOV: &k6tv1.InterfaceSRIOV{},
-									},
-								},
-								{
-									Name:    "iface4",
-									Binding: &k6tv1.PluginBinding{Name: "custom-plugin"},
-								},
-							},
-						},
-					},
-					Networks: []k6tv1.Network{
-						{
-							Name:          "iface1",
-							NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
-						},
-						{
-							Name:          "iface2",
-							NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
-						},
-						{
-							Name:          "iface3",
-							NetworkSource: k6tv1.NetworkSource{Multus: &k6tv1.MultusNetwork{NetworkName: "multus-net"}},
-						},
-						{
-							Name:          "iface4",
-							NetworkSource: k6tv1.NetworkSource{Multus: &k6tv1.MultusNetwork{NetworkName: "custom-net"}},
-						},
-					},
+					Domain:   k6tv1.DomainSpec{Devices: k6tv1.Devices{Interfaces: ifaces}},
+					Networks: nets,
 				},
 			}
 
@@ -695,6 +579,99 @@ var _ = Describe("VMI Stats Collector", func() {
 	})
 })
 
+func setupMigrationPods() {
+	originalPod := &k8sv1.Pod{
+		ObjectMeta: newPodMetaForInformer("virt-launcher-originalpod", "test-ns", "test-vmi-uid"),
+		Spec: k8sv1.PodSpec{
+			NodeName: "initial-node",
+		},
+		Status: k8sv1.PodStatus{
+			Phase: k8sv1.PodRunning,
+		},
+	}
+	targetPod := &k8sv1.Pod{
+		ObjectMeta: newPodMetaForInformer("virt-launcher-targetpod", "test-ns", "test-vmi-uid"),
+		Spec: k8sv1.PodSpec{
+			NodeName: "target-node",
+		},
+		Status: k8sv1.PodStatus{
+			Phase: k8sv1.PodRunning,
+		},
+	}
+
+	_ = indexers.KVPod.Add(originalPod)
+	_ = indexers.KVPod.Add(targetPod)
+}
+
+func createMigrationVMI(nodeName, targetPod string, completed, failed bool) *k6tv1.VirtualMachineInstance {
+	return &k6tv1.VirtualMachineInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-vmi",
+			Namespace: "test-ns",
+			UID:       "test-vmi-uid",
+		},
+		Status: k6tv1.VirtualMachineInstanceStatus{
+			Phase:    "Running",
+			NodeName: nodeName,
+			MigrationState: &k6tv1.VirtualMachineInstanceMigrationState{
+				TargetPod: targetPod,
+				Completed: completed,
+				Failed:    failed,
+			},
+		},
+	}
+}
+
+func newVNICTestInterfaces() ([]k6tv1.Interface, []k6tv1.Network) {
+	return []k6tv1.Interface{
+			{
+				Name: "iface1",
+				InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+					Bridge: &k6tv1.InterfaceBridge{},
+				},
+				Model: "virtio",
+			},
+			{
+				Name: "iface2",
+				InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+					Masquerade: &k6tv1.InterfaceMasquerade{},
+				},
+				Model: "e1000e",
+			},
+			{
+				Name: "iface3",
+				InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
+					SRIOV: &k6tv1.InterfaceSRIOV{},
+				},
+			},
+			{
+				Name:    "iface4",
+				Binding: &k6tv1.PluginBinding{Name: "custom-plugin"},
+			},
+		}, []k6tv1.Network{
+			{
+				Name:          "iface1",
+				NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
+			},
+			{
+				Name:          "iface2",
+				NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
+			},
+			{
+				Name: "iface3",
+				NetworkSource: k6tv1.NetworkSource{
+					Multus: &k6tv1.MultusNetwork{NetworkName: "multus-net"},
+				},
+			},
+			{
+				Name: "iface4",
+				NetworkSource: k6tv1.NetworkSource{
+					Multus: &k6tv1.MultusNetwork{NetworkName: "custom-net"},
+				},
+			},
+		}
+}
+
 func interfacesFor(values [][]string) []k6tv1.VirtualMachineInstanceNetworkInterface {
 	interfaces := make([]k6tv1.VirtualMachineInstanceNetworkInterface, len(values))
 	for i, v := range values {
@@ -707,7 +684,9 @@ func interfacesFor(values [][]string) []k6tv1.VirtualMachineInstanceNetworkInter
 	return interfaces
 }
 
-func createVMIForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus) *k6tv1.VirtualMachineInstance {
+func createVMIForEviction(
+	evictionStrategy *k6tv1.EvictionStrategy, migratableCondStatus k8sv1.ConditionStatus,
+) *k6tv1.VirtualMachineInstance {
 	vmi := &k6tv1.VirtualMachineInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "test-ns",
@@ -806,7 +785,10 @@ func setupTestCollector() {
 	})
 
 	// VMI Migration informer
-	vmiMigrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(&k6tv1.VirtualMachineInstanceMigration{}, virtcontroller.GetVirtualMachineInstanceMigrationInformerIndexers())
+	vmiMigrationInformer, _ := testutils.NewFakeInformerWithIndexersFor(
+		&k6tv1.VirtualMachineInstanceMigration{},
+		virtcontroller.GetVirtualMachineInstanceMigrationInformerIndexers(),
+	)
 	indexers.VMIMigration = vmiMigrationInformer.GetIndexer()
 
 	_ = indexers.VMIMigration.Add(&k6tv1.VirtualMachineInstanceMigration{

@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"strings"
@@ -36,6 +36,21 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+)
+
+const (
+	testMetricVMResourceRequests = "kubevirt_vm_resource_requests"
+	testLabelCPU                 = "cpu"
+	testLabelCores               = "cores"
+	testLabelBytes               = "bytes"
+	testLabelDomain              = "domain"
+	testLabelThreads             = "threads"
+	testLabelSockets             = "sockets"
+	testMetricVMLabels           = "kubevirt_vm_labels"
+	testLabelDefault             = "default"
+	testLabelGuestEffective      = "guest_effective"
+	testLabelMemory              = "memory"
+	testLabelGuest               = "guest"
 )
 
 // Minimal stub for label config used by vmstats tests
@@ -156,7 +171,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 		})
 
-		DescribeTable("should show instance type value correctly", func(instanceTypeKind string, instanceTypeName string, expected string) {
+		DescribeTable("should show instance type value correctly", func(instanceTypeKind, instanceTypeName, expected string) {
 			var instanceType *k6tv1.InstancetypeMatcher
 			if instanceTypeName != "" {
 				instanceType = &k6tv1.InstancetypeMatcher{
@@ -192,7 +207,7 @@ var _ = Describe("VM Stats Collector", func() {
 			Entry("with lowercase cluster instance type expect the same behavior", "virtualmachineclusterinstancetype", "ci-managed", "ci-managed"),
 		)
 
-		DescribeTable("should show preference value correctly", func(preferenceAnnotationKey string, preferenceName string, expected string) {
+		DescribeTable("should show preference value correctly", func(preferenceAnnotationKey, preferenceName, expected string) {
 			var preference *k6tv1.PreferenceMatcher
 			if preferenceName != "" {
 				preference = &k6tv1.PreferenceMatcher{
@@ -249,24 +264,26 @@ var _ = Describe("VM Stats Collector", func() {
 				Expect(crs).ToNot(BeEmpty())
 				var defaults []operatormetrics.CollectorResult
 				for _, cr := range crs {
-					if cr.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(cr.Labels) == 5 &&
-						cr.Labels[2] == "cpu" && cr.Labels[4] == "default" && cr.Labels[0] == name && cr.Labels[1] == ns {
+					if cr.Metric.GetOpts().Name == testMetricVMResourceRequests && len(cr.Labels) == 5 &&
+						cr.Labels[2] == testLabelCPU && cr.Labels[4] == testLabelDefault && cr.Labels[0] == name && cr.Labels[1] == ns {
 						defaults = append(defaults, cr)
 					}
 				}
 				Expect(defaults).To(HaveLen(3), "Expected 3 default CPU metrics")
-				found := map[string]bool{"cores": false, "threads": false, "sockets": false}
+				found := map[string]bool{testLabelCores: false, testLabelThreads: false, testLabelSockets: false}
 				for _, cr := range defaults {
 					Expect(cr.Value).To(BeEquivalentTo(1))
 					found[cr.Labels[3]] = true
 				}
-				Expect(found["cores"]).To(BeTrue())
-				Expect(found["threads"]).To(BeTrue())
-				Expect(found["sockets"]).To(BeTrue())
+				Expect(found[testLabelCores]).To(BeTrue())
+				Expect(found[testLabelThreads]).To(BeTrue())
+				Expect(found[testLabelSockets]).To(BeTrue())
 				// guest_effective cores present
 				var ge bool
 				for _, r := range crs {
-					if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[3] == "cores" && r.Labels[4] == "guest_effective" {
+					if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+						len(r.Labels) == 5 && r.Labels[2] == testLabelCPU &&
+						r.Labels[3] == testLabelCores && r.Labels[4] == testLabelGuestEffective {
 						Expect(r.Value).To(BeEquivalentTo(1))
 						ge = true
 					}
@@ -298,11 +315,15 @@ var _ = Describe("VM Stats Collector", func() {
 				// memory guest present
 				var memGuest, memGE bool
 				for _, r := range crs {
-					if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "memory" && r.Labels[3] == "bytes" && r.Labels[4] == "guest" {
+					if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+						len(r.Labels) == 5 && r.Labels[2] == testLabelMemory &&
+						r.Labels[3] == testLabelBytes && r.Labels[4] == testLabelGuest {
 						Expect(r.Value).To(BeEquivalentTo(1024))
 						memGuest = true
 					}
-					if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "memory" && r.Labels[3] == "bytes" && r.Labels[4] == "guest_effective" {
+					if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+						len(r.Labels) == 5 && r.Labels[2] == testLabelMemory &&
+						r.Labels[3] == testLabelBytes && r.Labels[4] == testLabelGuestEffective {
 						Expect(r.Value).To(BeEquivalentTo(1024))
 						memGE = true
 					}
@@ -312,14 +333,17 @@ var _ = Describe("VM Stats Collector", func() {
 				// default CPU triad present and guest_effective cores present
 				var defaults []operatormetrics.CollectorResult
 				for _, cr := range crs {
-					if cr.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(cr.Labels) == 5 && cr.Labels[2] == "cpu" && cr.Labels[4] == "default" {
+					if cr.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+						len(cr.Labels) == 5 && cr.Labels[2] == testLabelCPU && cr.Labels[4] == testLabelDefault {
 						defaults = append(defaults, cr)
 					}
 				}
 				Expect(defaults).To(HaveLen(3))
 				var ge bool
 				for _, r := range crs {
-					if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[3] == "cores" && r.Labels[4] == "guest_effective" {
+					if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+						len(r.Labels) == 5 && r.Labels[2] == testLabelCPU &&
+						r.Labels[3] == testLabelCores && r.Labels[4] == testLabelGuestEffective {
 						Expect(r.Value).To(BeEquivalentTo(1))
 						ge = true
 					}
@@ -358,15 +382,20 @@ var _ = Describe("VM Stats Collector", func() {
 			expectVMs(crs, "testvm", "test-ns", func(filtered []operatormetrics.CollectorResult, name, ns string) {
 				var reqFound, limFound, geFound bool
 				for _, r := range filtered {
-					if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[3] == "cores" && r.Labels[4] == "requests" {
+					if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+						len(r.Labels) == 5 && r.Labels[2] == testLabelCPU &&
+						r.Labels[3] == testLabelCores && r.Labels[4] == "requests" {
 						Expect(r.Value).To(BeEquivalentTo(0.5))
 						reqFound = true
 					}
-					if r.Metric.GetOpts().Name == "kubevirt_vm_resource_limits" && len(r.Labels) == 4 && r.Labels[2] == "cpu" && r.Labels[3] == "cores" {
+					if r.Metric.GetOpts().Name == "kubevirt_vm_resource_limits" &&
+						len(r.Labels) == 4 && r.Labels[2] == testLabelCPU && r.Labels[3] == testLabelCores {
 						Expect(r.Value).To(BeEquivalentTo(1))
 						limFound = true
 					}
-					if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[3] == "cores" && r.Labels[4] == "guest_effective" {
+					if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+						len(r.Labels) == 5 && r.Labels[2] == testLabelCPU &&
+						r.Labels[3] == testLabelCores && r.Labels[4] == testLabelGuestEffective {
 						Expect(r.Value).To(BeEquivalentTo(1))
 						geFound = true
 					}
@@ -397,28 +426,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			// Expect domain cores/threads/sockets and guest_effective cores
-			var coresFound, threadsFound, socketsFound, geFound bool
-			for _, r := range filterResultsByVM(crs, "testvm", "test-ns") {
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[4] == "domain" {
-					switch r.Labels[3] {
-					case "cores":
-						Expect(r.Value).To(BeEquivalentTo(2))
-						coresFound = true
-					case "threads":
-						Expect(r.Value).To(BeEquivalentTo(4))
-						threadsFound = true
-					case "sockets":
-						Expect(r.Value).To(BeEquivalentTo(1))
-						socketsFound = true
-					}
-				}
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[3] == "cores" && r.Labels[4] == "guest_effective" {
-					Expect(r.Value).To(BeEquivalentTo(8))
-					geFound = true
-				}
-			}
-			Expect(coresFound && threadsFound && socketsFound && geFound).To(BeTrue())
+			expectDomainCPUMetrics(crs, "testvm", "test-ns", 2, 4, 1, 8)
 		})
 
 		It("should collect VM CPU metrics from Instance Type (guest_effective present)", func() {
@@ -442,7 +450,10 @@ var _ = Describe("VM Stats Collector", func() {
 				// guest_effective cores should be present (when instancetype applies CPU defaults/effective)
 				var ge bool
 				for _, r := range filtered {
-					if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[0] == name && r.Labels[1] == ns && r.Labels[2] == "cpu" && r.Labels[3] == "cores" && r.Labels[4] == "guest_effective" {
+					if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+						len(r.Labels) == 5 && r.Labels[0] == name && r.Labels[1] == ns &&
+						r.Labels[2] == testLabelCPU && r.Labels[3] == testLabelCores &&
+						r.Labels[4] == testLabelGuestEffective {
 						Expect(r.Value).To(BeNumerically(">=", 1))
 						ge = true
 						break
@@ -477,27 +488,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			var domainC, domainT, domainS, ge bool
-			for _, r := range filterResultsByVM(crs, "testvm", "test-ns") {
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[4] == "domain" {
-					switch r.Labels[3] {
-					case "cores":
-						Expect(r.Value).To(BeEquivalentTo(2))
-						domainC = true
-					case "threads":
-						Expect(r.Value).To(BeEquivalentTo(2))
-						domainT = true
-					case "sockets":
-						Expect(r.Value).To(BeEquivalentTo(1))
-						domainS = true
-					}
-				}
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[3] == "cores" && r.Labels[4] == "guest_effective" {
-					Expect(r.Value).To(BeEquivalentTo(4))
-					ge = true
-				}
-			}
-			Expect(domainC && domainT && domainS && ge).To(BeTrue())
+			expectDomainCPUMetrics(crs, "testvm", "test-ns", 2, 2, 1, 4)
 		})
 
 		It("should emit default memory bytes equal to effective memory", func() {
@@ -522,18 +513,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			var memGuest, memGE bool
-			for _, r := range filterResultsByVM(crs, "testvm", "test-ns") {
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "memory" && r.Labels[3] == "bytes" && r.Labels[4] == "guest" {
-					Expect(r.Value).To(BeEquivalentTo(guestMemory.Value()))
-					memGuest = true
-				}
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "memory" && r.Labels[3] == "bytes" && r.Labels[4] == "guest_effective" {
-					Expect(r.Value).To(BeEquivalentTo(guestMemory.Value()))
-					memGE = true
-				}
-			}
-			Expect(memGuest && memGE).To(BeTrue())
+			expectMemoryGuestMetrics(crs, "testvm", "test-ns", float64(guestMemory.Value()), float64(guestMemory.Value()))
 		})
 
 		It("should handle VM with only CPU topology but no limits (domain + guest_effective)", func() {
@@ -558,27 +538,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			var domainC, domainT, domainS, ge bool
-			for _, r := range filterResultsByVM(crs, "testvm", "test-ns") {
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[4] == "domain" {
-					switch r.Labels[3] {
-					case "cores":
-						Expect(r.Value).To(BeEquivalentTo(1))
-						domainC = true
-					case "threads":
-						Expect(r.Value).To(BeEquivalentTo(1))
-						domainT = true
-					case "sockets":
-						Expect(r.Value).To(BeEquivalentTo(2))
-						domainS = true
-					}
-				}
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[3] == "cores" && r.Labels[4] == "guest_effective" {
-					Expect(r.Value).To(BeEquivalentTo(2))
-					ge = true
-				}
-			}
-			Expect(domainC && domainT && domainS && ge).To(BeTrue())
+			expectDomainCPUMetrics(crs, "testvm", "test-ns", 1, 1, 2, 2)
 		})
 
 		It("should handle VM with only memory guest but no limits", func() {
@@ -602,18 +562,7 @@ var _ = Describe("VM Stats Collector", func() {
 			}
 
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
-			var memGuest, memGE bool
-			for _, r := range filterResultsByVM(crs, "testvm", "test-ns") {
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "memory" && r.Labels[3] == "bytes" && r.Labels[4] == "guest" {
-					Expect(r.Value).To(BeEquivalentTo(guestMemory.Value()))
-					memGuest = true
-				}
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "memory" && r.Labels[3] == "bytes" && r.Labels[4] == "guest_effective" {
-					Expect(r.Value).To(BeEquivalentTo(guestMemory.Value()))
-					memGE = true
-				}
-			}
-			Expect(memGuest && memGE).To(BeTrue())
+			expectMemoryGuestMetrics(crs, "testvm", "test-ns", float64(guestMemory.Value()), float64(guestMemory.Value()))
 		})
 
 		It("should return default CPU cores=1 for VM with no CPU topology or memory", func() {
@@ -634,7 +583,9 @@ var _ = Describe("VM Stats Collector", func() {
 			crs := CollectResourceRequestsAndLimits(cloneVM(vm))
 			var cpuFound bool
 			for _, r := range filterResultsByVM(crs, "testvm", "test-ns") {
-				if r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests" && len(r.Labels) == 5 && r.Labels[2] == "cpu" && r.Labels[3] == "cores" && r.Labels[4] == "default" {
+				if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+					len(r.Labels) == 5 && r.Labels[2] == testLabelCPU &&
+					r.Labels[3] == testLabelCores && r.Labels[4] == testLabelDefault {
 					Expect(r.Value).To(BeEquivalentTo(1))
 					cpuFound = true
 				}
@@ -642,7 +593,9 @@ var _ = Describe("VM Stats Collector", func() {
 			Expect(cpuFound).To(BeTrue())
 			// No memory guest/guest_effective when memory not specified
 			for _, r := range filterResultsByVM(crs, "testvm", "test-ns") {
-				Expect(!((r.Metric.GetOpts().Name == "kubevirt_vm_resource_requests") && len(r.Labels) == 5 && r.Labels[2] == "memory")).To(BeTrue())
+				isMemoryRequest := r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+					len(r.Labels) == 5 && r.Labels[2] == testLabelMemory
+				Expect(isMemoryRequest).To(BeFalse())
 			}
 		})
 	})
@@ -890,6 +843,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 	Context("VM vNIC info", func() {
 		It("should collect metrics for vNICs with various binding types, including PluginBinding", func() {
+			ifaces, nets := newVNICTestInterfaces()
 			vm := &k6tv1.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "test-ns",
@@ -898,54 +852,8 @@ var _ = Describe("VM Stats Collector", func() {
 				Spec: k6tv1.VirtualMachineSpec{
 					Template: &k6tv1.VirtualMachineInstanceTemplateSpec{
 						Spec: k6tv1.VirtualMachineInstanceSpec{
-							Domain: k6tv1.DomainSpec{
-								Devices: k6tv1.Devices{
-									Interfaces: []k6tv1.Interface{
-										{
-											Name: "iface1",
-											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
-												Bridge: &k6tv1.InterfaceBridge{},
-											},
-											Model: "virtio",
-										},
-										{
-											Name: "iface2",
-											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
-												Masquerade: &k6tv1.InterfaceMasquerade{},
-											},
-											Model: "e1000e",
-										},
-										{
-											Name: "iface3",
-											InterfaceBindingMethod: k6tv1.InterfaceBindingMethod{
-												SRIOV: &k6tv1.InterfaceSRIOV{},
-											},
-										},
-										{
-											Name:    "iface4",
-											Binding: &k6tv1.PluginBinding{Name: "custom-plugin"},
-										},
-									},
-								},
-							},
-							Networks: []k6tv1.Network{
-								{
-									Name:          "iface1",
-									NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
-								},
-								{
-									Name:          "iface2",
-									NetworkSource: k6tv1.NetworkSource{Pod: &k6tv1.PodNetwork{}},
-								},
-								{
-									Name:          "iface3",
-									NetworkSource: k6tv1.NetworkSource{Multus: &k6tv1.MultusNetwork{NetworkName: "multus-net"}},
-								},
-								{
-									Name:          "iface4",
-									NetworkSource: k6tv1.NetworkSource{Multus: &k6tv1.MultusNetwork{NetworkName: "custom-net"}},
-								},
-							},
+							Domain:   k6tv1.DomainSpec{Devices: k6tv1.Devices{Interfaces: ifaces}},
+							Networks: nets,
 						},
 					},
 				},
@@ -1034,7 +942,7 @@ var _ = Describe("VM Stats Collector", func() {
 			allResults := reportVmsStats(vms)
 			var labelResults []operatormetrics.CollectorResult
 			for _, r := range allResults {
-				if r.Metric.GetOpts().Name == "kubevirt_vm_labels" {
+				if r.Metric.GetOpts().Name == testMetricVMLabels {
 					labelResults = append(labelResults, r)
 				}
 			}
@@ -1057,10 +965,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 		It("should prioritize ignorelist over allowlist when overlapping", func() {
 			vmLabelsCfg = funcLabelsConfig(func(l string) bool {
-				if l == "vm.kubevirt.io/template" {
-					return false
-				}
-				return true
+				return l != "vm.kubevirt.io/template"
 			})
 
 			vm := &k6tv1.VirtualMachine{
@@ -1074,7 +979,7 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			results := reportVmLabels(vm)
+			results := reportVMLabels(vm)
 			Expect(results).To(HaveLen(1))
 			res := results[0]
 			Expect(res.ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
@@ -1102,7 +1007,7 @@ var _ = Describe("VM Stats Collector", func() {
 				},
 			}
 
-			afterRestrict := reportVmLabels(vm)
+			afterRestrict := reportVMLabels(vm)
 			Expect(afterRestrict).To(HaveLen(1))
 			Expect(afterRestrict[0].ConstLabels).To(HaveLen(3))
 			Expect(afterRestrict[0].ConstLabels).To(HaveKeyWithValue("label_environment", "production"))
@@ -1126,7 +1031,7 @@ var _ = Describe("VM Stats Collector", func() {
 
 			allResults := reportVmsStats([]*k6tv1.VirtualMachine{vm})
 			for _, r := range allResults {
-				Expect(r.Metric.GetOpts().Name).ToNot(Equal("kubevirt_vm_labels"))
+				Expect(r.Metric.GetOpts().Name).ToNot(Equal(testMetricVMLabels))
 			}
 		})
 
@@ -1147,7 +1052,7 @@ var _ = Describe("VM Stats Collector", func() {
 			allResults := reportVmsStats([]*k6tv1.VirtualMachine{vm})
 			var labelResults []operatormetrics.CollectorResult
 			for _, r := range allResults {
-				if r.Metric.GetOpts().Name == "kubevirt_vm_labels" {
+				if r.Metric.GetOpts().Name == testMetricVMLabels {
 					labelResults = append(labelResults, r)
 				}
 			}
@@ -1164,7 +1069,7 @@ func cloneVM(vm *k6tv1.VirtualMachine) []*k6tv1.VirtualMachine {
 	if vm2.Name == "" {
 		vm2.Name = vm.Name + "-2"
 	} else {
-		vm2.Name = vm2.Name + "-2"
+		vm2.Name += "-2"
 	}
 	if vm2.Namespace == "" {
 		vm2.Namespace = vm.Namespace
@@ -1180,6 +1085,64 @@ func filterResultsByVM(crs []operatormetrics.CollectorResult, name, namespace st
 		}
 	}
 	return out
+}
+
+func expectDomainCPUMetrics(
+	crs []operatormetrics.CollectorResult,
+	vmName, ns string,
+	expectedCores, expectedThreads, expectedSockets, expectedGE float64,
+) {
+	expected := map[string]float64{
+		testLabelCores:   expectedCores,
+		testLabelThreads: expectedThreads,
+		testLabelSockets: expectedSockets,
+	}
+	found := map[string]bool{}
+
+	for _, r := range filterResultsByVM(crs, vmName, ns) {
+		if !isVMResourceRequestCPU(r) {
+			continue
+		}
+		if r.Labels[4] == testLabelDomain {
+			if exp, ok := expected[r.Labels[3]]; ok {
+				Expect(r.Value).To(BeEquivalentTo(exp))
+				found[r.Labels[3]] = true
+			}
+		}
+		if r.Labels[3] == testLabelCores && r.Labels[4] == testLabelGuestEffective {
+			Expect(r.Value).To(BeEquivalentTo(expectedGE))
+			found[testLabelGuestEffective] = true
+		}
+	}
+	Expect(found).To(HaveLen(4))
+}
+
+func isVMResourceRequestCPU(r operatormetrics.CollectorResult) bool {
+	return r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+		len(r.Labels) == 5 && r.Labels[2] == testLabelCPU
+}
+
+func expectMemoryGuestMetrics(
+	crs []operatormetrics.CollectorResult,
+	vmName, ns string,
+	expectedGuestBytes, expectedGEBytes float64,
+) {
+	var memGuest, memGE bool
+	for _, r := range filterResultsByVM(crs, vmName, ns) {
+		if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+			len(r.Labels) == 5 && r.Labels[2] == testLabelMemory &&
+			r.Labels[3] == testLabelBytes && r.Labels[4] == testLabelGuest {
+			Expect(r.Value).To(BeEquivalentTo(expectedGuestBytes))
+			memGuest = true
+		}
+		if r.Metric.GetOpts().Name == testMetricVMResourceRequests &&
+			len(r.Labels) == 5 && r.Labels[2] == testLabelMemory &&
+			r.Labels[3] == testLabelBytes && r.Labels[4] == testLabelGuestEffective {
+			Expect(r.Value).To(BeEquivalentTo(expectedGEBytes))
+			memGE = true
+		}
+	}
+	Expect(memGuest && memGE).To(BeTrue())
 }
 
 func expectVMs(

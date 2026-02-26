@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
@@ -28,10 +28,10 @@ import (
 
 var (
 	vmSnapshotMetrics = []operatormetrics.Metric{
-		VmSnapshotSucceededTimestamp,
+		VMSnapshotSucceededTimestamp,
 	}
 
-	VmSnapshotSucceededTimestamp = operatormetrics.NewGaugeVec(
+	VMSnapshotSucceededTimestamp = operatormetrics.NewGaugeVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmsnapshot_succeeded_timestamp_seconds",
 			Help: "Returns the timestamp of successful virtual machine snapshot.",
@@ -42,7 +42,7 @@ var (
 
 func HandleSucceededVMSnapshot(snapshot *snapshotv1.VirtualMachineSnapshot) {
 	if snapshot.Status.Phase == snapshotv1.Succeeded {
-		VmSnapshotSucceededTimestamp.WithLabelValues(
+		VMSnapshotSucceededTimestamp.WithLabelValues(
 			snapshot.Spec.Source.Name,
 			snapshot.Name,
 			snapshot.Namespace,
@@ -50,9 +50,9 @@ func HandleSucceededVMSnapshot(snapshot *snapshotv1.VirtualMachineSnapshot) {
 	}
 }
 
-func GetVmSnapshotSucceededTimestamp(vm, snapshot, namespace string) (float64, error) {
+func GetVMSnapshotSucceededTimestamp(vm, snapshot, namespace string) (float64, error) {
 	dto := &io_prometheus_client.Metric{}
-	if err := VmSnapshotSucceededTimestamp.WithLabelValues(vm, snapshot, namespace).Write(dto); err != nil {
+	if err := VMSnapshotSucceededTimestamp.WithLabelValues(vm, snapshot, namespace).Write(dto); err != nil {
 		return 0, err
 	}
 	return *dto.Gauge.Value, nil
