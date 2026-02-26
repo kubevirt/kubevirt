@@ -17,7 +17,7 @@
  *
  */
 
-package virt_operator
+package virtoperator
 
 import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
