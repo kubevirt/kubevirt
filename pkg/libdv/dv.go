@@ -181,6 +181,14 @@ func WithUploadSource() dvOption {
 	})
 }
 
+func WithHttpSource(url string) dvOption {
+	return withSource(v1beta1.DataVolumeSource{
+		HTTP: &v1beta1.DataVolumeSourceHTTP{
+			URL: url,
+		},
+	})
+}
+
 // WithForceBindAnnotation adds the "cdi.kubevirt.io/storage.bind.immediate.requested" annotation to the DV,
 // with the value of "true"
 func WithForceBindAnnotation() dvOption {
