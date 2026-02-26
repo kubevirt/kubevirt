@@ -30,6 +30,8 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
+const logVerbosityWarning = 2
+
 type DomainstatsScraper struct {
 	ch chan *VirtualMachineInstanceReport
 }
@@ -50,7 +52,7 @@ func (d DomainstatsScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineI
 	}
 
 	if !exists || vmStats.DomainStats.Name == "" {
-		log.Log.V(2).Infof("disappearing VM on %s, ignored", socketFile) // VM may be shutting down
+		log.Log.V(logVerbosityWarning).Infof("disappearing VM on %s, ignored", socketFile) // VM may be shutting down
 		return
 	}
 
@@ -58,7 +60,7 @@ func (d DomainstatsScraper) Scrape(socketFile string, vmi *k6tv1.VirtualMachineI
 	// If it wakes up past the timeout, there is no point in send back any metric.
 	// In the best case the information is stale, in the worst case the information is stale *and*
 	// the reporting channel is already closed, leading to a possible panic - see below
-	elapsed := time.Now().Sub(ts)
+	elapsed := time.Since(ts)
 	if elapsed > collector.StatsMaxAge {
 		log.Log.Infof("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
 		return

@@ -47,7 +47,9 @@ type VirtualMachineInstanceStats struct {
 	FsStats     k6tv1.VirtualMachineInstanceFileSystemList
 }
 
-func newVirtualMachineInstanceReport(vmi *k6tv1.VirtualMachineInstance, vmiStats *VirtualMachineInstanceStats) *VirtualMachineInstanceReport {
+func newVirtualMachineInstanceReport(
+	vmi *k6tv1.VirtualMachineInstance, vmiStats *VirtualMachineInstanceStats,
+) *VirtualMachineInstanceReport {
 	vmiReport := &VirtualMachineInstanceReport{
 		vmi:      vmi,
 		vmiStats: vmiStats,
@@ -70,11 +72,15 @@ func (vmiReport *VirtualMachineInstanceReport) buildRuntimeLabels() {
 	}
 }
 
-func (vmiReport *VirtualMachineInstanceReport) newCollectorResult(metric operatormetrics.Metric, value float64) operatormetrics.CollectorResult {
+func (vmiReport *VirtualMachineInstanceReport) newCollectorResult(
+	metric operatormetrics.Metric, value float64,
+) operatormetrics.CollectorResult {
 	return vmiReport.newCollectorResultWithLabels(metric, value, nil)
 }
 
-func (vmiReport *VirtualMachineInstanceReport) newCollectorResultWithLabels(metric operatormetrics.Metric, value float64, additionalLabels map[string]string) operatormetrics.CollectorResult {
+func (vmiReport *VirtualMachineInstanceReport) newCollectorResultWithLabels(
+	metric operatormetrics.Metric, value float64, additionalLabels map[string]string,
+) operatormetrics.CollectorResult {
 	vmiLabels := map[string]string{
 		"node":      vmiReport.vmi.Status.NodeName,
 		"namespace": vmiReport.vmi.Namespace,

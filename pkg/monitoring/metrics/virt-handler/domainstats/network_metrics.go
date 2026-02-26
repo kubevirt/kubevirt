@@ -122,14 +122,18 @@ func (networkMetrics) Collect(vmiReport *VirtualMachineInstanceReport) []operato
 
 		if net.RxBytesSet {
 			deprecatedLabels := map[string]string{"interface": iface, "type": "rx"}
-			crs = append(crs, vmiReport.newCollectorResultWithLabels(networkTrafficBytesDeprecated, float64(net.RxBytes), deprecatedLabels))
-			crs = append(crs, vmiReport.newCollectorResultWithLabels(networkReceiveBytes, float64(net.RxBytes), netLabels))
+			crs = append(crs,
+				vmiReport.newCollectorResultWithLabels(networkTrafficBytesDeprecated, float64(net.RxBytes), deprecatedLabels),
+				vmiReport.newCollectorResultWithLabels(networkReceiveBytes, float64(net.RxBytes), netLabels),
+			)
 		}
 
 		if net.TxBytesSet {
 			deprecatedLabels := map[string]string{"interface": iface, "type": "tx"}
-			crs = append(crs, vmiReport.newCollectorResultWithLabels(networkTrafficBytesDeprecated, float64(net.TxBytes), deprecatedLabels))
-			crs = append(crs, vmiReport.newCollectorResultWithLabels(networkTransmitBytes, float64(net.TxBytes), netLabels))
+			crs = append(crs,
+				vmiReport.newCollectorResultWithLabels(networkTrafficBytesDeprecated, float64(net.TxBytes), deprecatedLabels),
+				vmiReport.newCollectorResultWithLabels(networkTransmitBytes, float64(net.TxBytes), netLabels),
+			)
 		}
 
 		if net.RxPktsSet {

@@ -30,24 +30,26 @@ import (
 
 var _ = Describe("domainstats", func() {
 	Context("collector functions", func() {
-		var metric = operatormetrics.NewCounter(
-			operatormetrics.MetricOpts{
-				Name: "test-metric-1",
-				Help: "test help 1",
-			},
-		)
+		var (
+			metric = operatormetrics.NewCounter(
+				operatormetrics.MetricOpts{
+					Name: "test-metric-1",
+					Help: "test help 1",
+				},
+			)
 
-		var vmiReport = &VirtualMachineInstanceReport{
-			vmi: &k6tv1.VirtualMachineInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-vmi-1",
-					Namespace: "test-ns-1",
+			vmiReport = &VirtualMachineInstanceReport{
+				vmi: &k6tv1.VirtualMachineInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-vmi-1",
+						Namespace: "test-ns-1",
+					},
+					Status: k6tv1.VirtualMachineInstanceStatus{
+						NodeName: "test-node-1",
+					},
 				},
-				Status: k6tv1.VirtualMachineInstanceStatus{
-					NodeName: "test-node-1",
-				},
-			},
-		}
+			}
+		)
 
 		It("newCollectorResultWithLabels should return a CollectorResult with the correct values", func() {
 			cr := vmiReport.newCollectorResultWithLabels(metric, 5, map[string]string{"test-label-1": "test-value-1"})

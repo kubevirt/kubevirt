@@ -16,7 +16,7 @@
  * Copyright The KubeVirt Authors.
  */
 
-package virt_handler
+package virthandler
 
 import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
@@ -29,7 +29,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler/migrationdomainstats"
 )
 
-func SetupMetrics(nodeName string, MaxRequestsInFlight int, vmiInformer cache.SharedIndexInformer, machines []libvirtxml.CapsGuestMachine) error {
+func SetupMetrics(
+	nodeName string, maxRequestsInFlight int,
+	vmiInformer cache.SharedIndexInformer, machines []libvirtxml.CapsGuestMachine,
+) error {
 	if err := workqueue.SetupMetrics(); err != nil {
 		return err
 	}
@@ -44,7 +47,7 @@ func SetupMetrics(nodeName string, MaxRequestsInFlight int, vmiInformer cache.Sh
 	SetVersionInfo()
 	ReportDeprecatedMachineTypes(machines, nodeName)
 
-	domainstats.SetupDomainStatsCollector(MaxRequestsInFlight, vmiInformer)
+	domainstats.SetupDomainStatsCollector(maxRequestsInFlight, vmiInformer)
 
 	if err := migrationdomainstats.SetupMigrationStatsCollector(vmiInformer); err != nil {
 		return err
