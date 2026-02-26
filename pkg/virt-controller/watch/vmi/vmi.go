@@ -40,6 +40,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/controller"
 	backendstorage "kubevirt.io/kubevirt/pkg/storage/backend-storage"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
+	"kubevirt.io/kubevirt/pkg/storage/velero"
 	traceUtils "kubevirt.io/kubevirt/pkg/util/trace"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -64,9 +65,11 @@ func NewController(templateService templateService,
 	storageProfileInformer cache.SharedIndexInformer,
 	cdiInformer cache.SharedIndexInformer,
 	cdiConfigInformer cache.SharedIndexInformer,
+	kubeVirtInformer cache.SharedIndexInformer,
 	clusterConfig *virtconfig.ClusterConfig,
 	topologyHinter topology.Hinter,
 	netAnnotationsGenerator annotationsGenerator,
+	storageAnnotationsGenerator storageAnnotationsGenerator,
 	netStatusUpdater statusUpdater,
 	netSpecValidator specValidator,
 	netMigrationEvaluator migrationEvaluator,
@@ -98,6 +101,7 @@ func NewController(templateService templateService,
 		cidsMap:                           vsock.NewCIDsMap(),
 		backendStorage:                    backendstorage.NewBackendStorage(clientset, clusterConfig, storageClassInformer.GetStore(), storageProfileInformer.GetStore(), pvcInformer.GetIndexer()),
 		netAnnotationsGenerator:           netAnnotationsGenerator,
+		storageAnnotationsGenerator:       storageAnnotationsGenerator,
 		updateNetworkStatus:               netStatusUpdater,
 		validateNetworkSpec:               netSpecValidator,
 		netMigrationEvaluator:             netMigrationEvaluator,
@@ -108,7 +112,8 @@ func NewController(templateService templateService,
 	c.hasSynced = func() bool {
 		return vmInformer.HasSynced() && vmiInformer.HasSynced() && podInformer.HasSynced() &&
 			dataVolumeInformer.HasSynced() && cdiConfigInformer.HasSynced() && cdiInformer.HasSynced() &&
-			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced()
+			pvcInformer.HasSynced() && storageClassInformer.HasSynced() && storageProfileInformer.HasSynced() &&
+			kubeVirtInformer.HasSynced()
 	}
 
 	_, err := vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -155,6 +160,13 @@ func NewController(templateService templateService,
 		return nil, err
 	}
 
+	_, err = kubeVirtInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.updateKubeVirt,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -191,6 +203,11 @@ type statusUpdater func(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) erro
 
 type specValidator func(*k8sfield.Path, *virtv1.VirtualMachineInstanceSpec, *virtconfig.ClusterConfig) []v1.StatusCause
 
+type storageAnnotationsGenerator interface {
+	Generate(vmi *virtv1.VirtualMachineInstance) (map[string]string, error)
+	ManagedAnnotationKeys() []string
+}
+
 type migrationEvaluator interface {
 	// Evaluate determines if a VMI should request an automatic migration.
 	//
@@ -223,6 +240,7 @@ type Controller struct {
 	backendStorage                    *backendstorage.BackendStorage
 	hasSynced                         func() bool
 	netAnnotationsGenerator           annotationsGenerator
+	storageAnnotationsGenerator       storageAnnotationsGenerator
 	updateNetworkStatus               statusUpdater
 	validateNetworkSpec               specValidator
 	netMigrationEvaluator             migrationEvaluator
@@ -486,6 +504,21 @@ func (c *Controller) deleteVirtualMachineInstance(obj interface{}) {
 func (c *Controller) updateVirtualMachineInstance(_, curr interface{}) {
 	c.lowerVMIExpectation(curr)
 	c.enqueueVirtualMachine(curr)
+}
+
+func (c *Controller) updateKubeVirt(old, curr interface{}) {
+	oldKV := old.(*virtv1.KubeVirt)
+	currKV := curr.(*virtv1.KubeVirt)
+
+	oldSkipValue := oldKV.Annotations[velero.SkipHooksAnnotation]
+	currSkipValue := currKV.Annotations[velero.SkipHooksAnnotation]
+
+	// Only requeue all VMIs if the skip-backup-hooks annotation changed
+	if oldSkipValue != currSkipValue {
+		for _, obj := range c.vmiIndexer.List() {
+			c.enqueueVirtualMachine(obj)
+		}
+	}
 }
 
 func (c *Controller) lowerVMIExpectation(curr interface{}) {
