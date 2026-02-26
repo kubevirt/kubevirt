@@ -58,7 +58,7 @@ import (
 	"kubevirt.io/api/core"
 	kubev1 "kubevirt.io/api/core/v1"
 	v1 "kubevirt.io/api/core/v1"
-	exportv1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
 	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
 	"kubevirt.io/api/migrations"
@@ -746,7 +746,7 @@ func GetVirtualMachineExportInformerIndexers() cache.Indexers {
 
 func (f *kubeInformerFactory) VirtualMachineExport() cache.SharedIndexInformer {
 	return f.getInformer("vmExportInformer", func() cache.SharedIndexInformer {
-		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().ExportV1beta1().RESTClient(), "virtualmachineexports", k8sv1.NamespaceAll, fields.Everything())
+		lw := cache.NewListWatchFromClient(f.clientSet.GeneratedKubeVirtClient().ExportV1().RESTClient(), "virtualmachineexports", k8sv1.NamespaceAll, fields.Everything())
 		return cache.NewSharedIndexInformer(lw, &exportv1.VirtualMachineExport{}, f.defaultResync, GetVirtualMachineExportInformerIndexers())
 	})
 }

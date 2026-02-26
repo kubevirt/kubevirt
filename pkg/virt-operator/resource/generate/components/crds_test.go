@@ -16,7 +16,7 @@ import (
 
 	clonev1beta1 "kubevirt.io/api/clone/v1beta1"
 	v1 "kubevirt.io/api/core/v1"
-	exportv1beta1 "kubevirt.io/api/export/v1beta1"
+	exportv1 "kubevirt.io/api/export/v1"
 	poolv1 "kubevirt.io/api/pool/v1beta1"
 	snapshotv1beta1 "kubevirt.io/api/snapshot/v1beta1"
 
@@ -303,15 +303,15 @@ var _ = Describe("CRDs", func() {
 			"VirtualMachine", "test-vm", "false", timestamp,
 		),
 		Entry("for VirtualMachineExport", NewVirtualMachineExportCrd,
-			exportv1beta1.VirtualMachineExport{
-				Spec: exportv1beta1.VirtualMachineExportSpec{
+			exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{
 					Source: k8sv1.TypedLocalObjectReference{
 						Kind: "VirtualMachine",
 						Name: "test-vm",
 					},
 				},
-				Status: &exportv1beta1.VirtualMachineExportStatus{
-					Phase: exportv1beta1.Ready,
+				Status: &exportv1.VirtualMachineExportStatus{
+					Phase: exportv1.Ready,
 				},
 			},
 			"VirtualMachine", "test-vm", "Ready",

@@ -35,7 +35,6 @@ const (
 	// Owner: sig-storage
 	// Alpha: v0.55.0
 	// Beta: v1.3.0
-	VMExportGate       = "VMExport"
 	HotplugVolumesGate = "HotplugVolumes"
 	HostDiskGate       = "HostDisk"
 
@@ -210,7 +209,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: SidecarGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDevicesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SnapshotGate, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: VMExportGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: HotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: HostDiskGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DownwardMetricsFeatureGate, State: Alpha})

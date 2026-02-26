@@ -621,16 +621,16 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.VolumeUpdateState":                                                       schema_kubevirtio_api_core_v1_VolumeUpdateState(ref),
 		"kubevirt.io/api/core/v1.Watchdog":                                                                schema_kubevirtio_api_core_v1_Watchdog(ref),
 		"kubevirt.io/api/core/v1.WatchdogDevice":                                                          schema_kubevirtio_api_core_v1_WatchdogDevice(ref),
-		"kubevirt.io/api/export/v1alpha1.Condition":                                                       schema_kubevirtio_api_export_v1alpha1_Condition(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExport":                                            schema_kubevirtio_api_export_v1alpha1_VirtualMachineExport(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportLink":                                        schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportLinks":                                       schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLinks(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportList":                                        schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportList(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportManifest":                                    schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportManifest(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportSpec":                                        schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportSpec(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportStatus":                                      schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolume":                                      schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref),
-		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolumeFormat":                                schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolumeFormat(ref),
+		"kubevirt.io/api/export/v1.Condition":                                                             schema_kubevirtio_api_export_v1_Condition(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExport":                                                  schema_kubevirtio_api_export_v1_VirtualMachineExport(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportLink":                                              schema_kubevirtio_api_export_v1_VirtualMachineExportLink(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportLinks":                                             schema_kubevirtio_api_export_v1_VirtualMachineExportLinks(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportList":                                              schema_kubevirtio_api_export_v1_VirtualMachineExportList(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportManifest":                                          schema_kubevirtio_api_export_v1_VirtualMachineExportManifest(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportSpec":                                              schema_kubevirtio_api_export_v1_VirtualMachineExportSpec(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportStatus":                                            schema_kubevirtio_api_export_v1_VirtualMachineExportStatus(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportVolume":                                            schema_kubevirtio_api_export_v1_VirtualMachineExportVolume(ref),
+		"kubevirt.io/api/export/v1.VirtualMachineExportVolumeFormat":                                      schema_kubevirtio_api_export_v1_VirtualMachineExportVolumeFormat(ref),
 		"kubevirt.io/api/export/v1beta1.Condition":                                                        schema_kubevirtio_api_export_v1beta1_Condition(ref),
 		"kubevirt.io/api/export/v1beta1.VirtualMachineExport":                                             schema_kubevirtio_api_export_v1beta1_VirtualMachineExport(ref),
 		"kubevirt.io/api/export/v1beta1.VirtualMachineExportLink":                                         schema_kubevirtio_api_export_v1beta1_VirtualMachineExportLink(ref),
@@ -30310,7 +30310,7 @@ func schema_kubevirtio_api_core_v1_WatchdogDevice(ref common.ReferenceCallback) 
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_Condition(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30362,7 +30362,7 @@ func schema_kubevirtio_api_export_v1alpha1_Condition(ref common.ReferenceCallbac
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExport(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExport(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30392,12 +30392,12 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExport(ref common.Refer
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportSpec"),
+							Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExportSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportStatus"),
+							Ref: ref("kubevirt.io/api/export/v1.VirtualMachineExportStatus"),
 						},
 					},
 				},
@@ -30405,11 +30405,11 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExport(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportSpec", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportStatus"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta", "kubevirt.io/api/export/v1.VirtualMachineExportSpec", "kubevirt.io/api/export/v1.VirtualMachineExportStatus"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30440,7 +30440,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolume"),
+										Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExportVolume"),
 									},
 								},
 							},
@@ -30462,7 +30462,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportManifest"),
+										Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExportManifest"),
 									},
 								},
 							},
@@ -30473,11 +30473,11 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLink(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/export/v1alpha1.VirtualMachineExportManifest", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolume"},
+			"kubevirt.io/api/export/v1.VirtualMachineExportManifest", "kubevirt.io/api/export/v1.VirtualMachineExportVolume"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportLinks(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30486,23 +30486,23 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportLinks(ref common.
 				Properties: map[string]spec.Schema{
 					"internal": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportLink"),
+							Ref: ref("kubevirt.io/api/export/v1.VirtualMachineExportLink"),
 						},
 					},
 					"external": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportLink"),
+							Ref: ref("kubevirt.io/api/export/v1.VirtualMachineExportLink"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/export/v1alpha1.VirtualMachineExportLink"},
+			"kubevirt.io/api/export/v1.VirtualMachineExportLink"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30541,7 +30541,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportList(ref common.R
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExport"),
+										Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExport"),
 									},
 								},
 							},
@@ -30552,11 +30552,11 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportList(ref common.R
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/export/v1alpha1.VirtualMachineExport"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta", "kubevirt.io/api/export/v1.VirtualMachineExport"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30586,7 +30586,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportManifest(ref comm
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30621,7 +30621,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportSpec(ref common.R
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30636,7 +30636,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common
 					},
 					"links": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportLinks"),
+							Ref: ref("kubevirt.io/api/export/v1.VirtualMachineExportLinks"),
 						},
 					},
 					"tokenSecretRef": {
@@ -30678,7 +30678,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/export/v1alpha1.Condition"),
+										Ref:     ref("kubevirt.io/api/export/v1.Condition"),
 									},
 								},
 							},
@@ -30688,11 +30688,11 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportStatus(ref common
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/export/v1alpha1.Condition", "kubevirt.io/api/export/v1alpha1.VirtualMachineExportLinks"},
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time", "kubevirt.io/api/export/v1.Condition", "kubevirt.io/api/export/v1.VirtualMachineExportLinks"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportVolume(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -30722,7 +30722,7 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref common
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolumeFormat"),
+										Ref:     ref("kubevirt.io/api/export/v1.VirtualMachineExportVolumeFormat"),
 									},
 								},
 							},
@@ -30733,11 +30733,11 @@ func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolume(ref common
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolumeFormat"},
+			"kubevirt.io/api/export/v1.VirtualMachineExportVolumeFormat"},
 	}
 }
 
-func schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolumeFormat(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_kubevirtio_api_export_v1_VirtualMachineExportVolumeFormat(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
