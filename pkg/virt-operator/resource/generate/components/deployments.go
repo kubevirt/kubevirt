@@ -470,6 +470,7 @@ func NewControllerDeployment(config *operatorutil.KubeVirtDeploymentConfig, prod
 
 	attachCertificateSecret(pod, VirtControllerCertSecretName, "/etc/virt-controller/certificates")
 	attachCertificateSecret(pod, KubeVirtExportCASecretName, "/etc/virt-controller/exportca")
+	attachCertificateSecret(pod, KubeVirtBackupCASecretName, "/etc/virt-controller/backupca")
 	attachProfileVolume(pod)
 
 	container.Resources = corev1.ResourceRequirements{
