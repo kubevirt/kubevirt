@@ -102,7 +102,7 @@ func (c *configImpl) startWatcherWithClient(client kubecli.KubevirtClient) error
 }
 
 func (c *configImpl) attachHandlersToInformer(informer cache.SharedIndexInformer) {
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			cm, ok := obj.(*k8sv1.ConfigMap)
 			if !ok {
@@ -123,6 +123,9 @@ func (c *configImpl) attachHandlersToInformer(informer cache.SharedIndexInformer
 			c.resetToDefaults()
 		},
 	})
+	if err != nil {
+		log.Log.Warningf("vm-labels: failed to add event handler: %v", err)
+	}
 }
 
 func (c *configImpl) ShouldReport(label string) bool {

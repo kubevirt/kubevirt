@@ -24,6 +24,12 @@ import (
 	k8sworkqueue "k8s.io/client-go/util/workqueue"
 )
 
+const (
+	workqueueBucketStart  = 10e-9
+	workqueueBucketFactor = 10
+	workqueueBucketCount  = 10
+)
+
 var (
 	workqueueMetrics = []operatormetrics.Metric{
 		depth,
@@ -57,7 +63,7 @@ var (
 			Help: "How long an item stays in workqueue before being requested.",
 		},
 		prometheus.HistogramOpts{
-			Buckets: prometheus.ExponentialBuckets(10e-9, 10, 10),
+			Buckets: prometheus.ExponentialBuckets(workqueueBucketStart, workqueueBucketFactor, workqueueBucketCount),
 		},
 		[]string{"name"},
 	)
@@ -68,7 +74,7 @@ var (
 			Help: "How long in seconds processing an item from workqueue takes.",
 		},
 		prometheus.HistogramOpts{
-			Buckets: prometheus.ExponentialBuckets(10e-9, 10, 10),
+			Buckets: prometheus.ExponentialBuckets(workqueueBucketStart, workqueueBucketFactor, workqueueBucketCount),
 		},
 		[]string{"name"},
 	)
@@ -103,7 +109,7 @@ var (
 
 type Provider struct{}
 
-func init() {
+func init() { //nolint:gochecknoinits // Force KubeVirt worqueue metrics to be registered before default k8s workqueue metrics
 	k8sworkqueue.SetProvider(Provider{})
 }
 
