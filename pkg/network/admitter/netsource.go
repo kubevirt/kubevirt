@@ -68,13 +68,24 @@ func validateSinglePodNetwork(field *k8sfield.Path, spec *v1.VirtualMachineInsta
 func validateSingleNetworkSource(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec) []metav1.StatusCause {
 	var causes []metav1.StatusCause
 	for idx, net := range spec.Networks {
-		if net.Pod == nil && net.Multus == nil {
+		networkTypeCount := 0
+		if net.Pod != nil {
+			networkTypeCount++
+		}
+		if net.Multus != nil {
+			networkTypeCount++
+		}
+		if net.ResourceClaim != nil {
+			networkTypeCount++
+		}
+
+		if networkTypeCount == 0 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: "should have a network type",
 				Field:   field.Child("networks").Index(idx).String(),
 			})
-		} else if net.Pod != nil && net.Multus != nil {
+		} else if networkTypeCount > 1 {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: "should have only one network type",

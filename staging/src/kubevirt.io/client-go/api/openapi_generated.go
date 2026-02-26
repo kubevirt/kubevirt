@@ -518,6 +518,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Realtime":                                                                schema_kubevirtio_api_core_v1_Realtime(ref),
 		"kubevirt.io/api/core/v1.ReloadableComponentConfiguration":                                        schema_kubevirtio_api_core_v1_ReloadableComponentConfiguration(ref),
 		"kubevirt.io/api/core/v1.RemoveVolumeOptions":                                                     schema_kubevirtio_api_core_v1_RemoveVolumeOptions(ref),
+		"kubevirt.io/api/core/v1.ResourceClaimNetworkSource":                                              schema_kubevirtio_api_core_v1_ResourceClaimNetworkSource(ref),
 		"kubevirt.io/api/core/v1.ResourceRequirements":                                                    schema_kubevirtio_api_core_v1_ResourceRequirements(ref),
 		"kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims":                                       schema_kubevirtio_api_core_v1_ResourceRequirementsWithoutClaims(ref),
 		"kubevirt.io/api/core/v1.RestartOptions":                                                          schema_kubevirtio_api_core_v1_RestartOptions(ref),
@@ -20235,7 +20236,7 @@ func schema_kubevirtio_api_core_v1_DeviceStatus(ref common.ReferenceCallback) co
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices DRA",
+							Description: "HostDeviceStatuses reflects the state of DRA devices requested in spec.domain.devices.hostDevices and DRA networks requested in spec.networks",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -20263,7 +20264,7 @@ func schema_kubevirtio_api_core_v1_DeviceStatusInfo(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Name of the device as specified in spec.domain.devices.gpus.name or spec.domain.devices.hostDevices.name",
+							Description: "Name of the device as specified in spec.domain.devices.gpus.name, spec.domain.devices.hostDevices.name, or spec.networks.name",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -24162,12 +24163,17 @@ func schema_kubevirtio_api_core_v1_Network(ref common.ReferenceCallback) common.
 							Ref: ref("kubevirt.io/api/core/v1.MultusNetwork"),
 						},
 					},
+					"resourceClaim": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.ResourceClaimNetworkSource"),
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.MultusNetwork", "kubevirt.io/api/core/v1.PodNetwork"},
+			"kubevirt.io/api/core/v1.MultusNetwork", "kubevirt.io/api/core/v1.PodNetwork", "kubevirt.io/api/core/v1.ResourceClaimNetworkSource"},
 	}
 }
 
@@ -24236,11 +24242,16 @@ func schema_kubevirtio_api_core_v1_NetworkSource(ref common.ReferenceCallback) c
 							Ref: ref("kubevirt.io/api/core/v1.MultusNetwork"),
 						},
 					},
+					"resourceClaim": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("kubevirt.io/api/core/v1.ResourceClaimNetworkSource"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.MultusNetwork", "kubevirt.io/api/core/v1.PodNetwork"},
+			"kubevirt.io/api/core/v1.MultusNetwork", "kubevirt.io/api/core/v1.PodNetwork", "kubevirt.io/api/core/v1.ResourceClaimNetworkSource"},
 	}
 }
 
@@ -25231,6 +25242,36 @@ func schema_kubevirtio_api_core_v1_RemoveVolumeOptions(ref common.ReferenceCallb
 					},
 				},
 				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ResourceClaimNetworkSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ResourceClaimNetworkSource represents a network resource requested via a Kubernetes ResourceClaim.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"claimName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClaimName references the name of a ResourceClaim in the VMI's namespace that provides the network resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"requestName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequestName specifies which request from the ResourceClaim.spec.devices.requests array this network source corresponds to.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"claimName", "requestName"},
 			},
 		},
 	}

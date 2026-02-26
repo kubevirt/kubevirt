@@ -63,14 +63,14 @@ sriov_components::deploy_multus
 
 if [[ "$KUBEVIRT_USE_DRA" != "true" ]]; then
   sriov_components::deploy \
-  "$PFS_IN_USE" \
-  "$VFS_DRIVER" \
-  "$SRIOVDP_RESOURCE_PREFIX" "$SRIOVDP_RESOURCE_NAME" \
-  "$SRIOV_NODE_LABEL_KEY" "$SRIOV_NODE_LABEL_VALUE"
+    "$PFS_IN_USE" \
+    "$VFS_DRIVER" \
+    "$SRIOVDP_RESOURCE_PREFIX" "$SRIOVDP_RESOURCE_NAME" \
+    "$SRIOV_NODE_LABEL_KEY" "$SRIOV_NODE_LABEL_VALUE"
 
   # Verify that each sriov capable node has sriov VFs allocatable resource
   validate_nodes_sriov_allocatable_resource
-  
+
   ## Deploy network-resources-injector
   sriov_components::deploy_network_resources_injector
 else

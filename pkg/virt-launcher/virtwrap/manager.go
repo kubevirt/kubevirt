@@ -1098,6 +1098,13 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 			return nil, err
 		}
 
+		// Add DRA-based SR-IOV devices
+		sriovDRADevices, err := sriov.CreateDRAHostDevices(vmi)
+		if err != nil {
+			return nil, err
+		}
+		sriovDevices = append(sriovDevices, sriovDRADevices...)
+
 		c.HotplugVolumes = hotplugVolumes
 		c.SRIOVDevices = sriovDevices
 

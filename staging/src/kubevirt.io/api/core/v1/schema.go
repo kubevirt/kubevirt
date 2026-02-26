@@ -1700,8 +1700,9 @@ type Network struct {
 // Represents the source resource that will be connected to the vm.
 // Only one of its members may be specified.
 type NetworkSource struct {
-	Pod    *PodNetwork    `json:"pod,omitempty"`
-	Multus *MultusNetwork `json:"multus,omitempty"`
+	Pod           *PodNetwork                 `json:"pod,omitempty"`
+	Multus        *MultusNetwork              `json:"multus,omitempty"`
+	ResourceClaim *ResourceClaimNetworkSource `json:"resourceClaim,omitempty"`
 }
 
 // Represents the stock pod network interface.
@@ -1745,6 +1746,21 @@ type MultusNetwork struct {
 	// Select the default network and add it to the
 	// multus-cni.io/default-network annotation.
 	Default bool `json:"default,omitempty"`
+}
+
+// ResourceClaimNetworkSource represents a network resource requested
+// via a Kubernetes ResourceClaim.
+type ResourceClaimNetworkSource struct {
+	// ClaimName references the name of a ResourceClaim in the
+	// VMI's namespace that provides the network resource.
+	// +kubebuilder:validation:MinLength=1
+	ClaimName string `json:"claimName"`
+
+	// RequestName specifies which request from the
+	// ResourceClaim.spec.devices.requests array this network
+	// source corresponds to.
+	// +kubebuilder:validation:MinLength=1
+	RequestName string `json:"requestName"`
 }
 
 // CPUTopology allows specifying the amount of cores, sockets

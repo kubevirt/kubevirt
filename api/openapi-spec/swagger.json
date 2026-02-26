@@ -14590,7 +14590,7 @@
       "x-kubernetes-list-type": "atomic"
      },
      "hostDeviceStatuses": {
-      "description": "HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices DRA",
+      "description": "HostDeviceStatuses reflects the state of DRA devices requested in spec.domain.devices.hostDevices and DRA networks requested in spec.networks",
       "type": "array",
       "items": {
        "default": {},
@@ -14611,7 +14611,7 @@
       "$ref": "#/definitions/v1.DeviceResourceClaimStatus"
      },
      "name": {
-      "description": "Name of the device as specified in spec.domain.devices.gpus.name or spec.domain.devices.hostDevices.name",
+      "description": "Name of the device as specified in spec.domain.devices.gpus.name, spec.domain.devices.hostDevices.name, or spec.networks.name",
       "type": "string",
       "default": ""
      }
@@ -16697,6 +16697,9 @@
      },
      "pod": {
       "$ref": "#/definitions/v1.PodNetwork"
+     },
+     "resourceClaim": {
+      "$ref": "#/definitions/v1.ResourceClaimNetworkSource"
      }
     }
    },
@@ -17233,6 +17236,26 @@
      },
      "name": {
       "description": "Name represents the name that maps to both the disk and volume that should be removed",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1.ResourceClaimNetworkSource": {
+    "description": "ResourceClaimNetworkSource represents a network resource requested via a Kubernetes ResourceClaim.",
+    "type": "object",
+    "required": [
+     "claimName",
+     "requestName"
+    ],
+    "properties": {
+     "claimName": {
+      "description": "ClaimName references the name of a ResourceClaim in the VMI's namespace that provides the network resource.",
+      "type": "string",
+      "default": ""
+     },
+     "requestName": {
+      "description": "RequestName specifies which request from the ResourceClaim.spec.devices.requests array this network source corresponds to.",
       "type": "string",
       "default": ""
      }
