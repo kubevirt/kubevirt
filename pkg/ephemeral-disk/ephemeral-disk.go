@@ -26,6 +26,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
 
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -50,7 +51,7 @@ type ephemeralDiskCreator struct {
 	mountBaseDir    string
 	pvcBaseDir      string
 	blockDevBaseDir string
-	discCreateFunc  func(backingFile string, backingFormat string, imagePath string) ([]byte, error)
+	discCreateFunc  func(backingFile string, backingFormat string, imagePath string, capacity *resource.Quantity) ([]byte, error)
 }
 
 func NewEphemeralDiskCreator(mountBaseDir string) *ephemeralDiskCreator {
@@ -107,7 +108,11 @@ func (c *ephemeralDiskCreator) CreateBackedImageForVolume(volume v1.Volume, back
 		return err
 	}
 
-	output, err := c.discCreateFunc(backingFile, backingFormat, imagePath)
+	var capacity *resource.Quantity
+	if volume.VolumeSource.Ephemeral != nil {
+		capacity = volume.VolumeSource.Ephemeral.Capacity
+	}
+	output, err := c.discCreateFunc(backingFile, backingFormat, imagePath, capacity)
 
 	// Cleanup of previous images isn't really necessary as they're all on EmptyDir.
 	if err != nil {
@@ -140,17 +145,20 @@ func (c *ephemeralDiskCreator) CreateEphemeralImages(vmi *v1.VirtualMachineInsta
 	return nil
 }
 
-func createBackingDisk(backingFile string, backingFormat string, imagePath string) ([]byte, error) {
-	// #nosec No risk for attacker injection. Parameters are predefined strings
-	cmd := exec.Command("qemu-img",
+func createBackingDisk(backingFile string, backingFormat string, imagePath string, capacity *resource.Quantity) ([]byte, error) {
+	args := []string{
 		"create",
-		"-f",
-		"qcow2",
-		"-b",
-		backingFile,
-		"-F",
-		backingFormat,
+		"-f", "qcow2",
+		"-b", backingFile,
+		"-F", backingFormat,
 		imagePath,
-	)
+	}
+	if capacity != nil {
+		// Use decimal string representation to avoid int64 overflow for large capacities.
+		// qemu-img accepts decimal byte values as the size argument.
+		args = append(args, capacity.AsDec().String())
+	}
+	// #nosec No risk for attacker injection. Parameters are predefined strings
+	cmd := exec.Command("qemu-img", args...)
 	return cmd.CombinedOutput()
 }

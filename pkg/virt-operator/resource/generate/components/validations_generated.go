@@ -8252,6 +8252,18 @@ var CRDsValidation map[string]string = map[string]string{
                           specified source and provides copy-on-write image on top
                           of it.
                         properties:
+                          capacity:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              Capacity specifies the virtual size of the ephemeral disk overlay.
+                              If set, the qcow2 overlay will be created with this virtual size,
+                              allowing the guest to see a larger disk than the backing PVC.
+                              The overlay is sparse and only consumes space for written data.
+                              If omitted, the overlay defaults to the size of the backing PVC.
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           persistentVolumeClaim:
                             description: |-
                               PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
@@ -14155,6 +14167,18 @@ var CRDsValidation map[string]string = map[string]string{
                 description: Ephemeral is a special volume source that "wraps" specified
                   source and provides copy-on-write image on top of it.
                 properties:
+                  capacity:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: |-
+                      Capacity specifies the virtual size of the ephemeral disk overlay.
+                      If set, the qcow2 overlay will be created with this virtual size,
+                      allowing the guest to see a larger disk than the backing PVC.
+                      The overlay is sparse and only consumes space for written data.
+                      If omitted, the overlay defaults to the size of the backing PVC.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
                   persistentVolumeClaim:
                     description: |-
                       PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
@@ -20590,6 +20614,18 @@ var CRDsValidation map[string]string = map[string]string{
                           specified source and provides copy-on-write image on top
                           of it.
                         properties:
+                          capacity:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: |-
+                              Capacity specifies the virtual size of the ephemeral disk overlay.
+                              If set, the qcow2 overlay will be created with this virtual size,
+                              allowing the guest to see a larger disk than the backing PVC.
+                              The overlay is sparse and only consumes space for written data.
+                              If omitted, the overlay defaults to the size of the backing PVC.
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            x-kubernetes-int-or-string: true
                           persistentVolumeClaim:
                             description: |-
                               PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
@@ -25686,6 +25722,18 @@ var CRDsValidation map[string]string = map[string]string{
                                   that "wraps" specified source and provides copy-on-write
                                   image on top of it.
                                 properties:
+                                  capacity:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    description: |-
+                                      Capacity specifies the virtual size of the ephemeral disk overlay.
+                                      If set, the qcow2 overlay will be created with this virtual size,
+                                      allowing the guest to see a larger disk than the backing PVC.
+                                      The overlay is sparse and only consumes space for written data.
+                                      If omitted, the overlay defaults to the size of the backing PVC.
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
                                   persistentVolumeClaim:
                                     description: |-
                                       PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.
@@ -31238,6 +31286,18 @@ var CRDsValidation map[string]string = map[string]string{
                                       that "wraps" specified source and provides copy-on-write
                                       image on top of it.
                                     properties:
+                                      capacity:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        description: |-
+                                          Capacity specifies the virtual size of the ephemeral disk overlay.
+                                          If set, the qcow2 overlay will be created with this virtual size,
+                                          allowing the guest to see a larger disk than the backing PVC.
+                                          The overlay is sparse and only consumes space for written data.
+                                          If omitted, the overlay defaults to the size of the backing PVC.
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
                                       persistentVolumeClaim:
                                         description: |-
                                           PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.

@@ -732,7 +732,8 @@
           "persistentVolumeClaim": {
             "claimName": "claimNameValue",
             "readOnly": true
-          }
+          },
+          "capacity": "0"
         },
         "emptyDisk": {
           "capacity": "0"

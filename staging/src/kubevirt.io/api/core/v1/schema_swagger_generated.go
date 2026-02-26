@@ -527,6 +527,7 @@ func (MemoryDumpVolumeSource) SwaggerDoc() map[string]string {
 func (EphemeralVolumeSource) SwaggerDoc() map[string]string {
 	return map[string]string{
 		"persistentVolumeClaim": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace.\nDirectly attached to the vmi via qemu.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims\n+optional",
+		"capacity":              "Capacity specifies the virtual size of the ephemeral disk overlay.\nIf set, the qcow2 overlay will be created with this virtual size,\nallowing the guest to see a larger disk than the backing PVC.\nThe overlay is sparse and only consumes space for written data.\nIf omitted, the overlay defaults to the size of the backing PVC.\n+optional",
 	}
 }
 

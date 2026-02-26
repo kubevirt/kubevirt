@@ -15013,6 +15013,10 @@
    "v1.EphemeralVolumeSource": {
     "type": "object",
     "properties": {
+     "capacity": {
+      "description": "Capacity specifies the virtual size of the ephemeral disk overlay. If set, the qcow2 overlay will be created with this virtual size, allowing the guest to see a larger disk than the backing PVC. The overlay is sparse and only consumes space for written data. If omitted, the overlay defaults to the size of the backing PVC.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
      "persistentVolumeClaim": {
       "description": "PersistentVolumeClaimVolumeSource represents a reference to a PersistentVolumeClaim in the same namespace. Directly attached to the vmi via qemu. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims",
       "$ref": "#/definitions/k8s.io.api.core.v1.PersistentVolumeClaimVolumeSource"

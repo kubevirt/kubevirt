@@ -27,6 +27,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -171,10 +172,75 @@ var _ = Describe("ContainerDisk", func() {
 				Expect(err).NotTo(HaveOccurred())
 			})
 		})
+
+		Context("With ephemeral volume specifying capacity", func() {
+			It("Should create ephemeral image and pass capacity to disk creator", func() {
+				By("Creating a VirtualMachineInstance with ephemeral volume and capacity")
+				capacity := resource.MustParse("100Gi")
+				vmi := libvmi.New(
+					libvmi.WithEphemeralPersistentVolumeClaim("fake-disk", "fake-pvc"),
+				)
+				// Set capacity on the ephemeral volume
+				for i := range vmi.Spec.Volumes {
+					if vmi.Spec.Volumes[i].Ephemeral != nil {
+						vmi.Spec.Volumes[i].Ephemeral.Capacity = &capacity
+					}
+				}
+
+				By("Creating a backing image for the PVC")
+				Expect(createBackingImageForPVC("fake-disk", false)).To(Succeed())
+
+				By("Tracking capacity passed to disk creator")
+				var capturedCapacity *resource.Quantity
+				creator.discCreateFunc = func(backingFile string, backingFormat string, imagePath string, cap *resource.Quantity) ([]byte, error) {
+					capturedCapacity = cap
+					return fakeCreateBackingDisk(backingFile, backingFormat, imagePath, cap)
+				}
+
+				By("Creating ephemeral images")
+				err := creator.CreateEphemeralImages(vmi, &api.Domain{})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Verifying capacity was passed")
+				Expect(capturedCapacity).NotTo(BeNil())
+				Expect(capturedCapacity.Cmp(capacity)).To(Equal(0))
+
+				By("Verifying the overlay was created")
+				_, err = os.Stat(filepath.Join(creator.mountBaseDir, "fake-disk", "disk.qcow2"))
+				Expect(err).NotTo(HaveOccurred())
+			})
+
+			It("Should pass nil capacity when not specified", func() {
+				By("Creating a VirtualMachineInstance without capacity")
+				vmi := libvmi.New(
+					libvmi.WithEphemeralPersistentVolumeClaim("fake-disk", "fake-pvc"),
+				)
+
+				By("Creating a backing image for the PVC")
+				Expect(createBackingImageForPVC("fake-disk", false)).To(Succeed())
+
+				By("Tracking capacity passed to disk creator")
+				var capturedCapacity *resource.Quantity
+				wasCalled := false
+				creator.discCreateFunc = func(backingFile string, backingFormat string, imagePath string, cap *resource.Quantity) ([]byte, error) {
+					capturedCapacity = cap
+					wasCalled = true
+					return fakeCreateBackingDisk(backingFile, backingFormat, imagePath, cap)
+				}
+
+				By("Creating ephemeral images")
+				err := creator.CreateEphemeralImages(vmi, &api.Domain{})
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Verifying nil capacity was passed")
+				Expect(wasCalled).To(BeTrue())
+				Expect(capturedCapacity).To(BeNil())
+			})
+		})
 	})
 })
 
-func fakeCreateBackingDisk(backingFile string, backingFormat string, imagePath string) ([]byte, error) {
+func fakeCreateBackingDisk(backingFile string, backingFormat string, imagePath string, capacity *resource.Quantity) ([]byte, error) {
 	if backingFormat != "raw" {
 		return nil, fmt.Errorf("wrong backing format")
 	}
