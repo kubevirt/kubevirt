@@ -1611,6 +1611,7 @@ spec:
           resourceNames:
           - kubevirt-ca
           - kubevirt-export-ca
+          - kubevirt-backup-ca
           - kubevirt-virt-handler-certs
           - kubevirt-virt-handler-server-certs
           - kubevirt-virt-handler-migration-client-certs

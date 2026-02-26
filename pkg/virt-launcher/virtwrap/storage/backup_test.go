@@ -27,6 +27,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"go.uber.org/mock/gomock"
 	"libvirt.org/go/libvirt"
 
@@ -80,7 +81,7 @@ var _ = Describe("Backup", func() {
 			BackupName:      backupName,
 			BackupStartTime: &now,
 			Mode:            backupv1.PushMode,
-			PushPath:        pointer.P(tempDir),
+			TargetPath:      pointer.P(tempDir),
 			SkipQuiesce:     true,
 		}
 	})
@@ -212,6 +213,24 @@ var _ = Describe("Backup", func() {
 			Expect(exists).To(BeTrue())
 			Expect(backupMetadata.CheckpointName).ToNot(BeEmpty())
 			Expect(backupMetadata.CheckpointName).To(ContainSubstring("test-backup"))
+		})
+
+		It("should successfully initiate a pull mode backup", func() {
+			backupOptions.Mode = backupv1.PullMode
+			domainXML := `<domain><devices><disk type='file'><source file='/tmp/foo'/><target dev='vda'/><alias name='disk0'/></disk></devices></domain>`
+
+			mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
+			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
+
+			mockDomain.EXPECT().BackupBegin(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+			mockDomain.EXPECT().Free().Return(nil)
+
+			err := manager.BackupVirtualMachine(vmi, backupOptions)
+			Expect(err).ToNot(HaveOccurred())
+
+			backupMetadata, exists := metadataCache.Backup.Load()
+			Expect(exists).To(BeTrue())
+			Expect(backupMetadata.Mode).To(Equal(string(backupv1.PullMode)))
 		})
 	})
 
@@ -360,6 +379,8 @@ var _ = Describe("Backup", func() {
 			Expect(domainBackup.BackupDisks.Disks[0].Name).To(Equal("vda"))
 			Expect(domainBackup.BackupDisks.Disks[0].Backup).To(Equal("yes"))
 			Expect(domainBackup.BackupDisks.Disks[0].Type).To(Equal("file"))
+			Expect(domainBackup.BackupDisks.Disks[0].ExportName).To(BeEmpty())
+			Expect(domainBackup.BackupDisks.Disks[0].ExportBitmap).To(BeEmpty())
 
 			Expect(domainCheckpoint).ToNot(BeNil())
 			Expect(domainCheckpoint.Name).To(ContainSubstring("test-backup"))
@@ -369,6 +390,35 @@ var _ = Describe("Backup", func() {
 			Expect(volumesInfo).To(HaveLen(1))
 			Expect(volumesInfo[0].VolumeName).To(Equal("disk0"))
 			Expect(volumesInfo[0].DiskTarget).To(Equal("vda"))
+		})
+
+		It("should populate exportbitmap and exportname for disks with a DataStore for pull mode backup", func() {
+			backupOptions.Mode = backupv1.PullMode
+			disks := []api.Disk{
+				{
+					Target: api.DiskTarget{
+						Device: "vda",
+					},
+					Source: api.DiskSource{
+						DataStore: &api.DataStore{},
+					},
+					Alias: api.NewUserDefinedAlias("disk0"),
+				},
+			}
+			domainBackup, domainCheckpoint, _ := generateDomainBackup(disks, backupOptions, tempDir)
+
+			Expect(domainCheckpoint).ToNot(BeNil())
+			Expect(domainBackup).ToNot(BeNil())
+			Expect(domainBackup.Mode).To(Equal(string(backupv1.PullMode)))
+			Expect(domainBackup.Incremental).To(BeNil())
+			Expect(domainBackup.BackupDisks).ToNot(BeNil())
+			Expect(domainBackup.BackupDisks.Disks).To(HaveLen(1))
+			Expect(domainBackup.BackupDisks.Disks[0].Name).To(Equal("vda"))
+			Expect(domainBackup.BackupDisks.Disks[0].Backup).To(Equal("yes"))
+			Expect(domainBackup.BackupDisks.Disks[0].Type).To(Equal("file"))
+			Expect(domainBackup.BackupDisks.Disks[0].ExportName).To(Equal("disk0"))
+			Expect(domainBackup.BackupDisks.Disks[0].ExportBitmap).To(Equal(domainCheckpoint.Name))
+
 		})
 
 		It("should skip disks without DataStore", func() {
@@ -555,36 +605,41 @@ var _ = Describe("Backup", func() {
 		})
 
 		Context("abort backup", func() {
-			It("should successfully abort an ongoing backup and update the status", func() {
-				backupMetadata := api.BackupMetadata{
-					Name:           backupOptions.BackupName,
-					Mode:           string(backupv1.PushMode),
-					StartTimestamp: backupOptions.BackupStartTime,
-				}
-				metadataCache.Backup.Store(backupMetadata)
+			DescribeTable("should successfully abort an ongoing backup and update the status",
+				func(backupMode backupv1.BackupMode, failed types.GomegaMatcher) {
+					backupMetadata := api.BackupMetadata{
+						Name:           backupOptions.BackupName,
+						Mode:           string(backupMode),
+						StartTimestamp: backupOptions.BackupStartTime,
+					}
+					metadataCache.Backup.Store(backupMetadata)
 
-				validJob := &libvirt.DomainJobInfo{
-					Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
-					Type:      libvirt.DOMAIN_JOB_UNBOUNDED,
-				}
-				mockConn.EXPECT().LookupDomainByName(gomock.Any()).MaxTimes(1).Return(mockDomain, nil)
-				mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(validJob, nil)
-				mockDomain.EXPECT().AbortJob().Return(nil)
-				mockDomain.EXPECT().Free().MaxTimes(1).Return(nil)
+					validJob := &libvirt.DomainJobInfo{
+						Operation: libvirt.DOMAIN_JOB_OPERATION_BACKUP,
+						Type:      libvirt.DOMAIN_JOB_UNBOUNDED,
+					}
+					mockConn.EXPECT().LookupDomainByName(gomock.Any()).MaxTimes(1).Return(mockDomain, nil)
+					mockDomain.EXPECT().GetJobStats(libvirt.DomainGetJobStatsFlags(0)).Return(validJob, nil)
+					mockDomain.EXPECT().AbortJob().Return(nil)
+					mockDomain.EXPECT().Free().MaxTimes(1).Return(nil)
 
-				Expect(manager.AbortVirtualMachineBackup(vmi, backupOptions)).To(Succeed())
+					Expect(manager.AbortVirtualMachineBackup(vmi, backupOptions)).To(Succeed())
 
-				event := &libvirt.DomainEventJobCompleted{}
-				mockDomain.EXPECT().GetJobStats(gomock.Any()).Return(&libvirt.DomainJobInfo{
-					Type: libvirt.DOMAIN_JOB_CANCELLED,
-				}, nil)
+					event := &libvirt.DomainEventJobCompleted{}
+					mockDomain.EXPECT().GetJobStats(gomock.Any()).Return(&libvirt.DomainJobInfo{
+						Type: libvirt.DOMAIN_JOB_CANCELLED,
+					}, nil)
 
-				HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
+					HandleBackupJobCompletedEvent(mockDomain, event, metadataCache)
 
-				newMetadata, exists := metadataCache.Backup.Load()
-				Expect(exists).To(BeTrue())
-				Expect(newMetadata.Failed).To(BeTrue())
-			})
+					newMetadata, exists := metadataCache.Backup.Load()
+					Expect(exists).To(BeTrue())
+					Expect(newMetadata.Failed).To(failed)
+
+				},
+				Entry("marking the backup as failed for push mode", backupv1.PushMode, BeTrue()),
+				Entry("not marking the backup as failed for pull mode", backupv1.PullMode, BeFalse()),
+			)
 
 			DescribeTable("should fail to abort a backup that is not associated with the domain", func(name string, timestamp metav1.Time) {
 				backupMetadata := api.BackupMetadata{
@@ -775,7 +830,7 @@ var _ = Describe("Backup", func() {
 				// Use a path where a file exists as parent - mkdir will fail
 				// because you can't create a directory inside a file
 				invalidBackupOptions := backupOptions.DeepCopy()
-				invalidBackupOptions.PushPath = pointer.P("/dev/null/subdir")
+				invalidBackupOptions.TargetPath = pointer.P("/dev/null/subdir")
 
 				mockConn.EXPECT().LookupDomainByName(gomock.Any()).Return(mockDomain, nil)
 				mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(`<domain/>`, nil)

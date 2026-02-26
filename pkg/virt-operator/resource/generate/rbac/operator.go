@@ -528,6 +528,7 @@ func NewOperatorRole(namespace string) *rbacv1.Role {
 				ResourceNames: []string{
 					components.KubeVirtCASecretName,
 					components.KubeVirtExportCASecretName,
+					components.KubeVirtBackupCASecretName,
 					components.VirtHandlerCertSecretName,
 					components.VirtHandlerServerCertSecretName,
 					components.VirtHandlerMigrationClientCertSecretName,

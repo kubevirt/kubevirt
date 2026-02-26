@@ -21,7 +21,9 @@ package storage
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -42,6 +44,8 @@ import (
 	"kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
+
+	nbdv1 "kubevirt.io/kubevirt/pkg/storage/cbt/nbd/v1"
 
 	"kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
@@ -795,6 +799,226 @@ var _ = Describe(SIG("Backup", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 	})
+
+	It("Full and Incremental pull mode Backup with endpoint verification", func() {
+		const testDataSizeMB = 50
+
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(matcher.ThisVMIWith(vm.Namespace, vm.Name), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Creating BackupTracker")
+		tracker := createBackupTracker(virtClient, vm)
+
+		By("Creating Secret with custom token for pull mode backup")
+		tokenValue := "backup-token-" + rand.String(5)
+		tokenSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "backup-secret-" + rand.String(5),
+				Namespace: vm.Namespace,
+			},
+			StringData: map[string]string{
+				"token": tokenValue,
+			},
+		}
+		_, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), tokenSecret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating scratch PVC for the Full Pull Mode Backup")
+		scratchPVC := libstorage.CreateFSPVC("scratch-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		By("Creating Full Pull Mode Backup")
+		fullBackup := newBackupWithTracker(backupName(vm.Name), vm.Namespace, scratchPVC.Name, tracker.Name)
+		fullBackup.Spec.Mode = pointer.P(backupv1.PullMode)
+		fullBackup.Spec.TokenSecretRef = tokenSecret.Name
+
+		fullBackup, err = virtClient.VirtualMachineBackup(fullBackup.Namespace).Create(context.Background(), fullBackup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		fullBackup = waitBackupExportReady(virtClient, fullBackup.Namespace, fullBackup.Name)
+		verifyPullEndpoints(virtClient, fullBackup, fullBackup.Status.Type, tokenValue)
+
+		By("Deleting the Full Backup to finalize the libvirt job and persist the checkpoint")
+		deleteVMBackup(virtClient, vm.Namespace, fullBackup.Name)
+
+		By("Verifying BackupTracker was updated with first checkpoint")
+		tracker, err = virtClient.VirtualMachineBackupTracker(tracker.Namespace).Get(context.Background(), tracker.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(tracker.Status.LatestCheckpoint).ToNot(BeNil(), "Tracker should have checkpoint after first backup deletion")
+
+		By(fmt.Sprintf("Writing %dMB of data to VM disk before incremental backup", testDataSizeMB))
+		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		Expect(console.LoginToAlpine(vmi)).To(Succeed(), "Should be able to login to Alpine VM")
+		err = console.RunCommand(vmi, fmt.Sprintf("dd if=/dev/urandom of=/root/testfile bs=1M count=%d && sync", testDataSizeMB), 2*time.Minute)
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating Incremental Pull Mode Backup")
+		incBackup := newBackupWithTracker(backupName(vm.Name), vm.Namespace, scratchPVC.Name, tracker.Name)
+		incBackup.Spec.Mode = pointer.P(backupv1.PullMode)
+		incBackup.Spec.TokenSecretRef = tokenSecret.Name
+
+		incBackup, err = virtClient.VirtualMachineBackup(incBackup.Namespace).Create(context.Background(), incBackup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		incBackup = waitBackupExportReady(virtClient, incBackup.Namespace, incBackup.Name)
+		verifyPullEndpoints(virtClient, incBackup, incBackup.Status.Type, tokenValue)
+	})
+
+	It("Pull mode should honor TTL duration and finalize backup upon expiration", func() {
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Creating Secret with custom token for pull mode backup")
+		tokenValue := "backup-token-" + rand.String(5)
+		tokenSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "backup-secret-" + rand.String(5),
+				Namespace: vm.Namespace,
+			},
+			StringData: map[string]string{
+				"token": tokenValue,
+			},
+		}
+		_, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), tokenSecret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating scratch PVC for the Pull Mode Backup")
+		scratchPVC := libstorage.CreateFSPVC("scratch-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		By("Creating Pull Mode Backup with a short TTL")
+		backup := newBackupWithSource(backupName(vm.Name), vm.Name, vm.Namespace, scratchPVC.Name)
+		backup.Spec.Mode = pointer.P(backupv1.PullMode)
+		backup.Spec.TokenSecretRef = tokenSecret.Name
+
+		ttlDuration := 15 * time.Second
+		backup.Spec.TTLDuration = &metav1.Duration{Duration: ttlDuration}
+
+		backup, err = virtClient.VirtualMachineBackup(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for the export to become ready")
+		backup = waitBackupExportReady(virtClient, backup.Namespace, backup.Name)
+		Expect(backup).ToNot(BeNil())
+
+		By(fmt.Sprintf("Waiting %s for the TTL to expire and VMExport to be cleaned up", ttlDuration))
+		Eventually(func() error {
+			_, err := virtClient.VirtualMachineExport(backup.Namespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
+			return err
+		}, ttlDuration+(2*time.Minute), 2*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"),
+			"The VM export should have been cleaned up according to TTL by now")
+
+		events.ExpectEvent(backup, corev1.EventTypeNormal, "VirtualMachineBackupAborting")
+
+		By("Verifying the backup gracefully aborts and finishes")
+		waitBackupSucceeded(virtClient, backup.Namespace, backup.Name)
+	})
+
+	It("Pull Mode Backup should recreate VMExport and maintain endpoint access if VMExport was deleted during backup", func() {
+		dv := libdv.NewDataVolume(
+			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpineTestTooling)),
+			libdv.WithNamespace(testsuite.GetTestNamespace(nil)),
+			libdv.WithStorage(
+				libdv.StorageWithVolumeSize(cd.AlpineVolumeSize),
+			),
+		)
+		vm = libstorage.RenderVMWithDataVolumeTemplate(dv,
+			libvmi.WithLabels(backup.CBTLabel),
+			libvmi.WithRunStrategy(v1.RunStrategyAlways),
+		)
+
+		By(fmt.Sprintf("Creating VM %s", vm.Name))
+		vm, err = virtClient.VirtualMachine(vm.Namespace).Create(context.Background(), vm, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+		By("Creating Secret with custom token for pull mode backup")
+		tokenValue := "backup-token-" + rand.String(5)
+		tokenSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "backup-secret-" + rand.String(5),
+				Namespace: vm.Namespace,
+			},
+			StringData: map[string]string{
+				"token": tokenValue,
+			},
+		}
+		_, err = virtClient.CoreV1().Secrets(vm.Namespace).Create(context.Background(), tokenSecret, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Creating scratch PVC for the Pull Mode Backup")
+		scratchPVC := libstorage.CreateFSPVC("scratch-pvc", testsuite.GetTestNamespace(vm), getTargetPVCSizeWithOverhead(cd.AlpineVolumeSize), libstorage.WithStorageProfile())
+
+		By("Creating Pull Mode Backup")
+		backup := newBackupWithSource(backupName(vm.Name), vm.Name, vm.Namespace, scratchPVC.Name)
+		backup.Spec.Mode = pointer.P(backupv1.PullMode)
+		backup.Spec.TokenSecretRef = tokenSecret.Name
+
+		backup, err = virtClient.VirtualMachineBackup(backup.Namespace).Create(context.Background(), backup, metav1.CreateOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for the export to become ready initially")
+		backup = waitBackupExportReady(virtClient, backup.Namespace, backup.Name)
+		Expect(backup).ToNot(BeNil())
+
+		By("Verifying endpoints are accessible before disruption")
+		verifyPullEndpoints(virtClient, backup, backupv1.Full, tokenValue)
+
+		By("Getting the UID of the current VMExport")
+		oldExport, err := virtClient.VirtualMachineExport(backup.Namespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+		oldUID := oldExport.UID
+
+		By("Manually deleting the underlying VMExport to simulate a mid-backup disruption")
+		err = virtClient.VirtualMachineExport(backup.Namespace).Delete(context.Background(), backup.Name, metav1.DeleteOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		By("Waiting for the controller to detect the deletion and recreate the VMExport with a new UID")
+		Eventually(func() types.UID {
+			export, err := virtClient.VirtualMachineExport(backup.Namespace).Get(context.Background(), backup.Name, metav1.GetOptions{})
+			if err != nil {
+				return ""
+			}
+			return export.UID
+		}, 30*time.Second, 1*time.Second).Should(And(
+			Not(BeEmpty()),
+			Not(Equal(oldUID)),
+		), "The controller should have created a new VMExport instance")
+
+		By("Waiting for the new VMExport to become ready")
+		waitBackupExportReady(virtClient, backup.Namespace, backup.Name)
+
+		By("Verifying endpoints are accessible again after recreation")
+		verifyPullEndpoints(virtClient, backup, backup.Status.Type, tokenValue)
+	})
 }))
 
 func getPodByVMI(vmi *v1.VirtualMachineInstance) *corev1.Pod {
@@ -951,6 +1175,30 @@ func waitBackupFailed(virtClient kubecli.KubevirtClient, namespace string, backu
 	))
 
 	events.ExpectEvent(vmbackup, corev1.EventTypeWarning, "VirtualMachineBackupFailed")
+	return vmbackup
+}
+
+func waitBackupExportReady(virtClient kubecli.KubevirtClient, namespace string, backupName string) *backupv1.VirtualMachineBackup {
+	var vmbackup *backupv1.VirtualMachineBackup
+
+	By(fmt.Sprintf("Waiting for VirtualMachineBackup %s/%s to have its VMExport ready", namespace, backupName))
+	Eventually(func() *backupv1.VirtualMachineBackupStatus {
+		var err error
+		vmbackup, err = virtClient.VirtualMachineBackup(namespace).Get(context.Background(), backupName, metav1.GetOptions{})
+		Expect(err).ToNot(HaveOccurred())
+
+		return vmbackup.Status
+	}, 180*time.Second, 2*time.Second).Should(And(
+		Not(BeNil()),
+		gstruct.PointTo(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+			"Conditions": ContainElements(
+				gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Type":   Equal(backupv1.ConditionExportReady),
+					"Status": Equal(corev1.ConditionTrue),
+				}),
+			),
+		})),
+	))
 	return vmbackup
 }
 
@@ -1136,4 +1384,106 @@ func expectCheckpointDisks(vmi *v1.VirtualMachineInstance, checkpointName string
 		ExpectWithOffset(1, xml).ToNot(ContainSubstring(fmt.Sprintf("name='%s'", disk)),
 			"Checkpoint %s should not have bitmap for disk %s", checkpointName, disk)
 	}
+}
+
+func verifyPullEndpoints(virtClient kubecli.KubevirtClient, vmbackup *backupv1.VirtualMachineBackup, expectedBackupType backupv1.BackupType, token string) {
+	const (
+		caCertPath  = "/cacerts"
+		caBundleKey = "ca-bundle"
+	)
+
+	Expect(vmbackup.Status.Type).To(Equal(expectedBackupType))
+	Expect(vmbackup.Status.IncludedVolumes).To(HaveLen(1))
+
+	volumeInfo := vmbackup.Status.IncludedVolumes[0]
+	Expect(volumeInfo.DataEndpoint).ToNot(BeEmpty(), "Data endpoint should be populated")
+	Expect(volumeInfo.MapEndpoint).ToNot(BeEmpty(), "Map endpoint should be populated")
+
+	By("Creating CA configmap and downloader pod")
+	caConfigMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("export-ca-%s-%s", vmbackup.Name, rand.String(5)),
+			Namespace: vmbackup.Namespace,
+		},
+		Data: map[string]string{
+			caBundleKey: *vmbackup.Status.EndpointCert,
+		},
+	}
+	_, err := virtClient.CoreV1().ConfigMaps(caConfigMap.Namespace).Create(context.Background(), caConfigMap, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	podName := fmt.Sprintf("downloader-%s-%s", vmbackup.Name, rand.String(5))
+	pod := libpod.RenderPod(podName, []string{"/bin/sh", "-c", "sleep 360"}, []string{})
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: "cacerts",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: caConfigMap.Name},
+			},
+		},
+	})
+	pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+		Name:      "cacerts",
+		ReadOnly:  true,
+		MountPath: caCertPath,
+	})
+	pod.Namespace = vmbackup.Namespace
+	pod, err = libpod.Run(pod, pod.Namespace)
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(matcher.ThisPod(pod), 30*time.Second, 1*time.Second).Should(matcher.HaveConditionTrue(corev1.PodReady))
+
+	By("Curling and parsing the Map endpoint using our injected token")
+	mapUrl := fmt.Sprintf("%s?x-kubevirt-export-token=%s", volumeInfo.MapEndpoint, token)
+	curlMapCmd := []string{
+		"curl", "-s", "-L", "--fail", "--cacert", filepath.Join(caCertPath, caBundleKey), mapUrl,
+	}
+
+	var out string
+	Eventually(func() error {
+		var stderr string
+		var err error
+		out, stderr, err = exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, curlMapCmd)
+		if err != nil {
+			return fmt.Errorf("curl failed: %v, stderr: %s", err, stderr)
+		}
+		return nil
+	}, 3*time.Minute, 2*time.Second).Should(Succeed(), "Failed to curl map endpoint after retries")
+
+	var mapResp nbdv1.MapResponse
+	err = json.Unmarshal([]byte(out), &mapResp)
+	Expect(err).ToNot(HaveOccurred(), "Failed to unmarshal Map endpoint JSON response: %s", out)
+
+	Expect(mapResp.Extents).ToNot(BeEmpty(), "Map endpoint should return at least one extent")
+	Expect(mapResp.Extents[0].Length).To(BeNumerically(">", 0), "First extent should have a valid length greater than 0")
+
+	if expectedBackupType == backupv1.Incremental {
+		Expect(mapResp.Extents).To(ContainElement(HaveField("Description", Equal("dirty"))),
+			"Incremental backup map should contain at least one 'dirty' extent")
+	}
+
+	By("Curling the Data endpoint using the length query parameter")
+	dataUrl := fmt.Sprintf("%s?x-kubevirt-export-token=%s&length=512", volumeInfo.DataEndpoint, token)
+	curlDataCmd := []string{
+		"curl", "-s", "-L", "--fail", "--cacert", filepath.Join(caCertPath, caBundleKey), dataUrl, "--output", "/tmp/chunk",
+	}
+
+	Eventually(func() error {
+		_, stderr, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, curlDataCmd)
+		if err != nil {
+			return fmt.Errorf("curl failed: %v, stderr: %s", err, stderr)
+		}
+		return nil
+	}, 3*time.Minute, 2*time.Second).Should(Succeed(), "Failed to curl data endpoint after retries")
+
+	verifySizeCmd := []string{"stat", "-c", "%s", "/tmp/chunk"}
+	sizeOut, _, err := exec.ExecuteCommandOnPodWithResults(pod, pod.Spec.Containers[0].Name, verifySizeCmd)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(strings.TrimSpace(sizeOut)).To(Equal("512"), "Should have downloaded exactly 512 bytes")
+
+	By("Cleaning up downloader pod and configmap")
+	err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = virtClient.CoreV1().ConfigMaps(caConfigMap.Namespace).Delete(context.Background(), caConfigMap.Name, metav1.DeleteOptions{})
+	Expect(err).ToNot(HaveOccurred())
 }

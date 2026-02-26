@@ -19972,13 +19972,31 @@
     "description": "BackupOptions are options used to configure virtual machine backup job",
     "type": "object",
     "properties": {
+     "backupCert": {
+      "type": "string",
+      "format": "byte"
+     },
+     "backupKey": {
+      "type": "string",
+      "format": "byte"
+     },
      "backupName": {
       "type": "string"
      },
      "backupStartTime": {
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Time"
      },
+     "caCert": {
+      "type": "string",
+      "format": "byte"
+     },
      "cmd": {
+      "type": "string"
+     },
+     "exportServerAddr": {
+      "type": "string"
+     },
+     "exportServerName": {
       "type": "string"
      },
      "incremental": {
@@ -19987,11 +20005,11 @@
      "mode": {
       "type": "string"
      },
-     "pushPath": {
-      "type": "string"
-     },
      "skipQuiesce": {
       "type": "boolean"
+     },
+     "targetPath": {
+      "type": "string"
      }
     }
    },
@@ -20003,10 +20021,18 @@
      "diskTarget"
     ],
     "properties": {
+     "dataEndpoint": {
+      "description": "DataEndpoint is the URL of the endpoint for read for pull mode",
+      "type": "string"
+     },
      "diskTarget": {
       "description": "DiskTarget is the disk target device name at backup time",
       "type": "string",
       "default": ""
+     },
+     "mapEndpoint": {
+      "description": "MapEndpoint is the URL of the endpoint for map for pull mode",
+      "type": "string"
      },
      "volumeName": {
       "description": "VolumeName is the volume name from VMI spec",
@@ -20244,6 +20270,14 @@
       "description": "Source specifies the backup source - either a VirtualMachine or a VirtualMachineBackupTracker. When Kind is VirtualMachine: performs a backup of the specified VM. When Kind is VirtualMachineBackupTracker: uses the tracker to get the source VM and the base checkpoint for incremental backup. The tracker will be updated with the new checkpoint after backup completion.",
       "default": {},
       "$ref": "#/definitions/k8s.io.api.core.v1.TypedLocalObjectReference"
+     },
+     "tokenSecretRef": {
+      "description": "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
+      "type": "string"
+     },
+     "ttlDuration": {
+      "description": "TtlDuration limits the lifetime of a pull mode backup and its export If this field is set, after this duration has passed from counting from CreationTimestamp, the backup is eligible to be automatically considered as complete. If this field is omitted, a reasonable default is applied.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.apis.meta.v1.Duration"
      }
     }
    },
@@ -20263,6 +20297,10 @@
        "$ref": "#/definitions/v1alpha1.Condition"
       },
       "x-kubernetes-list-type": "atomic"
+     },
+     "endpointCert": {
+      "description": "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
+      "type": "string"
      },
      "includedVolumes": {
       "description": "IncludedVolumes lists the volumes that were included in the backup",
@@ -21464,6 +21502,51 @@
      }
     }
    },
+   "v1beta1.VirtualMachineExportBackup": {
+    "description": "VirtualMachineExportBackup contains the URL and available formats for the exported backup",
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "properties": {
+     "endpoints": {
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VirtualMachineExportBackupEndpoint"
+      },
+      "x-kubernetes-list-map-keys": [
+       "endpoint"
+      ],
+      "x-kubernetes-list-type": "map"
+     },
+     "name": {
+      "description": "Name is the name of the exported volume",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
+   "v1beta1.VirtualMachineExportBackupEndpoint": {
+    "description": "VirtualMachineExportBackupEndpoint contains the endpoint type and URL to interact with a backup export",
+    "type": "object",
+    "required": [
+     "endpoint",
+     "url"
+    ],
+    "properties": {
+     "endpoint": {
+      "description": "Endpoint is the endpoint of the backup export at the specified URL",
+      "type": "string",
+      "default": ""
+     },
+     "url": {
+      "description": "Url is the url that contains the volume in the format specified",
+      "type": "string",
+      "default": ""
+     }
+    }
+   },
    "v1beta1.VirtualMachineExportLink": {
     "description": "VirtualMachineExportLink contains a list of volumes available for export, as well as the URLs to obtain these volumes",
     "type": "object",
@@ -21471,6 +21554,18 @@
      "cert"
     ],
     "properties": {
+     "backups": {
+      "description": "Backups is a list of available backups for the export",
+      "type": "array",
+      "items": {
+       "default": {},
+       "$ref": "#/definitions/v1beta1.VirtualMachineExportBackup"
+      },
+      "x-kubernetes-list-map-keys": [
+       "name"
+      ],
+      "x-kubernetes-list-type": "map"
+     },
      "cert": {
       "description": "Cert is the public CA certificate base64 encoded",
       "type": "string",

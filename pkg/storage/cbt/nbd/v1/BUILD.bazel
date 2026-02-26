@@ -2,12 +2,17 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "go_default_library",
-    srcs = ["nbd.pb.go"],
+    srcs = [
+        "generated_mock_nbd.go",
+        "nbd.pb.go",
+    ],
     importpath = "kubevirt.io/kubevirt/pkg/storage/cbt/nbd/v1",
     visibility = ["//visibility:public"],
     deps = [
         "//vendor/github.com/golang/protobuf/proto:go_default_library",
+        "//vendor/go.uber.org/mock/gomock:go_default_library",
         "//vendor/golang.org/x/net/context:go_default_library",
         "//vendor/google.golang.org/grpc:go_default_library",
+        "//vendor/google.golang.org/grpc/metadata:go_default_library",
     ],
 )

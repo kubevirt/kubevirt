@@ -20,6 +20,14 @@
 package virtexportserver
 
 import (
+	"bytes"
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,13 +37,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+
+	nbdv1 "kubevirt.io/kubevirt/pkg/storage/cbt/nbd/v1"
+
 	"sigs.k8s.io/yaml"
 
 	"kubevirt.io/kubevirt/pkg/storage/export/export"
@@ -78,6 +91,21 @@ func newTestServer(token string) *exportServer {
 	}
 	s := NewExportServer(config)
 	return s.(*exportServer)
+}
+
+func newBackupServer(caCert []byte, uid string) *exportServer {
+	return &exportServer{
+		ExportServerConfig: ExportServerConfig{
+			BackupCACert: caCert,
+			BackupUID:    uid,
+		},
+	}
+}
+
+func generateKeypair() (*ecdsa.PrivateKey, *ecdsa.PublicKey) {
+	priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	Expect(err).ToNot(HaveOccurred())
+	return priv, &priv.PublicKey
 }
 
 var _ = Describe("exportserver", func() {
@@ -768,6 +796,468 @@ var _ = Describe("exportserver", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(list.Items).To(HaveLen(1))
 			verifySecret(string(list.Items[0].Raw))
+		})
+	})
+
+	Context("backupMapHandler", func() {
+		var (
+			ctrl   *gomock.Controller
+			server *exportServer
+		)
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			server = &exportServer{
+				ExportServerConfig: ExportServerConfig{},
+			}
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
+		DescribeTable("should return error on non GET", func(verb string) {
+			req := httptest.NewRequest(verb, "/backup/map", nil)
+			rec := httptest.NewRecorder()
+			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			Expect(rec.Code).To(BeEquivalentTo(http.StatusMethodNotAllowed))
+		},
+			Entry("POST", http.MethodPost),
+			Entry("PUT", http.MethodPut),
+			Entry("PATCH", http.MethodPatch),
+			Entry("DELETE", http.MethodDelete),
+		)
+
+		It("should return 503 when no NBD client is connected", func() {
+			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
+			rec := httptest.NewRecorder()
+			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		})
+
+		It("should return a JSON map response for a healthy client", func() {
+			mapStream := nbdv1.NewMockNBD_MapClient(ctrl)
+			gomock.InOrder(
+				mapStream.EXPECT().Recv().Return(&nbdv1.MapResponse{
+					Extents: []*nbdv1.Extent{{Offset: 0, Length: 512, Flags: 0, Description: "data"}},
+				}, nil),
+				mapStream.EXPECT().Recv().Return(&nbdv1.MapResponse{
+					Extents: []*nbdv1.Extent{{Offset: 512, Length: 512, Flags: 1, Description: "hole"}},
+				}, nil),
+				mapStream.EXPECT().Recv().Return(nil, io.EOF),
+			)
+			nbdClient := nbdv1.NewMockNBDClient(ctrl)
+			nbdClient.EXPECT().
+				Map(gomock.Any(), &nbdv1.MapRequest{ExportName: "disk0", Offset: 0, Length: 1024}).
+				Return(mapStream, nil)
+			server.nbdClient = nbdClient
+
+			req := httptest.NewRequest(http.MethodGet, "/backup/map?offset=0&length=1024", nil)
+			rec := httptest.NewRecorder()
+			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var resp ExportMapResponse
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp.Extents).To(HaveLen(2))
+			Expect(resp.Extents[0]).To(Equal(ExportMapExtent{Offset: 0, Length: 512, Type: 0, Description: "data"}))
+			Expect(resp.Extents[1]).To(Equal(ExportMapExtent{Offset: 512, Length: 512, Type: 1, Description: "hole"}))
+			Expect(resp.NextOffset).To(BeNil())
+		})
+
+		It("should set NextOffset when page_size is exceeded", func() {
+			mapStream := nbdv1.NewMockNBD_MapClient(ctrl)
+			gomock.InOrder(
+				mapStream.EXPECT().Recv().Return(&nbdv1.MapResponse{
+					Extents: []*nbdv1.Extent{{Offset: 0, Length: 512}},
+				}, nil),
+				mapStream.EXPECT().Recv().Return(&nbdv1.MapResponse{
+					Extents: []*nbdv1.Extent{{Offset: 512, Length: 512}},
+				}, nil),
+				mapStream.EXPECT().Recv().Return(&nbdv1.MapResponse{
+					Extents: []*nbdv1.Extent{{Offset: 1024, Length: 512}},
+				}, nil),
+			)
+			nbdClient := nbdv1.NewMockNBDClient(ctrl)
+			nbdClient.EXPECT().Map(gomock.Any(), gomock.Any()).Return(mapStream, nil)
+			server.nbdClient = nbdClient
+
+			req := httptest.NewRequest(http.MethodGet, "/backup/map?page_size=2", nil)
+			rec := httptest.NewRecorder()
+			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			var resp ExportMapResponse
+			Expect(json.Unmarshal(rec.Body.Bytes(), &resp)).To(Succeed())
+			Expect(resp.Extents).To(HaveLen(2))
+			Expect(resp.NextOffset).ToNot(BeNil())
+			Expect(*resp.NextOffset).To(Equal(uint64(1024)))
+		})
+
+		DescribeTable("should return 400 for invalid query parameters",
+			func(query string) {
+				server.nbdClient = nbdv1.NewMockNBDClient(ctrl)
+				req := httptest.NewRequest(http.MethodGet, "/backup/map?"+query, nil)
+				rec := httptest.NewRecorder()
+				server.backupMapHandler("disk0").ServeHTTP(rec, req)
+				Expect(rec.Code).To(Equal(http.StatusBadRequest))
+			},
+			Entry("non-numeric offset", "offset=notanumber"),
+			Entry("non-numeric length", "length=notanumber"),
+			Entry("zero page_size", "page_size=0"),
+			Entry("negative page_size", "page_size=-5"),
+		)
+
+		It("should return 500 when the gRPC Map call fails", func() {
+			nbdClient := nbdv1.NewMockNBDClient(ctrl)
+			nbdClient.EXPECT().Map(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("grpc error"))
+			server.nbdClient = nbdClient
+
+			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
+			rec := httptest.NewRecorder()
+			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should return 500 when the map stream errors mid-receive", func() {
+			mapStream := nbdv1.NewMockNBD_MapClient(ctrl)
+			mapStream.EXPECT().Recv().Return(nil, fmt.Errorf("stream error"))
+
+			nbdClient := nbdv1.NewMockNBDClient(ctrl)
+			nbdClient.EXPECT().Map(gomock.Any(), gomock.Any()).Return(mapStream, nil)
+			server.nbdClient = nbdClient
+
+			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
+			rec := httptest.NewRecorder()
+			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should pass the bitmap name for incremental backups", func() {
+			mapStream := nbdv1.NewMockNBD_MapClient(ctrl)
+			mapStream.EXPECT().Recv().Return(nil, io.EOF)
+
+			nbdClient := nbdv1.NewMockNBDClient(ctrl)
+			nbdClient.EXPECT().
+				Map(gomock.Any(), &nbdv1.MapRequest{ExportName: "disk0", BitmapName: "checkpoint-name"}).
+				Return(mapStream, nil)
+			server.nbdClient = nbdClient
+			server.ExportServerConfig.BackupType = string(backupv1.Incremental)
+			server.ExportServerConfig.BackupCheckpoint = "checkpoint-name"
+
+			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
+			server.backupMapHandler("disk0").ServeHTTP(httptest.NewRecorder(), req)
+		})
+
+		It("should omit the bitmap name for full backups", func() {
+			mapStream := nbdv1.NewMockNBD_MapClient(ctrl)
+			mapStream.EXPECT().Recv().Return(nil, io.EOF)
+
+			nbdClient := nbdv1.NewMockNBDClient(ctrl)
+			nbdClient.EXPECT().
+				Map(gomock.Any(), &nbdv1.MapRequest{ExportName: "disk0"}).
+				Return(mapStream, nil)
+			server.nbdClient = nbdClient
+			server.ExportServerConfig.BackupType = "Full"
+			server.ExportServerConfig.BackupCheckpoint = "checkpoint-name"
+
+			req := httptest.NewRequest(http.MethodGet, "/backup/map", nil)
+			server.backupMapHandler("disk0").ServeHTTP(httptest.NewRecorder(), req)
+		})
+	})
+
+	Context("backupDataHandler", func() {
+		var (
+			ctrl   *gomock.Controller
+			server *exportServer
+		)
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			server = &exportServer{
+				ExportServerConfig: ExportServerConfig{},
+			}
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
+		DescribeTable("should return error on non GET", func(verb string) {
+			req := httptest.NewRequest(verb, "/backup/map", nil)
+			rec := httptest.NewRecorder()
+			server.backupMapHandler("disk0").ServeHTTP(rec, req)
+			Expect(rec.Code).To(BeEquivalentTo(http.StatusMethodNotAllowed))
+		},
+			Entry("POST", http.MethodPost),
+			Entry("PUT", http.MethodPut),
+			Entry("PATCH", http.MethodPatch),
+			Entry("DELETE", http.MethodDelete),
+		)
+
+		It("should return 503 when no NBD client is connected", func() {
+			req := httptest.NewRequest(http.MethodGet, "/backup/data", nil)
+			rec := httptest.NewRecorder()
+			server.backupDataHandler("disk0").ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		})
+
+		It("should stream all chunks with correct content-type", func() {
+			readStream := nbdv1.NewMockNBD_ReadClient(ctrl)
+			gomock.InOrder(
+				readStream.EXPECT().Recv().Return(&nbdv1.DataChunk{Data: []byte("first-chunk-")}, nil),
+				readStream.EXPECT().Recv().Return(&nbdv1.DataChunk{Data: []byte("second-chunk")}, nil),
+				readStream.EXPECT().Recv().Return(nil, io.EOF),
+			)
+			nbdClient := nbdv1.NewMockNBDClient(ctrl)
+			nbdClient.EXPECT().
+				Read(gomock.Any(), &nbdv1.ReadRequest{ExportName: "disk0", Offset: 0, Length: 24}).
+				Return(readStream, nil)
+			server.nbdClient = nbdClient
+
+			req := httptest.NewRequest(http.MethodGet, "/backup/data?offset=0&length=24", nil)
+			rec := httptest.NewRecorder()
+			server.backupDataHandler("disk0").ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Header().Get("Content-Type")).To(Equal("application/octet-stream"))
+			Expect(rec.Body.String()).To(Equal("first-chunk-second-chunk"))
+		})
+
+		It("should return 200 with an empty body for a zero-length stream", func() {
+			readStream := nbdv1.NewMockNBD_ReadClient(ctrl)
+			readStream.EXPECT().Recv().Return(nil, io.EOF)
+
+			nbdClient := nbdv1.NewMockNBDClient(ctrl)
+			nbdClient.EXPECT().Read(gomock.Any(), gomock.Any()).Return(readStream, nil)
+			server.nbdClient = nbdClient
+
+			req := httptest.NewRequest(http.MethodGet, "/backup/data", nil)
+			rec := httptest.NewRecorder()
+			server.backupDataHandler("disk0").ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Body.Bytes()).To(BeEmpty())
+		})
+
+		DescribeTable("should return 400 for invalid query parameters",
+			func(query string) {
+				server.nbdClient = nbdv1.NewMockNBDClient(ctrl)
+				req := httptest.NewRequest(http.MethodGet, "/backup/data?"+query, nil)
+				rec := httptest.NewRecorder()
+				server.backupDataHandler("disk0").ServeHTTP(rec, req)
+				Expect(rec.Code).To(Equal(http.StatusBadRequest))
+			},
+			Entry("non-numeric offset", "offset=bad"),
+			Entry("non-numeric length", "length=bad"),
+		)
+
+		It("should return 500 when the gRPC Read call fails", func() {
+			nbdClient := nbdv1.NewMockNBDClient(ctrl)
+			nbdClient.EXPECT().Read(gomock.Any(), gomock.Any()).Return(nil, fmt.Errorf("read error"))
+			server.nbdClient = nbdClient
+
+			req := httptest.NewRequest(http.MethodGet, "/backup/data", nil)
+			rec := httptest.NewRecorder()
+			server.backupDataHandler("disk0").ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusInternalServerError))
+		})
+
+		It("should pass offset and length to the gRPC Read call", func() {
+			readStream := nbdv1.NewMockNBD_ReadClient(ctrl)
+			readStream.EXPECT().Recv().Return(nil, io.EOF)
+
+			nbdClient := nbdv1.NewMockNBDClient(ctrl)
+			nbdClient.EXPECT().
+				Read(gomock.Any(), &nbdv1.ReadRequest{ExportName: "disk0", Offset: 4096, Length: 8192}).
+				Return(readStream, nil)
+			server.nbdClient = nbdClient
+
+			req := httptest.NewRequest(http.MethodGet, "/backup/data?offset=4096&length=8192", nil)
+			rec := httptest.NewRecorder()
+			server.backupDataHandler("disk0").ServeHTTP(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+		})
+	})
+
+	Context("collectMapPage", func() {
+		var ctrl *gomock.Controller
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
+		It("should collect all extents when count is below page size", func() {
+			stream := nbdv1.NewMockNBD_MapClient(ctrl)
+			gomock.InOrder(
+				stream.EXPECT().Recv().Return(&nbdv1.MapResponse{
+					Extents: []*nbdv1.Extent{{Offset: 0, Length: 100}},
+				}, nil),
+				stream.EXPECT().Recv().Return(&nbdv1.MapResponse{
+					Extents: []*nbdv1.Extent{{Offset: 100, Length: 200}},
+				}, nil),
+				stream.EXPECT().Recv().Return(nil, io.EOF),
+			)
+
+			extents, nextOff, err := collectMapPage(stream, 10)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extents).To(HaveLen(2))
+			Expect(nextOff).To(BeNil())
+		})
+
+		It("should stop exactly at page size and returns the next extent's offset", func() {
+			stream := nbdv1.NewMockNBD_MapClient(ctrl)
+			gomock.InOrder(
+				stream.EXPECT().Recv().Return(&nbdv1.MapResponse{
+					Extents: []*nbdv1.Extent{{Offset: 0, Length: 100}},
+				}, nil),
+				stream.EXPECT().Recv().Return(&nbdv1.MapResponse{
+					Extents: []*nbdv1.Extent{{Offset: 100, Length: 200}},
+				}, nil),
+				stream.EXPECT().Recv().Return(&nbdv1.MapResponse{
+					Extents: []*nbdv1.Extent{{Offset: 300, Length: 400}},
+				}, nil),
+			)
+
+			extents, nextOff, err := collectMapPage(stream, 2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extents).To(HaveLen(2))
+			Expect(nextOff).ToNot(BeNil())
+			Expect(*nextOff).To(Equal(uint64(300)))
+		})
+
+		It("should return an error when the stream errors", func() {
+			stream := nbdv1.NewMockNBD_MapClient(ctrl)
+			stream.EXPECT().Recv().Return(nil, fmt.Errorf("stream broke"))
+
+			_, _, err := collectMapPage(stream, 10)
+			Expect(err).To(MatchError("stream broke"))
+		})
+
+		It("should return an empty slice and nil next offset on immediate EOF", func() {
+			stream := nbdv1.NewMockNBD_MapClient(ctrl)
+			stream.EXPECT().Recv().Return(nil, io.EOF)
+
+			extents, nextOff, err := collectMapPage(stream, 10)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(extents).To(BeEmpty())
+			Expect(nextOff).To(BeNil())
+		})
+	})
+
+	Context("handleTunnel", func() {
+		var (
+			ctrl   *gomock.Controller
+			server *exportServer
+		)
+
+		BeforeEach(func() {
+			ctrl = gomock.NewController(GinkgoT())
+			server = &exportServer{
+				ExportServerConfig: ExportServerConfig{
+					BackupUID: "test-uid",
+				},
+			}
+		})
+
+		AfterEach(func() {
+			ctrl.Finish()
+		})
+
+		It("should reject requests without a client certificate", func() {
+			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", nil)
+			rec := httptest.NewRecorder()
+
+			server.handleTunnel(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusUnauthorized))
+			Expect(rec.Body.String()).To(ContainSubstring("mTLS required"))
+		})
+
+		It("should reject requests with an invalid client CN", func() {
+			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", nil)
+			req.TLS = &tls.ConnectionState{
+				PeerCertificates: []*x509.Certificate{
+					{Subject: pkix.Name{CommonName: "kubevirt.io:system:client:wrong-uid"}},
+				},
+			}
+			rec := httptest.NewRecorder()
+
+			server.handleTunnel(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusForbidden))
+			Expect(rec.Body.String()).To(ContainSubstring("Forbidden"))
+		})
+
+		It("should reject if a tunnel is already active", func() {
+			server.nbdClient = nbdv1.NewMockNBDClient(ctrl)
+
+			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", nil)
+			req.TLS = &tls.ConnectionState{
+				PeerCertificates: []*x509.Certificate{
+					{Subject: pkix.Name{CommonName: "kubevirt.io:system:client:test-uid"}},
+				},
+			}
+			rec := httptest.NewRecorder()
+
+			server.handleTunnel(rec, req)
+
+			Expect(rec.Code).To(Equal(http.StatusConflict))
+			Expect(rec.Body.String()).To(ContainSubstring("Conflict"))
+		})
+
+		It("should accept valid connections, flush headers, and clean up on context cancel", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			req := httptest.NewRequest(http.MethodConnect, "host.example.com:443", http.NoBody).WithContext(ctx)
+			req.TLS = &tls.ConnectionState{
+				PeerCertificates: []*x509.Certificate{
+					{Subject: pkix.Name{CommonName: "kubevirt.io:system:client:test-uid"}},
+				},
+			}
+			rec := httptest.NewRecorder()
+			cancel()
+
+			server.handleTunnel(rec, req)
+			Expect(rec.Code).To(Equal(http.StatusOK))
+			Expect(rec.Flushed).To(BeTrue())
+
+			server.nbdMu.Lock()
+			client := server.nbdClient
+			server.nbdMu.Unlock()
+			Expect(client).To(BeNil())
+		})
+	})
+
+	Context("h2ServerConn", func() {
+		It("should bridge Read to the request body and Write to the response writer", func() {
+			readData := []byte("test")
+			body := io.NopCloser(bytes.NewReader(readData))
+			rec := httptest.NewRecorder()
+
+			canceled := false
+			cancelFunc := func() { canceled = true }
+
+			conn := newH2ServerConn(body, rec, cancelFunc)
+
+			buf := make([]byte, 4)
+			n, err := conn.Read(buf)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(len(readData)))
+			Expect(buf[:n]).To(Equal(readData))
+
+			writeData := []byte("test")
+			n, err = conn.Write(writeData)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(len(writeData)))
+			Expect(rec.Body.Bytes()).To(Equal(writeData))
+
+			err = conn.Close()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(canceled).To(BeTrue())
 		})
 	})
 })

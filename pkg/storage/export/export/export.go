@@ -339,6 +339,8 @@ type VMExportController struct {
 	PreferenceInformer          cache.SharedIndexInformer
 	ClusterPreferenceInformer   cache.SharedIndexInformer
 	ControllerRevisionInformer  cache.SharedIndexInformer
+	VMBackupInformer            cache.SharedIndexInformer
+	BackupCAConfigMapInformer   cache.SharedIndexInformer
 
 	Recorder record.EventRecorder
 
@@ -469,6 +471,16 @@ func (ctrl *VMExportController) Init() error {
 	if err != nil {
 		return err
 	}
+	_, err = ctrl.VMBackupInformer.AddEventHandler(
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    ctrl.handleVMBackup,
+			UpdateFunc: func(oldObj, newObj interface{}) { ctrl.handleVMBackup(newObj) },
+			DeleteFunc: ctrl.handleVMBackup,
+		},
+	)
+	if err != nil {
+		return err
+	}
 	ctrl.instancetypeHandler = instancetypeexpand.New(
 		ctrl.clusterConfig,
 		instancetypefind.NewSpecFinder(
@@ -518,6 +530,7 @@ func (ctrl *VMExportController) Run(threadiness int, stopCh <-chan struct{}) err
 		ctrl.PreferenceInformer.HasSynced,
 		ctrl.ClusterPreferenceInformer.HasSynced,
 		ctrl.ControllerRevisionInformer.HasSynced,
+		ctrl.VMBackupInformer.HasSynced,
 	) {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
@@ -672,6 +685,23 @@ func (ctrl *VMExportController) updateVMExport(vmExport *exportv1.VirtualMachine
 			return 0, fmt.Errorf("unexpected nil sourceVolumes")
 		}
 		return ctrl.handleSource(vmExport, NewVMSource(sourceVolumes))
+	}
+	if ctrl.isSourceBackup(&vmExport.Spec) {
+		vmBackup, err := ctrl.getVMBackupFromExport(vmExport)
+		if err != nil {
+			return 0, err
+		}
+		if vmBackup == nil {
+			return 0, fmt.Errorf("unexpected nil VirtualMachineBackup")
+		}
+		if vmBackup.Status == nil || vmBackup.Status.Type == "" {
+			return 0, fmt.Errorf("backup status empty")
+		}
+		caCert, err := ctrl.backupCA()
+		if err != nil {
+			return 0, fmt.Errorf("could not obtain virtualMachineBackup tunnel CA: %w", err)
+		}
+		return ctrl.handleSource(vmExport, NewVMBackupSource(vmBackup, caCert))
 	}
 
 	return 0, nil

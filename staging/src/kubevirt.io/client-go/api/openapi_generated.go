@@ -633,6 +633,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/export/v1alpha1.VirtualMachineExportVolumeFormat":                                schema_kubevirtio_api_export_v1alpha1_VirtualMachineExportVolumeFormat(ref),
 		"kubevirt.io/api/export/v1beta1.Condition":                                                        schema_kubevirtio_api_export_v1beta1_Condition(ref),
 		"kubevirt.io/api/export/v1beta1.VirtualMachineExport":                                             schema_kubevirtio_api_export_v1beta1_VirtualMachineExport(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExportBackup":                                       schema_kubevirtio_api_export_v1beta1_VirtualMachineExportBackup(ref),
+		"kubevirt.io/api/export/v1beta1.VirtualMachineExportBackupEndpoint":                               schema_kubevirtio_api_export_v1beta1_VirtualMachineExportBackupEndpoint(ref),
 		"kubevirt.io/api/export/v1beta1.VirtualMachineExportLink":                                         schema_kubevirtio_api_export_v1beta1_VirtualMachineExportLink(ref),
 		"kubevirt.io/api/export/v1beta1.VirtualMachineExportLinks":                                        schema_kubevirtio_api_export_v1beta1_VirtualMachineExportLinks(ref),
 		"kubevirt.io/api/export/v1beta1.VirtualMachineExportList":                                         schema_kubevirtio_api_export_v1beta1_VirtualMachineExportList(ref),
@@ -17324,7 +17326,7 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref common.ReferenceCal
 							Format: "",
 						},
 					},
-					"pushPath": {
+					"targetPath": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -17334,6 +17336,36 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupOptions(ref common.ReferenceCal
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
 							Format: "",
+						},
+					},
+					"exportServerAddr": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"exportServerName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"backupKey": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"backupCert": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"caCert": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
 						},
 					},
 				},
@@ -17363,6 +17395,20 @@ func schema_kubevirtio_api_backup_v1alpha1_BackupVolumeInfo(ref common.Reference
 						SchemaProps: spec.SchemaProps{
 							Description: "DiskTarget is the disk target device name at backup time",
 							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"dataEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DataEndpoint is the URL of the endpoint for read for pull mode",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mapEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MapEndpoint is the URL of the endpoint for map for pull mode",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -17569,12 +17615,25 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupSpec(ref common.R
 							Format:      "",
 						},
 					},
+					"tokenSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenSecretRef is the name of the secret that will be used to pull the backup from an associated endpoint",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"ttlDuration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TtlDuration limits the lifetime of a pull mode backup and its export If this field is set, after this duration has passed from counting from CreationTimestamp, the backup is eligible to be automatically considered as complete. If this field is omitted, a reasonable default is applied.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
+						},
+					},
 				},
 				Required: []string{"source"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.TypedLocalObjectReference"},
+			"k8s.io/api/core/v1.TypedLocalObjectReference", "k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
 	}
 }
 
@@ -17613,6 +17672,13 @@ func schema_kubevirtio_api_backup_v1alpha1_VirtualMachineBackupStatus(ref common
 					"checkpointName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "CheckpointName the name of the checkpoint created for the current backup",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"endpointCert": {
+						SchemaProps: spec.SchemaProps{
+							Description: "EndpointCert is the raw CACert that is to be used when connecting to an exported backup endpoint in pull mode.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -30866,6 +30932,81 @@ func schema_kubevirtio_api_export_v1beta1_VirtualMachineExport(ref common.Refere
 	}
 }
 
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportBackup(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportBackup contains the URL and available formats for the exported backup",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the exported volume",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"endpoints": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"endpoint",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/export/v1beta1.VirtualMachineExportBackupEndpoint"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+		Dependencies: []string{
+			"kubevirt.io/api/export/v1beta1.VirtualMachineExportBackupEndpoint"},
+	}
+}
+
+func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportBackupEndpoint(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineExportBackupEndpoint contains the endpoint type and URL to interact with a backup export",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"endpoint": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Endpoint is the endpoint of the backup export at the specified URL",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Url is the url that contains the volume in the format specified",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"endpoint", "url"},
+			},
+		},
+	}
+}
+
 func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportLink(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -30903,6 +31044,28 @@ func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportLink(ref common.Re
 							},
 						},
 					},
+					"backups": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Backups is a list of available backups for the export",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("kubevirt.io/api/export/v1beta1.VirtualMachineExportBackup"),
+									},
+								},
+							},
+						},
+					},
 					"manifests": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -30930,7 +31093,7 @@ func schema_kubevirtio_api_export_v1beta1_VirtualMachineExportLink(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/export/v1beta1.VirtualMachineExportManifest", "kubevirt.io/api/export/v1beta1.VirtualMachineExportVolume"},
+			"kubevirt.io/api/export/v1beta1.VirtualMachineExportBackup", "kubevirt.io/api/export/v1beta1.VirtualMachineExportManifest", "kubevirt.io/api/export/v1beta1.VirtualMachineExportVolume"},
 	}
 }
 

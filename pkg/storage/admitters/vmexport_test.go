@@ -43,6 +43,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 	apiGroup := "v1"
 	snapshotApiGroup := "snapshot.kubevirt.io"
 	kubevirtApiGroup := "kubevirt.io"
+	backupApiGroup := "backup.kubevirt.io"
 
 	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
@@ -127,6 +128,14 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			}
 		}
 
+		createBlankVMBackupObjectRef := func() corev1.TypedLocalObjectReference {
+			return corev1.TypedLocalObjectReference{
+				APIGroup: &backupApiGroup,
+				Kind:     vmBackupKind,
+				Name:     "",
+			}
+		}
+
 		DescribeTable("it should reject blank names", func(objectRefFunc func() corev1.TypedLocalObjectReference, errorString string) {
 			export := &exportv1.VirtualMachineExport{
 				Spec: exportv1.VirtualMachineExportSpec{
@@ -141,6 +150,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Entry("persistent volume claim", createBlankPVCObjectRef, "PVC name must not be empty"),
 			Entry("virtual machine snapshot", createBlankVMSnapshotObjectRef, "VMSnapshot name must not be empty"),
 			Entry("virtual machine", createBlankVMObjectRef, "Virtual Machine name must not be empty"),
+			Entry("virtual machine backup", createBlankVMBackupObjectRef, "VirtualMachineBackup name must not be empty"),
 		)
 
 		It("should reject unknown kind", func() {
@@ -256,6 +266,7 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 			Entry("persistent volume claim", "invalid", pvc),
 			Entry("virtual machine snapshot", "invalid", vmSnapshotKind),
 			Entry("virtual machine", "invalid", vmKind),
+			Entry("virtual machine backup", "invalid", vmBackupKind),
 		)
 	})
 })

@@ -231,5 +231,6 @@ ${KUBEVIRT_DIR}/hack/gen-proto.sh
 mockgen -source pkg/handler-launcher-com/notify/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/notify/info/generated_mock_info.go
 mockgen -source pkg/handler-launcher-com/cmd/info/info.pb.go -package=info -destination=pkg/handler-launcher-com/cmd/info/generated_mock_info.go
 mockgen -source pkg/handler-launcher-com/cmd/v1/cmd.pb.go -package=v1 -destination=pkg/handler-launcher-com/cmd/v1/generated_mock_cmd.go
+mockgen -source pkg/storage/cbt/nbd/v1/nbd.pb.go -package=v1 -destination=pkg/storage/cbt/nbd/v1/generated_mock_nbd.go
 
 ${KUBEVIRT_DIR}/hack/bazel-race.sh
