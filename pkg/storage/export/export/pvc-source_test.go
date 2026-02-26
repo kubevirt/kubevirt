@@ -49,6 +49,7 @@ import (
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
+	"kubevirt.io/kubevirt/pkg/certificates/bootstrap"
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
@@ -87,7 +88,7 @@ var _ = Describe("PVC source", func() {
 		k8sClient                   *k8sfake.Clientset
 		vmExportClient              *kubevirtfake.Clientset
 		fakeVolumeSnapshotProvider  *MockVolumeSnapshotProvider
-		fakeCertManager             *MockCertManager
+		fakeCertManager             *bootstrap.MockCertificateManager
 		mockVMExportQueue           *testutils.MockWorkQueue[string]
 		routeCache                  cache.Store
 		ingressCache                cache.Store
@@ -123,7 +124,9 @@ var _ = Describe("PVC source", func() {
 		fakeVolumeSnapshotProvider = &MockVolumeSnapshotProvider{
 			volumeSnapshots: []*vsv1.VolumeSnapshot{},
 		}
-		fakeCertManager = &MockCertManager{}
+		var err error
+		fakeCertManager, err = bootstrap.NewMockCertificateManager()
+		Expect(err).ToNot(HaveOccurred())
 
 		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&virtv1.KubeVirtConfiguration{})
 		k8sClient = k8sfake.NewSimpleClientset()
