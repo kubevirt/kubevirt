@@ -1,4 +1,4 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
@@ -97,6 +97,34 @@ oci_image(
         "@io_bazel_rules_go//go/platform:linux_s390x": "@fedora_with_test_tooling_s390x",
         "//conditions:default": "@fedora_with_test_tooling",
     }),
+    visibility = ["//visibility:public"],
+)
+
+oci_image(
+    name = "fedora-with-test-tooling-amd64",
+    base = "@fedora_with_test_tooling",
+    visibility = ["//visibility:public"],
+)
+
+oci_image(
+    name = "fedora-with-test-tooling-arm64",
+    base = "@fedora_with_test_tooling_aarch64",
+    visibility = ["//visibility:public"],
+)
+
+oci_image(
+    name = "fedora-with-test-tooling-s390x",
+    base = "@fedora_with_test_tooling_s390x",
+    visibility = ["//visibility:public"],
+)
+
+oci_image_index(
+    name = "fedora-with-test-tooling-multiarch",
+    images = [
+        ":fedora-with-test-tooling-amd64",
+        ":fedora-with-test-tooling-arm64",
+        ":fedora-with-test-tooling-s390x",
+    ],
     visibility = ["//visibility:public"],
 )
 

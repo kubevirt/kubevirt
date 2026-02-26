@@ -35,7 +35,6 @@ default_targets="
     virt-synchronization-controller
     alpine-container-disk-demo
     alpine-with-test-tooling-container-disk
-    fedora-with-test-tooling-container-disk
     vm-killer
     sidecar-shim
     disks-images-provider

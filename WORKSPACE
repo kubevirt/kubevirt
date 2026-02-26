@@ -360,7 +360,6 @@ oci_pull(
 
 # Pull fedora container-disk preconfigured with ci tooling
 # like stress and qemu guest agent pre-configured
-# TODO build fedora_with_test_tooling for multi-arch
 oci_pull(
     name = "fedora_with_test_tooling",
     digest = "sha256:897af945d1c58366086d5933ae4f341a5f1413b88e6c7f2b659436adc5d0f522",

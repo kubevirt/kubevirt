@@ -35,3 +35,33 @@ else
     arch=$(format_archname ${BUILD_ARCH})
     ARCHITECTURE=${arch} hack/bazel-${COMMAND}.sh
 fi
+
+# Push multiarch index targets that contain pre-built per-arch images.
+# These are pushed once with the base tag, regardless of build architecture,
+# because the OCI image index already contains all per-arch variants.
+if [ "${COMMAND}" = "push-images" ]; then
+    source hack/bootstrap.sh
+    source hack/config.sh
+
+    multiarch_targets="
+        fedora-with-test-tooling-container-disk
+    "
+
+    host_arch=$(format_archname)
+    for tag in ${docker_tag} ${docker_tag_alt}; do
+        for target in ${multiarch_targets}; do
+            bazel run \
+                --config=${host_arch} ${BAZEL_CS_CONFIG} \
+                //:push-${target} -- --repository ${docker_prefix}/${image_prefix}${target} --tag ${tag}
+        done
+    done
+
+    # for the imagePrefix operator test
+    if [[ $image_prefix_alt ]]; then
+        for target in ${multiarch_targets}; do
+            bazel run \
+                --config=${host_arch} ${BAZEL_CS_CONFIG} \
+                //:push-${target} -- --repository ${docker_prefix}/${image_prefix_alt}${target} --tag ${docker_tag}
+        done
+    fi
+fi
