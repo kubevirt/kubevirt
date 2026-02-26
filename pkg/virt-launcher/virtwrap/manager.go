@@ -1053,8 +1053,7 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	c := &converter.ConverterContext{
 		Architecture:          arch.NewConverter(runtime.GOARCH),
 		VirtualMachine:        vmi,
-		AllowEmulation:        allowEmulation,
-		KvmAvailable:          kvmAvailable,
+		UseEmulation:          allowEmulation && !kvmAvailable,
 		CPUSet:                podCPUSet,
 		IsBlockPVC:            isBlockPVCMap,
 		IsBlockDV:             isBlockDVMap,

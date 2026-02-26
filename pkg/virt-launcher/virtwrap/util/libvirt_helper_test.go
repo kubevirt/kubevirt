@@ -221,7 +221,7 @@ var _ = Describe("LibvirtHelper", func() {
 		c := &converter.ConverterContext{
 			Architecture:     arch.NewConverter(runtime.GOARCH),
 			VirtualMachine:   vmi,
-			AllowEmulation:   true,
+			UseEmulation:     true,
 			SMBios:           &cmdv1.SMBios{},
 			HotplugVolumes:   make(map[string]v1.VolumeStatus),
 			PermanentVolumes: make(map[string]v1.VolumeStatus),

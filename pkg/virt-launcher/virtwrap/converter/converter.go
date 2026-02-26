@@ -84,8 +84,7 @@ type EFIConfiguration struct {
 
 type ConverterContext struct {
 	Architecture                    arch.Converter
-	AllowEmulation                  bool
-	KvmAvailable                    bool
+	UseEmulation                    bool
 	VirtualMachine                  *v1.VirtualMachineInstance
 	CPUSet                          []int
 	IsBlockPVC                      map[string]bool
@@ -1061,7 +1060,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},
-		compute.NewHypervisorDomainConfigurator(c.AllowEmulation, c.KvmAvailable),
+		compute.NewHypervisorDomainConfigurator(c.UseEmulation),
 		compute.NewLaunchSecurityDomainConfigurator(architecture),
 		compute.ChannelsDomainConfigurator{},
 		compute.ClockDomainConfigurator{},
