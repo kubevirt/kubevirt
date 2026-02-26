@@ -198,6 +198,12 @@ const (
 	// via virtiofs. This allows VMs to access credentials and tokens injected into pods
 	// by external systems such as AWS IRSA, GKE Workload Identity, or TEE attestation.
 	ContainerPathVolumesGate = "ContainerPathVolumes"
+	// Owner: @csomani1
+	// Alpha: v1.8.0
+	//
+	// The VGPUDedicatedHook fg enables the vGPU hook to run for vGPU live migrations, allowing the
+	// target XML's mdev UUID to be mutated.
+	VGPUDedicatedHook = "VGPUDedicatedHook"
 )
 
 func init() {
@@ -240,4 +246,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VGPUDedicatedHook, State: Alpha})
 }
