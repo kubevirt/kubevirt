@@ -206,7 +206,8 @@ type LibvirtDomainManager struct {
 	// Premigration hook server for VMI updates during migration
 	hookServer *premigrationhookserver.PreMigrationHookServer
 
-	hypervisorName string
+	hypervisorDeviceAvailable bool
+	hypervisorName            string
 }
 
 type pausedVMIs struct {
@@ -242,6 +243,18 @@ func NewLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralDiskDir string, agentStore *agentpoller.AsyncAgentStore, ovmfPath string,
 	ephemeralDiskCreator ephemeraldisk.EphemeralDiskCreatorInterface, directIOChecker converter.DirectIOChecker, metadataCache *metadata.Cache,
 	stopChan chan struct{}, diskMemoryLimitBytes int64, cpuSetGetter func() ([]int, error), imageVolumeEnabled bool, libvirtHooksServerAndClientEnabled bool, hookServer *premigrationhookserver.PreMigrationHookServer, hypervisorName string) (DomainManager, error) {
+
+	// Check hypervisor device availability
+	hypervisorDevicePath := "/dev/" + hypervisor.NewLauncherHypervisorResources(hypervisorName).GetHypervisorDevice()
+	hypervisorDeviceAvailable := true
+	if _, err := os.Stat(hypervisorDevicePath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			hypervisorDeviceAvailable = false
+		} else {
+			return nil, fmt.Errorf("failed to stat hypervisor device %s: %w", hypervisorDevicePath, err)
+		}
+	}
+
 	manager := LibvirtDomainManager{
 		diskMemoryLimitBytes: diskMemoryLimitBytes,
 		virConn:              connection,
@@ -265,6 +278,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		libvirtHooksServerAndClientEnabled: libvirtHooksServerAndClientEnabled,
 		hookServer:                         hookServer,
 		hypervisorName:                     hypervisorName,
+		hypervisorDeviceAvailable:          hypervisorDeviceAvailable,
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -1040,23 +1054,12 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 	}
 
-	// Check hypervisor device availability
-	hypervisorDevicePath := "/dev/" + hypervisor.NewLauncherHypervisorResources(l.hypervisorName).GetHypervisorDevice()
-	hypervisorDeviceAvailable := true
-	if _, err := os.Stat(hypervisorDevicePath); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			hypervisorDeviceAvailable = false
-		} else {
-			return nil, fmt.Errorf("failed to stat hypervisor device %s: %w", hypervisorDevicePath, err)
-		}
-	}
-
 	// Map the VirtualMachineInstance to the Domain
 	c := &converter_types.ConverterContext{
 		Architecture:              arch.NewConverter(runtime.GOARCH),
 		VirtualMachine:            vmi,
 		AllowEmulation:            allowEmulation,
-		HypervisorDeviceAvailable: hypervisorDeviceAvailable,
+		HypervisorDeviceAvailable: l.hypervisorDeviceAvailable,
 		CPUSet:                    podCPUSet,
 		IsBlockPVC:                isBlockPVCMap,
 		IsBlockDV:                 isBlockDVMap,
