@@ -670,6 +670,9 @@ spec:
         pod:
           vmIPv6NetworkCIDR: vmIPv6NetworkCIDRValue
           vmNetworkCIDR: vmNetworkCIDRValue
+        resourceClaim:
+          claimName: claimNameValue
+          requestName: requestNameValue
       nodeSelector:
         nodeSelectorKey: nodeSelectorValue
       priorityClassName: priorityClassNameValue

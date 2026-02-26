@@ -201,6 +201,10 @@ func (config *ClusterConfig) ConfigurableHypervisorEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ConfigurableHypervisor)
 }
 
+func (config *ClusterConfig) NetworkDevicesWithDRAGateEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.NetworkDevicesWithDRAGate)
+}
+
 func (config *ClusterConfig) IncrementalBackupEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.IncrementalBackupGate)
 }

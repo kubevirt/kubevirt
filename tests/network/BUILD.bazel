@@ -20,6 +20,7 @@ go_library(
         "probes.go",
         "services.go",
         "sriov.go",
+        "sriov_dra.go",
         "vmi_infosource.go",
         "vmi_istio.go",
         "vmi_lifecycle.go",

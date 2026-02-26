@@ -345,15 +345,15 @@ type DeviceStatus struct {
 	// +listType=atomic
 	// +optional
 	GPUStatuses []DeviceStatusInfo `json:"gpuStatuses,omitempty"`
-	// HostDeviceStatuses reflects the state of GPUs requested in spec.domain.devices.hostDevices
-	// DRA
+	// HostDeviceStatuses reflects the state of DRA devices requested in spec.domain.devices.hostDevices
+	// and DRA networks requested in spec.networks
 	// +listType=atomic
 	// +optional
 	HostDeviceStatuses []DeviceStatusInfo `json:"hostDeviceStatuses,omitempty"`
 }
 
 type DeviceStatusInfo struct {
-	// Name of the device as specified in spec.domain.devices.gpus.name or spec.domain.devices.hostDevices.name
+	// Name of the device as specified in spec.domain.devices.gpus.name, spec.domain.devices.hostDevices.name, or spec.networks.name
 	Name string `json:"name"`
 	// DeviceResourceClaimStatus reflects the DRA related information for the device
 	DeviceResourceClaimStatus *DeviceResourceClaimStatus `json:"deviceResourceClaimStatus,omitempty"`
