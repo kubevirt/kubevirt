@@ -16,7 +16,7 @@
  * Copyright The KubeVirt Authors.
  */
 
-package virt_api
+package virtapi
 
 import (
 	"time"
