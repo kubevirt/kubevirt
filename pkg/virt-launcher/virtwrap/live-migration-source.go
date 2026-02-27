@@ -626,9 +626,9 @@ func (m *migrationMonitor) startMonitor() {
 				abortStatus = v1.MigrationAbortSucceeded
 			}
 			// Improve the error message when the volume migration fails because the destination size is smaller then the source volume
-			if len(vmi.Status.MigratedVolumes) > 0 && strings.Contains(m.migrationFailedWithError.Error(),
+			if len(vmi.Status.MigratedVolumes) > 0 && strings.Contains(standardizeSpaces(m.migrationFailedWithError.Error()),
 				"has to be smaller or equal to the actual size of the containing file") {
-				m.l.setMigrationResult(true, fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller then the source volume: %v",
+				m.l.setMigrationResult(true, fmt.Sprintf("Volume migration cannot be performed because the destination volume is smaller than the source volume: %v",
 					m.migrationFailedWithError), abortStatus)
 				return
 			}
@@ -1129,4 +1129,8 @@ func shouldConfigureParallelMigration(options *cmdclient.MigrationOptions) (shou
 	shouldConfigure = true
 	threadsCount = int(*options.ParallelMigrationThreads)
 	return
+}
+
+func standardizeSpaces(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
