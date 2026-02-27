@@ -20,19 +20,14 @@
 package device_manager
 
 import (
+	"context"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
-
-	"context"
 
 	"github.com/fsnotify/fsnotify"
-	"google.golang.org/grpc"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -56,77 +51,26 @@ type MediatedDevicePlugin struct {
 	iommuToMDEVMap map[string]string
 }
 
-func (dpi *MediatedDevicePlugin) Start(stop <-chan struct{}) (err error) {
-	logger := log.DefaultLogger()
-	dpi.stop = stop
-
-	err = dpi.cleanup()
-	if err != nil {
-		return err
-	}
-
-	sock, err := net.Listen("unix", dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("error creating GRPC server socket: %v", err)
-	}
-
-	dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
-	defer dpi.stopDevicePlugin()
-
-	pluginapi.RegisterDevicePluginServer(dpi.server, dpi)
-
-	errChan := make(chan error, 2)
-
-	go func() {
-		errChan <- dpi.server.Serve(sock)
-	}()
-
-	err = waitForGRPCServer(dpi.socketPath, connectionTimeout)
-	if err != nil {
-		return fmt.Errorf("error starting the GRPC server: %v", err)
-	}
-
-	err = dpi.register()
-	if err != nil {
-		return fmt.Errorf("error registering with device plugin manager: %v", err)
-	}
-
-	go func() {
-		errChan <- dpi.healthCheck()
-	}()
-
-	dpi.setInitialized(true)
-	logger.Infof("%s device plugin started", dpi.resourceName)
-	err = <-errChan
-
-	return err
-}
-
 func NewMediatedDevicePlugin(mdevs []*MDEV, resourceName string) *MediatedDevicePlugin {
 	s := strings.Split(resourceName, "/")
 	mdevTypeName := s[1]
-	serverSock := SocketPath(mdevTypeName)
 	iommuToMDEVMap := make(map[string]string)
 
 	devs := constructDPIdevicesFromMdev(mdevs, iommuToMDEVMap)
 
 	dpi := &MediatedDevicePlugin{
-		DevicePluginBase: &DevicePluginBase{
-			devs:         devs,
-			socketPath:   serverSock,
-			resourceName: resourceName,
-			devicePath:   vfioDevicePath,
-			deviceRoot:   util.HostRootMount,
-			server:       grpc.NewServer([]grpc.ServerOption{}...),
-			initialized:  false,
-			lock:         &sync.Mutex{},
-			health:       make(chan deviceHealth),
-			done:         make(chan struct{}),
-			deregistered: make(chan struct{}),
-		},
+		DevicePluginBase: newDevicePluginBase(
+			devs,
+			mdevTypeName,
+			util.HostRootMount,
+			vfioDevicePath,
+			resourceName,
+		),
 		iommuToMDEVMap: iommuToMDEVMap,
 	}
-
+	dpi.setupMonitoredDevices = dpi.setupMonitoredDevicesFunc
+	dpi.deviceNameByID = dpi.deviceNameByIDFunc
+	dpi.allocateDP = dpi.allocateDPFunc
 	return dpi
 }
 
@@ -135,7 +79,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 		iommuToMDEVMap[mdev.iommuGroup] = mdev.UUID
 		dpiDev := &pluginapi.Device{
 			ID:     mdev.iommuGroup,
-			Health: pluginapi.Healthy,
+			Health: pluginapi.Unhealthy,
 		}
 		if mdev.numaNode >= 0 {
 			numaInfo := &pluginapi.NUMANode{
@@ -150,7 +94,7 @@ func constructDPIdevicesFromMdev(mdevs []*MDEV, iommuToMDEVMap map[string]string
 	return
 }
 
-func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
+func (dpi *MediatedDevicePlugin) allocateDPFunc(_ context.Context, r *pluginapi.AllocateRequest) (*pluginapi.AllocateResponse, error) {
 	log.DefaultLogger().Infof("Allocate: resourceName: %s", dpi.resourceName)
 	log.DefaultLogger().Infof("Allocate: iommuMap: %v", dpi.iommuToMDEVMap)
 	resourceNameEnvVar := util.ResourceNameToEnvVar(v1.MDevResourcePrefix, dpi.resourceName)
@@ -174,7 +118,7 @@ func (dpi *MediatedDevicePlugin) Allocate(_ context.Context, r *pluginapi.Alloca
 					if errors.Is(err, os.ErrNotExist) {
 						log.DefaultLogger().Errorf("Mediated device %s with id %s for resource %s disappeared", mdevUUID, devID, dpi.resourceName)
 					}
-					return resp, fmt.Errorf("Failed to allocate resource %s", dpi.resourceName)
+					return resp, fmt.Errorf("failed to allocate resource for resourceName: %s", dpi.resourceName)
 				}
 
 				formattedVFIO := formatVFIODeviceSpecs(devID)
@@ -238,92 +182,17 @@ func discoverPermittedHostMediatedDevices(supportedMdevsMap map[string]string) m
 	return mdevsMap
 }
 
-func (dpi *MediatedDevicePlugin) healthCheck() error {
-	logger := log.DefaultLogger()
-	monitoredDevices := make(map[string]string)
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return fmt.Errorf("failed to creating a fsnotify watcher: %v", err)
+func (dpi *MediatedDevicePlugin) deviceNameByIDFunc(monDevId string) string {
+	mdev, ok := dpi.iommuToMDEVMap[monDevId]
+	if !ok {
+		mdev = "not recognized"
 	}
-	defer watcher.Close()
+	return fmt.Sprintf("mediated device (mdev=%s, id=%s)", mdev, monDevId)
+}
 
-	// This way we don't have to mount /dev from the node
-	devicePath := filepath.Join(dpi.deviceRoot, dpi.devicePath)
-
-	// Start watching the files before we check for their existence to avoid races
-	dirName := filepath.Dir(devicePath)
-	err = watcher.Add(dirName)
-	if err != nil {
-		return fmt.Errorf("failed to add the device root path to the watcher: %v", err)
-	}
-
-	_, err = os.Stat(devicePath)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("could not stat the device: %v", err)
-		}
-	}
-
-	// probe all devices
-	for _, dev := range dpi.devs {
-		vfioDevice := filepath.Join(devicePath, dev.ID)
-		err = watcher.Add(vfioDevice)
-		if err != nil {
-			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
-		}
-		monitoredDevices[vfioDevice] = dev.ID
-	}
-
-	dirName = filepath.Dir(dpi.socketPath)
-	err = watcher.Add(dirName)
-
-	if err != nil {
-		return fmt.Errorf("failed to add the device-plugin kubelet path to the watcher: %v", err)
-	}
-	_, err = os.Stat(dpi.socketPath)
-	if err != nil {
-		return fmt.Errorf("failed to stat the device-plugin socket: %v", err)
-	}
-
-	for {
-		select {
-		case <-dpi.stop:
-			return nil
-		case err := <-watcher.Errors:
-			logger.Reason(err).Errorf("error watching devices and device plugin directory")
-		case event := <-watcher.Events:
-			logger.V(4).Infof("health Event: %v", event)
-			if monDevId, exist := monitoredDevices[event.Name]; exist {
-				// Health in this case is if the device path actually exists
-				if event.Op == fsnotify.Create {
-					logger.Infof("monitored device %s appeared", dpi.resourceName)
-					dpi.health <- deviceHealth{
-						DevId:  monDevId,
-						Health: pluginapi.Healthy,
-					}
-				} else if (event.Op == fsnotify.Remove) || (event.Op == fsnotify.Rename) {
-					mdev, ok := dpi.iommuToMDEVMap[monDevId]
-					if !ok {
-						mdev = " not recognized"
-					}
-
-					if event.Op == fsnotify.Rename {
-						logger.Infof("Mediated device %s with id %s for resource %s was renamed", mdev, monDevId, dpi.resourceName)
-					} else {
-						logger.Infof("Mediated device %s with id %s for resource %s disappeared", mdev, monDevId, dpi.resourceName)
-					}
-
-					dpi.health <- deviceHealth{
-						DevId:  monDevId,
-						Health: pluginapi.Unhealthy,
-					}
-				}
-			} else if event.Name == dpi.socketPath && event.Op == fsnotify.Remove {
-				logger.Infof("device socket file for device %s was removed, kubelet probably restarted.", dpi.resourceName)
-				return nil
-			}
-		}
-	}
+func (dpi *MediatedDevicePlugin) setupMonitoredDevicesFunc(watcher *fsnotify.Watcher, monitoredDevices map[string]string) error {
+	// setupVFIOMonitoredDevices is a helper function defined in pci_device.go
+	return setupVFIOMonitoredDevices(dpi.deviceRoot, dpi.devicePath, dpi.devs, watcher, monitoredDevices)
 }
 
 func getMdevTypeName(mdevUUID string) (string, error) {

@@ -20,13 +20,18 @@
 package device_manager
 
 import (
+	"context"
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/fsnotify/fsnotify"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	"google.golang.org/grpc"
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,6 +42,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/testutils"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	pluginapi "kubevirt.io/kubevirt/pkg/virt-handler/device-manager/deviceplugin/v1beta1"
 )
 
 const (
@@ -49,8 +55,10 @@ const (
 )
 
 var _ = Describe("PCI Device", func() {
-	var fakePermittedHostDevices v1.PermittedHostDevices
-	var fakeNodeStore cache.Store
+	var (
+		fakePermittedHostDevices v1.PermittedHostDevices
+		fakeNodeStore            cache.Store
+	)
 
 	BeforeEach(func() {
 		fakeNodeInformer, _ := testutils.NewFakeInformerFor(&k8sv1.Node{})
@@ -144,7 +152,7 @@ pciHostDevices:
 		fakeClusterConfig, _, kvStore := testutils.NewFakeClusterConfigUsingKV(kv)
 
 		By("creating an empty device controller")
-		var noDevices []Device
+		var noDevices []devicePlugin
 		deviceController := NewDeviceController("master", 100, "rw", noDevices, fakeClusterConfig, fakeNodeStore)
 
 		By("adding a host device to the cluster config")
@@ -187,5 +195,161 @@ pciHostDevices:
 		Expect(enabledDevicePlugins).To(BeEmpty(), "no enabled device plugins should be found")
 		Expect(disabledDevicePlugins).To(HaveLen(1), "the fake device plugin did not get disabled")
 		Ω(disabledDevicePlugins).Should(HaveKey(fakeName))
+	})
+})
+
+var _ = Describe("PCI Device Health check validation", func() {
+	var (
+		workDir       string
+		dpi           *PCIDevicePlugin
+		stop          chan struct{}
+		vfioDeviceDir string
+	)
+
+	BeforeEach(func() {
+		workDir = GinkgoT().TempDir()
+
+		// Create fake vfio device directory structure
+		vfioDeviceDir = filepath.Join(workDir, "dev", "vfio")
+		err := os.MkdirAll(vfioDeviceDir, 0755)
+		Expect(err).ToNot(HaveOccurred())
+
+		// Create fake vfio device file
+		vfioDevice := filepath.Join(vfioDeviceDir, fakeIommuGroup)
+		createFile(vfioDevice)
+
+		// Create PCI device plugin
+		pciDevices := []*PCIDevice{
+			{
+				pciID:      fakeID,
+				driver:     fakeDriver,
+				pciAddress: fakeAddress,
+				iommuGroup: fakeIommuGroup,
+				numaNode:   fakeNumaNode,
+			},
+		}
+		dpi = NewPCIDevicePlugin(pciDevices, fakeName)
+		dpi.socketPath = filepath.Join(workDir, "test.sock")
+		dpi.server = grpc.NewServer([]grpc.ServerOption{}...)
+		dpi.deviceRoot = workDir
+		dpi.devicePath = "/dev/vfio"
+		stop = make(chan struct{})
+		dpi.stop = stop
+		dpi.skipDupHealthChecks = false
+	})
+
+	AfterEach(func() {
+		close(stop)
+		dpi.skipDupHealthChecks = true
+	})
+
+	It("Should stop if the device plugin socket file is deleted", func() {
+		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+
+		errChan := make(chan error, 1)
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go func() {
+			errChan <- dpi.healthCheck(healthCheckContext)
+		}()
+
+		By("waiting for initial healthchecks to send Healthy message for each device")
+		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		for i := range dpi.devs {
+			Expect(dpi.getDevHealthByIndex(i)).To(Equal(pluginapi.Healthy))
+		}
+
+		Expect(os.Remove(dpi.socketPath)).To(Succeed())
+
+		Eventually(errChan, 5*time.Second).Should(Receive(Not(HaveOccurred())))
+	})
+
+	It("Should monitor health of device node", func() {
+		os.OpenFile(dpi.socketPath, os.O_RDONLY|os.O_CREATE, 0666)
+		vfioDevicePath := filepath.Join(vfioDeviceDir, fakeIommuGroup)
+
+		By("Confirming that the device begins as unhealthy")
+		expectAllDevHealthIs(dpi.devs, pluginapi.Unhealthy)
+
+		By("waiting for initial healthchecks to send Healthy message")
+		healthCheckContext, err := dpi.setupHealthCheckContext()
+		Expect(err).ToNot(HaveOccurred())
+		go dpi.healthCheck(healthCheckContext)
+		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		for i := range dpi.devs {
+			Expect(dpi.getDevHealthByIndex(i)).To(Equal(pluginapi.Healthy))
+		}
+
+		By("Removing a (fake) vfio device node")
+		os.Remove(vfioDevicePath)
+
+		By("waiting for healthcheck to send Unhealthy message")
+		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		for i := range dpi.devs {
+			Expect(dpi.getDevHealthByIndex(i)).To(Equal(pluginapi.Unhealthy))
+		}
+
+		By("Creating a new (fake) vfio device node")
+		createFile(vfioDevicePath)
+
+		By("waiting for healthcheck to send Healthy message")
+		Eventually(dpi.healthUpdate, 5*time.Second).Should(Receive())
+		for i := range dpi.devs {
+			Expect(dpi.getDevHealthByIndex(i)).To(Equal(pluginapi.Healthy))
+		}
+	})
+
+	It("Should setup watcher for VFIO devices", func() {
+		workDir := GinkgoT().TempDir()
+		vfioDir := filepath.Join(workDir, "dev", "vfio")
+		Expect(os.MkdirAll(vfioDir, 0755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(vfioDir, "0"), []byte{}, 0644)).To(Succeed())
+
+		dpi := NewPCIDevicePlugin([]*PCIDevice{{iommuGroup: "0"}}, fakeName)
+		dpi.deviceRoot = workDir
+		dpi.devicePath = "/dev/vfio"
+
+		watcher, _ := fsnotify.NewWatcher()
+		defer watcher.Close()
+
+		monitoredDevices := make(map[string]string)
+		Expect(dpi.setupMonitoredDevicesFunc(watcher, monitoredDevices)).To(Succeed())
+		Expect(monitoredDevices).To(HaveLen(1))
+		Expect(watcher.WatchList()).To(ContainElement(vfioDir))
+	})
+
+	It("Should return error if device directory cannot be watched", func() {
+		dpi := NewPCIDevicePlugin([]*PCIDevice{{iommuGroup: "0"}}, fakeName)
+		dpi.deviceRoot = "/nonexistent"
+		dpi.devicePath = "/dev/vfio"
+
+		watcher, _ := fsnotify.NewWatcher()
+		defer watcher.Close()
+
+		err := dpi.setupMonitoredDevicesFunc(watcher, make(map[string]string))
+		Expect(err).To(MatchError(ContainSubstring("failed to add device directory")))
+	})
+
+	It("Should allocate the device", func() {
+		allocateRequest := &pluginapi.AllocateRequest{
+			ContainerRequests: []*pluginapi.ContainerAllocateRequest{
+				{
+					DevicesIDs: []string{fakeIommuGroup},
+				},
+			},
+		}
+
+		allocateResponse, err := dpi.Allocate(context.Background(), allocateRequest)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(allocateResponse.ContainerResponses).To(HaveLen(1))
+		// formatVFIODeviceSpecs adds 2 devices: /dev/vfio/vfio and /dev/vfio/<id>
+		Expect(allocateResponse.ContainerResponses[0].Devices).To(HaveLen(2))
+		Expect(allocateResponse.ContainerResponses[0].Devices[0].HostPath).To(Equal(vfioMount))
+		Expect(allocateResponse.ContainerResponses[0].Devices[1].HostPath).To(Equal(filepath.Join(vfioDevicePath, fakeIommuGroup)))
+		Expect(allocateResponse.ContainerResponses[0].Envs).To(HaveLen(1))
+		for key, val := range allocateResponse.ContainerResponses[0].Envs {
+			Expect(key).To(ContainSubstring("PCI_RESOURCE_"))
+			Expect(val).To(Equal(fakeAddress))
+		}
 	})
 })

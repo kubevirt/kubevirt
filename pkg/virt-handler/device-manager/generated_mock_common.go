@@ -13,6 +13,8 @@ import (
 	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
+
+	safepath "kubevirt.io/kubevirt/pkg/safepath"
 )
 
 // MockDeviceHandler is a mock of DeviceHandler interface.
@@ -154,4 +156,42 @@ func (m *MockDeviceHandler) RemoveMDEVType(mdevUUID string) error {
 func (mr *MockDeviceHandlerMockRecorder) RemoveMDEVType(mdevUUID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveMDEVType", reflect.TypeOf((*MockDeviceHandler)(nil).RemoveMDEVType), mdevUUID)
+}
+
+// MockpermissionManager is a mock of permissionManager interface.
+type MockpermissionManager struct {
+	ctrl     *gomock.Controller
+	recorder *MockpermissionManagerMockRecorder
+	isgomock struct{}
+}
+
+// MockpermissionManagerMockRecorder is the mock recorder for MockpermissionManager.
+type MockpermissionManagerMockRecorder struct {
+	mock *MockpermissionManager
+}
+
+// NewMockpermissionManager creates a new mock instance.
+func NewMockpermissionManager(ctrl *gomock.Controller) *MockpermissionManager {
+	mock := &MockpermissionManager{ctrl: ctrl}
+	mock.recorder = &MockpermissionManagerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockpermissionManager) EXPECT() *MockpermissionManagerMockRecorder {
+	return m.recorder
+}
+
+// ChownAtNoFollow mocks base method.
+func (m *MockpermissionManager) ChownAtNoFollow(path *safepath.Path, uid, gid int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChownAtNoFollow", path, uid, gid)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ChownAtNoFollow indicates an expected call of ChownAtNoFollow.
+func (mr *MockpermissionManagerMockRecorder) ChownAtNoFollow(path, uid, gid any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChownAtNoFollow", reflect.TypeOf((*MockpermissionManager)(nil).ChownAtNoFollow), path, uid, gid)
 }

@@ -23,7 +23,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -54,7 +54,7 @@ func (fp *FakePlugin) Start(_ <-chan struct{}) (err error) {
 	return fp.Error
 }
 
-func (fp *FakePlugin) GetDeviceName() string {
+func (fp *FakePlugin) GetResourceName() string {
 	return fp.deviceName
 }
 
@@ -82,17 +82,19 @@ func NewFakePlugin(name string, path string) *FakePlugin {
 }
 
 var _ = Describe("Device Controller", func() {
-	var workDir string
-	var err error
-	var host string
-	var maxDevices int
-	var permissions string
-	var stop chan struct{}
-	var fakeConfigMap *virtconfig.ClusterConfig
-	var mockPCI *MockDeviceHandler
-	var ctrl *gomock.Controller
-	var fakeNodeStore cache.Store
-	var wg *sync.WaitGroup
+	var (
+		workDir       string
+		err           error
+		host          string
+		maxDevices    int
+		permissions   string
+		stop          chan struct{}
+		fakeConfigMap *virtconfig.ClusterConfig
+		mockPCI       *MockDeviceHandler
+		ctrl          *gomock.Controller
+		fakeNodeStore cache.Store
+		wg            *sync.WaitGroup
+	)
 
 	runDeviceController := func(deviceController *DeviceController) {
 		wg.Add(1)
@@ -129,8 +131,7 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		Expect(fakeConfigMap.GetPermittedHostDevices()).ToNot(BeNil())
-		workDir, err = os.MkdirTemp("", "kubevirt-test")
-		Expect(err).ToNot(HaveOccurred())
+		workDir = GinkgoT().TempDir()
 
 		host = "master"
 		maxDevices = 100
@@ -140,7 +141,6 @@ var _ = Describe("Device Controller", func() {
 	})
 
 	AfterEach(func() {
-		defer os.RemoveAll(workDir)
 		// Ensure the deviceController is stopped after each test to avoid leaking resources
 		stop <- struct{}{}
 		wg.Wait()
@@ -149,9 +149,9 @@ var _ = Describe("Device Controller", func() {
 
 	Context("Basic Tests", func() {
 		It("Should indicate if node has device", func() {
-			var noDevices []Device
+			var noDevices []devicePlugin
 			deviceController := NewDeviceController(host, maxDevices, permissions, noDevices, fakeConfigMap, fakeNodeStore)
-			devicePath := path.Join(workDir, "fake-device")
+			devicePath := filepath.Join(workDir, "fake-device")
 			res := deviceController.NodeHasDevice(devicePath)
 			Expect(res).To(BeFalse())
 
@@ -177,8 +177,8 @@ var _ = Describe("Device Controller", func() {
 		BeforeEach(func() {
 			deviceName1 = "fake-device1"
 			deviceName2 = "fake-device2"
-			devicePath1 = path.Join(workDir, deviceName1)
-			devicePath2 = path.Join(workDir, deviceName2)
+			devicePath1 = filepath.Join(workDir, deviceName1)
+			devicePath2 = filepath.Join(workDir, deviceName2)
 			// only create the second device.
 			_, err = os.Create(devicePath2)
 			Expect(err).ToNot(HaveOccurred())
@@ -188,7 +188,7 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		It("should start the device plugin immediately without delays", func() {
-			initialDevices := []Device{plugin2}
+			initialDevices := []devicePlugin{plugin2}
 			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, fakeNodeStore)
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 10 * time.Second}
 
@@ -203,7 +203,7 @@ var _ = Describe("Device Controller", func() {
 		It("should restart the device plugin with delays if it returns errors", func() {
 			plugin2 = NewFakePlugin("fake-device2", devicePath2)
 			plugin2.Error = fmt.Errorf("failing")
-			initialDevices := []Device{plugin2}
+			initialDevices := []devicePlugin{plugin2}
 
 			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, fakeNodeStore)
 			deviceController.backoff = []time.Duration{10 * time.Millisecond, 300 * time.Millisecond}
@@ -217,7 +217,7 @@ var _ = Describe("Device Controller", func() {
 		})
 
 		It("Should not block on other plugins", func() {
-			initialDevices := []Device{plugin1, plugin2}
+			initialDevices := []devicePlugin{plugin1, plugin2}
 			deviceController := NewDeviceController(host, maxDevices, permissions, initialDevices, fakeConfigMap, fakeNodeStore)
 
 			runDeviceController(deviceController)
@@ -238,7 +238,7 @@ var _ = Describe("Device Controller", func() {
 			emptyConfigMap, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			Expect(emptyConfigMap.GetPermittedHostDevices()).To(BeNil())
 
-			deviceController := NewDeviceController(host, maxDevices, permissions, []Device{}, emptyConfigMap, fakeNodeStore)
+			deviceController := NewDeviceController(host, maxDevices, permissions, []devicePlugin{}, emptyConfigMap, fakeNodeStore)
 
 			deviceController.startDevice(deviceName1, plugin1)
 			deviceController.startDevice(deviceName2, plugin2)
@@ -258,7 +258,7 @@ var _ = Describe("Device Controller", func() {
 			emptyConfigMap, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 			Expect(emptyConfigMap.GetPermittedHostDevices()).To(BeNil())
 
-			permanentPlugins := []Device{plugin1, plugin2}
+			permanentPlugins := []devicePlugin{plugin1, plugin2}
 			deviceController := NewDeviceController(host, maxDevices, permissions, permanentPlugins, emptyConfigMap, fakeNodeStore)
 
 			runDeviceController(deviceController)
