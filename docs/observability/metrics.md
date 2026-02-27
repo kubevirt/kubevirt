@@ -103,6 +103,7 @@
 | kubevirt_workqueue_retries_total | Metric | Counter | Total number of retries handled by workqueue |
 | kubevirt_workqueue_unfinished_work_seconds | Metric | Gauge | How many seconds of work have been in progress without being observed by work_duration. Large values indicate stuck threads. The number of stuck threads can be deduced by observing the rate at which this value increases. |
 | kubevirt_workqueue_work_duration_seconds | Metric | Histogram | How long in seconds processing an item from workqueue takes. |
+| cluster:kubevirt_non_schedulable_nodes:sum | Recording rule | Gauge | The number of non-schedulable nodes in the cluster. |
 | cluster:kubevirt_virt_controller_pods_running:count | Recording rule | Gauge | The number of virt-controller pods that are running. |
 | cluster:kubevirt_virt_operator_pods_running:count | Recording rule | Gauge | The number of virt-operator pods that are running. |
 | kubevirt_allocatable_nodes | Recording rule | Gauge | The number of allocatable nodes in the cluster. |
