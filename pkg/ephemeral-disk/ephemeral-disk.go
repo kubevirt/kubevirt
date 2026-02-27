@@ -158,7 +158,7 @@ func createBackingDisk(backingFile string, backingFormat string, imagePath strin
 		// qemu-img accepts decimal byte values as the size argument.
 		args = append(args, capacity.AsDec().String())
 	}
-	// #nosec No risk for attacker injection. Parameters are predefined strings
+	// #nosec No risk for attacker injection. Parameters are predefined strings or validated numeric values from resource.Quantity
 	cmd := exec.Command("qemu-img", args...)
 	return cmd.CombinedOutput()
 }
