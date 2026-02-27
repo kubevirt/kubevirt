@@ -81,7 +81,34 @@ var _ = Describe("Input Device Configurator", func() {
 			Expect(err.Error()).To(ContainSubstring(expectedError))
 		},
 			Entry("unsupported bus", v1.InputBus("ps2"), v1.InputTypeTablet, "unsupported bus"),
-			Entry("unsupported type", v1.InputBusUSB, v1.InputType("keyboard"), "unsupported type"),
+			Entry("unsupported type", v1.InputBusUSB, v1.InputType("mouse"), "unsupported type"),
+		)
+
+		DescribeTable("should configure keyboard input devices", func(arch string, bus v1.InputBus, expectedModel string) {
+			vmi := libvmi.New(libvmi.WithKeyboard("my-keyboard", bus), libvmi.WithAutoattachGraphicsDevice(false))
+			var domain api.Domain
+
+			configurator := compute.NewInputDeviceDomainConfigurator(arch)
+			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
+
+			expectedDomain := api.Domain{
+				Spec: api.DomainSpec{
+					Devices: api.Devices{
+						Inputs: []api.Input{
+							{
+								Type:  "keyboard",
+								Bus:   bus,
+								Alias: api.NewUserDefinedAlias("my-keyboard"),
+								Model: expectedModel,
+							},
+						},
+					},
+				},
+			}
+			Expect(domain).To(Equal(expectedDomain))
+		},
+			Entry("with USB bus on amd64", "amd64", v1.InputBusUSB, ""),
+			Entry("with virtio bus on amd64", "amd64", v1.InputBusVirtio, v1.VirtIO),
 		)
 	})
 
