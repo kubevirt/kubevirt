@@ -1153,13 +1153,32 @@ type Entry struct {
 //END OS --------------------
 //BEGIN LaunchSecurity --------------------
 
-type LaunchSecurity struct {
-	Type            string `xml:"type,attr"`
-	DHCert          string `xml:"dhCert,omitempty"`
-	Session         string `xml:"session,omitempty"`
+type LaunchSecuritySEVCommon struct {
+	Policy          string `xml:"policy,omitempty"`
+	KernelHashes    string `xml:"kernelHashes,attr,omitempty"`
 	Cbitpos         string `xml:"cbitpos,omitempty"`
 	ReducedPhysBits string `xml:"reducedPhysBits,omitempty"`
-	Policy          string `xml:"policy,omitempty"`
+}
+
+type LaunchSecuritySEV struct {
+	DHCert  string `xml:"dhCert,omitempty"`
+	Session string `xml:"session,omitempty"`
+}
+
+type LaunchSecuritySNP struct {
+	VCEK                    string `xml:"vcek,attr,omitempty"`
+	AuthorKey               string `xml:"authorKey,attr,omitempty"`
+	HostData                string `xml:"hostData,omitempty"`
+	GuestVisibleWorkarounds string `xml:"guestVisibleWorkarounds,omitempty"`
+	IdBlock                 string `xml:"idBlock,omitempty"`
+	IdAuth                  string `xml:"idAuth,omitempty"`
+}
+
+type LaunchSecurity struct {
+	Type string `xml:"type,attr"`
+	LaunchSecuritySEVCommon
+	LaunchSecuritySEV
+	LaunchSecuritySNP
 }
 
 //END LaunchSecurity --------------------
