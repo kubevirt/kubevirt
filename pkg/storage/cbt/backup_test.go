@@ -556,6 +556,81 @@ var _ = Describe("Backup Controller", func() {
 				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
 				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmNoChangedBlockTrackingMsg, vmName)))
 			})
+
+			It("should wait when VMI is migrating and update initializing condition", func() {
+				backup := createBackup(backupName, vmName, pvcName)
+				vm := createVM(vmName)
+				controller.vmStore.Add(vm)
+				vmi := createVMI()
+				now := metav1.Now()
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					StartTimestamp: &now,
+				}
+				controller.vmiStore.Add(vmi)
+				addBackup(backup)
+
+				statusUpdated := false
+				kubevirtClient.Fake.PrependReactor("update", "virtualmachinebackups", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
+					update := action.(testing.UpdateAction)
+					if update.GetSubresource() != "status" {
+						return false, nil, nil
+					}
+					statusUpdated = true
+					updateObj := update.GetObject().(*backupv1.VirtualMachineBackup)
+
+					hasInitializing := false
+					for _, cond := range updateObj.Status.Conditions {
+						if cond.Type == backupv1.ConditionInitializing &&
+							cond.Status == corev1.ConditionTrue {
+							hasInitializing = true
+							Expect(cond.Reason).To(ContainSubstring(fmt.Sprintf(vmMigrationInProgressMsg, vmName)))
+						}
+					}
+					Expect(hasInitializing).To(BeTrue(), "Should have Initializing condition with migration reason")
+					return true, updateObj, nil
+				})
+
+				syncInfo := controller.sync(backup)
+				Expect(syncInfo).ToNot(BeNil())
+				Expect(syncInfo.err).ToNot(HaveOccurred())
+				Expect(syncInfo.event).To(Equal(backupInitializingEvent))
+				Expect(syncInfo.reason).To(Equal(fmt.Sprintf(vmMigrationInProgressMsg, vmName)))
+
+				err := controller.updateStatus(backup, syncInfo, log.DefaultLogger())
+				Expect(err).ToNot(HaveOccurred())
+				Expect(statusUpdated).To(BeTrue())
+			})
+
+			It("should proceed when VMI migration has completed", func() {
+				backup := createBackup(backupName, vmName, pvcName)
+				backup.Finalizers = []string{vmBackupFinalizer}
+				vm := createVM(vmName)
+				controller.vmStore.Add(vm)
+				vmi := createInitializedVMI()
+				now := metav1.Now()
+				vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+					StartTimestamp: &now,
+					EndTimestamp:   &now,
+				}
+				controller.vmiStore.Add(vmi)
+				pvc := createPVC(pvcName)
+				controller.pvcStore.Add(pvc)
+				controller.backupInformer.GetStore().Add(backup)
+
+				backupCalled := false
+				vmiInterface.EXPECT().
+					Backup(gomock.Any(), vmName, gomock.Any()).
+					DoAndReturn(func(ctx context.Context, name string, options *backupv1.BackupOptions) error {
+						backupCalled = true
+						return nil
+					})
+
+				syncInfo := controller.sync(backup)
+				Expect(syncInfo).ToNot(BeNil())
+				Expect(syncInfo.err).ToNot(HaveOccurred())
+				Expect(syncInfo.event).To(Equal(backupInitiatedEvent))
+				Expect(backupCalled).To(BeTrue())
+			})
 		})
 	})
 

@@ -52,6 +52,7 @@ import (
 
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 
+	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
@@ -73,6 +74,8 @@ const (
 	successfulUpdatePodDisruptionBudgetReason = "SuccessfulUpdate"
 	failedUpdatePodDisruptionBudgetReason     = "FailedUpdate"
 	failedGetAttractionPodsFmt                = "failed to get attachment pods: %v"
+	migrationBlockedByBackupAbortingMsgFmt    = "Aborting backup %s for system-critical migration"
+	migrationBlockedByBackupWaitingMsgFmt     = "Waiting for backup %s to complete"
 )
 
 const vmiPodIndex = "vmiPodIndex"
@@ -745,6 +748,9 @@ func (c *Controller) processMigrationPhase(
 			log.Log.Object(migration).Error("Migration object ont eligible for migration because another job is in progress")
 		}
 	case virtv1.MigrationPending:
+		if hasOngoingBackup, err := c.handleVMBackup(migrationCopy, vmi); hasOngoingBackup || err != nil {
+			return err
+		}
 
 		if hasUtilityVolumes, err := c.handleUtilityVolumes(migrationCopy, vmi); err != nil || hasUtilityVolumes {
 			return err
@@ -1550,6 +1556,76 @@ func (c *Controller) getCatchAllPendingTimeoutSeconds(migration *virtv1.VirtualM
 	}
 
 	return int64(newTimeout)
+}
+
+func (c *Controller) handleVMBackup(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) (bool, error) {
+	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
+	if !migrationsutil.IsBackupInProgress(vmi) {
+		if conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationBlockedByBackup) {
+			conditionManager.RemoveCondition(migration, virtv1.VirtualMachineInstanceMigrationBlockedByBackup)
+		}
+		return false, nil
+	}
+
+	if migration.Spec.Priority != nil && *migration.Spec.Priority == virtv1.PrioritySystemCritical {
+		if !conditionManager.HasCondition(migration, virtv1.VirtualMachineInstanceMigrationBlockedByBackup) {
+			if err := c.abortBackupForCriticalMigration(migration, vmi); err != nil {
+				return true, err
+			}
+		}
+		c.setBlockedByBackupCondition(migration, fmt.Sprintf(migrationBlockedByBackupAbortingMsgFmt, vmi.Status.ChangedBlockTracking.BackupStatus.BackupName))
+	} else {
+		c.setBlockedByBackupCondition(migration, fmt.Sprintf(migrationBlockedByBackupWaitingMsgFmt, vmi.Status.ChangedBlockTracking.BackupStatus.BackupName))
+	}
+
+	migrationKey, err := controller.KeyFunc(migration)
+	if err != nil {
+		return true, err
+	}
+
+	if c.clusterConfig.MigrationPriorityQueueEnabled() {
+		priority := migrationsutil.PriorityFromMigration(migration)
+		delay := getRequeueDelayForPriority(*priority)
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: priority, After: delay}, migrationKey)
+	} else {
+		c.Queue.AddWithOpts(priorityqueue.AddOpts{Priority: pointer.P(migrationsutil.QueuePriorityPending), After: 5 * time.Second}, migrationKey)
+	}
+
+	return true, nil
+}
+
+func (c *Controller) abortBackupForCriticalMigration(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
+	backupStatus := vmi.Status.ChangedBlockTracking.BackupStatus
+	if backupStatus == nil {
+		return nil
+	}
+	backupOptions := &backupv1.BackupOptions{
+		BackupName:      backupStatus.BackupName,
+		Cmd:             backupv1.Abort,
+		BackupStartTime: backupStatus.StartTimestamp,
+	}
+	err := c.clientset.VirtualMachineInstance(vmi.Namespace).Backup(context.Background(), vmi.Name, backupOptions)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("failed to abort backup for critical migration")
+		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, "BackupAbortFailed",
+			"Failed to abort backup %s for critical migration: %v", backupStatus.BackupName, err)
+		return err
+	}
+	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, "BackupAbortedForMigration",
+		migrationBlockedByBackupAbortingMsgFmt, backupStatus.BackupName)
+	return nil
+}
+
+func (c *Controller) setBlockedByBackupCondition(migration *virtv1.VirtualMachineInstanceMigration, message string) {
+	conditionManager := controller.NewVirtualMachineInstanceMigrationConditionManager()
+	condition := virtv1.VirtualMachineInstanceMigrationCondition{
+		Type:          virtv1.VirtualMachineInstanceMigrationBlockedByBackup,
+		Status:        k8sv1.ConditionTrue,
+		LastProbeTime: v1.Now(),
+		Reason:        "BackupInProgress",
+		Message:       message,
+	}
+	conditionManager.UpdateCondition(migration, &condition)
 }
 
 func (c *Controller) getUtilityVolumesTimeoutSeconds(migration *virtv1.VirtualMachineInstanceMigration) int64 {
