@@ -359,6 +359,17 @@ func NewOperatorClusterRole() *rbacv1.ClusterRole {
 				},
 			},
 			{
+				APIGroups: []string{
+					"template.kubevirt.io",
+				},
+				Resources: []string{
+					"virtualmachinetemplaterequests/source",
+				},
+				Verbs: []string{
+					"create",
+				},
+			},
+			{
 				// for ClusterRole virt-template-metrics-reader
 				NonResourceURLs: []string{
 					"/metrics",
