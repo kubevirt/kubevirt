@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/config"
@@ -79,7 +80,7 @@ func configureMachineType(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 
 func configureBootMenu(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
 	// set bootmenu to give time to access bios
-	if vmi.ShouldStartPaused() {
+	if vmipredicates.ShouldStartPaused(vmi) {
 		const bootMenuTimeoutMS = uint(10000)
 		domain.Spec.OS.BootMenu = &api.BootMenu{
 			Enable:  "yes",
@@ -102,7 +103,7 @@ func (o OSDomainConfigurator) convert_v1_Firmware_To_related_apis(vmi *v1.Virtua
 }
 
 func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domain *api.Domain) {
-	if !vmi.IsBootloaderEFI() || o.efiConfiguration == nil {
+	if !vmipredicates.IsBootloaderEFI(vmi) || o.efiConfiguration == nil {
 		return
 	}
 
@@ -112,7 +113,7 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		Secure:   boolToYesNo(&o.efiConfiguration.SecureLoader, false),
 	}
 
-	if util.IsSEVSNPVMI(vmi) || util.IsTDXVMI(vmi) {
+	if vmipredicates.IsSEVSNPVMI(vmi) || vmipredicates.IsTDXVMI(vmi) {
 		// Use stateless firmware for the TDX/SNP VMs
 		domain.Spec.OS.BootLoader.Type = "rom"
 		domain.Spec.OS.NVRam = nil
@@ -138,7 +139,7 @@ func configureBIOS(firmware *v1.Firmware, domain *api.Domain) {
 }
 
 func configureKernelBoot(vmi *v1.VirtualMachineInstance, firmware *v1.Firmware, domain *api.Domain) {
-	if util.HasKernelBootContainerImage(vmi) {
+	if vmipredicates.HasKernelBootContainerImage(vmi) {
 		configureKernelBootContainer(vmi, firmware.KernelBoot, domain)
 	}
 

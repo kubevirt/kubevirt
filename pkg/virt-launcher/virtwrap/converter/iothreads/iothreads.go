@@ -23,6 +23,7 @@ import (
 	"slices"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
@@ -80,7 +81,7 @@ func getThreadPoolLimit(vmi *v1.VirtualMachineInstance) int {
 	case *policy == v1.IOThreadsPolicyAuto:
 		// When IOThreads policy is set to auto and we've allocated a dedicated
 		// pCPU for the emulator thread, we can place IOThread and Emulator thread in the same pCPU
-		if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
+		if vmipredicates.IsCPUDedicated(vmi) && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
 			return 1
 		}
 		numCPUs := 1

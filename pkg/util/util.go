@@ -13,6 +13,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 	"kubevirt.io/client-go/log"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 )
 
 const (
@@ -39,101 +40,11 @@ const (
 	ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
 )
 
-func IsNonRootVMI(vmi *v1.VirtualMachineInstance) bool {
-	_, ok := vmi.Annotations[v1.DeprecatedNonRootVMIAnnotation]
-
-	nonRoot := vmi.Status.RuntimeUser != 0
-	return ok || nonRoot
-}
-
-func isSRIOVVmi(vmi *v1.VirtualMachineInstance) bool {
-	for _, iface := range vmi.Spec.Domain.Devices.Interfaces {
-		if iface.SRIOV != nil {
-			return true
-		}
-	}
-	return false
-}
-
-// Check if a VMI spec requests GPU
-func IsGPUVMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.GPUs != nil && len(vmi.Spec.Domain.Devices.GPUs) != 0 {
-		return true
-	}
-	return false
-}
-
-// Check if a VMI spec requests VirtIO-FS
-func IsVMIVirtiofsEnabled(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.Filesystems != nil {
-		for _, fs := range vmi.Spec.Domain.Devices.Filesystems {
-			if fs.Virtiofs != nil {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// Check if a VMI spec requests a HostDevice
-func IsHostDevVMI(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.Spec.Domain.Devices.HostDevices != nil && len(vmi.Spec.Domain.Devices.HostDevices) != 0 {
-		return true
-	}
-	return false
-}
-
-// Check if a VMI spec requests a VFIO device
-func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
-
-	if IsHostDevVMI(vmi) || IsGPUVMI(vmi) || isSRIOVVmi(vmi) {
-		return true
-	}
-	return false
-}
-
-// Check if a VMI spec requests memory overhead
-func RequiresMemoryOverheadReservation(v *v1.VirtualMachineInstance) bool {
-	return v.Spec.Domain.Memory != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead.AddedOverhead != nil
-}
-
-// Check if a VMI spec requests locking VM's memory (e.g. for DMA)
-func RequiresLockingMemory(v *v1.VirtualMachineInstance) bool {
-	return v.Spec.Domain.Memory != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead != nil &&
-		v.Spec.Domain.Memory.ReservedOverhead.MemLock != nil &&
-		*v.Spec.Domain.Memory.ReservedOverhead.MemLock == v1.MemLockRequired
-}
-
-func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
-	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi) || IsTDXVMI(vmi)
-}
-
-func IsAutoAttachVSOCK(vmi *v1.VirtualMachineInstance) bool {
-	return vmi.Spec.Domain.Devices.AutoattachVSOCK != nil && *vmi.Spec.Domain.Devices.AutoattachVSOCK
-}
-
 func ResourceNameToEnvVar(prefix string, resourceName string) string {
 	varName := strings.ToUpper(resourceName)
 	varName = strings.Replace(varName, "/", "_", -1)
 	varName = strings.Replace(varName, ".", "_", -1)
 	return fmt.Sprintf("%s_%s", prefix, varName)
-}
-
-// Checks if kernel boot is defined in a valid way
-func HasKernelBootContainerImage(vmi *v1.VirtualMachineInstance) bool {
-	if vmi == nil {
-		return false
-	}
-
-	vmiFirmware := vmi.Spec.Domain.Firmware
-	if (vmiFirmware == nil) || (vmiFirmware.KernelBoot == nil) || (vmiFirmware.KernelBoot.Container == nil) {
-		return false
-	}
-
-	return true
 }
 
 // AlignImageSizeTo1MiB rounds down the size to the nearest multiple of 1MiB
@@ -230,7 +141,7 @@ func PathForSwtpm(vmi *v1.VirtualMachineInstance) string {
 
 func PathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
 	localCaPath := "/var/lib/swtpm-localca"
-	if IsNonRootVMI(vmi) {
+	if vmipredicates.IsNonRootVMI(vmi) {
 		localCaPath = filepath.Join(VirtPrivateDir, "var", "lib", "swtpm-localca")
 	}
 
@@ -239,7 +150,7 @@ func PathForSwtpmLocalca(vmi *v1.VirtualMachineInstance) string {
 
 func PathForNVram(vmi *v1.VirtualMachineInstance) string {
 	nvramPath := "/var/lib/libvirt/qemu/nvram"
-	if IsNonRootVMI(vmi) {
+	if vmipredicates.IsNonRootVMI(vmi) {
 		nvramPath = filepath.Join(VirtPrivateDir, "libvirt", "qemu", "nvram")
 	}
 

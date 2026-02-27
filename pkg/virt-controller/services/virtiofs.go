@@ -6,6 +6,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 
 	"kubevirt.io/kubevirt/pkg/config"
 	"kubevirt.io/kubevirt/pkg/pointer"
@@ -31,7 +32,7 @@ func generateVirtioFSContainers(vmi *v1.VirtualMachineInstance, image string, co
 			if volume.ContainerPath != nil {
 				continue
 			}
-			resources := virtiofs.ResourcesForVirtioFSContainer(vmi.IsCPUDedicated(), vmi.IsCPUDedicated() || vmi.WantsToHaveQOSGuaranteed(), config)
+			resources := virtiofs.ResourcesForVirtioFSContainer(vmipredicates.IsCPUDedicated(vmi), vmipredicates.IsCPUDedicated(vmi) || vmipredicates.WantsToHaveQOSGuaranteed(vmi), config)
 			container := generateContainerFromVolume(&volume, image, resources)
 			containers = append(containers, container)
 

@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -220,8 +221,8 @@ func (m *VirtLauncherPodMutator) createVirtiofsContainer(
 	}
 
 	// Get resources based on VMI QOS settings
-	dedicatedCPUs := vmi.IsCPUDedicated()
-	guaranteedQOS := dedicatedCPUs || vmi.WantsToHaveQOSGuaranteed()
+	dedicatedCPUs := vmipredicates.IsCPUDedicated(vmi)
+	guaranteedQOS := dedicatedCPUs || vmipredicates.WantsToHaveQOSGuaranteed(vmi)
 	resources := virtiofs.ResourcesForVirtioFSContainer(dedicatedCPUs, guaranteedQOS, m.ClusterConfig)
 
 	return k8sv1.Container{

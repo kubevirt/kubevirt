@@ -55,6 +55,7 @@ import (
 
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	virtv1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/api/migrations/v1alpha1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
@@ -1256,7 +1257,7 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 		vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
 	}
 
-	if controller.VMIHasHotplugCPU(vmi) && vmi.IsCPUDedicated() {
+	if controller.VMIHasHotplugCPU(vmi) && vmipredicates.IsCPUDedicated(vmi) {
 		cpuLimitsCount, err := getTargetPodLimitsCount(pod)
 		if err != nil {
 			return err
@@ -1424,7 +1425,7 @@ func (c *Controller) handleBackendStorage(migration *virtv1.VirtualMachineInstan
 	if migration.Status.MigrationState == nil {
 		migration.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 	}
-	if !vmi.IsDecentralizedMigration() || vmi.IsMigrationSource() {
+	if !vmipredicates.IsDecentralizedMigration(vmi) || vmi.IsMigrationSource() {
 		migration.Status.MigrationState.SourcePersistentStatePVCName = backendstorage.CurrentPVCName(vmi)
 		if migration.Status.MigrationState.SourcePersistentStatePVCName == "" {
 			return fmt.Errorf("no backend-storage PVC found in VMI volume status")

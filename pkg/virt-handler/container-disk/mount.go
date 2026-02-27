@@ -37,7 +37,6 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/unsafepath"
-	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -47,6 +46,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 )
 
 const (
@@ -408,7 +408,7 @@ func (m *mounter) ContainerDisksReady(vmi *v1.VirtualMachineInstance, notInitial
 		}
 	}
 
-	if util.HasKernelBootContainerImage(vmi) {
+	if vmipredicates.HasKernelBootContainerImage(vmi) {
 		sock, err := m.kernelBootSocketPathGetter(vmi)
 		if err == nil {
 			_, err = m.podIsolationDetector.DetectForSocket(sock)
@@ -433,7 +433,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 
 	log.Log.Object(vmi).Infof("mounting kernel artifacts")
 
-	if !util.HasKernelBootContainerImage(vmi) {
+	if !vmipredicates.HasKernelBootContainerImage(vmi) {
 		log.Log.Object(vmi).Infof("kernel boot not defined - nothing to mount")
 		return nil
 	}
@@ -557,7 +557,7 @@ func (m *mounter) mountKernelArtifacts(vmi *v1.VirtualMachineInstance, verify bo
 }
 
 func (m *mounter) unmountKernelArtifacts(vmi *v1.VirtualMachineInstance) error {
-	if !util.HasKernelBootContainerImage(vmi) {
+	if !vmipredicates.HasKernelBootContainerImage(vmi) {
 		return nil
 	}
 
@@ -729,7 +729,7 @@ func (m *mounter) ComputeChecksums(vmi *v1.VirtualMachineInstance) (*DiskChecksu
 	}
 
 	// kernel and initrd
-	if util.HasKernelBootContainerImage(vmi) {
+	if vmipredicates.HasKernelBootContainerImage(vmi) {
 		kernelArtifacts, err := m.getKernelArtifactPaths(vmi)
 		if err != nil {
 			return nil, err

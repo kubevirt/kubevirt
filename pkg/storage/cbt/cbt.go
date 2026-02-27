@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/util"
@@ -302,7 +303,7 @@ func IsCBTEligibleVolume(volume *v1.Volume) bool {
 
 func PathForCBT(vmi *v1.VirtualMachineInstance) string {
 	cbtPath := "/var/lib/libvirt/qemu/cbt"
-	if util.IsNonRootVMI(vmi) {
+	if vmipredicates.IsNonRootVMI(vmi) {
 		cbtPath = filepath.Join(util.VirtPrivateDir, "libvirt", "qemu", "cbt")
 	}
 

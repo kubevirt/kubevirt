@@ -35,6 +35,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -263,14 +264,14 @@ func (c *MigrationSourceController) updateStatus(vmi *v1.VirtualMachineInstance,
 		}
 	}
 
-	if vmi.Status.Phase == v1.Failed && vmi.IsDecentralizedMigration() {
+	if vmi.Status.Phase == v1.Failed && vmipredicates.IsDecentralizedMigration(vmi) {
 		vmi.Status.MigrationState.Completed = true
 		vmi.Status.MigrationState.Failed = true
 		c.logger.Object(vmi).Warning("the decentralized migration failed due to the source VMI being failed")
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance's decentralized migration failed due to the source VMI being failed."))
 	}
 
-	if targetNodeDetectedDomain && vmi.IsDecentralizedMigration() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
+	if targetNodeDetectedDomain && vmipredicates.IsDecentralizedMigration(vmi) && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Completed {
 		c.logger.Object(vmi).V(2).Infof("decentralized migration completed successfully, marking VMI as succeeded")
 		// this is a decentralized migration, and the migration completed successfully, we need to mark the VMI as succeeded
 		vmi.Status.Phase = v1.Succeeded
@@ -396,8 +397,8 @@ func (c *MigrationSourceController) execute(key string) error {
 		return err
 	}
 
-	if !vmiExists || ((vmi.IsDecentralizedMigration() && vmi.Status.Phase == v1.Succeeded) ||
-		!vmi.IsDecentralizedMigration() && vmi.IsFinal()) ||
+	if !vmiExists || ((vmipredicates.IsDecentralizedMigration(vmi) && vmi.Status.Phase == v1.Succeeded) ||
+		!vmipredicates.IsDecentralizedMigration(vmi) && vmi.IsFinal()) ||
 		vmi.DeletionTimestamp != nil {
 		c.logger.V(4).Infof("vmi for key %v is terminating, succeeded or does not exists", key)
 		return nil
@@ -438,7 +439,7 @@ func (c *MigrationSourceController) execute(key string) error {
 }
 
 func (c *MigrationSourceController) isMigrationSource(vmi *v1.VirtualMachineInstance) bool {
-	if vmi.IsDecentralizedMigration() {
+	if vmipredicates.IsDecentralizedMigration(vmi) {
 		return vmi.Status.MigrationState != nil &&
 			vmi.Status.MigrationState.SourceNode == c.host &&
 			vmi.IsMigrationSource()

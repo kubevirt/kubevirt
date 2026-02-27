@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	"libvirt.org/go/libvirt"
@@ -260,7 +261,7 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
 		}
 	}
 
-	if vmi.IsDecentralizedMigration() {
+	if vmipredicates.IsDecentralizedMigration(vmi) {
 		if err := checkIfHotplugDisksReadyToUse(vmi); err != nil {
 			return err
 		}

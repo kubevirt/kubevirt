@@ -12,6 +12,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	v12 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 
 	v1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
@@ -392,7 +393,7 @@ func FormatDomainIOThreadPin(vmi *v12.VirtualMachineInstance, domain *api.Domain
 			cpu := vcpus + i + indexEmulatorThread
 			appendDomainIOThreadPin(domain, uint32(i), fmt.Sprintf("%d", cpu))
 		}
-	case vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread:
+	case vmipredicates.IsCPUDedicated(vmi) && vmi.Spec.Domain.CPU.IsolateEmulatorThread:
 		// pin the IOThread on the same pCPU as the emulator thread
 		appendDomainIOThreadPin(domain, uint32(1), emulatorThreadsCPUSet)
 	case iothreads >= vcpus:
@@ -509,7 +510,7 @@ func AdjustDomainForTopologyAndCPUSet(domain *api.Domain, vmi *v12.VirtualMachin
 			return err
 		}
 	}
-	if vmi.IsRealtimeEnabled() {
+	if vmipredicates.IsRealtimeEnabled(vmi) {
 		// RT settings
 		// To be configured by manifest
 		// - CPU Model: Host Passthrough
@@ -672,7 +673,7 @@ func numaMapping(vmi *v12.VirtualMachineInstance, domain *api.DomainSpec, topolo
 			domain.CPU.NUMA.Cells[i].Memory += hugepagesSize
 		}
 	}
-	if vmi.IsRealtimeEnabled() {
+	if vmipredicates.IsRealtimeEnabled(vmi) {
 		// RT settings when hugepages are enabled
 		domain.MemoryBacking.NoSharePages = &api.NoSharePages{}
 	}

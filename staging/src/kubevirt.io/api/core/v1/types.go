@@ -520,54 +520,6 @@ func (v *VirtualMachineInstance) IsUnprocessed() bool {
 	return v.Status.Phase == Pending || v.Status.Phase == VmPhaseUnset
 }
 
-// Checks if CPU pinning has been requested
-func (v *VirtualMachineInstance) IsCPUDedicated() bool {
-	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.DedicatedCPUPlacement
-}
-
-func (v *VirtualMachineInstance) IsBootloaderEFI() bool {
-	return v.Spec.Domain.Firmware != nil && v.Spec.Domain.Firmware.Bootloader != nil &&
-		v.Spec.Domain.Firmware.Bootloader.EFI != nil
-}
-
-// WantsToHaveQOSGuaranteed checks if cpu and memory limits and requests are identical on the VMI.
-// This is the indicator that people want a VMI with QOS of guaranteed
-// If memory limit is set but not its corresponding request, we will eventually set request=limit
-func (v *VirtualMachineInstance) WantsToHaveQOSGuaranteed() bool {
-	resources := v.Spec.Domain.Resources
-	memoryWantsIt := (resources.Requests.Memory().IsZero() && !resources.Limits.Memory().IsZero()) ||
-		(!resources.Requests.Memory().IsZero() && resources.Requests.Memory().Cmp(*resources.Limits.Memory()) == 0)
-	cpuWantsIt := !resources.Requests.Cpu().IsZero() && resources.Requests.Cpu().Cmp(*resources.Limits.Cpu()) == 0
-	return memoryWantsIt && cpuWantsIt
-}
-
-// ShouldStartPaused returns true if VMI should be started in paused state
-func (v *VirtualMachineInstance) ShouldStartPaused() bool {
-	return v.Spec.StartStrategy != nil && *v.Spec.StartStrategy == StartStrategyPaused
-}
-
-func (v *VirtualMachineInstance) IsRealtimeEnabled() bool {
-	return v.Spec.Domain.CPU != nil && v.Spec.Domain.CPU.Realtime != nil
-}
-
-// IsHighPerformanceVMI returns true if the VMI is considered as high performance.
-// A VMI is considered as high performance if one of the following is true:
-// - the vmi requests a dedicated cpu
-// - the realtime flag is enabled
-// - the vmi requests hugepages
-func (v *VirtualMachineInstance) IsHighPerformanceVMI() bool {
-	if v.Spec.Domain.CPU != nil {
-		if v.Spec.Domain.CPU.DedicatedCPUPlacement || v.Spec.Domain.CPU.Realtime != nil {
-			return true
-		}
-	}
-
-	if v.Spec.Domain.Memory != nil && v.Spec.Domain.Memory.Hugepages != nil {
-		return true
-	}
-
-	return false
-}
 
 func (v *VirtualMachineInstance) IsMigrationSource() bool {
 	// Can use this after being fully synchronized.
@@ -627,14 +579,6 @@ func (v *VirtualMachineInstance) IsTargetPreparing(migration *VirtualMachineInst
 		return v.Status.MigrationState != nil && v.Status.MigrationState.MigrationUID == migration.UID &&
 			v.Status.MigrationState.TargetNode != ""
 	}
-}
-
-func (v *VirtualMachineInstance) IsDecentralizedMigration() bool {
-	return v.Status.MigrationState != nil &&
-		v.Status.MigrationState.TargetState != nil &&
-		v.Status.MigrationState.SourceState != nil &&
-		((v.Status.MigrationState.SourceState.SyncAddress == nil && v.Status.MigrationState.TargetState.SyncAddress != nil) ||
-			(v.Status.MigrationState.SourceState.SyncAddress != nil && v.Status.MigrationState.TargetState.SyncAddress == nil))
 }
 
 type VirtualMachineInstanceConditionType string

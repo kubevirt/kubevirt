@@ -26,9 +26,9 @@ import (
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
-	"kubevirt.io/kubevirt/pkg/util"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
@@ -207,7 +207,7 @@ func (l *launcherClientsManager) startDomainNotifyPipe(domainPipeStopChan chan s
 		return fmt.Errorf("failed to detect isolation for launcher pod when setting up notify pipe: %v", err)
 	}
 
-	listener, err := pipe.InjectNotify(res, l.virtShareDir, util.IsNonRootVMI(vmi))
+	listener, err := pipe.InjectNotify(res, l.virtShareDir, vmipredicates.IsNonRootVMI(vmi))
 	if err != nil {
 		return err
 	}

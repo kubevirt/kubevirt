@@ -27,6 +27,7 @@ import (
 	"kubevirt.io/client-go/log"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	netdriver "kubevirt.io/kubevirt/pkg/network/driver"
@@ -94,7 +95,7 @@ func (c *NetConf) Setup(vmi *v1.VirtualMachineInstance, networks []v1.Network, l
 	}
 
 	ownerID, _ := strconv.Atoi(netdriver.LibvirtUserAndGroupId)
-	if util.IsNonRootVMI(vmi) {
+	if vmipredicates.IsNonRootVMI(vmi) {
 		ownerID = util.NonRootUID
 	}
 	queuesCapacity := int(converternet.NetworkQueuesCapacity(vmi))

@@ -41,13 +41,13 @@ import (
 	runc_configs "github.com/opencontainers/runc/libcontainer/configs"
 
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/log"
 
 	k8sv1 "k8s.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/safepath"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
-	"kubevirt.io/kubevirt/pkg/util"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 )
 
@@ -193,7 +193,7 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 			vmiDeviceRules = append(vmiDeviceRules, deviceRule)
 		}
 	}
-	if util.IsAutoAttachVSOCK(vmi) {
+	if vmipredicates.IsAutoAttachVSOCK(vmi) {
 		path, err := safepath.JoinNoFollow(mountRoot, "/dev/vhost-vsock")
 		if err != nil {
 			return nil, err

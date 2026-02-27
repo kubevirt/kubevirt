@@ -45,6 +45,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
@@ -530,7 +531,7 @@ func needToComputeChecksums(vmi *v1.VirtualMachineInstance) bool {
 		}
 	}
 
-	if util.HasKernelBootContainerImage(vmi) {
+	if vmipredicates.HasKernelBootContainerImage(vmi) {
 		if vmi.Status.KernelBootStatus == nil {
 			return true
 		}
@@ -590,7 +591,7 @@ func (c *VirtualMachineController) updateChecksumInfo(vmi *v1.VirtualMachineInst
 	}
 
 	// kernelboot
-	if util.HasKernelBootContainerImage(vmi) {
+	if vmipredicates.HasKernelBootContainerImage(vmi) {
 		vmi.Status.KernelBootStatus = &v1.KernelBootStatus{}
 
 		if diskChecksums.KernelBootChecksum.Kernel != nil {
@@ -1208,13 +1209,13 @@ func (c *VirtualMachineController) calculateLiveMigrationCondition(vmi *v1.Virtu
 		return newNonMigratableCondition("VMI uses a PCI host devices", v1.VirtualMachineInstanceReasonHostDeviceNotMigratable), isBlockMigration
 	}
 
-	if util.IsSEVVMI(vmi) {
+	if vmipredicates.IsSEVVMI(vmi) {
 		return newNonMigratableCondition("VMI uses SEV", v1.VirtualMachineInstanceReasonSEVNotMigratable), isBlockMigration
-	} else if util.IsTDXVMI(vmi) {
+	} else if vmipredicates.IsTDXVMI(vmi) {
 		return newNonMigratableCondition("VMI uses TDX", v1.VirtualMachineInstanceReasonTDXNotMigratable), isBlockMigration
 	}
 
-	if util.IsSecureExecutionVMI(vmi) {
+	if vmipredicates.IsSecureExecutionVMI(vmi) {
 		return newNonMigratableCondition("VMI uses Secure Execution", v1.VirtualMachineInstanceReasonSecureExecutionNotMigratable), isBlockMigration
 	}
 
@@ -1301,9 +1302,9 @@ func (c *VirtualMachineController) calculateLiveStorageMigrationCondition(vmi *v
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonHostDeviceNotMigratable, "VMI uses a PCI host devices")
 	}
 
-	if util.IsSEVVMI(vmi) {
+	if vmipredicates.IsSEVVMI(vmi) {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonSEVNotMigratable, "VMI uses SEV")
-	} else if util.IsTDXVMI(vmi) {
+	} else if vmipredicates.IsTDXVMI(vmi) {
 		multiCond.addNonMigratableCondition(v1.VirtualMachineInstanceReasonTDXNotMigratable, "VMI uses TDX")
 	}
 
@@ -1984,7 +1985,7 @@ func (c *VirtualMachineController) adjustResources(vmi *v1.VirtualMachineInstanc
 }
 
 func (c *VirtualMachineController) shouldWaitForSEVAttestation(vmi *v1.VirtualMachineInstance) bool {
-	if util.IsSEVAttestationRequested(vmi) {
+	if vmipredicates.IsSEVAttestationRequested(vmi) {
 		sev := vmi.Spec.Domain.LaunchSecurity.SEV
 		// Wait for the session parameters to be provided
 		return sev.Session == "" || sev.DHCert == ""

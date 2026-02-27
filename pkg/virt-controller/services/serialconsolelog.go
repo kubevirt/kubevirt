@@ -8,6 +8,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "kubevirt.io/api/core/v1"
+	vmipredicates "kubevirt.io/api/core/v1/predicates"
 
 	"kubevirt.io/kubevirt/pkg/util"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -18,7 +19,7 @@ func generateSerialConsoleLogContainer(vmi *v1.VirtualMachineInstance, image str
 	if isSerialConsoleLogEnabled(vmi, config) {
 		logFile := fmt.Sprintf("%s/%s/virt-serial%d-log", util.VirtPrivateDir, vmi.ObjectMeta.UID, serialPort)
 
-		resources := resourcesForSerialConsoleLogContainer(vmi.IsCPUDedicated(), vmi.WantsToHaveQOSGuaranteed(), config)
+		resources := resourcesForSerialConsoleLogContainer(vmipredicates.IsCPUDedicated(vmi), vmipredicates.WantsToHaveQOSGuaranteed(vmi), config)
 
 		guestConsoleLog := &k8sv1.Container{
 			Name:            "guest-console-log",
