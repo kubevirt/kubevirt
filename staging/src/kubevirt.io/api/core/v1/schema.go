@@ -613,12 +613,22 @@ const (
 	InputTypeKeyboard InputType = "keyboard"
 )
 
+// IsValidInputType returns true if t is a supported input device type.
+func IsValidInputType(t InputType) bool {
+	switch t {
+	case InputTypeTablet, InputTypeKeyboard:
+		return true
+	default:
+		return false
+	}
+}
+
 type Input struct {
 	// Bus indicates the bus of input device to emulate.
 	// Supported values: virtio, usb.
 	Bus InputBus `json:"bus,omitempty"`
 	// Type indicated the type of input device.
-	// Supported values: tablet.
+	// Supported values: tablet, keyboard.
 	Type InputType `json:"type"`
 	// Name is the device name
 	Name string `json:"name"`

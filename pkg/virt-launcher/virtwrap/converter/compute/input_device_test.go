@@ -109,6 +109,10 @@ var _ = Describe("Input Device Configurator", func() {
 		},
 			Entry("with USB bus on amd64", "amd64", v1.InputBusUSB, ""),
 			Entry("with virtio bus on amd64", "amd64", v1.InputBusVirtio, v1.VirtIO),
+			Entry("with USB bus on arm64", "arm64", v1.InputBusUSB, ""),
+			Entry("with virtio bus on arm64", "arm64", v1.InputBusVirtio, v1.VirtIO),
+			Entry("with USB bus on s390x", "s390x", v1.InputBusUSB, ""),
+			Entry("with virtio bus on s390x", "s390x", v1.InputBusVirtio, v1.VirtIO),
 		)
 	})
 
