@@ -237,6 +237,7 @@ func ValidateVirtualMachineInstanceSpec(field *k8sfield.Path, spec *v1.VirtualMa
 	causes = append(causes, validateVideoConfig(field, spec, config)...)
 	causes = append(causes, validatePanicDevices(field, spec, config)...)
 	causes = append(causes, validateRebootPolicy(field, spec, config)...)
+	causes = append(causes, validateReservedOverheadMemlock(field, spec, config)...)
 
 	return causes
 }
@@ -2134,6 +2135,25 @@ func validateRebootPolicy(field *k8sfield.Path, spec *v1.VirtualMachineInstanceS
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: fmt.Sprintf("RebootPolicy is specified but the %s feature gate is not enabled", featuregate.RebootPolicy),
 			Field:   field.Child("domain", "rebootPolicy").String(),
+		})
+		return causes
+	}
+
+	return causes
+}
+
+func validateReservedOverheadMemlock(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSpec, config *virtconfig.ClusterConfig) []metav1.StatusCause {
+	var causes []metav1.StatusCause
+
+	if spec.Domain.Memory == nil {
+		return causes
+	}
+
+	if spec.Domain.Memory.ReservedOverhead != nil && !config.ReservedOverheadMemlockEnabled() {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "Reserved overhead memlock feature gate is not enabled in kubevirt-config",
+			Field:   field.Child("domain", "memory", "reservedOverhead").String(),
 		})
 		return causes
 	}

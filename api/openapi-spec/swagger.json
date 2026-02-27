@@ -16510,6 +16510,10 @@
      "maxGuest": {
       "description": "MaxGuest allows to specify the maximum amount of memory which is visible inside the Guest OS. The delta between MaxGuest and Guest is the amount of memory that can be hot(un)plugged.",
       "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "reservedOverhead": {
+      "description": "ReservedOverhead configures the memory overhead applied to a VM and its characteristics.",
+      "$ref": "#/definitions/v1.ReservedOverhead"
      }
     }
    },
@@ -17235,6 +17239,19 @@
       "description": "Name represents the name that maps to both the disk and volume that should be removed",
       "type": "string",
       "default": ""
+     }
+    }
+   },
+   "v1.ReservedOverhead": {
+    "type": "object",
+    "properties": {
+     "addedOverhead": {
+      "description": "AddedOverhead determines the memory overhead that will be reserved for the VM. It increases the virt-launcher pod memory limit.",
+      "$ref": "#/definitions/k8s.io.apimachinery.pkg.api.resource.Quantity"
+     },
+     "memLock": {
+      "description": "RequiresLock determines whether the VM's and its overhead memory need to be locked or not. It is a common practice to enable this if vDPA, VFIO or any other specialized hardware that depends on DMA is being used by the VM. False - (Default) memory lock RLimits are not modified. True - Memory lock RLimits will be updated to consider VM memory\n       size and memory overhead",
+      "type": "string"
      }
     }
    },
