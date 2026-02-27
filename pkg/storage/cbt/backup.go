@@ -474,7 +474,7 @@ func (ctrl *VMBackupController) handleBackupInitiation(backup *backupv1.VirtualM
 		return syncInfoError(err)
 	}
 
-	if err = ctrl.updateSourceBackupInProgress(vmi, backup.Name); err != nil {
+	if err = ctrl.updateSourceBackupInProgress(vmi, backup.Name, backup.CreationTimestamp); err != nil {
 		err = fmt.Errorf("failed to update source backup in progress: %w", err)
 		logger.Error(err.Error())
 		return syncInfoError(err)
@@ -801,7 +801,7 @@ func (ctrl *VMBackupController) removeSourceBackupInProgress(vmi *v1.VirtualMach
 	return nil
 }
 
-func (ctrl *VMBackupController) updateSourceBackupInProgress(vmi *v1.VirtualMachineInstance, backupName string) error {
+func (ctrl *VMBackupController) updateSourceBackupInProgress(vmi *v1.VirtualMachineInstance, backupName string, creationTimestamp metav1.Time) error {
 	if hasVMIBackupStatus(vmi) {
 		if vmi.Status.ChangedBlockTracking.BackupStatus.BackupName != backupName {
 			return fmt.Errorf("another backup %s is already in progress, cannot start backup %s",
@@ -810,8 +810,13 @@ func (ctrl *VMBackupController) updateSourceBackupInProgress(vmi *v1.VirtualMach
 		return nil
 	}
 
+	var startTimestamp *metav1.Time
+	if !creationTimestamp.IsZero() {
+		startTimestamp = creationTimestamp.DeepCopy()
+	}
 	backupStatus := &v1.VirtualMachineInstanceBackupStatus{
-		BackupName: backupName,
+		BackupName:     backupName,
+		StartTimestamp: startTimestamp,
 	}
 
 	patchSet := patch.New(
