@@ -31663,6 +31663,13 @@ func schema_kubevirtio_api_instancetype_v1beta1_DevicePreferences(ref common.Ref
 							Format:      "",
 						},
 					},
+					"preferredVideoType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PreferredVideoType optionally defines the preferred type for Video devices.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

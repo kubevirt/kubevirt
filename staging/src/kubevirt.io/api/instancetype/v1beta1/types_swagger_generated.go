@@ -164,6 +164,7 @@ func (DevicePreferences) SwaggerDoc() map[string]string {
 		"preferredTPM":                        "PreferredTPM optionally defines the preferred TPM device to be used.\n\n+optional",
 		"preferredInterfaceMasquerade":        "PreferredInterfaceMasquerade optionally defines the preferred masquerade configuration to use with each network interface.\n\n+optional",
 		"preferredPanicDeviceModel":           "PreferredPanicDeviceModel optionally defines the preferred panic device model to use with panic devices.\n\n+optional",
+		"preferredVideoType":                  "PreferredVideoType optionally defines the preferred type for Video devices.\n\n+optional",
 	}
 }
 
