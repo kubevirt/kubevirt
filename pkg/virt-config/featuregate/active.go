@@ -129,14 +129,6 @@ const (
 	// SecureExecution introduces secure execution of VMs on IBM Z architecture
 	SecureExecution = "SecureExecution"
 
-	// VideoConfig enables VM owners to specify a video device type (e.g., virtio, vga, bochs, ramfb) via the `Video` field, overriding default settings.
-	// Requires `autoattachGraphicsDevice` to be true or unset. Alpha feature, defaults unchanged.
-	// Owner: @dasionov
-	// Alpha: v1.6.0
-	// Beta: v1.7.0
-	//
-	VideoConfig = "VideoConfig"
-
 	// Owner: @varunrsekar
 	// Alpha: v1.6.0
 	// Beta: v1.7.0
@@ -235,7 +227,6 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: DecentralizedLiveMigration, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: DeclarativeHotplugVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: Beta})
-	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PanicDevicesGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: UtilityVolumesGate, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ConfigurableHypervisor, State: Alpha})
