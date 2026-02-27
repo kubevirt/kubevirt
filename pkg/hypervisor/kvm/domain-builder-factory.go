@@ -22,8 +22,7 @@ package kvm
 import (
 	v1 "kubevirt.io/api/core/v1"
 
-	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
-
+	"kubevirt.io/kubevirt/pkg/hypervisor/common"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/iothreads"
@@ -94,8 +93,8 @@ func MakeDomainBuilder(vmi *v1.VirtualMachineInstance, c *converter_types.Conver
 		compute.NewConsoleDomainConfigurator(c.SerialConsoleLog),
 		compute.PanicDevicesDomainConfigurator{},
 		compute.NewHypervisorFeaturesDomainConfigurator(c.Architecture.HasVMPort(), c.UseLaunchSecurityTDX),
-		compute.NewSysInfoDomainConfigurator(convertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
-		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), convertEFIConfiguration(c.EFIConfiguration)),
+		compute.NewSysInfoDomainConfigurator(common.ConvertCmdv1SMBIOSToComputeSMBIOS(c.SMBios)),
+		compute.NewOSDomainConfigurator(c.Architecture.IsSMBiosNeeded(), common.ConvertEFIConfiguration(c.EFIConfiguration)),
 		storage.NewVirtiofsConfigurator(),
 		compute.UsbRedirectDeviceDomainConfigurator{},
 		compute.NewControllersDomainConfigurator(
@@ -111,30 +110,4 @@ func MakeDomainBuilder(vmi *v1.VirtualMachineInstance, c *converter_types.Conver
 	)
 
 	return &builder
-}
-
-func convertCmdv1SMBIOSToComputeSMBIOS(input *cmdv1.SMBios) *compute.SMBIOS {
-	if input == nil {
-		return nil
-	}
-
-	return &compute.SMBIOS{
-		Manufacturer: input.Manufacturer,
-		Product:      input.Product,
-		Version:      input.Version,
-		SKU:          input.Sku,
-		Family:       input.Family,
-	}
-}
-
-func convertEFIConfiguration(input *converter_types.EFIConfiguration) *compute.EFIConfiguration {
-	if input == nil {
-		return nil
-	}
-
-	return &compute.EFIConfiguration{
-		EFICode:      input.EFICode,
-		EFIVars:      input.EFIVars,
-		SecureLoader: input.SecureLoader,
-	}
 }
