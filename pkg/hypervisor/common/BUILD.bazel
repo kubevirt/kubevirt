@@ -3,6 +3,7 @@ load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "go_default_library",
     srcs = [
+        "domain-builder-utils.go",
         "process.go",
         "qemu.go",
         "setsched.go",
@@ -11,6 +12,9 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/hypervisor/common",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/handler-launcher-com/cmd/v1:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/compute:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/types:go_default_library",
         "//vendor/github.com/mitchellh/go-ps:go_default_library",
         "//vendor/golang.org/x/sys/unix:go_default_library",
     ],
