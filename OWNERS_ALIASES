@@ -42,8 +42,12 @@ aliases:
   # SIG Test
   #
   sig-test-reviewers:
+    - akalenyu
+    - kbidarkar
+    - phoracek
     - enp0s3
     - xpivarc
+    - dhiller
     - 0xFelix
     - orelmisan
   sig-test-approvers:
@@ -92,6 +96,7 @@ aliases:
     - ShellyKa13
     - awels
   sig-storage-reviewers:
+    - mhenriks
     - awels
     - akalenyu
     - ShellyKa13
@@ -123,6 +128,11 @@ aliases:
     - xpivarc
     - orelmisan
   sig-compute-reviewers:
+    - jean-edouard
+    - iholder101
+    - vladikr
+    - enp0s3
+    - xpivarc
     - victortoso
     - fossedihelm
     - lyarwood
@@ -137,6 +147,8 @@ aliases:
     - lyarwood
     - 0xFelix
   sig-compute-instancetype-reviewers:
+    - lyarwood
+    - 0xFelix
     - akrejcir
 
   # SIG Compute virtctl sub project
@@ -145,6 +157,8 @@ aliases:
     - 0xFelix
     - fossedihelm
   sig-compute-virtctl-reviewers:
+    - 0xFelix
+    - fossedihelm
     - oshoval
     - lyarwood
 
@@ -158,6 +172,7 @@ aliases:
     - machadovilaca
     - avlitman
   sig-observability-reviewers:
+    - sradco
     - machadovilaca
     - avlitman
     - nunnatsa
@@ -184,6 +199,7 @@ aliases:
     - xpivarc
   sig-buildsystem-reviewers:
     - brianmcarey
+    - dhiller
     - enp0s3
     - xpivarc
 
