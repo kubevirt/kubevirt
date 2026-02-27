@@ -37,11 +37,15 @@ func FindMigrationIP(migrationIp string) (string, error) {
 		return migrationIp, fmt.Errorf("%s present but doesn't have an IP", v1.MigrationInterfaceName)
 	}
 	for _, addr := range addrs {
-		if !addr.(*net.IPNet).IP.IsGlobalUnicast() {
+		ipNet, ok := addr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		if !ipNet.IP.IsGlobalUnicast() {
 			// skip local/multicast IPs
 			continue
 		}
-		ip := addr.(*net.IPNet).IP.To16()
+		ip := ipNet.IP.To16()
 		if ip != nil {
 			return ip.String(), nil
 		}
