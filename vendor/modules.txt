@@ -501,7 +501,7 @@ go.mongodb.org/mongo-driver/x/bsonx/bsoncore
 # go.uber.org/mock v0.5.1
 ## explicit; go 1.22
 go.uber.org/mock/gomock
-# golang.org/x/crypto v0.36.0
+# golang.org/x/crypto v0.36.0 => github.com/openshift/golang-crypto v0.36.1-0.20260226221237-df393c7e5723
 ## explicit; go 1.23.0
 golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
@@ -1348,5 +1348,6 @@ sigs.k8s.io/yaml/goyaml.v2
 # github.com/openshift/api => github.com/openshift/api v0.0.0-20210105115604-44119421ec6b
 # github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47
 # github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
+# golang.org/x/crypto => github.com/openshift/golang-crypto v0.36.1-0.20260226221237-df393c7e5723
 # k8s.io/klog => k8s.io/klog v0.4.0
 # k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20240430033511-f0e62f92d13f
