@@ -66,7 +66,7 @@ func MakeDomainBuilder(vmi *v1.VirtualMachineInstance, c *converter_types.Conver
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},
-		compute.NewHypervisorDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable),
+		NewKvmDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable),
 		compute.NewLaunchSecurityDomainConfigurator(architecture),
 		compute.ChannelsDomainConfigurator{},
 		compute.ClockDomainConfigurator{},
