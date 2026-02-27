@@ -92,7 +92,7 @@ func (s *socketBasedIsolationDetector) DetectForSocket(socket string) (Isolation
 
 func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
 	// only VFIO attached or with lock guest memory domains require MEMLOCK adjustment
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
+	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
 		return nil
 	}
 
@@ -108,6 +108,18 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 		return fmt.Errorf("failed to get all processes: %v", err)
 	}
 
+	// make the best estimate for memory required by libvirt
+	memlockSize := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
+	// Add base memory requested for the VM
+	var vmiBaseMemory *resource.Quantity
+	if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
+		vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
+	} else {
+		vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
+	}
+
+	memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
+
 	for _, process := range processes {
 		// consider all processes that are virt-launcher children
 		if process.PPid() != launcherPid {
@@ -118,18 +130,6 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 		if process.Executable() != "virtqemud" {
 			continue
 		}
-
-		// make the best estimate for memory required by libvirt
-		memlockSize := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, additionalOverheadRatio)
-		// Add base memory requested for the VM
-		var vmiBaseMemory *resource.Quantity
-		if vmi.Spec.Domain.Memory != nil && vmi.Spec.Domain.Memory.Guest != nil {
-			vmiBaseMemory = vmi.Spec.Domain.Memory.Guest
-		} else {
-			vmiBaseMemory = vmi.Spec.Domain.Resources.Requests.Memory()
-		}
-
-		memlockSize.Add(*resource.NewScaledQuantity(vmiBaseMemory.ScaledValue(resource.Kilo), resource.Kilo))
 
 		err = setProcessMemoryLockRLimit(process.Pid(), memlockSize.Value())
 		if err != nil {
@@ -145,7 +145,7 @@ func (s *socketBasedIsolationDetector) AdjustResources(vmi *v1.VirtualMachineIns
 // virt-launcher pod on the given VMI according to its spec.
 // Only VMI's with VFIO devices (e.g: SRIOV, GPU), SEV or RealTime workloads require QEMU process MEMLOCK adjustment.
 func AdjustQemuProcessMemoryLimits(podIsoDetector PodIsolationDetector, vmi *v1.VirtualMachineInstance, additionalOverheadRatio *string) error {
-	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) {
+	if !util.IsVFIOVMI(vmi) && !vmi.IsRealtimeEnabled() && !util.IsSEVVMI(vmi) && !util.RequiresLockingMemory(vmi) {
 		return nil
 	}
 

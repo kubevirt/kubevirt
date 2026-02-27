@@ -518,6 +518,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"kubevirt.io/api/core/v1.Realtime":                                                                schema_kubevirtio_api_core_v1_Realtime(ref),
 		"kubevirt.io/api/core/v1.ReloadableComponentConfiguration":                                        schema_kubevirtio_api_core_v1_ReloadableComponentConfiguration(ref),
 		"kubevirt.io/api/core/v1.RemoveVolumeOptions":                                                     schema_kubevirtio_api_core_v1_RemoveVolumeOptions(ref),
+		"kubevirt.io/api/core/v1.ReservedOverhead":                                                        schema_kubevirtio_api_core_v1_ReservedOverhead(ref),
 		"kubevirt.io/api/core/v1.ResourceRequirements":                                                    schema_kubevirtio_api_core_v1_ResourceRequirements(ref),
 		"kubevirt.io/api/core/v1.ResourceRequirementsWithoutClaims":                                       schema_kubevirtio_api_core_v1_ResourceRequirementsWithoutClaims(ref),
 		"kubevirt.io/api/core/v1.RestartOptions":                                                          schema_kubevirtio_api_core_v1_RestartOptions(ref),
@@ -23827,11 +23828,17 @@ func schema_kubevirtio_api_core_v1_Memory(ref common.ReferenceCallback) common.O
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
+					"reservedOverhead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReservedOverhead configures the memory overhead applied to a VM and its characteristics.",
+							Ref:         ref("kubevirt.io/api/core/v1.ReservedOverhead"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.Hugepages"},
+			"k8s.io/apimachinery/pkg/api/resource.Quantity", "kubevirt.io/api/core/v1.Hugepages", "kubevirt.io/api/core/v1.ReservedOverhead"},
 	}
 }
 
@@ -25233,6 +25240,33 @@ func schema_kubevirtio_api_core_v1_RemoveVolumeOptions(ref common.ReferenceCallb
 				Required: []string{"name"},
 			},
 		},
+	}
+}
+
+func schema_kubevirtio_api_core_v1_ReservedOverhead(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"addedOverhead": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AddedOverhead determines the memory overhead that will be reserved for the VM. It increases the virt-launcher pod memory limit.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"memLock": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequiresLock determines whether the VM's and its overhead memory need to be locked or not. It is a common practice to enable this if vDPA, VFIO or any other specialized hardware that depends on DMA is being used by the VM. False - (Default) memory lock RLimits are not modified. True - Memory lock RLimits will be updated to consider VM memory\n       size and memory overhead",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

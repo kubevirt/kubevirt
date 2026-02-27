@@ -141,7 +141,11 @@
               "pageSize": "pageSizeValue"
             },
             "guest": "0",
-            "maxGuest": "0"
+            "maxGuest": "0",
+            "reservedOverhead": {
+              "addedOverhead": "0",
+              "memLock": "memLockValue"
+            }
           },
           "machine": {
             "type": "typeValue"
