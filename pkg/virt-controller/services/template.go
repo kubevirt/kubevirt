@@ -81,9 +81,12 @@ const (
 const K8sDevicePrefix = "devices.kubevirt.io"
 const TunDevice = K8sDevicePrefix + "/tun"
 const VhostNetDevice = K8sDevicePrefix + "/vhost-net"
-const SevDevice = K8sDevicePrefix + "/sev"
 const VhostVsockDevice = K8sDevicePrefix + "/vhost-vsock"
 const PrDevice = K8sDevicePrefix + "/pr-helper"
+const SevDeviceName = "sev"
+const TdxDeviceName = "tdx"
+const SevDevice = K8sDevicePrefix + "/" + SevDeviceName
+const TdxDevice = K8sDevicePrefix + "/" + TdxDeviceName
 
 const debugLogs = "debugLogs"
 const logVerbosity = "logVerbosity"
@@ -1550,6 +1553,7 @@ func (t *TemplateService) VMIResourcePredicates(vmi *v1.VirtualMachineInstance, 
 				return t.clusterConfig.HostDevicesWithDRAEnabled() && isHostDevVMIDRA(vmi)
 			}, WithHostDevicesDRA(vmi.Spec.Domain.Devices.HostDevices)),
 			NewVMIResourceRule(util.IsSEVVMI, WithSEV()),
+			NewVMIResourceRule(util.IsTDXVMI, WithTDX()),
 			NewVMIResourceRule(reservation.HasVMIPersistentReservation, WithPersistentReservation()),
 		},
 	}

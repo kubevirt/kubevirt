@@ -14196,6 +14196,15 @@
      }
     }
    },
+   "v1.ConfidentialComputeConfiguration": {
+    "type": "object",
+    "properties": {
+     "tdx": {
+      "description": "TDX configuration for attestation on the Intel TDX Platform",
+      "$ref": "#/definitions/v1.TDXConfiguration"
+     }
+    }
+   },
    "v1.ConfigDriveSSHPublicKeyAccessCredentialPropagation": {
     "type": "object"
    },
@@ -15948,6 +15957,10 @@
      "commonInstancetypesDeployment": {
       "description": "CommonInstancetypesDeployment controls the deployment of common-instancetypes resources",
       "$ref": "#/definitions/v1.CommonInstancetypesDeployment"
+     },
+     "confidentialCompute": {
+      "description": "QGS configuration for attestation on the Intel TDX Platform",
+      "$ref": "#/definitions/v1.ConfidentialComputeConfiguration"
      },
      "controllerConfiguration": {
       "$ref": "#/definitions/v1.ReloadableComponentConfiguration"
@@ -17705,6 +17718,28 @@
    },
    "v1.TDX": {
     "type": "object"
+   },
+   "v1.TDXAttestationConfiguration": {
+    "description": "QGSConfiguration holds QGS configuration",
+    "type": "object",
+    "properties": {
+     "enforced": {
+      "description": "Indicates whether TDX VM should enforce the existence of QGS (required for attestation) to be scheduled",
+      "type": "boolean"
+     },
+     "qgsSocketPath": {
+      "description": "Socket path pointing to the Quote Generation Service",
+      "type": "string"
+     }
+    }
+   },
+   "v1.TDXConfiguration": {
+    "type": "object",
+    "properties": {
+     "attestation": {
+      "$ref": "#/definitions/v1.TDXAttestationConfiguration"
+     }
+    }
    },
    "v1.TLBFlush": {
     "type": "object",

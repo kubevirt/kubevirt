@@ -1431,6 +1431,10 @@ const (
 	// This could be useful to distinguish evictions originated from the descheduler.
 	EvictionSourceAnnotation = "kubevirt.io/eviction-source"
 
+	// QGSSocketPathAnnotation specifies the path to the TDX Quote Generation Service socket.
+	// This annotation is set by virt-handler based on the cluster configuration.
+	QGSSocketPathAnnotation = "kubevirt.io/qgs-socket-path"
+
 	// AllowAccessClusterServicesNPLabel is a pod label to be set by virt-components to indicate that they require
 	// access to cluster services otherwise blocked by the strict network policy (NP).
 	// This label will be applied to the following virt pods:
@@ -3123,6 +3127,30 @@ type KubeVirtConfiguration struct {
 	// Enabling changedBlockTracking is mandatory for performing storage-agnostic backups and incremental backups.
 	// +nullable
 	ChangedBlockTrackingLabelSelectors *ChangedBlockTrackingSelectors `json:"changedBlockTrackingLabelSelectors,omitempty"`
+
+	// QGS configuration for attestation on the Intel TDX Platform
+	// +nullable
+	ConfidentialCompute *ConfidentialComputeConfiguration `json:"confidentialCompute,omitempty"`
+}
+
+// QGSConfiguration holds QGS configuration
+type TDXAttestationConfiguration struct {
+	// Indicates whether TDX VM should enforce the existence of QGS (required for attestation) to be scheduled
+	// +kubebuilder:default=false
+	Enforced *bool `json:"enforced,omitempty"`
+	// Socket path pointing to the Quote Generation Service
+	// +kubebuilder:default=/var/run/tdx-qgs/qgs.socket
+	QgsSocketPath *string `json:"qgsSocketPath,omitempty"`
+}
+
+type TDXConfiguration struct {
+	Attestation *TDXAttestationConfiguration `json:"attestation,omitempty"`
+}
+
+type ConfidentialComputeConfiguration struct {
+	// TDX configuration for attestation on the Intel TDX Platform
+	// +nullable
+	TDX *TDXConfiguration `json:"tdx,omitempty"`
 }
 
 const (
