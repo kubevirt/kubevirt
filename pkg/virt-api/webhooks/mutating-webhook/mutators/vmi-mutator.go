@@ -36,6 +36,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/defaults"
 	kvpointer "kubevirt.io/kubevirt/pkg/pointer"
+	"kubevirt.io/kubevirt/pkg/util"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
 	"kubevirt.io/kubevirt/pkg/virt-api/webhooks"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -65,6 +66,16 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virt
 				newVMI.Annotations = map[string]string{}
 			}
 			newVMI.Annotations[v1.EmulatorThreadCompleteToEvenParity] = ""
+		}
+	}
+
+	if util.IsTDXVMI(newVMI) {
+		qgsSocketPath := clusterConfig.GetQGSSocketPath()
+		if qgsSocketPath != "" {
+			if newVMI.Annotations == nil {
+				newVMI.Annotations = map[string]string{}
+			}
+			newVMI.Annotations[v1.QGSSocketPathAnnotation] = qgsSocketPath
 		}
 	}
 

@@ -436,7 +436,7 @@ var _ = Describe("Resource pod spec renderer", func() {
 		})
 	})
 
-	It("WithSEV option adds ", func() {
+	It("WithSEV option adds SEV device resource", func() {
 		sevResourceKey := kubev1.ResourceName("devices.kubevirt.io/sev")
 		rr = NewResourceRenderer(nil, nil, WithSEV())
 		Expect(rr.Requests()).To(Equal(kubev1.ResourceList{
@@ -444,6 +444,17 @@ var _ = Describe("Resource pod spec renderer", func() {
 		}))
 		Expect(rr.Limits()).To(Equal(kubev1.ResourceList{
 			sevResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
+		}))
+	})
+
+	It("WithTDX option adds TDX device resource", func() {
+		tdxResourceKey := kubev1.ResourceName(TdxDevice)
+		rr = NewResourceRenderer(nil, nil, WithTDX())
+		Expect(rr.Requests()).To(Equal(kubev1.ResourceList{
+			tdxResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
+		}))
+		Expect(rr.Limits()).To(Equal(kubev1.ResourceList{
+			tdxResourceKey: *resource.NewQuantity(1, resource.DecimalSI),
 		}))
 	})
 
