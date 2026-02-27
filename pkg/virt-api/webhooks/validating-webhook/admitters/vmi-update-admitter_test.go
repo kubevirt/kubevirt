@@ -484,7 +484,23 @@ var _ = Describe("Validating VMIUpdate Admitter", func() {
 			&v1.CPU{
 				MaxSockets: 8,
 			},
-			BeFalse()))
+			BeFalse()),
+		Entry("allow update when old CPU topology is nil",
+			nil,
+			&v1.CPU{
+				MaxSockets: 8,
+			},
+			BeTrue()),
+		Entry("allow update when new CPU topology is nil",
+			&v1.CPU{
+				MaxSockets: 8,
+			},
+			nil,
+			BeTrue()),
+		Entry("allow update when both CPU topologies are nil",
+			nil,
+			nil,
+			BeTrue()))
 
 	It("should reject updates to maxGuest", func() {
 		vmi := api.NewMinimalVMI("testvmi")
