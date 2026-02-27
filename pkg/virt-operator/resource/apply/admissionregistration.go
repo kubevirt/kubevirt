@@ -88,10 +88,10 @@ func convertV1beta1MutatingWebhookToV1(from *admissionregistrationv1beta1.Mutati
 func (r *Reconciler) patchValidatingWebhookConfiguration(webhook *admissionregistrationv1.ValidatingWebhookConfiguration, patchBytes []byte) (patchedWebhook *admissionregistrationv1.ValidatingWebhookConfiguration, err error) {
 	switch webhook.APIVersion {
 	case admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1.SchemeGroupVersion.String():
-		patchedWebhook, err = r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		patchedWebhook, err = r.k8sClientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	case admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.String():
 		var out *admissionregistrationv1beta1.ValidatingWebhookConfiguration
-		out, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		out, err = r.k8sClientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			return
 		}
@@ -105,14 +105,14 @@ func (r *Reconciler) patchValidatingWebhookConfiguration(webhook *admissionregis
 func (r *Reconciler) createValidatingWebhookConfiguration(webhook *admissionregistrationv1.ValidatingWebhookConfiguration) (createdWebhook *admissionregistrationv1.ValidatingWebhookConfiguration, err error) {
 	switch webhook.APIVersion {
 	case admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1.SchemeGroupVersion.String():
-		createdWebhook, err = r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
+		createdWebhook, err = r.k8sClientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
 	case admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.String():
 		var webhookv1beta1 *admissionregistrationv1beta1.ValidatingWebhookConfiguration
 		webhookv1beta1, err = convertV1ValidatingWebhookToV1beta1(webhook)
 		if err != nil {
 			return nil, err
 		}
-		webhookv1beta1, err = r.clientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), webhookv1beta1, metav1.CreateOptions{})
+		webhookv1beta1, err = r.k8sClientset.AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().Create(context.Background(), webhookv1beta1, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -126,10 +126,10 @@ func (r *Reconciler) createValidatingWebhookConfiguration(webhook *admissionregi
 func (r *Reconciler) patchMutatingWebhookConfiguration(webhook *admissionregistrationv1.MutatingWebhookConfiguration, patchBytes []byte) (patchedWebhook *admissionregistrationv1.MutatingWebhookConfiguration, err error) {
 	switch webhook.APIVersion {
 	case admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1.SchemeGroupVersion.String():
-		patchedWebhook, err = r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		patchedWebhook, err = r.k8sClientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 	case admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.String():
 		var out *admissionregistrationv1beta1.MutatingWebhookConfiguration
-		out, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
+		out, err = r.k8sClientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Patch(context.Background(), webhook.Name, types.JSONPatchType, patchBytes, metav1.PatchOptions{})
 		if err != nil {
 			return
 		}
@@ -143,14 +143,14 @@ func (r *Reconciler) patchMutatingWebhookConfiguration(webhook *admissionregistr
 func (r *Reconciler) createMutatingWebhookConfiguration(webhook *admissionregistrationv1.MutatingWebhookConfiguration) (createdWebhook *admissionregistrationv1.MutatingWebhookConfiguration, err error) {
 	switch webhook.APIVersion {
 	case admissionregistrationv1.SchemeGroupVersion.Version, admissionregistrationv1.SchemeGroupVersion.String():
-		createdWebhook, err = r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
+		createdWebhook, err = r.k8sClientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Create(context.Background(), webhook, metav1.CreateOptions{})
 	case admissionregistrationv1beta1.SchemeGroupVersion.Version, admissionregistrationv1beta1.SchemeGroupVersion.String():
 		var webhookv1beta1 *admissionregistrationv1beta1.MutatingWebhookConfiguration
 		webhookv1beta1, err = convertV1MutatingWebhookToV1beta1(webhook)
 		if err != nil {
 			return nil, err
 		}
-		webhookv1beta1, err = r.clientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), webhookv1beta1, metav1.CreateOptions{})
+		webhookv1beta1, err = r.k8sClientset.AdmissionregistrationV1beta1().MutatingWebhookConfigurations().Create(context.Background(), webhookv1beta1, metav1.CreateOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +177,7 @@ func (r *Reconciler) createOrUpdateValidatingWebhookConfiguration(webhook *admis
 	// since these objects was in the past unmanaged, reconcile and pick it up if it exists
 
 	if !exists {
-		cachedWebhook, err = r.clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), webhook.Name, metav1.GetOptions{})
+		cachedWebhook, err = r.k8sClientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(context.Background(), webhook.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			exists = false
 		} else if err != nil {
@@ -319,7 +319,7 @@ func (r *Reconciler) createOrUpdateMutatingWebhookConfiguration(webhook *admissi
 	obj, exists, _ := r.stores.MutatingWebhookCache.Get(webhook)
 	// since these objects was in the past unmanaged, reconcile and pick it up if it exists
 	if !exists {
-		cachedWebhook, err = r.clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), webhook.Name, metav1.GetOptions{})
+		cachedWebhook, err = r.k8sClientset.AdmissionregistrationV1().MutatingWebhookConfigurations().Get(context.Background(), webhook.Name, metav1.GetOptions{})
 		if errors.IsNotFound(err) {
 			exists = false
 		} else if err != nil {
@@ -395,7 +395,7 @@ func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBindings() error {
 }
 
 func (r *Reconciler) createOrUpdateValidatingAdmissionPolicyBinding(validatingAdmissionPolicyBinding *admissionregistrationv1.ValidatingAdmissionPolicyBinding) error {
-	admissionRegistrationV1 := r.clientset.AdmissionregistrationV1()
+	admissionRegistrationV1 := r.k8sClientset.AdmissionregistrationV1()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	injectOperatorMetadata(r.kv, &validatingAdmissionPolicyBinding.ObjectMeta, version, imageRegistry, id, true)
@@ -460,7 +460,7 @@ func (r *Reconciler) createOrUpdateValidatingAdmissionPolicies() error {
 }
 
 func (r *Reconciler) createOrUpdateValidatingAdmissionPolicy(validatingAdmissionPolicy *admissionregistrationv1.ValidatingAdmissionPolicy) error {
-	admissionRegistrationV1 := r.clientset.AdmissionregistrationV1()
+	admissionRegistrationV1 := r.k8sClientset.AdmissionregistrationV1()
 	version, imageRegistry, id := getTargetVersionRegistryID(r.kv)
 
 	injectOperatorMetadata(r.kv, &validatingAdmissionPolicy.ObjectMeta, version, imageRegistry, id, true)

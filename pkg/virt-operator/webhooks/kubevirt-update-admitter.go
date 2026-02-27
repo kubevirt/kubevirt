@@ -40,9 +40,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 	webhookutils "kubevirt.io/kubevirt/pkg/util/webhooks"
@@ -52,12 +52,12 @@ import (
 
 // KubeVirtUpdateAdmitter validates KubeVirt updates
 type KubeVirtUpdateAdmitter struct {
-	Client        kubecli.KubevirtClient
+	Client        kubernetes.Interface
 	ClusterConfig *virtconfig.ClusterConfig
 }
 
 // NewKubeVirtUpdateAdmitter creates a KubeVirtUpdateAdmitter
-func NewKubeVirtUpdateAdmitter(client kubecli.KubevirtClient, clusterConfig *virtconfig.ClusterConfig) *KubeVirtUpdateAdmitter {
+func NewKubeVirtUpdateAdmitter(client kubernetes.Interface, clusterConfig *virtconfig.ClusterConfig) *KubeVirtUpdateAdmitter {
 	return &KubeVirtUpdateAdmitter{
 		Client:        client,
 		ClusterConfig: clusterConfig,
@@ -317,7 +317,7 @@ func validateSeccompConfiguration(field *field.Path, seccompConf *v1.SeccompConf
 
 }
 
-func validateWorkloadPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {
+func validateWorkloadPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubernetes.Interface) []metav1.StatusCause {
 	statuses := []metav1.StatusCause{}
 
 	const (
@@ -371,7 +371,7 @@ func validateWorkloadPlacement(ctx context.Context, namespace string, placementC
 	return statuses
 }
 
-func validateInfraPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubecli.KubevirtClient) []metav1.StatusCause {
+func validateInfraPlacement(ctx context.Context, namespace string, placementConfig *v1.NodePlacement, client kubernetes.Interface) []metav1.StatusCause {
 	statuses := []metav1.StatusCause{}
 
 	const (

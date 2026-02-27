@@ -177,6 +177,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.ctrl = gomock.NewController(GinkgoT())
 	k.virtClient = kubecli.NewMockKubevirtClient(k.ctrl)
+	k.kubeClient = fake.NewSimpleClientset()
 	k.kvInterface = kubecli.NewMockKubeVirtInterface(k.ctrl)
 	k.apiServiceClient = install.NewMockAPIServiceInterface(k.ctrl)
 
@@ -228,7 +229,7 @@ func (k *KubeVirtTestData) BeforeTest() {
 		ValidatingAdmissionPolicyBindingEnabled: true,
 		ValidatingAdmissionPolicyEnabled:        true,
 	}
-	k.controller, _ = NewKubeVirtController(k.virtClient, k.apiServiceClient, k.recorder, config, informers, NAMESPACE)
+	k.controller, _ = NewKubeVirtController(k.virtClient, k.kubeClient, k.apiServiceClient, k.recorder, config, informers, NAMESPACE)
 	k.controller.delayedQueueAdder = func(key string, queue workqueue.TypedRateLimitingInterface[string]) {
 		// no delay to speed up tests
 		queue.Add(key)
@@ -240,7 +241,6 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	// Set up mock client
 	k.virtClient.EXPECT().KubeVirt(NAMESPACE).Return(k.kvInterface).AnyTimes()
-	k.kubeClient = fake.NewSimpleClientset()
 	k.secClient = &secv1fake.FakeSecurityV1{
 		Fake: &fake.NewSimpleClientset().Fake,
 	}
@@ -254,14 +254,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 
 	k.virtFakeClient = kubevirtfake.NewSimpleClientset()
 
-	k.virtClient.EXPECT().AdmissionregistrationV1().Return(k.kubeClient.AdmissionregistrationV1()).AnyTimes()
-	k.virtClient.EXPECT().CoreV1().Return(k.kubeClient.CoreV1()).AnyTimes()
-	k.virtClient.EXPECT().BatchV1().Return(k.kubeClient.BatchV1()).AnyTimes()
-	k.virtClient.EXPECT().RbacV1().Return(k.kubeClient.RbacV1()).AnyTimes()
-	k.virtClient.EXPECT().AppsV1().Return(k.kubeClient.AppsV1()).AnyTimes()
 	k.virtClient.EXPECT().SecClient().Return(k.secClient).AnyTimes()
 	k.virtClient.EXPECT().ExtensionsClient().Return(k.extClient).AnyTimes()
-	k.virtClient.EXPECT().PolicyV1().Return(k.kubeClient.PolicyV1()).AnyTimes()
 	k.virtClient.EXPECT().PrometheusClient().Return(k.promClient).AnyTimes()
 	k.virtClient.EXPECT().RouteClient().Return(k.routeClient).AnyTimes()
 	k.virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(k.virtFakeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
@@ -4003,7 +3997,7 @@ var _ = Describe("KubeVirt Operator", func() {
 			})
 
 			// This generates and posts the install strategy config map
-			install.DumpInstallStrategyToConfigMap(kvTestData.virtClient, NAMESPACE)
+			install.DumpInstallStrategyToConfigMap(kvTestData.kubeClient, NAMESPACE)
 		})
 	})
 })

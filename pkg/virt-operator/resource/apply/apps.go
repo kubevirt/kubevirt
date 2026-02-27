@@ -13,8 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes"
 	v1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
@@ -48,7 +48,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	deployment := origDeployment.DeepCopy()
 
-	apps := r.clientset.AppsV1()
+	apps := r.k8sClientset.AppsV1()
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
@@ -65,7 +65,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 				"auto-scaling for core kubevirt components. Please use with caution!")
 		}
 	} else if deployment.Name == components.VirtAPIName && !replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtAPIName) {
-		replicas, err := getDesiredApiReplicas(r.clientset)
+		replicas, err := getDesiredApiReplicas(r.k8sClientset)
 		if err != nil {
 			log.Log.Object(deployment).Warningf("%s", err.Error())
 		} else {
@@ -147,7 +147,7 @@ func (r *Reconciler) patchDaemonSet(oldDs, newDs *appsv1.DaemonSet) (*appsv1.Dae
 		return nil, err
 	}
 
-	newDs, err = r.clientset.AppsV1().DaemonSets(r.kv.Namespace).Patch(
+	newDs, err = r.k8sClientset.AppsV1().DaemonSets(r.kv.Namespace).Patch(
 		context.Background(),
 		newDs.Name,
 		types.JSONPatchType,
@@ -355,7 +355,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 
 	daemonSet = daemonSet.DeepCopy()
 
-	apps := r.clientset.AppsV1()
+	apps := r.k8sClientset.AppsV1()
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 
 	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry, id, true)
@@ -427,7 +427,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, true)
 
-	pdbClient := r.clientset.PolicyV1().PodDisruptionBudgets(deployment.Namespace)
+	pdbClient := r.k8sClientset.PolicyV1().PodDisruptionBudgets(deployment.Namespace)
 
 	var cachedPodDisruptionBudget *policyv1.PodDisruptionBudget
 	obj, exists, _ := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)
@@ -483,7 +483,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	return nil
 }
 
-func getDesiredApiReplicas(clientset kubecli.KubevirtClient) (replicas int32, err error) {
+func getDesiredApiReplicas(clientset kubernetes.Interface) (replicas int32, err error) {
 	nodeList, err := clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", v1.NodeSchedulable, "true"),
 	})

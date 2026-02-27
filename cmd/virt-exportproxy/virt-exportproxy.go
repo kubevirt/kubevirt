@@ -183,7 +183,7 @@ func (app *exportProxyApp) prepareInformers(stopChan <-chan struct{}) {
 	}
 	aggregatorClient := aggregatorclient.NewForConfigOrDie(clientConfig)
 
-	kubeInformerFactory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli, aggregatorClient, namespace)
+	kubeInformerFactory := controller.NewKubeInformerFactory(virtCli.RestClient(), virtCli, virtCli, aggregatorClient, namespace)
 	caInformer := kubeInformerFactory.KubeVirtExportCAConfigMap()
 	app.exportStore = kubeInformerFactory.VirtualMachineExport().GetStore()
 	app.kubeVirtStore = kubeInformerFactory.KubeVirt().GetStore()
