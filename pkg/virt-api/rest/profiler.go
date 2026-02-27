@@ -169,42 +169,40 @@ func (app *SubresourceAPIApp) stopStartHandler(command string, request *restful.
 	wg.Add(len(pods))
 
 	errorChan := make(chan error, len(pods))
-	defer close(errorChan)
 
-	go func() {
-		for _, pod := range pods {
-			ip := pod.Status.PodIP
-			name := pod.Name
-			log.Log.Infof("Executing Cluster Profiler %s on Pod %s", command, name)
-			go func(ip string, name string) {
-				defer wg.Done()
-				url := fmt.Sprintf("https://%s:%d/%s-profiler", ip, app.profilerComponentPort, command)
-				req, _ := http.NewRequest("GET", url, nil)
-				resp, err := client.Do(req)
-				if err != nil {
-					log.Log.Infof("Encountered error during ClusterProfiler %s on Pod %s: %v", command, name, err)
-					errorChan <- err
-					return
-				}
+	for _, pod := range pods {
+		ip := pod.Status.PodIP
+		name := pod.Name
+		log.Log.Infof("Executing Cluster Profiler %s on Pod %s", command, name)
+		go func(ip string, name string) {
+			defer wg.Done()
+			url := fmt.Sprintf("https://%s:%d/%s-profiler", ip, app.profilerComponentPort, command)
+			req, _ := http.NewRequest("GET", url, nil)
+			resp, err := client.Do(req)
+			if err != nil {
+				log.Log.Infof("Encountered error during ClusterProfiler %s on Pod %s: %v", command, name, err)
+				errorChan <- err
+				return
+			}
 
-				defer resp.Body.Close()
-				if resp.StatusCode != http.StatusOK {
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
 
-					errorChan <- fmt.Errorf("Encountered [%d] status code while contacting url [%s] for pod [%s]", resp.StatusCode, url, name)
-					return
-				}
-			}(ip, name)
-		}
-	}()
+				errorChan <- fmt.Errorf("Encountered [%d] status code while contacting url [%s] for pod [%s]", resp.StatusCode, url, name)
+				return
+			}
+		}(ip, name)
+	}
 
 	wg.Wait()
 
-	select {
-	case err := <-errorChan:
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", err))
+	var errs []error
+	for len(errorChan) > 0 {
+		errs = append(errs, <-errorChan)
+	}
+	if len(errs) > 0 {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", errs[0]))
 		return
-	default:
-		// no error
 	}
 
 	response.WriteHeader(http.StatusOK)
@@ -271,7 +269,6 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 	)
 
 	wg.Add(len(pods))
-	defer close(errorChan)
 
 	for _, pod := range pods {
 		ip := pod.Status.PodIP
@@ -316,12 +313,14 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 	}
 
 	wg.Wait()
-	select {
-	case err := <-errorChan:
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", err))
+
+	var errs []error
+	for len(errorChan) > 0 {
+		errs = append(errs, <-errorChan)
+	}
+	if len(errs) > 0 {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", errs[0]))
 		return
-	default:
-		//no error
 	}
 
 	response.WriteAsJson(results)
