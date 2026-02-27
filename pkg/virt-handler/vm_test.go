@@ -458,6 +458,37 @@ var _ = Describe("VirtualMachineInstance", func() {
 
 		})
 
+		It("should requeue VMI when domain UID mismatches and old launcher is still responsive", func() {
+			newUID := types.UID("new-vmi-uid")
+			oldUID := types.UID("old-domain-uid")
+
+			By("creating a new VMI whose UID differs from the existing stale domain")
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				libvmi.WithUID(newUID),
+			)
+			vmi.ObjectMeta.ResourceVersion = "1"
+			vmi.Status.Phase = v1.Running
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", oldUID)
+			domain.Status.Status = api.Running
+
+			By("marking the old launcher client as still responsive")
+			controller.launcherClients = &launcherclients.MockLauncherClientManager{
+				Initialized:  true,
+				UnResponsive: false,
+			}
+
+			addVMI(vmi, domain)
+
+			By("executing the controller")
+			sanityExecute()
+
+			By("verifying the VMI key was requeued via AddAfter")
+			Expect(mockQueue.GetAddAfterEnqueueCount()).To(Equal(1))
+		})
+
 		It("should silently retry if the command socket is not yet ready", func() {
 			vmi := NewScheduledVMI(vmiTestUUID, "notexisingpoduid", host)
 			// the socket dir must exist, to not go immediately to failed
