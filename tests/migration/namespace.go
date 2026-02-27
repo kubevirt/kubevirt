@@ -563,7 +563,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 		)
 
 		BeforeEach(func() {
-			sourceVMI = libvmifact.NewCirros(
+			sourceVMI = libvmifact.NewAlpine(
 				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -622,7 +622,7 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 			By("Waiting for the target migration object to disappear")
 			Expect(libwait.WaitForMigrationToDisappearWithTimeout(targetMigration, timeout*time.Second)).To(Succeed())
 			By("Logging in and ensuring the source VM is still running")
-			Expect(console.LoginToCirros(sourceVMI)).To(Succeed())
+			Expect(console.LoginToAlpine(sourceVMI)).To(Succeed())
 			By("Checking that the receiving VM is in WaitingAsReceiver phase")
 			Eventually(func() virtv1.VirtualMachineInstancePhase {
 				targetVMI, err := virtClient.VirtualMachineInstance(targetVMI.Namespace).Get(context.Background(), targetVMI.Name, metav1.GetOptions{})
