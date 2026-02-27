@@ -4265,6 +4265,19 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 				expectMatchingPodCreation(vmi)
 			})
 		})
+
+		Context("decentralized live migration", func() {
+			It("should set the topology hints when the VMI is created", func() {
+				vmi := getVmiWithReenlightenment()
+				vmi.Annotations[virtv1.CreateMigrationTarget] = "true"
+				addVirtualMachine(vmi)
+				sanityExecute()
+				expectTopologyHintsDefined(vmi, BeTrue())
+				updatedVmi, err := virtClientset.KubevirtV1().VirtualMachineInstances(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(updatedVmi.Status.Phase).To(Equal(virtv1.WaitingForSync))
+			})
+		})
 	})
 
 	Context("auto attach VSOCK", func() {
