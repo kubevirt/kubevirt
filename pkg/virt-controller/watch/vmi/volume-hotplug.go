@@ -38,6 +38,10 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/common"
 )
 
+const (
+	ReasonWaitingForPendingPod = "WaitingForPendingPod"
+)
+
 func needsHandleHotplug(hotplugVolumes []*v1.Volume, hotplugAttachmentPods []*k8sv1.Pod) bool {
 	if len(hotplugAttachmentPods) > 1 {
 		return true
@@ -204,6 +208,14 @@ func (c *Controller) handleHotplugVolumes(hotplugVolumes []*v1.Volume, hotplugAt
 			} else {
 				currentPod = newPod
 			}
+		}
+	}
+	// Implement Level-Driven Backoff(similar to that of k8s): Check if any old pod is actively spinning up.
+	// If it is, we abort deletion and requeue the VMI to coalesce incoming requests.
+	for _, pod := range oldPods {
+		if pod.Status.Phase == k8sv1.PodPending && !isAttachmentPodStuck(pod) {
+			log.Log.Object(vmi).V(3).Infof("Delaying hotplug cleanup: attachment pod %s is still Pending. Requeueing to batch updates.", pod.Name)
+			return common.NewSyncError(fmt.Errorf("waiting for in-flight hotplug pod %s to become ready", pod.Name), ReasonWaitingForPendingPod)
 		}
 	}
 	if err := c.cleanupAttachmentPods(currentPod, oldPods, vmi, len(readyHotplugVolumes)); err != nil {
@@ -423,4 +435,38 @@ func (c *Controller) requeueAfter(oldPods []*k8sv1.Pod, threshold time.Duration)
 		return true, threshold - time.Since(oldPods[0].CreationTimestamp.Time)
 	}
 	return false, 0
+}
+
+// isAttachmentPodStuck checks if a Pending hotplug pod is permanently deadlocked or terminating.
+func isAttachmentPodStuck(pod *k8sv1.Pod) bool {
+	if pod.Status.Phase != k8sv1.PodPending {
+		return false
+	}
+
+	// If the pod is actively being deleted, it will never reach Ready. Treat as stuck.
+	if pod.DeletionTimestamp != nil {
+		return true
+	}
+
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == k8sv1.PodScheduled &&
+			condition.Status == k8sv1.ConditionFalse &&
+			condition.Reason == "Unschedulable" {
+			return true
+		}
+	}
+
+	for _, cs := range pod.Status.ContainerStatuses {
+		waiting := cs.State.Waiting
+		if waiting == nil {
+			continue
+		}
+
+		switch waiting.Reason {
+		case "ImagePullBackOff", "ErrImagePull", "CrashLoopBackOff":
+			return true
+		}
+	}
+
+	return false
 }
