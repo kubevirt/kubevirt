@@ -26,7 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe("[sig-compute]VM Rollout Strategy", decorators.SigCompute, Serial, func() {
+var _ = Describe("[sig-compute]VM Rollout Strategy", decorators.SigCompute, decorators.WgS390x, Serial, func() {
 	var (
 		virtClient kubecli.KubevirtClient
 	)

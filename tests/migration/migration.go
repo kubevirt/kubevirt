@@ -445,7 +445,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Expect(libinfra.GetHostnameFromMetrics(metrics)).To(Equal(vmi.Status.NodeName))
 
 			},
-				Entry("[test_id:6971]disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk),
+				Entry("[test_id:6971]disk", libvmi.WithDownwardMetricsVolume("vhostmd"), libinfra.GetDownwardMetricsDisk, decorators.WgS390x),
 				Entry("[QUARANTINE] channel", libvmi.WithDownwardMetricsChannel(), libinfra.GetDownwardMetricsVirtio, decorators.Quarantine),
 			)
 
@@ -694,7 +694,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				}, 60*time.Second, 1*time.Second).ShouldNot(BeEmpty(), "There should be some compute node")
 			})
 
-			It("should automatically cancel unschedulable migration after a timeout period", decorators.Conformance, func() {
+			It("should automatically cancel unschedulable migration after a timeout period", decorators.Conformance, decorators.WgS390x, func() {
 				// Add node affinity to ensure VMI affinity rules block target pod from being created
 				vmi := libvmifact.NewFedora(
 					libnet.WithMasqueradeNetworking(),
@@ -728,7 +728,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Eventually(matcher.ThisMigration(migration)).WithPolling(5 * time.Second).WithTimeout(2 * time.Minute).Should(matcher.BeInPhase(v1.MigrationFailed))
 			})
 
-			It("should automatically cancel pending target pod after a catch all timeout period", func() {
+			It("should automatically cancel pending target pod after a catch all timeout period", decorators.WgS390x, func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize))
 
 				By("Starting the VirtualMachineInstance")
@@ -756,7 +756,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				Eventually(matcher.ThisMigration(migration)).WithPolling(5 * time.Second).WithTimeout(2 * time.Minute).Should(matcher.BeInPhase(v1.MigrationFailed))
 			})
 		})
-		Context(" with auto converge enabled", Serial, func() {
+		Context(" with auto converge enabled", Serial, decorators.WgS390x, func() {
 			BeforeEach(func() {
 
 				// set autoconverge flag
@@ -788,7 +788,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 		})
-		Context("with setting guest time", func() {
+		Context("with setting guest time", decorators.WgS390x, func() {
 			It("[test_id:4114]should set an updated time after a migration", func() {
 				vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), libvmi.WithMemoryRequest(fedoraVMSize), libvmi.WithRng())
 
@@ -991,7 +991,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
 			})
 
-			It("[test_id:3240]should be successfully with a cloud init", func() {
+			It("[test_id:3240]should be successfully with a cloud init", decorators.WgS390x, func() {
 				// Start the VirtualMachineInstance with the PVC attached
 				vmi := newVMIWithDataVolumeForMigration(cd.ContainerDiskAlpine, k8sv1.ReadWriteMany, sc,
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),

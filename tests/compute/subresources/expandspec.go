@@ -43,7 +43,7 @@ import (
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
 
-var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInstancetype, func() {
+var _ = Describe(compute.SIG("ExpandSpec subresource", decorators.SigComputeInstancetype, decorators.WgS390x, func() {
 	var virtClient kubecli.KubevirtClient
 
 	BeforeEach(func() {

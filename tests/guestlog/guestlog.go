@@ -35,7 +35,7 @@ import (
 const alpineStartupTimeout = libvmops.StartupTimeoutSecondsSmall
 const testString = "GuestConsoleTest3413254123535234523"
 
-var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, func() {
+var _ = Describe("[sig-compute]Guest console log", decorators.SigCompute, decorators.WgS390x, func() {
 
 	var (
 		alpineVmi *v1.VirtualMachineInstance

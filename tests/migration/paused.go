@@ -148,7 +148,7 @@ var _ = Describe(SIG("Live Migrate A Paused VMI", decorators.RequiresTwoSchedula
 
 					},
 						Entry("migrate successfully (migration policy)", expectSuccess, "10Mi", applyWithMigrationPolicy),
-						Entry("migrate successfully (CR change)", Serial, expectSuccess, "10Mi", applyWithKubevirtCR),
+						Entry("migrate successfully (CR change)", decorators.WgS390x, Serial, expectSuccess, "10Mi", applyWithKubevirtCR),
 					)
 				})
 			})

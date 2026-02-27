@@ -29,11 +29,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	crds "kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
+	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
 )
 
-var _ = Describe(SIG("CRDs", func() {
+var _ = Describe(SIG("CRDs", decorators.WgS390x, func() {
 	It("[test_id:5177]Should have structural schema", func() {
 		ourCRDs := []string{
 			crds.VIRTUALMACHINE, crds.VIRTUALMACHINEINSTANCE, crds.VIRTUALMACHINEINSTANCEPRESET,
