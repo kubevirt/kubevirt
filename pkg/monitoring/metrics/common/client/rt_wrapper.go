@@ -25,7 +25,19 @@ import (
 	"strings"
 )
 
-const defaultNone = "none"
+const (
+	defaultNone = "none"
+
+	verbGet    = "GET"
+	verbPut    = "PUT"
+	verbPatch  = "PATCH"
+	verbPost   = "POST"
+	verbDelete = "DELETE"
+	verbWatch  = "WATCH"
+	verbList   = "LIST"
+	verbUpdate = "UPDATE"
+	verbCreate = "CREATE"
+)
 
 type rtWrapper struct {
 	origRoundTripper http.RoundTripper
@@ -73,16 +85,16 @@ func parseURLResourceOperation(request *http.Request) (resource, verb string) {
 
 func getVerbFromHTTPVerb(u url.URL, methodOrVerb string) (verb string) {
 	switch methodOrVerb {
-	case "GET":
+	case verbGet:
 		verb = determineGetVerb(u)
-	case "PUT":
-		verb = "UPDATE"
-	case "PATCH":
-		verb = "PATCH"
-	case "POST":
-		verb = "CREATE"
-	case "DELETE":
-		verb = "DELETE"
+	case verbPut:
+		verb = verbUpdate
+	case verbPatch:
+		verb = verbPatch
+	case verbPost:
+		verb = verbCreate
+	case verbDelete:
+		verb = verbDelete
 	default:
 		verb = methodOrVerb
 	}
@@ -92,16 +104,16 @@ func getVerbFromHTTPVerb(u url.URL, methodOrVerb string) (verb string) {
 
 func determineGetVerb(u url.URL) string {
 	if strings.Contains(u.Path, "/watch/") || u.Query().Get("watch") == "true" {
-		return "WATCH"
+		return verbWatch
 	}
 
 	if resource := findResource(u); resource == "" {
-		return "none"
+		return defaultNone
 	} else if strings.HasSuffix(u.Path, resource) {
-		return "LIST"
+		return verbList
 	}
 
-	return "GET"
+	return verbGet
 }
 
 func findResource(u url.URL) (resource string) {

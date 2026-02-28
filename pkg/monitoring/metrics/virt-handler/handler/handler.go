@@ -26,13 +26,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-func Handler(MaxRequestsInFlight int) http.Handler {
+func Handler(maxRequestsInFlight int) http.Handler {
 	return promhttp.InstrumentMetricHandler(
 		prometheus.DefaultRegisterer,
 		promhttp.HandlerFor(
 			prometheus.DefaultGatherer,
 			promhttp.HandlerOpts{
-				MaxRequestsInFlight: MaxRequestsInFlight,
+				MaxRequestsInFlight: maxRequestsInFlight,
 			}),
 	)
 }

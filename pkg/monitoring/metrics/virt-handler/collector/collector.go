@@ -29,8 +29,15 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 )
 
-const CollectionTimeout = 10 * time.Second            // "long enough", crude heuristic
-const StatsMaxAge = CollectionTimeout + 2*time.Second // "a bit more" than timeout, heuristic again
+const (
+	// "long enough", crude heuristic
+	CollectionTimeout = 10 * time.Second
+	// "a bit more" than timeout, heuristic again
+	StatsMaxAge = CollectionTimeout + 2*time.Second
+
+	logVerbosityInfo  = 3
+	logVerbosityDebug = 4
+)
 
 type vmiSocketMap map[string]*k6tv1.VirtualMachineInstance
 
@@ -45,21 +52,23 @@ type ConcurrentCollector struct {
 	socketMapper     func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap
 }
 
-func NewConcurrentCollector(MaxRequestsPerKey int) Collector {
-	return NewConcurrentCollectorWithMapper(MaxRequestsPerKey, newvmiSocketMapFromVMIs)
+func NewConcurrentCollector(maxRequestsPerKey int) Collector {
+	return NewConcurrentCollectorWithMapper(maxRequestsPerKey, newvmiSocketMapFromVMIs)
 }
 
-func NewConcurrentCollectorWithMapper(MaxRequestsPerKey int, mapper func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap) Collector {
+func NewConcurrentCollectorWithMapper(maxRequestsPerKey int, mapper func(vmis []*k6tv1.VirtualMachineInstance) vmiSocketMap) Collector {
 	return &ConcurrentCollector{
 		clientsPerKey:    make(map[string]int),
-		maxClientsPerKey: MaxRequestsPerKey,
+		maxClientsPerKey: maxRequestsPerKey,
 		socketMapper:     mapper,
 	}
 }
 
-func (cc *ConcurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scraper MetricsScraper, timeout time.Duration) ([]string, bool) {
+func (cc *ConcurrentCollector) Collect(
+	vmis []*k6tv1.VirtualMachineInstance, scraper MetricsScraper, timeout time.Duration,
+) ([]string, bool) {
 	socketToVMIs := cc.socketMapper(vmis)
-	log.Log.V(3).Infof("Collecting VM metrics from %d sources", len(socketToVMIs))
+	log.Log.V(logVerbosityInfo).Infof("Collecting VM metrics from %d sources", len(socketToVMIs))
 	var busyScrapers sync.WaitGroup
 
 	var skipped []string
@@ -71,7 +80,7 @@ func (cc *ConcurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scr
 			continue
 		}
 
-		log.Log.V(4).Infof("Source %s responsive, scraping", key)
+		log.Log.V(logVerbosityDebug).Infof("Source %s responsive, scraping", key)
 		busyScrapers.Add(1)
 		go cc.collectFromSource(scraper, &busyScrapers, key, vmi)
 	}
@@ -84,25 +93,27 @@ func (cc *ConcurrentCollector) Collect(vmis []*k6tv1.VirtualMachineInstance, scr
 	}()
 	select {
 	case <-c:
-		log.Log.V(3).Infof("Collection successful")
+		log.Log.V(logVerbosityInfo).Infof("Collection successful")
 	case <-time.After(timeout):
 		log.Log.Warning("Collection timeout")
 		completed = false
 	}
 
-	log.Log.V(4).Infof("Collection completed")
+	log.Log.V(logVerbosityDebug).Infof("Collection completed")
 	scraper.Complete()
 
 	return skipped, completed
 }
 
-func (cc *ConcurrentCollector) collectFromSource(scraper MetricsScraper, wg *sync.WaitGroup, socket string, vmi *k6tv1.VirtualMachineInstance) {
+func (cc *ConcurrentCollector) collectFromSource(
+	scraper MetricsScraper, wg *sync.WaitGroup, socket string, vmi *k6tv1.VirtualMachineInstance,
+) {
 	defer wg.Done()
 	defer cc.releaseKey(socket)
 
-	log.Log.V(4).Infof("Getting stats from source %s", socket)
+	log.Log.V(logVerbosityDebug).Infof("Getting stats from source %s", socket)
 	scraper.Scrape(socket, vmi)
-	log.Log.V(4).Infof("Updated stats from source %s", socket)
+	log.Log.V(logVerbosityDebug).Infof("Updated stats from source %s", socket)
 }
 
 func (cc *ConcurrentCollector) reserveKey(key string) bool {

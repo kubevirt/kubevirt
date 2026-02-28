@@ -56,7 +56,7 @@ var _ = Describe("node cpu affinity metrics", func() {
 			crs := cpuAffinityMetrics{}.Collect(vmiReport)
 			Expect(crs).To(ContainElement(testing.GomegaContainsCollectorResultMatcher(metric, expectedValue)))
 		},
-			Entry("kubevirt_vmi_node_cpu_affinity", nodeCpuAffinity, 3.0),
+			Entry("kubevirt_vmi_node_cpu_affinity", nodeCPUAffinity, 3.0),
 		)
 
 		It("result should be empty if stat not populated or set is false", func() {

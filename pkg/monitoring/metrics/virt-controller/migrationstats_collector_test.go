@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"strings"
@@ -49,26 +49,27 @@ var _ = Describe("Migration Stats Collector", func() {
 		}
 	})
 
-	DescribeTable("should set correct metric for each phase", func(phase k6tv1.VirtualMachineInstanceMigrationPhase, metric operatormetrics.Metric) {
-		vmims := []*k6tv1.VirtualMachineInstanceMigration{
-			getVMIM(phase),
-		}
-
-		cr := reportMigrationStats(vmims)
-
-		containsMetric := false
-
-		for _, result := range cr {
-			if strings.Contains(result.Metric.GetOpts().Name, metric.GetOpts().Name) {
-				containsMetric = true
-				Expect(result.Value).To(Equal(1.0))
-			} else {
-				Expect(result.Value).To(BeZero())
+	DescribeTable("should set correct metric for each phase",
+		func(phase k6tv1.VirtualMachineInstanceMigrationPhase, metric operatormetrics.Metric) {
+			vmims := []*k6tv1.VirtualMachineInstanceMigration{
+				getVMIM(phase),
 			}
-		}
 
-		Expect(containsMetric).To(BeTrue())
-	},
+			cr := reportMigrationStats(vmims)
+
+			containsMetric := false
+
+			for _, result := range cr {
+				if strings.Contains(result.Metric.GetOpts().Name, metric.GetOpts().Name) {
+					containsMetric = true
+					Expect(result.Value).To(Equal(1.0))
+				} else {
+					Expect(result.Value).To(BeZero())
+				}
+			}
+
+			Expect(containsMetric).To(BeTrue())
+		},
 		Entry("Failed migration", k6tv1.MigrationFailed, failedMigration),
 		Entry("Pending migration", k6tv1.MigrationPending, pendingMigrations),
 		Entry("Running migration", k6tv1.MigrationRunning, runningMigrations),

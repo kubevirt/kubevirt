@@ -9,6 +9,7 @@ cmd/virt-operator
 pkg/controller/testing
 pkg/instancetype
 pkg/libvmi
+pkg/monitoring/metrics
 pkg/monitoring/rules
 pkg/network/admitter
 pkg/network/controllers

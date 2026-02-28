@@ -17,7 +17,7 @@
  *
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
@@ -108,12 +108,19 @@ func reportMigrationStats(vmims []*k6tv1.VirtualMachineInstanceMigration) []oper
 			schedulingCount++
 		case k6tv1.MigrationPhaseUnset:
 			unsetCount++
-		case k6tv1.MigrationRunning, k6tv1.MigrationScheduled, k6tv1.MigrationPreparingTarget, k6tv1.MigrationTargetReady:
+		case k6tv1.MigrationRunning, k6tv1.MigrationScheduled, k6tv1.MigrationPreparingTarget,
+			k6tv1.MigrationTargetReady, k6tv1.MigrationWaitingForSync, k6tv1.MigrationSynchronizing:
 			runningCount++
 		case k6tv1.MigrationSucceeded:
-			cr = append(cr, operatormetrics.CollectorResult{Metric: succeededMigration, Value: 1, Labels: []string{vmim.Spec.VMIName, vmim.Name, vmim.Namespace}})
-		default:
-			cr = append(cr, operatormetrics.CollectorResult{Metric: failedMigration, Value: 1, Labels: []string{vmim.Spec.VMIName, vmim.Name, vmim.Namespace}})
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: succeededMigration, Value: 1,
+				Labels: []string{vmim.Spec.VMIName, vmim.Name, vmim.Namespace},
+			})
+		case k6tv1.MigrationFailed:
+			cr = append(cr, operatormetrics.CollectorResult{
+				Metric: failedMigration, Value: 1,
+				Labels: []string{vmim.Spec.VMIName, vmim.Name, vmim.Namespace},
+			})
 		}
 	}
 

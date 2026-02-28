@@ -29,6 +29,8 @@ import (
 
 const (
 	PrometheusCollectionTimeout = collector.CollectionTimeout
+
+	logVerbosityDebug = 4
 )
 
 var (
@@ -80,7 +82,7 @@ func domainStatsMetrics(rms ...resourceMetrics) []operatormetrics.Metric {
 func domainStatsCollectorCallback() []operatormetrics.CollectorResult {
 	cachedObjs := settings.vmiInformer.GetIndexer().List()
 	if len(cachedObjs) == 0 {
-		log.Log.V(4).Infof("No VMIs detected")
+		log.Log.V(logVerbosityDebug).Infof("No VMIs detected")
 		return []operatormetrics.CollectorResult{}
 	}
 

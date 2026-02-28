@@ -53,7 +53,7 @@ func (d DomainDirtyRateStatsScraper) Scrape(socketFile string, vmi *k6tv1.Virtua
 	// If it wakes up past the timeout, there is no point in send back any metric.
 	// In the best case the information is stale, in the worst case the information is stale *and*
 	// the reporting channel is already closed, leading to a possible panic - see below
-	elapsed := time.Now().Sub(ts)
+	elapsed := time.Since(ts)
 	if elapsed > collector.StatsMaxAge {
 		log.Log.Infof("took too long (%v) to collect stats from %s: ignored", elapsed, socketFile)
 		return

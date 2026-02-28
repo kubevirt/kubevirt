@@ -31,14 +31,12 @@ func (q *possiblyFinishedQueue) all() ([]result, bool) {
 	return nil, q.isFinished
 }
 
-func (_ *possiblyFinishedQueue) startPolling() {
+func (*possiblyFinishedQueue) startPolling() {
 	panic("not implemented")
 }
 
 var _ = Describe("Handler", func() {
-	var (
-		h *handler
-	)
+	var h *handler
 
 	BeforeEach(func() {
 		h = &handler{

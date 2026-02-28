@@ -16,7 +16,7 @@
  * Copyright The KubeVirt Authors.
  */
 
-package virt_controller
+package virtcontroller
 
 import (
 	ioprometheusclient "github.com/prometheus/client_model/go"
@@ -31,7 +31,8 @@ var (
 	outdatedVirtualMachineInstanceWorkloads = operatormetrics.NewGauge(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vmi_number_of_outdated",
-			Help: "Indication for the total number of VirtualMachineInstance workloads that are not running within the most up-to-date version of the virt-launcher environment.",
+			Help: "Indication for the total number of VirtualMachineInstance workloads " +
+				"that are not running within the most up-to-date version of the virt-launcher environment.",
 		},
 	)
 )

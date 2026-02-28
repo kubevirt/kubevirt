@@ -24,13 +24,11 @@ import (
 	"kubevirt.io/client-go/log"
 )
 
-var (
-	dirtyRateBytesPerSecond = operatormetrics.NewGauge(
-		operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_dirty_rate_bytes_per_second",
-			Help: "Guest dirty-rate in bytes per second.",
-		},
-	)
+var dirtyRateBytesPerSecond = operatormetrics.NewGauge(
+	operatormetrics.MetricOpts{
+		Name: "kubevirt_vmi_dirty_rate_bytes_per_second",
+		Help: "Guest dirty-rate in bytes per second.",
+	},
 )
 
 type dirtyRateMetrics struct{}

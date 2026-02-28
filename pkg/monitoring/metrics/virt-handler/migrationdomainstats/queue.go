@@ -39,6 +39,9 @@ const (
 	collectionTimeout = 10 * time.Second
 	pollingInterval   = 5 * time.Second
 	bufferSize        = 10
+
+	logVerbosityWarning = 2
+	logVerbosityDebug   = 4
 )
 
 type result struct {
@@ -76,17 +79,17 @@ func (q *queue) startPolling() {
 
 	ticker := time.NewTicker(pollingInterval)
 	go func() {
-		log.Log.V(4).Infof("collecting domain stats for VMI %s/%s (initial)", q.vmi.Namespace, q.vmi.Name)
+		log.Log.V(logVerbosityDebug).Infof("collecting domain stats for VMI %s/%s (initial)", q.vmi.Namespace, q.vmi.Name)
 		q.collect()
 
 		for {
 			select {
 			case <-q.ctx.Done():
-				log.Log.V(2).Infof("stopping domain stats collection for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
+				log.Log.V(logVerbosityWarning).Infof("stopping domain stats collection for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				log.Log.V(4).Infof("collecting domain stats for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
+				log.Log.V(logVerbosityDebug).Infof("collecting domain stats for VMI %s/%s", q.vmi.Namespace, q.vmi.Name)
 				q.collect()
 			}
 		}
