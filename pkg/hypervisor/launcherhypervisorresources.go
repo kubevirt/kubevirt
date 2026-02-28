@@ -24,6 +24,7 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
+	"kubevirt.io/kubevirt/pkg/hypervisor/mshv"
 )
 
 // Interface to abstract the hypervisor-specific resources available to the virt-launcher,
@@ -35,6 +36,8 @@ type LauncherHypervisorResources interface {
 
 func NewLauncherHypervisorResources(hypervisor string) LauncherHypervisorResources {
 	switch hypervisor {
+	case v1.HyperVDirectHypervisorName:
+		return mshv.NewMshvHypervisorBackend()
 	// Other hypervisors can be added here
 	default:
 		return kvm.NewKvmHypervisorBackend()

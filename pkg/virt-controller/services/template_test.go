@@ -508,6 +508,7 @@ var _ = Describe("Template", func() {
 					"--hook-sidecars", "1",
 					"--ovmf-path", ovmfPath,
 					"--disk-memory-limit", strconv.Itoa(virtconfig.DefaultDiskVerificationMemoryLimitBytes),
+					"--hypervisor", config.GetHypervisor().Name,
 				}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
@@ -677,7 +678,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers).To(HaveLen(1))
 				debugLogsValue := ""
 				for _, ev := range pod.Spec.Containers[0].Env {
-					if ev.Name == ENV_VAR_LIBVIRT_DEBUG_LOGS {
+					if ev.Name == util.ENV_VAR_LIBVIRT_DEBUG_LOGS {
 						debugLogsValue = ev.Value
 						break
 					}
@@ -709,7 +710,7 @@ var _ = Describe("Template", func() {
 				Expect(pod.Spec.Containers).To(HaveLen(1))
 				debugLogsValue := ""
 				for _, ev := range pod.Spec.Containers[0].Env {
-					if ev.Name == ENV_VAR_LIBVIRT_DEBUG_LOGS {
+					if ev.Name == util.ENV_VAR_LIBVIRT_DEBUG_LOGS {
 						debugLogsValue = ev.Value
 						break
 					}
@@ -1106,6 +1107,7 @@ var _ = Describe("Template", func() {
 					"--hook-sidecars", "1",
 					"--ovmf-path", ovmfPath,
 					"--disk-memory-limit", strconv.Itoa(virtconfig.DefaultDiskVerificationMemoryLimitBytes),
+					"--hypervisor", config.GetHypervisor().Name,
 				}))
 				Expect(pod.Spec.Containers[1].Name).To(Equal("hook-sidecar-0"))
 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
@@ -5044,11 +5046,11 @@ var _ = Describe("Template", func() {
 
 				computeContainer := pod.Spec.Containers[0]
 				if expectedValue != "" {
-					Expect(computeContainer.Env).To(ContainElement(k8sv1.EnvVar{Name: ENV_VAR_SHARED_FILESYSTEM_PATHS, Value: expectedValue}))
+					Expect(computeContainer.Env).To(ContainElement(k8sv1.EnvVar{Name: util.ENV_VAR_SHARED_FILESYSTEM_PATHS, Value: expectedValue}))
 				} else {
 					Expect(computeContainer.Env).ToNot(
 						ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
-							"Name": Equal(ENV_VAR_SHARED_FILESYSTEM_PATHS),
+							"Name": Equal(util.ENV_VAR_SHARED_FILESYSTEM_PATHS),
 						})), "contains shared fs env var when it should not exist",
 					)
 				}

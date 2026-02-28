@@ -17,20 +17,22 @@
  *
  */
 
-package virthandler
+package kvm
 
 import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"kubevirt.io/kubevirt/pkg/hypervisor/common"
 )
 
 var _ = Describe("Running real time workloads", func() {
 
 	Context("captures the correct CPU ID from the thread command value", func() {
 		DescribeTable("extracts the CPU ID", func(comm []byte, cpuID string, parseOK bool) {
-			v, ok := isVCPU(comm)
+			v, ok := common.IsVCPU(comm, VcpuRegex)
 			Expect(ok).To(Equal(parseOK))
 			Expect(v).To(Equal(cpuID))
 		},
@@ -42,20 +44,20 @@ var _ = Describe("Running real time workloads", func() {
 	})
 
 	Context("determines if a vcpu is flagged for realtime", func() {
-		DescribeTable("extracts the vcpu configuration", func(parsedMask cpuMask, vcpuID string, status maskType) {
-			res := parsedMask.isEnabled(vcpuID)
+		DescribeTable("extracts the vcpu configuration", func(parsedMask common.CPUMask, vcpuID string, status common.MaskType) {
+			res := parsedMask.IsEnabled(vcpuID)
 			Expect(res).To(BeEquivalentTo(status))
 		},
-			Entry("correctly returns a match as enabled", cpuMask{map[string]maskType{"0": enabled, "1": disabled}}, "0", enabled),
-			Entry("correctly returns a match as disabled", cpuMask{map[string]maskType{"0": disabled, "1": disabled}}, "1", disabled),
-			Entry("correctly returns a match when the map is empty", cpuMask{}, "1", enabled),
-			Entry("fails to find the vcpu in the map", cpuMask{map[string]maskType{"0": disabled, "1": disabled}}, "2", disabled),
+			Entry("correctly returns a match as enabled", common.CPUMask{Mask: map[string]common.MaskType{"0": common.Enabled, "1": common.Disabled}}, "0", common.Enabled),
+			Entry("correctly returns a match as disabled", common.CPUMask{Mask: map[string]common.MaskType{"0": common.Disabled, "1": common.Disabled}}, "1", common.Disabled),
+			Entry("correctly returns a match when the map is empty", common.CPUMask{Mask: map[string]common.MaskType{}}, "1", common.Enabled),
+			Entry("fails to find the vcpu in the map", common.CPUMask{Mask: map[string]common.MaskType{"0": common.Disabled, "1": common.Disabled}}, "2", common.Disabled),
 		)
 	})
 
 	Context("parses the vCPU mask", func() {
-		DescribeTable("extracts the vCPU range", func(mask string, parsed cpuMask, err error) {
-			m, e := parseCPUMask(mask)
+		DescribeTable("extracts the vCPU range", func(mask string, parsed common.CPUMask, err error) {
+			m, e := common.ParseCPUMask(mask)
 			if err != nil {
 				Expect(e).To(BeEquivalentTo(err))
 				Expect(m).To(BeNil())
@@ -66,7 +68,7 @@ var _ = Describe("Running real time workloads", func() {
 		},
 
 			// Empty mask
-			Entry("Empty mask", "", cpuMask{}, nil),
+			Entry("Empty mask", "", common.CPUMask{}, nil),
 			// Invalid expressions
 			Entry("Empty mask with spaces", "  ", nil, fmt.Errorf("invalid mask value '  ' in '  '")),
 			Entry("Invalid expression", "a-b,33_", nil, fmt.Errorf("invalid mask value 'a-b' in 'a-b,33_'")),
@@ -121,14 +123,14 @@ var _ = Describe("Running real time workloads", func() {
 
 })
 
-func newMask(cpuEnabled, cpuDisabled []string) cpuMask {
-	m := make(map[string]maskType)
+func newMask(cpuEnabled, cpuDisabled []string) common.CPUMask {
+	m := make(map[string]common.MaskType)
 
 	for _, i := range cpuEnabled {
-		m[i] = enabled
+		m[i] = common.Enabled
 	}
 	for _, i := range cpuDisabled {
-		m[i] = disabled
+		m[i] = common.Disabled
 	}
-	return cpuMask{mask: m}
+	return common.CPUMask{Mask: m}
 }

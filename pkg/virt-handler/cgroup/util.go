@@ -59,6 +59,9 @@ const (
 	V2 CgroupVersion = "v2"
 
 	loggingVerbosity = 2
+
+	rwmPermissions = "rwm"
+	rwPermissions  = "rw"
 )
 
 var (
@@ -126,10 +129,22 @@ func getSourceBlockToFsMigratedVolumes(vmi *v1.VirtualMachineInstance, host stri
 	return vols
 }
 
+func getDevicePermissionsFromCgroups() devices.Permissions {
+	if cgroups.IsCgroup2UnifiedMode() {
+		return rwmPermissions
+	} else {
+		return rwPermissions
+	}
+}
+
+func getDeviceRwmPermissions() devices.Permissions {
+	return rwmPermissions
+}
+
 // This builds up the known persistent block devices allow list for a VMI (as in, hotplugged volumes are handled separately)
 // This will be maintained and extended as new devices likely have to end up on this list as well
 // For example - https://kubernetes.io/docs/concepts/scheduling-eviction/dynamic-resource-allocation/
-func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, host string) ([]*devices.Rule, error) {
+func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isolation.IsolationResult, host, hypervisorDevice string) ([]*devices.Rule, error) {
 	mountRoot, err := isolationRes.MountRoot()
 	if err != nil {
 		return nil, err
@@ -159,7 +174,7 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 			}
 			return nil, fmt.Errorf("failed to resolve path for volume %s: %v", volume.Name, err)
 		}
-		if deviceRule, err := newAllowedDeviceRule(path); err != nil {
+		if deviceRule, err := newAllowedDeviceRule(path, getDeviceRwmPermissions()); err != nil {
 			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
 		} else if deviceRule != nil {
 			log.Log.V(loggingVerbosity).Infof("device rule for volume %s: %v", volume.Name, deviceRule)
@@ -171,7 +186,7 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 		if err != nil {
 			return nil, err
 		}
-		if deviceRule, err := newAllowedDeviceRule(path); err != nil {
+		if deviceRule, err := newAllowedDeviceRule(path, getDeviceRwmPermissions()); err != nil {
 			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
 		} else if deviceRule != nil {
 			log.Log.V(loggingVerbosity).Infof("device rule for volume rng: %v", deviceRule)
@@ -183,7 +198,7 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 		if err != nil {
 			return nil, err
 		}
-		if deviceRule, err := newAllowedDeviceRule(path); err != nil {
+		if deviceRule, err := newAllowedDeviceRule(path, getDeviceRwmPermissions()); err != nil {
 			return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
 		} else if deviceRule != nil {
 			log.Log.V(loggingVerbosity).Infof("device rule for volume vsock: %v", deviceRule)
@@ -191,10 +206,21 @@ func generateDeviceRulesForVMI(vmi *v1.VirtualMachineInstance, isolationRes isol
 		}
 	}
 
+	path, err := safepath.JoinNoFollow(mountRoot, fmt.Sprintf("/dev/%s", hypervisorDevice))
+	if err != nil {
+		return nil, err
+	}
+	if deviceRule, err := newAllowedDeviceRule(path, getDevicePermissionsFromCgroups()); err != nil {
+		return nil, fmt.Errorf("failed to create device rule for %s: %v", path, err)
+	} else if deviceRule != nil {
+		log.Log.V(loggingVerbosity).Infof("device rule for device %s: %v", hypervisorDevice, deviceRule)
+		vmiDeviceRules = append(vmiDeviceRules, deviceRule)
+	}
+
 	return vmiDeviceRules, nil
 }
 
-func newAllowedDeviceRule(devicePath *safepath.Path) (*devices.Rule, error) {
+func newAllowedDeviceRule(devicePath *safepath.Path, devicePermissions devices.Permissions) (*devices.Rule, error) {
 	fileInfo, err := safepath.StatAtNoFollow(devicePath)
 	if err != nil {
 		return nil, err
@@ -211,7 +237,7 @@ func newAllowedDeviceRule(devicePath *safepath.Path) (*devices.Rule, error) {
 		Type:        deviceType,
 		Major:       int64(unix.Major(stat.Rdev)),
 		Minor:       int64(unix.Minor(stat.Rdev)),
-		Permissions: "rwm",
+		Permissions: devicePermissions,
 		Allow:       true,
 	}, nil
 }
@@ -224,12 +250,7 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 
 	const toAllow = true
 
-	var permissions devices.Permissions
-	if cgroups.IsCgroup2UnifiedMode() {
-		permissions = "rwm"
-	} else {
-		permissions = "rw"
-	}
+	permissions := getDevicePermissionsFromCgroups()
 
 	defaultRules := []*devices.Rule{
 		{ // /dev/ptmx (PTY master multiplex)
@@ -243,13 +264,6 @@ func GenerateDefaultDeviceRules() []*devices.Rule {
 			Type:        devices.CharDevice,
 			Major:       1,
 			Minor:       3,
-			Permissions: permissions,
-			Allow:       toAllow,
-		},
-		{ // /dev/kvm (hardware virtualization extensions)
-			Type:        devices.CharDevice,
-			Major:       10,
-			Minor:       232,
 			Permissions: permissions,
 			Allow:       toAllow,
 		},

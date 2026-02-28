@@ -17,7 +17,7 @@
  *
  */
 
-package compute
+package mshv
 
 import (
 	"fmt"
@@ -28,28 +28,30 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
-type HypervisorDomainConfigurator struct {
+type MshvDomainConfigurator struct {
 	allowEmulation bool
-	kvmAvailable   bool
+	mshvAvailable  bool
 }
 
-// NewHypervisorDomainConfigurator creates a new hypervisor domain configurator
-func NewHypervisorDomainConfigurator(allowEmulation bool, kvmAvailable bool) HypervisorDomainConfigurator {
-	return HypervisorDomainConfigurator{
+// NewMshvDomainConfigurator creates a new MSHV domain configurator
+func NewMshvDomainConfigurator(allowEmulation bool, mshvAvailable bool) MshvDomainConfigurator {
+	return MshvDomainConfigurator{
 		allowEmulation: allowEmulation,
-		kvmAvailable:   kvmAvailable,
+		mshvAvailable:  mshvAvailable,
 	}
 }
 
-// Configure configures the domain hypervisor settings based on KVM availability and emulation settings
-func (h HypervisorDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if !h.kvmAvailable {
+// Configure configures the domain hypervisor settings based on MSHV availability and emulation settings
+func (h MshvDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
+	if h.mshvAvailable {
+		domain.Spec.Type = NewMshvHypervisorBackend().GetVirtType()
+	} else {
 		if h.allowEmulation {
 			logger := log.DefaultLogger()
-			logger.Infof("kvm not present. Using software emulation.")
+			logger.Infof("MSHV not present. Using software emulation.")
 			domain.Spec.Type = "qemu"
 		} else {
-			return fmt.Errorf("kvm not present")
+			return fmt.Errorf("MSHV not present")
 		}
 	}
 
