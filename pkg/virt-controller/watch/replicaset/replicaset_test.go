@@ -627,6 +627,47 @@ var _ = Describe("Replicaset", func() {
 			)
 		})
 
+		It("should include all concurrent errors in the failure condition message when all creates fail", func() {
+			// Create a replicaset that wants 3 VMIs
+			rs, _ := defaultReplicaSet(3)
+			addReplicaSet(rs)
+
+			var countLock sync.Mutex
+			counter := 0
+			virtClientset.Fake.PrependReactor("create", "virtualmachineinstances", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				countLock.Lock()
+				defer func() {
+					counter++
+					countLock.Unlock()
+				}()
+				return true, &v1.VirtualMachineInstance{}, fmt.Errorf("failure-%d", counter)
+			})
+
+			controller.Execute()
+
+			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			var failureCondition *v1.VirtualMachineInstanceReplicaSetCondition
+			for i := range updatedRS.Status.Conditions {
+				if updatedRS.Status.Conditions[i].Type == v1.VirtualMachineInstanceReplicaSetReplicaFailure {
+					failureCondition = &updatedRS.Status.Conditions[i]
+					break
+				}
+			}
+			Expect(failureCondition).ToNot(BeNil(), "expected a ReplicaFailure condition")
+			// The combined error from errors
+			Expect(failureCondition.Message).To(ContainSubstring("failure-0"))
+			Expect(failureCondition.Message).To(ContainSubstring("failure-1"))
+			Expect(failureCondition.Message).To(ContainSubstring("failure-2"))
+
+			testutils.ExpectEvents(recorder,
+				common.FailedCreateVirtualMachineReason,
+				common.FailedCreateVirtualMachineReason,
+				common.FailedCreateVirtualMachineReason,
+			)
+		})
+
 		It("should back off if a sync error occurs", func() {
 			rs, vmi := defaultReplicaSet(0)
 			vmi1 := vmi.DeepCopy()
