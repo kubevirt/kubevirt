@@ -668,6 +668,55 @@ var _ = Describe("Replicaset", func() {
 			)
 		})
 
+		It("should include all concurrent errors in the failure condition message when all deletes fail", func() {
+			// Add 3 finished VMIs so cleanFinishedVmis() tries to delete all 3 in parallel.
+			rs, _ := defaultReplicaSet(0)
+			addReplicaSet(rs)
+
+			for i := 0; i < 3; i++ {
+				finishedVMI := api.NewMinimalVMI(fmt.Sprintf("finished-vmi-%d", i))
+				finishedVMI.Labels = map[string]string{"test": "test"}
+				finishedVMI.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
+				finishedVMI.Status.Phase = v1.Failed
+				addVMI(finishedVMI)
+			}
+
+			var deleteCountLock sync.Mutex
+			deleteCounter := 0
+			virtClientset.Fake.PrependReactor("delete", "virtualmachineinstances", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				deleteCountLock.Lock()
+				defer func() {
+					deleteCounter++
+					deleteCountLock.Unlock()
+				}()
+				return true, nil, fmt.Errorf("delete-failure-%d", deleteCounter)
+			})
+
+			controller.Execute()
+
+			updatedRS, err := virtClientset.KubevirtV1().VirtualMachineInstanceReplicaSets(metav1.NamespaceDefault).Get(context.TODO(), rs.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			var failureCondition *v1.VirtualMachineInstanceReplicaSetCondition
+			for i := range updatedRS.Status.Conditions {
+				if updatedRS.Status.Conditions[i].Type == v1.VirtualMachineInstanceReplicaSetReplicaFailure {
+					failureCondition = &updatedRS.Status.Conditions[i]
+					break
+				}
+			}
+			Expect(failureCondition).ToNot(BeNil(), "expected a ReplicaFailure condition")
+			// The combined error from errors.Join must surface all 3 delete failures
+			Expect(failureCondition.Message).To(ContainSubstring("delete-failure-0"))
+			Expect(failureCondition.Message).To(ContainSubstring("delete-failure-1"))
+			Expect(failureCondition.Message).To(ContainSubstring("delete-failure-2"))
+
+			testutils.ExpectEvents(recorder,
+				common.FailedDeleteVirtualMachineReason,
+				common.FailedDeleteVirtualMachineReason,
+				common.FailedDeleteVirtualMachineReason,
+			)
+		})
+
 		It("should back off if a sync error occurs", func() {
 			rs, vmi := defaultReplicaSet(0)
 			vmi1 := vmi.DeepCopy()
