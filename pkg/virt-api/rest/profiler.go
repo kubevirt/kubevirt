@@ -195,13 +195,15 @@ func (app *SubresourceAPIApp) stopStartHandler(command string, request *restful.
 	}
 
 	wg.Wait()
+	close(errorChan)
 
-	var errs []error
-	for len(errorChan) > 0 {
-		errs = append(errs, <-errorChan)
+	var firstErr error
+	for err := range errorChan {
+		firstErr = err
+		break
 	}
-	if len(errs) > 0 {
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", errs[0]))
+	if firstErr != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", firstErr))
 		return
 	}
 
@@ -313,13 +315,15 @@ func (app *SubresourceAPIApp) DumpClusterProfilerHandler(request *restful.Reques
 	}
 
 	wg.Wait()
+	close(errorChan)
 
-	var errs []error
-	for len(errorChan) > 0 {
-		errs = append(errs, <-errorChan)
+	var firstErr error
+	for err := range errorChan {
+		firstErr = err
+		break
 	}
-	if len(errs) > 0 {
-		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", errs[0]))
+	if firstErr != nil {
+		response.WriteErrorString(http.StatusInternalServerError, fmt.Sprintf("Internal error encountered: %v", firstErr))
 		return
 	}
 
