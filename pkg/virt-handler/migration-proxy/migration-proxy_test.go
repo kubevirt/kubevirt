@@ -21,14 +21,18 @@ package migrationproxy
 
 import (
 	"crypto/tls"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/certificates"
 	ephemeraldiskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
@@ -258,6 +262,43 @@ var _ = Describe("MigrationProxy", func() {
 				Entry("with TLS enabled", &v1.MigrationConfiguration{DisableTLS: pointer.P(false)}),
 				Entry("with TLS disabled", &v1.MigrationConfiguration{DisableTLS: pointer.P(true)}),
 			)
+		})
+	})
+
+	Context("handleConnection", func() {
+		It("should close the outbound connection when stopChan is closed", func() {
+			// Start a bare TCP listener that acts as the migration target.
+			targetListener, err := net.Listen("tcp", "127.0.0.1:0")
+			Expect(err).ShouldNot(HaveOccurred())
+			defer targetListener.Close()
+
+			stopChan := make(chan struct{})
+			proxy := &migrationProxy{
+				targetProtocol: "tcp",
+				targetAddress:  targetListener.Addr().String(),
+				stopChan:       stopChan,
+				logger:         log.Log,
+			}
+
+			// net.Pipe() gives a synchronous, in-memory full-duplex connection.
+			inbound, outbound := net.Pipe()
+			defer outbound.Close()
+
+			go proxy.handleConnection(inbound)
+
+			// Accept the outbound dial from the proxy.
+			serverConn, err := targetListener.Accept()
+			Expect(err).ShouldNot(HaveOccurred())
+			defer serverConn.Close()
+
+			// Closing stopChan causes handleConnection to return
+			close(stopChan)
+
+			// The server should observe EOF because the proxy closed its end
+			serverConn.SetDeadline(time.Now().Add(2 * time.Second))
+			buf := make([]byte, 1)
+			_, readErr := serverConn.Read(buf)
+			Expect(readErr).To(Or(MatchError(io.EOF), MatchError(ContainSubstring("closed"))))
 		})
 	})
 })
