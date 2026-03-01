@@ -35,7 +35,6 @@ import (
 	backupv1 "kubevirt.io/api/backup/v1alpha1"
 	v1 "kubevirt.io/api/core/v1"
 
-	osdisk "kubevirt.io/kubevirt/pkg/os/disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -832,7 +831,9 @@ var _ = Describe("Backup", func() {
 			</domain>`
 
 			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-			getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare(checkpointName)
+			queryBitmaps = mockQueryBitmaps(map[string]string{
+				"/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2": checkpointName,
+			})
 
 			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
 
@@ -858,7 +859,9 @@ var _ = Describe("Backup", func() {
 			</domain>`
 
 			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-			getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare("other-checkpoint")
+			queryBitmaps = mockQueryBitmaps(map[string]string{
+				"/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2": "other-checkpoint",
+			})
 
 			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
 
@@ -891,7 +894,10 @@ var _ = Describe("Backup", func() {
 			</domain>`
 
 			mockDomain.EXPECT().GetXMLDesc(gomock.Any()).Return(domainXML, nil)
-			getDiskInfoWithForceShare = mockGetDiskInfoWithForceShare(checkpointName)
+			queryBitmaps = mockQueryBitmaps(map[string]string{
+				"/var/run/kubevirt-private/vmi-disks/disk1/disk.qcow2": checkpointName,
+				"/var/run/kubevirt-private/vmi-disks/disk2/disk.qcow2": checkpointName,
+			})
 
 			result, disksWithoutBitmap, err := findDisksWithCheckpointBitmap(mockDomain, checkpointName)
 
@@ -904,19 +910,14 @@ var _ = Describe("Backup", func() {
 	})
 })
 
-func mockGetDiskInfoWithForceShare(bitmapName string) func(path string) (*osdisk.DiskInfo, error) {
-	return func(path string) (*osdisk.DiskInfo, error) {
-		var bitmaps []osdisk.BitmapInfo
-		if bitmapName != "" {
-			bitmaps = []osdisk.BitmapInfo{{Name: bitmapName, Granularity: 65536}}
+func mockQueryBitmaps(fileToBitmap map[string]string) func(dom cli.VirDomain) (map[string][]qmpBitmapInfo, error) {
+	return func(dom cli.VirDomain) (map[string][]qmpBitmapInfo, error) {
+		result := make(map[string][]qmpBitmapInfo)
+		for file, bitmapName := range fileToBitmap {
+			if bitmapName != "" {
+				result[file] = []qmpBitmapInfo{{Name: bitmapName}}
+			}
 		}
-		return &osdisk.DiskInfo{
-			Format:      "qcow2",
-			VirtualSize: 10737418240,
-			FormatSpecific: &osdisk.FormatSpecific{
-				Type: "qcow2",
-				Data: &osdisk.FormatSpecificData{Bitmaps: bitmaps},
-			},
-		}, nil
+		return result, nil
 	}
 }
