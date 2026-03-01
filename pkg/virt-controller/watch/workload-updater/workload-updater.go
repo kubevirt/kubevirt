@@ -638,18 +638,17 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 			defer wg.Done()
 			migList := migrationutils.ListWorkloadUpdateMigrations(c.migrationIndexer, vmi.Name, vmi.Namespace)
 			for _, mig := range migList {
-				err = c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
+				err := c.clientset.VirtualMachineInstanceMigration(vmi.Namespace).Delete(context.Background(), mig.Name, metav1.DeleteOptions{})
 				if err != nil && !errors.IsNotFound(err) {
 					log.Log.Object(vmi).Reason(err).Errorf("Failed to delete the migration due to a migration abortion")
 					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, FailedChangeAbortionReason, "Failed to abort change for vmi: %s: %v", vmi.Name, err)
 					errChan <- err
+					return
 				} else if err == nil {
 					log.Log.Infof("Delete migration %s due to an update change abortion", mig.Name)
 					c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, SuccessfulChangeAbortionReason, "Aborted change for vmi: %s", vmi.Name)
-
 				}
 			}
-
 		}(vmi)
 	}
 	wg.Wait()
