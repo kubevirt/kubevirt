@@ -17,7 +17,7 @@
  *
  */
 
-package isolation
+package common
 
 import (
 	"github.com/mitchellh/go-ps"
@@ -107,3 +107,42 @@ func (p ProcessStub) PPid() int {
 func (p ProcessStub) Executable() string {
 	return p.binary
 }
+
+var _ = Describe("findIsolatedQemuProcess", func() {
+	const virtLauncherPid = 1
+	fakeProcess1 := ProcessStub{pid: virtLauncherPid, ppid: 0, binary: "fake-process-1"}
+	fakeProcess2 := ProcessStub{pid: 26, ppid: virtLauncherPid, binary: "fake-process-2"}
+	fakeProcess3 := ProcessStub{pid: 226, ppid: 26, binary: "fake-process-3"}
+	virtLauncherProcesses := []ps.Process{
+		fakeProcess1,
+		fakeProcess2,
+		fakeProcess3}
+
+	qemuKvmProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-kvm"}
+	qemuSystemProc := ProcessStub{pid: 101, ppid: virtLauncherPid, binary: "qemu-system-x86_64"}
+
+	qemuProcessExecutablePrefixes := []string{"qemu-system", "qemu-kvm"}
+
+	DescribeTable("should return QEMU process",
+		func(processes []ps.Process, pid int, expectedProcess ps.Process) {
+			proc, err := FindIsolatedQemuProcess(qemuProcessExecutablePrefixes, processes, pid)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(proc).To(Equal(expectedProcess))
+		},
+		Entry("when qemu-kvm binary running",
+			append(virtLauncherProcesses, qemuKvmProc),
+			virtLauncherPid,
+			qemuKvmProc,
+		),
+		Entry("when qemu-system binary running",
+			append(virtLauncherProcesses, qemuSystemProc),
+			virtLauncherPid,
+			qemuSystemProc,
+		),
+	)
+	It("should fail when no QEMU process exists", func() {
+		proc, err := FindIsolatedQemuProcess(qemuProcessExecutablePrefixes, virtLauncherProcesses, virtLauncherPid)
+		Expect(err).To(HaveOccurred())
+		Expect(proc).To(BeNil())
+	})
+})
