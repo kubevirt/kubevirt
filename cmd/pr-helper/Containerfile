@@ -1,0 +1,45 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2510281240-82d14f4b41
+ARG DISTROLESS_BASE_IMAGE=gcr.io/distroless/base-debian12:latest
+ARG CENTOS_STREAM_VERSION=9
+
+FROM ${BUILDER_IMAGE} AS builder
+
+ARG BUILD_ARCH=amd64
+ARG CENTOS_STREAM_VERSION=9
+ARG KUBEVIRT_VERSION
+
+WORKDIR /workspace
+
+COPY . .
+
+# Build RPM tarball using Bazel (contains qemu-pr-helper binary)
+RUN source /etc/profile.d/gimme.sh && \
+    export KUBEVIRT_BOOTSTRAPPING=true && \
+    case ${BUILD_ARCH} in \
+        amd64|x86_64) BAZEL_ARCH="x86_64" ;; \
+        arm64|aarch64|crossbuild-aarch64) BAZEL_ARCH="aarch64" ;; \
+        s390x|crossbuild-s390x) BAZEL_ARCH="s390x" ;; \
+        *) echo "ERROR: Unsupported BUILD_ARCH: ${BUILD_ARCH}"; exit 1 ;; \
+    esac && \
+    bazel build --config=cs${CENTOS_STREAM_VERSION} //rpm:pr-helper_${BAZEL_ARCH} && \
+    mkdir -p /rootfs && \
+    tar -xf bazel-bin/rpm/pr-helper_${BAZEL_ARCH}_cs${CENTOS_STREAM_VERSION}.tar -C /rootfs
+
+RUN echo "nonroot-user:x:1001:1001:nonroot user:/home/nonroot-user:/sbin/nologin" > /tmp/passwd
+
+FROM ${DISTROLESS_BASE_IMAGE}
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+COPY --from=builder /rootfs/ /
+
+COPY --from=builder /workspace/cmd/pr-helper/multipath.conf /etc/multipath.conf
+COPY --from=builder --chmod=0755 /workspace/cmd/pr-helper/entrypoint.sh /entrypoint.sh
+
+COPY --from=builder /workspace/.version /.version
+COPY --from=builder --chmod=0644 /tmp/passwd /etc/passwd
+
+USER 1001
+
+ENTRYPOINT ["/entrypoint.sh"]

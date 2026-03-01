@@ -1,0 +1,25 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2510281240-82d14f4b41
+ARG SIDECAR_SHIM_IMAGE=quay.io/kubevirt/sidecar-shim:latest
+
+FROM ${BUILDER_IMAGE} AS builder
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN source /etc/profile.d/gimme.sh && \
+    CGO_ENABLED=0 BIN_NAME=cloudinit KUBEVIRT_NO_BAZEL=true hack/build-go.sh install cmd/sidecars/cloudinit
+
+RUN cp /workspace/_out/cmd/cloudinit/cloudinit /tmp/preCloudInitIso
+
+FROM ${SIDECAR_SHIM_IMAGE}
+
+ARG BUILD_ARCH=amd64
+ARG KUBEVIRT_VERSION
+
+COPY --from=builder /tmp/preCloudInitIso /usr/bin/preCloudInitIso
+
+COPY --from=builder /workspace/.version /.version

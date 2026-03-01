@@ -1,0 +1,23 @@
+ARG BUILDER_IMAGE=quay.io/kubevirt/builder:2510281240-82d14f4b41
+ARG TESTING_BASE_IMAGE=quay.io/kubevirt/kubevirt-testing-base:latest
+
+FROM ${BUILDER_IMAGE} AS builder
+
+WORKDIR /workspace
+
+RUN source /etc/profile.d/gimme.sh && \
+    git clone https://github.com/masterzen/winrm-cli.git && \
+    cd winrm-cli && \
+    go build -o /tmp/winrm-cli
+
+# Build winrmcp
+RUN source /etc/profile.d/gimme.sh && \
+    git clone https://github.com/packer-community/winrmcp.git && \
+    cd winrmcp && \
+    go mod download && \
+    go build -o /tmp/winrmcp
+
+FROM ${TESTING_BASE_IMAGE}
+
+COPY --from=builder --chmod=0755 /tmp/winrm-cli /usr/bin/winrm-cli
+COPY --from=builder --chmod=0755 /tmp/winrmcp /usr/bin/winrmcp
