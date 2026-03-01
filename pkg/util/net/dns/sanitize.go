@@ -22,9 +22,16 @@ package dns
 import (
 	"strings"
 
+	"github.com/openshift/library-go/pkg/build/naming"
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
+)
+
+const (
+	// AccessCredentialsSuffix is the suffix used for access credentials volume names
+	// to ensure they remain DNS-1123 compliant even when the secret name is long
+	AccessCredentialsSuffix = "access-cred"
 )
 
 // Sanitize hostname according to DNS label rules
@@ -41,4 +48,11 @@ func SanitizeHostname(vmi *v1.VirtualMachineInstance) string {
 	}
 
 	return hostName
+}
+
+// SanitizeAccessCredentialVolumeName ensures the volume name conforms to DNS-1123 label standard.
+// It uses [naming.GetName] to properly handle length constraints while preserving
+// the AccessCredentialsSuffix, ensuring consistency with getSecretDir.
+func SanitizeAccessCredentialVolumeName(secretName string) string {
+	return naming.GetName(secretName, AccessCredentialsSuffix, validation.DNS1123LabelMaxLength)
 }

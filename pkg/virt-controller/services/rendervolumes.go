@@ -23,6 +23,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
+	"kubevirt.io/kubevirt/pkg/util/net/dns"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virtiofs"
 )
@@ -360,7 +361,7 @@ func withAccessCredentials(accessCredentials []v1.AccessCredential) VolumeRender
 			if secretName == "" {
 				continue
 			}
-			volumeName := secretName + "-access-cred"
+			volumeName := dns.SanitizeAccessCredentialVolumeName(secretName)
 			renderer.podVolumes = append(renderer.podVolumes, k8sv1.Volume{
 				Name: volumeName,
 				VolumeSource: k8sv1.VolumeSource{

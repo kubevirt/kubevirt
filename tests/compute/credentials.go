@@ -21,6 +21,7 @@ package compute
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,6 +30,7 @@ import (
 	expect "github.com/google/goexpect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	v1 "kubevirt.io/api/core/v1"
 
@@ -185,6 +187,47 @@ var _ = Describe(SIG("Guest Access Credentials", func() {
 					cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-set-user-password"),
 				))),
 		)
+	})
+
+	It("[test_id:12183]should handle 63-character secret names for access credentials", func() {
+		// Test with a 63-character secret name (DNS-1123 label maximum)
+		// This ensures the sanitization logic works correctly for long secret names
+		By("Creating a secret with a 63-character name containing an ssh key")
+		secretData := libsecret.DataBytes{
+			"my-key": []byte("ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkT test-ssh-key"),
+		}
+		longSecretName := strings.Repeat("a", validation.DNS1123LabelMaxLength)
+		Expect(createNewSecret(testsuite.GetTestNamespace(nil), longSecretName, secretData)).To(Succeed())
+
+		vmi := libvmops.RunVMIAndExpectLaunch(
+			libvmifact.NewFedora(
+				withSSHPK(longSecretName, v1.SSHPublicKeyAccessCredentialPropagationMethod{
+					QemuGuestAgent: &v1.QemuGuestAgentSSHPublicKeyAccessCredentialPropagation{
+						Users: []string{"fedora"},
+					},
+				}),
+			),
+			fedoraRunningTimeout,
+		)
+
+		By("Waiting for agent to connect")
+		Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+		By("Waiting on access credentials to sync")
+		Eventually(matcher.ThisVMI(vmi), denyListTimeout, time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAccessCredentialsSynchronized))
+
+		By("Verifying ssh key from long-named secret is in VMI guest")
+		Expect(console.ExpectBatch(vmi, []expect.Batcher{
+			&expect.BSnd{S: "\n"},
+			&expect.BSnd{S: "\n"},
+			&expect.BExp{R: "login:"},
+			&expect.BSnd{S: "fedora\n"},
+			&expect.BExp{R: "Password:"},
+			&expect.BSnd{S: fedoraPassword + "\n"},
+			&expect.BExp{R: "\\$"},
+			&expect.BSnd{S: "cat /home/fedora/.ssh/authorized_keys\n"},
+			&expect.BExp{R: "test-ssh-key"},
+		}, 3*time.Minute)).To(Succeed())
 	})
 }))
 
