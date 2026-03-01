@@ -799,6 +799,83 @@ var _ = Describe("ImageUpload", func() {
 			assertDataSource(ds, targetName, targetNamespace)
 		})
 
+		It("Should retry with a new token on authorization error", func() {
+			testInit(http.StatusOK)
+
+			actualRetries := 0
+			badAuthCount := map[int]int{2: 2, 4: 4}
+
+			// the server will return 401 two times (at the third and last retries),
+			// then 400 until the max retrie is reached.
+			// the upload command should handle the 401 by refreshing the token and retrying,
+			// and should not count the 401 responses against the max retries and should
+			// not return the 401 error
+			server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == "POST" {
+					if _, ok := badAuthCount[actualRetries]; ok {
+						w.WriteHeader(http.StatusUnauthorized)
+						delete(badAuthCount, actualRetries)
+					} else {
+						actualRetries++
+						w.WriteHeader(http.StatusBadRequest)
+					}
+				} else {
+					w.WriteHeader(http.StatusOK)
+				}
+			}))
+			args := []string{
+				commandName,
+				"--pvc-name", targetName,
+				"--size", pvcSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--image-path", imagePath,
+				"--retry=5"}
+
+			cmd := testing.NewRepeatableVirtctlCommand(args...)
+			reqErr := cmd()
+			Expect(reqErr).To(HaveOccurred())
+			Expect(badAuthCount).To(BeEmpty(), "should have returned 401 error twice", badAuthCount, actualRetries)
+			Expect(reqErr.Error()).To(ContainSubstring("error uploading image after 5 retries"))
+			Expect(reqErr.Error()).To(ContainSubstring("unexpected return value 400"))
+			Expect(reqErr.Error()).NotTo(ContainSubstring("unexpected return value 401"))
+			Expect(actualRetries).To(Equal(5), "should have 5 times of actual retries")
+		})
+
+		It("Should not exceed max token retries", func() {
+			testInit(http.StatusOK)
+
+			retry := 5
+			actualRequests := 0
+			expectedTokenRetries := retry/2 + 1
+			expectedTotalRetries := expectedTokenRetries + retry
+
+			// the server always returns 401
+			server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == "POST" {
+					w.WriteHeader(http.StatusUnauthorized)
+					actualRequests++
+				} else {
+					w.WriteHeader(http.StatusOK)
+				}
+			}))
+			args := []string{
+				commandName,
+				"--pvc-name", targetName,
+				"--size", pvcSize,
+				"--uploadproxy-url", server.URL,
+				"--insecure",
+				"--image-path", imagePath,
+				"--retry=5"}
+
+			cmd := testing.NewRepeatableVirtctlCommand(args...)
+			reqErr := cmd()
+			Expect(reqErr).To(HaveOccurred())
+			Expect(actualRequests).To(Equal(expectedTotalRetries), "acctual requests should equal retry + token retries", actualRequests, expectedTokenRetries)
+			Expect(reqErr.Error()).To(ContainSubstring("error uploading image after 5 retries"))
+			Expect(reqErr.Error()).To(ContainSubstring("unexpected return value 401"), "should finally return 401 error")
+		})
+
 		DescribeTable("Should retry on server returning error code", func(expected int, extraArgs ...string) {
 			testInit(http.StatusOK)
 
