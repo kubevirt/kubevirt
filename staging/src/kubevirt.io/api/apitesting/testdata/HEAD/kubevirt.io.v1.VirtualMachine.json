@@ -764,7 +764,13 @@
                 "name": "nameValue"
               },
               "networkDataBase64": "networkDataBase64Value",
-              "networkData": "networkDataValue"
+              "networkData": "networkDataValue",
+              "metaDataSecretRef": {
+                "name": "nameValue"
+              },
+              "metaData": {
+                "metaDataKey": "metaDataValue"
+              }
             },
             "cloudInitConfigDrive": {
               "secretRef": {
@@ -776,7 +782,13 @@
                 "name": "nameValue"
               },
               "networkDataBase64": "networkDataBase64Value",
-              "networkData": "networkDataValue"
+              "networkData": "networkDataValue",
+              "metaDataSecretRef": {
+                "name": "nameValue"
+              },
+              "metaData": {
+                "metaDataKey": "metaDataValue"
+              }
             },
             "sysprep": {
               "secret": {

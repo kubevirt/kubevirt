@@ -75,6 +75,8 @@ func (CloudInitNoCloudSource) SwaggerDoc() map[string]string {
 		"networkDataSecretRef": "NetworkDataSecretRef references a k8s secret that contains NoCloud networkdata.\n+ optional",
 		"networkDataBase64":    "NetworkDataBase64 contains NoCloud cloud-init networkdata as a base64 encoded string.\n+ optional",
 		"networkData":          "NetworkData contains NoCloud inline cloud-init networkdata.\n+ optional",
+		"metaDataSecretRef":    "MetaDataSecretRef references a k8s secret that contains NoCloud metadata.\n+ optional",
+		"metaData":             "MetaData contains NoCloud inline cloud-init metadata as key-value pairs.\n+ optional",
 	}
 }
 
@@ -87,6 +89,8 @@ func (CloudInitConfigDriveSource) SwaggerDoc() map[string]string {
 		"networkDataSecretRef": "NetworkDataSecretRef references a k8s secret that contains config drive networkdata.\n+ optional",
 		"networkDataBase64":    "NetworkDataBase64 contains config drive cloud-init networkdata as a base64 encoded string.\n+ optional",
 		"networkData":          "NetworkData contains config drive inline cloud-init networkdata.\n+ optional",
+		"metaDataSecretRef":    "MetaDataSecretRef references a k8s secret that contains config drive metadata.\n+ optional",
+		"metaData":             "MetaData contains config drive inline cloud-init metadata as key-value pairs.\n+ optional",
 	}
 }
 

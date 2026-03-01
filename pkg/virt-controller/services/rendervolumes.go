@@ -307,6 +307,24 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 				ReadOnly:  true,
 			})
 		}
+		if volume.CloudInitConfigDrive.MetaDataSecretRef != nil {
+			// attach a secret referenced by the metadata
+			volumeName := volume.Name + "-mdata"
+			vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+				Name: volumeName,
+				VolumeSource: k8sv1.VolumeSource{
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: volume.CloudInitConfigDrive.MetaDataSecretRef.Name,
+					},
+				},
+			})
+			vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      volumeName,
+				MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "metadata"),
+				SubPath:   "metadata",
+				ReadOnly:  true,
+			})
+		}
 	}
 }
 
@@ -850,6 +868,23 @@ func (vr *VolumeRenderer) handleCloudInitNoCloud(volume v1.Volume) {
 			Name:      volumeName,
 			MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkData"),
 			SubPath:   "networkData",
+			ReadOnly:  true,
+		})
+	}
+	if volume.CloudInitNoCloud.MetaDataSecretRef != nil {
+		// attach a secret referenced by the metadata
+		volumeName := volume.Name + "-mdata"
+		vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+			Name: volumeName,
+			VolumeSource: k8sv1.VolumeSource{
+				Secret: &k8sv1.SecretVolumeSource{
+					SecretName: volume.CloudInitNoCloud.MetaDataSecretRef.Name,
+				},
+			},
+		})
+		vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+			Name:      volumeName,
+			MountPath: filepath.Join(config.SecretSourceDir, volume.Name),
 			ReadOnly:  true,
 		})
 	}
