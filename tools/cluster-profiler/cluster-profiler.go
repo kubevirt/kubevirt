@@ -25,10 +25,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	flag "github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/klog/v2"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
@@ -45,8 +47,10 @@ const (
 )
 
 const (
-	defaultOutputDir    = "cluster-profiler-results"
-	defaultDumpPageSize = 10
+	defaultOutputDir     = "cluster-profiler-results"
+	defaultDumpPageSize  = 1 // fetch one component at a time.
+	defaultVerbosity     = 0
+	defaultLabelSelector = "kubevirt.io in (virt-api, virt-controller, virt-handler, virt-operator)"
 )
 
 func prepareDir(dir string, reuseOutputDir bool) error {
@@ -94,6 +98,8 @@ func main() {
 		labelSelector  string
 		pageSize       int
 		reuseOutputDir bool
+		verbosity      int
+		klogLevel      klog.Level
 	)
 
 	clientConfig := kubecli.DefaultClientConfig(flag.CommandLine)
@@ -103,13 +109,19 @@ func main() {
 	flag.IntVar(&pageSize, "page-size", defaultDumpPageSize, "Page size used for fetching profile results. Works only with dump command")
 	flag.StringVar(&continueToken, "continue", "", "Token to be used to continue fetching profiles")
 	flag.BoolVar(&reuseOutputDir, "reuse-output-dir", false, "Use output-dir even if exists and is not empty")
+	flag.IntVarP(&verbosity, "verbose", "v", defaultVerbosity, "verbosity level for logging")
 
-	// NOTE: To profile specific kubevirt component (for example virt-api) use `kubevirt.io=virt-operator` label selector.
-	flag.StringVar(&labelSelector, "l", "", "Label selector for limiting pods to fetch the profiler results from. Works only with 'dump' command. kubectl LIST label selector format expected")
+	// NOTE: To profile specific kubevirt component (for example virt-api) use `kubevirt.io=virt-api` label selector. Default to all control plane components.
+	flag.StringVar(&labelSelector, "l", defaultLabelSelector, "Label selector for limiting pods to fetch the profiler results from. Works only with 'dump' command. kubectl LIST label selector format expected")
 
 	flag.Parse()
 
-	if cmd != PROFILER_DUMP && len(labelSelector) > 0 {
+	if verbosity > 0 {
+		klogLevel.Set(strconv.Itoa(verbosity))
+	}
+
+	// Only allow custom labelSelector with dump command (default is always allowed)
+	if cmd != PROFILER_DUMP && labelSelector != defaultLabelSelector {
 		log.Fatalf("labelSelector can only be used with 'dump' command")
 	}
 
@@ -180,7 +192,13 @@ func fetchAndSaveClusterProfilerResults(c kubecli.KubevirtClient, pageSize int, 
 		}
 
 		if len(result.ComponentResults) == 0 {
-			break
+			// Don't break if there's a Continue token - more pages may have valid pods
+			if result.Continue == "" {
+				break
+			}
+			// Skip to next page
+			req.Continue = result.Continue
+			continue
 		}
 
 		err = writeResultsToDisk(outputDir, result)
