@@ -2198,7 +2198,7 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 		})
 	})
 
-	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check SMBios with default and custom values", func() {
+	Context("[rfe_id:2926][crit:medium][vendor:cnv-qe@redhat.com][level:component]Check SMBios with default and custom values", decorators.WgArm64, func() {
 
 		It("[test_id:2751]test default SMBios", func() {
 			kv := libkubevirt.GetCurrentKv(virtClient)
