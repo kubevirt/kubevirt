@@ -708,24 +708,30 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 					Name: "tablet0",
 					Bus:  v1.InputBus("ps2"),
 				}, 1, []string{"fake.domain.devices.inputs[0].bus"}, "Expect bus error"),
-			Entry("and reject input with keyboard type and virtio bus",
+			Entry("and accept input with keyboard type and virtio bus",
 				v1.Input{
 					Type: v1.InputTypeKeyboard,
-					Name: "tablet0",
+					Name: "keyboard0",
 					Bus:  v1.InputBusVirtio,
-				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
-			Entry("and reject input with keyboard type and usb bus",
+				}, 0, []string{}, "Expect no errors"),
+			Entry("and accept input with keyboard type and usb bus",
 				v1.Input{
 					Type: v1.InputTypeKeyboard,
-					Name: "tablet0",
+					Name: "keyboard0",
+					Bus:  v1.InputBusUSB,
+				}, 0, []string{}, "Expect no errors"),
+			Entry("and reject input with keyboard type and unsupported bus",
+				v1.Input{
+					Type: v1.InputTypeKeyboard,
+					Name: "keyboard0",
+					Bus:  v1.InputBus("ps2"),
+				}, 1, []string{"fake.domain.devices.inputs[0].bus"}, "Expect bus error"),
+			Entry("and reject input with unsupported type",
+				v1.Input{
+					Type: v1.InputType("mouse"),
+					Name: "mouse0",
 					Bus:  v1.InputBusUSB,
 				}, 1, []string{"fake.domain.devices.inputs[0].type"}, "Expect type error"),
-			Entry("and reject input with wrong type and wrong bus",
-				v1.Input{
-					Type: v1.InputTypeKeyboard,
-					Name: "tablet0",
-					Bus:  v1.InputBus("ps2"),
-				}, 2, []string{"fake.domain.devices.inputs[0].bus", "fake.domain.devices.inputs[0].type"}, "Expect type error"),
 		)
 
 		It("should reject negative requests.cpu value", func() {
