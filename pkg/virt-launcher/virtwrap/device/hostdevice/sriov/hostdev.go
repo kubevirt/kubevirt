@@ -115,7 +115,7 @@ func createHostDevicesMetadata(ifaces []v1.Interface) []hostdevice.HostDeviceMet
 	for _, iface := range ifaces {
 		hostDevicesMetaData = append(hostDevicesMetaData, hostdevice.HostDeviceMetaData{
 			AliasPrefix:  deviceinfo.SRIOVAliasPrefix,
-			Name:         iface.Name,
+			Name:         hostdevice.GenerateEncodedAliasIfNeeded(iface.Name),
 			ResourceName: iface.Name,
 			DecorateHook: newDecorateHook(iface),
 		})

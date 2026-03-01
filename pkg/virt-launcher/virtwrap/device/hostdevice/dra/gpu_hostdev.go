@@ -28,6 +28,7 @@ import (
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice"
 )
 
 const (
@@ -76,7 +77,7 @@ func getDRAPCIHostDevicesForGPUs(vmi *v1.VirtualMachineInstance) ([]api.HostDevi
 					return nil, fmt.Errorf("failed to create PCI device for %s: %v", gpu.Name, err)
 				}
 				hostDevices = append(hostDevices, api.HostDevice{
-					Alias:   api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
+					Alias:   api.NewUserDefinedAlias(AliasPrefix + hostdevice.GenerateEncodedAliasIfNeeded(gpu.Name)),
 					Source:  api.HostDeviceSource{Address: hostAddr},
 					Type:    api.HostDevicePCI,
 					Managed: "no",
@@ -103,7 +104,7 @@ func getDRAMDEVHostDevicesForGPUs(vmi *v1.VirtualMachineInstance, defaultDisplay
 			if gpu.DeviceResourceClaimStatus.Attributes.MDevUUID != nil {
 				log.Log.V(2).Infof("Adding DRA MDEV GPU device for %s", gpu.Name)
 				hostDevice := api.HostDevice{
-					Alias: api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
+					Alias: api.NewUserDefinedAlias(AliasPrefix + hostdevice.GenerateEncodedAliasIfNeeded(gpu.Name)),
 					Source: api.HostDeviceSource{
 						Address: &api.Address{
 							UUID: *gpu.DeviceResourceClaimStatus.Attributes.MDevUUID,

@@ -40,8 +40,9 @@ import (
 )
 
 const (
-	netname1 = "net1"
-	netname2 = "net2"
+	netname1       = "net1"
+	netname2       = "net2"
+	invalidNetname = "net1.dc.com"
 )
 
 var _ = Describe("SRIOV HostDevice", func() {
@@ -186,6 +187,25 @@ var _ = Describe("SRIOV HostDevice", func() {
 			guestPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x01", Slot: "0x01", Function: "0x0"}
 			expectHostDevice1 := api.HostDevice{
 				Alias:   newSRIOVAlias(netname1),
+				Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
+				Type:    api.HostDevicePCI,
+				Managed: "no",
+				Address: &guestPCIAddress1,
+			}
+			Expect(devices, err).To(Equal([]api.HostDevice{expectHostDevice1}))
+		})
+
+		It("creates 1 device that has invalid alias name", func() {
+			iface := newSRIOVInterface(invalidNetname)
+			iface.PciAddress = "0000:01:01.0"
+			pool := newPCIAddressPoolStub("0000:81:01.0", "0000:81:02.0")
+
+			devices, err := sriov.CreateHostDevicesFromIfacesAndPool([]v1.Interface{iface}, pool)
+
+			hostPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+			guestPCIAddress1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x01", Slot: "0x01", Function: "0x0"}
+			expectHostDevice1 := api.HostDevice{
+				Alias:   newSRIOVAlias(hostdevice.GenerateEncodedAliasIfNeeded(invalidNetname)),
 				Source:  api.HostDeviceSource{Address: &hostPCIAddress1},
 				Type:    api.HostDevicePCI,
 				Managed: "no",
