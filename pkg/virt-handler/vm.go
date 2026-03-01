@@ -1441,7 +1441,7 @@ func (c *VirtualMachineController) sync(key string,
 	if vmiExists && !vmi.IsFinal() {
 		// requiring the phase of the domain and VirtualMachineInstance to be in sync is an
 		// optimization that prevents unnecessary re-processing VMIs during the start flow.
-		phase, err := c.calculateVmPhaseForStatusReason(domain, vmi)
+		phase, _, err := c.calculateVmPhaseForStatusReason(domain, vmi)
 		if err != nil {
 			return err
 		}
@@ -2275,11 +2275,14 @@ func (c *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 }
 
 func (c *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) error {
-	phase, err := c.calculateVmPhaseForStatusReason(domain, vmi)
+	phase, reason, err := c.calculateVmPhaseForStatusReason(domain, vmi)
 	if err != nil {
 		return err
 	}
 	vmi.Status.Phase = phase
+	if reason != nil {
+		vmi.Status.Reason = *reason
+	}
 	return nil
 }
 
@@ -2302,7 +2305,7 @@ func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 		domain.Spec.Features.ACPI != nil
 }
 
-func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) (v1.VirtualMachineInstancePhase, error) {
+func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) (v1.VirtualMachineInstancePhase, *v1.VirtualMachineInstanceReason, error) {
 
 	if domain == nil {
 		switch {
@@ -2310,60 +2313,76 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			isUnresponsive, isInitialized, err := c.launcherClients.IsLauncherClientUnresponsive(vmi)
 
 			if err != nil {
-				return vmi.Status.Phase, err
+				return vmi.Status.Phase, nil, err
 			}
 			if !isInitialized {
 				c.queue.AddAfter(controller.VirtualMachineInstanceKey(vmi), time.Second*1)
-				return vmi.Status.Phase, err
+				return vmi.Status.Phase, nil, err
 			} else if isUnresponsive {
 				// virt-launcher is gone and VirtualMachineInstance never transitioned
 				// from scheduled to Running.
-				return v1.Failed, nil
+				return v1.Failed, nil, nil
 			}
-			return v1.Scheduled, nil
+			return v1.Scheduled, nil, nil
 		case !vmi.IsRunning() && !vmi.IsFinal():
-			return v1.Scheduled, nil
+			return v1.Scheduled, nil, nil
 		case !vmi.IsFinal():
 			// That is unexpected. We should not be able to delete a VirtualMachineInstance before we stop it.
 			// However, if someone directly interacts with libvirt it is possible
-			return v1.Failed, nil
+			return v1.Failed, nil, nil
 		}
 	} else {
 		switch domain.Status.Status {
 		case api.Shutoff, api.Crashed:
 			switch domain.Status.Reason {
 			case api.ReasonCrashed, api.ReasonPanicked:
-				return v1.Failed, nil
+				return v1.Failed, VmiStatusReasonFromDomainReason(domain.Status.Reason), nil
 			case api.ReasonDestroyed:
 				if isACPIEnabled(vmi, domain) {
 					// When ACPI is available, the domain was tried to be shutdown,
 					// and destroyed means that the domain was destroyed after the graceperiod expired.
 					// Without ACPI a destroyed domain is ok.
-					return v1.Failed, nil
+					return v1.Failed, nil, nil
 				}
 				if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Failed && vmi.Status.MigrationState.Mode == v1.MigrationPostCopy {
 					// A VMI that failed a post-copy migration should never succeed
-					return v1.Failed, nil
+					return v1.Failed, nil, nil
 				}
-				return v1.Succeeded, nil
-			case api.ReasonShutdown, api.ReasonSaved, api.ReasonFromSnapshot:
-				return v1.Succeeded, nil
+				return v1.Succeeded, VmiStatusReasonFromDomainReason(domain.Status.Reason), nil
+			case api.ReasonSaved, api.ReasonFromSnapshot, api.ReasonShutdown:
+				return v1.Succeeded, VmiStatusReasonFromDomainReason(domain.Status.Reason), nil
 			case api.ReasonMigrated:
 				// if the domain migrated, we no longer know the phase.
-				return vmi.Status.Phase, nil
+				return vmi.Status.Phase, nil, nil
 			}
 		case api.Paused:
 			switch domain.Status.Reason {
 			case api.ReasonPausedPostcopyFailed:
-				return v1.Failed, nil
+				return v1.Failed, nil, nil
 			default:
-				return v1.Running, nil
+				return v1.Running, nil, nil
 			}
 		case api.Running, api.Blocked, api.PMSuspended:
-			return v1.Running, nil
+			return v1.Running, nil, nil
 		}
 	}
-	return vmi.Status.Phase, nil
+	return vmi.Status.Phase, nil, nil
+}
+
+func VmiStatusReasonFromDomainReason(domainReason api.StateChangeReason) *v1.VirtualMachineInstanceReason {
+	switch domainReason {
+	case api.ReasonCrashed, api.ReasonPanicked:
+		reason := v1.CrashedReason
+		return &reason
+	case api.ReasonShutdown:
+		reason := v1.ShutdownReason
+		return &reason
+	case api.ReasonDestroyed:
+		reason := v1.DestroyedReason
+		return &reason
+	default:
+		return nil
+	}
 }
 
 func (c *VirtualMachineController) addDeleteFunc(obj interface{}) {
