@@ -27,13 +27,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	libdv "kubevirt.io/kubevirt/pkg/libdv"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	cd "kubevirt.io/kubevirt/tests/containerdisk"
@@ -226,36 +229,36 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 			initialDependencyCount := len(initialObjectGraph.Children)
 
 			By("Verifying the DataVolume is not included in the original graph")
-			dvFound := false
-			for _, child := range initialObjectGraph.Children {
-				if child.ObjectReference.Kind == "DataVolume" && child.ObjectReference.Name == dv.Name {
-					dvFound = true
-					break
-				}
-			}
-			// DV shouldn't be part of the initial graph
-			Expect(dvFound).To(BeFalse())
+			Expect(initialObjectGraph.Children).ToNot(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"ObjectReference": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Kind": Equal("DataVolume"),
+					"Name": Equal(dv.Name),
+				}),
+			})))
 
 			vm = libvmops.StopVirtualMachine(vm)
 
 			By("Adding the DataVolume to the VM")
-			vm.Spec.Template.Spec.Volumes = append(vm.Spec.Template.Spec.Volumes, v1.Volume{
-				Name: "test-datavolume",
-				VolumeSource: v1.VolumeSource{
-					DataVolume: &v1.DataVolumeSource{
-						Name: dv.Name,
+			p, err := patch.New(
+				patch.WithReplace("/spec/template/spec/domain/devices/disks", append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
+					Name: "test-datavolume",
+					DiskDevice: v1.DiskDevice{
+						Disk: &v1.DiskTarget{
+							Bus: "virtio",
+						},
 					},
-				},
-			})
-			vm.Spec.Template.Spec.Domain.Devices.Disks = append(vm.Spec.Template.Spec.Domain.Devices.Disks, v1.Disk{
-				Name: "test-datavolume",
-				DiskDevice: v1.DiskDevice{
-					Disk: &v1.DiskTarget{
-						Bus: "virtio",
+				})),
+				patch.WithReplace("/spec/template/spec/volumes", append(vm.Spec.Template.Spec.Volumes, v1.Volume{
+					Name: "test-datavolume",
+					VolumeSource: v1.VolumeSource{
+						DataVolume: &v1.DataVolumeSource{
+							Name: dv.Name,
+						},
 					},
-				},
-			})
-			vm, err = virtClient.VirtualMachine(vm.Namespace).Update(context.Background(), vm, metav1.UpdateOptions{})
+				})),
+			).GeneratePayload()
+			Expect(err).ToNot(HaveOccurred())
+			vm, err = virtClient.VirtualMachine(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, p, metav1.PatchOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
 			vm = libvmops.StartVirtualMachine(vm)
@@ -266,13 +269,12 @@ var _ = Describe("[sig-storage]ObjectGraph", decorators.SigStorage, func() {
 			Expect(len(updatedObjectGraph.Children)).To(BeNumerically(">", initialDependencyCount))
 
 			By("Verifying the DataVolume is included in the updated object graph")
-			for _, child := range updatedObjectGraph.Children {
-				if child.ObjectReference.Kind == "DataVolume" && child.ObjectReference.Name == dv.Name {
-					dvFound = true
-					break
-				}
-			}
-			Expect(dvFound).To(BeTrue())
+			Expect(updatedObjectGraph.Children).To(ContainElement(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+				"ObjectReference": gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{
+					"Kind": Equal("DataVolume"),
+					"Name": Equal(dv.Name),
+				}),
+			})))
 		})
 	})
 
