@@ -114,7 +114,8 @@ var _ = Describe("HotplugDisk", func() {
 
 	It("GetFileSystemDiskTargetPathFromHostView should fail on invalid UID", func() {
 		testUID := types.UID("abcde")
-		_, err := hotplug.GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", false)
+		res, err := hotplug.GetFileSystemDiskTargetPathFromHostView(testUID, "testvolume", false)
 		Expect(err).To(HaveOccurred())
+		Expect(res).To(BeNil())
 	})
 })

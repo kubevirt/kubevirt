@@ -44,7 +44,14 @@ func GenerateBridgeName(podInterfaceName string) string {
 	return "k6t-" + trimmedName
 }
 
-func GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName string) string {
+// maxIfaceNameLen is the maximum Linux interface name length.
+const maxIfaceNameLen = 15
+
+func GenerateNewBridgedVmiInterfaceName(originalPodInterfaceName string) (string, error) {
 	trimmedName := strings.TrimPrefix(originalPodInterfaceName, namescheme.HashedIfacePrefix)
-	return fmt.Sprintf("%s-nic", trimmedName)
+	result := fmt.Sprintf("%s-nic", trimmedName)
+	if len(result) > maxIfaceNameLen {
+		return "", fmt.Errorf("generated interface name %q exceeds the maximum allowed length of %d characters", result, maxIfaceNameLen)
+	}
+	return result, nil
 }
