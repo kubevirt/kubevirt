@@ -324,6 +324,91 @@ var _ = Describe("Apply Apps", func() {
 			daemonSet.Generation = 1
 		})
 
+		Context("kubelet root directory configuration", func() {
+			It("should use default kubelet root when not specified", func() {
+				// Verify the daemonset created in BeforeEach uses default paths
+				Expect(daemonSet.Spec.Template.Spec.Containers).ToNot(BeEmpty())
+				handlerContainer := &daemonSet.Spec.Template.Spec.Containers[0]
+
+				// Check for kubelet-root flag with default value
+				foundKubeletRoot := false
+				foundKubeletPodsDir := false
+				for i := 0; i < len(handlerContainer.Args)-1; i++ {
+					if handlerContainer.Args[i] == "--kubelet-root" && handlerContainer.Args[i+1] == "/var/lib/kubelet" {
+						foundKubeletRoot = true
+					}
+					if handlerContainer.Args[i] == "--kubelet-pods-dir" && handlerContainer.Args[i+1] == "/var/lib/kubelet/pods" {
+						foundKubeletPodsDir = true
+					}
+				}
+				Expect(foundKubeletRoot).To(BeTrue(), "expected --kubelet-root flag with default value")
+				Expect(foundKubeletPodsDir).To(BeTrue(), "expected --kubelet-pods-dir flag with default value")
+
+				// Check volumes use default paths
+				foundKubeletVolume := false
+				foundPodsVolume := false
+				for _, vol := range daemonSet.Spec.Template.Spec.Volumes {
+					if vol.HostPath != nil {
+						if vol.HostPath.Path == "/var/lib/kubelet" {
+							foundKubeletVolume = true
+						}
+						if vol.HostPath.Path == "/var/lib/kubelet/pods" {
+							foundPodsVolume = true
+						}
+					}
+				}
+				Expect(foundKubeletVolume).To(BeTrue(), "expected hostPath volume for /var/lib/kubelet")
+				Expect(foundPodsVolume).To(BeTrue(), "expected hostPath volume for /var/lib/kubelet/pods")
+			})
+
+			It("should use custom kubelet root when specified", func() {
+				customRoot := "/var/lib/rancher/k3s/agent/kubelet"
+				config := &util.KubeVirtDeploymentConfig{
+					Registry:        Registry,
+					KubeVirtVersion: Version,
+					Namespace:       Namespace,
+					AdditionalProperties: map[string]string{
+						"KubeletRootDir": customRoot,
+					},
+				}
+
+				customDaemonSet := components.NewHandlerDaemonSet(config, "", "", "")
+
+				Expect(customDaemonSet.Spec.Template.Spec.Containers).ToNot(BeEmpty())
+				handlerContainer := &customDaemonSet.Spec.Template.Spec.Containers[0]
+
+				// Check for kubelet-root flag with custom value
+				foundKubeletRoot := false
+				foundKubeletPodsDir := false
+				for i := 0; i < len(handlerContainer.Args)-1; i++ {
+					if handlerContainer.Args[i] == "--kubelet-root" && handlerContainer.Args[i+1] == customRoot {
+						foundKubeletRoot = true
+					}
+					if handlerContainer.Args[i] == "--kubelet-pods-dir" && handlerContainer.Args[i+1] == customRoot+"/pods" {
+						foundKubeletPodsDir = true
+					}
+				}
+				Expect(foundKubeletRoot).To(BeTrue(), "expected --kubelet-root flag with custom value")
+				Expect(foundKubeletPodsDir).To(BeTrue(), "expected --kubelet-pods-dir flag with custom value")
+
+				// Check volumes use custom paths
+				foundKubeletVolume := false
+				foundPodsVolume := false
+				for _, vol := range customDaemonSet.Spec.Template.Spec.Volumes {
+					if vol.HostPath != nil {
+						if vol.HostPath.Path == customRoot {
+							foundKubeletVolume = true
+						}
+						if vol.HostPath.Path == customRoot+"/pods" {
+							foundPodsVolume = true
+						}
+					}
+				}
+				Expect(foundKubeletVolume).To(BeTrue(), "expected hostPath volume for custom kubelet root")
+				Expect(foundPodsVolume).To(BeTrue(), "expected hostPath volume for custom kubelet pods")
+			})
+		})
+
 		Context("setting virt-handler maxDevices flag", func() {
 			vmiPerNode := 10
 
