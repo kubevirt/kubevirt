@@ -20,6 +20,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virtctl/vm",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/apimachinery:go_default_library",
         "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -53,6 +54,7 @@ go_test(
     race = "on",
     deps = [
         ":go_default_library",
+        "//pkg/apimachinery:go_default_library",
         "//pkg/pointer:go_default_library",
         "//pkg/virtctl/testing:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -67,6 +69,7 @@ go_test(
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/runtime:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/util/rand:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
         "//vendor/k8s.io/client-go/testing:go_default_library",
         "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
