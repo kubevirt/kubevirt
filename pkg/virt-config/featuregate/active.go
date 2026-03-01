@@ -221,7 +221,7 @@ const (
 )
 
 func init() {
-	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: LibvirtHooksServerAndClient, State: Alpha, EnabledByDefault: true})
 	RegisterFeatureGate(FeatureGate{Name: ImageVolume, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: CPUManager, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: IgnitionGate, State: Alpha})
