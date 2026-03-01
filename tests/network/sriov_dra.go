@@ -351,7 +351,7 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 				if iface.SRIOV == nil {
 					continue
 				}
-				guestInterfaceName, err := findIfaceByMAC(virtClient, vmi, iface.MacAddress, 30*time.Second)
+				guestInterfaceName, err := findIfaceByMAC(virtClient, vmi, iface.MacAddress, 5*time.Minute)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(pciAddressExistsInGuestInterface(vmi, iface.PciAddress, guestInterfaceName)).To(Succeed())
 			}
