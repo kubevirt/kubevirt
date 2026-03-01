@@ -609,9 +609,17 @@ func (m *migrationMonitor) startMonitor() {
 	logInterval := 0
 
 	for {
+		var isOpen bool
 		err = nil
 		select {
-		case err = <-m.migrationErr:
+		case err, isOpen = <-m.migrationErr:
+			if !isOpen {
+				migration, _ := m.l.metadataCache.Migration.Load()
+				if migration.EndTimestamp != nil {
+					logger.V(4).Info("Migration finished and result recorded. Stopping monitor.")
+					return
+				}
+			}
 		case <-time.After(monitorSleepPeriodMS * time.Millisecond):
 		}
 
