@@ -851,6 +851,34 @@ status:
     remove: true
     startTimestamp: "1986-01-01T01:01:01Z"
   observedGeneration: -18
+  persistentStateVolume:
+    containerDiskVolume:
+      checksum: 4294967288
+    hotplugVolume:
+      attachPodName: attachPodNameValue
+      attachPodUID: attachPodUIDValue
+    memoryDumpVolume:
+      claimName: claimNameValue
+      endTimestamp: "1988-01-01T01:01:01Z"
+      startTimestamp: "1986-01-01T01:01:01Z"
+      targetFileName: targetFileNameValue
+    message: messageValue
+    name: nameValue
+    persistentVolumeClaimInfo:
+      accessModes:
+      - accessModesValue
+      capacity:
+        capacityKey: "0"
+      claimName: claimNameValue
+      filesystemOverhead: filesystemOverheadValue
+      preallocated: true
+      requests:
+        requestsKey: "0"
+      volumeMode: volumeModeValue
+    phase: phaseValue
+    reason: reasonValue
+    size: -4
+    target: targetValue
   preferenceRef:
     controllerRevisionRef:
       name: nameValue

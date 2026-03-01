@@ -8677,6 +8677,131 @@ var CRDsValidation map[string]string = map[string]string{
             started.
           format: int64
           type: integer
+        persistentStateVolume:
+          description: |-
+            PersistentStateVolume tracks the backend storage PVC status
+            containing persistent VM state (UEFI, TPM, CBT)
+          nullable: true
+          properties:
+            containerDiskVolume:
+              description: ContainerDiskVolume shows info about the containerdisk,
+                if the volume is a containerdisk
+              properties:
+                checksum:
+                  description: Checksum is the checksum of the rootdisk or kernel
+                    artifacts inside the containerdisk
+                  format: int32
+                  type: integer
+              type: object
+            hotplugVolume:
+              description: If the volume is hotplug, this will contain the hotplug
+                status.
+              properties:
+                attachPodName:
+                  description: AttachPodName is the name of the pod used to attach
+                    the volume to the node.
+                  type: string
+                attachPodUID:
+                  description: AttachPodUID is the UID of the pod used to attach the
+                    volume to the node.
+                  type: string
+              type: object
+            memoryDumpVolume:
+              description: If the volume is memorydump volume, this will contain the
+                memorydump info.
+              properties:
+                claimName:
+                  description: ClaimName is the name of the pvc the memory was dumped
+                    to
+                  type: string
+                endTimestamp:
+                  description: EndTimestamp is the time when the memory dump completed
+                  format: date-time
+                  type: string
+                startTimestamp:
+                  description: StartTimestamp is the time when the memory dump started
+                  format: date-time
+                  type: string
+                targetFileName:
+                  description: TargetFileName is the name of the memory dump output
+                  type: string
+              type: object
+            message:
+              description: Message is a detailed message about the current hotplug
+                volume phase
+              type: string
+            name:
+              description: Name is the name of the volume
+              type: string
+            persistentVolumeClaimInfo:
+              description: PersistentVolumeClaimInfo is information about the PVC
+                that handler requires during start flow
+              properties:
+                accessModes:
+                  description: |-
+                    AccessModes contains the desired access modes the volume should have.
+                    More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                  items:
+                    type: string
+                  type: array
+                  x-kubernetes-list-type: atomic
+                capacity:
+                  additionalProperties:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  description: Capacity represents the capacity set on the corresponding
+                    PVC status
+                  type: object
+                claimName:
+                  description: ClaimName is the name of the PVC
+                  type: string
+                filesystemOverhead:
+                  description: Percentage of filesystem's size to be reserved when
+                    resizing the PVC
+                  pattern: ^(0(?:\.\d{1,3})?|1)$
+                  type: string
+                preallocated:
+                  description: Preallocated indicates if the PVC's storage is preallocated
+                    or not
+                  type: boolean
+                requests:
+                  additionalProperties:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  description: Requests represents the resources requested by the
+                    corresponding PVC spec
+                  type: object
+                volumeMode:
+                  description: |-
+                    VolumeMode defines what type of volume is required by the claim.
+                    Value of Filesystem is implied when not included in claim spec.
+                  type: string
+              type: object
+            phase:
+              description: Phase is the phase
+              type: string
+            reason:
+              description: Reason is a brief description of why we are in the current
+                hotplug volume phase
+              type: string
+            size:
+              description: Represents the size of the volume
+              format: int64
+              type: integer
+            target:
+              description: 'Target is the target name used when adding the volume
+                to the VM, eg: vda'
+              type: string
+          required:
+          - name
+          - target
+          type: object
         preferenceRef:
           description: PreferenceRef captures the state of any referenced preference
             from the VirtualMachine
@@ -31851,6 +31976,134 @@ var CRDsValidation map[string]string = map[string]string{
                         the vmi when started.
                       format: int64
                       type: integer
+                    persistentStateVolume:
+                      description: |-
+                        PersistentStateVolume tracks the backend storage PVC status
+                        containing persistent VM state (UEFI, TPM, CBT)
+                      nullable: true
+                      properties:
+                        containerDiskVolume:
+                          description: ContainerDiskVolume shows info about the containerdisk,
+                            if the volume is a containerdisk
+                          properties:
+                            checksum:
+                              description: Checksum is the checksum of the rootdisk
+                                or kernel artifacts inside the containerdisk
+                              format: int32
+                              type: integer
+                          type: object
+                        hotplugVolume:
+                          description: If the volume is hotplug, this will contain
+                            the hotplug status.
+                          properties:
+                            attachPodName:
+                              description: AttachPodName is the name of the pod used
+                                to attach the volume to the node.
+                              type: string
+                            attachPodUID:
+                              description: AttachPodUID is the UID of the pod used
+                                to attach the volume to the node.
+                              type: string
+                          type: object
+                        memoryDumpVolume:
+                          description: If the volume is memorydump volume, this will
+                            contain the memorydump info.
+                          properties:
+                            claimName:
+                              description: ClaimName is the name of the pvc the memory
+                                was dumped to
+                              type: string
+                            endTimestamp:
+                              description: EndTimestamp is the time when the memory
+                                dump completed
+                              format: date-time
+                              type: string
+                            startTimestamp:
+                              description: StartTimestamp is the time when the memory
+                                dump started
+                              format: date-time
+                              type: string
+                            targetFileName:
+                              description: TargetFileName is the name of the memory
+                                dump output
+                              type: string
+                          type: object
+                        message:
+                          description: Message is a detailed message about the current
+                            hotplug volume phase
+                          type: string
+                        name:
+                          description: Name is the name of the volume
+                          type: string
+                        persistentVolumeClaimInfo:
+                          description: PersistentVolumeClaimInfo is information about
+                            the PVC that handler requires during start flow
+                          properties:
+                            accessModes:
+                              description: |-
+                                AccessModes contains the desired access modes the volume should have.
+                                More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1
+                              items:
+                                type: string
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            capacity:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: Capacity represents the capacity set on
+                                the corresponding PVC status
+                              type: object
+                            claimName:
+                              description: ClaimName is the name of the PVC
+                              type: string
+                            filesystemOverhead:
+                              description: Percentage of filesystem's size to be reserved
+                                when resizing the PVC
+                              pattern: ^(0(?:\.\d{1,3})?|1)$
+                              type: string
+                            preallocated:
+                              description: Preallocated indicates if the PVC's storage
+                                is preallocated or not
+                              type: boolean
+                            requests:
+                              additionalProperties:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                x-kubernetes-int-or-string: true
+                              description: Requests represents the resources requested
+                                by the corresponding PVC spec
+                              type: object
+                            volumeMode:
+                              description: |-
+                                VolumeMode defines what type of volume is required by the claim.
+                                Value of Filesystem is implied when not included in claim spec.
+                              type: string
+                          type: object
+                        phase:
+                          description: Phase is the phase
+                          type: string
+                        reason:
+                          description: Reason is a brief description of why we are
+                            in the current hotplug volume phase
+                          type: string
+                        size:
+                          description: Represents the size of the volume
+                          format: int64
+                          type: integer
+                        target:
+                          description: 'Target is the target name used when adding
+                            the volume to the VM, eg: vda'
+                          type: string
+                      required:
+                      - name
+                      - target
+                      type: object
                     preferenceRef:
                       description: PreferenceRef captures the state of any referenced
                         preference from the VirtualMachine

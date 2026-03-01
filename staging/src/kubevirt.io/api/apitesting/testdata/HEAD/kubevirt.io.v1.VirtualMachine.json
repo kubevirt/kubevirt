@@ -1361,6 +1361,42 @@
         ]
       }
     },
+    "persistentStateVolume": {
+      "name": "nameValue",
+      "target": "targetValue",
+      "phase": "phaseValue",
+      "reason": "reasonValue",
+      "message": "messageValue",
+      "persistentVolumeClaimInfo": {
+        "claimName": "claimNameValue",
+        "accessModes": [
+          "accessModesValue"
+        ],
+        "volumeMode": "volumeModeValue",
+        "capacity": {
+          "capacityKey": "0"
+        },
+        "requests": {
+          "requestsKey": "0"
+        },
+        "preallocated": true,
+        "filesystemOverhead": "filesystemOverheadValue"
+      },
+      "hotplugVolume": {
+        "attachPodName": "attachPodNameValue",
+        "attachPodUID": "attachPodUIDValue"
+      },
+      "size": -4,
+      "memoryDumpVolume": {
+        "startTimestamp": "1986-01-01T01:01:01Z",
+        "endTimestamp": "1988-01-01T01:01:01Z",
+        "claimName": "claimNameValue",
+        "targetFileName": "targetFileNameValue"
+      },
+      "containerDiskVolume": {
+        "checksum": 4294967288
+      }
+    },
     "instancetypeRef": {
       "name": "nameValue",
       "kind": "kindValue",

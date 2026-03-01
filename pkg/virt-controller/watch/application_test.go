@@ -186,6 +186,7 @@ var _ = Describe("Application", func() {
 		)
 		app.migrationController, _ = migration.NewController(services.NewTemplateService("a", 240, "b", "c", "d", "e", "f", pvcInformer.GetStore(), virtClient, config, qemuGid, "g", resourceQuotaInformer.GetStore(), namespaceInformer.GetStore()),
 			vmiInformer,
+			vmInformer,
 			podInformer,
 			migrationInformer,
 			nodeInformer,

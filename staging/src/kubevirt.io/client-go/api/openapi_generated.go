@@ -29925,6 +29925,12 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 							Ref:         ref("kubevirt.io/api/core/v1.ChangedBlockTrackingStatus"),
 						},
 					},
+					"persistentStateVolume": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PersistentStateVolume tracks the backend storage PVC status containing persistent VM state (UEFI, TPM, CBT)",
+							Ref:         ref("kubevirt.io/api/core/v1.VolumeStatus"),
+						},
+					},
 					"instancetypeRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "InstancetypeRef captures the state of any referenced instance type from the VirtualMachine",
@@ -29941,7 +29947,7 @@ func schema_kubevirtio_api_core_v1_VirtualMachineStatus(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"kubevirt.io/api/core/v1.ChangedBlockTrackingStatus", "kubevirt.io/api/core/v1.InstancetypeStatusRef", "kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus", "kubevirt.io/api/core/v1.VolumeUpdateState"},
+			"kubevirt.io/api/core/v1.ChangedBlockTrackingStatus", "kubevirt.io/api/core/v1.InstancetypeStatusRef", "kubevirt.io/api/core/v1.VirtualMachineCondition", "kubevirt.io/api/core/v1.VirtualMachineMemoryDumpRequest", "kubevirt.io/api/core/v1.VirtualMachineStartFailure", "kubevirt.io/api/core/v1.VirtualMachineStateChangeRequest", "kubevirt.io/api/core/v1.VirtualMachineVolumeRequest", "kubevirt.io/api/core/v1.VolumeSnapshotStatus", "kubevirt.io/api/core/v1.VolumeStatus", "kubevirt.io/api/core/v1.VolumeUpdateState"},
 	}
 }
 
