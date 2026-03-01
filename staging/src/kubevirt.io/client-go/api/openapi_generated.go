@@ -21066,11 +21066,17 @@ func schema_kubevirtio_api_core_v1_EphemeralVolumeSource(ref common.ReferenceCal
 							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"),
 						},
 					},
+					"capacity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Capacity specifies the virtual size of the ephemeral disk overlay. If set, the qcow2 overlay will be created with this virtual size, allowing the guest to see a larger disk than the backing PVC. The overlay is sparse and only consumes space for written data. If omitted, the overlay defaults to the size of the backing PVC.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimVolumeSource", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

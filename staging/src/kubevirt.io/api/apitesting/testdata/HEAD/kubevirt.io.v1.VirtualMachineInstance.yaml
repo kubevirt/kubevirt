@@ -586,6 +586,7 @@ spec:
     emptyDisk:
       capacity: "0"
     ephemeral:
+      capacity: "0"
       persistentVolumeClaim:
         claimName: claimNameValue
         readOnly: true
