@@ -120,9 +120,9 @@ func (g Generator) GenerateFromActivePod(vmi *v1.VirtualMachineInstance, pod *k8
 		annotations[downwardapi.NetworkInfoAnnot] = networkInfoAnnotation
 	}
 
-	if updatedMultusAnnotation, shouldUpdate := g.generateMultusAnnotation(vmi, pod); shouldUpdate {
-		annotations[networkv1.NetworkAttachmentAnnot] = updatedMultusAnnotation
-	}
+	//if updatedMultusAnnotation, shouldUpdate := g.generateMultusAnnotation(vmi, pod); shouldUpdate {
+	//	annotations[networkv1.NetworkAttachmentAnnot] = updatedMultusAnnotation
+	//}
 
 	return annotations
 }
