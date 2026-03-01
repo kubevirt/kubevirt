@@ -26,11 +26,13 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -311,6 +313,10 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 
 	if pvc := backendstorage.PVCForVMI(c.pvcIndexer, vmi); pvc != nil {
 		c.backendStorage.UpdateVolumeStatus(vmiCopy, pvc)
+	}
+
+	if c.clusterConfig.VmiMemoryOverheadReportEnabled() && vmiPodExists {
+		c.updateMemoryOverheadStatusFromPod(vmiCopy, pod)
 	}
 
 	switch {
@@ -1109,6 +1115,26 @@ func (c *Controller) requireMemoryHotplug(vmi *virtv1.VirtualMachineInstance) bo
 		return false
 	}
 	return vmi.Spec.Domain.Memory.Guest.Value() != vmi.Status.Memory.GuestRequested.Value()
+}
+
+func (c *Controller) updateMemoryOverheadStatusFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
+	if pod == nil || pod.Annotations == nil {
+		return
+	}
+	overheadStr, exists := pod.Annotations[virtv1.MemoryOverheadAnnotationBytes]
+	if !exists {
+		return
+	}
+	overheadBytes, err := strconv.ParseInt(overheadStr, 10, 64)
+	if err != nil {
+		log.Log.Object(vmi).Warningf("Failed to parse memory overhead annotation: %v", err)
+		return
+	}
+	overhead := resource.NewQuantity(overheadBytes, resource.BinarySI)
+	if vmi.Status.Memory == nil {
+		vmi.Status.Memory = &virtv1.MemoryStatus{}
+	}
+	vmi.Status.Memory.MemoryOverhead = overhead
 }
 
 func (c *Controller) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {

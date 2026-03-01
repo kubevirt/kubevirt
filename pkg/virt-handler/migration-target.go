@@ -209,6 +209,13 @@ func (c *MigrationTargetController) ackMigrationCompletion(vmi *v1.VirtualMachin
 	// new workloads will set the migrationTransport on creation, however legacy workloads
 	// can make the switch only after the first migration
 	vmi.Status.MigrationTransport = v1.MigrationTransportUnix
+	// Update the memory overhead to reflect the target pod's overhead after migration completes
+	if vmi.Status.MigrationState.TargetMemoryOverhead != nil {
+		if vmi.Status.Memory == nil {
+			vmi.Status.Memory = &v1.MemoryStatus{}
+		}
+		vmi.Status.Memory.MemoryOverhead = vmi.Status.MigrationState.TargetMemoryOverhead
+	}
 	c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Migrated.String(), fmt.Sprintf("The VirtualMachineInstance migrated to node %s.", c.host))
 	c.logger.Object(vmi).Info("The target node detected that the migration has completed")
 }
@@ -924,11 +931,18 @@ func (c *MigrationTargetController) hotplugMemory(vmi *v1.VirtualMachineInstance
 		return fmt.Errorf("cannot parse Memory requests from VMI label: %v", err)
 	}
 
-	overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
-	requiredMemory := hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
-	requiredMemory.Add(
-		c.netBindingPluginMemoryCalculator.Calculate(vmi, c.clusterConfig.GetNetworkBindings()),
-	)
+	var requiredMemory resource.Quantity
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
+		requiredMemory = *vmi.Status.MigrationState.TargetMemoryOverhead
+	} else {
+		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
+		// and we are sure that all VMIs include the MemoryOverhead status field
+		overheadRatio := vmi.Labels[v1.MemoryHotplugOverheadRatioLabel]
+		requiredMemory = hypervisor.NewLauncherHypervisorResources(v1.KvmHypervisorName).GetMemoryOverhead(vmi, runtime.GOARCH, &overheadRatio)
+		requiredMemory.Add(
+			c.netBindingPluginMemoryCalculator.Calculate(vmi, c.clusterConfig.GetNetworkBindings()),
+		)
+	}
 
 	requiredMemory.Add(*vmi.Spec.Domain.Resources.Requests.Memory())
 

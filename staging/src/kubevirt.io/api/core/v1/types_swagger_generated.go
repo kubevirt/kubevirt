@@ -311,6 +311,7 @@ func (VirtualMachineInstanceMigrationState) SwaggerDoc() map[string]string {
 		"sourceState":                    "SourceState contains migration state managed by the source virt handler",
 		"targetState":                    "TargetState contains migration state managed by the target virt handler",
 		"migrationNetworkType":           "The type of migration network, either 'pod' or 'migration'",
+		"targetMemoryOverhead":           "TargetMemoryOverhead is the memory overhead of the target virt-launcher pod\n+optional",
 	}
 }
 

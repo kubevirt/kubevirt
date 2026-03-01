@@ -36,6 +36,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -1204,6 +1205,11 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 	vmiCopy.Status.MigrationState.SourceNode = vmi.Status.NodeName
 	vmiCopy.Status.MigrationState.TargetPod = pod.Name
 
+	// Set target memory overhead from pod annotation
+	if c.clusterConfig.VmiMemoryOverheadReportEnabled() {
+		c.updateTargetMemoryOverheadFromPod(vmiCopy, pod)
+	}
+
 	if migration.IsDecentralized() {
 		vmiCopy.Status.MigrationState.TargetState.MigrationUID = migration.UID
 		vmiCopy.Status.MigrationState.TargetState.Node = pod.Spec.NodeName
@@ -1281,6 +1287,23 @@ func (c *Controller) handleTargetPodHandoff(migration *virtv1.VirtualMachineInst
 	log.Log.Object(vmi).Infof("Handed off migration %s/%s to target virt-handler.", migration.Namespace, migration.Name)
 	c.recorder.Eventf(migration, k8sv1.EventTypeNormal, controller.SuccessfulHandOverPodReason, "Migration target pod is ready for preparation by virt-handler.")
 	return nil
+}
+
+func (c *Controller) updateTargetMemoryOverheadFromPod(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
+	if pod == nil || pod.Annotations == nil {
+		return
+	}
+	overheadStr, exists := pod.Annotations[virtv1.MemoryOverheadAnnotationBytes]
+	if !exists {
+		return
+	}
+	overheadBytes, err := strconv.ParseInt(overheadStr, 10, 64)
+	if err != nil {
+		log.Log.Object(vmi).Warningf("Failed to parse memory overhead annotation: %v", err)
+		return
+	}
+	overhead := resource.NewQuantity(overheadBytes, resource.BinarySI)
+	vmi.Status.MigrationState.TargetMemoryOverhead = overhead
 }
 
 func (c *Controller) markMigrationAbortInVmiStatus(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {

@@ -222,6 +222,7 @@ func (MemoryStatus) SwaggerDoc() map[string]string {
 		"guestAtBoot":    "GuestAtBoot specifies with how much memory the VirtualMachine intiallly booted with.\n+optional",
 		"guestCurrent":   "GuestCurrent specifies how much memory is currently available for the VirtualMachine.\n+optional",
 		"guestRequested": "GuestRequested specifies how much memory was requested (hotplug) for the VirtualMachine.\n+optional",
+		"memoryOverhead": "MemoryOverhead specifies the memory overhead added by the virtualization infrastructure\nfor the virt-launcher pod.\n+optional",
 	}
 }
 
