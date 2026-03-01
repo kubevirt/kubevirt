@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	expect "github.com/google/goexpect"
+	nadv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	k8sv1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -491,7 +492,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		BeforeEach(func() {
-			netAttachDef := libnet.NewSriovNetAttachDef(sriovnetLinkEnabled, defaultVLAN, libnet.WithLinkState())
+			netAttachDef := newSriovNADWithConditionalLinkState(sriovnetLinkEnabled, defaultVLAN, sriovNode)
 			netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
 			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
 			Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
@@ -538,7 +539,7 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				ipVlaned1, err = libnet.CidrToIP(cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
 
-				netAttachDef := libnet.NewSriovNetAttachDef(sriovnetVlanned, specificVLAN, libnet.WithLinkState())
+				netAttachDef := newSriovNADWithConditionalLinkState(sriovnetVlanned, specificVLAN, sriovNode)
 				netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
 				_, err = libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
 				Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
@@ -922,4 +923,57 @@ func lookupDeviceVCPUAffinityOnPod(pod *k8sv1.Pod, pciAddress string, domSpec *a
 		}
 	}
 	return alignedVCPUs
+}
+
+func newSriovNADWithConditionalLinkState(name string, vlanID int, nodeName string) *nadv1.NetworkAttachmentDefinition {
+	if sriovVFLinkStateChangeSupported(nodeName) {
+		return libnet.NewSriovNetAttachDef(name, vlanID, libnet.WithLinkState())
+	}
+	return libnet.NewSriovNetAttachDef(name, vlanID)
+}
+
+// sriovVFLinkStateChangeSupported decides whether to include link_state=enable
+// in the SR-IOV NAD. The check is intentionally read-only (no ip link set
+// probing) to avoid side effects during test setup.
+//
+// For emulated SR-IOV in kubevirtci (QEMU igb), PFs are exposed with a known
+// signature (driver=igb, vendor/device=0x8086/0x10c9, subsystem_vendor=0x1af4)
+// and VF link-state changes are not supported by the driver.
+//
+// In that emulated case, return false so NADs are created without link_state.
+// Otherwise, return true and keep link_state=enable for real hardware.
+func sriovVFLinkStateChangeSupported(nodeName string) bool {
+	probeScript := `for pf in /sys/class/net/*/device/sriov_numvfs; do
+  [ -f "$pf" ] || continue
+  numvfs=$(cat "$pf" 2>/dev/null)
+  [ "$numvfs" -gt 0 ] || continue
+  dev=$(basename "$(dirname "$(dirname "$pf")")")
+  driver=$(basename "$(readlink -f "/sys/class/net/$dev/device/driver" 2>/dev/null)")
+  vendor=$(cat "/sys/class/net/$dev/device/vendor" 2>/dev/null)
+  device=$(cat "/sys/class/net/$dev/device/device" 2>/dev/null)
+  subsystemVendor=$(cat "/sys/class/net/$dev/device/subsystem_vendor" 2>/dev/null)
+  if [ "$driver" = "igb" ] && [ "$vendor" = "0x8086" ] && [ "$device" = "0x10c9" ] && [ "$subsystemVendor" = "0x1af4" ]; then
+    echo "emulated"
+  else
+    echo "supported"
+  fi
+  exit 0
+done
+echo "no-sriov"`
+
+	stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName,
+		[]string{"nsenter", "--target", "1", "--mount", "--net", "--", "bash", "-c", probeScript})
+	if err != nil {
+		GinkgoWriter.Printf("WARNING: failed to probe SR-IOV PF on node %s: %v, defaulting to NAD with link_state=enable\n", nodeName, err)
+		return true
+	}
+	result := strings.TrimSpace(stdout)
+	if result == "emulated" {
+		GinkgoWriter.Printf("WARNING: emulated SR-IOV detected on node %s, creating NAD without link_state=enable\n", nodeName)
+		return false
+	}
+	if result != "supported" {
+		GinkgoWriter.Printf("WARNING: unexpected SR-IOV probe result on node %s (%s), defaulting to NAD with link_state=enable\n", nodeName, result)
+	}
+	return true
 }
