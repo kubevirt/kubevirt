@@ -101,6 +101,14 @@ func SynchronizedBeforeTestSetup() []byte {
 	libstorage.Config, err = libstorage.LoadConfig()
 	Expect(err).ToNot(HaveOccurred())
 
+	if flags.StorageClass != "" {
+		virtClient := kubevirt.Client()
+		err = libstorage.DiscoverStorageCapabilitiesFromSC(virtClient, flags.StorageClass)
+		if err != nil {
+			fmt.Printf("Failed to discover storage capabilities from %s: %v, using JSON config\n", flags.StorageClass, err)
+		}
+	}
+
 	if flags.KubeVirtInstallNamespace == "" {
 		detectInstallNamespace()
 	}
