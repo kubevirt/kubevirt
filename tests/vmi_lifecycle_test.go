@@ -1407,11 +1407,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			vmi := libvmops.RunVMIAndExpectLaunch(libvmifact.NewFedora(withoutACPI()), vmiLaunchTimeout)
 
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
-
-			err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
+			bootID, err := readBootID(vmi, console.LoginToFedora)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitForVMIRebooted(vmi, console.LoginToFedora)
+			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			waitForBootIDChange(vmi, console.LoginToFedora, bootID)
 		})
 
 		It("soft reboot vmi with ACPI feature enabled should succeed", decorators.Conformance, func() {
@@ -1422,13 +1424,15 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			err := console.RunCommand(vmi, "sudo systemctl disable --now qemu-guest-agent", 10*time.Second)
 			Expect(err).ToNot(HaveOccurred(), "Should disable qemu-guest-agent service in the VMI")
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
+			bootID, err := readBootID(vmi, console.LoginToFedora)
+			Expect(err).ToNot(HaveOccurred())
 
 			By("Trigger soft reboot")
 			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Waiting for VMI to reboot")
-			waitForVMIRebooted(vmi, console.LoginToFedora)
+			waitForBootIDChange(vmi, console.LoginToFedora, bootID)
 		})
 
 		It("soft reboot vmi neither have the agent connected nor the ACPI feature enabled should fail", decorators.Conformance, func() {
@@ -1457,11 +1461,13 @@ var _ = Describe("[rfe_id:273][crit:high][vendor:cnv-qe@redhat.com][level:compon
 			Eventually(matcher.ThisVMI(vmi), 30*time.Second, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstancePaused))
 
 			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			bootID, err := readBootID(vmi, console.LoginToFedora)
+			Expect(err).ToNot(HaveOccurred())
 
 			err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).SoftReboot(context.Background(), vmi.Name)
 			Expect(err).ToNot(HaveOccurred())
 
-			waitForVMIRebooted(vmi, console.LoginToFedora)
+			waitForBootIDChange(vmi, console.LoginToFedora, bootID)
 		})
 	})
 
@@ -1760,13 +1766,37 @@ func pkillVMI(client kubecli.KubevirtClient, vmi *v1.VirtualMachineInstance) err
 	return err
 }
 
-func waitForVMIRebooted(vmi *v1.VirtualMachineInstance, login console.LoginToFunction) {
+func readBootID(vmi *v1.VirtualMachineInstance, login console.LoginToFunction) (string, error) {
+	const bootIDPattern = `(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}`
+	bootIDRegex := regexp.MustCompile(bootIDPattern)
+
+	if err := login(vmi); err != nil {
+		return "", err
+	}
+	res, err := console.SafeExpectBatchWithResponse(vmi, []expect.Batcher{
+		&expect.BSnd{S: "cat /proc/sys/kernel/random/boot_id\n"},
+		&expect.BExp{R: console.RetValue(bootIDPattern)},
+	}, 15)
+	if err != nil {
+		return "", err
+	}
+	bootID := bootIDRegex.FindString(res[0].Match[0])
+	if bootID == "" {
+		return "", fmt.Errorf("failed to parse boot_id from guest response")
+	}
+	return strings.ToLower(bootID), nil
+}
+
+func waitForBootIDChange(vmi *v1.VirtualMachineInstance, login console.LoginToFunction, preRebootBootID string) {
 	By(fmt.Sprintf("Waiting for vmi %s rebooted", vmi.Name))
-	Expect(login(vmi)).To(Succeed())
-	Expect(console.SafeExpectBatch(vmi, []expect.Batcher{
-		&expect.BSnd{S: "last reboot | grep reboot | wc -l\n"},
-		&expect.BExp{R: "2"},
-	}, 300)).To(Succeed(), "expected reboot record")
+	// SoftReboot is async; retry until the guest boot_id changes (boot_id is regenerated on every boot).
+	Eventually(func() string {
+		newBootID, err := readBootID(vmi, login)
+		if err != nil || newBootID == "" {
+			return preRebootBootID
+		}
+		return newBootID
+	}, 300*time.Second, 5*time.Second).ShouldNot(Equal(preRebootBootID), "expected guest to reboot (boot_id change)")
 }
 
 func withoutACPI() libvmi.Option {
