@@ -61,9 +61,10 @@ func virtualMachineOptions(
 			bochsDisplay = false
 		}
 		options.ClusterConfig = &cmdv1.ClusterConfig{
-			FreePageReportingDisabled: clusterConfig.IsFreePageReportingDisabled(),
-			BochsDisplayForEFIGuests:  bochsDisplay,
-			SerialConsoleLogDisabled:  clusterConfig.IsSerialConsoleLogDisabled(),
+			FreePageReportingDisabled:   clusterConfig.IsFreePageReportingDisabled(),
+			BochsDisplayForEFIGuests:    bochsDisplay,
+			SerialConsoleLogDisabled:    clusterConfig.IsSerialConsoleLogDisabled(),
+			PCINUMAAwareTopologyEnabled: clusterConfig.PCINUMAAwareTopologyEnabled(),
 		}
 	}
 

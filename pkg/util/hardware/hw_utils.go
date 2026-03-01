@@ -35,6 +35,8 @@ import (
 
 const (
 	PCI_ADDRESS_PATTERN = `^([\da-fA-F]{4}):([\da-fA-F]{2}):([\da-fA-F]{2})\.([0-7]{1})$`
+
+	MAX_CPU_LIMIT = 50000
 )
 
 // Parse linux cpuset into an array of ints
@@ -113,9 +115,13 @@ func ParsePciAddress(pciAddress string) ([]string, error) {
 	return res[1:], nil
 }
 
+var (
+	PciBasePath  = "/sys/bus/pci/devices"
+	NodeBasePath = "/sys/bus/node/devices"
+)
+
 func GetDeviceNumaNode(pciAddress string) (*uint32, error) {
-	pciBasePath := "/sys/bus/pci/devices"
-	numaNodePath := filepath.Join(pciBasePath, pciAddress, "numa_node")
+	numaNodePath := filepath.Join(PciBasePath, pciAddress, "numa_node")
 	// #nosec No risk for path injection. Reading static path of NUMA node info
 	numaNodeStr, err := os.ReadFile(numaNodePath)
 	if err != nil {
@@ -143,13 +149,13 @@ func GetDeviceAlignedCPUs(pciAddress string) ([]int, error) {
 }
 
 func GetNumaNodeCPUList(numaNode int) ([]int, error) {
-	filePath := fmt.Sprintf("/sys/bus/node/devices/node%d/cpulist", numaNode)
+	filePath := filepath.Join(NodeBasePath, fmt.Sprintf("node%d", numaNode), "cpulist")
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 	content = bytes.TrimSpace(content)
-	cpusList, err := ParseCPUSetLine(string(content[:]), 50000)
+	cpusList, err := ParseCPUSetLine(string(content[:]), MAX_CPU_LIMIT)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse cpulist file: %v", err)
 	}
@@ -165,7 +171,6 @@ func LookupDeviceVCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]
 		return nil, err
 	}
 
-	// make sure that the VMI has cpus from this numa node.
 	cpuTune := domainSpec.CPUTune.VCPUPin
 	for _, vcpuPin := range cpuTune {
 		p2vCPUMap[vcpuPin.CPUSet] = vcpuPin.VCPU
@@ -177,4 +182,90 @@ func LookupDeviceVCPUAffinity(pciAddress string, domainSpec *api.DomainSpec) ([]
 		}
 	}
 	return alignedVCPUList, nil
+}
+
+func PCIAddressToString(pciBusID *api.Address) string {
+	if pciBusID == nil {
+		return ""
+	}
+	prefix := "0x"
+	return fmt.Sprintf("%s:%s:%s.%s",
+		strings.TrimPrefix(pciBusID.Domain, prefix),
+		strings.TrimPrefix(pciBusID.Bus, prefix),
+		strings.TrimPrefix(pciBusID.Slot, prefix),
+		strings.TrimPrefix(pciBusID.Function, prefix))
+}
+
+// LookupDevicesNumaNodes looks up the NUMA nodes of multiple devices based on
+// their PCI addresses and the domain spec of the virtual machine.
+//
+// It returns a map of PCI addresses to their corresponding NUMA node IDs.
+func LookupDevicesNumaNodes(pciAddresses []string, domainSpec *api.DomainSpec) map[string]uint32 {
+	results := make(map[string]uint32)
+	if len(pciAddresses) == 0 || domainSpec == nil || domainSpec.CPU.NUMA == nil || domainSpec.CPUTune == nil {
+		return results
+	}
+
+	// pcpu -> vcpu mapping
+	p2vCPUMap := make(map[uint32]uint32)
+	cpuTune := domainSpec.CPUTune.VCPUPin
+	for _, vcpuPin := range cpuTune {
+		pc, err := ParseCPUSetLine(vcpuPin.CPUSet, MAX_CPU_LIMIT)
+		if err != nil {
+			continue
+		}
+		for _, p := range pc {
+			p2vCPUMap[uint32(p)] = vcpuPin.VCPU
+		}
+	}
+
+	// vcpu -> vnuma mapping
+	vCPUToCellMap := make(map[uint32]uint32)
+	for _, cell := range domainSpec.CPU.NUMA.Cells {
+		vcpusInCell, err := ParseCPUSetLine(cell.CPUs, MAX_CPU_LIMIT)
+		if err != nil {
+			continue
+		}
+
+		cellID, err := strconv.Atoi(cell.ID)
+		if err != nil {
+			continue
+		}
+
+		for _, vcpu := range vcpusInCell {
+			vCPUToCellMap[uint32(vcpu)] = uint32(cellID)
+		}
+	}
+
+	// pnuma -> pcpu cache
+	pNumaToPCPUSetMap := make(map[uint32][]uint32)
+	for _, pciAddress := range pciAddresses {
+		deviceNuma, err := GetDeviceNumaNode(pciAddress)
+		if err != nil {
+			continue
+		}
+		var pcpus []uint32
+		// if another device is already on this NUMA node, use the same pcpu set
+		if res, exists := pNumaToPCPUSetMap[*deviceNuma]; exists {
+			pcpus = res
+		} else {
+			pcpusNuma, err := GetNumaNodeCPUList(int(*deviceNuma))
+			if err != nil {
+				continue
+			}
+			for _, pcpu := range pcpusNuma {
+				pcpus = append(pcpus, uint32(pcpu))
+			}
+			pNumaToPCPUSetMap[*deviceNuma] = pcpus
+		}
+
+		for _, pcpu := range pcpus {
+			if vCPU, exist := p2vCPUMap[pcpu]; exist {
+				cellID := vCPUToCellMap[vCPU]
+				results[pciAddress] = cellID
+				break
+			}
+		}
+	}
+	return results
 }
