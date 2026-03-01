@@ -40,9 +40,6 @@ function up() {
 
     configure_registry_proxy
 
-    # remove the rancher.io kind default storageClass
-    _kubectl delete sc standard --ignore-not-found
-
     echo "$KUBEVIRT_PROVIDER cluster '$CLUSTER_NAME' is ready"
 }
 
