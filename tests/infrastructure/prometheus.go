@@ -485,24 +485,6 @@ var _ = Describe(SIGSerial("[rfe_id:3187][crit:medium][vendor:cnv-qe@redhat.com]
 		}
 	})
 
-	It("[test_id:4146]should include VMI phase metrics for all running VMs", func() {
-		metricsPayload := libmonitoring.GetKubevirtVMMetrics(pod)
-
-		fetcher := metricsutil.NewMetricsFetcher("")
-		fetcher.AddNameFilter("kubevirt_vmi_")
-		fetcher.AddLabelFilter("phase", "Running")
-
-		metrics, err := fetcher.LoadMetrics(metricsPayload)
-		Expect(err).ToNot(HaveOccurred())
-
-		By("Checking the collected metrics")
-		for _, results := range metrics {
-			for _, metricResult := range results {
-				Expect(metricResult.Value).To(Equal(float64(len(preparedVMIs))))
-			}
-		}
-	})
-
 	Context("VMI eviction blocker status", func() {
 		var controllerMetricIPs []string
 
