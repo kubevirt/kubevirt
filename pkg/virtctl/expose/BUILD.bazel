@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/apimachinery:go_default_library",
+        "//pkg/pointer:go_default_library",
         "//pkg/virtctl/clientconfig:go_default_library",
         "//pkg/virtctl/templates:go_default_library",
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
@@ -14,6 +15,7 @@ go_library(
         "//vendor/github.com/spf13/cobra:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/runtime/schema:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
     ],
 )
@@ -40,6 +42,7 @@ go_test(
         "//vendor/go.uber.org/mock/gomock:go_default_library",
         "//vendor/k8s.io/api/core/v1:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/apis/meta/v1:go_default_library",
+        "//vendor/k8s.io/apimachinery/pkg/types:go_default_library",
         "//vendor/k8s.io/apimachinery/pkg/util/intstr:go_default_library",
         "//vendor/k8s.io/client-go/kubernetes/fake:go_default_library",
     ],
