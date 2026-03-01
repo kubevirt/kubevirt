@@ -29,59 +29,56 @@ import (
 )
 
 var _ = Describe("Hostmetrics", func() {
-
-	var (
-		tempSysDir string
-	)
+	var tempSysDir string
 
 	BeforeEach(func() {
 		tempSysDir = GinkgoT().TempDir()
 
 		type topology struct {
-			coreId             string
-			physicalPackageId  string
+			coreID             string
+			physicalPackageID  string
 			coreSiblingsList   string
 			threadSiblingsList string
 		}
 
 		for i, cpuTopology := range []topology{{
-			coreId:             "0",
-			physicalPackageId:  "0",
+			coreID:             "0",
+			physicalPackageID:  "0",
 			coreSiblingsList:   "0-5",
 			threadSiblingsList: "0,4",
 		}, {
-			coreId:             "1",
-			physicalPackageId:  "0",
+			coreID:             "1",
+			physicalPackageID:  "0",
 			coreSiblingsList:   "0-5",
 			threadSiblingsList: "1,5",
 		}, {
-			coreId:             "2",
-			physicalPackageId:  "0",
+			coreID:             "2",
+			physicalPackageID:  "0",
 			coreSiblingsList:   "0-5",
 			threadSiblingsList: "2",
 		}, {
-			coreId:             "3",
-			physicalPackageId:  "0",
+			coreID:             "3",
+			physicalPackageID:  "0",
 			coreSiblingsList:   "0-5",
 			threadSiblingsList: "3",
 		}, {
-			coreId:             "0",
-			physicalPackageId:  "0",
+			coreID:             "0",
+			physicalPackageID:  "0",
 			coreSiblingsList:   "0-5",
 			threadSiblingsList: "1,4",
 		}, {
-			coreId:             "1",
-			physicalPackageId:  "0",
+			coreID:             "1",
+			physicalPackageID:  "0",
 			coreSiblingsList:   "0-5",
 			threadSiblingsList: "2,5",
 		}, {
-			coreId:             "2",
-			physicalPackageId:  "1",
+			coreID:             "2",
+			physicalPackageID:  "1",
 			coreSiblingsList:   "6",
 			threadSiblingsList: "6",
 		}, {
-			coreId:             "3",
-			physicalPackageId:  "2",
+			coreID:             "3",
+			physicalPackageID:  "2",
 			coreSiblingsList:   "7",
 			threadSiblingsList: "7",
 		}} {
@@ -89,10 +86,15 @@ var _ = Describe("Hostmetrics", func() {
 				fmt.Sprintf("cpu%d", i), "topology")
 			Expect(os.MkdirAll(topologyDir, os.ModePerm)).To(Succeed())
 
-			Expect(os.WriteFile(filepath.Join(topologyDir, "core_id"), []byte(cpuTopology.coreId), os.ModePerm)).To(Succeed())
-			Expect(os.WriteFile(filepath.Join(topologyDir, "physical_package_id"), []byte(cpuTopology.physicalPackageId), os.ModePerm)).To(Succeed())
-			Expect(os.WriteFile(filepath.Join(topologyDir, "core_siblings_list"), []byte(cpuTopology.coreSiblingsList), os.ModePerm)).To(Succeed())
-			Expect(os.WriteFile(filepath.Join(topologyDir, "thread_siblings_list"), []byte(cpuTopology.threadSiblingsList), os.ModePerm)).To(Succeed())
+			const filePermissions = 0o600
+			Expect(os.WriteFile(filepath.Join(topologyDir, "core_id"), []byte(cpuTopology.coreID), filePermissions)).
+				To(Succeed())
+			Expect(os.WriteFile(filepath.Join(topologyDir, "physical_package_id"), []byte(cpuTopology.physicalPackageID), filePermissions)).
+				To(Succeed())
+			Expect(os.WriteFile(filepath.Join(topologyDir, "core_siblings_list"), []byte(cpuTopology.coreSiblingsList), filePermissions)).
+				To(Succeed())
+			Expect(os.WriteFile(filepath.Join(topologyDir, "thread_siblings_list"), []byte(cpuTopology.threadSiblingsList), filePermissions)).
+				To(Succeed())
 		}
 	})
 
