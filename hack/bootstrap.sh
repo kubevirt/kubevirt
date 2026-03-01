@@ -26,7 +26,7 @@ KUBEVIRT_NO_BAZEL=${KUBEVIRT_NO_BAZEL:-false}
 HOST_ARCHITECTURE="$(uname -m)"
 
 sandbox_root=${SANDBOX_DIR}/default/root
-sandbox_hash="4be7a8fedf653d7ab6bcdbcd4e888c11fe8c3983"
+sandbox_hash="9c2cbad42b88f97bd0b072535ce3ab159ea3e76e"
 
 function kubevirt::bootstrap::regenerate() {
     (
@@ -64,7 +64,7 @@ build --sandbox_add_mount_pair=${sandbox_root}/lib64:/lib64
 build --sandbox_add_mount_pair=${sandbox_root}/lib:/lib
 build --sandbox_add_mount_pair=${sandbox_root}/bin:/bin
 
-build --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:x86_64-none-linux-gnu
+build --incompatible_enable_cc_toolchain_resolution --platforms=//bazel/platforms:${HOST_ARCHITECTURE}-none-linux-gnu
 EOT
 }
 
