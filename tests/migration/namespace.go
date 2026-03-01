@@ -630,8 +630,8 @@ var _ = Describe(SIG("Live Migration across namespaces", decorators.RequiresDece
 				return targetVMI.Status.Phase
 			}).WithTimeout(time.Minute).WithPolling(2 * time.Second).Should(Equal(virtv1.WaitingForSync))
 		},
-			Entry("[QUARANTINE] delete source migration", decorators.Quarantine, true),
-			Entry("[QUARANTINE]delete target migration", decorators.Quarantine, false),
+			Entry("delete source migration", true),
+			Entry("delete target migration", false),
 		)
 
 		It("should properly propagate failure from target to source", func() {
