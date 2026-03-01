@@ -43,14 +43,16 @@ import (
 )
 
 type DeviceHandler interface {
-	GetDeviceIOMMUGroup(basepath string, pciAddress string) (string, error)
-	GetDeviceDriver(basepath string, pciAddress string) (string, error)
-	GetDeviceNumaNode(basepath string, pciAddress string) (numaNode int)
-	GetDevicePCIID(basepath string, pciAddress string) (string, error)
+	GetDeviceIOMMUGroup(basepath, pciAddress string) (string, error)
+	GetDeviceDriver(basepath, pciAddress string) (string, error)
+	GetDeviceNumaNode(basepath, pciAddress string) (numaNode int)
+	GetDevicePCIID(basepath, pciAddress string) (string, error)
 	GetMdevParentPCIAddr(mdevUUID string) (string, error)
 	CreateMDEVType(mdevType string, parentID string) error
 	RemoveMDEVType(mdevUUID string) error
 	ReadMDEVAvailableInstances(mdevType string, parentID string) (int, error)
+	HasVGPUProfile(basepath, pciAddress string) bool
+	IsPhysicalFunction(basepath, pciAddress string) bool
 }
 
 type DeviceUtilsHandler struct{}
@@ -194,6 +196,29 @@ func (h *DeviceUtilsHandler) ReadMDEVAvailableInstances(mdevType string, parentI
 	}
 
 	return i, nil
+}
+
+// Returns true if the device has a vGPU profile assigned (current_vgpu_type != 0).
+func (h *DeviceUtilsHandler) HasVGPUProfile(basepath, pciAddress string) bool {
+	vgpuTypePath := filepath.Join(basepath, pciAddress, "nvidia", "current_vgpu_type")
+	data, err := os.ReadFile(vgpuTypePath)
+	if err != nil {
+		return false
+	}
+
+	vgpuType := strings.TrimSpace(string(data))
+	return vgpuType != "" && vgpuType != "0"
+}
+
+// IsPhysicalFunction checks if a PCI device is an SR-IOV Physical Function by
+// looking for sriov_totalvfs subdirectories in its sysfs path. Only Physical Functions
+// have these subdirectories representing their associated Virtual Functions.
+func (h *DeviceUtilsHandler) IsPhysicalFunction(basepath, pciAddress string) bool {
+	fpath := filepath.Join(basepath, pciAddress, "sriov_totalvfs")
+
+	_, err := os.Stat(fpath)
+
+	return err == nil
 }
 
 func waitForGRPCServer(socketPath string, timeout time.Duration) error {
