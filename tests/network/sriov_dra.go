@@ -376,13 +376,8 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 			sriovNode = draSRIOVNodeName()
 			Expect(sriovNode).NotTo(BeEmpty(), "could not find a schedulable node with sriov_capable=true label")
 
-			err := libnet.CreateSRIOVNetworkWithDRA(
-				context.Background(),
-				testsuite.NamespaceTestDefault,
-				networkNameLinked,
-				driverName,
-				defaultVLAN,
-				libnet.WithLinkState(),
+			err := createDRASRIOVNetworkWithConditionalLinkState(
+				testsuite.NamespaceTestDefault, networkNameLinked, driverName, defaultVLAN, sriovNode,
 			)
 			Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
 
@@ -446,13 +441,8 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 					if netName == networkNonVlanned {
 						vlanID = defaultVLAN
 					}
-					err := libnet.CreateSRIOVNetworkWithDRA(
-						context.Background(),
-						testsuite.NamespaceTestDefault,
-						netName,
-						driverName,
-						vlanID,
-						libnet.WithLinkState(),
+					err := createDRASRIOVNetworkWithConditionalLinkState(
+						testsuite.NamespaceTestDefault, netName, driverName, vlanID, sriovNode,
 					)
 					Expect(err).NotTo(HaveOccurred(), "should create NAD and ResourceClaimTemplate")
 				}
@@ -589,4 +579,57 @@ func lookupDeviceVCPUAffinityOnPod(pod *k8sv1.Pod, pciAddress string, domSpec *a
 		}
 	}
 	return alignedVCPUs
+}
+
+func createDRASRIOVNetworkWithConditionalLinkState(namespace, networkName, driverName string, vlanID int, nodeName string) error {
+	if draSRIOVVFLinkStateChangeSupported(nodeName) {
+		return libnet.CreateSRIOVNetworkWithDRA(context.Background(), namespace, networkName, driverName, vlanID, libnet.WithLinkState())
+	}
+	return libnet.CreateSRIOVNetworkWithDRA(context.Background(), namespace, networkName, driverName, vlanID)
+}
+
+// draSRIOVVFLinkStateChangeSupported decides whether to include link_state=enable
+// in the SR-IOV NAD. The check is intentionally read-only (no ip link set
+// probing) to avoid side effects during test setup.
+//
+// For emulated SR-IOV in kubevirtci (QEMU igb), PFs are exposed with a known
+// signature (driver=igb, vendor/device=0x8086/0x10c9, subsystem_vendor=0x1af4)
+// and VF link-state changes are not supported by the driver.
+//
+// In that emulated case, return false so NADs are created without link_state.
+// Otherwise, return true and keep link_state=enable for real hardware.
+func draSRIOVVFLinkStateChangeSupported(nodeName string) bool {
+	probeScript := `for pf in /sys/class/net/*/device/sriov_numvfs; do
+  [ -f "$pf" ] || continue
+  numvfs=$(cat "$pf" 2>/dev/null)
+  [ "$numvfs" -gt 0 ] || continue
+  dev=$(basename "$(dirname "$(dirname "$pf")")")
+  driver=$(basename "$(readlink -f "/sys/class/net/$dev/device/driver" 2>/dev/null)")
+  vendor=$(cat "/sys/class/net/$dev/device/vendor" 2>/dev/null)
+  device=$(cat "/sys/class/net/$dev/device/device" 2>/dev/null)
+  subsystemVendor=$(cat "/sys/class/net/$dev/device/subsystem_vendor" 2>/dev/null)
+  if [ "$driver" = "igb" ] && [ "$vendor" = "0x8086" ] && [ "$device" = "0x10c9" ] && [ "$subsystemVendor" = "0x1af4" ]; then
+    echo "emulated"
+  else
+    echo "supported"
+  fi
+  exit 0
+done
+echo "no-sriov"`
+
+	stdout, err := libnode.ExecuteCommandInVirtHandlerPod(nodeName,
+		[]string{"nsenter", "--target", "1", "--mount", "--net", "--", "bash", "-c", probeScript})
+	if err != nil {
+		GinkgoWriter.Printf("WARNING: failed to probe SR-IOV PF on node %s: %v, defaulting to NAD with link_state=enable\n", nodeName, err)
+		return true
+	}
+	result := strings.TrimSpace(stdout)
+	if result == "emulated" {
+		GinkgoWriter.Printf("WARNING: emulated SR-IOV detected on node %s, creating NAD without link_state=enable\n", nodeName)
+		return false
+	}
+	if result != "supported" {
+		GinkgoWriter.Printf("WARNING: unexpected SR-IOV probe result on node %s (%s), defaulting to NAD with link_state=enable\n", nodeName, result)
+	}
+	return true
 }
