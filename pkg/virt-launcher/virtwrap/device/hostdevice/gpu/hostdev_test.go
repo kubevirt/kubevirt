@@ -214,3 +214,170 @@ func (p *stubAddressPool) Pop(resource string) (string, error) {
 
 	return address, nil
 }
+
+func (p *stubAddressPool) PopAll(resource string) []string {
+	var addresses []string
+	for {
+		addr, err := p.Pop(resource)
+		if err != nil {
+			break
+		}
+		addresses = append(addresses, addr)
+	}
+	return addresses
+}
+
+var _ = Describe("GPU IOMMU Companion Devices", func() {
+	const (
+		gpuPCIAddress2 = "0000:81:01.2"
+		gpuPCIAddress3 = "0000:81:01.3"
+	)
+
+	var vmi *v1.VirtualMachineInstance
+
+	BeforeEach(func() {
+		vmi = &v1.VirtualMachineInstance{}
+	})
+
+	It("creates IOMMU companion devices for remaining addresses in pool", func() {
+		// GPU with one requested device but two PCI addresses in pool (GPU + audio controller)
+		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{DeviceName: gpuResource0, Name: gpuName0},
+		}
+		pciPool := newAddressPoolStub()
+		// First address is for the GPU, second is for the IOMMU companion (e.g., audio controller)
+		pciPool.AddResource(gpuResource0, gpuPCIAddress0, gpuPCIAddress1)
+		mdevPool := newAddressPoolStub()
+
+		hostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Should have 2 devices: 1 primary GPU + 1 IOMMU companion
+		Expect(hostDevices).To(HaveLen(2))
+
+		// First device should be the primary GPU with the first PCI address
+		Expect(hostDevices[0].Alias.GetName()).To(Equal(gpu.AliasPrefix + gpuName0))
+		expectedPrimaryAddr := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		Expect(*hostDevices[0].Source.Address).To(Equal(expectedPrimaryAddr))
+
+		// Second device should be the IOMMU companion with the second PCI address
+		Expect(hostDevices[1].Alias.GetName()).To(ContainSubstring("iommu-companion"))
+		Expect(hostDevices[1].Type).To(Equal(api.HostDevicePCI))
+		Expect(hostDevices[1].Managed).To(Equal("no"))
+		expectedCompanionAddr := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"}
+		Expect(*hostDevices[1].Source.Address).To(Equal(expectedCompanionAddr))
+	})
+
+	It("creates multiple IOMMU companion devices when pool has many addresses", func() {
+		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{DeviceName: gpuResource0, Name: gpuName0},
+		}
+		pciPool := newAddressPoolStub()
+		// GPU with 3 additional IOMMU group members
+		pciPool.AddResource(gpuResource0, gpuPCIAddress0, gpuPCIAddress1, gpuPCIAddress2, gpuPCIAddress3)
+		mdevPool := newAddressPoolStub()
+
+		hostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Should have 4 devices: 1 primary GPU + 3 IOMMU companions
+		Expect(hostDevices).To(HaveLen(4))
+
+		// First device should be the primary GPU with the first PCI address
+		Expect(hostDevices[0].Alias.GetName()).To(Equal(gpu.AliasPrefix + gpuName0))
+		expectedPrimaryAddr := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		Expect(*hostDevices[0].Source.Address).To(Equal(expectedPrimaryAddr))
+
+		// Remaining devices should be IOMMU companions with addresses in sequence
+		expectedCompanionAddrs := []api.Address{
+			{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"},
+			{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x2"},
+			{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x3"},
+		}
+		for i := 1; i < len(hostDevices); i++ {
+			Expect(hostDevices[i].Alias.GetName()).To(ContainSubstring("iommu-companion"))
+			Expect(*hostDevices[i].Source.Address).To(Equal(expectedCompanionAddrs[i-1]))
+		}
+	})
+
+	It("creates no IOMMU companion devices when pool is exactly exhausted", func() {
+		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{DeviceName: gpuResource0, Name: gpuName0},
+		}
+		pciPool := newAddressPoolStub()
+		// Exactly one address for one GPU
+		pciPool.AddResource(gpuResource0, gpuPCIAddress0)
+		mdevPool := newAddressPoolStub()
+
+		hostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Should have 1 device: just the primary GPU
+		Expect(hostDevices).To(HaveLen(1))
+		Expect(hostDevices[0].Alias.GetName()).To(Equal(gpu.AliasPrefix + gpuName0))
+	})
+
+	It("handles IOMMU companion devices with multiple GPUs from same resource", func() {
+		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{DeviceName: gpuResource0, Name: gpuName0},
+			{DeviceName: gpuResource0, Name: gpuName1},
+		}
+		pciPool := newAddressPoolStub()
+		// 2 primary GPUs + 2 IOMMU companions
+		pciPool.AddResource(gpuResource0, gpuPCIAddress0, gpuPCIAddress1, gpuPCIAddress2, gpuPCIAddress3)
+		mdevPool := newAddressPoolStub()
+
+		hostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Should have 4 devices: 2 primary GPUs + 2 IOMMU companions
+		Expect(hostDevices).To(HaveLen(4))
+
+		// First two devices should be the primary GPUs with their assigned addresses
+		Expect(hostDevices[0].Alias.GetName()).To(Equal(gpu.AliasPrefix + gpuName0))
+		expectedPrimaryAddr0 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x0"}
+		Expect(*hostDevices[0].Source.Address).To(Equal(expectedPrimaryAddr0))
+
+		Expect(hostDevices[1].Alias.GetName()).To(Equal(gpu.AliasPrefix + gpuName1))
+		expectedPrimaryAddr1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x1"}
+		Expect(*hostDevices[1].Source.Address).To(Equal(expectedPrimaryAddr1))
+
+		// Last two should be IOMMU companions with the remaining addresses
+		Expect(hostDevices[2].Alias.GetName()).To(ContainSubstring("iommu-companion"))
+		expectedCompanionAddr0 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x2"}
+		Expect(*hostDevices[2].Source.Address).To(Equal(expectedCompanionAddr0))
+
+		Expect(hostDevices[3].Alias.GetName()).To(ContainSubstring("iommu-companion"))
+		expectedCompanionAddr1 := api.Address{Type: api.AddressPCI, Domain: "0x0000", Bus: "0x81", Slot: "0x01", Function: "0x3"}
+		Expect(*hostDevices[3].Source.Address).To(Equal(expectedCompanionAddr1))
+	})
+
+	It("does not include MDEV addresses in IOMMU companion devices", func() {
+		vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+			{DeviceName: gpuResource0, Name: gpuName0},
+			{DeviceName: gpuResource1, Name: gpuName1},
+		}
+		pciPool := newAddressPoolStub()
+		pciPool.AddResource(gpuResource0, gpuPCIAddress0, gpuPCIAddress1) // GPU + companion
+		mdevPool := newAddressPoolStub()
+		mdevPool.AddResource(gpuResource1, gpuMDEVAddress1) // Just MDEV, no companion
+
+		hostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+		Expect(err).NotTo(HaveOccurred())
+
+		// Should have 3 devices: 1 PCI GPU + 1 IOMMU companion + 1 MDEV
+		Expect(hostDevices).To(HaveLen(3))
+
+		// IOMMU companion should only come from PCI pool
+		companionCount := 0
+		for _, device := range hostDevices {
+			if device.Alias != nil && device.Type == api.HostDevicePCI {
+				if device.Alias.GetName() != gpu.AliasPrefix+gpuName0 {
+					companionCount++
+					Expect(device.Alias.GetName()).To(ContainSubstring("iommu-companion"))
+				}
+			}
+		}
+		Expect(companionCount).To(Equal(1))
+	})
+})

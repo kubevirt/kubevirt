@@ -83,6 +83,21 @@ func (p *AddressPool) Pop(resource string) (string, error) {
 	return "", fmt.Errorf("no more addresses to allocate for resource %s", resource)
 }
 
+// PopAll drains all remaining addresses for a resource, returning them as a slice.
+// This is useful for getting IOMMU companion devices that share the same resource.
+// Returns an empty slice if no addresses remain (exhaustion is expected and non-fatal).
+func (p *AddressPool) PopAll(resource string) []string {
+	var addresses []string
+	for {
+		addr, err := p.Pop(resource)
+		if err != nil {
+			break
+		}
+		addresses = append(addresses, addr)
+	}
+	return addresses
+}
+
 func filterOutAddress(addrs []string, addr string) []string {
 	var res []string
 	for _, a := range addrs {
@@ -106,4 +121,8 @@ func NewBestEffortAddressPool(pool AddressPooler) *BestEffortAddressPool {
 func (p *BestEffortAddressPool) Pop(resource string) (string, error) {
 	address, _ := p.pool.Pop(resource)
 	return address, nil
+}
+
+func (p *BestEffortAddressPool) PopAll(resource string) []string {
+	return p.pool.PopAll(resource)
 }
