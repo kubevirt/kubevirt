@@ -75,6 +75,7 @@ tests/framework/cleanup
 tests/framework/kubevirt
 tests/framework/matcher/helper
 tests/infrastructure
+tests/launchsecurity
 tests/instancetype
 tests/libconfigmap
 tests/libdomain
