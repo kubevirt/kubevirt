@@ -1383,9 +1383,18 @@ func (c *VirtualMachineController) sync(key string,
 	}
 
 	domainAlive := domainExists &&
-		domain.Status.Status != api.Shutoff &&
-		domain.Status.Status != api.Crashed &&
-		domain.Status.Status != ""
+		((domain.Status.Status != api.Shutoff &&
+			domain.Status.Status != api.Crashed &&
+			domain.Status.Status != "") ||
+			// 	Ignoring transient Shutoff/Unknown status for recently created domain
+			isStartingUp(domain))
+
+	if vmiExists {
+		if _, err := c.launcherClients.GetVerifiedLauncherClient(vmi); goerror.Is(err, launcherclients.IrrecoverableError) {
+			log.Log.Reason(err).Errorf("Virt-launcher client not found for VMI %s/%s", vmi.Namespace, vmi.Name)
+			domainAlive = false
+		}
+	}
 
 	forceShutdownIrrecoverable = domainExists && domainPausedFailedPostCopy(domain)
 
@@ -1510,6 +1519,16 @@ func (c *VirtualMachineController) sync(key string,
 
 }
 
+func isStartingUp(domain *api.Domain) bool {
+	// Handle old launchers where the StartingUp field does not exist.
+	// Old launcher should not reach this code since they should be running and hence
+	// (domain.Status.Status != api.Shutoff &&
+	//			domain.Status.Status != api.Crashed &&
+	//			domain.Status.Status != "")
+	// should return true, skipping this execution.
+	return domain.Spec.Metadata.KubeVirt.StartingUp != nil && *domain.Spec.Metadata.KubeVirt.StartingUp
+}
+
 func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstance) error {
 	vmiId := string(vmi.UID)
 
@@ -1611,8 +1630,9 @@ func (c *VirtualMachineController) hasGracePeriodExpired(terminationGracePeriod 
 
 func (c *VirtualMachineController) helperVmShutdown(vmi *v1.VirtualMachineInstance, domain *api.Domain, tryGracefully bool) error {
 
-	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
 	client, err := c.launcherClients.GetVerifiedLauncherClient(vmi)
+	// Only attempt to shutdown/destroy if we still have a connection established with the pod.
+	// TODO: distinguish between irrecoverable and transient errors: goerror.Is(err, launcherclients.IrrecoverableError)
 	if err != nil {
 		return err
 	}
@@ -2351,6 +2371,10 @@ func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.D
 			case api.ReasonMigrated:
 				// if the domain migrated, we no longer know the phase.
 				return vmi.Status.Phase, nil
+			case api.ReasonUnknown:
+				// Shutoff/Unknown during startup has been handled.
+				// We can fail the VMI here.
+				return v1.Failed, nil
 			}
 		case api.Paused:
 			switch domain.Status.Reason {

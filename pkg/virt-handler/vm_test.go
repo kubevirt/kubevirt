@@ -3148,6 +3148,67 @@ var _ = Describe("VirtualMachineInstance", func() {
 			),
 		)
 	})
+
+	Context("launcher client verification in sync", func() {
+		It("should set domainAlive to false when GetVerifiedLauncherClient fails", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				libvmi.WithUID(vmiTestUUID),
+			)
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			// Create a new launcher client manager that returns an error
+			launcherClientManager := &launcherclients.MockLauncherClientManager{
+				Client:           nil, // Setting to nil will cause GetVerifiedLauncherClient to return an error
+				Initialized:      true,
+				IrrecoverableErr: true, // Make the error irrecoverable
+			}
+			controller.launcherClients = launcherClientManager
+
+			addVMI(vmi, domain)
+
+			// The sync function should handle the error from GetVerifiedLauncherClient
+			// and set domainAlive to false, which causes the domain to be treated as non-existent
+			// This should result in attempting to kill the virtual machine
+			mockHotplugVolumeMounter.EXPECT().UnmountAll(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecuteNoDomain()
+		})
+
+		It("should proceed normally when GetVerifiedLauncherClient succeeds", func() {
+			vmi := libvmi.New(
+				libvmi.WithName("testvmi"),
+				libvmi.WithNamespace(metav1.NamespaceDefault),
+				libvmi.WithUID(vmiTestUUID),
+			)
+			vmi.Status.Phase = v1.Running
+			vmi = addActivePods(vmi, podTestUUID, host)
+
+			domain := api.NewMinimalDomainWithUUID("testvmi", vmiTestUUID)
+			domain.Status.Status = api.Running
+
+			// Create a launcher client manager with a valid client
+			launcherClientManager := &launcherclients.MockLauncherClientManager{
+				Client:      client,
+				Initialized: true,
+			}
+			controller.launcherClients = launcherClientManager
+
+			addVMI(vmi, domain)
+
+			// When the launcher client is verified successfully, normal sync should proceed
+			client.EXPECT().SyncVirtualMachine(vmi, gomock.Any()).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Unmount(gomock.Any(), mockCgroupManager).Return(nil)
+			mockHotplugVolumeMounter.EXPECT().Mount(gomock.Any(), mockCgroupManager).Return(nil)
+
+			sanityExecute()
+		})
+	})
 })
 
 var _ = Describe("CurrentMemory in Libvirt Domain", func() {

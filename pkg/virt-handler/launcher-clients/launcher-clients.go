@@ -21,6 +21,7 @@ package launcher_clients
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -34,6 +35,8 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	"kubevirt.io/kubevirt/pkg/virt-handler/notify-server/pipe"
 )
+
+var IrrecoverableError = errors.New("IrrecoverableError")
 
 type LauncherClientsManager interface {
 	GetVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error)
@@ -63,18 +66,43 @@ func NewLauncherClientsManager(
 	return l
 }
 
+// GetVerifiedLauncherClient returns a launcher client for the given VMI after verifying connectivity.
+// Returns two types of errors:
+//   - Irrecoverable errors (wrapped with IrrecoverableError): Permanent failures such as
+//     socket not found (either during initial client creation or after ping failure) or
+//     client creation failure. These indicate the VMI launcher is not available and
+//     retrying will not help.
+//   - Recoverable errors (not wrapped): Transient failures such as ping failures when the
+//     socket still exists or pipe initialization that may succeed on retry.
 func (l *launcherClientsManager) GetVerifiedLauncherClient(vmi *v1.VirtualMachineInstance) (client cmdclient.LauncherClient, err error) {
 	client, err = l.GetLauncherClient(vmi)
 	if err != nil {
-		return
+		return client, err
 	}
 
 	// Verify connectivity.
 	// It's possible the pod has already been torn down along with the VirtualMachineInstance.
 	err = client.Ping()
-	return
+	if err == nil {
+		return client, nil
+	}
+
+	logger := log.Log.Object(vmi)
+	logger.Warningf("Ping vmi failed with %s", err.Error())
+
+	_, irrecoverableErr := cmdclient.FindSocket(vmi)
+	if irrecoverableErr != nil {
+		return client, fmt.Errorf("%w: %w", IrrecoverableError, irrecoverableErr)
+	}
+	return client, err
 }
 
+// GetLauncherClient returns a launcher client for the given VMI.
+// Returns two types of errors:
+//   - Irrecoverable errors (wrapped with IrrecoverableError): Permanent failures such as
+//     socket not found or client creation failure. These indicate the VMI launcher is not
+//     available and retrying will not help.
+//   - Recoverable errors (not wrapped): Transient failures such as pipe initialization that may succeed on retry.
 func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
 	var err error
 
@@ -85,7 +113,7 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 
 	socketFile, err := cmdclient.FindSocket(vmi)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", IrrecoverableError, err)
 	}
 
 	err = virtcache.GhostRecordGlobalStore.Add(vmi.Namespace, vmi.Name, socketFile, vmi.UID)
@@ -95,7 +123,7 @@ func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstanc
 
 	client, err := cmdclient.NewClient(socketFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", IrrecoverableError, err)
 	}
 
 	domainPipeStopChan := make(chan struct{})
