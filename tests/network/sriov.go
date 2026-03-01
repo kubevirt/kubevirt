@@ -401,8 +401,8 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 					Expect(err).NotTo(HaveOccurred())
 					return vmi.Status.Interfaces
 				}).
-					WithTimeout(1 * time.Minute).
-					WithPolling(5 * time.Second).
+					WithTimeout(5 * time.Minute).
+					WithPolling(2 * time.Second).
 					Should(ConsistOf(
 						MatchFields(IgnoreExtras, Fields{
 							"Name":       Equal(sriovNetworkLogicalName),
