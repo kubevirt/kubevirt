@@ -164,10 +164,13 @@ func WithGPUsDRA(gpus []v1.GPU) ResourceRendererOption {
 		res := r.ResourceRequirements()
 		for _, g := range gpus {
 			if g.DeviceName == "" && g.ClaimRequest != nil {
-				requestResourceClaims(&res, &k8sv1.ResourceClaim{
-					Name:    *g.ClaimRequest.ClaimName,
-					Request: *g.ClaimRequest.RequestName,
-				})
+				claim := &k8sv1.ResourceClaim{
+					Name: *g.ClaimRequest.ClaimName,
+				}
+				if g.ClaimRequest.RequestName != nil {
+					claim.Request = *g.ClaimRequest.RequestName
+				}
+				requestResourceClaims(&res, claim)
 			}
 		}
 		copyResources(res.Limits, r.calculatedLimits)
@@ -195,11 +198,14 @@ func WithHostDevicesDRA(hostDevices []v1.HostDevice) ResourceRendererOption {
 	return func(r *ResourceRenderer) {
 		resources := r.ResourceRequirements()
 		for _, hd := range hostDevices {
-			if hd.DeviceName == "" && hd.ClaimRequest != nil && hd.ClaimRequest.ClaimName != nil && hd.ClaimRequest.RequestName != nil {
-				requestResourceClaims(&resources, &k8sv1.ResourceClaim{
-					Name:    *hd.ClaimRequest.ClaimName,
-					Request: *hd.ClaimRequest.RequestName,
-				})
+			if hd.DeviceName == "" && hd.ClaimRequest != nil && hd.ClaimRequest.ClaimName != nil {
+				claim := &k8sv1.ResourceClaim{
+					Name: *hd.ClaimRequest.ClaimName,
+				}
+				if hd.ClaimRequest.RequestName != nil {
+					claim.Request = *hd.ClaimRequest.RequestName
+				}
+				requestResourceClaims(&resources, claim)
 			}
 		}
 		copyResources(resources.Limits, r.calculatedLimits)
