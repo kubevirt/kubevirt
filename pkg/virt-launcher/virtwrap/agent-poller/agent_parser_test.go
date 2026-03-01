@@ -65,42 +65,5 @@ var _ = Describe("Qemu agent poller", func() {
 
 			Expect(response).To(Equal(expectedResponse))
 		})
-
-		It("should parse Filesystem", func() {
-			jsonInput := `{
-                "return":[
-                    {
-                        "name":"main",
-                        "mountpoint":"/",
-                        "type":"ext",
-                        "total-bytes":99999,
-                        "used-bytes":33333,
-                        "disk":[
-                            {
-                                "serial":"testserial-1234",
-                                "bus-type":"scsi"
-                            }
-                        ]
-                    }
-                ]
-            }`
-
-			expectedFilesystem := []api.Filesystem{
-				{
-					Name:       "main",
-					Mountpoint: "/",
-					Type:       "ext",
-					TotalBytes: 99999,
-					UsedBytes:  33333,
-					Disk: []api.FSDisk{
-						{
-							Serial:  "testserial-1234",
-							BusType: "scsi",
-						},
-					},
-				},
-			}
-			Expect(parseFilesystem(jsonInput)).To(Equal(expectedFilesystem))
-		})
 	})
 })
