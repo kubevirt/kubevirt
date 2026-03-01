@@ -47,6 +47,7 @@ import (
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libnet"
 	netcloudinit "kubevirt.io/kubevirt/tests/libnet/cloudinit"
+	"kubevirt.io/kubevirt/tests/libnode"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -362,10 +363,13 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 			networkNameLinked  = "dra-sriov-net-linked"
 			templateNameLinked = "single-vf-dra-sriov-net-linked"
 			driverName         = "sriovnetwork.k8snetworkplumbingwg.io"
-			sriovNode          = "sriov-worker"
+			sriovNode          string
 		)
 
 		BeforeEach(func() {
+			sriovNode = draSRIOVNodeName()
+			Expect(sriovNode).NotTo(BeEmpty(), "could not find a schedulable node with sriov_capable=true label")
+
 			err := libnet.CreateSRIOVNetworkWithDRA(
 				context.Background(),
 				testsuite.NamespaceTestDefault,
@@ -536,4 +540,14 @@ func createDRASRIOVVmiOnNode(nodeName, claimName, templateName, cidr string) (*v
 	vmi, err = virtCli.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
 	ExpectWithOffset(1, err).ToNot(HaveOccurred())
 	return vmi, nil
+}
+
+func draSRIOVNodeName() string {
+	nodes := libnode.GetAllSchedulableNodes(kubevirt.Client())
+	for _, node := range nodes.Items {
+		if val, ok := node.Labels["sriov_capable"]; ok && val == "true" {
+			return node.Name
+		}
+	}
+	return ""
 }
