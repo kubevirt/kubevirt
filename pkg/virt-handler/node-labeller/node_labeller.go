@@ -270,10 +270,7 @@ func (n *NodeLabeller) prepareLabels(node *v1.Node) map[string]string {
 	if n.arch.supportsHostModel() {
 		if _, hostModelObsolete := obsoleteCPUsx86[hostCpuModel.Name]; hostModelObsolete {
 			newLabels[kubevirtv1.NodeHostModelIsObsoleteLabel] = "true"
-			err := n.alertIfHostModelIsObsolete(node, hostCpuModel.Name, obsoleteCPUsx86)
-			if err != nil {
-				n.logger.Reason(err).Error(err.Error())
-			}
+			n.alertIfHostModelIsObsolete(node, hostCpuModel.Name, obsoleteCPUsx86)
 		}
 
 		for feature := range hostCpuModel.requiredFeatures {
@@ -374,10 +371,9 @@ func isNodeLabellerLabel(label string) bool {
 	return false
 }
 
-func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostModel string, ObsoleteCPUModels map[string]bool) error {
+func (n *NodeLabeller) alertIfHostModelIsObsolete(originalNode *v1.Node, hostModel string, ObsoleteCPUModels map[string]bool) {
 	warningMsg := fmt.Sprintf("This node has %v host-model cpu that is included in ObsoleteCPUModels: %v", hostModel, ObsoleteCPUModels)
 	n.recorder.Eventf(originalNode, v1.EventTypeWarning, "HostModelIsObsolete", warningMsg)
-	return nil
 }
 
 func (n *NodeLabeller) hasTSCCounter() bool {
