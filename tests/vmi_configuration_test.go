@@ -2010,6 +2010,43 @@ var _ = Describe("[sig-compute]Configurations", decorators.SigCompute, func() {
 				Expect(err).To(HaveOccurred())
 			})
 
+			DescribeTable("should start a vmi with multiple IOThreads", func(policy v1.IOThreadsPolicy, isolateEmulatorThread bool) {
+				cpuVmi := libvmifact.NewAlpine()
+				cpuVmi.Spec.Domain.CPU = &v1.CPU{
+					Cores:                 1,
+					DedicatedCPUPlacement: true,
+				}
+
+				if isolateEmulatorThread {
+					cpuVmi.Spec.Domain.CPU.IsolateEmulatorThread = true
+				}
+
+				cpuVmi.Spec.Domain.IOThreadsPolicy = &policy
+				if policy == v1.IOThreadsPolicySupplementalPool {
+					cpuVmi.Spec.Domain.IOThreads = &v1.DiskIOThreads{
+						SupplementalPoolThreadCount: pointer.P(uint32(2)),
+					}
+				}
+
+				By("Starting a VirtualMachineInstance")
+				cpuVmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(cpuVmi)).Create(context.Background(), cpuVmi, metav1.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				cpuVmi = libwait.WaitForSuccessfulVMIStart(cpuVmi)
+
+				By("Verifying the VMI is running")
+				Expect(cpuVmi.Status.Phase).To(Equal(v1.Running))
+
+				By("Expecting the VirtualMachineInstance console")
+				Expect(console.LoginToAlpine(cpuVmi)).To(Succeed())
+			},
+				Entry("with supplementalPool policy", v1.IOThreadsPolicySupplementalPool, false),
+				Entry("with supplementalPool policy and isolateEmulatorThread", v1.IOThreadsPolicySupplementalPool, true),
+				Entry("with auto policy", v1.IOThreadsPolicyAuto, false),
+				Entry("with auto policy and isolateEmulatorThread", v1.IOThreadsPolicyAuto, true),
+				Entry("with shared policy", v1.IOThreadsPolicyShared, false),
+				Entry("with shared policy and isolateEmulatorThread", v1.IOThreadsPolicyShared, true),
+			)
+
 			It("[test_id:802]should configure correct number of vcpus with requests.cpus", func() {
 				cpuVmi := libvmifact.NewAlpine()
 				cpuVmi.Spec.Domain.CPU = &v1.CPU{
