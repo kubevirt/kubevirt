@@ -23,12 +23,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	expect "github.com/google/goexpect"
+	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	v1 "kubevirt.io/api/core/v1"
@@ -40,14 +43,17 @@ import (
 	"kubevirt.io/kubevirt/pkg/network/vmispec"
 	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/net/dns"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
+	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/libdomain"
 	"kubevirt.io/kubevirt/tests/libnet"
 	netcloudinit "kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libnode"
+	"kubevirt.io/kubevirt/tests/libpod"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/testsuite"
 )
@@ -113,7 +119,6 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			nic := domSpec.Devices.HostDevices[0]
-			// find the SRIOV interface
 			for _, iface := range domSpec.Devices.HostDevices {
 				if iface.Alias.GetName() == claimName {
 					nic = iface
@@ -123,8 +128,9 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 			pciAddrStr := fmt.Sprintf("%s:%s:%s.%s", address.Domain[2:], address.Bus[2:], address.Slot[2:], address.Function[2:])
 			srcAddr := nic.Source.Address
 			sourcePCIAddress := fmt.Sprintf("%s:%s:%s.%s", srcAddr.Domain[2:], srcAddr.Bus[2:], srcAddr.Slot[2:], srcAddr.Function[2:])
-			alignedCPUsInt, err := hardware.LookupDeviceVCPUAffinity(sourcePCIAddress, domSpec)
+			vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 			Expect(err).ToNot(HaveOccurred())
+			alignedCPUsInt := lookupDeviceVCPUAffinityOnPod(vmiPod, sourcePCIAddress, domSpec)
 			deviceData := []cloudinit.DeviceData{
 				{
 					Type:        cloudinit.NICMetadataType,
@@ -146,7 +152,7 @@ var _ = Describe(SIG("DRA-SRIOV", Serial, decorators.DRANetwork, func() {
 
 			buf, err := json.Marshal(metadataStruct)
 			Expect(err).ToNot(HaveOccurred())
-			By("mouting cloudinit iso")
+			By("mounting cloudinit iso")
 			Expect(mountGuestDevice(vmi, "config-2")).To(Succeed())
 
 			By("checking cloudinit meta-data")
@@ -550,4 +556,37 @@ func draSRIOVNodeName() string {
 		}
 	}
 	return ""
+}
+
+func lookupDeviceVCPUAffinityOnPod(pod *k8sv1.Pod, pciAddress string, domSpec *api.DomainSpec) []uint32 {
+	numaNodeStr, err := exec.ExecuteCommandOnPod(pod, "compute",
+		[]string{"cat", fmt.Sprintf("/sys/bus/pci/devices/%s/numa_node", pciAddress)})
+	Expect(err).ToNot(HaveOccurred())
+
+	numaNode, err := strconv.Atoi(strings.TrimSpace(numaNodeStr))
+	Expect(err).ToNot(HaveOccurred())
+
+	if numaNode < 0 {
+		return []uint32{}
+	}
+
+	cpuListStr, err := exec.ExecuteCommandOnPod(pod, "compute",
+		[]string{"cat", fmt.Sprintf("/sys/bus/node/devices/node%d/cpulist", numaNode)})
+	Expect(err).ToNot(HaveOccurred())
+
+	physicalCPUs, err := hardware.ParseCPUSetLine(strings.TrimSpace(cpuListStr), 50000)
+	Expect(err).ToNot(HaveOccurred())
+
+	p2vCPUMap := make(map[string]uint32)
+	for _, vcpuPin := range domSpec.CPUTune.VCPUPin {
+		p2vCPUMap[vcpuPin.CPUSet] = vcpuPin.VCPU
+	}
+
+	var alignedVCPUs []uint32
+	for _, pcpu := range physicalCPUs {
+		if vCPU, exist := p2vCPUMap[strconv.Itoa(pcpu)]; exist {
+			alignedVCPUs = append(alignedVCPUs, vCPU)
+		}
+	}
+	return alignedVCPUs
 }
