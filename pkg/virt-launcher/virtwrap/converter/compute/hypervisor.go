@@ -20,8 +20,6 @@
 package compute
 
 import (
-	"fmt"
-
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
@@ -29,28 +27,22 @@ import (
 )
 
 type HypervisorDomainConfigurator struct {
-	allowEmulation bool
-	kvmAvailable   bool
+	useEmulation bool
 }
 
 // NewHypervisorDomainConfigurator creates a new hypervisor domain configurator
-func NewHypervisorDomainConfigurator(allowEmulation bool, kvmAvailable bool) HypervisorDomainConfigurator {
+func NewHypervisorDomainConfigurator(useEmulation bool) HypervisorDomainConfigurator {
 	return HypervisorDomainConfigurator{
-		allowEmulation: allowEmulation,
-		kvmAvailable:   kvmAvailable,
+		useEmulation: useEmulation,
 	}
 }
 
 // Configure configures the domain hypervisor settings based on KVM availability and emulation settings
 func (h HypervisorDomainConfigurator) Configure(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
-	if !h.kvmAvailable {
-		if h.allowEmulation {
-			logger := log.DefaultLogger()
-			logger.Infof("kvm not present. Using software emulation.")
-			domain.Spec.Type = "qemu"
-		} else {
-			return fmt.Errorf("kvm not present")
-		}
+	if h.useEmulation {
+		logger := log.DefaultLogger()
+		logger.Infof("kvm not present. Using software emulation.")
+		domain.Spec.Type = "qemu"
 	}
 
 	return nil

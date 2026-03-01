@@ -50,7 +50,7 @@ var _ = Describe("SMBios sidecar", func() {
 		c := &converter.ConverterContext{
 			Architecture:   archconverter.NewConverter(runtime.GOARCH),
 			VirtualMachine: vmi,
-			AllowEmulation: true,
+			UseEmulation:   true,
 		}
 
 		domain := &api.Domain{}
