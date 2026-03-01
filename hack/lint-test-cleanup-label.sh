@@ -21,10 +21,11 @@
 EXCLUDE_PATTERN="./decorators/decorators.go|\
 ./tests_suite_test.go|\
 ./tests/virtctl|\
-./tests/network"
+./tests/network|\
+./tests/infrastructure"
 
 if grep -rl 'OncePerOrderedCleanup' ./tests --include=*.go |
     grep -Evq "$EXCLUDE_PATTERN"; then
-    echo "The use of OncePerOrderedCleanup label is currently limited to SIG-Network and virtctl tests only"
+    echo "The use of OncePerOrderedCleanup label is currently limited to SIG-Network, virtctl and infrastructure tests only"
     exit 1
 fi
