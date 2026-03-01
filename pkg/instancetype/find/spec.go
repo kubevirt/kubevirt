@@ -26,7 +26,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	api "kubevirt.io/api/instancetype"
-	"kubevirt.io/api/instancetype/v1beta1"
+	v1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/compatibility"
@@ -48,7 +48,7 @@ func NewSpecFinder(store, clusterStore, revisionStore cache.Store, virtClient ku
 
 const unexpectedKindFmt = "got unexpected kind in InstancetypeMatcher: %s"
 
-func (f *specFinder) Find(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error) {
+func (f *specFinder) Find(vm *virtv1.VirtualMachine) (*v1.VirtualMachineInstancetypeSpec, error) {
 	if vm.Spec.Instancetype == nil {
 		return nil, nil
 	}

@@ -23,7 +23,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
@@ -40,7 +40,7 @@ var _ = Describe("instancetype.spec.ioThreads", func() {
 	var (
 		applier          = apply.NewVMIApplier()
 		field            = k8sfield.NewPath("spec", "template", "spec")
-		instancetypeSpec = &v1beta1.VirtualMachineInstancetypeSpec{
+		instancetypeSpec = &instancetypev1.VirtualMachineInstancetypeSpec{
 			IOThreads: &virtv1.DiskIOThreads{
 				SupplementalPoolThreadCount: pointer.P(expectedThreadCount),
 			},

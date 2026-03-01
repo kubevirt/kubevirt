@@ -60,7 +60,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	apiregv1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1"
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	kubevirtfake "kubevirt.io/client-go/kubevirt/fake"
 	promclientfake "kubevirt.io/client-go/prometheusoperator/fake"
@@ -216,8 +216,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 	informers.ConfigMap, _ = testutils.NewFakeInformerFor(&k8sv1.ConfigMap{})
 	informers.ValidatingAdmissionPolicyBinding, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicyBinding{})
 	informers.ValidatingAdmissionPolicy, _ = testutils.NewFakeInformerFor(&admissionregistrationv1.ValidatingAdmissionPolicy{})
-	informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
-	informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+	informers.ClusterInstancetype, _ = testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterInstancetype{})
+	informers.ClusterPreference, _ = testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterPreference{})
 	informers.Leases, _ = testutils.NewFakeInformerFor(&coordinationv1.Lease{})
 
 	// test OpenShift components
@@ -264,8 +264,8 @@ func (k *KubeVirtTestData) BeforeTest() {
 	k.virtClient.EXPECT().PolicyV1().Return(k.kubeClient.PolicyV1()).AnyTimes()
 	k.virtClient.EXPECT().PrometheusClient().Return(k.promClient).AnyTimes()
 	k.virtClient.EXPECT().RouteClient().Return(k.routeClient).AnyTimes()
-	k.virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(k.virtFakeClient.InstancetypeV1beta1().VirtualMachineClusterInstancetypes()).AnyTimes()
-	k.virtClient.EXPECT().VirtualMachineClusterPreference().Return(k.virtFakeClient.InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+	k.virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(k.virtFakeClient.InstancetypeV1().VirtualMachineClusterInstancetypes()).AnyTimes()
+	k.virtClient.EXPECT().VirtualMachineClusterPreference().Return(k.virtFakeClient.InstancetypeV1().VirtualMachineClusterPreferences()).AnyTimes()
 
 	// Make sure that all unexpected calls to kubeClient will fail
 	k.kubeClient.Fake.PrependReactor("*", "*", func(action testing.Action) (handled bool, obj runtime.Object, err error) {

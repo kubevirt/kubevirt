@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/yaml"
 
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/preference/validation"
 	"kubevirt.io/kubevirt/pkg/virtctl/clientconfig"
@@ -93,34 +93,34 @@ func (c *createPreference) setDefaults(cmd *cobra.Command) error {
 	return nil
 }
 
-func (c *createPreference) optFns() map[string]func(*instancetypev1beta1.VirtualMachinePreferenceSpec) error {
-	return map[string]func(*instancetypev1beta1.VirtualMachinePreferenceSpec) error{
+func (c *createPreference) optFns() map[string]func(*instancetypev1.VirtualMachinePreferenceSpec) error {
+	return map[string]func(*instancetypev1.VirtualMachinePreferenceSpec) error{
 		VolumeStorageClassFlag: c.withVolumeStorageClass,
 		MachineTypeFlag:        c.withMachineType,
 		CPUTopologyFlag:        c.withCPUTopology,
 	}
 }
 
-func (c *createPreference) withVolumeStorageClass(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
-	preferenceSpec.Volumes = &instancetypev1beta1.VolumePreferences{
+func (c *createPreference) withVolumeStorageClass(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) error {
+	preferenceSpec.Volumes = &instancetypev1.VolumePreferences{
 		PreferredStorageClassName: c.preferredStorageClass,
 	}
 	return nil
 }
 
-func (c *createPreference) withMachineType(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
-	preferenceSpec.Machine = &instancetypev1beta1.MachinePreferences{
+func (c *createPreference) withMachineType(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) error {
+	preferenceSpec.Machine = &instancetypev1.MachinePreferences{
 		PreferredMachineType: c.machineType,
 	}
 	return nil
 }
 
-func (c *createPreference) withCPUTopology(preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
-	preferredCPUTopology := instancetypev1beta1.PreferredCPUTopology(c.cpuTopology)
+func (c *createPreference) withCPUTopology(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) error {
+	preferredCPUTopology := instancetypev1.PreferredCPUTopology(c.cpuTopology)
 	if !validation.IsPreferredTopologySupported(preferredCPUTopology) {
 		return params.FlagErr(CPUTopologyFlag, "CPU topology must have a value of sockets, cores, threads or spread")
 	}
-	preferenceSpec.CPU = &instancetypev1beta1.CPUPreferences{
+	preferenceSpec.CPU = &instancetypev1.CPUPreferences{
 		PreferredCPUTopology: &preferredCPUTopology,
 	}
 	return nil
@@ -140,11 +140,11 @@ func (c *createPreference) usage() string {
   {{ProgramName}} create preference --volume-storage-class hostpath-provisioner | kubectl create -f -`
 }
 
-func (c *createPreference) newClusterPreference() *instancetypev1beta1.VirtualMachineClusterPreference {
-	return &instancetypev1beta1.VirtualMachineClusterPreference{
+func (c *createPreference) newClusterPreference() *instancetypev1.VirtualMachineClusterPreference {
+	return &instancetypev1.VirtualMachineClusterPreference{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachineClusterPreference",
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.name,
@@ -152,11 +152,11 @@ func (c *createPreference) newClusterPreference() *instancetypev1beta1.VirtualMa
 	}
 }
 
-func (c *createPreference) newPreference() *instancetypev1beta1.VirtualMachinePreference {
-	preference := &instancetypev1beta1.VirtualMachinePreference{
+func (c *createPreference) newPreference() *instancetypev1.VirtualMachinePreference {
+	preference := &instancetypev1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "VirtualMachinePreference",
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.name,
@@ -170,7 +170,7 @@ func (c *createPreference) newPreference() *instancetypev1beta1.VirtualMachinePr
 	return preference
 }
 
-func (c *createPreference) applyFlags(cmd *cobra.Command, preferenceSpec *instancetypev1beta1.VirtualMachinePreferenceSpec) error {
+func (c *createPreference) applyFlags(cmd *cobra.Command, preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) error {
 	for flag := range c.optFns() {
 		if cmd.Flags().Changed(flag) {
 			if err := c.optFns()[flag](preferenceSpec); err != nil {

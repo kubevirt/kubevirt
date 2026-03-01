@@ -21,7 +21,7 @@ package apply
 
 import (
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
@@ -31,7 +31,7 @@ type field struct {
 	vmi        **bool
 }
 
-func ApplyAutoAttachPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyAutoAttachPreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Devices == nil {
 		return
 	}
@@ -49,7 +49,7 @@ func ApplyAutoAttachPreferences(preferenceSpec *v1beta1.VirtualMachinePreference
 	}
 }
 
-func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func ApplyDevicePreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Devices == nil {
 		return
 	}
@@ -104,7 +104,7 @@ func ApplyDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec
 	applyPanicDevicePreferences(preferenceSpec, vmiSpec)
 }
 
-func applyInputPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyInputPreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for inputIndex := range vmiSpec.Domain.Devices.Inputs {
 		vmiInput := &vmiSpec.Domain.Devices.Inputs[inputIndex]
 		if preferenceSpec.Devices.PreferredInputBus != "" && vmiInput.Bus == "" {
@@ -117,7 +117,7 @@ func applyInputPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
 	}
 }
 
-func applyPanicDevicePreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyPanicDevicePreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	if preferenceSpec.Devices.PreferredPanicDeviceModel == nil {
 		return
 	}

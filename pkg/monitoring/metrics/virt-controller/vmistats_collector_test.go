@@ -31,7 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	k6tv1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	virtcontroller "kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
@@ -733,42 +733,42 @@ func createVMIForEviction(evictionStrategy *k6tv1.EvictionStrategy, migratableCo
 }
 
 func setupTestCollector() {
-	instanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineInstancetype{})
-	clusterInstanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterInstancetype{})
-	preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachinePreference{})
-	clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1beta1.VirtualMachineClusterPreference{})
+	instanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineInstancetype{})
+	clusterInstanceTypeInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterInstancetype{})
+	preferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachinePreference{})
+	clusterPreferenceInformer, _ := testutils.NewFakeInformerFor(&instancetypev1.VirtualMachineClusterPreference{})
 	controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 
-	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
+	_ = instanceTypeInformer.GetStore().Add(&instancetypev1.VirtualMachineInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("i-managed", "test-ns", "kubevirt.io"),
 	})
-	_ = instanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineInstancetype{
+	_ = instanceTypeInformer.GetStore().Add(&instancetypev1.VirtualMachineInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("i-unmanaged", "test-ns", "some-user"),
 	})
 
-	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterInstancetype{
+	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1.VirtualMachineClusterInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("ci-managed", "", "kubevirt.io"),
-		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1beta1.CPUInstancetype{
+		Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1.CPUInstancetype{
 				Guest: 2,
 			},
-			Memory: instancetypev1beta1.MemoryInstancetype{
+			Memory: instancetypev1.MemoryInstancetype{
 				Guest: *resource.NewQuantity(2048, resource.BinarySI),
 			},
 		},
 	})
-	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterInstancetype{
+	_ = clusterInstanceTypeInformer.GetStore().Add(&instancetypev1.VirtualMachineClusterInstancetype{
 		ObjectMeta: newObjectMetaForInstancetypes("ci-unmanaged", "", ""),
 	})
 
-	_ = preferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachinePreference{
+	_ = preferenceInformer.GetStore().Add(&instancetypev1.VirtualMachinePreference{
 		ObjectMeta: newObjectMetaForInstancetypes("p-managed", "test-ns", "kubevirt.io"),
 	})
-	_ = preferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachinePreference{
+	_ = preferenceInformer.GetStore().Add(&instancetypev1.VirtualMachinePreference{
 		ObjectMeta: newObjectMetaForInstancetypes("p-unmanaged", "test-ns", "some-vendor.com"),
 	})
 
-	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1beta1.VirtualMachineClusterPreference{
+	_ = clusterPreferenceInformer.GetStore().Add(&instancetypev1.VirtualMachineClusterPreference{
 		ObjectMeta: newObjectMetaForInstancetypes("cp-managed", "", "kubevirt.io"),
 	})
 

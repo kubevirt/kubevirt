@@ -29,7 +29,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
 
@@ -45,7 +45,7 @@ type inferHandler interface {
 }
 
 type findPreferenceSpecHandler interface {
-	FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+	FindPreference(vm *virtv1.VirtualMachine) (*instancetypev1.VirtualMachinePreferenceSpec, error)
 }
 
 type mutator struct {
@@ -78,7 +78,7 @@ func (m *mutator) Mutate(vm, oldVM *virtv1.VirtualMachine, ar *admissionv1.Admis
 	return nil
 }
 
-func mutateArch(vm *virtv1.VirtualMachine, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) {
+func mutateArch(vm *virtv1.VirtualMachine, preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) {
 	if vm.Spec.Template == nil {
 		return
 	}
@@ -88,7 +88,7 @@ func mutateArch(vm *virtv1.VirtualMachine, preferenceSpec *v1beta1.VirtualMachin
 // NOTE(lyarwood): We mutate the preferred machine type value into the VM early
 // ahead of existing default mutation code running in the main vm mutation
 // webhook.
-func mutateMachineType(vm *virtv1.VirtualMachine, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) {
+func mutateMachineType(vm *virtv1.VirtualMachine, preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) {
 	if vm.Spec.Template == nil {
 		return
 	}
@@ -106,7 +106,7 @@ func mutateMachineType(vm *virtv1.VirtualMachine, preferenceSpec *v1beta1.Virtua
 // NOTE(lyarwood): We have to mutate any preferred storage class value into the
 // DataVolumeTemplates within the VM as it's obviously too late to do this
 // during VMI creation with the rest of the preferred preference values
-func mutateDataVolumeTemplates(vm *virtv1.VirtualMachine, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec) {
+func mutateDataVolumeTemplates(vm *virtv1.VirtualMachine, preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec) {
 	if preferenceSpec != nil && preferenceSpec.Volumes != nil && preferenceSpec.Volumes.PreferredStorageClassName != "" {
 		for _, dv := range vm.Spec.DataVolumeTemplates {
 			if dv.Spec.PVC != nil && dv.Spec.PVC.StorageClassName == nil {

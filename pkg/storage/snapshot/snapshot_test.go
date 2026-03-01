@@ -51,7 +51,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	instancetypeapi "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	snapshotv1 "kubevirt.io/api/snapshot/v1beta1"
 	k8ssnapshotfake "kubevirt.io/client-go/externalsnapshotter/fake"
 	"kubevirt.io/client-go/kubecli"
@@ -2659,8 +2659,8 @@ var _ = Describe("Snapshot controlleer", func() {
 				var (
 					vm                *v1.VirtualMachine
 					vmSnapshot        *snapshotv1.VirtualMachineSnapshot
-					instancetypeObj   *instancetypev1beta1.VirtualMachineInstancetype
-					preferenceObj     *instancetypev1beta1.VirtualMachinePreference
+					instancetypeObj   *instancetypev1.VirtualMachineInstancetype
+					preferenceObj     *instancetypev1.VirtualMachinePreference
 					instancetypeCR    *appsv1.ControllerRevision
 					preferenceCR      *appsv1.ControllerRevision
 					err               error
@@ -3190,11 +3190,11 @@ func updateVMWithMemoryDump(vm *v1.VirtualMachine) *v1.VirtualMachine {
 	return vm
 }
 
-func createInstancetype() *instancetypev1beta1.VirtualMachineInstancetype {
-	return &instancetypev1beta1.VirtualMachineInstancetype{
+func createInstancetype() *instancetypev1.VirtualMachineInstancetype {
+	return &instancetypev1.VirtualMachineInstancetype{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       instancetypeapi.SingularResourceName,
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "test-instancetype",
@@ -3202,20 +3202,20 @@ func createInstancetype() *instancetypev1beta1.VirtualMachineInstancetype {
 			UID:        instancetypeUID,
 			Generation: 1,
 		},
-		Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-			CPU: instancetypev1beta1.CPUInstancetype{
+		Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+			CPU: instancetypev1.CPUInstancetype{
 				Guest: uint32(2),
 			},
 		},
 	}
 }
 
-func createPreference() *instancetypev1beta1.VirtualMachinePreference {
-	preferredCPUTopology := instancetypev1beta1.Threads
-	return &instancetypev1beta1.VirtualMachinePreference{
+func createPreference() *instancetypev1.VirtualMachinePreference {
+	preferredCPUTopology := instancetypev1.Threads
+	return &instancetypev1.VirtualMachinePreference{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       instancetypeapi.SingularPreferenceResourceName,
-			APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+			APIVersion: instancetypev1.SchemeGroupVersion.String(),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "test-preference",
@@ -3223,8 +3223,8 @@ func createPreference() *instancetypev1beta1.VirtualMachinePreference {
 			UID:        preferenceUID,
 			Generation: 1,
 		},
-		Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-			CPU: &instancetypev1beta1.CPUPreferences{
+		Spec: instancetypev1.VirtualMachinePreferenceSpec{
+			CPU: &instancetypev1.CPUPreferences{
 				PreferredCPUTopology: &preferredCPUTopology,
 			},
 		},

@@ -22,14 +22,14 @@ import (
 	"maps"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 )
 
 func applyNodeSelector(
 	baseConflict *conflict.Conflict,
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) conflict.Conflicts {
 	if instancetypeSpec.NodeSelector == nil {

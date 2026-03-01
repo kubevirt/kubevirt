@@ -32,7 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	kvv1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/client-go/kubecli"
 
@@ -227,7 +227,7 @@ func createBatchRunningVMWithRateControl(virtClient kubecli.KubevirtClient, vmCo
 	}
 }
 
-func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.VirtualMachineInstancetype {
+func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1.VirtualMachineInstancetype {
 	instancetype := instancetypeBuilder.NewInstancetype(
 		instancetypeBuilder.WithCPUs(1),
 		instancetypeBuilder.WithMemory("90Mi"),
@@ -237,7 +237,7 @@ func createInstancetype(virtClient kubecli.KubevirtClient) *instancetypev1beta1.
 	return instancetype
 }
 
-func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1beta1.VirtualMachinePreference {
+func createPreference(virtClient kubecli.KubevirtClient) *instancetypev1.VirtualMachinePreference {
 	preference := instancetypeBuilder.NewPreference(
 		instancetypeBuilder.WithPreferredDiskBus(kvv1.DiskBusVirtio),
 	)

@@ -91,9 +91,9 @@ var _ = Describe("InferFromVolume", func() {
 		virtClient.EXPECT().CdiClient().Return(cdifake.NewSimpleClientset()).AnyTimes()
 
 		virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(
-			fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachinePreferences(vm.Namespace)).AnyTimes()
+			fakeclientset.NewSimpleClientset().InstancetypeV1().VirtualMachinePreferences(vm.Namespace)).AnyTimes()
 		virtClient.EXPECT().VirtualMachineClusterPreference().Return(
-			fakeclientset.NewSimpleClientset().InstancetypeV1beta1().VirtualMachineClusterPreferences()).AnyTimes()
+			fakeclientset.NewSimpleClientset().InstancetypeV1().VirtualMachineClusterPreferences()).AnyTimes()
 
 		pvc = &k8sv1.PersistentVolumeClaim{
 			ObjectMeta: k8smetav1.ObjectMeta{

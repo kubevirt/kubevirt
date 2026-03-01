@@ -41,7 +41,7 @@ import (
 
 	kubevirtcore "kubevirt.io/api/core"
 	v1 "kubevirt.io/api/core/v1"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/kubevirt/fake"
 
@@ -76,7 +76,7 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		virtClient.EXPECT().GeneratedKubeVirtClient().Return(fake.NewSimpleClientset()).AnyTimes()
 		virtClient.EXPECT().VirtualMachine(vmNamespace).Return(vmClient).AnyTimes()
 
-		fakeInstancetypeClients := fake.NewSimpleClientset().InstancetypeV1beta1()
+		fakeInstancetypeClients := fake.NewSimpleClientset().InstancetypeV1()
 		virtClient.EXPECT().VirtualMachineClusterInstancetype().Return(fakeInstancetypeClients.VirtualMachineClusterInstancetypes()).AnyTimes()
 		virtClient.EXPECT().VirtualMachineClusterPreference().Return(fakeInstancetypeClients.VirtualMachineClusterPreferences()).AnyTimes()
 
@@ -155,19 +155,19 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 
 		It("should expand instancetype and preference within VM", func() {
-			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+			clusterInstancetype := &instancetypev1.VirtualMachineClusterInstancetype{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "VirtualMachineClusterInstancetype",
-					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					APIVersion: instancetypev1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cluster-instancetype",
 				},
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: uint32(2),
 					},
-					Memory: instancetypev1beta1.MemoryInstancetype{
+					Memory: instancetypev1.MemoryInstancetype{
 						Guest: resource.MustParse("128Mi"),
 					},
 				},
@@ -179,19 +179,19 @@ var _ = Describe("Instancetype expansion subresources", func() {
 				Name: clusterInstancetype.Name,
 			}
 
-			clusterPreference := &instancetypev1beta1.VirtualMachineClusterPreference{
+			clusterPreference := &instancetypev1.VirtualMachineClusterPreference{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "VirtualMachineClusterPreference",
-					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					APIVersion: instancetypev1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cluster-preference",
 				},
-				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-					CPU: &instancetypev1beta1.CPUPreferences{
-						PreferredCPUTopology: pointer.P(instancetypev1beta1.Cores),
+				Spec: instancetypev1.VirtualMachinePreferenceSpec{
+					CPU: &instancetypev1.CPUPreferences{
+						PreferredCPUTopology: pointer.P(instancetypev1.Cores),
 					},
-					Devices: &instancetypev1beta1.DevicePreferences{
+					Devices: &instancetypev1.DevicePreferences{
 						PreferredDiskBus: v1.DiskBusVirtio,
 					},
 				},
@@ -225,19 +225,19 @@ var _ = Describe("Instancetype expansion subresources", func() {
 		})
 
 		It("should fail, if there is a conflict when applying instancetype", func() {
-			clusterInstancetype := &instancetypev1beta1.VirtualMachineClusterInstancetype{
+			clusterInstancetype := &instancetypev1.VirtualMachineClusterInstancetype{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "VirtualMachineClusterInstancetype",
-					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					APIVersion: instancetypev1.SchemeGroupVersion.String(),
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-cluster-instancetype",
 				},
-				Spec: instancetypev1beta1.VirtualMachineInstancetypeSpec{
-					CPU: instancetypev1beta1.CPUInstancetype{
+				Spec: instancetypev1.VirtualMachineInstancetypeSpec{
+					CPU: instancetypev1.CPUInstancetype{
 						Guest: uint32(2),
 					},
-					Memory: instancetypev1beta1.MemoryInstancetype{
+					Memory: instancetypev1.MemoryInstancetype{
 						Guest: resource.MustParse("128Mi"),
 					},
 				},

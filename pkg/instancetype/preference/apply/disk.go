@@ -21,12 +21,12 @@ package apply
 
 import (
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
-func applyDiskPreferences(preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyDiskPreferences(preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
 	for diskIndex := range vmiSpec.Domain.Devices.Disks {
 		vmiDisk := &vmiSpec.Domain.Devices.Disks[diskIndex]
 		// If we don't have a target device defined default to a DiskTarget so we can apply preferences

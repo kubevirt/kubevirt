@@ -38,13 +38,13 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	apiinstancetype "kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	cdifake "kubevirt.io/client-go/containerizeddataimporter/fake"
 	fakeclientset "kubevirt.io/client-go/kubevirt/fake"
-	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1beta1"
+	instancetypeclientset "kubevirt.io/client-go/kubevirt/typed/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	instancetypeVMWebhooks "kubevirt.io/kubevirt/pkg/instancetype/webhooks/vm"
@@ -57,7 +57,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	var mutator *VMsMutator
 	var ctrl *gomock.Controller
 	var virtClient *kubecli.MockKubevirtClient
-	var fakeInstancetypeClients instancetypeclientset.InstancetypeV1beta1Interface
+	var fakeInstancetypeClients instancetypeclientset.InstancetypeV1Interface
 	var fakePreferenceClient instancetypeclientset.VirtualMachinePreferenceInterface
 	var fakeClusterPreferenceClient instancetypeclientset.VirtualMachineClusterPreferenceInterface
 	var k8sClient *k8sfake.Clientset
@@ -153,7 +153,7 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		ctrl = gomock.NewController(GinkgoT())
 		virtClient = kubecli.NewMockKubevirtClient(ctrl)
 
-		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1beta1()
+		fakeInstancetypeClients = fakeclientset.NewSimpleClientset().InstancetypeV1()
 		fakePreferenceClient = fakeInstancetypeClients.VirtualMachinePreferences(vm.Namespace)
 		fakeClusterPreferenceClient = fakeInstancetypeClients.VirtualMachineClusterPreferences()
 		virtClient.EXPECT().VirtualMachinePreference(gomock.Any()).Return(fakePreferenceClient).AnyTimes()
@@ -240,16 +240,16 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	DescribeTable("should not override user specified MachineType with PreferredMachineType or cluster config on VM create", func(arch string) {
 		vm.Spec.Template.Spec.Domain.Machine = &v1.Machine{Type: "pc-q35-2.0"}
-		preference := &instancetypev1beta1.VirtualMachinePreference{
+		preference := &instancetypev1.VirtualMachinePreference{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name: "machineTypePreference",
 			},
 			TypeMeta: k8smetav1.TypeMeta{
 				Kind:       apiinstancetype.SingularPreferenceResourceName,
-				APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			},
-			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-				Machine: &instancetypev1beta1.MachinePreferences{
+			Spec: instancetypev1.VirtualMachinePreferenceSpec{
+				Machine: &instancetypev1.MachinePreferences{
 					PreferredMachineType: "pc-q35-4.0",
 				},
 			},
@@ -279,16 +279,16 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	)
 
 	DescribeTable("should use PreferredMachineType over cluster config on VM create", func(arch string) {
-		preference := &instancetypev1beta1.VirtualMachinePreference{
+		preference := &instancetypev1.VirtualMachinePreference{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name: "machineTypePreference",
 			},
 			TypeMeta: k8smetav1.TypeMeta{
 				Kind:       apiinstancetype.SingularPreferenceResourceName,
-				APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			},
-			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-				Machine: &instancetypev1beta1.MachinePreferences{
+			Spec: instancetypev1.VirtualMachinePreferenceSpec{
+				Machine: &instancetypev1.MachinePreferences{
 					PreferredMachineType: "pc-q35-4.0",
 				},
 			},
@@ -344,16 +344,16 @@ var _ = Describe("VirtualMachine Mutator", func() {
 	)
 
 	DescribeTable("should use PreferredMachineType from ClusterSingularPreferenceResourceName when no preference kind is provided", func(arch string) {
-		preference := &instancetypev1beta1.VirtualMachineClusterPreference{
+		preference := &instancetypev1.VirtualMachineClusterPreference{
 			ObjectMeta: k8smetav1.ObjectMeta{
 				Name: "machineTypeClusterPreference",
 			},
 			TypeMeta: k8smetav1.TypeMeta{
 				Kind:       apiinstancetype.ClusterSingularPreferenceResourceName,
-				APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+				APIVersion: instancetypev1.SchemeGroupVersion.String(),
 			},
-			Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-				Machine: &instancetypev1beta1.MachinePreferences{
+			Spec: instancetypev1.VirtualMachinePreferenceSpec{
+				Machine: &instancetypev1.MachinePreferences{
 					PreferredMachineType: "pc-q35-5.0",
 				},
 			},
@@ -387,19 +387,19 @@ var _ = Describe("VirtualMachine Mutator", func() {
 
 	Context("setPreferenceStorageClassName", func() {
 
-		var preference *instancetypev1beta1.VirtualMachineClusterPreference
+		var preference *instancetypev1.VirtualMachineClusterPreference
 
 		BeforeEach(func() {
-			preference = &instancetypev1beta1.VirtualMachineClusterPreference{
+			preference = &instancetypev1.VirtualMachineClusterPreference{
 				ObjectMeta: k8smetav1.ObjectMeta{
 					Name: "machineTypeClusterPreference",
 				},
 				TypeMeta: k8smetav1.TypeMeta{
 					Kind:       apiinstancetype.ClusterSingularPreferenceResourceName,
-					APIVersion: instancetypev1beta1.SchemeGroupVersion.String(),
+					APIVersion: instancetypev1.SchemeGroupVersion.String(),
 				},
-				Spec: instancetypev1beta1.VirtualMachinePreferenceSpec{
-					Volumes: &instancetypev1beta1.VolumePreferences{
+				Spec: instancetypev1.VirtualMachinePreferenceSpec{
+					Volumes: &instancetypev1.VolumePreferences{
 						PreferredStorageClassName: "ceph",
 					},
 				},

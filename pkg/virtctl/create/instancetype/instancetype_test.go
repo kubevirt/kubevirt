@@ -33,7 +33,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/api/instancetype"
-	instancetypev1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	generatedscheme "kubevirt.io/client-go/kubevirt/scheme"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/webhooks"
@@ -124,13 +124,13 @@ var _ = Describe("create instancetype", func() {
 			decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), out)
 			Expect(err).ToNot(HaveOccurred())
 
-			var spec *instancetypev1beta1.VirtualMachineInstancetypeSpec
+			var spec *instancetypev1.VirtualMachineInstancetypeSpec
 			if namespaced {
-				instancetype, ok := decodedObj.(*instancetypev1beta1.VirtualMachineInstancetype)
+				instancetype, ok := decodedObj.(*instancetypev1.VirtualMachineInstancetype)
 				Expect(ok).To(BeTrue())
 				spec = &instancetype.Spec
 			} else {
-				clusterInstancetype, ok := decodedObj.(*instancetypev1beta1.VirtualMachineClusterInstancetype)
+				clusterInstancetype, ok := decodedObj.(*instancetypev1.VirtualMachineClusterInstancetype)
 				Expect(ok).To(BeTrue())
 				spec = &clusterInstancetype.Spec
 			}
@@ -211,7 +211,7 @@ var _ = Describe("create instancetype", func() {
 		decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), out)
 		Expect(err).ToNot(HaveOccurred())
 
-		instancetype, ok := decodedObj.(*instancetypev1beta1.VirtualMachineInstancetype)
+		instancetype, ok := decodedObj.(*instancetypev1.VirtualMachineInstancetype)
 		Expect(ok).To(BeTrue())
 		Expect(instancetype.Namespace).To(Equal(namespace))
 	})
@@ -226,15 +226,15 @@ func runCmd(extraArgs ...string) ([]byte, error) {
 	return testing.NewRepeatableVirtctlCommandWithOut(args...)()
 }
 
-func getInstancetypeSpec(bytes []byte) *instancetypev1beta1.VirtualMachineInstancetypeSpec {
+func getInstancetypeSpec(bytes []byte) *instancetypev1.VirtualMachineInstancetypeSpec {
 	decodedObj, err := runtime.Decode(generatedscheme.Codecs.UniversalDeserializer(), bytes)
 	Expect(err).ToNot(HaveOccurred())
 
 	switch obj := decodedObj.(type) {
-	case *instancetypev1beta1.VirtualMachineInstancetype:
+	case *instancetypev1.VirtualMachineInstancetype:
 		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.SingularResourceName))
 		return &obj.Spec
-	case *instancetypev1beta1.VirtualMachineClusterInstancetype:
+	case *instancetypev1.VirtualMachineClusterInstancetype:
 		Expect(strings.ToLower(obj.Kind)).To(Equal(instancetype.ClusterSingularResourceName))
 		return &obj.Spec
 	default:
@@ -243,6 +243,6 @@ func getInstancetypeSpec(bytes []byte) *instancetypev1beta1.VirtualMachineInstan
 	}
 }
 
-func validateInstancetypeSpec(spec *instancetypev1beta1.VirtualMachineInstancetypeSpec) []k8sv1.StatusCause {
+func validateInstancetypeSpec(spec *instancetypev1.VirtualMachineInstancetypeSpec) []k8sv1.StatusCause {
 	return webhooks.ValidateInstanceTypeSpec(field.NewPath("spec"), spec)
 }

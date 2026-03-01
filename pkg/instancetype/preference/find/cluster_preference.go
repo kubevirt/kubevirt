@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 	"kubevirt.io/client-go/kubecli"
 )
 
@@ -41,10 +41,11 @@ func NewClusterPreferenceFinder(store cache.Store, virtClient kubecli.KubevirtCl
 	}
 }
 
-func (f *clusterPreferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1beta1.VirtualMachineClusterPreference, error) {
+func (f *clusterPreferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*instancetypev1.VirtualMachineClusterPreference, error) {
 	if vm.Spec.Preference == nil {
 		return nil, nil
 	}
+
 	if f.store == nil {
 		return f.virtClient.VirtualMachineClusterPreference().Get(
 			context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{})
@@ -58,7 +59,7 @@ func (f *clusterPreferenceFinder) FindPreference(vm *virtv1.VirtualMachine) (*v1
 		return f.virtClient.VirtualMachineClusterPreference().Get(
 			context.Background(), vm.Spec.Preference.Name, metav1.GetOptions{})
 	}
-	preference, ok := obj.(*v1beta1.VirtualMachineClusterPreference)
+	preference, ok := obj.(*instancetypev1.VirtualMachineClusterPreference)
 	if !ok {
 		return nil, fmt.Errorf("unknown object type found in VirtualMachineClusterPreference informer")
 	}

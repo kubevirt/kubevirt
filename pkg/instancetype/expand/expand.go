@@ -23,7 +23,7 @@ import (
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	"kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/defaults"
 	"kubevirt.io/kubevirt/pkg/instancetype/apply"
@@ -36,19 +36,19 @@ import (
 type vmiApplier interface {
 	ApplyToVMI(
 		field *k8sfield.Path,
-		instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-		preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+		instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
+		preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 		vmiSpec *virtv1.VirtualMachineInstanceSpec,
 		vmiMetadata *metav1.ObjectMeta,
 	) (conflicts conflict.Conflicts)
 }
 
 type specFinder interface {
-	Find(*virtv1.VirtualMachine) (*v1beta1.VirtualMachineInstancetypeSpec, error)
+	Find(*virtv1.VirtualMachine) (*instancetypev1.VirtualMachineInstancetypeSpec, error)
 }
 
 type preferenceSpecFinder interface {
-	FindPreference(*virtv1.VirtualMachine) (*v1beta1.VirtualMachinePreferenceSpec, error)
+	FindPreference(*virtv1.VirtualMachine) (*instancetypev1.VirtualMachinePreferenceSpec, error)
 }
 
 type expander struct {

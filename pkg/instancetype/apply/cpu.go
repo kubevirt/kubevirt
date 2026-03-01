@@ -23,7 +23,7 @@ import (
 	k8sv1 "k8s.io/api/core/v1"
 
 	virtv1 "kubevirt.io/api/core/v1"
-	v1beta1 "kubevirt.io/api/instancetype/v1beta1"
+	instancetypev1 "kubevirt.io/api/instancetype/v1"
 
 	"kubevirt.io/kubevirt/pkg/instancetype/conflict"
 	preferenceApply "kubevirt.io/kubevirt/pkg/instancetype/preference/apply"
@@ -31,8 +31,8 @@ import (
 
 func applyCPU(
 	baseConflict *conflict.Conflict,
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
-	preferenceSpec *v1beta1.VirtualMachinePreferenceSpec,
+	instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
+	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) conflict.Conflicts {
 	if vmiSpec.Domain.CPU == nil {
@@ -73,7 +73,11 @@ func applyCPU(
 	return nil
 }
 
-func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *v1beta1.VirtualMachinePreferenceSpec, vmiSpec *virtv1.VirtualMachineInstanceSpec) {
+func applyGuestCPUTopology(
+	vCPUs uint32,
+	preferenceSpec *instancetypev1.VirtualMachinePreferenceSpec,
+	vmiSpec *virtv1.VirtualMachineInstanceSpec,
+) {
 	// Apply the default topology here to avoid duplication below
 	vmiSpec.Domain.CPU.Cores = 1
 	vmiSpec.Domain.CPU.Sockets = 1
@@ -84,22 +88,22 @@ func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *v1beta1.VirtualMachineP
 	}
 
 	switch preferenceApply.GetPreferredTopology(preferenceSpec) {
-	case v1beta1.DeprecatedPreferCores, v1beta1.Cores:
+	case instancetypev1.Cores:
 		vmiSpec.Domain.CPU.Cores = vCPUs
-	case v1beta1.DeprecatedPreferSockets, v1beta1.DeprecatedPreferAny, v1beta1.Sockets, v1beta1.Any:
+	case instancetypev1.Sockets, instancetypev1.Any:
 		vmiSpec.Domain.CPU.Sockets = vCPUs
-	case v1beta1.DeprecatedPreferThreads, v1beta1.Threads:
+	case instancetypev1.Threads:
 		vmiSpec.Domain.CPU.Threads = vCPUs
-	case v1beta1.DeprecatedPreferSpread, v1beta1.Spread:
+	case instancetypev1.Spread:
 		ratio, across := preferenceApply.GetSpreadOptions(preferenceSpec)
 		switch across {
-		case v1beta1.SpreadAcrossSocketsCores:
+		case instancetypev1.SpreadAcrossSocketsCores:
 			vmiSpec.Domain.CPU.Cores = ratio
 			vmiSpec.Domain.CPU.Sockets = vCPUs / ratio
-		case v1beta1.SpreadAcrossCoresThreads:
+		case instancetypev1.SpreadAcrossCoresThreads:
 			vmiSpec.Domain.CPU.Threads = ratio
 			vmiSpec.Domain.CPU.Cores = vCPUs / ratio
-		case v1beta1.SpreadAcrossSocketsCoresThreads:
+		case instancetypev1.SpreadAcrossSocketsCoresThreads:
 			const threadsPerCore = 2
 			vmiSpec.Domain.CPU.Threads = threadsPerCore
 			vmiSpec.Domain.CPU.Cores = ratio
@@ -110,7 +114,7 @@ func applyGuestCPUTopology(vCPUs uint32, preferenceSpec *v1beta1.VirtualMachineP
 
 func validateCPU(
 	baseConflict *conflict.Conflict,
-	instancetypeSpec *v1beta1.VirtualMachineInstancetypeSpec,
+	instancetypeSpec *instancetypev1.VirtualMachineInstancetypeSpec,
 	vmiSpec *virtv1.VirtualMachineInstanceSpec,
 ) (conflicts conflict.Conflicts) {
 	if _, hasCPURequests := vmiSpec.Domain.Resources.Requests[k8sv1.ResourceCPU]; hasCPURequests {
