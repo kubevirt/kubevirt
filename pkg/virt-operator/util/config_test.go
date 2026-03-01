@@ -25,10 +25,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "kubevirt.io/api/core/v1"
-
 	k8sv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
+
+	v1 "kubevirt.io/api/core/v1"
+
+	"kubevirt.io/kubevirt/pkg/pointer"
 )
 
 var _ = Describe("Operator Config", func() {
@@ -412,5 +414,32 @@ var _ = Describe("Operator Config", func() {
 					imageName: "blablabla",
 					version:   "latest",
 				}))
+	})
+
+	Describe("Migration network configuration", func() {
+		DescribeTable("GetTargetConfigFromKV with MigrationConfiguration", func(kv *v1.KubeVirt, expectNetwork string) {
+			config := GetTargetConfigFromKV(kv)
+			if expectNetwork == "" {
+				Expect(config.GetMigrationNetwork()).To(BeNil())
+			} else {
+				Expect(config.GetMigrationNetwork()).ToNot(BeNil())
+				Expect(*config.GetMigrationNetwork()).To(Equal(expectNetwork))
+			}
+		},
+			Entry("no migration config", &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{},
+				},
+			}, ""),
+			Entry("network set", &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						MigrationConfiguration: &v1.MigrationConfiguration{
+							Network: pointer.P("mynet"),
+						},
+					},
+				},
+			}, "mynet"),
+		)
 	})
 })

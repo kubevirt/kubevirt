@@ -359,12 +359,6 @@ func (app *virtHandlerApp) Run() {
 		go nodeLabellerController.Run(stop)
 	}
 
-	migrationIpAddress := app.PodIpAddress
-	migrationIpAddress, err = virthandler.FindMigrationIP(migrationIpAddress)
-	if err != nil {
-		panic(err)
-	}
-
 	downwardMetricsManager := dmetricsmanager.NewDownwardMetricsManager(app.HostOverride)
 
 	launcherClientsManager := launcherclients.NewLauncherClientsManager(app.VirtShareDir, podIsolationDetector)
@@ -385,30 +379,6 @@ func (app *virtHandlerApp) Run() {
 		migrationProxy,
 		"/proc/%d/root/var/run",
 		netStat,
-		passtRepairHandler,
-	)
-	if err != nil {
-		panic(err)
-	}
-
-	migrationTargetController, err := virthandler.NewMigrationTargetController(
-		recorder,
-		app.virtCli,
-		app.HostOverride,
-		app.VirtPrivateDir,
-		app.KubeletPodsDir,
-		migrationIpAddress,
-		launcherClientsManager,
-		vmiTargetInformer,
-		domainSharedInformer,
-		app.clusterConfig,
-		podIsolationDetector,
-		migrationProxy,
-		"/proc/%d/root/var/run",
-		&capabilities,
-		netConf,
-		netStat,
-		netresources.MemoryCalculator{},
 		passtRepairHandler,
 	)
 	if err != nil {
@@ -495,6 +465,40 @@ func (app *virtHandlerApp) Run() {
 		nodeInformer.HasSynced,
 		backupTrackerInformer.HasSynced,
 	)
+
+	// Resolve migration IP after cache sync so GetMigrationConfiguration has the actual KubeVirt CR
+	migrationIpAddress := app.PodIpAddress
+	allowFallback := false
+	if mc := app.clusterConfig.GetMigrationConfiguration(); mc != nil && mc.AllowMigrationNetworkFallback != nil && *mc.AllowMigrationNetworkFallback {
+		allowFallback = true
+	}
+	migrationIpAddress, err = virthandler.FindMigrationIP(migrationIpAddress, allowFallback)
+	if err != nil {
+		panic(err)
+	}
+	migrationTargetController, err := virthandler.NewMigrationTargetController(
+		recorder,
+		app.virtCli,
+		app.HostOverride,
+		app.VirtPrivateDir,
+		app.KubeletPodsDir,
+		migrationIpAddress,
+		launcherClientsManager,
+		vmiTargetInformer,
+		domainSharedInformer,
+		app.clusterConfig,
+		podIsolationDetector,
+		migrationProxy,
+		"/proc/%d/root/var/run",
+		&capabilities,
+		netConf,
+		netStat,
+		netresources.MemoryCalculator{},
+		passtRepairHandler,
+	)
+	if err != nil {
+		panic(err)
+	}
 
 	if err := metrics.SetupMetrics(app.HostOverride, app.MaxRequestsInFlight, vmiSourceInformer, machines); err != nil {
 		panic(err)

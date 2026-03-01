@@ -165,10 +165,6 @@ func (app *synchronizationControllerApp) Run() {
 	defer cancel()
 	app.ctx = ctx
 
-	envIP, _ := os.LookupEnv("MY_POD_IP")
-	ip, err := virthandler.FindMigrationIP(envIP)
-	app.ip = ip
-
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
 	app.reloadableRateLimiter = ratelimiter.NewReloadableRateLimiter(flowcontrol.NewTokenBucketRateLimiter(virtconfig.DefaultVirtControllerQPS, virtconfig.DefaultVirtHandlerBurst))
@@ -248,6 +244,23 @@ func (app *synchronizationControllerApp) Run() {
 		cancel()
 	}()
 
+	go app.clientcertmanager.Start()
+	go app.servercertmanager.Start()
+
+	factory.Start(stop)
+	_ = cache.WaitForCacheSync(stop, factory.KubeVirt().HasSynced)
+
+	// Resolve migration IP after cache sync so GetMigrationConfiguration has the actual KubeVirt CR
+	envIP, _ := os.LookupEnv("MY_POD_IP")
+	allowFallback := false
+	if mc := app.clusterConfig.GetMigrationConfiguration(); mc != nil && mc.AllowMigrationNetworkFallback != nil && *mc.AllowMigrationNetworkFallback {
+		allowFallback = true
+	}
+	app.ip, err = virthandler.FindMigrationIP(envIP, allowFallback)
+	if err != nil {
+		panic(err)
+	}
+
 	synchronizationController, err := synchronization.NewSynchronizationController(
 		app.virtCli,
 		vmiInformer,
@@ -262,10 +275,6 @@ func (app *synchronizationControllerApp) Run() {
 		panic(err)
 	}
 
-	go app.clientcertmanager.Start()
-	go app.servercertmanager.Start()
-
-	factory.Start(stop)
 	app.runWithLeaderElection(synchronizationController, stop)
 }
 
