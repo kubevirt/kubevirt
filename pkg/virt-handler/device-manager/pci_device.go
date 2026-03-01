@@ -55,7 +55,7 @@ type PCIDevice struct {
 
 type PCIDevicePlugin struct {
 	*DevicePluginBase
-	iommuToPCIMap map[string]string
+	pciToIOMMUMap map[string]string
 }
 
 func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
@@ -106,9 +106,9 @@ func (dpi *PCIDevicePlugin) Start(stop <-chan struct{}) (err error) {
 
 func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevicePlugin {
 	serverSock := SocketPath(strings.Replace(resourceName, "/", "-", -1))
-	iommuToPCIMap := make(map[string]string)
+	pciToIOMMUMap := make(map[string]string)
 
-	devs := constructDPIdevices(pciDevices, iommuToPCIMap)
+	devs := constructDPIdevices(pciDevices, pciToIOMMUMap)
 
 	dpi := &PCIDevicePlugin{
 		DevicePluginBase: &DevicePluginBase{
@@ -123,16 +123,16 @@ func NewPCIDevicePlugin(pciDevices []*PCIDevice, resourceName string) *PCIDevice
 			done:         make(chan struct{}),
 			deregistered: make(chan struct{}),
 		},
-		iommuToPCIMap: iommuToPCIMap,
+		pciToIOMMUMap: pciToIOMMUMap,
 	}
 	return dpi
 }
 
-func constructDPIdevices(pciDevices []*PCIDevice, iommuToPCIMap map[string]string) (devs []*pluginapi.Device) {
+func constructDPIdevices(pciDevices []*PCIDevice, pciToIOMMUMap map[string]string) (devs []*pluginapi.Device) {
 	for _, pciDevice := range pciDevices {
-		iommuToPCIMap[pciDevice.iommuGroup] = pciDevice.pciAddress
+		pciToIOMMUMap[pciDevice.pciAddress] = pciDevice.iommuGroup
 		dpiDev := &pluginapi.Device{
-			ID:     pciDevice.iommuGroup,
+			ID:     pciDevice.pciAddress,
 			Health: pluginapi.Healthy,
 		}
 		if pciDevice.numaNode >= 0 {
@@ -157,13 +157,13 @@ func (dpi *PCIDevicePlugin) Allocate(_ context.Context, r *pluginapi.AllocateReq
 	for _, request := range r.ContainerRequests {
 		deviceSpecs := make([]*pluginapi.DeviceSpec, 0)
 		for _, devID := range request.DevicesIDs {
-			// translate device's iommu group to its pci address
-			devPCIAddress, exist := dpi.iommuToPCIMap[devID]
+			// devID is now the PCI address, get the corresponding IOMMU group
+			iommuGroup, exist := dpi.pciToIOMMUMap[devID]
 			if !exist {
 				continue
 			}
-			allocatedDevices = append(allocatedDevices, devPCIAddress)
-			deviceSpecs = append(deviceSpecs, formatVFIODeviceSpecs(devID)...)
+			allocatedDevices = append(allocatedDevices, devID)
+			deviceSpecs = append(deviceSpecs, formatVFIODeviceSpecs(iommuGroup)...)
 		}
 		containerResponse.Devices = deviceSpecs
 		envVar := make(map[string]string)
@@ -203,7 +203,12 @@ func (dpi *PCIDevicePlugin) healthCheck() error {
 
 	// probe all devices
 	for _, dev := range dpi.devs {
-		vfioDevice := filepath.Join(devicePath, dev.ID)
+		// dev.ID is now PCI address, get corresponding IOMMU group for VFIO device path
+		iommuGroup, exist := dpi.pciToIOMMUMap[dev.ID]
+		if !exist {
+			continue
+		}
+		vfioDevice := filepath.Join(devicePath, iommuGroup)
 		err = watcher.Add(vfioDevice)
 		if err != nil {
 			return fmt.Errorf("failed to add the device %s to the watcher: %v", vfioDevice, err)
