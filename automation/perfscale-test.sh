@@ -91,4 +91,10 @@ if [[ (${PERFAUDIT} == "true" || ${PERFAUDIT} == "True") && ${KUBEVIRT_PROVIDER}
   _prometheus_port_forward_pid=$1
 fi
 
-./hack/perfscale-tests.sh
+if [[ "${PERFSCALE_KUBE_BURNER}" == "true" ]]; then
+  echo "running kube-burner perfscale tests"
+  ./hack/perfscale-kube-burner-test.sh
+else
+  echo "building and running in house perfscale tests"
+  ./hack/perfscale-tests.sh
+fi
