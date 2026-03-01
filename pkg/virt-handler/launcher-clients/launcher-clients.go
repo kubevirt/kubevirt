@@ -76,7 +76,6 @@ func (l *launcherClientsManager) GetVerifiedLauncherClient(vmi *v1.VirtualMachin
 }
 
 func (l *launcherClientsManager) GetLauncherClient(vmi *v1.VirtualMachineInstance) (cmdclient.LauncherClient, error) {
-	var err error
 
 	clientInfo, exists := l.launcherClients.Load(vmi.UID)
 	if exists && clientInfo.Client != nil {

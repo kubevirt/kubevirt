@@ -36,6 +36,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/info"
 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
 )
 
@@ -219,6 +220,20 @@ var _ = Describe("Virt remote commands", func() {
 				err := client.GuestPing(testDomainName, testTimeoutSeconds)
 				Expect(err).ToNot(HaveOccurred())
 			})
+		})
+	})
+	Describe("Version mismatch", func() {
+		It("Should report error when server version mismatches", func() {
+			infoClient := info.NewMockCmdInfoClient(gomock.NewController(GinkgoT()))
+
+			fakeResponse := info.CmdInfoResponse{
+				SupportedCmdVersions: []uint32{42},
+			}
+			infoClient.EXPECT().Info(gomock.Any(), gomock.Any()).Return(&fakeResponse, nil)
+
+			By("Initializing the notifier")
+			_, err := newClientWithInfoClient(infoClient, nil)
+			Expect(err).To(MatchError(ContainSubstring("no compatible version found")), "Should have returned error about incompatible versions")
 		})
 	})
 })

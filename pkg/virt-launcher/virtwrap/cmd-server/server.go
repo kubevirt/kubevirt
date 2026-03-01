@@ -647,25 +647,23 @@ func RunServer(socketPath string,
 	done := make(chan struct{})
 
 	go func() {
-		select {
-		case <-stopChan:
-			log.Log.Info("stopping cmd server")
-			stopped := make(chan struct{})
-			go func() {
-				grpcServer.Stop()
-				close(stopped)
-			}()
+		<-stopChan
+		log.Log.Info("stopping cmd server")
+		stopped := make(chan struct{})
+		go func() {
+			grpcServer.Stop()
+			close(stopped)
+		}()
 
-			select {
-			case <-stopped:
-				log.Log.Info("cmd server stopped")
-			case <-time.After(1 * time.Second):
-				log.Log.Error("timeout on stopping the cmd server, continuing anyway.")
-			}
-			sock.Close()
-			os.Remove(socketPath)
-			close(done)
+		select {
+		case <-stopped:
+			log.Log.Info("cmd server stopped")
+		case <-time.After(1 * time.Second):
+			log.Log.Error("timeout on stopping the cmd server, continuing anyway.")
 		}
+		sock.Close()
+		os.Remove(socketPath)
+		close(done)
 	}()
 
 	go func() {
