@@ -56,6 +56,7 @@ func runAndCheckDumpMetrics(vmi *v1.VirtualMachineInstance, cmd string) (*api.Me
 	if err != nil {
 		return nil, err
 	}
+	ginkgo.GinkgoLogr.Info("res:", fmt.Sprintf("%v", res))
 	metricsStr := res[0].Match[2]
 	metrics := &api.Metrics{}
 	Expect(xml.Unmarshal([]byte(metricsStr), metrics)).To(Succeed())
@@ -71,6 +72,7 @@ func GetTimeFromMetrics(metrics *api.Metrics) int {
 			return val
 		}
 	}
+	ginkgo.GinkgoLogr.Info("Metrics:", fmt.Sprintf("%v", metrics))
 	ginkgo.Fail("no Time in metrics XML")
 	return -1
 }
