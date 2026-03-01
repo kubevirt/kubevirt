@@ -29,7 +29,6 @@ import (
 	vmipredicates "kubevirt.io/api/core/v1/predicates"
 	"kubevirt.io/client-go/kubecli"
 	"kubevirt.io/client-go/log"
-
 )
 
 func (app *SubresourceAPIApp) VSOCKRequestHandler(request *restful.Request, response *restful.Response) {

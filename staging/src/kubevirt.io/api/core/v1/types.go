@@ -520,7 +520,6 @@ func (v *VirtualMachineInstance) IsUnprocessed() bool {
 	return v.Status.Phase == Pending || v.Status.Phase == VmPhaseUnset
 }
 
-
 func (v *VirtualMachineInstance) IsMigrationSource() bool {
 	// Can use this after being fully synchronized.
 	return v.Status.MigrationState != nil && v.Status.MigrationState.TargetState != nil && v.Status.MigrationState.TargetState.SyncAddress != nil && v.Status.MigrationState.TargetState.NodeAddress != nil
