@@ -187,6 +187,9 @@ cluster-deploy: cluster-clean
 cluster-sync:
 	./hack/cluster-sync.sh
 
+custom-rpms:
+	./hack/custom-rpms.sh
+
 builder-build:
 	./hack/builder/build.sh
 

@@ -41,6 +41,7 @@ manifests/**/*.tmp
 _ci-configs/
 .history
 hack/builder/manifests/
+hack/custom-rpms/generated/
 *~
 .bazeldnf/
 user.bazelrc
