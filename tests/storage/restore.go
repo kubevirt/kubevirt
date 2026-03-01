@@ -746,7 +746,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				webhook = nil
 			})
 
-			createMessageWithInitialValue := func(login console.LoginToFunction, device string, tpm bool, vmis ...*v1.VirtualMachineInstance) {
+			createMessageWithInitialValue := func(login console.LoginToFunction, device string, tpm, efi bool, vmis ...*v1.VirtualMachineInstance) {
 				for _, vmi := range vmis {
 					if vmi == nil {
 						continue
@@ -820,11 +820,24 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						}...)
 					}
 
+					if efi {
+						batch = append(batch, []expect.Batcher{
+							&expect.BSnd{S: "sudo sh -c '(printf \"\\x07\\x00\\x00\\x00\"; cat /test/data/message) > /tmp/efidata && cat /tmp/efidata > /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc'\n"},
+							&expect.BExp{R: ""},
+							&expect.BSnd{S: console.EchoLastReturnValue},
+							&expect.BExp{R: console.RetValue("0")},
+							&expect.BSnd{S: syncName},
+							&expect.BExp{R: ""},
+							&expect.BSnd{S: syncName},
+							&expect.BExp{R: ""},
+						}...)
+					}
+
 					Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 				}
 			}
 
-			updateMessage := func(device string, onlineSnapshot, tpm bool, vmis ...*v1.VirtualMachineInstance) {
+			updateMessage := func(device string, onlineSnapshot, tpm, efi bool, vmis ...*v1.VirtualMachineInstance) {
 				for _, vmi := range vmis {
 					if vmi == nil {
 						continue
@@ -883,11 +896,32 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						}...)
 					}
 
+					if efi {
+						batch = append(batch, []expect.Batcher{
+							&expect.BSnd{S: "sudo chattr -i /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc\n"},
+							&expect.BExp{R: ""},
+							&expect.BSnd{S: console.EchoLastReturnValue},
+							&expect.BExp{R: console.RetValue("0")},
+							&expect.BSnd{S: "sudo rm /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc\n"},
+							&expect.BExp{R: ""},
+							&expect.BSnd{S: console.EchoLastReturnValue},
+							&expect.BExp{R: console.RetValue("0")},
+							&expect.BSnd{S: "sudo sh -c '(printf \"\\x07\\x00\\x00\\x00\"; cat /test/data/message) > /tmp/efidata && cat /tmp/efidata > /sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc'\n"},
+							&expect.BExp{R: ""},
+							&expect.BSnd{S: console.EchoLastReturnValue},
+							&expect.BExp{R: console.RetValue("0")},
+							&expect.BSnd{S: syncName},
+							&expect.BExp{R: ""},
+							&expect.BSnd{S: syncName},
+							&expect.BExp{R: ""},
+						}...)
+					}
+
 					Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 				}
 			}
 
-			verifyOriginalContent := func(device string, tpm bool, vmis ...*v1.VirtualMachineInstance) {
+			verifyOriginalContent := func(device string, tpm, efi bool, vmis ...*v1.VirtualMachineInstance) {
 				for _, vmi := range vmis {
 					if vmi == nil {
 						continue
@@ -935,6 +969,15 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 						}...)
 					}
 
+					if efi {
+						batch = append(batch, []expect.Batcher{
+							&expect.BSnd{S: "sudo dd if=/sys/firmware/efi/efivars/kvtest-12345678-1234-1234-1234-123456789abc bs=1 skip=4 2>/dev/null\n"},
+							&expect.BExp{R: string(vm.UID)},
+							&expect.BSnd{S: console.EchoLastReturnValue},
+							&expect.BExp{R: console.RetValue("0")},
+						}...)
+					}
+
 					Expect(console.SafeExpectBatch(vmi, batch, 20)).To(Succeed())
 				}
 			}
@@ -967,7 +1010,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Expect(newVM.Spec.Template.Spec.Domain.Devices.TPM).To(Equal(vm.Spec.Template.Spec.Domain.Devices.TPM))
 			}
 
-			createSnapshotAndRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, tpm bool, targetVMName string, stopVMBeforeRestore bool) {
+			createSnapshotAndRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, tpm, efi bool, targetVMName string, stopVMBeforeRestore bool) {
 				isRestoreToDifferentVM := targetVMName != vm.Name
 
 				var targetUID *types.UID
@@ -975,7 +1018,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					targetUID = &vm.UID
 				}
 
-				createMessageWithInitialValue(login, device, tpm, vmi)
+				createMessageWithInitialValue(login, device, tpm, efi, vmi)
 
 				if !onlineSnapshot {
 					By(stoppingVM)
@@ -995,7 +1038,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				}
 
 				if !isRestoreToDifferentVM {
-					updateMessage(device, onlineSnapshot, tpm, vmi)
+					updateMessage(device, onlineSnapshot, tpm, efi, vmi)
 				}
 
 				if stopVMBeforeRestore {
@@ -1021,15 +1064,15 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				restore = waitRestoreComplete(restore, targetVMName, targetUID)
 			}
 
-			doRestoreNoVMStart := func(device string, login console.LoginToFunction, onlineSnapshot, tpm bool, targetVMName string) {
-				createSnapshotAndRestore(device, login, onlineSnapshot, tpm, targetVMName, stopVMBeforeRestore)
+			doRestoreNoVMStart := func(device string, login console.LoginToFunction, onlineSnapshot, tpm, efi bool, targetVMName string) {
+				createSnapshotAndRestore(device, login, onlineSnapshot, tpm, efi, targetVMName, stopVMBeforeRestore)
 			}
 
 			doRestoreStopVMAfterRestoreCreate := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
-				createSnapshotAndRestore(device, login, onlineSnapshot, false, targetVMName, stopVMAfterRestore)
+				createSnapshotAndRestore(device, login, onlineSnapshot, false, false, targetVMName, stopVMAfterRestore)
 			}
 
-			startVMAfterRestore := func(targetVMName, device string, tpm bool, login console.LoginToFunction) {
+			startVMAfterRestore := func(targetVMName, device string, tpm, efi bool, login console.LoginToFunction) {
 				isRestoreToDifferentVM := targetVMName != vm.Name
 				targetVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), targetVMName, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -1041,7 +1084,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				By("Verifying original file contents")
 				Expect(login(targetVMI)).To(Succeed())
 
-				verifyOriginalContent(device, tpm, targetVMI)
+				verifyOriginalContent(device, tpm, efi, targetVMI)
 
 				if isRestoreToDifferentVM {
 					newVM = targetVM
@@ -1051,8 +1094,8 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			}
 
 			doRestore := func(device string, login console.LoginToFunction, onlineSnapshot bool, targetVMName string) {
-				doRestoreNoVMStart(device, login, onlineSnapshot, false, targetVMName)
-				startVMAfterRestore(targetVMName, device, false, login)
+				doRestoreNoVMStart(device, login, onlineSnapshot, false, false, targetVMName)
+				startVMAfterRestore(targetVMName, device, false, false, login)
 			}
 
 			orphanDataVolumeTemplate := func(vm *v1.VirtualMachine, index int) *cdiv1.DataVolume {
@@ -1381,9 +1424,29 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				Entry("to a new VM", true),
 			)
 
-			DescribeTable("Should restore a vm with backend storage", func(onlineSnapshot bool) {
+			DescribeTable("Should restore a vm with backend storage", func(onlineSnapshot, newVM bool) {
 				vm = createVMWithCloudInit(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass)
 				vm.Spec.Template.Spec.Domain.Devices.TPM = &v1.TPMDevice{Persistent: pointer.P(true)}
+				vm.Spec.Template.Spec.Domain.Firmware = &v1.Firmware{
+					Bootloader: &v1.Bootloader{
+						EFI: &v1.EFI{
+							SecureBoot: pointer.P(true),
+							Persistent: pointer.P(true),
+						},
+					},
+				}
+				vm.Spec.Template.Spec.Domain.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("1Gi"),
+				}
+
+				if vm.Spec.Template.Spec.Domain.Features == nil {
+					vm.Spec.Template.Spec.Domain.Features = &v1.Features{}
+				}
+				if vm.Spec.Template.Spec.Domain.Features.SMM == nil {
+					vm.Spec.Template.Spec.Domain.Features.SMM = &v1.FeatureState{}
+				}
+				vm.Spec.Template.Spec.Domain.Features.SMM.Enabled = pointer.P(true)
+
 				vm, vmi = createAndStartVM(vm)
 				Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
 
@@ -1401,18 +1464,22 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					return console.LoginToFedora(vmi)
 				}
 
-				doRestoreNoVMStart("", loginFunc, onlineSnapshot, true, vm.Name)
-				startVMAfterRestore(vm.Name, "", true, loginFunc)
+				doRestoreNoVMStart("", loginFunc, onlineSnapshot, true, true, getTargetVMName(newVM, newVmName))
+				startVMAfterRestore(getTargetVMName(newVM, newVmName), "", true, true, loginFunc)
 				Expect(restore.Status.Restores).To(HaveLen(2))
 
-				By("Expect original backend PVC to be deleted")
-				Eventually(func() error {
-					_, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
-					return err
-				}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+				if !newVM {
+					By("Expect original backend PVC to be deleted")
+					Eventually(func() error {
+						_, err := virtClient.CoreV1().PersistentVolumeClaims(vmi.Namespace).Get(context.Background(), pvc.Name, metav1.GetOptions{})
+						return err
+					}, 60*time.Second, 5*time.Second).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
+				}
 			},
-				Entry("with offline snapshot", false),
-				Entry("with online snapshot", true),
+				Entry("with offline snapshot", false, false),
+				Entry("with online snapshot", true, false),
+				Entry("with online snapshot and restore to new VM", true, true),
+				Entry("with offline snapshot and restore to new VM", false, true),
 			)
 
 			DescribeTable("should reject vm start if restore in progress", func(deleteFunc string) {
@@ -1529,9 +1596,9 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					// continue and complete successfully
 					doRestoreStopVMAfterRestoreCreate("", login, onlineSnapshot, targetVMName)
 				} else {
-					doRestoreNoVMStart("", login, onlineSnapshot, false, targetVMName)
+					doRestoreNoVMStart("", login, onlineSnapshot, false, false, targetVMName)
 				}
-				startVMAfterRestore(targetVMName, "", false, login)
+				startVMAfterRestore(targetVMName, "", false, false, login)
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				if restoreToNewVM {
 					checkNewVMEquality()
@@ -1991,7 +2058,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 				vm = libvmops.StartVirtualMachine(vm)
 				Eventually(ThisVMIWith(vm.Namespace, vm.Name), 360).Should(BeInPhase(v1.Running))
 				Expect(vm.Spec.RunStrategy).To(HaveValue(Equal(v1.RunStrategyRerunOnFailure)))
-				doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, false, vm.Name)
+				doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, false, false, vm.Name)
 				Expect(restore.Status.Restores).To(HaveLen(1))
 				restoredVM, err := virtClient.VirtualMachine(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
 				Expect(err).ToNot(HaveOccurred())
@@ -2032,7 +2099,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					getMemoryDump(vm.Name, vm.Namespace, memoryDumpPVCName)
 					waitMemoryDumpCompletion(vm)
 
-					doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, false, getTargetVMName(restoreToNewVM, newVmName))
+					doRestoreNoVMStart("", console.LoginToFedora, onlineSnapshot, false, false, getTargetVMName(restoreToNewVM, newVmName))
 					Expect(restore.Status.Restores).To(HaveLen(1))
 					Expect(restore.Status.Restores[0].VolumeName).ToNot(Equal(memoryDumpPVCName))
 
@@ -2048,7 +2115,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 					}
 					Expect(restorePVC.Spec.DataSource.Name).To(Equal(expectedSource))
 
-					startVMAfterRestore(getTargetVMName(restoreToNewVM, newVmName), "", false, console.LoginToFedora)
+					startVMAfterRestore(getTargetVMName(restoreToNewVM, newVmName), "", false, false, console.LoginToFedora)
 
 					targetVM := getTargetVM(restoreToNewVM)
 					targetVMI, err := virtClient.VirtualMachineInstance(targetVM.Namespace).Get(context.Background(), targetVM.Name, metav1.GetOptions{})

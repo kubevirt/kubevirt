@@ -21,12 +21,15 @@ package storage
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
 
+	"kubevirt.io/kubevirt/pkg/efi"
 	"kubevirt.io/kubevirt/pkg/tpm"
 	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	agentpoller "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/agent-poller"
@@ -61,6 +64,25 @@ func (m *StorageManager) FreezeVMI(vmi *v1.VirtualMachineInstance, unfreezeTimeo
 			log.Log.Errorf("fsync error to TPM state directory: %s, output: %s", err.Error(), out)
 			return err
 		}
+	}
+
+	// The fsfreeze doesn't apply to the NVRAM directory, so we explicitly sync the NVRAM file
+	// to ensure data integrity.
+	if efi.HasPersistentDevice(&vmi.Spec) {
+		nvramFile := filepath.Join(services.PathForNVram(vmi), efi.GetEFIVarsFileName(vmi))
+
+		f, err := os.Open(nvramFile)
+		if err != nil {
+			log.Log.Errorf("could not open NVRAM file %s for fsync: %s", nvramFile, err.Error())
+			return err
+		}
+
+		// Force fsync on the file descriptor
+		// This should flush any pending writes from QEMU's pflash device
+		if err := f.Sync(); err != nil {
+			log.Log.Warningf("fsync failed on NVRAM file %s: %s", nvramFile, err.Error())
+		}
+		f.Close()
 	}
 
 	domain, err := m.virConn.LookupDomainByName(domainName)

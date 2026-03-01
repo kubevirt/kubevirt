@@ -31,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -56,6 +57,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/instancetype/revision"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/testutils"
+	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 )
 
 var _ = Describe("Restore controller", func() {
@@ -274,6 +276,7 @@ var _ = Describe("Restore controller", func() {
 			pvcInformer, _ := testutils.NewFakeInformerFor(&corev1.PersistentVolumeClaim{})
 			storageClassInformer, _ := testutils.NewFakeInformerFor(&storagev1.StorageClass{})
 			crInformer, _ := testutils.NewFakeInformerWithIndexersFor(&appsv1.ControllerRevision{}, virtcontroller.GetControllerRevisionInformerIndexers())
+			jobInformer, _ := testutils.NewFakeInformerFor(&batchv1.Job{})
 
 			recorder = record.NewFakeRecorder(100)
 			recorder.IncludeObject = true
@@ -295,6 +298,7 @@ var _ = Describe("Restore controller", func() {
 				Recorder:                  recorder,
 				VolumeSnapshotProvider:    fakeVolumeSnapshotProvider,
 				CRInformer:                crInformer,
+				JobInformer:               jobInformer,
 			}
 			controller.Init()
 
@@ -2810,6 +2814,425 @@ func expectDataVolumeDeletes(client *cdifake.Clientset, names []string) *int {
 
 	return &calls
 }
+
+var _ = Describe("VMState clone", func() {
+	var (
+		kubeClient *k8sfake.Clientset
+		vmRestore  *snapshotv1.VirtualMachineRestore
+		target     *vmRestoreTarget
+		controller *VMRestoreController
+	)
+
+	BeforeEach(func() {
+		ctrl := gomock.NewController(GinkgoT())
+		virtClient := kubecli.NewMockKubevirtClient(ctrl)
+
+		kubeClient = k8sfake.NewSimpleClientset()
+		virtClient.EXPECT().BatchV1().Return(kubeClient.BatchV1()).AnyTimes()
+
+		vmRestore = &snapshotv1.VirtualMachineRestore{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-restore",
+				Namespace: "default",
+				UID:       "uid-123",
+			},
+			Spec: snapshotv1.VirtualMachineRestoreSpec{
+				Target: corev1.TypedLocalObjectReference{
+					APIGroup: &vmAPIGroup,
+					Kind:     "VirtualMachine",
+					Name:     "target-vm",
+				},
+			},
+			Status: &snapshotv1.VirtualMachineRestoreStatus{},
+		}
+
+		config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&kubevirtv1.KubeVirtConfiguration{})
+		templateService := services.NewTemplateService("test-launcher-image", 240, "", "", "", "", "", nil, nil, config, 0, "", nil, nil)
+
+		controller = &VMRestoreController{
+			Client:          virtClient,
+			TemplateService: templateService,
+		}
+
+		target = &vmRestoreTarget{
+			controller: controller,
+			vmRestore:  vmRestore,
+		}
+	})
+
+	Describe("initializeFirmware", func() {
+		It("should generate deterministic UUID based on VMRestore UID and VM name", func() {
+			vm := &kubevirtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-vm",
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{},
+						},
+					},
+				},
+			}
+
+			Expect(target.initializeFirmware(vm)).To(Succeed())
+			Expect(vm.Spec.Template.Spec.Domain.Firmware).ToNot(BeNil())
+			Expect(vm.Spec.Template.Spec.Domain.Firmware.UUID).ToNot(BeEmpty())
+
+			firstUUID := vm.Spec.Template.Spec.Domain.Firmware.UUID
+
+			// Call again to verify determinism
+			vm2 := &kubevirtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-vm",
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{},
+						},
+					},
+				},
+			}
+
+			Expect(target.initializeFirmware(vm2)).To(Succeed())
+			Expect(vm2.Spec.Template.Spec.Domain.Firmware.UUID).To(Equal(firstUUID))
+		})
+
+		It("should generate different UUID for different VM names", func() {
+			vm1 := &kubevirtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "vm1",
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{},
+						},
+					},
+				},
+			}
+
+			vm2 := &kubevirtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "vm2",
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{},
+						},
+					},
+				},
+			}
+
+			Expect(target.initializeFirmware(vm1)).To(Succeed())
+			Expect(target.initializeFirmware(vm2)).To(Succeed())
+
+			Expect(vm1.Spec.Template.Spec.Domain.Firmware.UUID).ToNot(Equal(vm2.Spec.Template.Spec.Domain.Firmware.UUID))
+		})
+
+		It("should preserve existing UUID if already set", func() {
+			existingUUID := types.UID("existing-uuid-123")
+			vm := &kubevirtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-vm",
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{
+								Firmware: &kubevirtv1.Firmware{
+									UUID: existingUUID,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			Expect(target.initializeFirmware(vm)).To(Succeed())
+			Expect(vm.Spec.Template.Spec.Domain.Firmware.UUID).To(Equal(existingUUID))
+		})
+
+		It("should generate Serial if not present", func() {
+			vm := &kubevirtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-vm",
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{},
+						},
+					},
+				},
+			}
+
+			Expect(target.initializeFirmware(vm)).To(Succeed())
+			Expect(vm.Spec.Template.Spec.Domain.Firmware.Serial).ToNot(BeEmpty())
+		})
+
+		It("should preserve existing Serial", func() {
+			existingSerial := "existing-serial-123"
+			vm := &kubevirtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-vm",
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{
+								Firmware: &kubevirtv1.Firmware{
+									Serial: existingSerial,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			Expect(target.initializeFirmware(vm)).To(Succeed())
+			Expect(vm.Spec.Template.Spec.Domain.Firmware.Serial).To(Equal(existingSerial))
+		})
+	})
+
+	Describe("vmStateCloneJob", func() {
+		var (
+			restoredVM *kubevirtv1.VirtualMachine
+			snapshotVM *snapshotv1.VirtualMachine
+		)
+
+		BeforeEach(func() {
+			restoredVM = &kubevirtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "restored-vm",
+					Namespace: "default",
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{
+								Firmware: &kubevirtv1.Firmware{
+									UUID: "target-uuid",
+								},
+								Devices: kubevirtv1.Devices{
+									TPM: &kubevirtv1.TPMDevice{
+										Persistent: pointer.P(true),
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			snapshotVM = &snapshotv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "source-vm",
+					Namespace: "default",
+				},
+				Spec: kubevirtv1.VirtualMachineSpec{
+					Template: &kubevirtv1.VirtualMachineInstanceTemplateSpec{
+						Spec: kubevirtv1.VirtualMachineInstanceSpec{
+							Domain: kubevirtv1.DomainSpec{
+								Firmware: &kubevirtv1.Firmware{
+									UUID: "source-uuid",
+								},
+							},
+						},
+					},
+				},
+			}
+		})
+
+		It("should return true when job is complete", func() {
+			job := &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-job",
+					Namespace: "default",
+				},
+				Status: batchv1.JobStatus{
+					Conditions: []batchv1.JobCondition{
+						{
+							Type:   batchv1.JobComplete,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			}
+
+			done, err := target.checkJobStatus(job)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(done).To(BeTrue())
+		})
+
+		It("should return error and delete job when job failed", func() {
+			job := &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-job",
+					Namespace: "default",
+				},
+				Status: batchv1.JobStatus{
+					Conditions: []batchv1.JobCondition{
+						{
+							Type:    batchv1.JobFailed,
+							Status:  corev1.ConditionTrue,
+							Message: "Job failed for some reason",
+						},
+					},
+				},
+			}
+
+			_, err := kubeClient.BatchV1().Jobs("default").Create(context.Background(), job, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			done, err := target.checkJobStatus(job)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("VM state clone job failed"))
+			Expect(done).To(BeFalse())
+
+			_, err = kubeClient.BatchV1().Jobs("default").Get(context.Background(), "test-job", metav1.GetOptions{})
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("should return false when job is in progress", func() {
+			job := &batchv1.Job{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-job",
+					Namespace: "default",
+				},
+				Status: batchv1.JobStatus{
+					Conditions: []batchv1.JobCondition{},
+				},
+			}
+
+			done, err := target.checkJobStatus(job)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(done).To(BeFalse())
+		})
+
+		It("should create job with volume mounts for backend storage", func() {
+			job := target.vmStateCloneJob(restoredVM, snapshotVM, "test-job", "backend-pvc")
+
+			container := job.Spec.Template.Spec.Containers[0]
+			Expect(container.VolumeMounts).To(HaveLen(2))
+
+			tpmMount := container.VolumeMounts[0]
+			Expect(tpmMount.Name).To(Equal("backend-storage"))
+			Expect(tpmMount.MountPath).To(Equal("/mnt/swtpm"))
+			Expect(tpmMount.SubPath).To(Equal("swtpm"))
+
+			nvramMount := container.VolumeMounts[1]
+			Expect(nvramMount.Name).To(Equal("backend-storage"))
+			Expect(nvramMount.MountPath).To(Equal("/mnt/nvram"))
+			Expect(nvramMount.SubPath).To(Equal("nvram"))
+
+			Expect(job.Spec.Template.Spec.Volumes).To(HaveLen(1))
+			Expect(job.Spec.Template.Spec.Volumes[0].PersistentVolumeClaim.ClaimName).To(Equal("backend-pvc"))
+		})
+
+		Context("with persistent TPM only", func() {
+			BeforeEach(func() {
+				restoredVM.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{
+					UUID: "target-uuid",
+				}
+			})
+
+			It("sets OLD_UUID/NEW_UUID and leaves OLD_VM_NAME/NEW_VM_NAME empty", func() {
+				job := target.vmStateCloneJob(restoredVM, snapshotVM, "test-job", "backend-pvc")
+				Expect(job).ToNot(BeNil())
+
+				container := job.Spec.Template.Spec.Containers[0]
+				envMap := make(map[string]string)
+				for _, env := range container.Env {
+					envMap[env.Name] = env.Value
+				}
+
+				Expect(envMap["OLD_UUID"]).To(Equal("source-uuid"))
+				Expect(envMap["NEW_UUID"]).To(Equal("target-uuid"))
+				Expect(envMap["OLD_VM_NAME"]).To(Equal(""))
+				Expect(envMap["NEW_VM_NAME"]).To(Equal(""))
+			})
+		})
+
+		Context("with persistent EFI only", func() {
+			BeforeEach(func() {
+				restoredVM.Spec.Template.Spec.Domain.Devices.TPM = nil
+				snapshotVM.Spec.Template.Spec.Domain.Devices.TPM = nil
+
+				restoredVM.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{
+					Bootloader: &kubevirtv1.Bootloader{
+						EFI: &kubevirtv1.EFI{
+							Persistent: pointer.P(true),
+						},
+					},
+				}
+				snapshotVM.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{
+					Bootloader: &kubevirtv1.Bootloader{
+						EFI: &kubevirtv1.EFI{
+							Persistent: pointer.P(true),
+						},
+					},
+				}
+			})
+
+			It("sets OLD_VM_NAME/NEW_VM_NAME and leaves OLD_UUID/NEW_UUID empty", func() {
+				job := target.vmStateCloneJob(restoredVM, snapshotVM, "test-job", "backend-pvc")
+				Expect(job).ToNot(BeNil())
+
+				container := job.Spec.Template.Spec.Containers[0]
+				envMap := make(map[string]string)
+				for _, env := range container.Env {
+					envMap[env.Name] = env.Value
+				}
+
+				Expect(envMap["OLD_UUID"]).To(Equal(""))
+				Expect(envMap["NEW_UUID"]).To(Equal(""))
+				Expect(envMap["OLD_VM_NAME"]).To(Equal("source-vm"))
+				Expect(envMap["NEW_VM_NAME"]).To(Equal("restored-vm"))
+			})
+		})
+
+		Context("with neither persistent TPM nor EFI", func() {
+			BeforeEach(func() {
+				restoredVM.Spec.Template.Spec.Domain.Devices.TPM = nil
+				snapshotVM.Spec.Template.Spec.Domain.Devices.TPM = nil
+
+				restoredVM.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{
+					Bootloader: &kubevirtv1.Bootloader{
+						EFI: &kubevirtv1.EFI{
+							Persistent: pointer.P(false),
+						},
+					},
+				}
+				snapshotVM.Spec.Template.Spec.Domain.Firmware = &kubevirtv1.Firmware{
+					Bootloader: &kubevirtv1.Bootloader{
+						EFI: &kubevirtv1.EFI{
+							Persistent: pointer.P(false),
+						},
+					},
+				}
+			})
+
+			It("does not set OLD_UUID/NEW_UUID or OLD_VM_NAME/NEW_VM_NAME", func() {
+				job := target.vmStateCloneJob(restoredVM, snapshotVM, "test-job", "backend-pvc")
+				Expect(job).ToNot(BeNil())
+
+				container := job.Spec.Template.Spec.Containers[0]
+				envMap := make(map[string]string)
+				for _, env := range container.Env {
+					envMap[env.Name] = env.Value
+				}
+
+				Expect(envMap["OLD_UUID"]).To(Equal(""))
+				Expect(envMap["NEW_UUID"]).To(Equal(""))
+				Expect(envMap["OLD_VM_NAME"]).To(Equal(""))
+				Expect(envMap["NEW_VM_NAME"]).To(Equal(""))
+			})
+		})
+	})
+})
 
 // A mock to implement volumeSnapshotProvider interface
 type MockVolumeSnapshotProvider struct {
