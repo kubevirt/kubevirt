@@ -20,9 +20,11 @@
 package network
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
+	"os"
 	"slices"
 	"strings"
 	"sync"
@@ -31,6 +33,7 @@ import (
 	netutils "k8s.io/utils/net"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	"kubevirt.io/kubevirt/pkg/network/cache"
 	"kubevirt.io/kubevirt/pkg/network/deviceinfo"
@@ -238,8 +241,10 @@ func (c *NetStat) getPodInterfacefromFileCache(vmi *v1.VirtualMachineInstance, i
 
 	podInterface := &cache.PodIfaceCacheData{}
 	if data, err := cache.ReadPodInterfaceCache(c.cacheCreator, string(vmi.UID), ifaceName); err == nil {
-		//FIXME error handling?
 		podInterface = data
+	} else if !errors.Is(err, os.ErrNotExist) {
+		// os.ErrNotExist is expected during early VMI initialization
+		log.Log.Reason(err).Warningf("failed to read pod interface cache for VMI %s/%s iface %s", vmi.Namespace, vmi.Name, ifaceName)
 	}
 
 	c.podInterfaceVolatileCache.Store(vmiInterfaceKey(vmi.UID, ifaceName), podInterface)
