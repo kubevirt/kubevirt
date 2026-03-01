@@ -504,7 +504,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 			c.syncVolumesUpdate(vmiCopy)
 		}
 
-		c.syncMigrationRequiredCondition(vmiCopy)
+		c.syncMigrationRequiredCondition(vmiCopy, pod)
 
 		c.checkEphemeralHotplugVolumes(vmiCopy)
 
@@ -1149,14 +1149,14 @@ func (c *Controller) syncMemoryHotplug(vmi *virtv1.VirtualMachineInstance) {
 	}
 }
 
-func (c *Controller) syncMigrationRequiredCondition(vmi *virtv1.VirtualMachineInstance) {
+func (c *Controller) syncMigrationRequiredCondition(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod) {
 	const pendingMigrationReEvalPeriod = 10 * time.Second
 
 	if migrations.IsMigrating(vmi) {
 		return
 	}
 
-	result := c.netMigrationEvaluator.Evaluate(vmi)
+	result := c.netMigrationEvaluator.Evaluate(vmi, pod)
 
 	cm := controller.NewVirtualMachineInstanceConditionManager()
 	existingCondition := cm.GetCondition(vmi, virtv1.VirtualMachineInstanceMigrationRequired)

@@ -3031,7 +3031,7 @@ func (c *Controller) syncRestartRequired(lastSeenVMSpec *virtv1.VirtualMachineSp
 		lastSeenVM.Spec.Template.Spec.Tolerations = currentVM.Spec.Template.Spec.Tolerations
 	}
 
-	if !netvmliveupdate.IsRestartRequired(currentVM, vmi) {
+	if !netvmliveupdate.IsRestartRequired(currentVM, vmi, c.clusterConfig) {
 		lastSeenVM.Spec.Template.Spec.Domain.Devices.Interfaces = currentVM.Spec.Template.Spec.Domain.Devices.Interfaces
 		lastSeenVM.Spec.Template.Spec.Networks = currentVM.Spec.Template.Spec.Networks
 	}
