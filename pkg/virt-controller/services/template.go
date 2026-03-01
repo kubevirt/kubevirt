@@ -105,15 +105,7 @@ const LibvirtStartupDelay = 10
 
 const IntelVendorName = "Intel"
 
-const ENV_VAR_LIBVIRT_DEBUG_LOGS = "LIBVIRT_DEBUG_LOGS"
-const ENV_VAR_VIRTIOFSD_DEBUG_LOGS = "VIRTIOFSD_DEBUG_LOGS"
-const ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY = "VIRT_LAUNCHER_LOG_VERBOSITY"
-const ENV_VAR_SHARED_FILESYSTEM_PATHS = "SHARED_FILESYSTEM_PATHS"
-
 const ENV_VAR_POD_NAME = "POD_NAME"
-
-// extensive log verbosity threshold after which libvirt debug logs will be enabled
-const EXT_LOG_VERBOSITY_THRESHOLD = 5
 
 const ephemeralStorageOverheadSize = "50M"
 
@@ -412,6 +404,7 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 			"--hook-sidecars", strconv.Itoa(len(requestedHookSidecarList)),
 			"--ovmf-path", ovmfPath,
 			"--disk-memory-limit", strconv.Itoa(int(t.clusterConfig.GetDiskVerification().MemoryLimit.Value())),
+			"--hypervisor", t.clusterConfig.GetHypervisor().Name,
 		}
 		if nonRoot {
 			command = append(command, "--run-as-nonroot")
@@ -466,14 +459,14 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 
 			virtLauncherLogVerbosity = uint(verbosityInt)
 		}
-		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: verbosityStr})
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: util.ENV_VAR_VIRT_LAUNCHER_LOG_VERBOSITY, Value: verbosityStr})
 	}
 
-	if labelValue, ok := vmi.Labels[debugLogs]; (ok && strings.EqualFold(labelValue, "true")) || virtLauncherLogVerbosity > EXT_LOG_VERBOSITY_THRESHOLD {
-		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
+	if labelValue, ok := vmi.Labels[debugLogs]; (ok && strings.EqualFold(labelValue, "true")) || virtLauncherLogVerbosity > util.EXT_LOG_VERBOSITY_THRESHOLD {
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: util.ENV_VAR_LIBVIRT_DEBUG_LOGS, Value: "1"})
 	}
-	if labelValue, ok := vmi.Labels[virtiofsDebugLogs]; (ok && strings.EqualFold(labelValue, "true")) || virtLauncherLogVerbosity > EXT_LOG_VERBOSITY_THRESHOLD {
-		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: ENV_VAR_VIRTIOFSD_DEBUG_LOGS, Value: "1"})
+	if labelValue, ok := vmi.Labels[virtiofsDebugLogs]; (ok && strings.EqualFold(labelValue, "true")) || virtLauncherLogVerbosity > util.EXT_LOG_VERBOSITY_THRESHOLD {
+		compute.Env = append(compute.Env, k8sv1.EnvVar{Name: util.ENV_VAR_VIRTIOFSD_DEBUG_LOGS, Value: "1"})
 	}
 
 	compute.Env = append(compute.Env, k8sv1.EnvVar{
