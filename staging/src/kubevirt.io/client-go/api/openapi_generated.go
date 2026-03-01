@@ -21423,7 +21423,7 @@ func schema_kubevirtio_api_core_v1_Filesystem(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				Required: []string{"name", "virtiofs"},
+				Required: []string{"name"},
 			},
 		},
 		Dependencies: []string{

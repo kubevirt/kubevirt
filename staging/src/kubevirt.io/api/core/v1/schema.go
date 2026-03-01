@@ -155,8 +155,7 @@ type ContainerPathVolumeSource struct {
 
 // DownwardMetricsVolumeSource adds a very small disk to VMIs which contains a limited view of host and guest
 // metrics. The disk content is compatible with vhostmd (https://github.com/vhostmd/vhostmd) and vm-dump-metrics.
-type DownwardMetricsVolumeSource struct {
-}
+type DownwardMetricsVolumeSource struct{}
 
 // Represents a Sysprep volume source.
 type SysprepSource struct {
@@ -400,8 +399,7 @@ type Realtime struct {
 // NUMAGuestMappingPassthrough instructs kubevirt to model numa topology which is compatible with the CPU pinning on the guest.
 // This will result in a subset of the node numa topology being passed through, ensuring that virtual numa nodes and their memory
 // never cross boundaries coming from the node numa mapping.
-type NUMAGuestMappingPassthrough struct {
-}
+type NUMAGuestMappingPassthrough struct{}
 
 type NUMA struct {
 	// GuestMappingPassthrough will create an efficient guest topology based on host CPUs exclusively assigned to a pod.
@@ -580,7 +578,7 @@ type Devices struct {
 	// If specified, virtual network interfaces configured with a virtio bus will also enable the vhost multiqueue feature for network devices. The number of queues created depends on additional factors of the VirtualMachineInstance, like the number of guest CPUs.
 	// +optional
 	NetworkInterfaceMultiQueue *bool `json:"networkInterfaceMultiqueue,omitempty"`
-	//Whether to attach a GPU device to the vmi.
+	// Whether to attach a GPU device to the vmi.
 	// +optional
 	// +listType=atomic
 	GPUs []GPU `json:"gpus,omitempty"`
@@ -595,7 +593,7 @@ type Devices struct {
 	// +optional
 	// +listType=atomic
 	Filesystems []Filesystem `json:"filesystems,omitempty"`
-	//Whether to attach a host device to the vmi.
+	// Whether to attach a host device to the vmi.
 	// +optional
 	// +listType=atomic
 	HostDevices []HostDevice `json:"hostDevices,omitempty"`
@@ -620,8 +618,7 @@ type Devices struct {
 // The struct is currently empty as there is no immediate request for
 // user-facing APIs. This structure simply turns on USB redirection of
 // UsbClientPassthroughMaxNumberOf devices.
-type ClientPassthroughDevices struct {
-}
+type ClientPassthroughDevices struct{}
 
 // Represents the upper limit allowed by QEMU + KubeVirt.
 const (
@@ -684,7 +681,7 @@ type Filesystem struct {
 	// Name is the device name
 	Name string `json:"name"`
 	// Virtiofs is supported
-	Virtiofs *FilesystemVirtiofs `json:"virtiofs"`
+	Virtiofs *FilesystemVirtiofs `json:"virtiofs,omitempty"`
 }
 
 type FilesystemVirtiofs struct{}
@@ -882,14 +879,11 @@ type SEVPolicy struct {
 	EncryptedState *bool `json:"encryptedState,omitempty"`
 }
 
-type SEVSNP struct {
-}
+type SEVSNP struct{}
 
-type SEVAttestation struct {
-}
+type SEVAttestation struct{}
 
-type TDX struct {
-}
+type TDX struct{}
 
 type LunTarget struct {
 	// Bus indicates the type of disk device to emulate.
@@ -1618,8 +1612,10 @@ type AccessCredentialSecretSource struct {
 	SecretName string `json:"secretName"`
 }
 
-type ConfigDriveSSHPublicKeyAccessCredentialPropagation struct{}
-type NoCloudSSHPublicKeyAccessCredentialPropagation struct{}
+type (
+	ConfigDriveSSHPublicKeyAccessCredentialPropagation struct{}
+	NoCloudSSHPublicKeyAccessCredentialPropagation     struct{}
+)
 
 // AuthorizedKeysFile represents a path within the guest
 // that ssh public keys should be propagated to
@@ -1770,8 +1766,7 @@ func (podNet *PodNetwork) UnmarshalJSON(data []byte) error {
 }
 
 // Rng represents the random device passed from host
-type Rng struct {
-}
+type Rng struct{}
 
 // Represents the multus cni network.
 type MultusNetwork struct {
