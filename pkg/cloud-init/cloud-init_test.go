@@ -354,6 +354,38 @@ var _ = Describe("CloudInit", func() {
 					verifyCloudInitNoCloudIso(cloudInitData)
 				})
 
+				It("should succeed to verify userData with vendorData", func() {
+					userData := "fake\nuser\ndata\n"
+					vendorData := "fake\nvendor\ndata\n"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserData:   userData,
+						VendorData: vendorData,
+					}
+					verifyCloudInitNoCloudIso(cloudInitData)
+				})
+
+				It("should succeed to verify userData with vendorDataBase64", func() {
+					userData := "fake\nuser\ndata\n"
+					vendorData := "fake\nvendor\ndata\n"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserData:         userData,
+						VendorDataBase64: base64.StdEncoding.EncodeToString([]byte(vendorData)),
+					}
+					verifyCloudInitNoCloudIso(cloudInitData)
+				})
+
+				It("should succeed to verify userDataBase64 with vendorData and networkData", func() {
+					userData := "fake\nuser\ndata\n"
+					networkData := "fake\nnetwork\ndata\n"
+					vendorData := "fake\nvendor\ndata\n"
+					cloudInitData := &v1.CloudInitNoCloudSource{
+						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+						NetworkData:    networkData,
+						VendorData:     vendorData,
+					}
+					verifyCloudInitNoCloudIso(cloudInitData)
+				})
+
 				It("should fail to verify bad cloudInitNoCloud UserDataBase64", func() {
 					source := &v1.CloudInitNoCloudSource{
 						UserDataBase64: "#######garbage******",
@@ -366,6 +398,15 @@ var _ = Describe("CloudInit", func() {
 					source := &v1.CloudInitNoCloudSource{
 						UserData:          "fake",
 						NetworkDataBase64: "#######garbage******",
+					}
+					_, err := readCloudInitNoCloudSource(source)
+					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
+				})
+
+				It("should fail to verify bad cloudInitNoCloud VendorDataBase64", func() {
+					source := &v1.CloudInitNoCloudSource{
+						UserData:         "fake",
+						VendorDataBase64: "#######garbage******",
 					}
 					_, err := readCloudInitNoCloudSource(source)
 					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
@@ -387,6 +428,22 @@ var _ = Describe("CloudInit", func() {
 										Name: secret,
 									},
 									NetworkDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: secret,
+									},
+								},
+							},
+						}
+					}
+
+					createCloudInitSecretRefVolumeWithVendorData := func(name, secret string) *v1.Volume {
+						return &v1.Volume{
+							Name: name,
+							VolumeSource: v1.VolumeSource{
+								CloudInitNoCloud: &v1.CloudInitNoCloudSource{
+									UserDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: secret,
+									},
+									VendorDataSecretRef: &k8sv1.LocalObjectReference{
 										Name: secret,
 									},
 								},
@@ -455,6 +512,32 @@ var _ = Describe("CloudInit", func() {
 						Expect(err).To(HaveOccurred(), "expected a failure when no sources found")
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
 					})
+
+					It("should resolve vendordata from secret", func() {
+						testVolume := createCloudInitSecretRefVolumeWithVendorData("test-volume", "test-secret")
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+						fakeVolumeMountDir("test-volume", map[string]string{
+							"userdata":   "secret-userdata",
+							"vendordata": "secret-vendordata",
+						})
+						_, err := resolveNoCloudSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
+						Expect(testVolume.CloudInitNoCloud.VendorData).To(Equal("secret-vendordata"))
+					})
+
+					It("should resolve camel-case vendorData from secret", func() {
+						testVolume := createCloudInitSecretRefVolumeWithVendorData("test-volume", "test-secret")
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+						fakeVolumeMountDir("test-volume", map[string]string{
+							"userData":   "secret-userdata",
+							"vendorData": "secret-vendordata",
+						})
+						_, err := resolveNoCloudSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitNoCloud.UserData).To(Equal("secret-userdata"))
+						Expect(testVolume.CloudInitNoCloud.VendorData).To(Equal("secret-vendordata"))
+					})
 				})
 			})
 
@@ -512,6 +595,47 @@ var _ = Describe("CloudInit", func() {
 					source := &v1.CloudInitConfigDriveSource{
 						UserData:          "fake",
 						NetworkDataBase64: "#######garbage******",
+					}
+					_, err := readCloudInitConfigDriveSource(source)
+					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
+				})
+
+				It("should succeed to verify userData with vendorData", func() {
+					userData := "fake\nuser\ndata\n"
+					vendorData := "fake\nvendor\ndata\n"
+					cloudInitData := &v1.CloudInitConfigDriveSource{
+						UserData:   userData,
+						VendorData: vendorData,
+					}
+					verifyCloudInitConfigDriveIso(cloudInitData)
+				})
+
+				It("should succeed to verify userData with vendorDataBase64", func() {
+					userData := "fake\nuser\ndata\n"
+					vendorData := "fake\nvendor\ndata\n"
+					cloudInitData := &v1.CloudInitConfigDriveSource{
+						UserData:         userData,
+						VendorDataBase64: base64.StdEncoding.EncodeToString([]byte(vendorData)),
+					}
+					verifyCloudInitConfigDriveIso(cloudInitData)
+				})
+
+				It("should succeed to verify userDataBase64 with vendorData and networkData", func() {
+					userData := "fake\nuser\ndata\n"
+					networkData := "fake\nnetwork\ndata\n"
+					vendorData := "fake\nvendor\ndata\n"
+					cloudInitData := &v1.CloudInitConfigDriveSource{
+						UserDataBase64: base64.StdEncoding.EncodeToString([]byte(userData)),
+						NetworkData:    networkData,
+						VendorData:     vendorData,
+					}
+					verifyCloudInitConfigDriveIso(cloudInitData)
+				})
+
+				It("should fail to verify bad cloudInitConfigDrive VendorDataBase64", func() {
+					source := &v1.CloudInitConfigDriveSource{
+						UserData:         "fake",
+						VendorDataBase64: "#######garbage******",
 					}
 					_, err := readCloudInitConfigDriveSource(source)
 					Expect(err.Error()).Should(Equal("illegal base64 data at input byte 0"))
@@ -583,6 +707,48 @@ var _ = Describe("CloudInit", func() {
 						Expect(err.Error()).To(Equal("no cloud-init data-source found at volume: test-volume"))
 						Expect(keys).To(BeEmpty())
 
+					})
+
+					createCloudInitConfigDriveVolumeWithVendorData := func(name, secret string) *v1.Volume {
+						return &v1.Volume{
+							Name: name,
+							VolumeSource: v1.VolumeSource{
+								CloudInitConfigDrive: &v1.CloudInitConfigDriveSource{
+									UserDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: secret,
+									},
+									VendorDataSecretRef: &k8sv1.LocalObjectReference{
+										Name: secret,
+									},
+								},
+							},
+						}
+					}
+
+					It("should resolve vendordata from secret", func() {
+						testVolume := createCloudInitConfigDriveVolumeWithVendorData("test-volume", "test-secret")
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+						fakeVolumeMountDir("test-volume", map[string]string{
+							"userdata":   "secret-userdata",
+							"vendordata": "secret-vendordata",
+						})
+						_, err := resolveConfigDriveSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitConfigDrive.UserData).To(Equal("secret-userdata"))
+						Expect(testVolume.CloudInitConfigDrive.VendorData).To(Equal("secret-vendordata"))
+					})
+
+					It("should resolve vendorData with camelCase key from secret", func() {
+						testVolume := createCloudInitConfigDriveVolumeWithVendorData("test-volume", "test-secret")
+						vmi := createEmptyVMIWithVolumes([]v1.Volume{*testVolume})
+						fakeVolumeMountDir("test-volume", map[string]string{
+							"userData":   "secret-userdata",
+							"vendorData": "secret-vendordata",
+						})
+						_, err := resolveConfigDriveSecrets(vmi, tmpDir)
+						Expect(err).To(Not(HaveOccurred()), "could not resolve secret volume")
+						Expect(testVolume.CloudInitConfigDrive.UserData).To(Equal("secret-userdata"))
+						Expect(testVolume.CloudInitConfigDrive.VendorData).To(Equal("secret-vendordata"))
 					})
 				})
 			})

@@ -19340,6 +19340,26 @@ func schema_kubevirtio_api_core_v1_CloudInitConfigDriveSource(ref common.Referen
 							Format:      "",
 						},
 					},
+					"vendorDataSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VendorDataSecretRef references a k8s secret that contains config drive vendordata.",
+							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
+						},
+					},
+					"vendorDataBase64": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VendorDataBase64 contains config drive cloud-init vendordata as a base64 encoded string.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vendorData": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VendorData contains config drive inline cloud-init vendordata.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -19391,6 +19411,26 @@ func schema_kubevirtio_api_core_v1_CloudInitNoCloudSource(ref common.ReferenceCa
 					"networkData": {
 						SchemaProps: spec.SchemaProps{
 							Description: "NetworkData contains NoCloud inline cloud-init networkdata.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vendorDataSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VendorDataSecretRef references a k8s secret that contains NoCloud vendordata.",
+							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
+						},
+					},
+					"vendorDataBase64": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VendorDataBase64 contains NoCloud cloud-init vendordata as a base64 encoded string.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vendorData": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VendorData contains NoCloud inline cloud-init vendordata.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

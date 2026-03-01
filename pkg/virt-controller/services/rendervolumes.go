@@ -307,6 +307,30 @@ func (vr *VolumeRenderer) handleCloudInitConfigDrive(volume v1.Volume) {
 				ReadOnly:  true,
 			})
 		}
+		if volume.CloudInitConfigDrive.VendorDataSecretRef != nil {
+			// attach a secret referenced by the vendordata
+			volumeName := volume.Name + "-vdata"
+			vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+				Name: volumeName,
+				VolumeSource: k8sv1.VolumeSource{
+					Secret: &k8sv1.SecretVolumeSource{
+						SecretName: volume.CloudInitConfigDrive.VendorDataSecretRef.Name,
+					},
+				},
+			})
+			vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      volumeName,
+				MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "vendordata"),
+				SubPath:   "vendordata",
+				ReadOnly:  true,
+			})
+			vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+				Name:      volumeName,
+				MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "vendorData"),
+				SubPath:   "vendorData",
+				ReadOnly:  true,
+			})
+		}
 	}
 }
 
@@ -850,6 +874,30 @@ func (vr *VolumeRenderer) handleCloudInitNoCloud(volume v1.Volume) {
 			Name:      volumeName,
 			MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "networkData"),
 			SubPath:   "networkData",
+			ReadOnly:  true,
+		})
+	}
+	if volume.CloudInitNoCloud.VendorDataSecretRef != nil {
+		// attach a secret referenced by the vendordata
+		volumeName := volume.Name + "-vdata"
+		vr.podVolumes = append(vr.podVolumes, k8sv1.Volume{
+			Name: volumeName,
+			VolumeSource: k8sv1.VolumeSource{
+				Secret: &k8sv1.SecretVolumeSource{
+					SecretName: volume.CloudInitNoCloud.VendorDataSecretRef.Name,
+				},
+			},
+		})
+		vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+			Name:      volumeName,
+			MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "vendordata"),
+			SubPath:   "vendordata",
+			ReadOnly:  true,
+		})
+		vr.podVolumeMounts = append(vr.podVolumeMounts, k8sv1.VolumeMount{
+			Name:      volumeName,
+			MountPath: filepath.Join(config.SecretSourceDir, volume.Name, "vendorData"),
+			SubPath:   "vendorData",
 			ReadOnly:  true,
 		})
 	}

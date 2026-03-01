@@ -546,6 +546,10 @@ spec:
         name: nameValue
       userData: userDataValue
       userDataBase64: userDataBase64Value
+      vendorData: vendorDataValue
+      vendorDataBase64: vendorDataBase64Value
+      vendorDataSecretRef:
+        name: nameValue
     cloudInitNoCloud:
       networkData: networkDataValue
       networkDataBase64: networkDataBase64Value
@@ -555,6 +559,10 @@ spec:
         name: nameValue
       userData: userDataValue
       userDataBase64: userDataBase64Value
+      vendorData: vendorDataValue
+      vendorDataBase64: vendorDataBase64Value
+      vendorDataSecretRef:
+        name: nameValue
     configMap:
       name: nameValue
       optional: true
