@@ -320,7 +320,7 @@ func (e *eventCaller) handleGuestPanicEvent(client *Notifier, vmi *v1.VirtualMac
 }
 
 func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEvent, client *Notifier, events chan watch.Event,
-	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance, fsFreezeStatus *api.FSFreeze,
+	interfaceStatus []api.InterfaceStatus, osInfo *api.GuestOSInfo, vmi *v1.VirtualMachineInstance,
 	metadataCache *metadata.Cache) {
 	// Handle guest panic event early, before domain lookup which may fail if VM is already gone
 	if isGuestPanicEvent(libvirtEvent.Event) {
@@ -398,8 +398,8 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 			if err != nil {
 				log.Log.Reason(err).Error(fmt.Sprintf("Could not send k8s event"))
 			}
-		}
 	}
+}
 
 	switch {
 	case libvirtEvent.JobCompletedEvent != nil:
@@ -419,10 +419,6 @@ func (e *eventCaller) eventCallback(c cli.Connection, domain *api.Domain, libvir
 		domain.Status.OSInfo = *osInfo
 	}
 
-	if fsFreezeStatus != nil {
-		domain.Status.FSFreezeStatus = *fsFreezeStatus
-	}
-
 	event := watch.Event{Type: eventType, Object: domain}
 
 	if err := client.SendDomainEvent(event); err != nil {
@@ -438,10 +434,7 @@ func (n *Notifier) StartDomainNotifier(
 	domainName string,
 	agentStore *agentpoller.AsyncAgentStore,
 	qemuAgentSysInterval time.Duration,
-	qemuAgentFileInterval time.Duration,
 	qemuAgentUserInterval time.Duration,
-	qemuAgentVersionInterval time.Duration,
-	qemuAgentFSFreezeStatusInterval time.Duration,
 	metadataCache *metadata.Cache,
 ) error {
 
@@ -459,17 +452,13 @@ func (n *Notifier) StartDomainNotifier(
 		domainName,
 		agentStore,
 		qemuAgentSysInterval,
-		qemuAgentFileInterval,
 		qemuAgentUserInterval,
-		qemuAgentVersionInterval,
-		qemuAgentFSFreezeStatusInterval,
 	)
 
 	// Run the event process logic in a separate go-routine to not block libvirt
 	go func() {
 		var interfaceStatuses []api.InterfaceStatus
 		var guestOsInfo *api.GuestOSInfo
-		var fsFreezeStatus *api.FSFreeze
 		var eventCaller eventCaller
 
 		for {
@@ -477,17 +466,16 @@ func (n *Notifier) StartDomainNotifier(
 			case event := <-eventChan:
 				metadataCache.ResetNotification()
 				domainCache = util.NewDomainFromName(event.Domain, vmi.UID)
-				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+				eventCaller.eventCallback(domainConn, domainCache, event, n, deleteNotificationSent, interfaceStatuses, guestOsInfo, vmi, metadataCache)
 				log.Log.Infof("Domain name event: %v", domainCache.Spec.Name)
 				agentPoller.UpdateFromEvent(event.Event, event.AgentEvent)
 			case agentUpdate := <-agentStore.AgentUpdated:
 				metadataCache.ResetNotification()
 				interfaceStatuses = agentUpdate.DomainInfo.Interfaces
 				guestOsInfo = agentUpdate.DomainInfo.OSInfo
-				fsFreezeStatus = agentUpdate.DomainInfo.FSFreezeStatus
 
 				eventCaller.eventCallback(domainConn, domainCache, libvirtEvent{}, n, deleteNotificationSent,
-					interfaceStatuses, guestOsInfo, vmi, fsFreezeStatus, metadataCache)
+					interfaceStatuses, guestOsInfo, vmi, metadataCache)
 			case <-reconnectChan:
 				n.SendDomainEvent(newWatchEventError(fmt.Errorf("Libvirt reconnect, domain %s", domainName)))
 
@@ -508,7 +496,6 @@ func (n *Notifier) StartDomainNotifier(
 						interfaceStatuses,
 						guestOsInfo,
 						vmi,
-						fsFreezeStatus,
 						metadataCache,
 					)
 				}

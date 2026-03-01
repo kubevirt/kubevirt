@@ -2850,8 +2850,10 @@ type EvacuateCancelOptions struct {
 type VirtualMachineInstanceGuestAgentInfo struct {
 	metav1.TypeMeta `json:",inline"`
 	// GAVersion is a version of currently installed guest agent
+	// Deprecated: GAVersion is no longer populated by the agent poller.
 	GAVersion string `json:"guestAgentVersion,omitempty"`
 	// Return command list the guest agent supports
+	// Deprecated: SupportedCommands is no longer populated by the agent poller.
 	// +listType=atomic
 	SupportedCommands []GuestAgentCommandInfo `json:"supportedCommands,omitempty"`
 	// Hostname represents FQDN of a guest
@@ -2867,6 +2869,7 @@ type VirtualMachineInstanceGuestAgentInfo struct {
 	// FSFreezeStatus indicates whether a freeze operation was requested for the guest filesystem.
 	// It will be set to "frozen" if the request was made, or unset otherwise.
 	// This does not reflect the actual state of the guest filesystem.
+	// Deprecated: FSFreezeStatus is no longer populated by the agent poller.
 	FSFreezeStatus string `json:"fsFreezeStatus,omitempty"`
 }
 
