@@ -102,6 +102,50 @@ var _ = Describe("CreateDRAHostDevices", func() {
 			Expect(dev.Type).To(Equal(api.HostDeviceMDev))
 			Expect(dev.Alias.GetName()).To(Equal(DRAHostDeviceAliasPrefix + "vhd1"))
 			Expect(dev.Source.Address.UUID).To(Equal(uuid))
+			Expect(dev.Mode).To(Equal("subsystem"))
+			Expect(dev.Model).To(Equal("vfio-pci"))
+		})
+	})
+
+	Context("when the VMI has an MDEV host device allocated through DRA (s390x)", func() {
+		It("should create an MDEV HostDevice", func() {
+			uuid := "abcd1234-1111-2222-3333-444455556666"
+			vmi := &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Namespace: "default", Name: "vmi"},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							HostDevices: []v1.HostDevice{{
+								Name:         "vhd1",
+								ClaimRequest: &v1.ClaimRequest{ClaimName: ptr.To("claim1"), RequestName: ptr.To("req1")},
+							}},
+						},
+					},
+					Architecture: "s390x",
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					DeviceStatus: &v1.DeviceStatus{
+						HostDeviceStatuses: []v1.DeviceStatusInfo{{
+							Name: "vhd1",
+							DeviceResourceClaimStatus: &v1.DeviceResourceClaimStatus{
+								ResourceClaimName: ptr.To("claim1"),
+								Name:              ptr.To("device1"),
+								Attributes:        &v1.DeviceAttribute{MDevUUID: &uuid},
+							},
+						}},
+					},
+				},
+			}
+
+			hostDevs, err := CreateDRAHostDevices(vmi)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(hostDevs).To(HaveLen(1))
+			dev := hostDevs[0]
+			Expect(dev.Type).To(Equal(api.HostDeviceMDev))
+			Expect(dev.Alias.GetName()).To(Equal(DRAHostDeviceAliasPrefix + "vhd1"))
+			Expect(dev.Source.Address.UUID).To(Equal(uuid))
+			Expect(dev.Mode).To(Equal("subsystem"))
+			Expect(dev.Model).To(Equal("vfio-ap"))
 		})
 	})
 
