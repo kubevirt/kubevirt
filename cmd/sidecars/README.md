@@ -6,6 +6,23 @@ In Kubernetes, Sidecar containers are containers that run along with the main co
 In the context of KubeVirt, we use the Sidecar container to apply changes before the Virtual Machine
 is initialized.
 
+> **Note**: The Sidecar feature gate must be enabled in the KubeVirt Custom Resource before using sidecars.
+> Add `Sidecar` to `spec.configuration.developerConfiguration.featureGates` in your KubeVirt CR.
+```yaml
+apiVersion: kubevirt.io/v1
+kind: KubeVirt
+metadata:
+  name: kubevirt
+  namespace: kubevirt
+spec:
+  configuration:
+    developerConfiguration:
+      featureGates:
+        - Sidecar
+```
+
+Once enabled, every VM owner may use it to run arbitrary code in the context of virt-launcher which may have unexpected effects.
+
 The Sidecar containers communicate with the main container over a socket with a gRPC protocol, [with
 two versions at moment](../../pkg/hooks). The Sidecar is meant to do the changes over libvirt's XML
 and return the new XML over gRPC for the VM creation.
@@ -96,6 +113,61 @@ func main() {
 	}
 	fmt.Println(onDefineDomain([]byte(vmiJSON), []byte(domainXML)))
 }
+```
+
+## Hook Sidecars Annotation
+
+The `hooks.kubevirt.io/hookSidecars` annotation is a JSON array that defines one or more sidecar containers to be added to the virt-launcher pod. Each sidecar entry supports the following fields:
+
+### Field Reference
+
+| Field | Type | Required | Description | Example |
+|-------|------|----------|-------------|---------|
+| `image` | `string` | No | Container image to use for the sidecar. If not specified, the default `sidecar-shim-image` built by KubeVirt will be used. | `"image": "registry:5000/kubevirt/example-hook-sidecar:devel"` |
+| `imagePullPolicy` | `string` | No | Image pull policy for the sidecar container. Must be one of: `IfNotPresent`, `Always`, or `Never`. If not specified, follows Kubernetes default behavior. | `"imagePullPolicy": "IfNotPresent"` |
+| `command` | `array of strings` | No | Command to execute in the sidecar container. If not specified, the default entrypoint of the image will be used. | `"command": ["/custom-entrypoint", "--flag"]` |
+| `args` | `array of strings` | No | Arguments to pass to the sidecar container command. For sidecar-shim, this typically includes the gRPC protocol version (e.g., `["--version", "v1alpha2"]`). | `"args": ["--version", "v1alpha2"]` |
+| `configMap` | `object` | No | Reference to a ConfigMap containing a script to execute. The script will be mounted and executed by the sidecar-shim. See nested fields below. | See nested fields below |
+| `configMap.name` | `string` | Yes | Name of the ConfigMap in the same namespace containing a script to execute. | `"name": "my-config-map"` |
+| `configMap.key` | `string` | Yes | Key in the ConfigMap that contains the script. | `"key": "my_script.sh"` |
+| `configMap.hookPath` | `string` | Yes | Path where the script will be mounted. Must be either `/usr/bin/onDefineDomain` or `/usr/bin/preCloudInitIso`. | `"hookPath": "/usr/bin/onDefineDomain"` |
+| `pvc` | `object` | No | Reference to a PersistentVolumeClaim to mount in the sidecar container, optionally shared with the compute container. See nested fields below. | See nested fields below |
+| `pvc.name` | `string` | Yes | Name of the PVC in the same namespace to mount in the sidecar container. | `"name": "my-pvc"` |
+| `pvc.volumePath` | `string` | Yes | Mount path in the sidecar container. | `"volumePath": "/debug"` |
+| `pvc.sharedComputePath` | `string` | No | Mount path in the compute (virt-launcher) container. If specified, the PVC will be shared between both containers. | `"sharedComputePath": "/var/run/debug"` |
+
+### Complete Annotation Example
+
+```yaml
+annotations:
+  hooks.kubevirt.io/hookSidecars: |
+    [
+      {
+        "image": "registry:5000/kubevirt/example-hook-sidecar:devel",
+        "imagePullPolicy": "IfNotPresent",
+        "args": ["--version", "v1alpha2"]
+      },
+      {
+        "imagePullPolicy": "IfNotPresent",
+        "args": ["--version", "v1alpha2"],
+        "configMap": {
+          "name": "my-config-map",
+          "key": "my_script.sh",
+          "hookPath": "/usr/bin/onDefineDomain"
+        }
+      },
+      {
+        "image": "custom-sidecar:latest",
+        "imagePullPolicy": "Always",
+        "command": ["/custom-entrypoint"],
+        "args": ["--custom-arg", "value"],
+        "pvc": {
+          "name": "shared-storage",
+          "volumePath": "/data",
+          "sharedComputePath": "/var/run/shared"
+        }
+      }
+    ]
 ```
 
 ## Using ConfigMap to run custom script
@@ -190,15 +262,6 @@ Please notice that annotations set on VMs are not automatically propagated to VM
 in the case of a VM, the VM owner should configure it on `/spec/template/metadata/annotations`
 instead of directly annotating the VM as in [this example](../../examples/vm-cirros-with-sidecar-hook-configmap.yaml).
 The annotation will be rendered on the generated VMI once the VM will be restarted.
-
-The `name` field indicates the name of the ConfigMap on the cluster which contains the script you 
-want to execute. The `key` field indicates the key in the ConfigMap which contains the script to 
-be executed. Finally, `hookPath` indicates the path where you would like the script to be 
-mounted. It could be either of `/usr/bin/onDefineDomain` or `/usr/bin/preCloudInitIso` depending 
-upon the hook you would like to execute.
-
-The optional `image` parameter can be specified if a custom image should be used instead of the
-`sidecar-shim-image` built with `virt-operator` and `virt-controller`.
 
 After creating the VMI, verify that it is in the `Running` state, and connect to its console and
 see if the desired changes to baseboard manufacturer get reflected:
