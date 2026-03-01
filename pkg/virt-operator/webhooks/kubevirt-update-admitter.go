@@ -122,7 +122,7 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
 		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
-		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates)...)
+		response.Warnings = append(response.Warnings, warnFeatureGates(featureGates)...)
 	}
 
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
@@ -455,11 +455,11 @@ func featureGatesChanged(currKVSpec, newKVSpec *v1.KubeVirtSpec) bool {
 		!slices.Equal(currDevConfig.DisabledFeatureGates, newDevConfig.DisabledFeatureGates)
 }
 
-func warnDeprecatedFeatureGates(featureGates []string) (warnings []string) {
+func warnFeatureGates(featureGates []string) (warnings []string) {
 	for _, featureGate := range featureGates {
-		deprectedFeature := featuregate.FeatureGateInfo(featureGate)
-		if deprectedFeature != nil {
-			warning := deprectedFeature.Message
+		fg := featuregate.FeatureGateInfo(featureGate)
+		if fg != nil {
+			warning := fg.Message
 			warnings = append(warnings, warning)
 			log.Log.Warning(warning)
 		}

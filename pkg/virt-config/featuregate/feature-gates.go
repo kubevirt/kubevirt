@@ -44,8 +44,10 @@ const (
 	// Discontinued represents features that have been removed, with no option to enable them.
 	Discontinued State = "Discontinued"
 
-	WarningPattern = "feature gate %s is deprecated (feature state is %q), therefore it can be safely removed and is redundant. " +
+	WarningPatternDeprecated = "feature gate %s is deprecated (feature state is %q), therefore it can be safely removed and is redundant. " +
 		"For more info, please look at: https://github.com/kubevirt/kubevirt/blob/main/docs/deprecation.md"
+
+	WarningPatternActive = "feature gate %s is active (feature state is %q)"
 )
 
 type FeatureGate struct {
@@ -62,8 +64,12 @@ var featureGates = map[string]FeatureGate{}
 // existing FG.
 // If an inactive feature-gate is missing a message, a default one is set.
 func RegisterFeatureGate(fg FeatureGate) {
-	if fg.State != Alpha && fg.State != Beta && fg.Message == "" {
-		fg.Message = fmt.Sprintf(WarningPattern, fg.Name, fg.State)
+	if fg.Message == "" {
+		if fg.State == Alpha || fg.State == Beta {
+			fg.Message = fmt.Sprintf(WarningPatternActive, fg.Name, fg.State)
+		} else {
+			fg.Message = fmt.Sprintf(WarningPatternDeprecated, fg.Name, fg.State)
+		}
 	}
 	featureGates[fg.Name] = fg
 }
