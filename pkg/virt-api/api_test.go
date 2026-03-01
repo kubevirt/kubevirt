@@ -20,10 +20,14 @@
 package virt_api
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"regexp"
+	"strings"
 
 	"github.com/emicklei/go-restful/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -224,6 +228,145 @@ var _ = Describe("Virt-api", func() {
 			Expect(app.SubresourcesOnly).To(BeFalse())
 		})
 
+		It("should return OpenAPI v3 discovery endpoint", func() {
+			app.authorizor = authorizorMock
+			authorizorMock.EXPECT().
+				Authorize(gomock.Not(gomock.Nil())).
+				Return(true, "", nil).
+				AnyTimes()
+			app.Compose()
+			resp, err := http.Get(backend.URL + "/openapi/v3")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		})
+
+		It("should have OpenAPI v3 spec endpoint for subresources.kubevirt.io/v1", func() {
+			app.authorizor = authorizorMock
+			authorizorMock.EXPECT().
+				Authorize(gomock.Not(gomock.Nil())).
+				Return(true, "", nil).
+				AnyTimes()
+			app.Compose()
+			resp, err := http.Get(backend.URL + "/openapi/v3/apis/subresources.kubevirt.io/v1")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		})
+
+		It("should have OpenAPI v3 spec endpoint for subresources.kubevirt.io/v1alpha3", func() {
+			app.authorizor = authorizorMock
+			authorizorMock.EXPECT().
+				Authorize(gomock.Not(gomock.Nil())).
+				Return(true, "", nil).
+				AnyTimes()
+			app.Compose()
+			resp, err := http.Get(backend.URL + "/openapi/v3/apis/subresources.kubevirt.io/v1alpha3")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+		})
+
+		It("should return OpenAPI v3 discovery with hash in serverRelativeURL", func() {
+			app.authorizor = authorizorMock
+			authorizorMock.EXPECT().
+				Authorize(gomock.Not(gomock.Nil())).
+				Return(true, "", nil).
+				AnyTimes()
+			app.Compose()
+
+			resp, err := http.Get(backend.URL + "/openapi/v3")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			var discovery map[string]interface{}
+			err = json.Unmarshal(body, &discovery)
+			Expect(err).ToNot(HaveOccurred())
+
+			paths, ok := discovery["paths"].(map[string]interface{})
+			Expect(ok).To(BeTrue(), "discovery response should have 'paths' field")
+			Expect(paths).ToNot(BeEmpty(), "paths should not be empty")
+
+			// SHA-512 produces 64 bytes = 128 hex characters
+			hashPattern := regexp.MustCompile(`\?hash=[A-F0-9]{128}$`)
+
+			for gvPath, pathInfo := range paths {
+				pathMap, ok := pathInfo.(map[string]interface{})
+				Expect(ok).To(BeTrue(), "path info for %s should be a map", gvPath)
+
+				serverRelativeURL, ok := pathMap["serverRelativeURL"].(string)
+				Expect(ok).To(BeTrue(), "path %s should have serverRelativeURL", gvPath)
+
+				// Verify the URL contains a hash query parameter
+				Expect(serverRelativeURL).To(ContainSubstring("?hash="),
+					"serverRelativeURL for %s should contain hash query parameter", gvPath)
+
+				// Verify the hash is a valid SHA-512 uppercase hex (128 characters)
+				Expect(hashPattern.MatchString(serverRelativeURL)).To(BeTrue(),
+					"serverRelativeURL %s should end with a valid SHA-512 hash (128 uppercase hex chars)", serverRelativeURL)
+
+				// Verify the path is correctly formatted
+				Expect(serverRelativeURL).To(HavePrefix("/openapi/v3/"),
+					"serverRelativeURL should start with /openapi/v3/")
+			}
+		})
+
+		It("should return different hashes for different API versions", func() {
+			app.authorizor = authorizorMock
+			authorizorMock.EXPECT().
+				Authorize(gomock.Not(gomock.Nil())).
+				Return(true, "", nil).
+				AnyTimes()
+			app.Compose()
+
+			resp, err := http.Get(backend.URL + "/openapi/v3")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			Expect(err).ToNot(HaveOccurred())
+
+			var discovery map[string]interface{}
+			err = json.Unmarshal(body, &discovery)
+			Expect(err).ToNot(HaveOccurred())
+
+			paths, ok := discovery["paths"].(map[string]interface{})
+			Expect(ok).To(BeTrue())
+
+			// Extract hashes from all paths
+			hashes := make(map[string]string)
+			for gvPath, pathInfo := range paths {
+				pathMap := pathInfo.(map[string]interface{})
+				serverRelativeURL := pathMap["serverRelativeURL"].(string)
+
+				// Extract hash from URL
+				parts := strings.Split(serverRelativeURL, "?hash=")
+				if len(parts) == 2 {
+					hashes[gvPath] = parts[1]
+				}
+			}
+
+			// If we have multiple versions, verify they have different hashes
+			// (since each version should have its own filtered spec)
+			if len(hashes) > 1 {
+				hashValues := make([]string, 0, len(hashes))
+				for _, hash := range hashes {
+					hashValues = append(hashValues, hash)
+				}
+
+				// Check that not all hashes are the same
+				// (they should be different since each version has different routes)
+				allSame := true
+				for i := 1; i < len(hashValues); i++ {
+					if hashValues[i] != hashValues[0] {
+						allSame = false
+						break
+					}
+				}
+				Expect(allSame).To(BeFalse(),
+					"Different API versions should have different hashes since they have different specs")
+			}
+		})
 	})
 
 	AfterEach(func() {

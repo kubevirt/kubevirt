@@ -1,10 +1,12 @@
 package openapi
 
 import (
+	"crypto/sha512"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/emicklei/go-restful/v3"
@@ -13,11 +15,14 @@ import (
 	openapi_validate "github.com/go-openapi/validate"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/kube-openapi/pkg/builder"
+	builderv3 "k8s.io/kube-openapi/pkg/builder3"
 	"k8s.io/kube-openapi/pkg/common"
 	"k8s.io/kube-openapi/pkg/common/restfuladapter"
+	handler3 "k8s.io/kube-openapi/pkg/handler3"
 	"k8s.io/kube-openapi/pkg/spec3"
 	"k8s.io/kube-openapi/pkg/validation/errors"
 	"k8s.io/kube-openapi/pkg/validation/spec"
+	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/api"
 )
 
@@ -25,6 +30,96 @@ type Validator struct {
 	specSchemes   *openapi_spec.Schema
 	statusSchemes *openapi_spec.Schema
 	topLevelKeys  map[string]interface{}
+}
+
+// V3SpecCache caches OpenAPI v3 specs and their hashes for each group-version.
+// The hash is computed as SHA-512 of the JSON-serialized spec, matching Kubernetes'
+// kube-openapi handler3 implementation (computeETag in pkg/handler3/handler.go).
+type V3SpecCache struct {
+	specs     map[string][]byte
+	hashes    map[string]string
+	discovery handler3.OpenAPIV3Discovery
+}
+
+// NewV3SpecCache creates a new V3SpecCache instance.
+func NewV3SpecCache() *V3SpecCache {
+	return &V3SpecCache{
+		specs:     make(map[string][]byte),
+		hashes:    make(map[string]string),
+		discovery: handler3.OpenAPIV3Discovery{Paths: make(map[string]handler3.OpenAPIV3DiscoveryGroupVersion)},
+	}
+}
+
+// GetSpec retrieves a cached spec and its hash for the given group-version path.
+// Returns the JSON bytes, the hash, and a boolean indicating whether the entry exists.
+func (c *V3SpecCache) GetSpec(gvPath string) ([]byte, string, bool) {
+	specBytes, ok := c.specs[gvPath]
+	if !ok {
+		return nil, "", false
+	}
+	return specBytes, c.hashes[gvPath], true
+}
+
+// Prepare builds and caches all OpenAPI v3 specs and discovery paths for
+// subresource group-versions. It is expected to run during process startup.
+func (c *V3SpecCache) Prepare(subwss []*restful.WebService, apiVersion string) error {
+	specs := make(map[string][]byte, len(v1.SubresourceGroupVersions))
+	hashes := make(map[string]string, len(v1.SubresourceGroupVersions))
+	discovery := handler3.OpenAPIV3Discovery{Paths: make(map[string]handler3.OpenAPIV3DiscoveryGroupVersion, len(v1.SubresourceGroupVersions))}
+
+	for i, gv := range v1.SubresourceGroupVersions {
+		gvPath := path.Join("apis", gv.Group, gv.Version)
+		specBytes, err := buildV3Spec(subwss[i], apiVersion)
+		if err != nil {
+			return fmt.Errorf("failed to build OpenAPI v3 spec for %s: %w", gvPath, err)
+		}
+
+		specs[gvPath] = specBytes
+		hashes[gvPath] = fmt.Sprintf("%X", sha512.Sum512(specBytes))
+		discovery.Paths[gvPath] = handler3.OpenAPIV3DiscoveryGroupVersion{
+			ServerRelativeURL: "/openapi/v3/" + gvPath + "?hash=" + hashes[gvPath],
+		}
+	}
+
+	c.specs = specs
+	c.hashes = hashes
+	c.discovery = discovery
+	return nil
+}
+
+// GetOpenAPIV3DiscoveryPaths returns the precomputed OpenAPI v3 discovery paths.
+func (c *V3SpecCache) GetOpenAPIV3DiscoveryPaths() (handler3.OpenAPIV3Discovery, error) {
+	if len(c.discovery.Paths) == 0 {
+		return handler3.OpenAPIV3Discovery{}, fmt.Errorf("OpenAPI v3 discovery is not initialized")
+	}
+	return c.discovery, nil
+}
+
+// GetV3Spec returns a precomputed OpenAPI v3 spec and hash for a group-version path.
+func (c *V3SpecCache) GetV3Spec(gvPath string) ([]byte, string, error) {
+	specBytes, hash, ok := c.GetSpec(gvPath)
+	if !ok {
+		return nil, "", fmt.Errorf("OpenAPI v3 spec for %s is not initialized", gvPath)
+	}
+	return specBytes, hash, nil
+}
+
+func buildV3Spec(ws *restful.WebService, version string) ([]byte, error) {
+	config := CreateV3Config()
+	config.GetDefinitions = api.GetOpenAPIDefinitions
+	openapiV3Spec, err := builderv3.BuildOpenAPISpecFromRoutes(
+		restfuladapter.AdaptWebServices([]*restful.WebService{ws}), config)
+	if err != nil {
+		return nil, err
+	}
+	openapiV3Spec.Info.Version = version
+
+	specBytes, err := json.Marshal(openapiV3Spec)
+	if err != nil {
+		return nil, err
+	}
+
+	return specBytes, nil
 }
 
 func CreateConfig() *common.Config {
