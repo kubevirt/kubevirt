@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	v1 "kubevirt.io/api/core/v1"
+	"kubevirt.io/client-go/log"
 
 	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -34,22 +35,26 @@ const (
 	DRAHostDeviceAliasPrefix          = "dra-hostdevice-"
 )
 
-func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+// CreateDRAHostDevices creates host devices for HostDevices allocated via DRA.
+func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance, downwardAPIAttributes *drautil.DownwardAPIAttributes) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if !hasHostDevicesWithDRA(vmi) {
 		return hostDevices, nil
 	}
-	draPCIHostDevices, err := getDRAPCIHostDevices(vmi)
-	if err != nil {
-		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
-	}
-	draMDEVHostDevices, err := getDRAMDEVHostDevices(vmi)
-	if err != nil {
-		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
-	}
 
-	hostDevices = append(hostDevices, draPCIHostDevices...)
-	hostDevices = append(hostDevices, draMDEVHostDevices...)
+	for _, hd := range vmi.Spec.Domain.Devices.HostDevices {
+		if !drautil.IsHostDeviceDRA(hd) {
+			continue
+		}
+
+		hostDevice, err := createHostDeviceForHostDevice(hd, downwardAPIAttributes)
+		if err != nil {
+			return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
+		}
+		if hostDevice != nil {
+			hostDevices = append(hostDevices, *hostDevice)
+		}
+	}
 
 	if err := validateCreationOfDRAHostDevices(vmi.Spec.Domain.Devices.HostDevices, hostDevices); err != nil {
 		return nil, fmt.Errorf(failedCreateGenericHostDevicesFmt, err)
@@ -58,56 +63,44 @@ func CreateDRAHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, err
 	return hostDevices, nil
 }
 
-func getDRAPCIHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	hostDevices := []api.HostDevice{}
-	if vmi.Status.DeviceStatus == nil {
-		return hostDevices, fmt.Errorf("vmi has dra host-devices devices but no device status found")
+func createHostDeviceForHostDevice(hd v1.HostDevice, downwardAPIAttributes *drautil.DownwardAPIAttributes) (*api.HostDevice, error) {
+	if hd.ClaimRequest == nil || hd.ClaimRequest.ClaimName == nil || hd.ClaimRequest.RequestName == nil {
+		return nil, fmt.Errorf("HostDevice %s has incomplete ClaimRequest", hd.Name)
 	}
 
-	for _, hdStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
-		hdStatus := hdStatus.DeepCopy()
-		if hdStatus.DeviceResourceClaimStatus != nil && hdStatus.DeviceResourceClaimStatus.Attributes != nil {
-			if hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
-				hostAddr, err := device.NewPciAddressField(*hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create PCI device for %s: %v", hdStatus.Name, err)
-				}
-				hostDevices = append(hostDevices, api.HostDevice{
-					Alias:   api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hdStatus.Name),
-					Source:  api.HostDeviceSource{Address: hostAddr},
-					Type:    api.HostDevicePCI,
-					Managed: "no",
-				})
-			}
+	claimName := *hd.ClaimRequest.ClaimName
+	requestName := *hd.ClaimRequest.RequestName
+
+	if pciAddr, err := downwardAPIAttributes.GetPCIAddressForClaim(claimName, requestName); err == nil {
+		log.Log.V(2).Infof("Adding DRA PCI HostDevice for %s", hd.Name)
+		hostAddr, err := device.NewPciAddressField(pciAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create PCI device for %s: %v", hd.Name, err)
 		}
-	}
-	return hostDevices, nil
-}
-
-func getDRAMDEVHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	hostDevices := []api.HostDevice{}
-	if vmi.Status.DeviceStatus == nil {
-		return hostDevices, fmt.Errorf("vmi has dra host-devices devices but no device status found")
+		return &api.HostDevice{
+			Alias:   api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hd.Name),
+			Source:  api.HostDeviceSource{Address: hostAddr},
+			Type:    api.HostDevicePCI,
+			Managed: "no",
+		}, nil
 	}
 
-	for _, hdStatus := range vmi.Status.DeviceStatus.HostDeviceStatuses {
-		hdStatus := hdStatus.DeepCopy()
-		if hdStatus.DeviceResourceClaimStatus != nil && hdStatus.DeviceResourceClaimStatus.Attributes != nil {
-			if hdStatus.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
-				continue
-			}
-			if hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID != nil {
-				hostDevices = append(hostDevices, api.HostDevice{
-					Alias:  api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hdStatus.Name),
-					Source: api.HostDeviceSource{Address: &api.Address{UUID: *hdStatus.DeviceResourceClaimStatus.Attributes.MDevUUID}},
-					Type:   api.HostDeviceMDev,
-					Mode:   "subsystem",
-					Model:  "vfio-pci",
-				})
-			}
-		}
+	if mdevUUID, err := downwardAPIAttributes.GetMDevUUIDForClaim(claimName, requestName); err == nil {
+		log.Log.V(2).Infof("Adding DRA MDEV HostDevice for %s", hd.Name)
+		return &api.HostDevice{
+			Alias: api.NewUserDefinedAlias(DRAHostDeviceAliasPrefix + hd.Name),
+			Source: api.HostDeviceSource{
+				Address: &api.Address{
+					UUID: mdevUUID,
+				},
+			},
+			Type:  api.HostDeviceMDev,
+			Mode:  "subsystem",
+			Model: "vfio-pci",
+		}, nil
 	}
-	return hostDevices, nil
+
+	return nil, fmt.Errorf("HostDevice %s has no pciBusID or mdevUUID in metadata for claim %s request %s", hd.Name, claimName, requestName)
 }
 
 func validateCreationOfDRAHostDevices(genericHostDevices []v1.HostDevice, hostDevices []api.HostDevice) error {

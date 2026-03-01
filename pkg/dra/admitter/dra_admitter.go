@@ -20,6 +20,8 @@
 package admitter
 
 import (
+	"fmt"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -65,6 +67,8 @@ func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 		draGPUs    []v1.GPU
 		nonDRAGPUs []v1.GPU
 	)
+	gpusField := field.Child("spec", "domain", "devices", "gpus")
+
 	for _, gpu := range spec.Domain.Devices.GPUs {
 		if drautil.IsGPUDRA(gpu) {
 			draGPUs = append(draGPUs, gpu)
@@ -79,7 +83,7 @@ func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "vmi.spec.domain.devices.gpus contains GPUs without deviceName",
-				Field:   field.Child("spec", "domain", "devices", "gpus").String(),
+				Field:   gpusField.String(),
 			})
 			return causes
 		}
@@ -87,7 +91,7 @@ func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueInvalid,
 				Message: "vmi.spec.domain.devices.gpus contains GPUs with both deviceName and claimRequest",
-				Field:   field.Child("spec", "domain", "devices", "gpus").String(),
+				Field:   gpusField.String(),
 			})
 		}
 	}
@@ -96,8 +100,60 @@ func validateCreationDRA(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "vmi.spec.domain.devices.gpus contains DRA enabled GPUs but feature gate is not enabled",
-			Field:   field.Child("spec", "domain", "devices", "gpus").String(),
+			Field:   gpusField.String(),
 		})
+		return causes
+	}
+
+	rcField := field.Child("spec", "resourceClaims")
+	rcNames := sets.New[string]()
+	for i, rc := range spec.ResourceClaims {
+		if rcNames.Has(rc.Name) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("duplicate resourceClaims name %q", rc.Name),
+				Field:   rcField.Index(i).Child("name").String(),
+			})
+		}
+		rcNames.Insert(rc.Name)
+	}
+	if len(causes) > 0 {
+		return causes
+	}
+
+	for i, gpu := range draGPUs {
+		if gpu.ClaimName == nil || *gpu.ClaimName == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "claimName is required for DRA GPU",
+				Field:   gpusField.Index(i).Child("claimName").String(),
+			})
+		}
+		if gpu.RequestName == nil || *gpu.RequestName == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Message: "requestName is required for DRA GPU",
+				Field:   gpusField.Index(i).Child("requestName").String(),
+			})
+		}
+	}
+	if len(causes) > 0 {
+		return causes
+	}
+
+	claimRequestPairs := sets.New[string]()
+	for i, gpu := range draGPUs {
+		key := *gpu.ClaimName + "/" + *gpu.RequestName
+		if claimRequestPairs.Has(key) {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Message: fmt.Sprintf("duplicate claimName/requestName pair %q", key),
+				Field:   gpusField.Index(i).String(),
+			})
+		}
+		claimRequestPairs.Insert(key)
+	}
+	if len(causes) > 0 {
 		return causes
 	}
 

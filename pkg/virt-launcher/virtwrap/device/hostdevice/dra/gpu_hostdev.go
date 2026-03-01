@@ -36,107 +36,100 @@ const (
 	DefaultDisplayOn             = true
 )
 
-func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
+// CreateDRAGPUHostDevices creates host devices for GPUs allocated via DRA.
+func CreateDRAGPUHostDevices(vmi *v1.VirtualMachineInstance, downwardAPIAttributes *drautil.DownwardAPIAttributes) ([]api.HostDevice, error) {
 	var hostDevices []api.HostDevice
 	if !hasGPUsWithDRA(vmi) {
 		log.Log.V(3).Infof("No DRA GPU devices found for vmi %s/%s", vmi.GetNamespace(), vmi.GetName())
 		return hostDevices, nil
 	}
-	draPCIHostDevices, err := getDRAPCIHostDevicesForGPUs(vmi)
-	if err != nil {
-		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
-	}
-	draMDEVHostDevices, err := getDRAMDEVHostDevicesForGPUs(vmi, DefaultDisplayOn)
-	if err != nil {
-		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
-	}
 
-	hostDevices = append(hostDevices, draPCIHostDevices...)
-	hostDevices = append(hostDevices, draMDEVHostDevices...)
+	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
+		if !drautil.IsGPUDRA(gpu) {
+			continue
+		}
+
+		hostDevice, err := createHostDeviceForGPU(gpu, downwardAPIAttributes)
+		if err != nil {
+			return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
+		}
+		if hostDevice != nil {
+			hostDevices = append(hostDevices, *hostDevice)
+		}
+	}
 
 	if err := validateCreationOfDRAGPUDevices(vmi.Spec.Domain.Devices.GPUs, hostDevices); err != nil {
 		return nil, fmt.Errorf(failedCreateGPUHostDeviceFmt, err)
 	}
-	return hostDevices, nil
-}
 
-func getDRAPCIHostDevicesForGPUs(vmi *v1.VirtualMachineInstance) ([]api.HostDevice, error) {
-	var hostDevices []api.HostDevice
-	if vmi.Status.DeviceStatus == nil {
-		return hostDevices, fmt.Errorf("vmi has dra gpu devices but no device status found")
-	}
-
-	for _, gpu := range vmi.Status.DeviceStatus.GPUStatuses {
-		gpu := gpu.DeepCopy()
-		if gpu.DeviceResourceClaimStatus != nil && gpu.DeviceResourceClaimStatus.Attributes != nil {
-			if gpu.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
-				log.Log.V(2).Infof("Adding DRA PCI GPUdevice for %s", gpu.Name)
-				hostAddr, err := device.NewPciAddressField(*gpu.DeviceResourceClaimStatus.Attributes.PCIAddress)
-				if err != nil {
-					return nil, fmt.Errorf("failed to create PCI device for %s: %v", gpu.Name, err)
-				}
-				hostDevices = append(hostDevices, api.HostDevice{
-					Alias:   api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
-					Source:  api.HostDeviceSource{Address: hostAddr},
-					Type:    api.HostDevicePCI,
-					Managed: "no",
-				})
+	// Set default display on first vGPU if not explicitly set
+	if DefaultDisplayOn && !isVgpuDisplaySet(vmi.Spec.Domain.Devices.GPUs) {
+		for i := range hostDevices {
+			if hostDevices[i].Type == api.HostDeviceMDev {
+				hostDevices[i].Display = "on"
+				hostDevices[i].RamFB = "on"
+				break
 			}
 		}
 	}
+
 	return hostDevices, nil
 }
 
-func getDRAMDEVHostDevicesForGPUs(vmi *v1.VirtualMachineInstance, defaultDisplayOn bool) ([]api.HostDevice, error) {
-	var hostDevices []api.HostDevice
-	if vmi.Status.DeviceStatus == nil {
-		return hostDevices, fmt.Errorf("vmi has dra devices but no device status found")
+func createHostDeviceForGPU(gpu v1.GPU, downwardAPIAttributes *drautil.DownwardAPIAttributes) (*api.HostDevice, error) {
+	if gpu.ClaimRequest == nil || gpu.ClaimRequest.ClaimName == nil || gpu.ClaimRequest.RequestName == nil {
+		return nil, fmt.Errorf("GPU %s has incomplete ClaimRequest", gpu.Name)
 	}
 
-	for _, gpu := range vmi.Status.DeviceStatus.GPUStatuses {
-		gpu := gpu.DeepCopy()
-		if gpu.DeviceResourceClaimStatus != nil && gpu.DeviceResourceClaimStatus.Attributes != nil {
-			if gpu.DeviceResourceClaimStatus.Attributes.PCIAddress != nil {
-				log.Log.V(2).Infof("Skipping DRA PCI GPU %s when processing for MDEV device", gpu.Name)
-				continue
-			}
-			if gpu.DeviceResourceClaimStatus.Attributes.MDevUUID != nil {
-				log.Log.V(2).Infof("Adding DRA MDEV GPU device for %s", gpu.Name)
-				hostDevice := api.HostDevice{
-					Alias: api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
-					Source: api.HostDeviceSource{
-						Address: &api.Address{
-							UUID: *gpu.DeviceResourceClaimStatus.Attributes.MDevUUID,
-						},
-					},
-					Type:  api.HostDeviceMDev,
-					Mode:  "subsystem",
-					Model: "vfio-pci",
+	claimName := *gpu.ClaimRequest.ClaimName
+	requestName := *gpu.ClaimRequest.RequestName
+
+	// Check mdevUUID first: a device with both pciBusID and mdevUUID is a
+	// mediated (vGPU) device whose parent happens to expose pciBusID. Treating
+	// it as PCI passthrough would be incorrect.
+	if mdevUUID, err := downwardAPIAttributes.GetMDevUUIDForClaim(claimName, requestName); err == nil {
+		log.Log.V(2).Infof("Adding DRA MDEV GPU device for %s", gpu.Name)
+		hostDevice := api.HostDevice{
+			Alias: api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
+			Source: api.HostDeviceSource{
+				Address: &api.Address{
+					UUID: mdevUUID,
+				},
+			},
+			Type:  api.HostDeviceMDev,
+			Mode:  "subsystem",
+			Model: "vfio-pci",
+		}
+
+		if gpu.VirtualGPUOptions != nil && gpu.VirtualGPUOptions.Display != nil {
+			displayEnabled := gpu.VirtualGPUOptions.Display.Enabled
+			if displayEnabled == nil || *displayEnabled {
+				hostDevice.Display = "on"
+				if gpu.VirtualGPUOptions.Display.RamFB == nil || *gpu.VirtualGPUOptions.Display.RamFB.Enabled {
+					hostDevice.RamFB = "on"
 				}
-				gpuSpec := getGPUSpecFromName(vmi, gpu.Name)
-				if gpuSpec != nil && gpuSpec.VirtualGPUOptions != nil {
-					if gpuSpec.VirtualGPUOptions.Display != nil {
-						displayEnabled := gpuSpec.VirtualGPUOptions.Display.Enabled
-						if displayEnabled == nil || *displayEnabled {
-							hostDevice.Display = "on"
-							if gpuSpec.VirtualGPUOptions.Display.RamFB == nil || *gpuSpec.VirtualGPUOptions.Display.RamFB.Enabled {
-								hostDevice.RamFB = "on"
-							}
-						}
-					}
-				}
-				hostDevices = append(hostDevices, hostDevice)
 			}
 		}
+		return &hostDevice, nil
 	}
-	if defaultDisplayOn && !isVgpuDisplaySet(vmi.Spec.Domain.Devices.GPUs) && len(hostDevices) > 0 {
-		hostDevices[0].Display = "on"
-		hostDevices[0].RamFB = "on"
+
+	if pciAddr, err := downwardAPIAttributes.GetPCIAddressForClaim(claimName, requestName); err == nil {
+		log.Log.V(2).Infof("Adding DRA PCI GPU device for %s", gpu.Name)
+		hostAddr, err := device.NewPciAddressField(pciAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create PCI device for %s: %v", gpu.Name, err)
+		}
+		return &api.HostDevice{
+			Alias:   api.NewUserDefinedAlias(AliasPrefix + gpu.Name),
+			Source:  api.HostDeviceSource{Address: hostAddr},
+			Type:    api.HostDevicePCI,
+			Managed: "no",
+		}, nil
 	}
-	return hostDevices, nil
+
+	return nil, fmt.Errorf("GPU %s has no mdevUUID or pciBusID in metadata for claim %s request %s", gpu.Name, claimName, requestName)
 }
 
-// hasGPUsWithDRA checks if the VMI has any GPU devices configured with DRA
 func hasGPUsWithDRA(vmi *v1.VirtualMachineInstance) bool {
 	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
 		if drautil.IsGPUDRA(gpu) {
@@ -146,30 +139,15 @@ func hasGPUsWithDRA(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
-func getGPUSpecFromName(vmi *v1.VirtualMachineInstance, gpu string) *v1.GPU {
-	for _, g := range vmi.Spec.Domain.Devices.GPUs {
-		g := g
-		if g.Name == gpu {
-			return &g
-		}
-	}
-	return nil
-}
-
 func isVgpuDisplaySet(gpuSpecs []v1.GPU) bool {
 	for _, gpu := range gpuSpecs {
-		if gpu.VirtualGPUOptions != nil &&
-			gpu.VirtualGPUOptions.Display != nil {
+		if gpu.VirtualGPUOptions != nil && gpu.VirtualGPUOptions.Display != nil {
 			return true
 		}
 	}
 	return false
 }
 
-// validateCreationOfDRAGPUDevices validates that all specified DRA GPU/s have a matching host-device.
-// On validation failure, an error is returned.
-// The validation assumes that the assignment of a device to a specified GPU is correct,
-// therefore a simple quantity check is sufficient.
 func validateCreationOfDRAGPUDevices(gpus []v1.GPU, hostDevices []api.HostDevice) error {
 	gpusWithDRA := []v1.GPU{}
 	for _, gpu := range gpus {
