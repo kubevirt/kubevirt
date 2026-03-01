@@ -26,6 +26,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 
 	expect "github.com/google/goexpect"
 
@@ -36,14 +37,24 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 
 	"kubevirt.io/kubevirt/pkg/libvmi"
+	libvmici "kubevirt.io/kubevirt/pkg/libvmi/cloudinit"
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
+	"kubevirt.io/kubevirt/tests/libkubevirt"
+	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libnet"
+	"kubevirt.io/kubevirt/tests/libnet/cloudinit"
 	"kubevirt.io/kubevirt/tests/libvmifact"
 	"kubevirt.io/kubevirt/tests/libvmops"
+	"kubevirt.io/kubevirt/tests/libwait"
 	"kubevirt.io/kubevirt/tests/testsuite"
+)
+
+const (
+	guestAgentConnectTimeout = 4 * time.Minute
+	vmiStartTimeout          = 180
 )
 
 var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
@@ -60,11 +71,11 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 				libnet.WithMasqueradeNetworking(),
 				withReadinessProbe(readinessProbe),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi)).
-				WithTimeout(12 * time.Minute).
+				WithTimeout(guestAgentConnectTimeout).
 				WithPolling(2 * time.Second).
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -79,7 +90,7 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 				libnet.WithMasqueradeNetworking(),
 				withReadinessProbe(readinessProbe),
 			)
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 
 			By("Checking that the VMI is consistently non-ready")
 			Consistently(matcher.ThisVMI(vmi)).
@@ -106,9 +117,9 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 
 		BeforeEach(func() {
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withReadinessProbe(createGuestAgentPingProbe(period, initialSeconds)))
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 			By("Waiting for agent to connect")
-			Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+			Eventually(matcher.ThisVMI(vmi), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
 			Eventually(matcher.ThisVMI(vmi), 2*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
 			By("Disabling the guest-agent")
@@ -145,11 +156,11 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 		It("Should not fail the VMI", func() {
 			livenessProbe := createExecProbe(period, initialSeconds, timeoutSeconds, "uname", "-a")
 			vmi := libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(livenessProbe))
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi)).
-				WithTimeout(12 * time.Minute).
+				WithTimeout(guestAgentConnectTimeout).
 				WithPolling(2 * time.Second).
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 
@@ -166,7 +177,7 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 		It("Should fail the VMI with working Exec probe and invalid command", func() {
 			livenessProbe := createExecProbe(period, initialSeconds, timeoutSeconds, "exit", "1")
 			vmi := libvmifact.NewFedora(withLivenessProbe(livenessProbe))
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 
 			By("Checking that the VMI is in a final state after a while")
 			Eventually(func() bool {
@@ -189,11 +200,11 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 
 		BeforeEach(func() {
 			vmi = libvmifact.NewFedora(libnet.WithMasqueradeNetworking(), withLivenessProbe(createGuestAgentPingProbe(period, initialSeconds)))
-			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+			vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, vmiStartTimeout)
 
 			By("Waiting for agent to connect")
 			Eventually(matcher.ThisVMI(vmi)).
-				WithTimeout(12 * time.Minute).
+				WithTimeout(guestAgentConnectTimeout).
 				WithPolling(2 * time.Second).
 				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 			Expect(console.LoginToFedora(vmi)).To(Succeed())
@@ -207,6 +218,215 @@ var _ = Describe(SIG("GuestAgent", decorators.GuestAgentProbes, func() {
 			}).WithTimeout(2 * time.Minute).
 				WithPolling(1 * time.Second).
 				Should(Or(matcher.BeInPhase(v1.Failed), matcher.HaveSucceeded()))
+		})
+	})
+}))
+
+var _ = Describe(SIG("GuestAgent info", func() {
+	Context("with running guest agent", Ordered, decorators.OncePerOrderedCleanup, func() {
+		var agentVMI *v1.VirtualMachineInstance
+
+		BeforeAll(func() {
+			agentVMI = libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+
+			By("Starting a VirtualMachineInstance")
+			var err error
+			agentVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+			libwait.WaitForSuccessfulVMIStart(agentVMI)
+
+			By("VMI has the guest agent connected condition")
+			Eventually(matcher.ThisVMI(agentVMI)).
+				WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2 * time.Second).
+				Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+		})
+
+		It("[test_id:1676]should have attached a guest agent channel by default", func() {
+			By("Logging in to the guest")
+			Expect(console.LoginToFedora(agentVMI)).To(Succeed())
+
+			By("Verifying the guest agent virtio-serial port is visible inside the guest")
+			Expect(console.SafeExpectBatch(agentVMI, []expect.Batcher{
+				&expect.BSnd{S: "cat /sys/class/virtio-ports/*/name 2>/dev/null | grep -c org.qemu.guest_agent.0\n"},
+				&expect.BExp{R: console.RetValue("1")},
+			}, 30)).To(Succeed(), "Guest agent virtio-serial port should be present in the guest")
+		})
+
+		It("[test_id:1677]VMI condition should signal agent presence", func() {
+			getOptions := metav1.GetOptions{}
+
+			freshVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
+			Expect(err).ToNot(HaveOccurred(), "Should get VMI ")
+			Expect(freshVMI.Status.Conditions).To(
+				ContainElement(
+					MatchFields(
+						IgnoreExtras,
+						Fields{"Type": Equal(v1.VirtualMachineInstanceAgentConnected)})),
+				"agent should already be connected")
+
+		})
+
+		It("[test_id:4626]should have guestosinfo in status when agent is present", func() {
+			getOptions := metav1.GetOptions{}
+			var updatedVmi *v1.VirtualMachineInstance
+			var err error
+
+			By("Expecting the Guest VM information")
+			Eventually(func() bool {
+				updatedVmi, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Get(context.Background(), agentVMI.Name, getOptions)
+				if err != nil {
+					return false
+				}
+				return updatedVmi.Status.GuestOSInfo.Name != ""
+			}).WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2*time.Second).
+				Should(BeTrue(), "Should have guest OS Info in vmi status")
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVmi.Status.GuestOSInfo.Name).To(ContainSubstring("Fedora"))
+		})
+
+		It("[test_id:4627]should return the whole data when agent is present", func() {
+			By("Expecting the Guest VM information")
+			Eventually(func() bool {
+				guestInfo, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).GuestOsInfo(context.Background(), agentVMI.Name)
+				if err != nil {
+					// invalid request, retry
+					return false
+				}
+
+				return guestInfo.Hostname != "" &&
+					guestInfo.Timezone != "" &&
+					guestInfo.GAVersion != "" &&
+					guestInfo.OS.Name != "" &&
+					len(guestInfo.FSInfo.Filesystems) > 0
+
+			}).WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2*time.Second).
+				Should(BeTrue(), "Should have guest OS Info in subresource")
+		})
+
+		It("[test_id:4629]should return user list", func() {
+			Expect(console.LoginToFedora(agentVMI)).To(Succeed())
+
+			By("Expecting the Guest VM information")
+			Eventually(func() bool {
+				userList, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).UserList(context.Background(), agentVMI.Name)
+				if err != nil {
+					// invalid request, retry
+					return false
+				}
+
+				return len(userList.Items) > 0 && userList.Items[0].UserName == "fedora"
+
+			}).WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2*time.Second).
+				Should(BeTrue(), "Should have fedora users")
+		})
+
+		It("[test_id:4630]should return filesystem list", func() {
+			By("Expecting the Guest VM information")
+			Eventually(func() bool {
+				fsList, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).FilesystemList(context.Background(), agentVMI.Name)
+				if err != nil {
+					// invalid request, retry
+					return false
+				}
+
+				return len(fsList.Items) > 0 && fsList.Items[0].DiskName != "" && fsList.Items[0].MountPoint != "" &&
+					len(fsList.Items[0].Disk) > 0 && fsList.Items[0].Disk[0].BusType != ""
+
+			}).WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2*time.Second).
+				Should(BeTrue(), "Should have some filesystem")
+		})
+	})
+
+	Context("without running guest agent", Ordered, decorators.OncePerOrderedCleanup, func() {
+		var agentVMI *v1.VirtualMachineInstance
+
+		BeforeAll(func() {
+			agentVMI = libvmifact.NewFedora(libnet.WithMasqueradeNetworking())
+
+			By("Starting a VirtualMachineInstance")
+			var err error
+			agentVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+			libwait.WaitForSuccessfulVMIStart(agentVMI)
+
+			By("Waiting for the guest agent to connect")
+			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("Expecting the VirtualMachineInstance console")
+			Expect(console.LoginToFedora(agentVMI)).To(Succeed())
+
+			By("Terminating guest agent and waiting for it to disappear.")
+			Expect(stopGuestAgent(agentVMI)).To(Succeed())
+
+			By("VMI has the guest agent connected condition")
+			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
+		})
+
+		It("[test_id:4625]should remove condition when agent is off", func() {
+			Expect(matcher.ThisVMI(agentVMI)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceAgentConnected))
+		})
+
+		It("[test_id:4628]should not return the whole data when agent is not present", func() {
+			By("Expecting the Guest VM information")
+			Eventually(func() string {
+				_, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).GuestOsInfo(context.Background(), agentVMI.Name)
+				if err != nil {
+					return err.Error()
+				}
+				return ""
+			}).WithTimeout(guestAgentConnectTimeout).
+				WithPolling(2*time.Second).
+				Should(ContainSubstring("VMI does not have guest agent connected"), "Should have not have guest info in subresource")
+		})
+	})
+
+	Context("with cluster config changes", Serial, func() {
+		BeforeEach(func() {
+			kv := libkubevirt.GetCurrentKv(kubevirt.Client())
+
+			config := kv.Spec.Configuration
+			config.SupportedGuestAgentVersions = []string{"X.*"}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(config)
+		})
+
+		It("[test_id:5267]VMI condition should signal unsupported agent presence", func() {
+			agentVMI := libvmifact.NewFedora(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithCloudInitNoCloud(
+					libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-shutdown")),
+				),
+			)
+			By("Starting a VirtualMachineInstance")
+			agentVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+			libwait.WaitForSuccessfulVMIStart(agentVMI)
+
+			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceUnsupportedAgent))
+		})
+
+		It("[test_id:6958]VMI condition should not signal unsupported agent presence for optional commands", func() {
+			agentVMI := libvmifact.NewFedora(
+				libnet.WithMasqueradeNetworking(),
+				libvmi.WithCloudInitNoCloud(
+					libvmici.WithNoCloudUserData(cloudinit.GetFedoraToolsGuestAgentBlacklistUserData("guest-exec,guest-set-password")),
+				),
+			)
+			By("Starting a VirtualMachineInstance")
+			agentVMI, err := kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(agentVMI)).Create(context.Background(), agentVMI, metav1.CreateOptions{})
+			Expect(err).ToNot(HaveOccurred(), "Should create VMI successfully")
+			libwait.WaitForSuccessfulVMIStart(agentVMI)
+
+			By("VMI has the guest agent connected condition")
+			Eventually(matcher.ThisVMI(agentVMI), guestAgentConnectTimeout, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
+
+			By("fetching the VMI after agent has connected")
+			Expect(matcher.ThisVMI(agentVMI)()).To(matcher.HaveConditionMissingOrFalse(v1.VirtualMachineInstanceUnsupportedAgent))
 		})
 	})
 }))
