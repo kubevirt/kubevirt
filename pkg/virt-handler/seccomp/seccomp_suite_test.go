@@ -1,3 +1,5 @@
+//go:build linux
+
 /*
  * This file is part of the KubeVirt project
  *
