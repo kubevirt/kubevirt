@@ -59,6 +59,7 @@ var DNSServiceNamespace = ""
 
 var MigrationNetworkNIC = "eth1"
 var MigrationNetworkName string
+var SRIOVLinkStateEnabled bool
 
 func init() {
 	kubecli.Init()
@@ -93,6 +94,7 @@ func init() {
 	flag.StringVar(&DNSServiceNamespace, "dns-service-namespace", "kube-system", "cluster DNS service namespace")
 	flag.StringVar(&MigrationNetworkNIC, "migration-network-nic", "eth1", "NIC to use on cluster nodes to access the dedicated migration network")
 	flag.StringVar(&MigrationNetworkName, "migration-network-name", "", "name of the NetworkAttachmentDefinition CR to be used for dedicated migration network tests")
+	flag.BoolVar(&SRIOVLinkStateEnabled, "sriov-link-state-enabled", true, "Include link_state=enable in SR-IOV NADs for tests that require it")
 }
 
 func NormalizeFlags() {

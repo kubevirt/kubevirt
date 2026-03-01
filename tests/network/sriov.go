@@ -59,6 +59,7 @@ import (
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/exec"
+	"kubevirt.io/kubevirt/tests/flags"
 	"kubevirt.io/kubevirt/tests/framework/checks"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	"kubevirt.io/kubevirt/tests/framework/matcher"
@@ -490,7 +491,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 		})
 
 		BeforeEach(func() {
-			netAttachDef := libnet.NewSriovNetAttachDef(sriovnetLinkEnabled, defaultVLAN, libnet.WithLinkState())
+			netAttachDef := libnet.NewSriovNetAttachDef(sriovnetLinkEnabled, defaultVLAN)
+			if flags.SRIOVLinkStateEnabled {
+				netAttachDef = libnet.NewSriovNetAttachDef(sriovnetLinkEnabled, defaultVLAN, libnet.WithLinkState())
+			}
 			netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
 			_, err := libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
 			Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
@@ -537,7 +541,10 @@ var _ = Describe(SIG("SRIOV", Serial, decorators.SRIOV, func() {
 				ipVlaned1, err = libnet.CidrToIP(cidrVlaned1)
 				Expect(err).ToNot(HaveOccurred())
 
-				netAttachDef := libnet.NewSriovNetAttachDef(sriovnetVlanned, specificVLAN, libnet.WithLinkState())
+				netAttachDef := libnet.NewSriovNetAttachDef(sriovnetVlanned, specificVLAN)
+				if flags.SRIOVLinkStateEnabled {
+					netAttachDef = libnet.NewSriovNetAttachDef(sriovnetVlanned, specificVLAN, libnet.WithLinkState())
+				}
 				netAttachDef.Annotations = map[string]string{libnet.ResourceNameAnnotation: sriovResourceName}
 				_, err = libnet.CreateNetAttachDef(context.Background(), testsuite.NamespaceTestDefault, netAttachDef)
 				Expect(err).NotTo(HaveOccurred(), shouldCreateNetwork)
