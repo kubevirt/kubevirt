@@ -104,6 +104,51 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		),
 	)
 
+	DescribeTable("validateRoleAggregationStrategy", func(kvSpec v1.KubeVirtSpec, expectError bool) {
+		causes := validateRoleAggregationStrategy(&kvSpec.Configuration)
+		if expectError {
+			Expect(causes).To(HaveLen(1))
+			Expect(causes[0].Type).To(Equal(metav1.CauseTypeFieldValueInvalid))
+			Expect(causes[0].Field).To(Equal("spec.configuration.roleAggregationStrategy"))
+		} else {
+			Expect(causes).To(BeEmpty())
+		}
+	},
+		Entry("should reject when RoleAggregationStrategy is Manual without OptOutRoleAggregation feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+				},
+			},
+			true,
+		),
+		Entry("should allow when RoleAggregationStrategy is Manual with OptOutRoleAggregation feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.OptOutRoleAggregation},
+					},
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+				},
+			},
+			false,
+		),
+		Entry("should allow when RoleAggregationStrategy is nil",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{},
+			},
+			false,
+		),
+		Entry("should allow when RoleAggregationStrategy is AggregateToDefault without feature gate",
+			v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
+				},
+			},
+			false,
+		),
+	)
+
 	DescribeTable("validateSeccompConfiguration", func(seccompConfiguration *v1.SeccompConfiguration, expectedFields []string) {
 		causes := validateSeccompConfiguration(test, seccompConfiguration)
 		Expect(causes).To(HaveLen(len(expectedFields)))

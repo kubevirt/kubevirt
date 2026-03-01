@@ -228,3 +228,7 @@ func (config *ClusterConfig) ContainerPathVolumesEnabled() bool {
 func (config *ClusterConfig) ReservedOverheadMemlockEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ReservedOverheadMemlock)
 }
+
+func (config *ClusterConfig) OptOutRoleAggregationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.OptOutRoleAggregation)
+}

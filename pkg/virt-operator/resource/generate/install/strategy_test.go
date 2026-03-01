@@ -39,6 +39,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/pointer"
 	//"kubevirt.io/kubevirt/pkg/virt-operator/resource/apply"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -227,6 +228,59 @@ var _ = Describe("Install Strategy", func() {
 				Expect(equality.Semantic.DeepEqual(original, converted)).To(BeTrue())
 			}
 		})
+	})
+
+	Context("RoleAggregationStrategy", func() {
+		aggregateRoleNames := map[string]string{
+			"kubevirt.io:admin": "rbac.authorization.k8s.io/aggregate-to-admin",
+			"kubevirt.io:edit":  "rbac.authorization.k8s.io/aggregate-to-edit",
+			"kubevirt.io:view":  "rbac.authorization.k8s.io/aggregate-to-view",
+		}
+
+		getConfigWith := func(kvConfig v1.KubeVirtConfiguration) *util.KubeVirtDeploymentConfig {
+			return util.GetTargetConfigFromKV(&v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: namespace,
+				},
+				Spec: v1.KubeVirtSpec{
+					ImageRegistry: "fake-registry",
+					ImageTag:      "v9.9.9",
+					Configuration: kvConfig,
+				},
+			})
+		}
+
+		DescribeTable("should set aggregate labels correctly", func(testConfig *util.KubeVirtDeploymentConfig, expectedValue string) {
+			strategy, err := GenerateCurrentInstallStrategy(testConfig, "", namespace)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, cr := range strategy.clusterRoles {
+				if labelKey, ok := aggregateRoleNames[cr.Name]; ok {
+					Expect(cr.Labels).To(HaveKeyWithValue(labelKey, expectedValue),
+						"ClusterRole %s should have label %s=%s", cr.Name, labelKey, expectedValue)
+				}
+			}
+		},
+			Entry("by default", config, "true"),
+			Entry("when OptOutRoleAggregation FG is enabled and strategy is Manual",
+				getConfigWith(v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{"OptOutRoleAggregation"},
+					},
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+				}), "false"),
+			Entry("when strategy is Manual but FG is not enabled",
+				getConfigWith(v1.KubeVirtConfiguration{
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyManual),
+				}), "true"),
+			Entry("when FG is enabled but strategy is AggregateToDefault",
+				getConfigWith(v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{"OptOutRoleAggregation"},
+					},
+					RoleAggregationStrategy: pointer.P(v1.RoleAggregationStrategyAggregateToDefault),
+				}), "true"),
+		)
 	})
 
 	Context("should match", func() {
