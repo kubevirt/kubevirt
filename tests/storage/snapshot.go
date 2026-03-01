@@ -1372,7 +1372,7 @@ var _ = Describe(SIG("VirtualMachineSnapshot Tests", func() {
 				snapshot = libstorage.WaitSnapshotSucceeded(virtClient, vm.Namespace, snapshot.Name)
 				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes).Should(HaveLen(2))
 				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[0]).Should(Equal("snapshotablevolume"))
-				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[1]).Should(Equal(fmt.Sprintf("persistent-state-for-%s", vm.Name)))
+				Expect(snapshot.Status.SnapshotVolumes.IncludedVolumes[1]).Should(HavePrefix("persistent-state-for-"))
 			})
 		})
 

@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	clone "kubevirt.io/api/clone/v1beta1"
 	"kubevirt.io/api/core"
@@ -1632,7 +1633,7 @@ var _ = Describe(SIG("VirtualMachineRestore Tests", func() {
 			It("should restore an already cloned virtual machine", func() {
 				vm, vmi = createAndStartVM(renderVMWithRegistryImportDataVolume(cd.ContainerDiskFedoraTestTooling, snapshotStorageClass))
 
-				targetVMName := vm.Name + "-clone"
+				targetVMName := vm.Name[:min(len(vm.Name), validation.DNS1035LabelMaxLength-len("-clone"))] + "-clone"
 				cloneVM(vm.Name, targetVMName)
 
 				By(fmt.Sprintf("Getting the cloned VM %s", targetVMName))
