@@ -2,10 +2,12 @@
 
 | Name | Kind | Type | Description |
 |------|------|------|-------------|
+| kubevirt_active_pipes | Metric | Gauge | The number of running pipes |
 | kubevirt_configuration_emulation_enabled | Metric | Gauge | Indicates whether the Software Emulation is enabled in the configuration. |
 | kubevirt_console_active_connections | Metric | Gauge | Amount of active Console connections, broken down by namespace and vmi name. |
 | kubevirt_info | Metric | Gauge | Version information. |
 | kubevirt_node_deprecated_machine_types | Metric | Gauge | List of deprecated machine types based on the capabilities of individual nodes, as detected by virt-handler. |
+| kubevirt_pipe_active_proxies | Metric | Gauge | The number of running proxied pipe connections |
 | kubevirt_portforward_active_tunnels | Metric | Gauge | Amount of active portforward tunnels, broken down by namespace and vmi name. |
 | kubevirt_rest_client_rate_limiter_duration_seconds | Metric | Histogram | Client side rate limiter latency in seconds. Broken down by verb and URL. |
 | kubevirt_rest_client_request_latency_seconds | Metric | Histogram | Request latency in seconds. Broken down by verb and URL. |

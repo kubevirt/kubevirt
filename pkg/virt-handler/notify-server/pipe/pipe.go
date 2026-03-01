@@ -38,6 +38,8 @@ import (
 	diskutils "kubevirt.io/kubevirt/pkg/ephemeral-disk-utils"
 	"kubevirt.io/kubevirt/pkg/safepath"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
+
+	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-handler"
 )
 
 func NewConnectToNotifyFunc(virtShareDir string) connectFunc {
@@ -86,6 +88,8 @@ type connectFunc func() (net.Conn, error)
 type proxyFunc func(net.Conn)
 
 func Pipe(ctx context.Context, pipeChan chan net.Conn, proxy proxyFunc) {
+	metrics.IncActivePipes()
+	defer metrics.DecActivePipes()
 	for {
 		select {
 		case <-ctx.Done():
@@ -96,6 +100,14 @@ func Pipe(ctx context.Context, pipeChan chan net.Conn, proxy proxyFunc) {
 			}
 			go proxy(fd)
 		}
+	}
+}
+
+func ProxyWithMetric(proxy proxyFunc) proxyFunc {
+	return func(c net.Conn) {
+		metrics.IncPipeActiveProxies()
+		defer metrics.DecPipeActiveProxies()
+		proxy(c)
 	}
 }
 
