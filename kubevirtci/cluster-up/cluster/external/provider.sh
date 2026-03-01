@@ -18,7 +18,7 @@ function prepare_config() {
 kubeconfig=\${KUBECONFIG}
 docker_tag=\${DOCKER_TAG}
 docker_prefix=\${DOCKER_PREFIX}
-manifest_docker_prefix=\${DOCKER_PREFIX}
+manifest_docker_prefix=\${MANIFEST_DOCKER_PREFIX:-\$DOCKER_PREFIX}
 image_pull_policy=\${IMAGE_PULL_POLICY:-Always}
 EOF
 
