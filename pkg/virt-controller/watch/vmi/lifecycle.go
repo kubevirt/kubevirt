@@ -724,8 +724,35 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToPod(vmi *virtv1.VirtualMac
 			podNewMap = map[string]string{}
 		}
 
-		changed := false
+		// keyMap contains the deduplicated keys that we need to sync between the VMI and the Pod
+		// This includes keys containing wildcards (e.g., abc/*) in their expanded form (e.g., abc/123 and abc/456)
+		keyMap := map[string]struct{}{}
+
+		// Iterate over every configured key we are asked to sync
 		for _, key := range keys {
+			// If the key is a wildcard (it has a "*" at the very end), we need to
+			// find every key that matches that pattern in the VMI/Pod
+			if strings.HasSuffix(key, "*") {
+				prefix, _ := strings.CutSuffix(key, "*")
+				for vmiMapKey := range vmiMap {
+					if strings.HasPrefix(vmiMapKey, prefix) {
+						keyMap[vmiMapKey] = struct{}{}
+					}
+				}
+
+				for podMapKey := range podNewMap {
+					if strings.HasPrefix(podMapKey, prefix) {
+						keyMap[podMapKey] = struct{}{}
+					}
+				}
+			} else {
+				// Key is not a wildcard, store it as-is
+				keyMap[key] = struct{}{}
+			}
+		}
+
+		changed := false
+		for key := range keyMap {
 			vmiVal, vmiExists := vmiMap[key]
 			podVal, podExists := podNewMap[key]
 			if vmiExists == podExists && vmiVal == podVal {
