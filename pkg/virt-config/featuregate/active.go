@@ -236,7 +236,7 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: Root, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionSEV, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: WorkloadEncryptionTDX, State: Alpha})
-	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: VSOCKGate, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: Beta})
 	RegisterFeatureGate(FeatureGate{Name: PersistentReservation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: AlignCPUsGate, State: Alpha})
