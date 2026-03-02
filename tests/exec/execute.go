@@ -26,6 +26,7 @@ import (
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 
 	k8sv1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
@@ -82,7 +83,15 @@ func ExecuteCommandOnPodWithOptions(pod *k8sv1.Pod, containerName string, comman
 		return err
 	}
 
-	executor, err := remotecommand.NewSPDYExecutor(virtConfig, "POST", req.URL())
+	spdyExecutor, err := remotecommand.NewSPDYExecutor(virtConfig, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+	wsExecutor, err := remotecommand.NewWebSocketExecutor(virtConfig, "POST", req.URL().String())
+	if err != nil {
+		return err
+	}
+	executor, err := remotecommand.NewFallbackExecutor(wsExecutor, spdyExecutor, httpstream.IsUpgradeFailure)
 	if err != nil {
 		return err
 	}
