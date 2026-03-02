@@ -1734,6 +1734,20 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 			kv, err = virtClient.KubeVirt(kv.Namespace).Create(context.Background(), kv, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
+			By("verifying operator cert secret is created before the webhook configuration")
+			Eventually(func() bool {
+				_, err := virtClient.AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
+					context.Background(), components.KubeVirtOperatorValidatingWebhookName, metav1.GetOptions{})
+				return err == nil
+			}, 120*time.Second, 100*time.Millisecond).Should(BeTrue(), "waiting for webhook %q to be created",
+				components.KubeVirtOperatorValidatingWebhookName)
+
+			_, err = virtClient.CoreV1().Secrets(flags.KubeVirtInstallNamespace).Get(
+				context.Background(), components.VirtOperatorCertSecretName, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred(),
+				"operator cert secret %q must exist before webhook %q to avoid x509 errors",
+				components.VirtOperatorCertSecretName, components.KubeVirtOperatorValidatingWebhookName)
+
 			By("waiting for the kv CR to get a finalizer")
 			Eventually(func() bool {
 				kv, err = virtClient.KubeVirt(kv.Namespace).Get(context.Background(), kv.Name, metav1.GetOptions{})

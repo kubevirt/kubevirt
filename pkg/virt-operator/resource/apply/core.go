@@ -306,9 +306,33 @@ func (r *Reconciler) createOrUpdateCertificateSecrets(queue workqueue.TypedRateL
 			continue
 		}
 
+		// Already created before webhooks; see createOrUpdateOperatorCertificateSecret.
+		if secret.Name == components.VirtOperatorCertSecretName {
+			continue
+		}
+
 		_, err := r.createOrUpdateCertificateSecret(queue, caCert, secret, duration, renewBefore, caRenewBefore)
 		if err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateOperatorCertificateSecret(queue workqueue.TypedRateLimitingInterface[string], caCert *tls.Certificate, duration *metav1.Duration, renewBefore *metav1.Duration, caRenewBefore *metav1.Duration) error {
+	secret := r.findOperatorCertSecret()
+	if secret == nil {
+		return nil
+	}
+
+	_, err := r.createOrUpdateCertificateSecret(queue, caCert, secret, duration, renewBefore, caRenewBefore)
+	return err
+}
+
+func (r *Reconciler) findOperatorCertSecret() *corev1.Secret {
+	for _, secret := range r.targetStrategy.CertificateSecrets() {
+		if secret.Name == components.VirtOperatorCertSecretName {
+			return secret
 		}
 	}
 	return nil
@@ -429,6 +453,12 @@ func (r *Reconciler) createOrUpdateComponentsWithCertificates(queue workqueue.Ty
 
 	// create/update export CA config map
 	_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, caExportCert, nil, caExportRenewBefore, findRequiredCAConfigMap(components.KubeVirtExportCASecretName, r.targetStrategy.ConfigMaps()))
+	if err != nil {
+		return err
+	}
+
+	// Operator cert must exist before webhooks can validate against the new CA.
+	err = r.createOrUpdateOperatorCertificateSecret(queue, caCert, certDuration, certRenewBefore, caRenewBefore)
 	if err != nil {
 		return err
 	}
