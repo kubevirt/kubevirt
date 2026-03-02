@@ -17,7 +17,7 @@
  *
  */
 
-package kvm
+package kvm_test
 
 import (
 	"testing"
