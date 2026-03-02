@@ -49,6 +49,7 @@ const (
 	freezeFailedMsg                   = "Failed freezing guest filesystem: %s"
 	unfreezeFailedMsg                 = "Failed to unfreeze filesystem after backup completion"
 	qmpQueryBlockNodesCmd             = `{"execute":"query-named-block-nodes"}`
+	operationCanceledMsg              = "Operation canceled"
 
 	pullBackupSocketDir  = "/var/run/kubevirt/sockets"
 	pullBackupSocketName = "backup-nbd-sock"
@@ -323,8 +324,10 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		logger.Info("Backup has been completed successfully")
 	case libvirt.DOMAIN_JOB_CANCELLED:
 		logger.Info("Backup has been aborted")
-		message = "backup aborted"
 		failed = backupMetadata.Mode == string(backupv1.PushMode)
+		if failed {
+			message = "backup aborted"
+		}
 	case libvirt.DOMAIN_JOB_FAILED:
 		logger.Info("Backup has failed")
 		failed = true
@@ -332,7 +335,10 @@ func HandleBackupJobCompletedEvent(domain cli.VirDomain, event *libvirt.DomainEv
 		message = fmt.Sprintf("unexpected job completion type: %d", event.Info.Type)
 		failed = true
 	}
-	if event.Info.ErrorMessageSet {
+
+	// If we successfully aborted but we didn't fail (i.e., PullMode)
+	// avoid propagating an error message (i.e., Operation canceled)
+	if event.Info.ErrorMessageSet && !(backupMetadata.Mode == string(backupv1.PullMode) && event.Info.ErrorMessage == operationCanceledMsg) {
 		err := event.Info.ErrorMessage
 		if message == "" {
 			message = err
