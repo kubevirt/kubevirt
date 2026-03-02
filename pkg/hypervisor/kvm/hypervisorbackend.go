@@ -170,7 +170,7 @@ func (k *KvmHypervisorBackend) GetMemoryOverhead(vmi *v1.VirtualMachineInstance,
 			return overhead
 		}
 
-		overhead = multiplyMemory(overhead, ratio)
+		overhead = MultiplyMemory(overhead, ratio)
 	}
 
 	return overhead
@@ -199,7 +199,7 @@ func addProbeOverheads(vmi *v1.VirtualMachineInstance, quantity *resource.Quanti
 	}
 }
 
-func multiplyMemory(mem resource.Quantity, multiplication float64) resource.Quantity {
+func MultiplyMemory(mem resource.Quantity, multiplication float64) resource.Quantity {
 	overheadAddition := float64(mem.ScaledValue(resource.Kilo)) * (multiplication - 1.0)
 	additionalOverhead := resource.NewScaledQuantity(int64(overheadAddition), resource.Kilo)
 
