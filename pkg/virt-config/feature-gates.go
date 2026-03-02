@@ -228,3 +228,7 @@ func (config *ClusterConfig) TemplateEnabled() bool {
 func (config *ClusterConfig) ContainerPathVolumesEnabled() bool {
 	return config.isFeatureGateEnabled(featuregate.ContainerPathVolumesGate)
 }
+
+func (config *ClusterConfig) OptOutRoleAggregationEnabled() bool {
+	return config.isFeatureGateEnabled(featuregate.OptOutRoleAggregation)
+}

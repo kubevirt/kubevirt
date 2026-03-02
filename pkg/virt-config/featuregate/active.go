@@ -198,6 +198,13 @@ const (
 	// via virtiofs. This allows VMs to access credentials and tokens injected into pods
 	// by external systems such as AWS IRSA, GKE Workload Identity, or TEE attestation.
 	ContainerPathVolumesGate = "ContainerPathVolumes"
+
+	// Owner: @orenc1
+	// Alpha: v1.8.0
+	//
+	// OptOutRoleAggregation enables the RoleAggregationStrategy field in KubeVirtConfiguration,
+	// allowing users to opt out of aggregating KubeVirt ClusterRoles to the default Kubernetes roles.
+	OptOutRoleAggregation = "OptOutRoleAggregation"
 )
 
 func init() {
@@ -240,4 +247,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: RebootPolicy, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: Template, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: ContainerPathVolumesGate, State: Alpha})
+	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 }

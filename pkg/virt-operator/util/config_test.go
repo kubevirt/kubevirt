@@ -125,6 +125,22 @@ var _ = Describe("Operator Config", func() {
 			Expect(idFilled).ToNot(Equal(idEmpty))
 		})
 
+		It("should result in different ID when OptOutRoleAggregation is enabled", func() {
+			kv := &v1.KubeVirt{}
+			cfgWithout := GetTargetConfigFromKV(kv)
+
+			manual := v1.RoleAggregationStrategyManual
+			kv.Spec.Configuration.DeveloperConfiguration = &v1.DeveloperConfiguration{
+				FeatureGates: []string{"OptOutRoleAggregation"},
+			}
+			kv.Spec.Configuration.RoleAggregationStrategy = &manual
+			cfgWith := GetTargetConfigFromKV(kv)
+
+			Expect(cfgWithout.ID).ToNot(BeEmpty())
+			Expect(cfgWith.ID).ToNot(BeEmpty())
+			Expect(cfgWith.ID).ToNot(Equal(cfgWithout.ID))
+		})
+
 		DescribeTable("should result in different ID when component images change", func(setImage func(*KubeVirtDeploymentConfig, string)) {
 			cfgA := &KubeVirtDeploymentConfig{}
 			cfgA.AdditionalProperties = make(map[string]string)
