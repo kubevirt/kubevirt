@@ -1157,7 +1157,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	prefixMap := newDeviceNamer(vmi.Status.VolumeStatus, vmi.Spec.Domain.Devices.Disks)
 	currentAutoThread := uint(1)
 	currentDedicatedThread := uint(autoThreads + 1)
-	supplementalIOThreads := iothreads.SupplementalPoolThreadCount(vmi)
+	supplementalIOThreads := iothreads.BuildSupplementalPoolIOThreads(vmi)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		newDisk := api.Disk{}
 		emptyCDRom := false
@@ -1225,7 +1225,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 	if vmi.Spec.Domain.CPU != nil {
 		// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 		if vmi.IsCPUDedicated() {
-			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet, hasIOThreads)
+			err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, c.Topology, c.CPUSet)
 			if err != nil {
 				return err
 			}

@@ -510,7 +510,6 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 
 	// Adjust guest vcpu config. Currently will handle vCPUs to pCPUs pinning
 	if vmi.IsCPUDedicated() {
-		useIOThreads := false
 		if options != nil && options.Topology != nil {
 			topology = options.Topology
 		}
@@ -533,11 +532,7 @@ func (l *LibvirtDomainManager) UpdateVCPUs(vmi *v1.VirtualMachineInstance, optio
 
 		domain.Spec = *spec
 
-		if domain.Spec.CPUTune != nil && len(domain.Spec.CPUTune.IOThreadPin) > 0 {
-			useIOThreads = true
-		}
-
-		err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, podCPUSet, useIOThreads)
+		err = vcpu.AdjustDomainForTopologyAndCPUSet(domain, vmi, topology, podCPUSet)
 		if err != nil {
 			return fmt.Errorf("%s: %v", errMsgPrefix, err)
 		}
