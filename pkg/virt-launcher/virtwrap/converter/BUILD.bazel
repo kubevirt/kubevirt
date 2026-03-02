@@ -33,6 +33,7 @@ go_library(
         "//pkg/virt-controller/watch/topology:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/arch:go_default_library",
+        "//pkg/virt-launcher/virtwrap/converter/iothreads:go_default_library",
         "//pkg/virt-launcher/virtwrap/converter/vcpu:go_default_library",
         "//pkg/virt-launcher/virtwrap/device:go_default_library",
         "//pkg/virtiofs:go_default_library",

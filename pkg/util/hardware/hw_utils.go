@@ -81,6 +81,7 @@ func safeAppend(cpusList []int, cpu int, limit int) ([]int, error) {
 
 // GetNumberOfVCPUs returns number of vCPUs
 // It counts sockets*cores*threads
+// It does not include sockets that are available for hotplug, but not enabled
 func GetNumberOfVCPUs(cpuSpec *v1.CPU) int64 {
 	vCPUs := cpuSpec.Cores
 	if cpuSpec.Sockets != 0 {
