@@ -79,6 +79,8 @@ var _ = Describe("Template", func() {
 	var defaultArch = "amd64"
 
 	pvcCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+	pvCache := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+	nodeCache := cache.NewIndexer(cache.MetaNamespaceKeyFunc, nil)
 	var svc *TemplateService
 
 	var ctrl *gomock.Controller
@@ -135,6 +137,8 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				pvCache,
+				nodeCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -2013,6 +2017,827 @@ var _ = Describe("Template", func() {
 				Entry("empty string should be treated as host-model", ""),
 				Entry("nil should be treated as host-model", nil),
 			)
+			Context("when hotplugged volumes are present", func() {
+				BeforeEach(func() {
+					for i := range 3 {
+						node := k8sv1.Node{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "test-node-" + strconv.Itoa(i),
+								Labels: map[string]string{
+									"kubernetes.io/hostname": "test-node-" + strconv.Itoa(i),
+								},
+							},
+						}
+						err := nodeCache.Add(&node)
+						Expect(err).ToNot(HaveOccurred(), "Added node to cache successfully")
+					}
+				})
+
+				AfterEach(func() {
+					for _, ns := range pvcCache.List() {
+						err := pvcCache.Delete(ns)
+						Expect(err).ToNot(HaveOccurred())
+					}
+					for _, ns := range pvCache.List() {
+						err := pvCache.Delete(ns)
+						Expect(err).ToNot(HaveOccurred())
+					}
+					for _, ns := range nodeCache.List() {
+						err := nodeCache.Delete(ns)
+						Expect(err).ToNot(HaveOccurred())
+					}
+				})
+
+				It("should add not add node affinities to pod if PVC WFFC", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+					namespace := "testns"
+					pvcName := "pvc-affinities"
+					pvc := k8sv1.PersistentVolumeClaim{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimPending,
+						},
+					}
+					err := pvcCache.Add(&pvc)
+					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+					volumeName := "pvc-volume"
+					volumes := []v1.Volume{
+						{
+							Name: volumeName,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+					}
+					disks := []v1.Disk{
+						{
+							Name: volumeName,
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{
+									Bus: "virtio",
+								},
+							},
+						},
+					}
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi", Namespace: namespace, UID: "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: false,
+								Disks:          disks,
+							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
+						}},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+					Expect(pod.Spec.Affinity).To(BeNil(), "Expected no affinity in manifest since PVC is not bound")
+				})
+
+				It("should add node affinities to pod if PVC Bound with affinities", func() {
+					var err error
+					config, kvStore, svc = configFactory(defaultArch)
+
+					namespace := "testns"
+					// PVC 1 will have an affinity for one node
+					pvc1Name := "pvc-affinities"
+					pv1Name := "pv-affinities"
+					node1Name := "test-node-0"
+					pvc1 := k8sv1.PersistentVolumeClaim{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvc1Name},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							VolumeName: pv1Name,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimBound,
+						},
+					}
+					err = pvcCache.Add(&pvc1)
+					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+					pv1 := k8sv1.PersistentVolume{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolume", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Name: pv1Name},
+						Spec: k8sv1.PersistentVolumeSpec{
+							NodeAffinity: &k8sv1.VolumeNodeAffinity{
+								Required: &k8sv1.NodeSelector{
+									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+										{
+											MatchExpressions: []k8sv1.NodeSelectorRequirement{
+												{
+													Key:      "kubernetes.io/hostname",
+													Operator: k8sv1.NodeSelectorOpIn,
+													Values:   []string{node1Name},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+					err = pvCache.Add(&pv1)
+					Expect(err).ToNot(HaveOccurred(), "Added PV to cache successfully")
+					// PVC 2 will have an affinity for one node
+					pvc2Name := "pvc-affinities-2"
+					pv2Name := "pv-affinities-2"
+					allNodeNames := []string{"test-node-0", "test-node-1", "test-node-2"}
+					pvc2 := k8sv1.PersistentVolumeClaim{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvc2Name},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							VolumeName: pv2Name,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimBound,
+						},
+					}
+					err = pvcCache.Add(&pvc2)
+					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+					pv2 := k8sv1.PersistentVolume{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolume", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Name: pv2Name},
+						Spec: k8sv1.PersistentVolumeSpec{
+							NodeAffinity: &k8sv1.VolumeNodeAffinity{
+								Required: &k8sv1.NodeSelector{
+									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+										{
+											MatchExpressions: []k8sv1.NodeSelectorRequirement{
+												{
+													Key:      "kubernetes.io/hostname",
+													Operator: k8sv1.NodeSelectorOpIn,
+													Values:   allNodeNames,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+					err = pvCache.Add(&pv2)
+					Expect(err).ToNot(HaveOccurred(), "Added PV to cache successfully")
+
+					volumeName := "pvc-volume"
+					volumesSingleNodeAffinity := []v1.Volume{
+						{
+							Name: volumeName,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvc1Name},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+					}
+					volumesMultiNodeAffinity := []v1.Volume{
+						{
+							Name: volumeName,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvc2Name},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+					}
+					disks := []v1.Disk{
+						{
+							Name: volumeName,
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{
+									Bus: "virtio",
+								},
+							},
+						},
+					}
+					vmiSingleNodeAffinity := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi", Namespace: namespace, UID: "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumesSingleNodeAffinity, Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: false,
+								Disks:          disks,
+							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
+						}},
+					}
+					vmiMultiNodeAffinity := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi", Namespace: namespace, UID: "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumesMultiNodeAffinity, Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: false,
+								Disks:          disks,
+							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
+						}},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmiSingleNodeAffinity)
+					Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+					Expect(pod.Spec.Affinity).ToNot(BeNil(), "Expected affinity in manifest since hotplugged PVC is bound")
+					nodeSelectorTerms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+					Expect(nodeSelectorTerms).To(HaveLen(1))
+					Expect(nodeSelectorTerms[0].MatchFields).To(HaveLen(1))
+					Expect(nodeSelectorTerms[0]).To(Equal(k8sv1.NodeSelectorTerm{
+						MatchFields: []k8sv1.NodeSelectorRequirement{
+							{
+								Key:      "metadata.name",
+								Operator: k8sv1.NodeSelectorOpIn,
+								Values:   []string{node1Name},
+							},
+						},
+					}))
+
+					pod, err = svc.RenderLaunchManifest(&vmiMultiNodeAffinity)
+					Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+					Expect(pod.Spec.Affinity).ToNot(BeNil(), "Expected affinity in manifest since hotplugged PVC is bound")
+					nodeSelectorTerms = pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+					Expect(nodeSelectorTerms).To(HaveLen(1))
+					Expect(nodeSelectorTerms[0].MatchFields).To(HaveLen(1))
+					Expect(nodeSelectorTerms[0]).To(Equal(k8sv1.NodeSelectorTerm{
+						MatchFields: []k8sv1.NodeSelectorRequirement{
+							{
+								Key:      "metadata.name",
+								Operator: k8sv1.NodeSelectorOpIn,
+								Values:   allNodeNames,
+							},
+						},
+					}))
+				})
+
+				It("should keep existing node affinities on VMI", func() {
+					var err error
+					config, kvStore, svc = configFactory(defaultArch)
+
+					namespace := "testns"
+					pvcName := "pvc-affinities"
+					pvName := "pv-affinities"
+					nodeName := "test-node-0"
+					pvc := k8sv1.PersistentVolumeClaim{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							VolumeName: pvName,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimBound,
+						},
+					}
+					err = pvcCache.Add(&pvc)
+					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+					pv := k8sv1.PersistentVolume{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolume", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Name: pvName},
+						Spec: k8sv1.PersistentVolumeSpec{
+							NodeAffinity: &k8sv1.VolumeNodeAffinity{
+								Required: &k8sv1.NodeSelector{
+									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+										{
+											MatchExpressions: []k8sv1.NodeSelectorRequirement{
+												{
+													Key:      "kubernetes.io/hostname",
+													Operator: k8sv1.NodeSelectorOpIn,
+													Values:   []string{nodeName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+					err = pvCache.Add(&pv)
+					Expect(err).ToNot(HaveOccurred(), "Added PV to cache successfully")
+
+					volumeName := "pvc-volume"
+					volumes := []v1.Volume{
+						{
+							Name: volumeName,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+					}
+					disks := []v1.Disk{
+						{
+							Name: volumeName,
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{
+									Bus: "virtio",
+								},
+							},
+						},
+					}
+					originalMatchFields := []k8sv1.NodeSelectorRequirement{
+						{
+							Key:      "metadata.name",
+							Operator: k8sv1.NodeSelectorOpIn,
+							Values:   []string{"test-node-0", "test-node-1", "test-node-2"},
+						},
+					}
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi", Namespace: namespace, UID: "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{
+							Volumes: volumes,
+							Domain: v1.DomainSpec{
+								Devices: v1.Devices{
+									DisableHotplug: false,
+									Disks:          disks,
+								},
+								CPU: &v1.CPU{
+									Model: "Conroe",
+								},
+							},
+							Affinity: &k8sv1.Affinity{
+								NodeAffinity: &k8sv1.NodeAffinity{
+									RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+										NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+											{
+												MatchFields: originalMatchFields,
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+					Expect(pod.Spec.Affinity).ToNot(BeNil(), "Expected affinity in manifest since hotplugged PVC is bound")
+					nodeSelectorTerms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+					Expect(nodeSelectorTerms).To(HaveLen(1))
+					Expect(nodeSelectorTerms[0].MatchFields).To(HaveLen(2))
+					Expect(nodeSelectorTerms[0]).To(Equal(k8sv1.NodeSelectorTerm{
+						MatchFields: append(originalMatchFields, k8sv1.NodeSelectorRequirement{
+							Key:      "metadata.name",
+							Operator: k8sv1.NodeSelectorOpIn,
+							Values:   []string{nodeName},
+						}),
+					}))
+				})
+
+				It("should not add node affinities to pod if PVC Bound with no affinities", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+
+					namespace := "testns"
+					pvcName := "pvc-affinities"
+					pvName := "pv-affinities"
+					pvc := k8sv1.PersistentVolumeClaim{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							VolumeName: pvName,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimBound,
+						},
+					}
+					err := pvcCache.Add(&pvc)
+					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+					pv := k8sv1.PersistentVolume{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolume", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Name: pvName},
+					}
+					err = pvCache.Add(&pv)
+					Expect(err).ToNot(HaveOccurred(), "Added PV to cache successfully")
+
+					volumeName := "pvc-volume"
+					volumes := []v1.Volume{
+						{
+							Name: volumeName,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+					}
+					disks := []v1.Disk{
+						{
+							Name: volumeName,
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{
+									Bus: "virtio",
+								},
+							},
+						},
+					}
+					vmi := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi", Namespace: namespace, UID: "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumes, Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: false,
+								Disks:          disks,
+							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
+						}},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmi)
+					Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+					Expect(pod.Spec.Affinity).To(BeNil(), "Expected no affinity in manifest since hotplugged PVC has no node affinities")
+				})
+
+				It("should not set affinity if PVCs are not hotplugged", func() {
+					config, kvStore, svc = configFactory(defaultArch)
+					namespace := "testns"
+					pvcName := "pvc-affinities"
+					pvName := "pv-affinities"
+					nodeName := "test-node-0"
+					pvc := k8sv1.PersistentVolumeClaim{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvcName},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							VolumeName: pvName,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimBound,
+						},
+					}
+					err := pvcCache.Add(&pvc)
+					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+					pv := k8sv1.PersistentVolume{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolume", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Name: pvName},
+						Spec: k8sv1.PersistentVolumeSpec{
+							NodeAffinity: &k8sv1.VolumeNodeAffinity{
+								Required: &k8sv1.NodeSelector{
+									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+										{
+											MatchExpressions: []k8sv1.NodeSelectorRequirement{
+												{
+													Key:      "kubernetes.io/hostname",
+													Operator: k8sv1.NodeSelectorOpIn,
+													Values:   []string{nodeName},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+					err = pvCache.Add(&pv)
+					Expect(err).ToNot(HaveOccurred(), "Added PV to cache successfully")
+
+					volumeName := "pvc-volume"
+					volumesWithHotplug := []v1.Volume{
+						{
+							Name: volumeName,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+					}
+					volumesNoHotplug := []v1.Volume{
+						{
+							Name: volumeName,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+								},
+							},
+						},
+					}
+					disks := []v1.Disk{
+						{
+							Name: volumeName,
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{
+									Bus: "virtio",
+								},
+							},
+						},
+					}
+
+					vmiHotplugEnableNoVolumes := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi", Namespace: namespace, UID: "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumesNoHotplug, Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: false,
+								Disks:          disks,
+							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
+						}},
+					}
+
+					vmiHotplugDisableWithVolumes := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi2", Namespace: namespace, UID: "12345",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumesWithHotplug, Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								DisableHotplug: true,
+								Disks:          disks,
+							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
+						}},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&vmiHotplugEnableNoVolumes)
+					Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+					Expect(pod.Spec.Affinity).To(BeNil(), "Expected no affinity in manifest no hotplugged volumes")
+
+					pod, err = svc.RenderLaunchManifest(&vmiHotplugDisableWithVolumes)
+					Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+					Expect(pod.Spec.Affinity).To(BeNil(), "Expected no affinity in manifest since hotplug is disabled")
+				})
+
+				It("should set affinity to intersection of multiple PVs or error if scheduling is impossible", func() {
+					var err error
+					config, kvStore, svc = configFactory(defaultArch)
+					namespace := "testns"
+					// PVC 1 will be schedulable on test-node-0 and test-node-1
+					pvc1Name := "pvc-affinities-1"
+					pv1Name := "pv-affinities-1"
+					pvc1 := k8sv1.PersistentVolumeClaim{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvc1Name},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							VolumeName: pv1Name,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimBound,
+						},
+					}
+					err = pvcCache.Add(&pvc1)
+					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+					pv1 := k8sv1.PersistentVolume{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolume", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Name: pv1Name},
+						Spec: k8sv1.PersistentVolumeSpec{
+							NodeAffinity: &k8sv1.VolumeNodeAffinity{
+								Required: &k8sv1.NodeSelector{
+									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+										{
+											MatchExpressions: []k8sv1.NodeSelectorRequirement{
+												{
+													Key:      "kubernetes.io/hostname",
+													Operator: k8sv1.NodeSelectorOpIn,
+													Values:   []string{"test-node-0", "test-node-1"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+					err = pvCache.Add(&pv1)
+					Expect(err).ToNot(HaveOccurred(), "Added PV to cache successfully")
+
+					// PVC 2 will be schedulable on test-node-1 and test-node-2
+					pvc2Name := "pvc-affinities-2"
+					pv2Name := "pv-affinities-2"
+					pvc2 := k8sv1.PersistentVolumeClaim{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvc2Name},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							VolumeName: pv2Name,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimBound,
+						},
+					}
+					err = pvcCache.Add(&pvc2)
+					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+					pv2 := k8sv1.PersistentVolume{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolume", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Name: pv2Name},
+						Spec: k8sv1.PersistentVolumeSpec{
+							NodeAffinity: &k8sv1.VolumeNodeAffinity{
+								Required: &k8sv1.NodeSelector{
+									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+										{
+											MatchExpressions: []k8sv1.NodeSelectorRequirement{
+												{
+													Key:      "kubernetes.io/hostname",
+													Operator: k8sv1.NodeSelectorOpIn,
+													Values:   []string{"test-node-1", "test-node-2"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+					err = pvCache.Add(&pv2)
+					Expect(err).ToNot(HaveOccurred(), "Added PV to cache successfully")
+
+					// PVC 3 will be schedulable only on test-node-3
+					pvc3Name := "pvc-affinities-3"
+					pv3Name := "pv-affinities-3"
+					pvc3 := k8sv1.PersistentVolumeClaim{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolumeClaim", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: pvc3Name},
+						Spec: k8sv1.PersistentVolumeClaimSpec{
+							VolumeName: pv3Name,
+						},
+						Status: k8sv1.PersistentVolumeClaimStatus{
+							Phase: k8sv1.ClaimBound,
+						},
+					}
+					err = pvcCache.Add(&pvc3)
+					Expect(err).ToNot(HaveOccurred(), "Added PVC to cache successfully")
+
+					pv3 := k8sv1.PersistentVolume{
+						TypeMeta:   metav1.TypeMeta{Kind: "PersistentVolume", APIVersion: "v1"},
+						ObjectMeta: metav1.ObjectMeta{Name: pv3Name},
+						Spec: k8sv1.PersistentVolumeSpec{
+							NodeAffinity: &k8sv1.VolumeNodeAffinity{
+								Required: &k8sv1.NodeSelector{
+									NodeSelectorTerms: []k8sv1.NodeSelectorTerm{
+										{
+											MatchExpressions: []k8sv1.NodeSelectorRequirement{
+												{
+													Key:      "kubernetes.io/hostname",
+													Operator: k8sv1.NodeSelectorOpIn,
+													Values:   []string{"test-node-2"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					}
+					err = pvCache.Add(&pv3)
+					Expect(err).ToNot(HaveOccurred(), "Added PV to cache successfully")
+
+					volume1Name := "pvc-volume"
+					volume2Name := "pvc-volume-2"
+					volume3Name := "pvc-volume-3"
+					volumesWithIntersection := []v1.Volume{
+						{
+							Name: volume1Name,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvc1Name},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+						{
+							Name: volume2Name,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvc2Name},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+					}
+					disksWithIntersection := []v1.Disk{
+						{
+							Name: volume1Name,
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{
+									Bus: "virtio",
+								},
+							},
+						},
+						{
+							Name: volume2Name,
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{
+									Bus: "virtio",
+								},
+							},
+						},
+					}
+					volumesWithNoIntersection := []v1.Volume{
+						{
+							Name: volume1Name,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvc1Name},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+						{
+							Name: volume3Name,
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvc3Name},
+									Hotpluggable:                      true,
+								},
+							},
+						},
+					}
+					disksWithNoIntersection := []v1.Disk{
+						{
+							Name: volume1Name,
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{
+									Bus: "virtio",
+								},
+							},
+						},
+						{
+							Name: volume3Name,
+							DiskDevice: v1.DiskDevice{
+								Disk: &v1.DiskTarget{
+									Bus: "virtio",
+								},
+							},
+						},
+					}
+
+					schedulableVMI := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi", Namespace: namespace, UID: "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumesWithIntersection, Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								Disks: disksWithIntersection,
+							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
+						}},
+					}
+
+					unschedulableVMI := v1.VirtualMachineInstance{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "testvmi", Namespace: namespace, UID: "1234",
+						},
+						Spec: v1.VirtualMachineInstanceSpec{Volumes: volumesWithNoIntersection, Domain: v1.DomainSpec{
+							Devices: v1.Devices{
+								Disks: disksWithNoIntersection,
+							},
+							CPU: &v1.CPU{
+								Model: "Conroe",
+							},
+						}},
+					}
+
+					pod, err := svc.RenderLaunchManifest(&schedulableVMI)
+					Expect(err).ToNot(HaveOccurred(), "Render manifest successfully")
+					Expect(pod.Spec.Affinity).ToNot(BeNil(), "Expected affinity in manifest since hotplugged PVC is bound")
+					nodeSelectorTerms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+					Expect(nodeSelectorTerms).To(HaveLen(1))
+					Expect(nodeSelectorTerms[0].MatchFields).To(HaveLen(1))
+					Expect(nodeSelectorTerms[0]).To(Equal(k8sv1.NodeSelectorTerm{
+						MatchFields: []k8sv1.NodeSelectorRequirement{
+							{
+								Key:      "metadata.name",
+								Operator: k8sv1.NodeSelectorOpIn,
+								Values:   []string{"test-node-1"},
+							},
+						},
+					}))
+
+					pod, err = svc.RenderLaunchManifest(&unschedulableVMI)
+					Expect(err).To(HaveOccurred(), "Expected error since no node can satisfy both PVs")
+				})
+			})
 		})
 		Context("with cpu and memory constraints", func() {
 			DescribeTable("should add cpu and memory constraints to a template", func(arch string, requestMemory string, limitMemory string) {
@@ -3045,6 +3870,8 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				pvCache,
+				nodeCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5724,6 +6551,8 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				pvCache,
+				nodeCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5794,6 +6623,8 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				pvCache,
+				nodeCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5823,6 +6654,8 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				pvCache,
+				nodeCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5883,6 +6716,8 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				pvCache,
+				nodeCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5924,6 +6759,8 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				pvCache,
+				nodeCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5962,6 +6799,8 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				pvCache,
+				nodeCache,
 				virtClient,
 				config,
 				qemuGid,
@@ -5996,6 +6835,8 @@ var _ = Describe("Template", func() {
 				v1.HotplugDiskDir,
 				"pull-secret-1",
 				pvcCache,
+				pvCache,
+				nodeCache,
 				virtClient,
 				config,
 				qemuGid,
