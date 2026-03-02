@@ -20,17 +20,17 @@
 package cgroup
 
 import (
-	"bytes"
+	"bufio"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"kubevirt.io/client-go/log"
 
-	cgroup_devices "github.com/opencontainers/runc/libcontainer/cgroups/devices"
 	"github.com/opencontainers/runc/libcontainer/devices"
 
 	runc_cgroups "github.com/opencontainers/runc/libcontainer/cgroups"
@@ -119,17 +119,95 @@ func getCurrentlyDefinedRules(runcManager runc_cgroups.Manager) ([]*devices.Rule
 		return nil, fmt.Errorf("error reading current rules: %v", err)
 	}
 
-	emulator, err := cgroup_devices.EmulatorFromList(bytes.NewBufferString(currentRulesStr))
-	if err != nil {
-		return nil, fmt.Errorf("error creating emulator out of current rules: %v", err)
+	return parseDevicesList(currentRulesStr)
+}
+
+// parseDevicesList parses the content of a cgroup v1 devices.list file
+// into a list of device rules. Each line in devices.list is an allow entry
+// in the format "type major:minor permissions".
+func parseDevicesList(list string) ([]*devices.Rule, error) {
+	var rules []*devices.Rule
+	scanner := bufio.NewScanner(strings.NewReader(list))
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+		rule, err := parseDevicesListLine(line)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing devices.list line %q: %w", line, err)
+		}
+		if rule != nil {
+			rules = append(rules, rule)
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading devices.list: %w", err)
+	}
+	return rules, nil
+}
+
+func parseDevicesListLine(line string) (*devices.Rule, error) {
+	fields := strings.Fields(line)
+	if len(fields) != 3 {
+		return nil, fmt.Errorf("malformed devices.list line: %q", line)
 	}
 
-	currentRules, err := emulator.Rules()
-	if err != nil {
-		return nil, fmt.Errorf("error getting rules from emulator: %v", err)
+	var devType devices.Type
+	switch fields[0] {
+	case "a":
+		return &devices.Rule{
+			Type:        devices.WildcardDevice,
+			Major:       devices.Wildcard,
+			Minor:       devices.Wildcard,
+			Permissions: devices.Permissions("rwm"),
+			Allow:       true,
+		}, nil
+	case "b":
+		devType = devices.BlockDevice
+	case "c":
+		devType = devices.CharDevice
+	default:
+		return nil, fmt.Errorf("unknown device type %q", fields[0])
 	}
 
-	return currentRules, nil
+	parts := strings.SplitN(fields[1], ":", 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("malformed major:minor %q", fields[1])
+	}
+
+	major, err := parseMajorMinor(parts[0])
+	if err != nil {
+		return nil, fmt.Errorf("invalid major number: %w", err)
+	}
+	minor, err := parseMajorMinor(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid minor number: %w", err)
+	}
+
+	perms := devices.Permissions(fields[2])
+	if !perms.IsValid() || perms.IsEmpty() {
+		return nil, fmt.Errorf("invalid permissions: %q", fields[2])
+	}
+
+	return &devices.Rule{
+		Type:        devType,
+		Major:       major,
+		Minor:       minor,
+		Permissions: perms,
+		Allow:       true,
+	}, nil
+}
+
+func parseMajorMinor(s string) (int64, error) {
+	if s == "*" {
+		return devices.Wildcard, nil
+	}
+	val, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int64(val), nil
 }
 
 func (v *v1Manager) GetCpuSet() (string, error) {
