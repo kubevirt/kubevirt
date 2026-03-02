@@ -227,7 +227,6 @@ func subresourceAPIGroup() metav1.APIGroup {
 }
 
 func (app *virtAPIApp) composeSubresources() {
-
 	var subwss []*restful.WebService
 
 	for _, version := range v1.SubresourceGroupVersions {
@@ -806,6 +805,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subwss = append(subwss, subws)
 	}
+
 	ws := new(restful.WebService)
 
 	// K8s needs the ability to query the root paths
@@ -873,6 +873,30 @@ func (app *virtAPIApp) composeSubresources() {
 			})
 			response.WriteAsJson(openapispec)
 		}))
+
+	openApiV3Spec, err := openapi.NewV3Spec(subwss)
+	if err != nil {
+		panic(fmt.Errorf("failed to prepare OpenAPI v3 specs: %w", err))
+	}
+
+	ws.Route(ws.GET("openapi/v3").
+		Produces(restful.MIME_JSON).
+		To(func(request *restful.Request, response *restful.Response) {
+			openApiV3Spec.HandleDiscovery(response.ResponseWriter, request.Request)
+		}).Operation("getOpenAPIV3Discovery").
+		Doc("Get OpenAPI v3 discovery"))
+
+	for _, version := range v1.SubresourceGroupVersions {
+		ws.Route(ws.GET(fmt.Sprintf("openapi/v3/apis/%s/%s", version.Group, version.Version)).
+			Produces(restful.MIME_JSON).
+			To(func(request *restful.Request, response *restful.Response) {
+				openApiV3Spec.HandleGroupVersion(response.ResponseWriter, request.Request)
+			}).
+			Operation(fmt.Sprintf("getOpenAPIV3Spec_%s_%s", version.Group, version.Version)).
+			Doc(fmt.Sprintf("Get OpenAPI v3 specification for %s/%s", version.Group, version.Version)).
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusInternalServerError, "Internal Server Error", ""))
+	}
 
 	restful.Add(ws)
 }
