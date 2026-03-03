@@ -70,8 +70,8 @@ var _ = Describe("Apply Security Context Constraints", func() {
 			stores.SCCCache.Add(scc)
 
 			r := &Reconciler{
-				virtClientset: virtClient,
-				stores:        stores,
+				virtClient: virtClient,
+				stores:     stores,
 			}
 
 			err = r.removeKvServiceAccountsFromDefaultSCC(namespace)
