@@ -112,6 +112,8 @@ func NewMigrationTargetController(
 	)
 	logger := log.Log.With("controller", "migration-target")
 
+	hypervisorName := clusterConfig.GetHypervisor().Name
+
 	baseCtrl, err := NewBaseController(
 		logger,
 		host,
@@ -126,6 +128,8 @@ func NewMigrationTargetController(
 		migrationProxy,
 		virtLauncherFSRunDirPattern,
 		netStat,
+		hypervisor.NewHypervisorNodeInformation(hypervisorName),
+		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
 	)
 	if err != nil {
 		return nil, err
@@ -239,7 +243,7 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 
 		// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
 		// perform host-devices hotplug post migration.
-		if err := isolation.AdjustQemuProcessMemoryLimits(c.podIsolationDetector, vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
+		if err := c.hypervisorRuntime.AdjustResources(vmi, c.clusterConfig.GetConfig()); err != nil {
 			c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "Failed to update target node qemu memory limits during live migration")
 		}
 	}
@@ -647,7 +651,7 @@ func (c *MigrationTargetController) syncVolumes(vmi *v1.VirtualMachineInstance) 
 
 	// Mount hotplug disks
 	if attachmentPodUID := vmi.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmi, c.host)
+		cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo)
 		if err != nil {
 			return err
 		}
@@ -675,9 +679,9 @@ func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachin
 		return err
 	}
 
-	// Mount hotplug disks
+	// Mount hotplug disk
 	if attachmentPodUID := vmiCopy.Status.MigrationState.TargetAttachmentPodUID; attachmentPodUID != "" {
-		cgroupManager, err := getCgroupManager(vmiCopy, c.host)
+		cgroupManager, err := getCgroupManager(vmiCopy, c.host, c.hypervisorNodeInfo)
 		if err != nil {
 			return err
 		}
@@ -829,7 +833,7 @@ func (c *MigrationTargetController) updateDomainFunc(old, new interface{}) {
 }
 
 func (c *MigrationTargetController) reportDedicatedCPUSetForMigratingVMI(vmi *v1.VirtualMachineInstance) error {
-	cgroupManager, err := getCgroupManager(vmi, c.host)
+	cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo)
 	if err != nil {
 		return err
 	}

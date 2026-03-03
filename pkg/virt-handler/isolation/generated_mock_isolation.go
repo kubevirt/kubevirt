@@ -12,7 +12,6 @@ package isolation
 import (
 	reflect "reflect"
 
-	ps "github.com/mitchellh/go-ps"
 	mountinfo "github.com/moby/sys/mountinfo"
 	gomock "go.uber.org/mock/gomock"
 
@@ -41,36 +40,6 @@ func NewMockIsolationResult(ctrl *gomock.Controller) *MockIsolationResult {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockIsolationResult) EXPECT() *MockIsolationResultMockRecorder {
 	return m.recorder
-}
-
-// GetQEMUProcess mocks base method.
-func (m *MockIsolationResult) GetQEMUProcess() (ps.Process, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetQEMUProcess")
-	ret0, _ := ret[0].(ps.Process)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetQEMUProcess indicates an expected call of GetQEMUProcess.
-func (mr *MockIsolationResultMockRecorder) GetQEMUProcess() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetQEMUProcess", reflect.TypeOf((*MockIsolationResult)(nil).GetQEMUProcess))
-}
-
-// KvmPitPid mocks base method.
-func (m *MockIsolationResult) KvmPitPid() (int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "KvmPitPid")
-	ret0, _ := ret[0].(int)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// KvmPitPid indicates an expected call of KvmPitPid.
-func (mr *MockIsolationResultMockRecorder) KvmPitPid() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "KvmPitPid", reflect.TypeOf((*MockIsolationResult)(nil).KvmPitPid))
 }
 
 // MountNamespace mocks base method.
