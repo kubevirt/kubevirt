@@ -563,7 +563,67 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 				"Gate1", "Gate2", "Gate3"),
 		)
 	})
+
+	Context("Startup semantic validation", func() {
+		DescribeTable("forceSemanticValidationOnStartup", func(oldKV, newKV *v1.KubeVirt, expected bool) {
+			Expect(forceSemanticValidationOnStartup(oldKV, newKV)).To(Equal(expected))
+		},
+			Entry("no annotations on either object",
+				kvWithoutStartupValidation(), kvWithoutStartupValidation(), false),
+			Entry("annotation added on the new object",
+				kvWithoutStartupValidation(), kvWithStartupValidationID("id-1"), true),
+			Entry("annotation value changed",
+				kvWithStartupValidationID("id-1"), kvWithStartupValidationID("id-2"), true),
+			Entry("annotation unchanged",
+				kvWithStartupValidationID("id-1"), kvWithStartupValidationID("id-1"), false),
+			Entry("empty annotation value on the new object",
+				kvWithoutStartupValidation(), kvWithStartupValidationID(""), false),
+		)
+
+		It("should re-validate a pre-existing invalid configuration when the startup annotation is added", func() {
+			clusterConfig, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+			admitter := NewKubeVirtUpdateAdmitter(nil, clusterConfig)
+
+			// A feature gate conflict that already existed before this update and
+			// therefore would normally be skipped because it did not change.
+			devConfig := &v1.DeveloperConfiguration{
+				FeatureGates:         []string{"ConflictGate"},
+				DisabledFeatureGates: []string{"ConflictGate"},
+			}
+
+			oldKV := &v1.KubeVirt{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+			oldKV.Spec.Configuration.DeveloperConfiguration = devConfig
+			newKV := oldKV.DeepCopy()
+
+			By("allowing the update when nothing forces semantic validation")
+			Expect(admitKVUpdate(admitter, oldKV, newKV).Allowed).To(BeTrue())
+
+			By("rejecting the same configuration once the startup annotation triggers validation")
+			newKV.Annotations = map[string]string{v1.KubeVirtStartupValidationAnnotation: "deployment-id"}
+			response := admitKVUpdate(admitter, oldKV, newKV)
+			Expect(response.Allowed).To(BeFalse())
+			Expect(response.Result.Details.Causes).To(ContainElement(
+				HaveField("Message", fmt.Sprintf(`feature gate "%s" exists on both "FeatureGates" and "DisabledFeatureGates"`, "ConflictGate")),
+			))
+		})
+	})
 })
+
+func kvWithoutStartupValidation() *v1.KubeVirt {
+	return &v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{},
+		},
+	}
+}
+
+func kvWithStartupValidationID(id string) *v1.KubeVirt {
+	return &v1.KubeVirt{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{v1.KubeVirtStartupValidationAnnotation: id},
+		},
+	}
+}
 
 func admitKVUpdate(admitter *KubeVirtUpdateAdmitter, oldKV, newKV *v1.KubeVirt) *admissionv1.AdmissionResponse {
 	oldKVBytes, err := json.Marshal(oldKV)

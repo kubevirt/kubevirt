@@ -77,38 +77,43 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 
 	var results []metav1.StatusCause
 
+	fgChanged := featureGatesChanged(&currKV.Spec, &newKV.Spec)
+	forceSemantic := forceSemanticValidationOnStartup(currKV, newKV)
+
 	results = append(results, validateCustomizeComponents(newKV.Spec.CustomizeComponents)...)
 	results = append(results, validateCertificates(newKV.Spec.CertificateRotationStrategy.SelfSigned)...)
 	results = append(results, validateGuestToRequestHeadroom(newKV.Spec.Configuration.AdditionalGuestMemoryOverheadRatio)...)
 	results = append(results, validateVirtTemplateDeployment(&newKV.Spec.Configuration)...)
 	results = append(results, validateRoleAggregationStrategy(&newKV.Spec.Configuration)...)
-	results = append(results, validateMigrationConfiguration(
-		&currKV.Spec.Configuration,
-		&newKV.Spec.Configuration,
-	)...)
 
-	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
+	oldConfig := &currKV.Spec.Configuration
+	if forceSemantic {
+		oldConfig = &v1.KubeVirtConfiguration{}
+	}
+	results = append(results, validateMigrationConfiguration(oldConfig, &newKV.Spec.Configuration)...)
+
+	if forceSemantic || !equality.Semantic.DeepEqual(currKV.Spec.Configuration.TLSConfiguration, newKV.Spec.Configuration.TLSConfiguration) {
 		if newKV.Spec.Configuration.TLSConfiguration != nil {
 			results = append(results,
 				validateTLSConfiguration(newKV.Spec.Configuration.TLSConfiguration)...)
 		}
 	}
 
-	if !equality.Semantic.DeepEqual(currKV.Spec.Infra, newKV.Spec.Infra) {
+	if forceSemantic || !equality.Semantic.DeepEqual(currKV.Spec.Infra, newKV.Spec.Infra) {
 		if newKV.Spec.Infra != nil && newKV.Spec.Infra.NodePlacement != nil {
 			results = append(results,
 				validateInfraPlacement(ctx, newKV.Namespace, newKV.Spec.Infra.NodePlacement, admitter.Client)...)
 		}
 	}
 
-	if !equality.Semantic.DeepEqual(currKV.Spec.Workloads, newKV.Spec.Workloads) {
+	if forceSemantic || !equality.Semantic.DeepEqual(currKV.Spec.Workloads, newKV.Spec.Workloads) {
 		if newKV.Spec.Workloads != nil && newKV.Spec.Workloads.NodePlacement != nil {
 			results = append(results,
 				validateWorkloadPlacement(ctx, newKV.Namespace, newKV.Spec.Workloads.NodePlacement, admitter.Client)...)
 		}
 	}
 
-	if !equality.Semantic.DeepEqual(currKV.Spec.Configuration.SeccompConfiguration, newKV.Spec.Configuration.SeccompConfiguration) {
+	if forceSemantic || !equality.Semantic.DeepEqual(currKV.Spec.Configuration.SeccompConfiguration, newKV.Spec.Configuration.SeccompConfiguration) {
 		results = append(results,
 			validateSeccompConfiguration(field.NewPath("spec").Child("configuration", "seccompConfiguration"), newKV.Spec.Configuration.SeccompConfiguration)...)
 
@@ -118,15 +123,16 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 		results = append(results, validateInfraReplicas(newKV.Spec.Infra.Replicas)...)
 	}
 
-	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
+	if forceSemantic || fgChanged {
 		results = append(results, validateFeatureGates(newKV.Spec.Configuration.DeveloperConfiguration)...)
 	}
 
 	response := validating_webhooks.NewAdmissionResponse(results)
 
-	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
-		featureGates := newKV.Spec.Configuration.DeveloperConfiguration.FeatureGates
-		response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(featureGates)...)
+	if forceSemantic || fgChanged {
+		if devConfig := newKV.Spec.Configuration.DeveloperConfiguration; devConfig != nil {
+			response.Warnings = append(response.Warnings, warnDeprecatedFeatureGates(devConfig.FeatureGates)...)
+		}
 	}
 
 	const mdevWarningfmt = "%s is deprecated, use mediatedDeviceTypes"
@@ -592,4 +598,16 @@ func validateMigrationConfiguration(oldConfig, newConfig *v1.KubeVirtConfigurati
 	}
 
 	return causes
+}
+
+func forceSemanticValidationOnStartup(oldKV, newKV *v1.KubeVirt) bool {
+	oldVal := ""
+	if oldKV.Annotations != nil {
+		oldVal = oldKV.Annotations[v1.KubeVirtStartupValidationAnnotation]
+	}
+	newVal := ""
+	if newKV.Annotations != nil {
+		newVal = newKV.Annotations[v1.KubeVirtStartupValidationAnnotation]
+	}
+	return newVal != "" && newVal != oldVal
 }
