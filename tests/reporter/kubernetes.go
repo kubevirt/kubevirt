@@ -252,6 +252,8 @@ func (r *KubernetesReporter) dumpTestObjects(duration time.Duration, vmiNamespac
 	r.logVirtualMachinePools(virtCli)
 	r.logMigrationPolicies(virtCli)
 
+	r.logEtcd(virtCli)
+
 	r.logContainerRuntimeDebug(virtCli, nodesDir, nodes)
 }
 
@@ -1710,4 +1712,88 @@ func (r *KubernetesReporter) logMigrationPolicies(virtCli kubecli.KubevirtClient
 	}
 
 	r.logObjects(policies, migrations.ResourceMigrationPolicies)
+}
+
+func (r *KubernetesReporter) logEtcd(virtCli kubecli.KubevirtClient) {
+	etcdPods, err := virtCli.CoreV1().Pods("kube-system").List(context.Background(), metav1.ListOptions{
+		LabelSelector: "component=etcd",
+	})
+	if err != nil {
+		printError("failed to fetch etcd pods: %v", err)
+		return
+	}
+
+	if len(etcdPods.Items) == 0 {
+		printInfo("no etcd pods found, skipping etcd log collection")
+		return
+	}
+
+	r.logObjects(etcdPods, "etcd_pods")
+
+	// Use the first running etcd pod to collect cluster-wide etcdctl output
+	var etcdPod *v1.Pod
+	for i := range etcdPods.Items {
+		if etcdPods.Items[i].Status.Phase == v1.PodRunning {
+			etcdPod = &etcdPods.Items[i]
+			break
+		}
+	}
+	if etcdPod == nil {
+		printError("no running etcd pod found, skipping etcdctl commands")
+		return
+	}
+
+	certArgs := etcdctlCertArgs(etcdPod)
+
+	type etcdctlCommand struct {
+		args           []string
+		fileNameSuffix string
+	}
+	etcdctlCommands := []etcdctlCommand{
+		{args: []string{"member", "list", "-w", "table"}, fileNameSuffix: "member-list"},
+		{args: []string{"endpoint", "status", "-w", "table"}, fileNameSuffix: "endpoint-status"},
+		{args: []string{"endpoint", "health"}, fileNameSuffix: "endpoint-health"},
+		{args: []string{"alarm", "list"}, fileNameSuffix: "alarm-list"},
+	}
+
+	for _, cmd := range etcdctlCommands {
+		command := append([]string{"etcdctl"}, append(cmd.args, certArgs...)...)
+		stdout, stderr, err := exec.ExecuteCommandOnPodWithResults(etcdPod, "etcd", command)
+		if err != nil {
+			printError("failed to execute etcdctl %s on etcd pod %s, stderr: %s, error: %v", cmd.args[0], etcdPod.Name, stderr, err)
+			continue
+		}
+
+		if stdout == "" {
+			continue
+		}
+
+		fileName := fmt.Sprintf("%d_etcd_%s.log", r.failureCount, cmd.fileNameSuffix)
+		if err := writeStringToFile(filepath.Join(r.artifactsDir, fileName), stdout); err != nil {
+			printError("failed to write etcd %s output: %v", cmd.fileNameSuffix, err)
+		}
+	}
+}
+
+func etcdctlCertArgs(etcdPod *v1.Pod) []string {
+	var cacert, cert, key string
+	for _, c := range etcdPod.Spec.Containers {
+		if c.Name != "etcd" {
+			continue
+		}
+		for _, arg := range append(c.Command, c.Args...) {
+			switch {
+			case strings.HasPrefix(arg, "--trusted-ca-file="):
+				cacert = strings.TrimPrefix(arg, "--trusted-ca-file=")
+			case strings.HasPrefix(arg, "--cert-file="):
+				cert = strings.TrimPrefix(arg, "--cert-file=")
+			case strings.HasPrefix(arg, "--key-file="):
+				key = strings.TrimPrefix(arg, "--key-file=")
+			}
+		}
+	}
+	if cacert == "" || cert == "" || key == "" {
+		return nil
+	}
+	return []string{"--cacert=" + cacert, "--cert=" + cert, "--key=" + key}
 }
