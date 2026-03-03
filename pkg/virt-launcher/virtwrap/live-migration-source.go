@@ -521,10 +521,10 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 		// then it would result in that active state being lost.
 
 	case m.shouldAssistMigrationToComplete(elapsed) && !m.isPausedMigration():
-		if m.options.AllowPostCopy {
+		if m.options.AllowPostCopy && !virtutil.IsVFIOVMI(m.vmi) {
 			logger.Info("Starting post copy mode for migration")
 			// if a migration has stalled too long, post copy will be
-			// triggered when allowPostCopy is enabled
+			// triggered when allowPostCopy is enabled (post-copy is not supported with VFIO devices)
 			err := dom.MigrateStartPostCopy(0)
 			if err != nil {
 				logger.Reason(err).Error("failed to start post migration")
