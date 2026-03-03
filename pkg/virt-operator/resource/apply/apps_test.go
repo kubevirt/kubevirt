@@ -63,7 +63,7 @@ var _ = Describe("Apply Apps", func() {
 
 		var deployment *appsv1.Deployment
 		var err error
-		var virtClientset *kubecli.MockKubevirtClient
+		var virtClient *kubecli.MockKubevirtClient
 		var kv *v1.KubeVirt
 		var expectations *util.Expectations
 		var stores util.Stores
@@ -114,8 +114,8 @@ var _ = Describe("Apply Apps", func() {
 			expectations = &util.Expectations{}
 			expectations.PodDisruptionBudget = controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("PodDisruptionBudgets"))
 
-			virtClientset = kubecli.NewMockKubevirtClient(ctrl)
-			virtClientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
+			virtClient.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
 			kv = &v1.KubeVirt{}
 
 			virtApiConfig := &util.KubeVirtDeploymentConfig{
@@ -130,11 +130,11 @@ var _ = Describe("Apply Apps", func() {
 
 		It("should not fail creation", func() {
 			r := &Reconciler{
-				virtClientset: virtClientset,
-				k8sClientset:  k8sClient,
-				kv:            kv,
-				expectations:  expectations,
-				stores:        stores,
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
 			}
 			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 
@@ -146,11 +146,11 @@ var _ = Describe("Apply Apps", func() {
 		It("should not fail patching", func() {
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
 			r := &Reconciler{
-				virtClientset: virtClientset,
-				k8sClientset:  k8sClient,
-				kv:            kv,
-				expectations:  expectations,
-				stores:        stores,
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
 			}
 			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 
@@ -168,11 +168,11 @@ var _ = Describe("Apply Apps", func() {
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
 			injectOperatorMetadata(kv, &cachedPodDisruptionBudget.ObjectMeta, Version, Registry, Id, true)
 			r := &Reconciler{
-				virtClientset: virtClientset,
-				k8sClientset:  k8sClient,
-				kv:            kv,
-				expectations:  expectations,
-				stores:        stores,
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
 			}
 			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 
@@ -184,11 +184,11 @@ var _ = Describe("Apply Apps", func() {
 		It("should return create error", func() {
 			shouldCreateFail = true
 			r := &Reconciler{
-				virtClientset: virtClientset,
-				k8sClientset:  k8sClient,
-				kv:            kv,
-				expectations:  expectations,
-				stores:        stores,
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
 			}
 			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 
@@ -201,11 +201,11 @@ var _ = Describe("Apply Apps", func() {
 			shouldPatchFail = true
 			mockPodDisruptionBudgetCacheStore.get = cachedPodDisruptionBudget
 			r := &Reconciler{
-				virtClientset: virtClientset,
-				k8sClientset:  k8sClient,
-				kv:            kv,
-				expectations:  expectations,
-				stores:        stores,
+				virtClient:   virtClient,
+				k8sClient:    k8sClient,
+				kv:           kv,
+				expectations: expectations,
+				stores:       stores,
 			}
 			err = r.syncPodDisruptionBudgetForDeployment(deployment)
 
@@ -334,12 +334,12 @@ var _ = Describe("Apply Apps", func() {
 				kv.Spec.Configuration.VirtualMachineInstancesPerNode = &vmiPerNode
 				created := false
 				r := &Reconciler{
-					virtClientset: clientset,
-					k8sClientset:  dsClient,
-					kv:            kv,
-					expectations:  expectations,
-					stores:        stores,
-					recorder:      record.NewFakeRecorder(100),
+					virtClient:   clientset,
+					k8sClient:    dsClient,
+					kv:           kv,
+					expectations: expectations,
+					stores:       stores,
+					recorder:     record.NewFakeRecorder(100),
 				}
 
 				dsClient.Fake.PrependReactor("create", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -368,12 +368,12 @@ var _ = Describe("Apply Apps", func() {
 				containMaxDeviceFlag := false
 
 				r := &Reconciler{
-					virtClientset: clientset,
-					k8sClientset:  dsClient,
-					kv:            kv,
-					expectations:  expectations,
-					stores:        stores,
-					recorder:      record.NewFakeRecorder(100),
+					virtClient:   clientset,
+					k8sClient:    dsClient,
+					kv:           kv,
+					expectations: expectations,
+					stores:       stores,
+					recorder:     record.NewFakeRecorder(100),
 				}
 
 				// add VirtualMachineInstancesPerNode configuration
@@ -452,12 +452,12 @@ var _ = Describe("Apply Apps", func() {
 				patched := false
 
 				r := &Reconciler{
-					virtClientset: clientset,
-					k8sClientset:  dsClient,
-					kv:            kv,
-					expectations:  expectations,
-					stores:        stores,
-					recorder:      record.NewFakeRecorder(100),
+					virtClient:   clientset,
+					k8sClient:    dsClient,
+					kv:           kv,
+					expectations: expectations,
+					stores:       stores,
+					recorder:     record.NewFakeRecorder(100),
 				}
 
 				dsClient.Fake.PrependReactor("patch", "daemonsets", func(action testing.Action) (handled bool, obj runtime.Object, err error) {
@@ -508,19 +508,19 @@ var _ = Describe("Apply Apps", func() {
 					expectingPatch bool) {
 
 					r := &Reconciler{
-						virtClientset: clientset,
-						k8sClientset:  dsClient,
-						kv:            kv,
-						expectations:  expectations,
-						stores:        stores,
-						recorder:      record.NewFakeRecorder(100),
+						virtClient:   clientset,
+						k8sClient:    dsClient,
+						kv:           kv,
+						expectations: expectations,
+						stores:       stores,
+						recorder:     record.NewFakeRecorder(100),
 					}
 
 					currentDs, newDs := dsBuild(kv, daemonSet)
 					mockDSCacheStore.get = daemonSet
 					SetGeneration(&kv.Status.Generations, currentDs)
 
-					_, err := r.k8sClientset.AppsV1().DaemonSets(currentDs.Namespace).Create(context.TODO(), currentDs, v12.CreateOptions{})
+					_, err := r.k8sClient.AppsV1().DaemonSets(currentDs.Namespace).Create(context.TODO(), currentDs, v12.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
 					done, err, status := r.processCanaryUpgrade(currentDs, newDs, false)
@@ -541,7 +541,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(err).ToNot(HaveOccurred())
 					}
 
-					patchedDs, err := r.k8sClientset.AppsV1().DaemonSets(currentDs.Namespace).Get(context.TODO(), currentDs.Name, v12.GetOptions{})
+					patchedDs, err := r.k8sClient.AppsV1().DaemonSets(currentDs.Namespace).Get(context.TODO(), currentDs.Name, v12.GetOptions{})
 					Expect(err).ToNot(HaveOccurred())
 					dsCheck(kv, patchedDs)
 
@@ -1146,8 +1146,8 @@ var _ = Describe("Apply Apps", func() {
 			stores.SCCCache.Add(scc)
 
 			r := &Reconciler{
-				virtClientset: virtClient,
-				stores:        stores,
+				virtClient: virtClient,
+				stores:     stores,
 			}
 
 			err = r.removeKvServiceAccountsFromDefaultSCC(namespace)
@@ -1191,7 +1191,7 @@ var _ = Describe("Apply Apps", func() {
 	Context("on calling syncDeployment", func() {
 		var cachedDeployment *appsv1.Deployment
 		var strategyDeployment *appsv1.Deployment
-		var virtClientset *kubecli.MockKubevirtClient
+		var virtClient *kubecli.MockKubevirtClient
 		var kv *v1.KubeVirt
 		var stores util.Stores
 		var ctrl *gomock.Controller
@@ -1203,9 +1203,9 @@ var _ = Describe("Apply Apps", func() {
 		BeforeEach(func() {
 			ctrl = gomock.NewController(GinkgoT())
 			kvInterface := kubecli.NewMockKubeVirtInterface(ctrl)
-			virtClientset = kubecli.NewMockKubevirtClient(ctrl)
+			virtClient = kubecli.NewMockKubevirtClient(ctrl)
 			dpClient = fake.NewSimpleClientset()
-			virtClientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
+			virtClient.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
 
 			kv = &v1.KubeVirt{ObjectMeta: v12.ObjectMeta{Namespace: Namespace}}
 			virtControllerConfig := &util.KubeVirtDeploymentConfig{
@@ -1249,11 +1249,11 @@ var _ = Describe("Apply Apps", func() {
 				LastGeneration: cachedDeployment.Generation - 1,
 			}}
 			r := &Reconciler{
-				virtClientset: virtClientset,
-				k8sClientset:  dpClient,
-				kv:            kv,
-				expectations:  &util.Expectations{},
-				stores:        stores,
+				virtClient:   virtClient,
+				k8sClient:    dpClient,
+				kv:           kv,
+				expectations: &util.Expectations{},
+				stores:       stores,
 			}
 			updatedDeploy, err := r.syncDeployment(strategyDeployment)
 			Expect(err).ToNot(HaveOccurred())
@@ -1266,11 +1266,11 @@ var _ = Describe("Apply Apps", func() {
 			createFakeNodes(dpClient, schedulableNodesCount, unschedulableNodeCount)
 
 			r := &Reconciler{
-				virtClientset: virtClientset,
-				k8sClientset:  dpClient,
-				kv:            kv,
-				expectations:  &util.Expectations{},
-				stores:        stores,
+				virtClient:   virtClient,
+				k8sClient:    dpClient,
+				kv:           kv,
+				expectations: &util.Expectations{},
+				stores:       stores,
 			}
 
 			updatedDeployment, err := r.syncDeployment(virtAPIDeployment)
@@ -1296,11 +1296,11 @@ var _ = Describe("Apply Apps", func() {
 
 			BeforeEach(func() {
 				reconciler = &Reconciler{
-					virtClientset: virtClientset,
-					k8sClientset:  dpClient,
-					kv:            kv,
-					expectations:  &util.Expectations{Deployment: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment"))},
-					stores:        stores,
+					virtClient:   virtClient,
+					k8sClient:    dpClient,
+					kv:           kv,
+					expectations: &util.Expectations{Deployment: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment"))},
+					stores:       stores,
 				}
 			})
 

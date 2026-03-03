@@ -27,7 +27,7 @@ var _ = Describe("Apply PDBs", func() {
 	var ctrl *gomock.Controller
 	var k8sClient *fake.Clientset
 	var stores util.Stores
-	var virtClientset *kubecli.MockKubevirtClient
+	var virtClient *kubecli.MockKubevirtClient
 	var expectations *util.Expectations
 	var kv *v1.KubeVirt
 	var deployment *v12.Deployment
@@ -57,16 +57,16 @@ var _ = Describe("Apply PDBs", func() {
 
 		expectations = &util.Expectations{}
 
-		virtClientset = kubecli.NewMockKubevirtClient(ctrl)
-		virtClientset.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
+		virtClient = kubecli.NewMockKubevirtClient(ctrl)
+		virtClient.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
 		kv = &v1.KubeVirt{}
 
 		r = &Reconciler{
 			kv:             kv,
 			targetStrategy: nil,
 			stores:         stores,
-			virtClientset:  virtClientset,
-			k8sClientset:   k8sClient,
+			virtClient:     virtClient,
+			k8sClient:      k8sClient,
 			expectations:   expectations,
 		}
 
