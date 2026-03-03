@@ -20,6 +20,8 @@
 package libvmi
 
 import (
+	"sync"
+
 	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -41,10 +43,21 @@ func New(opts ...Option) *v1.VirtualMachineInstance {
 	return vmi
 }
 
-var defaultOptions []Option
+var (
+	defaultOptions []Option
+	defaultOptionsMux sync.RWMutex
+)
 
 func RegisterDefaultOption(opt Option) {
+	defaultOptionsMux.Lock()
+	defer defaultOptionsMux.Unlock()
 	defaultOptions = append(defaultOptions, opt)
+}
+
+func ClearDefaultOptions() {
+	defaultOptionsMux.Lock()
+	defer defaultOptionsMux.Unlock()
+	defaultOptions = nil
 }
 
 // randName returns a random name for a virtual machine
@@ -65,6 +78,8 @@ func baseVmi(name string) *v1.VirtualMachineInstance {
 		Spec: v1.VirtualMachineInstanceSpec{Domain: v1.DomainSpec{}},
 	}
 
+	defaultOptionsMux.RLock()
+	defer defaultOptionsMux.RUnlock()
 	for _, opt := range defaultOptions {
 		opt(vmi)
 	}

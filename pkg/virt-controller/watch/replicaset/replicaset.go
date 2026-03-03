@@ -300,12 +300,19 @@ func (c *Controller) scale(rs *virtv1.VirtualMachineInstanceReplicaSet, vmis []*
 			go func() {
 				defer wg.Done()
 				vmi := libvmi.New()
+				// Store the labels and annotations from the initialized VMI
+				initialLabels := vmi.ObjectMeta.Labels
+				initialAnnotations := vmi.ObjectMeta.Annotations
+
+				// Initialize with the template's ObjectMeta (to keep finalizers etc.)
 				vmi.ObjectMeta = rs.Spec.Template.ObjectMeta
 				vmi.ObjectMeta.Name = ""
 				vmi.ObjectMeta.GenerateName = basename
 				vmi.Spec = rs.Spec.Template.Spec
-				// TODO check if vmi labels exist, and when make sure that they match. For now just override them
-				vmi.ObjectMeta.Labels = rs.Spec.Template.ObjectMeta.Labels
+
+				// Merge the labels and annotations, allowing the template to override the initialized values
+				vmi.ObjectMeta.Labels = labels.Merge(initialLabels, rs.Spec.Template.ObjectMeta.Labels)
+				vmi.ObjectMeta.Annotations = labels.Merge(initialAnnotations, rs.Spec.Template.ObjectMeta.Annotations)
 				vmi.ObjectMeta.OwnerReferences = []metav1.OwnerReference{OwnerRef(rs)}
 				vmi, err := c.clientset.VirtualMachineInstance(rs.ObjectMeta.Namespace).Create(context.Background(), vmi, metav1.CreateOptions{})
 				if err != nil {
