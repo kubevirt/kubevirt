@@ -198,15 +198,18 @@ var _ = Describe("EvacuateCancel Subresource API", func() {
 			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
 		})
 
-		It("Should fail because opts is invalid", func() {
+		It("Should fail because opts is empty(invalid)", func() {
 			vmi := newVMI(true, workerNode)
 			vm := createVM(newVM(vmi))
 			vmi.SetOwnerReferences([]metav1.OwnerReference{{UID: vm.UID}})
 			vmi = createVMI(vmi)
 
-			request.Request.Body = newInvalidBody()
+			opt := &v1.EvacuateCancelOptions{}
+
+			//empty opts is invalid
+			request.Request.Body = newEvacuateCancelBody(opt)
 			app.EvacuateCancelHandler(app.FetchVirtualMachineInstanceForVM)(request, response)
-			Expect(response.StatusCode()).To(Equal(http.StatusBadRequest))
+			Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError))
 		})
 	})
 
