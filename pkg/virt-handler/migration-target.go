@@ -241,12 +241,6 @@ func (c *MigrationTargetController) updateStatus(vmi *v1.VirtualMachineInstance,
 		if vmi.Status.MigrationState.TargetState != nil {
 			vmi.Status.MigrationState.TargetState.DomainDetected = true
 		}
-
-		// adjust QEMU process memlock limits in order to enable old virt-launcher pod's to
-		// perform host-devices hotplug post migration.
-		if err := c.hypervisorRuntime.AdjustResources(vmi, c.clusterConfig.GetConfig()); err != nil {
-			c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "Failed to update target node qemu memory limits during live migration")
-		}
 	}
 
 	// detect an active domain on target node
@@ -744,6 +738,14 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) e
 
 	if err := c.setupDevicesOwnerships(vmi, c.recorder); err != nil {
 		return err
+	}
+
+	// adjust virtqemud process memlock limits in order to accommodate
+	// incoming VMs with memlock limit requirements and to enable old
+	// virt-launcher pod's to perform host-devices hotplug post
+	// migration.
+	if err := c.hypervisorRuntime.AdjustResources(vmi, c.clusterConfig.GetConfig()); err != nil {
+		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), "Failed to update target node qemu memory limits during live migration")
 	}
 
 	options := virtualMachineOptions(nil, 0, nil, c.capabilities, c.clusterConfig)
