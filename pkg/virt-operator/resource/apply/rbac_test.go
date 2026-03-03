@@ -274,8 +274,8 @@ var _ = Describe("RBAC test", func() {
 				kv:             kv,
 				targetStrategy: nil,
 				stores:         stores,
-				virtClientset:  clientset,
-				k8sClientset:   k8sClient,
+				virtClient:     clientset,
+				k8sClient:      k8sClient,
 				expectations:   expectations,
 			}
 		})

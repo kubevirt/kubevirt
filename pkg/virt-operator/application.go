@@ -88,8 +88,8 @@ const (
 type VirtOperatorApp struct {
 	service.ServiceListen
 
-	virtClientSet   kubecli.KubevirtClient
-	k8sClientSet    kubernetes.Interface
+	virtClient      kubecli.KubevirtClient
+	k8sClient       kubernetes.Interface
 	restClient      *clientrest.RESTClient
 	informerFactory controller.KubeInformerFactory
 
@@ -195,18 +195,18 @@ func Execute() {
 
 	app.aggregatorClient = aggregatorclient.NewForConfigOrDie(config)
 
-	app.virtClientSet, err = kubecli.GetKubevirtClientFromRESTConfig(config)
+	app.virtClient, err = kubecli.GetKubevirtClientFromRESTConfig(config)
 
 	if err != nil {
 		golog.Fatal(err)
 	}
-	app.k8sClientSet, err = kubecli.GetK8sClient()
+	app.k8sClient, err = kubecli.GetK8sClient()
 
 	if err != nil {
 		golog.Fatal(err)
 	}
 
-	app.restClient = app.virtClientSet.RestClient()
+	app.restClient = app.virtClient.RestClient()
 
 	app.LeaderElection = leaderelectionconfig.DefaultLeaderElectionConfiguration()
 
@@ -216,7 +216,7 @@ func Execute() {
 	}
 
 	if *dumpInstallStrategy {
-		err = install.DumpInstallStrategyToConfigMap(app.k8sClientSet, app.operatorNamespace)
+		err = install.DumpInstallStrategyToConfigMap(app.k8sClient, app.operatorNamespace)
 		if err != nil {
 			golog.Fatal(err)
 		}
@@ -225,7 +225,7 @@ func Execute() {
 
 	app.config = util.OperatorConfig{}
 
-	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.virtClientSet, app.k8sClientSet, app.aggregatorClient, app.operatorNamespace)
+	app.informerFactory = controller.NewKubeInformerFactory(app.restClient, app.virtClient, app.k8sClient, app.aggregatorClient, app.operatorNamespace)
 	app.informers = util.Informers{
 		KubeVirt:                 app.informerFactory.KubeVirt(),
 		CRD:                      app.informerFactory.CRD(),
@@ -253,7 +253,7 @@ func Execute() {
 		Leases:                   app.informerFactory.Leases(),
 	}
 
-	onOpenShift, err := clusterutil.IsOnOpenShift(app.virtClientSet)
+	onOpenShift, err := clusterutil.IsOnOpenShift(app.virtClient)
 	if err != nil {
 		golog.Fatalf("Error determining cluster type: %v", err)
 	}
@@ -268,7 +268,7 @@ func Execute() {
 		app.informers.Route = app.informerFactory.DummyOperatorRoute()
 	}
 
-	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(app.virtClientSet)
+	serviceMonitorEnabled, err := util.IsServiceMonitorEnabled(app.virtClient)
 	if err != nil {
 		golog.Fatalf("Error checking for ServiceMonitor: %v", err)
 	}
@@ -282,7 +282,7 @@ func Execute() {
 		app.informers.ServiceMonitor = app.informerFactory.DummyOperatorServiceMonitor()
 	}
 
-	prometheusRuleEnabled, err := util.IsPrometheusRuleEnabled(app.virtClientSet)
+	prometheusRuleEnabled, err := util.IsPrometheusRuleEnabled(app.virtClient)
 	if err != nil {
 		golog.Fatalf("Error checking for PrometheusRule: %v", err)
 	}
@@ -295,7 +295,7 @@ func Execute() {
 		app.informers.PrometheusRule = app.informerFactory.DummyOperatorPrometheusRule()
 	}
 
-	validatingAdmissionPolicyBindingEnabled, err := util.IsValidatingAdmissionPolicyBindingEnabled(app.virtClientSet)
+	validatingAdmissionPolicyBindingEnabled, err := util.IsValidatingAdmissionPolicyBindingEnabled(app.virtClient)
 	if err != nil {
 		golog.Fatalf("Error checking for ValidatingAdmissionPolicyBinding: %v", err)
 	}
@@ -308,7 +308,7 @@ func Execute() {
 		app.informers.ValidatingAdmissionPolicyBinding = app.informerFactory.DummyOperatorValidatingAdmissionPolicyBinding()
 	}
 
-	validatingAdmissionPolicyEnabled, err := util.IsValidatingAdmissionPolicyEnabled(app.virtClientSet)
+	validatingAdmissionPolicyEnabled, err := util.IsValidatingAdmissionPolicyEnabled(app.virtClient)
 	if err != nil {
 		golog.Fatalf("Error checking for ValidatingAdmissionPolicy: %v", err)
 	}
@@ -324,7 +324,7 @@ func Execute() {
 	app.prepareCertManagers()
 
 	app.kubeVirtRecorder = app.getNewRecorder(k8sv1.NamespaceAll, VirtOperator)
-	app.kubeVirtController, err = NewKubeVirtController(app.virtClientSet, app.k8sClientSet, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtRecorder, app.config, app.informers, app.operatorNamespace)
+	app.kubeVirtController, err = NewKubeVirtController(app.virtClient, app.k8sClient, app.aggregatorClient.ApiregistrationV1().APIServices(), app.kubeVirtRecorder, app.config, app.informers, app.operatorNamespace)
 	if err != nil {
 		panic(err)
 	}
@@ -396,8 +396,8 @@ func (app *VirtOperatorApp) Run() {
 	rl, err := resourcelock.New(app.LeaderElection.ResourceLock,
 		app.operatorNamespace,
 		leaseName,
-		app.k8sClientSet.CoreV1(),
-		app.k8sClientSet.CoordinationV1(),
+		app.k8sClient.CoreV1(),
+		app.k8sClient.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
 			Identity:      id,
 			EventRecorder: recorder,
@@ -430,13 +430,13 @@ func (app *VirtOperatorApp) Run() {
 
 	var mux http.ServeMux
 	mux.HandleFunc("/kubevirt-validate-delete", func(w http.ResponseWriter, r *http.Request) {
-		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtDeletionAdmitter(app.virtClientSet))
+		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtDeletionAdmitter(app.virtClient))
 	})
 	mux.HandleFunc(components.KubeVirtUpdateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtUpdateAdmitter(app.k8sClientSet, app.clusterConfig))
+		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtUpdateAdmitter(app.k8sClient, app.clusterConfig))
 	})
 	mux.HandleFunc(components.KubeVirtCreateValidatePath, func(w http.ResponseWriter, r *http.Request) {
-		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtCreateAdmitter(app.virtClientSet))
+		validating_webhooks.Serve(w, r, operator_webhooks.NewKubeVirtCreateAdmitter(app.virtClient))
 	})
 	webhookServer.Handler = &mux
 	go func() {
@@ -511,7 +511,7 @@ func (app *VirtOperatorApp) configModificationCallback() {
 
 func (app *VirtOperatorApp) getNewRecorder(namespace string, componentName string) record.EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.k8sClientSet.CoreV1().Events(namespace)})
+	eventBroadcaster.StartRecordingToSink(&k8coresv1.EventSinkImpl{Interface: app.k8sClient.CoreV1().Events(namespace)})
 	return eventBroadcaster.NewRecorder(scheme.Scheme, k8sv1.EventSource{Component: componentName})
 }
 
