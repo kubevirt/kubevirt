@@ -6077,6 +6077,30 @@ var _ = Describe("Template", func() {
 			}))
 		})
 
+		It("should inject PV node affinity for a hotplugged ReadWriteOncePod volume", func() {
+			pvcStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: testPVCName, Namespace: testNamespace},
+				Spec:       k8sv1.PersistentVolumeClaimSpec{VolumeName: testPVName},
+			}
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+
+			k8sClient := k8sfake.NewSimpleClientset(pvWithNodeAffinity(testNode))
+			testSvc := buildService(pvcStore, k8sClient)
+
+			pod := &k8sv1.Pod{}
+			testSvc.setNodeAffinityForHotplugRWOVolumes(hotplugVMI(testPVCName, k8sv1.ReadWriteOncePod), pod)
+
+			Expect(pod.Spec.Affinity).NotTo(BeNil())
+			terms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			Expect(terms).To(HaveLen(1))
+			Expect(terms[0].MatchExpressions).To(ContainElement(k8sv1.NodeSelectorRequirement{
+				Key:      "kubernetes.io/hostname",
+				Operator: k8sv1.NodeSelectorOpIn,
+				Values:   []string{testNode},
+			}))
+		})
+
 		It("should not inject affinity for a hotplugged RWX volume", func() {
 			pvcStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
 			pvc := &k8sv1.PersistentVolumeClaim{
@@ -6172,6 +6196,8 @@ var _ = Describe("Template", func() {
 	})
 
 	Describe("mergeNodeSelectorRequired", func() {
+		const testNode = "node-1"
+
 		pvTerm := func(node string) k8sv1.NodeSelectorTerm {
 			return k8sv1.NodeSelectorTerm{
 				MatchExpressions: []k8sv1.NodeSelectorRequirement{{
@@ -6185,10 +6211,30 @@ var _ = Describe("Template", func() {
 			return &k8sv1.NodeSelector{NodeSelectorTerms: []k8sv1.NodeSelectorTerm{pvTerm(node)}}
 		}
 
-		It("should set PV affinity directly when pod has none", func() {
+		It("should set PV affinity directly when pod has nil affinity", func() {
 			result := mergeNodeSelectorRequired(nil, pvRequired(testNode))
 			terms := result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
 			Expect(terms).To(ConsistOf(pvTerm(testNode)))
+		})
+
+		It("should set PV affinity when pod affinity has nil NodeAffinity", func() {
+			result := mergeNodeSelectorRequired(&k8sv1.Affinity{}, pvRequired(testNode))
+			terms := result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			Expect(terms).To(ConsistOf(pvTerm(testNode)))
+		})
+
+		It("should return existing affinity unchanged when pvRequired has no terms", func() {
+			existingTerm := pvTerm("existing-node")
+			affinity := &k8sv1.Affinity{
+				NodeAffinity: &k8sv1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{existingTerm},
+					},
+				},
+			}
+			result := mergeNodeSelectorRequired(affinity, &k8sv1.NodeSelector{})
+			terms := result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			Expect(terms).To(ConsistOf(existingTerm))
 		})
 
 		It("should produce the Cartesian product of existing and PV terms", func() {
@@ -6214,18 +6260,23 @@ var _ = Describe("Template", func() {
 		})
 
 		It("should produce a Cartesian product for multiple terms on each side", func() {
+			existing1, existing2 := pvTerm("A"), pvTerm("B")
+			pv1, pv2 := pvTerm("X"), pvTerm("Y")
 			affinity := &k8sv1.Affinity{
 				NodeAffinity: &k8sv1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
-						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{pvTerm("A"), pvTerm("B")},
+						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{existing1, existing2},
 					},
 				},
 			}
-			pv2 := &k8sv1.NodeSelector{NodeSelectorTerms: []k8sv1.NodeSelectorTerm{pvTerm("X"), pvTerm("Y")}}
-			result := mergeNodeSelectorRequired(affinity, pv2)
+			pvSelector := &k8sv1.NodeSelector{NodeSelectorTerms: []k8sv1.NodeSelectorTerm{pv1, pv2}}
+			result := mergeNodeSelectorRequired(affinity, pvSelector)
 			terms := result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
-			// 2 existing × 2 PV = 4 combined terms.
+			// 2 existing × 2 PV = 4 combined terms, each carrying both sides' requirements.
 			Expect(terms).To(HaveLen(4))
+			for _, term := range terms {
+				Expect(term.MatchExpressions).To(HaveLen(2))
+			}
 		})
 	})
 })

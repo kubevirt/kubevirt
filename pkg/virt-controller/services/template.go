@@ -264,13 +264,14 @@ func (t *TemplateService) setNodeAffinityForHotplugRWOVolumes(vmi *v1.VirtualMac
 	}
 }
 
-// hotplugVolumeIsRWO reports whether a hotplugged volume has ReadWriteOnce
+// hotplugVolumeIsRWO reports whether a hotplugged volume has node-local access
+// (ReadWriteOnce or ReadWriteOncePod), meaning it can only be attached on one node.
 func hotplugVolumeIsRWO(vs v1.VolumeStatus) bool {
 	if vs.PersistentVolumeClaimInfo == nil {
 		return false
 	}
 	for _, am := range vs.PersistentVolumeClaimInfo.AccessModes {
-		if am == k8sv1.ReadWriteOnce {
+		if am == k8sv1.ReadWriteOnce || am == k8sv1.ReadWriteOncePod {
 			return true
 		}
 	}
@@ -279,6 +280,9 @@ func hotplugVolumeIsRWO(vs v1.VolumeStatus) bool {
 
 // mergeNodeSelectorRequired AND-merges pvRequired into the pod's existing required node affinity.
 func mergeNodeSelectorRequired(affinity *k8sv1.Affinity, pvRequired *k8sv1.NodeSelector) *k8sv1.Affinity {
+	if len(pvRequired.NodeSelectorTerms) == 0 {
+		return affinity
+	}
 	if affinity == nil {
 		affinity = &k8sv1.Affinity{}
 	}
