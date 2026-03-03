@@ -110,6 +110,8 @@ case "$TARGET" in
     ;;
   *sig-compute-serial*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-serial/}
+    export KUBEVIRT_WITH_KIND_ETCD_IN_MEMORY=true
+    export KUBEVIRT_WITH_ETC_CAPACITY=1G
     ;;
   *sig-compute-parallel*)
     export KUBEVIRT_PROVIDER=${TARGET/-sig-compute-parallel/}
