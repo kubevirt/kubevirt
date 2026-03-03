@@ -1487,6 +1487,8 @@ const (
 	//         - protocol: UDP
 	//           port: dns
 	AllowAccessClusterServicesNPLabel string = "np.kubevirt.io/allow-access-cluster-services"
+
+	KubeVirtStartupValidationAnnotation string = "kubevirt.io/startup-validation-target-id"
 )
 
 func NewVMI(name string, uid types.UID) *VirtualMachineInstance {
