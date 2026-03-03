@@ -2,7 +2,9 @@
   <name>mynamespace_testvmi</name>
   <memory unit="b">8388608</memory>
   <os>
-    <type arch="s390x" machine="s390-ccw-virtio">hvm</type>
+    <type arch="aarch64" machine="virt">hvm</type>
+    <loader readonly="yes" secure="no" type="pflash"></loader>
+    <nvram>/var/lib/libvirt/qemu/nvram/testvmi_VARS.fd</nvram>
   </os>
   <sysinfo type="smbios">
     <system>
@@ -21,28 +23,31 @@
   <devices>
     <interface type="ethernet">
       <source></source>
-      <model type="virtio"></model>
+      <model type="virtio-non-transitional"></model>
       <alias name="ua-default"></alias>
+      <rom enabled="no"></rom>
     </interface>
     <channel type="unix">
       <target name="org.qemu.guest_agent.0" type="virtio"></target>
     </channel>
-    <controller type="usb" index="0" model="none"></controller>
-    <controller type="virtio-serial" index="0" model="virtio"></controller>
+    <controller type="usb" index="0" model="qemu-xhci"></controller>
+    <controller type="virtio-serial" index="0" model="virtio-non-transitional"></controller>
     <video>
       <model type="virtio" heads="1"></model>
     </video>
     <graphics type="vnc">
       <listen type="socket" socket="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-vnc"></listen>
     </graphics>
-    %s
-    <disk device="disk" type="file" model="virtio">
+    <memballoon model="virtio-non-transitional" freePageReporting="on">
+      <stats period="10"></stats>
+    </memballoon>
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/myvolume/disk.img"></source>
       <target bus="virtio" dev="vda"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="2" discard="unmap"></driver>
       <alias name="ua-myvolume"></alias>
     </disk>
-    <disk device="disk" type="file" model="virtio">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/cloud-init-dir/mynamespace/testvmi/noCloud.iso"></source>
       <target bus="virtio" dev="vdb"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="3" discard="unmap"></driver>
@@ -61,13 +66,13 @@
       <readonly></readonly>
       <alias name="ua-cdrom_tray_open"></alias>
     </disk>
-    <disk device="disk" type="file" model="virtio">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/vmi-disks/should_default_to_disk/disk.img"></source>
       <target bus="virtio" dev="vde"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-should_default_to_disk"></alias>
     </disk>
-    <disk device="disk" type="file" model="virtio">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/libvirt/kubevirt-ephemeral-disk/ephemeral_pvc/disk.qcow2"></source>
       <target bus="virtio" dev="vdf"></target>
       <driver cache="none" error_policy="stop" name="qemu" type="qcow2" iothread="1" discard="unmap"></driver>
@@ -77,33 +82,33 @@
         <source file="/var/run/kubevirt-private/vmi-disks/ephemeral_pvc/disk.img"></source>
       </backingStore>
     </disk>
-    <disk device="disk" type="file" model="virtio">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/secret-disks/secret_test.iso"></source>
       <target bus="virtio" dev="vdg"></target>
       <serial>D23YZ9W6WA5DJ487</serial>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-secret_test"></alias>
     </disk>
-    <disk device="disk" type="file" model="virtio">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/config-map-disks/configmap_test.iso"></source>
       <target bus="virtio" dev="vdh"></target>
       <serial>CVLY623300HK240D</serial>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-configmap_test"></alias>
     </disk>
-    <disk device="disk" type="block" model="virtio">
+    <disk device="disk" type="block" model="virtio-non-transitional">
       <source dev="/dev/pvc_block_test" name="pvc_block_test"></source>
       <target bus="virtio" dev="vdi"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-pvc_block_test"></alias>
     </disk>
-    <disk device="disk" type="block" model="virtio">
+    <disk device="disk" type="block" model="virtio-non-transitional">
       <source dev="/dev/dv_block_test" name="dv_block_test"></source>
       <target bus="virtio" dev="vdj"></target>
       <driver cache="writethrough" error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
       <alias name="ua-dv_block_test"></alias>
     </disk>
-    <disk device="disk" type="file" model="virtio">
+    <disk device="disk" type="file" model="virtio-non-transitional">
       <source file="/var/run/kubevirt-private/service-account-disk/service-account.iso"></source>
       <target bus="virtio" dev="vdk"></target>
       <driver error_policy="stop" name="qemu" type="raw" iothread="1" discard="unmap"></driver>
@@ -124,7 +129,7 @@
     <input type="tablet" bus="virtio" model="virtio">
       <alias name="ua-tablet0"></alias>
     </input>
-    <input type="keyboard" bus="virtio"></input>
+    <input type="keyboard" bus="usb"></input>
     <serial type="unix">
       <target port="0"></target>
       <source mode="bind" path="/var/run/kubevirt-private/f4686d2c-6e8d-4335-b8fd-81bee22f4814/virt-serial0"></source>
@@ -133,7 +138,7 @@
     <console type="pty">
       <target type="serial" port="0"></target>
     </console>
-    <rng model="virtio">
+    <rng model="virtio-non-transitional">
       <backend model="random">/dev/urandom</backend>
     </rng>
   </devices>
@@ -176,7 +181,7 @@
     </kvm>
     <pvspinlock state="off"></pvspinlock>
   </features>
-  <cpu mode="host-model">
+  <cpu mode="host-passthrough">
     <topology sockets="1" cores="1" threads="1"></topology>
   </cpu>
   <vcpu placement="static">1</vcpu>
