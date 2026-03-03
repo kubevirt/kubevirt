@@ -60,6 +60,8 @@ import (
 	archconverter "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/arch"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/vcpu"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/gpu"
 	lsec "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/launchsecurity"
 )
 
@@ -108,11 +110,154 @@ func memBalloonWithModelAndPeriod(model string, period int) string {
 	return fmt.Sprintf(argMemBalloonFmt, model, fmt.Sprintf(`
       <stats period="%d"></stats>
     `, period))
+}
 
+// createContextWithDevices creates a ConverterContext populated with mock host devices
+// based on the current VMI specification.
+func createContextWithDevices(vmi *v1.VirtualMachineInstance, baseContext *ConverterContext) *ConverterContext {
+	pciPool := &stubAddressPool{addresses: make(map[string][]string)}
+
+	// Count devices by DeviceName to determine how many addresses are needed
+	deviceCounts := make(map[string]int)
+	for _, gpu := range vmi.Spec.Domain.Devices.GPUs {
+		deviceCounts[gpu.DeviceName]++
+	}
+	for _, hostDevice := range vmi.Spec.Domain.Devices.HostDevices {
+		deviceCounts[hostDevice.DeviceName]++
+	}
+
+	// Ensure deterministic ordering by processing device types in a fixed order
+	busNumber := 0x81
+	deviceTypes := []string{"example.com/gpu", "example.com/device"} // Fixed order
+	for _, deviceName := range deviceTypes {
+		if count, exists := deviceCounts[deviceName]; exists {
+			addresses := make([]string, count)
+			for i := 0; i < count; i++ {
+				addresses[i] = fmt.Sprintf("0000:%02x:%02x.0", busNumber, i+1)
+			}
+			pciPool.AddResource(deviceName, addresses...)
+			busNumber++
+		}
+	}
+
+	// Create mock MDEV and USB address pools
+	mdevPool := &stubAddressPool{addresses: make(map[string][]string)}
+	usbPool := &stubAddressPool{addresses: make(map[string][]string)}
+
+	gpuHostDevices, err := gpu.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.GPUs, pciPool, mdevPool)
+	Expect(err).ToNot(HaveOccurred())
+	genericHostDevices, err := generic.CreateHostDevicesFromPools(vmi.Spec.Domain.Devices.HostDevices, pciPool, mdevPool, usbPool)
+	Expect(err).ToNot(HaveOccurred())
+
+	newContext := *baseContext // copy the base context
+	newContext.GPUHostDevices = gpuHostDevices
+	newContext.GenericHostDevices = genericHostDevices
+
+	return &newContext
+}
+
+// stubAddressPool is a mock implementation for testing GPU address pools
+type stubAddressPool struct {
+	addresses map[string][]string
+}
+
+func (p *stubAddressPool) AddResource(resource string, addresses ...string) {
+	p.addresses[resource] = addresses
+}
+
+func (p *stubAddressPool) Pop(resource string) (string, error) {
+	addresses, exists := p.addresses[resource]
+	if !exists {
+		return "", fmt.Errorf("no resource: %s", resource)
+	}
+	if len(addresses) == 0 {
+		return "", fmt.Errorf("pool is empty")
+	}
+
+	address := addresses[0]
+	p.addresses[resource] = addresses[1:]
+
+	return address, nil
+}
+
+// setupMockHardwarePaths creates fake PCI and NUMA filesystem structures for testing
+// Returns a cleanup function that should be called in a defer statement
+func setupMockHardwarePaths(testDevices map[string]string, numaCPUMap map[string]string) func() {
+	var fakePciBasePath, fakeNodeBasePath string
+	originalPciBasePath := hardware.PciBasePath
+	originalNodeBasePath := hardware.NodeBasePath
+
+	var err error
+	fakePciBasePath, err = os.MkdirTemp("", "pci_devices")
+	Expect(err).ToNot(HaveOccurred())
+
+	fakeNodeBasePath, err = os.MkdirTemp("", "numa_nodes")
+	Expect(err).ToNot(HaveOccurred())
+
+	// Create PCI device directories with NUMA node files
+	for pciAddr, numaNode := range testDevices {
+		pciDevicePath := filepath.Join(fakePciBasePath, pciAddr)
+		err = os.MkdirAll(pciDevicePath, 0o755)
+		Expect(err).ToNot(HaveOccurred())
+
+		numaNodeFile := filepath.Join(pciDevicePath, "numa_node")
+		err = os.WriteFile(numaNodeFile, []byte(numaNode+"\n"), 0o644)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	// Create NUMA node directories with CPU lists
+	for numaID, cpuList := range numaCPUMap {
+		numaNodePath := filepath.Join(fakeNodeBasePath, "node"+numaID)
+		err = os.MkdirAll(numaNodePath, 0o755)
+		Expect(err).ToNot(HaveOccurred())
+
+		cpuListFile := filepath.Join(numaNodePath, "cpulist")
+		err = os.WriteFile(cpuListFile, []byte(cpuList+"\n"), 0o644)
+		Expect(err).ToNot(HaveOccurred())
+	}
+
+	// Redirect hardware paths to fake paths
+	hardware.PciBasePath = fakePciBasePath
+	hardware.NodeBasePath = fakeNodeBasePath
+
+	// Return cleanup function
+	return func() {
+		hardware.PciBasePath = originalPciBasePath
+		hardware.NodeBasePath = originalNodeBasePath
+		os.RemoveAll(fakePciBasePath)
+		os.RemoveAll(fakeNodeBasePath)
+	}
+}
+
+// configureNUMAAwareVMI configures a VMI with NUMA-aware settings for testing
+func configureNUMAAwareVMI(vmi *v1.VirtualMachineInstance, cores uint32, memory string, hostDevices []v1.HostDevice, gpus []v1.GPU) {
+	// Configure CPU with NUMA passthrough
+	vmi.Spec.Domain.CPU = &v1.CPU{
+		Cores:                 cores,
+		Sockets:               1,
+		Threads:               1,
+		DedicatedCPUPlacement: true,
+		NUMA: &v1.NUMA{
+			GuestMappingPassthrough: &v1.NUMAGuestMappingPassthrough{},
+		},
+	}
+
+	// Enable hugepages as required for NUMA passthrough
+	vmi.Spec.Domain.Memory = &v1.Memory{
+		Hugepages: &v1.Hugepages{PageSize: "2Mi"},
+	}
+
+	// Set memory resources to satisfy hugepage requirements
+	vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
+		k8sv1.ResourceMemory: resource.MustParse(memory),
+	}
+
+	// Add host devices and GPUs
+	vmi.Spec.Domain.Devices.HostDevices = hostDevices
+	vmi.Spec.Domain.Devices.GPUs = gpus
 }
 
 var _ = Describe("Converter", func() {
-
 	TestSmbios := &cmdv1.SMBios{}
 	EphemeralDiskImageCreator := &fake.MockEphemeralDiskImageCreator{BaseDir: "/var/run/libvirt/kubevirt-ephemeral-disk/"}
 
@@ -1734,6 +1879,137 @@ var _ = Describe("Converter", func() {
 			})
 		})
 	})
+
+	Context("PCIe topology with NUMA alignment", func() {
+		var vmi *v1.VirtualMachineInstance
+		var c *ConverterContext
+		var cleanup func()
+
+		BeforeEach(func() {
+			vmi = &v1.VirtualMachineInstance{
+				Spec: v1.VirtualMachineInstanceSpec{
+					Domain: v1.DomainSpec{
+						Devices: v1.Devices{
+							Interfaces: []v1.Interface{
+								{
+									Name: "default",
+									InterfaceBindingMethod: v1.InterfaceBindingMethod{
+										Masquerade: &v1.InterfaceMasquerade{},
+									},
+								},
+							},
+						},
+					},
+					Networks: []v1.Network{
+						{
+							Name: "default",
+							NetworkSource: v1.NetworkSource{
+								Pod: &v1.PodNetwork{},
+							},
+						},
+					},
+				},
+			}
+			v1.SetObjectDefaults_VirtualMachineInstance(vmi)
+
+			c = &ConverterContext{
+				Architecture:   archconverter.NewConverter(runtime.GOARCH),
+				VirtualMachine: vmi,
+				AllowEmulation: true,
+				Topology: &cmdv1.Topology{
+					NumaCells: []*cmdv1.Cell{
+						{
+							Id: 0,
+							Cpus: []*cmdv1.CPU{
+								{Id: 0}, {Id: 1},
+							},
+							Memory: &cmdv1.Memory{Amount: 2147483648, Unit: "b"},
+						},
+					},
+				},
+				CPUSet: []int{0, 1},
+			}
+
+			testDevices := map[string]string{
+				"0000:81:01.0": "0", // example.com/gpu
+				"0000:81:02.0": "0", // example.com/gpu
+				"0000:82:01.0": "0", // example.com/device
+				"0000:82:02.0": "0", // example.com/device
+			}
+			numaCPUMap := map[string]string{"0": "0-1"}
+			cleanup = setupMockHardwarePaths(testDevices, numaCPUMap)
+
+			hostDevices := []v1.HostDevice{
+				{Name: "hostdev1", DeviceName: "example.com/device"},
+				{Name: "hostdev2", DeviceName: "example.com/device"},
+			}
+			gpus := []v1.GPU{
+				{Name: "gpu1", DeviceName: "example.com/gpu"},
+				{Name: "gpu2", DeviceName: "example.com/gpu"},
+			}
+
+			configureNUMAAwareVMI(vmi, 2, "4Gi", hostDevices, gpus)
+		})
+
+		AfterEach(func() {
+			if cleanup != nil {
+				cleanup()
+			}
+		})
+
+		Context("with PCINUMAAwareTopology feature gate enabled", func() {
+			BeforeEach(func() {
+				c.PCINUMAAwareTopologyEnabled = true
+			})
+
+			It("should create PCIe controllers for NUMA-aligned devices", func() {
+				c = createContextWithDevices(vmi, c)
+				domain := vmiToDomain(vmi, c)
+
+				controllers := domain.Spec.Devices.Controllers
+
+				numaExpanderBuses := make([]*api.Controller, 0)
+				rootPorts := make([]*api.Controller, 0)
+				for i := range controllers {
+					ctrl := &controllers[i]
+					if ctrl.Model == api.ControllerModelPCIeExpanderBus {
+						numaExpanderBuses = append(numaExpanderBuses, ctrl)
+					} else if ctrl.Model == api.ControllerModelPCIeRootPort {
+						rootPorts = append(rootPorts, ctrl)
+					}
+				}
+
+				Expect(numaExpanderBuses).To(HaveLen(1), "expected exactly 1 NUMA-aligned pcie-expander-bus controller")
+				Expect(rootPorts).To(HaveLen(4), "expected exactly 4 pcie-root-port controllers for 4 devices")
+
+				numaExpander := numaExpanderBuses[0]
+				for i, rootPort := range rootPorts {
+					Expect(rootPort.Address).ToNot(BeNil(), "root port %d should have a PCI address assigned", i)
+					Expect(rootPort.Address.Bus).To(Equal(numaExpander.Index), "root port %d should be attached to the expander bus", i)
+				}
+			})
+		})
+
+		Context("with PCINUMAAwareTopology feature gate disabled", func() {
+			BeforeEach(func() {
+				c.PCINUMAAwareTopologyEnabled = false
+			})
+
+			It("should not create any PCIe expander bus controllers", func() {
+				c = createContextWithDevices(vmi, c)
+				domain := vmiToDomain(vmi, c)
+
+				expanderBusCount := 0
+				for _, controller := range domain.Spec.Devices.Controllers {
+					if controller.Model == api.ControllerModelPCIeExpanderBus {
+						expanderBusCount++
+					}
+				}
+				Expect(expanderBusCount).To(Equal(0), "expected no PCIe expander bus controllers when feature is disabled")
+			})
+		})
+	})
+
 	Context("Network convert", func() {
 		var vmi *v1.VirtualMachineInstance
 		var c *ConverterContext
