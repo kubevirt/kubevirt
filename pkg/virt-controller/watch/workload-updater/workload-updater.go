@@ -607,10 +607,14 @@ func (c *WorkloadUpdateController) sync(kv *virtv1.KubeVirt) error {
 
 			pod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
 			if err != nil {
-
 				log.Log.Object(vmi).Reason(err).Errorf("Failed to detect active pod for vmi during workload update")
 				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedEvictVirtualMachineInstanceReason, "Error detecting active pod for VMI during workload update: %v", err)
 				errChan <- err
+				return
+			}
+			if pod == nil {
+				log.Log.Object(vmi).Warningf("No active pod found for VMI %s/%s during workload update eviction, will retry on next sync", vmi.Namespace, vmi.Name)
+				return
 			}
 
 			err = c.clientset.CoreV1().Pods(vmi.Namespace).EvictV1beta1(context.Background(),
