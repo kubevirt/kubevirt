@@ -196,6 +196,21 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		testsuite.EnsureKubevirtReadyWithTimeout(kv, 300*time.Second)
 	})
 
+	It("should trigger startup semantic validation once virt-api is ready", func() {
+		By("verifying KubeVirt is ready")
+		testsuite.EnsureKubevirtReadyWithTimeout(libkubevirt.GetCurrentKv(virtClient), 300*time.Second)
+
+		By("checking the startup validation annotation is populated with the deployment ID")
+		Eventually(func(g Gomega) {
+			kv, err := virtClient.KubeVirt(originalKv.Namespace).Get(context.Background(), originalKv.Name, metav1.GetOptions{})
+			g.Expect(err).ToNot(HaveOccurred())
+			g.Expect(kv.Status.TargetDeploymentID).ToNot(BeEmpty())
+			g.Expect(kv.Annotations).To(
+				HaveKeyWithValue(v1.KubeVirtStartupValidationAnnotation, kv.Status.TargetDeploymentID),
+			)
+		}, 120*time.Second, 2*time.Second).Should(Succeed())
+	})
+
 	Describe("should reconcile components", Serial, func() {
 
 		deploymentName := "virt-controller"
