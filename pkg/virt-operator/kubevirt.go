@@ -61,8 +61,8 @@ type strategyCacheEntry struct {
 }
 
 type KubeVirtController struct {
-	virtClientset        kubecli.KubevirtClient
-	k8sClientset         kubernetes.Interface
+	virtClient           kubecli.KubevirtClient
+	k8sClient            kubernetes.Interface
 	queue                workqueue.TypedRateLimitingInterface[string]
 	delayedQueueAdder    func(key string, queue workqueue.TypedRateLimitingInterface[string])
 	recorder             record.EventRecorder
@@ -76,8 +76,8 @@ type KubeVirtController struct {
 }
 
 func NewKubeVirtController(
-	virtClientset kubecli.KubevirtClient,
-	k8sClientset kubernetes.Interface,
+	virtClient kubecli.KubevirtClient,
+	k8sClient kubernetes.Interface,
 	aggregatorClient install.APIServiceInterface,
 	recorder record.EventRecorder,
 	config util.OperatorConfig,
@@ -121,8 +121,8 @@ func NewKubeVirtController(
 	}
 
 	c := KubeVirtController{
-		virtClientset:    virtClientset,
-		k8sClientset:     k8sClientset,
+		virtClient:       virtClient,
+		k8sClient:        k8sClient,
 		aggregatorClient: aggregatorClient,
 		queue: workqueue.NewTypedRateLimitingQueueWithConfig[string](
 			rl,
@@ -823,7 +823,7 @@ func (c *KubeVirtController) execute(key string) error {
 	if !controller.ObservedLatestApiVersionAnnotation(kv) {
 		kv := kv.DeepCopy()
 		controller.SetLatestApiVersionAnnotation(kv)
-		_, err = c.virtClientset.KubeVirt(kv.ObjectMeta.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
+		_, err = c.virtClient.KubeVirt(kv.ObjectMeta.Namespace).Update(context.Background(), kv, metav1.UpdateOptions{})
 		if err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource.")
 		}
@@ -864,7 +864,7 @@ func (c *KubeVirtController) execute(key string) error {
 
 	// If we detect a change on KubeVirt we update it
 	if !equality.Semantic.DeepEqual(kv.Status, kvCopy.Status) {
-		if _, err := c.virtClientset.KubeVirt(kv.Namespace).UpdateStatus(context.Background(), kvCopy, metav1.UpdateOptions{}); err != nil {
+		if _, err := c.virtClient.KubeVirt(kv.Namespace).UpdateStatus(context.Background(), kvCopy, metav1.UpdateOptions{}); err != nil {
 			logger.Reason(err).Errorf("Could not update the KubeVirt resource status.")
 			return err
 		}
@@ -878,7 +878,7 @@ func (c *KubeVirtController) execute(key string) error {
 			return err
 		}
 		patch := fmt.Sprintf(`[{"op": "replace", "path": "/metadata/finalizers", "value": %s}]`, string(finalizersJson))
-		_, err = c.virtClientset.KubeVirt(kvCopy.ObjectMeta.Namespace).Patch(context.Background(), kvCopy.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
+		_, err = c.virtClient.KubeVirt(kvCopy.ObjectMeta.Namespace).Patch(context.Background(), kvCopy.Name, types.JSONPatchType, []byte(patch), metav1.PatchOptions{})
 		if err != nil {
 			logger.Reason(err).Errorf("Could not patch the KubeVirt finalizers.")
 			return err
@@ -916,7 +916,7 @@ func (c *KubeVirtController) loadInstallStrategy(kv *v1.KubeVirt) (*install.Stra
 	log.Log.Infof("Install strategy config map not loaded. reason: %v", err)
 
 	// 3. See if we have a pending job in flight for this install strategy.
-	batch := c.k8sClientset.BatchV1()
+	batch := c.k8sClient.BatchV1()
 	cachedJob, exists := c.getInstallStrategyJob(config)
 	if exists {
 		if cachedJob.Status.CompletionTime != nil {
@@ -1078,7 +1078,7 @@ func (c *KubeVirtController) syncInstallation(kv *v1.KubeVirt) error {
 		return err
 	}
 
-	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.config, c.virtClientset, c.k8sClientset, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder)
+	reconciler, err := apply.NewReconciler(kv, targetStrategy, c.stores, c.config, c.virtClient, c.k8sClient, c.aggregatorClient, &c.kubeVirtExpectations, c.recorder)
 	if err != nil {
 		// deployment failed
 		util.UpdateConditionsFailedError(kv, err)
@@ -1168,7 +1168,7 @@ func (c *KubeVirtController) syncDeletion(kv *v1.KubeVirt) error {
 			return nil
 		}
 
-		err = apply.DeleteAll(kv, c.stores, c.virtClientset, c.k8sClientset, c.aggregatorClient, &c.kubeVirtExpectations)
+		err = apply.DeleteAll(kv, c.stores, c.virtClient, c.k8sClient, c.aggregatorClient, &c.kubeVirtExpectations)
 		if err != nil {
 			// deletion failed
 			util.UpdateConditionsDeletionFailed(kv, err)

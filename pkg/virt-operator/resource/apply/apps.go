@@ -50,7 +50,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 
 	deployment := origDeployment.DeepCopy()
 
-	apps := r.k8sClientset.AppsV1()
+	apps := r.k8sClient.AppsV1()
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 
 	injectOperatorMetadata(kv, &deployment.ObjectMeta, imageTag, imageRegistry, id, true)
@@ -67,7 +67,7 @@ func (r *Reconciler) syncDeployment(origDeployment *appsv1.Deployment) (*appsv1.
 				"auto-scaling for core kubevirt components. Please use with caution!")
 		}
 	} else if deployment.Name == components.VirtAPIName && !replicasAlreadyPatched(r.kv.Spec.CustomizeComponents.Patches, components.VirtAPIName) {
-		replicas, err := getDesiredApiReplicas(r.k8sClientset)
+		replicas, err := getDesiredApiReplicas(r.k8sClient)
 		if err != nil {
 			log.Log.Object(deployment).Warningf("%s", err.Error())
 		} else {
@@ -160,7 +160,7 @@ func (r *Reconciler) patchDaemonSet(oldDs, newDs *appsv1.DaemonSet) (*appsv1.Dae
 		return nil, err
 	}
 
-	newDs, err = r.k8sClientset.AppsV1().DaemonSets(r.kv.Namespace).Patch(
+	newDs, err = r.k8sClient.AppsV1().DaemonSets(r.kv.Namespace).Patch(
 		context.Background(),
 		newDs.Name,
 		types.JSONPatchType,
@@ -368,7 +368,7 @@ func (r *Reconciler) syncDaemonSet(daemonSet *appsv1.DaemonSet) (bool, error) {
 
 	daemonSet = daemonSet.DeepCopy()
 
-	apps := r.k8sClientset.AppsV1()
+	apps := r.k8sClient.AppsV1()
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 
 	injectOperatorMetadata(kv, &daemonSet.ObjectMeta, imageTag, imageRegistry, id, true)
@@ -440,7 +440,7 @@ func (r *Reconciler) syncPodDisruptionBudgetForDeployment(deployment *appsv1.Dep
 	imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
 	injectOperatorMetadata(kv, &podDisruptionBudget.ObjectMeta, imageTag, imageRegistry, id, true)
 
-	pdbClient := r.k8sClientset.PolicyV1().PodDisruptionBudgets(deployment.Namespace)
+	pdbClient := r.k8sClient.PolicyV1().PodDisruptionBudgets(deployment.Namespace)
 
 	var cachedPodDisruptionBudget *policyv1.PodDisruptionBudget
 	obj, exists, _ := r.stores.PodDisruptionBudgetCache.Get(podDisruptionBudget)

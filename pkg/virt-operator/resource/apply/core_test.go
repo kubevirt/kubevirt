@@ -206,11 +206,11 @@ var _ = Describe("Apply", func() {
 			stores.ConfigMapCache.Add(existingCM)
 
 			r := &Reconciler{
-				kv:            kv,
-				stores:        stores,
-				virtClientset: clientset,
-				k8sClientset:  coreclientset,
-				expectations:  expectations,
+				kv:           kv,
+				stores:       stores,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
+				expectations: expectations,
 			}
 
 			_, err = r.createOrUpdateKubeVirtCAConfigMap(queue, crt, nil, duration, requiredCM)
@@ -236,11 +236,11 @@ var _ = Describe("Apply", func() {
 			stores.ConfigMapCache.Add(existingCM)
 
 			r := &Reconciler{
-				kv:            kv,
-				stores:        stores,
-				virtClientset: clientset,
-				k8sClientset:  coreclientset,
-				expectations:  expectations,
+				kv:           kv,
+				stores:       stores,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
+				expectations: expectations,
 			}
 
 			patched := false
@@ -293,11 +293,11 @@ var _ = Describe("Apply", func() {
 			stores.ConfigMapCache.Add(existingCM)
 
 			r := &Reconciler{
-				kv:            kv,
-				stores:        stores,
-				virtClientset: clientset,
-				k8sClientset:  coreclientset,
-				expectations:  expectations,
+				kv:           kv,
+				stores:       stores,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
+				expectations: expectations,
 			}
 
 			patched := false
@@ -322,11 +322,11 @@ var _ = Describe("Apply", func() {
 				}
 			}
 			r := &Reconciler{
-				kv:            kv,
-				stores:        stores,
-				virtClientset: clientset,
-				k8sClientset:  coreclientset,
-				expectations:  expectations,
+				kv:           kv,
+				stores:       stores,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
+				expectations: expectations,
 			}
 			created := false
 			coreclientset.Fake.PrependReactor("create", "configmaps", func(action testing.Action) (handled bool, ret runtime.Object, err error) {
@@ -380,11 +380,11 @@ var _ = Describe("Apply", func() {
 			stores.ConfigMapCache.Add(externalCM)
 
 			r := &Reconciler{
-				kv:            kv,
-				stores:        stores,
-				virtClientset: clientset,
-				k8sClientset:  coreclientset,
-				expectations:  expectations,
+				kv:           kv,
+				stores:       stores,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
+				expectations: expectations,
 			}
 			externalCACerts := r.getRemotePublicCas()
 			patched := false
@@ -452,11 +452,11 @@ var _ = Describe("Apply", func() {
 			stores.ServiceAccountCache.Add(pr)
 
 			r := &Reconciler{
-				kv:            kv,
-				stores:        stores,
-				virtClientset: clientset,
-				k8sClientset:  coreclientset,
-				expectations:  expectations,
+				kv:           kv,
+				stores:       stores,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
+				expectations: expectations,
 			}
 
 			Expect(r.createOrUpdateServiceAccount(pr)).To(Succeed())
@@ -470,11 +470,11 @@ var _ = Describe("Apply", func() {
 			stores.ServiceAccountCache.Add(pr)
 
 			r := &Reconciler{
-				kv:            kv,
-				stores:        stores,
-				virtClientset: clientset,
-				k8sClientset:  coreclientset,
-				expectations:  expectations,
+				kv:           kv,
+				stores:       stores,
+				virtClient:   clientset,
+				k8sClient:    coreclientset,
+				expectations: expectations,
 			}
 
 			requiredPR := pr.DeepCopy()
@@ -905,11 +905,11 @@ var _ = Describe("Apply", func() {
 			kubevirtClient.EXPECT().KubeVirt(Namespace).Return(kvInterface).AnyTimes()
 
 			reconciler = &Reconciler{
-				kv:            kv,
-				stores:        stores,
-				virtClientset: kubevirtClient,
-				k8sClientset:  clientset,
-				expectations:  expectations,
+				kv:           kv,
+				stores:       stores,
+				virtClient:   kubevirtClient,
+				k8sClient:    clientset,
+				expectations: expectations,
 			}
 		})
 		createLease := func(holder string) *coordinationv1.Lease {
