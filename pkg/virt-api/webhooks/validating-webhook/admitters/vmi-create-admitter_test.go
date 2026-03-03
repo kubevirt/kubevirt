@@ -2453,8 +2453,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			Expect(causes[0].Message).To(Equal("Arm64 does not support bios boot, please change to uefi boot"))
 		})
 
-		// When setting UEFI default bootloader, UEFI secure bootloader would be applied which is not supported on Arm64
-		It("should reject UEFI default bootloader", func() {
+		It("should accept UEFI default bootloader", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{},
@@ -2462,12 +2461,10 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("fake"), &vmi.Spec)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.firmware.bootloader.efi.secureboot"))
-			Expect(causes[0].Message).To(Equal("UEFI secure boot is currently not supported on aarch64 Arch"))
+			Expect(causes).To(BeEmpty())
 		})
 
-		It("should reject UEFI secure bootloader", func() {
+		It("should accept UEFI secure bootloader", func() {
 			vmi.Spec.Domain.Firmware = &v1.Firmware{
 				Bootloader: &v1.Bootloader{
 					EFI: &v1.EFI{
@@ -2477,9 +2474,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 			}
 
 			causes := webhooks.ValidateVirtualMachineInstanceArm64Setting(k8sfield.NewPath("fake"), &vmi.Spec)
-			Expect(causes).To(HaveLen(1))
-			Expect(causes[0].Field).To(Equal("fake.domain.firmware.bootloader.efi.secureboot"))
-			Expect(causes[0].Message).To(Equal("UEFI secure boot is currently not supported on aarch64 Arch"))
+			Expect(causes).To(BeEmpty())
 		})
 
 		DescribeTable("should validate ACPI", func(acpi *v1.ACPI, volumes []v1.Volume, expectedLen int, expectedMessage string) {

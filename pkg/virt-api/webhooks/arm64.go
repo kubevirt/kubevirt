@@ -71,18 +71,6 @@ func validateBootOptions(field *k8sfield.Path, spec *v1.VirtualMachineInstanceSp
 				Field:   field.Child("domain", "firmware", "bootloader", "bios").String(),
 			})
 		}
-		if spec.Domain.Firmware.Bootloader.EFI != nil {
-			// When EFI is enable, secureboot is enabled by default, so here check two condition
-			// 1 is EFI is enabled without Secureboot setting
-			// 2 is both EFI and Secureboot enabled
-			if spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || (spec.Domain.Firmware.Bootloader.EFI.SecureBoot != nil && *spec.Domain.Firmware.Bootloader.EFI.SecureBoot) {
-				*statusCauses = append(*statusCauses, metav1.StatusCause{
-					Type:    metav1.CauseTypeFieldValueNotSupported,
-					Message: "UEFI secure boot is currently not supported on aarch64 Arch",
-					Field:   field.Child("domain", "firmware", "bootloader", "efi", "secureboot").String(),
-				})
-			}
-		}
 	}
 }
 
