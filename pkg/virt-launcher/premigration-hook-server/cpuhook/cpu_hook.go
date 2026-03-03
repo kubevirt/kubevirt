@@ -22,6 +22,7 @@ import (
 	"encoding/xml"
 	"fmt"
 
+	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/cpudedicated"
 
 	"libvirt.org/go/libvirtxml"
@@ -33,7 +34,7 @@ import (
 )
 
 // CPUDedicatedHook handles CPU pinning adjustments for dedicated CPU migrations
-func CPUDedicatedHook(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
+func CPUDedicatedHook(_ *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error {
 	if !vmi.IsCPUDedicated() {
 		return nil
 	}

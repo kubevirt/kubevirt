@@ -30,13 +30,15 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/log"
+
+	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
-type HookFunc func(vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error
+type HookFunc func(c *convertertypes.ConverterContext, vmi *v1.VirtualMachineInstance, domain *libvirtxml.Domain) error
 
 // PreMigrationHookServer handles libvirt premigration hook communication via unix socket
 type PreMigrationHookServer struct {
-	vmi       *v1.VirtualMachineInstance
+	c         *convertertypes.ConverterContext
 	hooks     []HookFunc
 	stopChan  chan struct{}
 	done      chan struct{}
@@ -54,10 +56,9 @@ func NewPreMigrationHookServer(stopChan chan struct{}, hooks ...HookFunc) *PreMi
 	return server
 }
 
-func (h *PreMigrationHookServer) Start(vmi *v1.VirtualMachineInstance) error {
-	// Always update the VMI
-	h.vmi = vmi
-	log.Log.Object(vmi).Info("Hook server updated with VMI")
+func (h *PreMigrationHookServer) Start(c *convertertypes.ConverterContext) error {
+	h.c = c
+	log.Log.Object(c.VirtualMachine).Info("Hook server updated with VMI")
 
 	var startErr error
 	h.startOnce.Do(func() {
@@ -104,7 +105,7 @@ func (h *PreMigrationHookServer) Start(vmi *v1.VirtualMachineInstance) error {
 			if err != nil {
 				log.Log.Errorf("Failed to close connection: %v", err.Error())
 			}
-			h.vmi = nil // Release VMI memory after processing
+			h.c = nil // Release ConverterContext reference after processing
 		}()
 
 		log.Log.Infof("Started premigration hook server on %s", socketPath)
@@ -140,7 +141,7 @@ func (h *PreMigrationHookServer) processHook(conn net.Conn) error {
 	}
 
 	for _, hook := range h.hooks {
-		if err := hook(h.vmi, &domain); err != nil {
+		if err := hook(h.c, h.c.VirtualMachine, &domain); err != nil {
 			return err
 		}
 	}
