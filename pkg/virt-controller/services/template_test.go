@@ -5991,6 +5991,243 @@ var _ = Describe("Template", func() {
 			Expect(limExists).To(BeFalse())
 		})
 	})
+
+	Context("hotplug RWO volume node affinity injection", func() {
+		const (
+			testNamespace = "default"
+			testPVCName   = "rwo-pvc"
+			testPVName    = "rwo-pv"
+			testVolName   = "hotplug-vol"
+			testNode      = "node-1"
+		)
+
+		pvWithNodeAffinity := func(node string) *k8sv1.PersistentVolume {
+			return &k8sv1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: testPVName},
+				Spec: k8sv1.PersistentVolumeSpec{
+					NodeAffinity: &k8sv1.VolumeNodeAffinity{
+						Required: &k8sv1.NodeSelector{
+							NodeSelectorTerms: []k8sv1.NodeSelectorTerm{{
+								MatchExpressions: []k8sv1.NodeSelectorRequirement{{
+									Key:      "kubernetes.io/hostname",
+									Operator: k8sv1.NodeSelectorOpIn,
+									Values:   []string{node},
+								}},
+							}},
+						},
+					},
+				},
+			}
+		}
+
+		buildService := func(pvcStore cache.Store, k8sClient *k8sfake.Clientset) *TemplateService {
+			virtClient.EXPECT().CoreV1().Return(k8sClient.CoreV1()).AnyTimes()
+			return &TemplateService{
+				persistentVolumeClaimStore: pvcStore,
+				virtClient:                 virtClient,
+			}
+		}
+
+		hotplugVMI := func(pvcName string, accessMode k8sv1.PersistentVolumeAccessMode) *v1.VirtualMachineInstance {
+			return &v1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-vmi", Namespace: testNamespace},
+				Spec: v1.VirtualMachineInstanceSpec{
+					Volumes: []v1.Volume{{
+						Name: testVolName,
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								PersistentVolumeClaimVolumeSource: k8sv1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName},
+							},
+						},
+					}},
+				},
+				Status: v1.VirtualMachineInstanceStatus{
+					VolumeStatus: []v1.VolumeStatus{{
+						Name:          testVolName,
+						HotplugVolume: &v1.HotplugVolumeStatus{},
+						PersistentVolumeClaimInfo: &v1.PersistentVolumeClaimInfo{
+							AccessModes: []k8sv1.PersistentVolumeAccessMode{accessMode},
+						},
+					}},
+				},
+			}
+		}
+
+		It("should inject PV node affinity into pod for a hotplugged RWO volume", func() {
+			pvcStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: testPVCName, Namespace: testNamespace},
+				Spec:       k8sv1.PersistentVolumeClaimSpec{VolumeName: testPVName},
+			}
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+
+			k8sClient := k8sfake.NewSimpleClientset(pvWithNodeAffinity(testNode))
+			testSvc := buildService(pvcStore, k8sClient)
+
+			pod := &k8sv1.Pod{}
+			testSvc.setNodeAffinityForHotplugRWOVolumes(hotplugVMI(testPVCName, k8sv1.ReadWriteOnce), pod)
+
+			Expect(pod.Spec.Affinity).NotTo(BeNil())
+			terms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			Expect(terms).To(HaveLen(1))
+			Expect(terms[0].MatchExpressions).To(ContainElement(k8sv1.NodeSelectorRequirement{
+				Key:      "kubernetes.io/hostname",
+				Operator: k8sv1.NodeSelectorOpIn,
+				Values:   []string{testNode},
+			}))
+		})
+
+		It("should not inject affinity for a hotplugged RWX volume", func() {
+			pvcStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: testPVCName, Namespace: testNamespace},
+				Spec:       k8sv1.PersistentVolumeClaimSpec{VolumeName: testPVName},
+			}
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+
+			k8sClient := k8sfake.NewSimpleClientset(pvWithNodeAffinity(testNode))
+			testSvc := buildService(pvcStore, k8sClient)
+
+			pod := &k8sv1.Pod{}
+			testSvc.setNodeAffinityForHotplugRWOVolumes(hotplugVMI(testPVCName, k8sv1.ReadWriteMany), pod)
+
+			Expect(pod.Spec.Affinity).To(BeNil())
+		})
+
+		It("should not inject affinity for non-hotplugged volumes", func() {
+			pvcStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+			k8sClient := k8sfake.NewSimpleClientset(pvWithNodeAffinity(testNode))
+			testSvc := buildService(pvcStore, k8sClient)
+
+			vmi := hotplugVMI(testPVCName, k8sv1.ReadWriteOnce)
+			vmi.Status.VolumeStatus[0].HotplugVolume = nil
+
+			pod := &k8sv1.Pod{}
+			testSvc.setNodeAffinityForHotplugRWOVolumes(vmi, pod)
+
+			Expect(pod.Spec.Affinity).To(BeNil())
+		})
+
+		It("should merge PV affinity with existing pod affinity using AND semantics", func() {
+			pvcStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: testPVCName, Namespace: testNamespace},
+				Spec:       k8sv1.PersistentVolumeClaimSpec{VolumeName: testPVName},
+			}
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+
+			k8sClient := k8sfake.NewSimpleClientset(pvWithNodeAffinity(testNode))
+			testSvc := buildService(pvcStore, k8sClient)
+
+			existingReq := k8sv1.NodeSelectorRequirement{
+				Key:      "topology.kubernetes.io/zone",
+				Operator: k8sv1.NodeSelectorOpIn,
+				Values:   []string{"zone-a"},
+			}
+			pod := &k8sv1.Pod{
+				Spec: k8sv1.PodSpec{
+					Affinity: &k8sv1.Affinity{
+						NodeAffinity: &k8sv1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+								NodeSelectorTerms: []k8sv1.NodeSelectorTerm{{
+									MatchExpressions: []k8sv1.NodeSelectorRequirement{existingReq},
+								}},
+							},
+						},
+					},
+				},
+			}
+			testSvc.setNodeAffinityForHotplugRWOVolumes(hotplugVMI(testPVCName, k8sv1.ReadWriteOnce), pod)
+
+			terms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			// Cartesian product: 1 existing × 1 PV term = 1 combined term with both requirements.
+			Expect(terms).To(HaveLen(1))
+			Expect(terms[0].MatchExpressions).To(ContainElement(existingReq))
+			Expect(terms[0].MatchExpressions).To(ContainElement(k8sv1.NodeSelectorRequirement{
+				Key:      "kubernetes.io/hostname",
+				Operator: k8sv1.NodeSelectorOpIn,
+				Values:   []string{testNode},
+			}))
+		})
+
+		It("should skip injection when the PV has no node affinity", func() {
+			pvcStore := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, nil)
+			pvc := &k8sv1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{Name: testPVCName, Namespace: testNamespace},
+				Spec:       k8sv1.PersistentVolumeClaimSpec{VolumeName: testPVName},
+			}
+			Expect(pvcStore.Add(pvc)).To(Succeed())
+
+			pvNoAffinity := &k8sv1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{Name: testPVName},
+			}
+			k8sClient := k8sfake.NewSimpleClientset(pvNoAffinity)
+			testSvc := buildService(pvcStore, k8sClient)
+
+			pod := &k8sv1.Pod{}
+			testSvc.setNodeAffinityForHotplugRWOVolumes(hotplugVMI(testPVCName, k8sv1.ReadWriteOnce), pod)
+
+			Expect(pod.Spec.Affinity).To(BeNil())
+		})
+	})
+
+	Describe("mergeNodeSelectorRequired", func() {
+		pvTerm := func(node string) k8sv1.NodeSelectorTerm {
+			return k8sv1.NodeSelectorTerm{
+				MatchExpressions: []k8sv1.NodeSelectorRequirement{{
+					Key:      "kubernetes.io/hostname",
+					Operator: k8sv1.NodeSelectorOpIn,
+					Values:   []string{node},
+				}},
+			}
+		}
+		pvRequired := func(node string) *k8sv1.NodeSelector {
+			return &k8sv1.NodeSelector{NodeSelectorTerms: []k8sv1.NodeSelectorTerm{pvTerm(node)}}
+		}
+
+		It("should set PV affinity directly when pod has none", func() {
+			result := mergeNodeSelectorRequired(nil, pvRequired(testNode))
+			terms := result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			Expect(terms).To(ConsistOf(pvTerm(testNode)))
+		})
+
+		It("should produce the Cartesian product of existing and PV terms", func() {
+			existingTerm := k8sv1.NodeSelectorTerm{
+				MatchExpressions: []k8sv1.NodeSelectorRequirement{{
+					Key: "zone", Operator: k8sv1.NodeSelectorOpIn, Values: []string{"a"},
+				}},
+			}
+			affinity := &k8sv1.Affinity{
+				NodeAffinity: &k8sv1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{existingTerm},
+					},
+				},
+			}
+			result := mergeNodeSelectorRequired(affinity, pvRequired(testNode))
+			terms := result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			Expect(terms).To(HaveLen(1))
+			Expect(terms[0].MatchExpressions).To(ContainElements(
+				existingTerm.MatchExpressions[0],
+				pvTerm(testNode).MatchExpressions[0],
+			))
+		})
+
+		It("should produce a Cartesian product for multiple terms on each side", func() {
+			affinity := &k8sv1.Affinity{
+				NodeAffinity: &k8sv1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &k8sv1.NodeSelector{
+						NodeSelectorTerms: []k8sv1.NodeSelectorTerm{pvTerm("A"), pvTerm("B")},
+					},
+				},
+			}
+			pv2 := &k8sv1.NodeSelector{NodeSelectorTerms: []k8sv1.NodeSelectorTerm{pvTerm("X"), pvTerm("Y")}}
+			result := mergeNodeSelectorRequired(affinity, pv2)
+			terms := result.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+			// 2 existing × 2 PV = 4 combined terms.
+			Expect(terms).To(HaveLen(4))
+		})
+	})
 })
 
 func networkInfoAnnotVolume() k8sv1.Volume {
