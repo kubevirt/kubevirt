@@ -123,7 +123,7 @@ var _ = Describe(SIG("Primary Pod Network", func() {
 					Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
 				})
 
-				It("[test_id:4153]should report PodIP/s as its own on interface status", func() {
+				It("[test_id:4153]should report PodIP/s as its own on interface status", decorators.WgS390x, func() {
 					vmiPod, err := libpod.GetPodByVirtualMachineInstance(vmi, vmi.Namespace)
 					Expect(err).NotTo(HaveOccurred())
 
