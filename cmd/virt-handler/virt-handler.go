@@ -535,6 +535,8 @@ func (app *virtHandlerApp) Run() {
 		s := <-c
 		log.Log.Infof("Received signal %s, initiating graceful shutdown", s.String())
 
+		metrics.SetVirtHandlerNotReady()
+
 		// This triggers the migration proxy to no longer accept new connections
 		migrationProxy.InitiateGracefulShutdown()
 
@@ -651,6 +653,7 @@ func (app *virtHandlerApp) runServer(errCh chan error, consoleHandler *rest.Cons
 		TLSConfig:   app.serverTLSConfig,
 		IdleTimeout: 60 * time.Second,
 	}
+	metrics.SetVirtHandlerReady()
 	errCh <- server.ListenAndServeTLS("", "")
 }
 
