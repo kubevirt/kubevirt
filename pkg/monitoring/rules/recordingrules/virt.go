@@ -27,6 +27,15 @@ import (
 )
 
 func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
+	var rules []operatorrules.RecordingRule
+	rules = append(rules, virtAPIRecordingRules(namespace)...)
+	rules = append(rules, virtControllerRecordingRules(namespace)...)
+	rules = append(rules, virtOperatorRecordingRules(namespace)...)
+	rules = append(rules, virtHandlerRecordingRules(namespace)...)
+	return rules
+}
+
+func virtAPIRecordingRules(namespace string) []operatorrules.RecordingRule { //nolint:dupl
 	return []operatorrules.RecordingRule{
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
@@ -38,6 +47,32 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 				fmt.Sprintf("sum(up{namespace='%s', pod=~'virt-api-.*'}) or vector(0)", namespace),
 			),
 		},
+		{
+			MetricsOpts: operatormetrics.MetricOpts{
+				Name: "cluster:kubevirt_virt_api_pods_running:count",
+				Help: "The number of virt-api pods that are running.",
+			},
+			MetricType: operatormetrics.GaugeType,
+			Expr: intstr.FromString(
+				fmt.Sprintf("count(kube_pod_status_phase{pod=~'virt-api-.*', namespace='%s', phase='Running'} == 1) or vector(0)", namespace),
+			),
+		},
+		{
+			MetricsOpts: operatormetrics.MetricOpts{
+				Name: "cluster:kubevirt_virt_api_ready:sum",
+				Help: "The number of virt-api pods that are ready.",
+			},
+			MetricType: operatormetrics.GaugeType,
+			Expr: intstr.FromString(
+				fmt.Sprintf("sum(kube_pod_status_ready{pod=~'virt-api-.*', namespace='%s', condition='true'} * "+
+					" on(pod, namespace) kubevirt_virt_api_ready_status{namespace='%s'}) or vector(0)", namespace, namespace),
+			),
+		},
+	}
+}
+
+func virtControllerRecordingRules(namespace string) []operatorrules.RecordingRule { //nolint:dupl
+	return []operatorrules.RecordingRule{
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
 				Name: "cluster:kubevirt_virt_controller_pods_running:count",
@@ -69,6 +104,11 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 					" on(pod, namespace) kubevirt_virt_controller_ready_status{namespace='%s'}) or vector(0)", namespace, namespace),
 			),
 		},
+	}
+}
+
+func virtOperatorRecordingRules(namespace string) []operatorrules.RecordingRule {
+	return []operatorrules.RecordingRule{
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
 				Name: "kubevirt_virt_operator_up",
@@ -110,6 +150,11 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 				fmt.Sprintf("sum(kubevirt_virt_operator_leading_status{namespace='%s'})", namespace),
 			),
 		},
+	}
+}
+
+func virtHandlerRecordingRules(namespace string) []operatorrules.RecordingRule {
+	return []operatorrules.RecordingRule{
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
 				Name: "kubevirt_virt_handler_up",
@@ -130,7 +175,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 		},
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
-				Name: "kubevirt_virt_handler_ready",
+				Name: "cluster:kubevirt_virt_handler_ready:sum",
 				Help: "The number of virt-handler pods that are ready.",
 			},
 			MetricType: operatormetrics.GaugeType,

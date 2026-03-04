@@ -41,6 +41,30 @@ func virtAPIAlerts(namespace string) []promv1.Rule {
 			},
 		},
 		{
+			Alert: "LowReadyVirtAPICount",
+			Expr:  intstr.FromString("cluster:kubevirt_virt_api_ready:sum < cluster:kubevirt_virt_api_pods_running:count"),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				summaryAnnotationKey: "Some virt-api pods are running but not ready.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "warning",
+			},
+		},
+		{
+			Alert: "NoReadyVirtAPI",
+			Expr:  intstr.FromString("cluster:kubevirt_virt_api_ready:sum == 0"),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				summaryAnnotationKey: "No ready virt-api was detected for the last 10 min.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "critical",
+			},
+		},
+		{
 			Alert: "LowVirtAPICount",
 			Expr: intstr.FromString(fmt.Sprintf(
 				"kubevirt_virt_api_up / on() kube_deployment_spec_replicas{deployment='virt-api', namespace='%s'} < 0.75", namespace,

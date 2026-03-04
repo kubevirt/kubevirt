@@ -14,34 +14,29 @@
  * limitations under the License.
  *
  * Copyright The KubeVirt Authors.
- *
  */
 
 package virt_api
 
-import (
-	"github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
+import "github.com/rhobs/operator-observability-toolkit/pkg/operatormetrics"
 
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/client"
-	"kubevirt.io/kubevirt/pkg/monitoring/metrics/common/workqueue"
+var (
+	componentMetrics = []operatormetrics.Metric{
+		virtApiReady,
+	}
+
+	virtApiReady = operatormetrics.NewGauge(
+		operatormetrics.MetricOpts{
+			Name: "kubevirt_virt_api_ready_status",
+			Help: "Indication for a virt-api server that is ready to serve requests.",
+		},
+	)
 )
 
-func SetupMetrics() error {
-	if err := client.SetupMetrics(); err != nil {
-		return err
-	}
-
-	if err := workqueue.SetupMetrics(); err != nil {
-		return err
-	}
-
-	return operatormetrics.RegisterMetrics(
-		componentMetrics,
-		connectionMetrics,
-		vmMetrics,
-	)
+func SetVirtApiReady() {
+	virtApiReady.Set(1)
 }
 
-func ListMetrics() []operatormetrics.Metric {
-	return operatormetrics.ListMetrics()
+func SetVirtApiNotReady() {
+	virtApiReady.Set(0)
 }
