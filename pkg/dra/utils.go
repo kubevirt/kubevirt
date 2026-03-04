@@ -43,11 +43,13 @@ func IsHostDeviceDRA(hd v1.HostDevice) bool {
 	return hd.DeviceName == "" && hd.ClaimRequest != nil
 }
 
-// DownwardAPIAttributes reads DRA device metadata files (*-metadata.json) that will be
-// automatically provided by dra driver framework KEP-5304 is implemented and consumed by drivers.
-// See: kubernetes/enhancements#5304
+// KEP-5304 defines the in-container directory layout for DRA device metadata files.
+// See: kubernetes/enhancements#5304, k8s.io/dynamic-resource-allocation/api/metadata
 const (
-	DefaultMetadataBasePath = "/var/run/dra-device-attributes"
+	DefaultMetadataBasePath      = "/var/run/kubernetes.io/dra-device-attributes"
+	resourceClaimsSubdir         = "resourceclaims"
+	resourceClaimTemplatesSubdir = "resourceclaimtemplates"
+	metadataFileSuffix           = "-metadata.json"
 )
 
 // GetPCIAddressForClaim returns the PCI address for a device in the given claim and request.
@@ -105,61 +107,47 @@ func resolveDevice(basePath string, resourceClaims []k8sv1.PodResourceClaim, cla
 }
 
 // resolveClaimMetadata reads the metadata file for a claim ref + request pair.
-// For direct claims it constructs the exact path; for template claims it
-// searches by PodClaimName.
-// KEP-5304 container path: {base}/{claimName}/{requestName}/{driverName}-metadata.json
+// Direct claims:   {base}/resourceclaims/{claimName}/{requestName}/{driverName}-metadata.json
+// Template claims: {base}/resourceclaimtemplates/{podClaimName}/{requestName}/{driverName}-metadata.json
 func resolveClaimMetadata(basePath string, resourceClaims []k8sv1.PodResourceClaim, claimRefName, requestName string) (*metadata.DeviceMetadata, error) {
 	for _, rc := range resourceClaims {
 		if rc.Name != claimRefName {
 			continue
 		}
 		if rc.ResourceClaimName != nil && *rc.ResourceClaimName != "" {
-			return readMetadataFromDir(basePath, *rc.ResourceClaimName, requestName)
+			return readMetadataFromDir(filepath.Join(basePath, resourceClaimsSubdir), *rc.ResourceClaimName, requestName)
 		}
-		return findMetadataByPodClaimName(basePath, rc.Name, requestName)
+		return readMetadataFromDir(filepath.Join(basePath, resourceClaimTemplatesSubdir), rc.Name, requestName)
 	}
 	return nil, fmt.Errorf("metadata not found for claim %q", claimRefName)
 }
 
-// readMetadataFromDir reads the metadata file at the exact path for a direct claim.
+// readMetadataFromDir reads the first metadata file matching
+// {basePath}/{claimName}/{requestName}/*-metadata.json.
+// When multiple drivers serve the same request, their files are merged.
 func readMetadataFromDir(basePath, claimName, requestName string) (*metadata.DeviceMetadata, error) {
-	pattern := filepath.Join(basePath, claimName, requestName, "*-metadata.json")
+	pattern := filepath.Join(basePath, claimName, requestName, "*"+metadataFileSuffix)
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
-		return nil, fmt.Errorf("failed to glob for metadata file: %w", err)
+		return nil, fmt.Errorf("failed to glob metadata for claim %q request %q: %w", claimName, requestName, err)
 	}
 	if len(matches) == 0 {
-		return nil, fmt.Errorf("metadata not found for claim %q request %q", claimName, requestName)
+		return nil, fmt.Errorf("failed to read metadata for claim %q request %q: no files matching %s", claimName, requestName, pattern)
 	}
-	md, err := readMetadataFile(matches[0])
-	if err != nil {
-		return nil, fmt.Errorf("failed to read metadata for claim %q request %q: %w", claimName, requestName, err)
-	}
-	return md, nil
-}
-
-// findMetadataByPodClaimName searches for a template-generated claim's metadata
-// file by matching PodClaimName, scoped to the given request name.
-func findMetadataByPodClaimName(basePath, podClaimName, requestName string) (*metadata.DeviceMetadata, error) {
-	pattern := filepath.Join(basePath, "*", requestName, "*-metadata.json")
-	matches, err := filepath.Glob(pattern)
-	if err != nil {
-		return nil, fmt.Errorf("failed to glob for metadata file: %w", err)
-	}
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("no metadata file found for templateclaim %q request %q", podClaimName, requestName)
-	}
-	for _, file := range matches {
-		md, err := readMetadataFile(file)
+	var merged metadata.DeviceMetadata
+	for _, path := range matches {
+		log.Log.Infof("Reading DRA device metadata file %s", path)
+		md, err := readMetadataFile(path)
 		if err != nil {
-			log.Log.Reason(err).Warningf("Skipping metadata file %s", file)
-			continue
+			return nil, fmt.Errorf("failed to read metadata for claim %q request %q: %w", claimName, requestName, err)
 		}
-		if md.PodClaimName != nil && *md.PodClaimName == podClaimName {
-			return md, nil
+		if merged.PodClaimName == nil {
+			merged.ObjectMeta = md.ObjectMeta
+			merged.PodClaimName = md.PodClaimName
 		}
+		merged.Requests = append(merged.Requests, md.Requests...)
 	}
-	return nil, fmt.Errorf("no metadata file found with matching with pod claim name %q request %q", podClaimName, requestName)
+	return &merged, nil
 }
 
 func metadataRequestNames(md *metadata.DeviceMetadata) []string {
@@ -170,14 +158,59 @@ func metadataRequestNames(md *metadata.DeviceMetadata) []string {
 	return names
 }
 
+// readMetadataFile reads a KEP-5304 metadata file. The file is a JSON stream
+// containing the same data encoded once per API version (newest first).
+// We iterate through the stream and decode the first object whose apiVersion
+// we understand, skipping unknown versions so that a driver upgrade does not
+// break older consumers.
 func readMetadataFile(path string) (*metadata.DeviceMetadata, error) {
-	data, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("reading metadata file %q: %w", path, err)
+		return nil, fmt.Errorf("opening metadata file %q: %w", path, err)
 	}
-	var md metadata.DeviceMetadata
-	if err := json.Unmarshal(data, &md); err != nil {
-		return nil, fmt.Errorf("parsing metadata file %q: %w", path, err)
+	defer f.Close()
+
+	md, err := decodeMetadataFromStream(json.NewDecoder(f))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	return &md, nil
+	return md, nil
+}
+
+// decodeMetadataFromStream iterates a JSON stream and returns the first
+// object whose apiVersion is in metadata.SupportedAPIVersions. This is a
+// lightweight equivalent of devicemetadata.DecodeMetadataFromStream that
+// avoids the k8s.io/apimachinery runtime scheme dependency.
+func decodeMetadataFromStream(dec *json.Decoder) (*metadata.DeviceMetadata, error) {
+	var skipped []string
+	for dec.More() {
+		var raw json.RawMessage
+		if err := dec.Decode(&raw); err != nil {
+			return nil, fmt.Errorf("read object from metadata stream: %w", err)
+		}
+
+		var peek struct {
+			APIVersion string `json:"apiVersion"`
+		}
+		if err := json.Unmarshal(raw, &peek); err != nil {
+			skipped = append(skipped, fmt.Sprintf("unmarshal apiVersion: %v", err))
+			continue
+		}
+
+		if !metadata.SupportedAPIVersions[peek.APIVersion] {
+			skipped = append(skipped, peek.APIVersion)
+			continue
+		}
+
+		var md metadata.DeviceMetadata
+		if err := json.Unmarshal(raw, &md); err != nil {
+			skipped = append(skipped, fmt.Sprintf("%s: %v", peek.APIVersion, err))
+			continue
+		}
+		return &md, nil
+	}
+	if len(skipped) > 0 {
+		return nil, fmt.Errorf("no compatible metadata version found in stream (skipped: %v)", skipped)
+	}
+	return nil, fmt.Errorf("no metadata objects found in stream")
 }
