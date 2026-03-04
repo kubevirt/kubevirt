@@ -29,6 +29,45 @@ import (
 func virtHandlerAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
+			Alert: "VirtHandlerDown",
+			Expr:  intstr.FromString("cluster:kubevirt_virt_handler_pods_running:count == 0"),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				summaryAnnotationKey: "No running virt-handler pods were detected for the last 10 min.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "critical",
+			},
+		},
+		{
+			Alert: "LowReadyVirtHandlerCount",
+			Expr: intstr.FromString(
+				"cluster:kubevirt_virt_handler_ready:sum < cluster:kubevirt_virt_handler_pods_running:count " +
+					"and cluster:kubevirt_virt_handler_ready:sum > 0",
+			),
+			For: ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				summaryAnnotationKey: "Some virt-handlers are running but not ready.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "warning",
+				operatorHealthImpactLabelKey: "warning",
+			},
+		},
+		{
+			Alert: "NoReadyVirtHandler",
+			Expr:  intstr.FromString("cluster:kubevirt_virt_handler_ready:sum == 0"),
+			For:   ptr.To(promv1.Duration("10m")),
+			Annotations: map[string]string{
+				summaryAnnotationKey: "No ready virt-handler was detected for the last 10 min.",
+			},
+			Labels: map[string]string{
+				severityAlertLabelKey:        "critical",
+				operatorHealthImpactLabelKey: "critical",
+			},
+		},
+		{
 			Alert: "VirtHandlerDaemonSetRolloutFailing",
 			Expr: intstr.FromString(
 				fmt.Sprintf("(%s - %s) != 0",
