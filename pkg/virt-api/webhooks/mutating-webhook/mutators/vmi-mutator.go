@@ -85,6 +85,15 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 			return webhookutils.ToAdmissionResponseError(err)
 		}
 
+		// Set PCI topology version for new VMIs if not already set (e.g. by VM controller
+		// propagating a frozen v2 annotation). This ensures new standalone VMIs get v3.
+		if _, exists := newVMI.Annotations[v1.PciTopologyVersionAnnotation]; !exists {
+			if newVMI.Annotations == nil {
+				newVMI.Annotations = map[string]string{}
+			}
+			newVMI.Annotations[v1.PciTopologyVersionAnnotation] = v1.PciTopologyVersionV3
+		}
+
 		if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
 			_, emulatorThreadCompleteToEvenParityAnnotationExists := mutator.ClusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
 			if emulatorThreadCompleteToEvenParityAnnotationExists &&
