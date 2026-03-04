@@ -280,6 +280,12 @@ var _ = Describe("VirtualMachineInstance", func() {
 			vmi.Labels = make(map[string]string)
 			vmi.Labels[v1.NodeNameLabel] = host
 		}
+		if vmi.Annotations == nil {
+			vmi.Annotations = make(map[string]string)
+		}
+		if _, exists := vmi.Annotations[v1.PciTopologyVersionAnnotation]; !exists {
+			vmi.Annotations[v1.PciTopologyVersionAnnotation] = v1.PciTopologyVersionV3
+		}
 		Expect(controller.vmiStore.Add(vmi)).To(Succeed())
 		_, err := virtfakeClient.KubevirtV1().VirtualMachineInstances(metav1.NamespaceDefault).Create(context.TODO(), vmi, metav1.CreateOptions{})
 		Expect(err).ToNot(HaveOccurred())
