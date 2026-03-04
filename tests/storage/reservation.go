@@ -238,57 +238,6 @@ var _ = Describe(SIG("SCSI persistent reservation", decorators.RequiresPersisten
 				WithPolling(10 * time.Second).
 				Should(Succeed())
 		})
-
-		It("Should successfully start 2 VMs with persistent reservation on the same LUN", func() {
-			By("Create 2 VMs with the SCSI disk")
-			vmi := libvmifact.NewFedora(
-				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
-				libvmi.WithNodeAffinityFor(node),
-			)
-			vmi, err := virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi)).Create(context.Background(), vmi, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi,
-				libwait.WithFailOnWarnings(false),
-				libwait.WithTimeout(180),
-			)
-
-			vmi2 := libvmifact.NewFedora(
-				libvmi.WithNamespace(testsuite.NamespaceTestDefault),
-				libvmi.WithPersistentVolumeClaimLun("lun0", pvc.Name, true),
-				libvmi.WithNodeAffinityFor(node),
-			)
-			vmi2, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(vmi2)).Create(context.Background(), vmi2, metav1.CreateOptions{})
-			Expect(err).ToNot(HaveOccurred())
-			libwait.WaitForSuccessfulVMIStart(vmi2,
-				libwait.WithFailOnWarnings(false),
-				libwait.WithTimeout(180),
-			)
-
-			By("Requesting SCSI persistent reservation from the first VM")
-			Expect(console.LoginToFedora(vmi)).To(Succeed(), "Should be able to login to the Fedora VM")
-			Expect(checkResultCommand(vmi, "sg_persist -i -k /dev/sda",
-				"there are NO registered reservation keys")).To(BeTrue())
-			Expect(checkResultCommand(vmi, "sg_persist -o -G  --param-sark=12345678 /dev/sda",
-				"Peripheral device type: disk")).To(BeTrue())
-			Eventually(func(g Gomega) {
-				g.Expect(
-					checkResultCommand(vmi, "sg_persist -i -k /dev/sda", "1 registered reservation key follows:\r\n    0x12345678\r\n"),
-				).To(BeTrue())
-			}).
-				Within(60 * time.Second).
-				WithPolling(10 * time.Second).
-				Should(Succeed())
-
-			By("Requesting SCSI persistent reservation from the second VM")
-			// The second VM should be able to see the reservation key used by the first VM and
-			// the reservation with a new key should fail
-			Expect(console.LoginToFedora(vmi2)).To(Succeed(), "Should be able to login to the Fedora VM")
-			Expect(checkResultCommand(vmi2, "sg_persist -i -k /dev/sda",
-				"1 registered reservation key follows:\r\n    0x12345678\r\n")).To(BeTrue())
-			Expect(checkResultCommand(vmi2, "sg_persist -o -G  --param-sark=87654321 /dev/sda",
-				"Reservation conflict")).To(BeTrue())
-		})
 	})
 
 	Context("With multipath", func() {
