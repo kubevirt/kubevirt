@@ -8,6 +8,9 @@ source hack/config.sh
 rm -f vendor/libvirt.org/go/libvirt/BUILD.bazel
 rm -f vendor/libguestfs.org/libnbd/BUILD.bazel
 
+# remove virt-lint BUILD file to regenerate it each time
+rm -f vendor/gitlab.com/MichalPrivoznik/virt-lint/go/virt-lint/BUILD.bazel
+
 # generate BUILD files
 bazel run \
     --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
@@ -18,10 +21,16 @@ bazel run \
     --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     -- :buildozer 'add cdeps //:libvirt-libs' //vendor/libvirt.org/go/libvirt:go_default_library
 
+
 # inject changes to libnbd BUILD file
 bazel run \
     --config=${ARCHITECTURE} ${BAZEL_CS_CONFIG} \
     -- :buildozer 'add cdeps //:libnbd-libs' //vendor/libguestfs.org/libnbd/:go_default_library
+
+bazel run \
+    --config=${ARCHITECTURE} \
+    -- :buildozer 'add cdeps //:virt-lint-libs' \
+    //vendor/gitlab.com/MichalPrivoznik/virt-lint/go/virt-lint:go_default_library
 
 # align BAZEL files to a single format
 bazel run \
