@@ -79,8 +79,11 @@ func baseVmi(name string) *v1.VirtualMachineInstance {
 	}
 
 	defaultOptionsMux.RLock()
-	defer defaultOptionsMux.RUnlock()
-	for _, opt := range defaultOptions {
+	opts := make([]Option, len(defaultOptions))
+	copy(opts, defaultOptions)
+	defaultOptionsMux.RUnlock()
+
+	for _, opt := range opts {
 		opt(vmi)
 	}
 
