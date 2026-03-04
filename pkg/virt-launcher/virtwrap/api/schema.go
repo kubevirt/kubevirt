@@ -102,10 +102,12 @@ const (
 	AddressPCI     = "pci"
 	AddressCCW     = "ccw"
 
-	ControllerTypePCI              = "pci"
-	ControllerModelPCIeRoot        = "pcie-root"
-	ControllerModelPCIeRootPort    = "pcie-root-port"
-	ControllerModelPCIeExpanderBus = "pcie-expander-bus"
+	ControllerTypePCI                   = "pci"
+	ControllerModelPCIeRoot             = "pcie-root"
+	ControllerModelPCIeRootPort         = "pcie-root-port"
+	ControllerModelPCIeExpanderBus      = "pcie-expander-bus"
+	ControllerModelPCIeSwitchUpstream   = "pcie-switch-upstream-port"
+	ControllerModelPCIeSwitchDownstream = "pcie-switch-downstream-port"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
