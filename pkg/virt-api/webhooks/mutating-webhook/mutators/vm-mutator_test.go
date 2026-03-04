@@ -186,6 +186,28 @@ var _ = Describe("VirtualMachine Mutator", func() {
 		Entry("amd64", "amd64", "q35"),
 	)
 
+	DescribeTable("should set PCI topology version based on architecture", func(arch string, expectAnnotation bool) {
+		vmSpec, _ := getVMSpecMetaFromResponseCreateWithArch(arch)
+		if expectAnnotation {
+			Expect(vmSpec.Template.ObjectMeta.Annotations).To(HaveKeyWithValue(v1.PciTopologyVersionAnnotation, v1.PciTopologyVersionV3))
+		} else {
+			Expect(vmSpec.Template.ObjectMeta.Annotations).ToNot(HaveKey(v1.PciTopologyVersionAnnotation))
+		}
+	},
+		Entry("amd64 gets v3", "amd64", true),
+		Entry("arm64 gets v3", "arm64", true),
+		Entry("s390x skipped", "s390x", false),
+		Entry("ppc64le skipped", "ppc64le", false),
+	)
+
+	It("should not override existing PCI topology version annotation on VM template", func() {
+		vm.Spec.Template.ObjectMeta.Annotations = map[string]string{
+			v1.PciTopologyVersionAnnotation: v1.PciTopologyVersionV2,
+		}
+		vmSpec, _ := getVMSpecMetaFromResponseCreate()
+		Expect(vmSpec.Template.ObjectMeta.Annotations).To(HaveKeyWithValue(v1.PciTopologyVersionAnnotation, v1.PciTopologyVersionV2))
+	})
+
 	DescribeTable("should apply configurable defaults on VM create", func(arch string, amd64MachineType string, arm64MachineType string, s390xMachineType string, result string) {
 		testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
 			Spec: v1.KubeVirtSpec{

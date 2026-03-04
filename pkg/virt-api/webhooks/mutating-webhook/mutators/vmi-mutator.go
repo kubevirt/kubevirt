@@ -58,16 +58,8 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virt
 		return err
 	}
 
-	// Set PCI topology version for new VMIs if not already set (e.g. by VM controller
-	// propagating a frozen v2 annotation). This ensures new standalone VMIs get v3.
-	// Skip for architectures that don't support PCIe topology (s390x, ppc64le).
 	if defaults.SupportsPCIeHotplug(newVMI.Spec.Architecture) {
-		if _, exists := newVMI.Annotations[v1.PciTopologyVersionAnnotation]; !exists {
-			if newVMI.Annotations == nil {
-				newVMI.Annotations = map[string]string{}
-			}
-			newVMI.Annotations[v1.PciTopologyVersionAnnotation] = v1.PciTopologyVersionV3
-		}
+		setDefaultPciTopologyVersion(&newVMI.ObjectMeta)
 	}
 
 	if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
@@ -191,4 +183,16 @@ func (mutator *VMIsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1
 
 func markAsNonroot(vmi *v1.VirtualMachineInstance) {
 	vmi.Status.RuntimeUser = 107
+}
+
+// setDefaultPciTopologyVersion sets the PCI topology version annotation to v3
+// if not already present. Used by both VMI and VM mutating webhooks on CREATE.
+func setDefaultPciTopologyVersion(meta *metav1.ObjectMeta) {
+	if _, exists := meta.Annotations[v1.PciTopologyVersionAnnotation]; exists {
+		return
+	}
+	if meta.Annotations == nil {
+		meta.Annotations = map[string]string{}
+	}
+	meta.Annotations[v1.PciTopologyVersionAnnotation] = v1.PciTopologyVersionV3
 }
