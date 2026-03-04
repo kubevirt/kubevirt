@@ -520,6 +520,8 @@ func (app *virtHandlerApp) Run() {
 	errCh := make(chan error)
 	go app.runServer(errCh, consoleHandler, lifecycleHandler)
 
+	metrics.SetVirtHandlerReady()
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
 		syscall.SIGHUP,
@@ -534,6 +536,8 @@ func (app *virtHandlerApp) Run() {
 
 		s := <-c
 		log.Log.Infof("Received signal %s, initiating graceful shutdown", s.String())
+
+		metrics.SetVirtHandlerNotReady()
 
 		// This triggers the migration proxy to no longer accept new connections
 		migrationProxy.InitiateGracefulShutdown()

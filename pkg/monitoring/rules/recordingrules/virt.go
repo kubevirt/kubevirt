@@ -118,5 +118,26 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 			MetricType: operatormetrics.GaugeType,
 			Expr:       intstr.FromString(fmt.Sprintf("sum(up{pod=~'virt-handler-.*', namespace='%s'}) or vector(0)", namespace)),
 		},
+		{
+			MetricsOpts: operatormetrics.MetricOpts{
+				Name: "cluster:kubevirt_virt_handler_pods_running:count",
+				Help: "The number of virt-handler pods that are running.",
+			},
+			MetricType: operatormetrics.GaugeType,
+			Expr: intstr.FromString(
+				fmt.Sprintf("count(kube_pod_status_phase{pod=~'virt-handler-.*', namespace='%s', phase='Running'} == 1) or vector(0)", namespace),
+			),
+		},
+		{
+			MetricsOpts: operatormetrics.MetricOpts{
+				Name: "kubevirt_virt_handler_ready",
+				Help: "The number of virt-handler pods that are ready.",
+			},
+			MetricType: operatormetrics.GaugeType,
+			Expr: intstr.FromString(
+				fmt.Sprintf("sum(kube_pod_status_ready{pod=~'virt-handler-.*', namespace='%s', condition='true'} * "+
+					"on(pod, namespace) kubevirt_virt_handler_ready_status{namespace='%s'}) or vector(0)", namespace, namespace),
+			),
+		},
 	}
 }
