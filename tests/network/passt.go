@@ -51,7 +51,6 @@ import (
 )
 
 var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Serial, func() {
-
 	var err error
 	const (
 		port1234 = 1234
@@ -139,7 +138,6 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 			clientVMI, err = kubevirt.Client().VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 			Expect(err).ToNot(HaveOccurred())
 
-			//ports := []v1.Port{{Name: "http", Port: highTCPPort, Protocol: "TCP"}}
 			serverVMI = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(passtBindingInterfaceWithPort(tcp, highTCPPort)),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
@@ -152,7 +150,6 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 			vmnetserver.StartTCPServer(serverVMI, highTCPPort, console.LoginToAlpine)
 			By("starting a TCP server on a port not specified on the VM spec")
 			vmnetserver.StartTCPServer(serverVMI, highTCPPort+1, console.LoginToAlpine)
-
 		})
 		DescribeTable("connectivity", func(ipFamily k8sv1.IPFamily) {
 			libnet.SkipWhenClusterNotSupportIPFamily(ipFamily)
@@ -224,7 +221,6 @@ var _ = Describe(SIG(" VirtualMachineInstance with passt network binding", Seria
 		const udpPortForIPv6 = 1701
 
 		BeforeAll(func() {
-
 			By("Starting server VMI")
 			serverVMI = libvmifact.NewAlpineWithTestTooling(
 				libvmi.WithInterface(passtBindingInterfaceWithPort(udp, udpPortForIPv4, udpPortForIPv6)),

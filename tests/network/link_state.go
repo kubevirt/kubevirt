@@ -220,7 +220,6 @@ var _ = Describe(SIG("interface state up/down", func() {
 
 		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac1.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
 		Expect(console.RunCommand(vmi, libnet.NewLinkStateAssersionCmd(mac2.String(), v1.InterfaceStateLinkDown), timeout)).To(Succeed())
-
 	})
 }))
 
