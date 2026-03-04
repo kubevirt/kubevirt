@@ -447,7 +447,7 @@ var _ = Describe("Manager", func() {
 	Context("on successful VirtualMachineInstance sync", func() {
 
 		addPlaceHolderInterfaces := func(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) *api.DomainSpec {
-			count, err := calculateHotplugPortCount(vmi, domainSpec)
+			count, err := calculateHotplugPortCountV2(vmi, domainSpec)
 			Expect(err).ToNot(HaveOccurred())
 			return network.AppendPlaceholderInterfacesToTheDomain(vmi, domainSpec, count)
 		}
@@ -3957,7 +3957,42 @@ var _ = Describe("Changed Block Tracking", func() {
 	})
 })
 
-var _ = Describe("calculateHotplugPortCount", func() {
+var _ = Describe("calculateHotplugPortCountV1", func() {
+	It("should return 0 when PlacePCIDevicesOnRootComplex is true", func() {
+		vmi := newVMI("testns", "kubevirt")
+		vmi.Annotations = map[string]string{
+			v1.PlacePCIDevicesOnRootComplex: "true",
+		}
+		vmi.Spec.Domain.Devices.Interfaces = []v1.Interface{{Name: "default"}}
+
+		Expect(calculateHotplugPortCountV1(vmi)).To(Equal(0))
+	})
+
+	It("should return 0 when there are no interfaces", func() {
+		vmi := newVMI("testns", "kubevirt")
+		vmi.Spec.Domain.Devices.Interfaces = nil
+
+		Expect(calculateHotplugPortCountV1(vmi)).To(Equal(0))
+	})
+
+	DescribeTable("should return the correct port count based on interface count",
+		func(interfaceCount, expectedResult int) {
+			vmi := newVMI("testns", "kubevirt")
+			for i := 0; i < interfaceCount; i++ {
+				vmi.Spec.Domain.Devices.Interfaces = append(vmi.Spec.Domain.Devices.Interfaces,
+					v1.Interface{Name: fmt.Sprintf("iface%d", i)})
+			}
+			Expect(calculateHotplugPortCountV1(vmi)).To(Equal(expectedResult))
+		},
+		Entry("with 1 interface", 1, 3),
+		Entry("with 2 interfaces", 2, 2),
+		Entry("with 3 interfaces", 3, 1),
+		Entry("with 4 interfaces", 4, 0),
+		Entry("with 5 interfaces", 5, 0),
+	)
+})
+
+var _ = Describe("calculateHotplugPortCountV2", func() {
 	const gb = 1024 * 1024 * 1024
 
 	domainWithDevices := func(num int) *api.DomainSpec {
@@ -3978,7 +4013,7 @@ var _ = Describe("calculateHotplugPortCount", func() {
 			v1.PlacePCIDevicesOnRootComplex: "true",
 		}
 
-		count, err := calculateHotplugPortCount(vmi, nil)
+		count, err := calculateHotplugPortCountV2(vmi, nil)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(count).To(Equal(0))
 	})
@@ -3987,7 +4022,7 @@ var _ = Describe("calculateHotplugPortCount", func() {
 		vmi := newVMI("testns", "kubevirt")
 		domainSpec := domainWithDevices(portsInUse)
 		domainSpec.Memory.Value = mem
-		count, err := calculateHotplugPortCount(vmi, domainSpec)
+		count, err := calculateHotplugPortCountV2(vmi, domainSpec)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(count).To(Equal(expectedResult))
 	},
