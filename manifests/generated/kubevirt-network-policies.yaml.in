@@ -206,6 +206,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  annotations:
+    template.kubevirt.io/virt-template-version: v0.1.7
   labels:
     app.kubernetes.io/name: virt-template
     kubevirt.io: virt-template-allow-apiserver-ingress
@@ -226,6 +228,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  annotations:
+    template.kubevirt.io/virt-template-version: v0.1.7
   labels:
     app.kubernetes.io/name: virt-template
     kubevirt.io: virt-template-allow-metrics-traffic
@@ -246,6 +250,8 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  annotations:
+    template.kubevirt.io/virt-template-version: v0.1.7
   labels:
     app.kubernetes.io/name: virt-template
     kubevirt.io: virt-template-allow-webhook-traffic
