@@ -647,6 +647,28 @@ var _ = Describe("VirtualMachineInstance Mutator", func() {
 		Expect(vmiMeta.Annotations).To(HaveKeyWithValue(v1.QGSSocketPathAnnotation, expectedQGSSocketPath))
 	})
 
+	DescribeTable("should set PCI topology version based on architecture", func(arch string, expectAnnotation bool) {
+		vmiMeta, _, _ := getMetaSpecStatusFromAdmitWithArch(arch)
+		if expectAnnotation {
+			Expect(vmiMeta.Annotations).To(HaveKeyWithValue(v1.PciTopologyVersionAnnotation, v1.PciTopologyVersionV3))
+		} else {
+			Expect(vmiMeta.Annotations).NotTo(HaveKey(v1.PciTopologyVersionAnnotation))
+		}
+	},
+		Entry("amd64 gets v3", "amd64", true),
+		Entry("arm64 gets v3", "arm64", true),
+		Entry("s390x skipped", "s390x", false),
+		Entry("ppc64le skipped", "ppc64le", false),
+	)
+
+	It("should not override existing PCI topology version annotation", func() {
+		vmi.Annotations = map[string]string{
+			v1.PciTopologyVersionAnnotation: v1.PciTopologyVersionV2,
+		}
+		vmiMeta, _, _ := getMetaSpecStatusFromAdmit()
+		Expect(vmiMeta.Annotations).To(HaveKeyWithValue(v1.PciTopologyVersionAnnotation, v1.PciTopologyVersionV2))
+	})
+
 	It("should convert CPU requests to sockets", func() {
 		vmi.Spec.Domain.CPU = &v1.CPU{Model: "EPYC"}
 		vmi.Spec.Domain.Resources.Requests = k8sv1.ResourceList{
