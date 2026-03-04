@@ -90,6 +90,7 @@ func (mutator *VMsMutator) Mutate(ar *admissionv1.AdmissionReview) *admissionv1.
 	// race conditions with the VM controller.
 	if ar.Request.Operation == admissionv1.Create {
 		setFirmwareDefaultsIfEmpty(vm)
+		setDefaultPciTopologyVersion(&vm.Spec.Template.ObjectMeta)
 	}
 
 	// Set VM defaults
