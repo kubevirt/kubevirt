@@ -57,6 +57,15 @@ func ApplyNewVMIMutations(newVMI *v1.VirtualMachineInstance, clusterConfig *virt
 		return err
 	}
 
+	// Set PCI topology version for new VMIs if not already set (e.g. by VM controller
+	// propagating a frozen v2 annotation). This ensures new standalone VMIs get v3.
+	if _, exists := newVMI.Annotations[v1.PciTopologyVersionAnnotation]; !exists {
+		if newVMI.Annotations == nil {
+			newVMI.Annotations = map[string]string{}
+		}
+		newVMI.Annotations[v1.PciTopologyVersionAnnotation] = v1.PciTopologyVersionV3
+	}
+
 	if newVMI.Spec.Domain.CPU.IsolateEmulatorThread {
 		_, emulatorThreadCompleteToEvenParityAnnotationExists := clusterConfig.GetConfigFromKubeVirtCR().Annotations[v1.EmulatorThreadCompleteToEvenParity]
 		if emulatorThreadCompleteToEvenParityAnnotationExists && clusterConfig.AlignCPUsEnabled() {
