@@ -1452,7 +1452,7 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 ) (cli.VirDomain, error) {
 	logger := log.Log.Object(vmi)
 
-	count, err := calculateHotplugPortCount(vmi, domainSpec)
+	count, err := calculateHotplugPortCountV2(vmi, domainSpec)
 	if err != nil {
 		logger.Reason(err).Error("Failed to calculate hotplug port count")
 		return nil, err
@@ -2615,9 +2615,21 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 	return flags
 }
 
-func calculateHotplugPortCount(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) (int, error) {
+// calculateHotplugPortCountV1 returns the v1 placeholder count: max(0, 4 - len(interfaces)).
+// This formula is frozen and must match calculateHotplugPortCountV1ForDetection in pkg/virt-handler/pci_topology.go.
+func calculateHotplugPortCountV1(vmi *v1.VirtualMachineInstance) int {
 	if vmi.Annotations[v1.PlacePCIDevicesOnRootComplex] == "true" {
-		// If the annotation is set, no additional root-ports should be created
+		return 0
+	}
+	interfaces := vmi.Spec.Domain.Devices.Interfaces
+	if len(interfaces) == 0 {
+		return 0
+	}
+	return max(0, 4-len(interfaces))
+}
+
+func calculateHotplugPortCountV2(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec) (int, error) {
+	if vmi.Annotations[v1.PlacePCIDevicesOnRootComplex] == "true" {
 		return 0, nil
 	}
 
