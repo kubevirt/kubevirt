@@ -11,8 +11,10 @@
 | kubevirt_rest_client_request_latency_seconds | Metric | Histogram | Request latency in seconds. Broken down by verb and URL. |
 | kubevirt_rest_client_requests_total | Metric | Counter | Number of HTTP requests, partitioned by status code, method, and host. |
 | kubevirt_usbredir_active_connections | Metric | Gauge | Amount of active USB redirection connections, broken down by namespace and vmi name. |
+| kubevirt_virt_api_ready_status | Metric | Gauge | Indication for a virt-api server that is ready to serve requests. |
 | kubevirt_virt_controller_leading_status | Metric | Gauge | Indication for an operating virt-controller. |
 | kubevirt_virt_controller_ready_status | Metric | Gauge | Indication for a virt-controller that is ready to take the lead. |
+| kubevirt_virt_handler_ready_status | Metric | Gauge | Indication for a virt-handler that is ready to serve requests. |
 | kubevirt_virt_operator_leading_status | Metric | Gauge | Indication for an operating virt-operator. |
 | kubevirt_virt_operator_ready_status | Metric | Gauge | Indication for a virt-operator that is ready to take the lead. |
 | kubevirt_vm_create_date_timestamp_seconds | Metric | Gauge | Virtual Machine creation timestamp. |
@@ -104,7 +106,11 @@
 | kubevirt_workqueue_unfinished_work_seconds | Metric | Gauge | How many seconds of work have been in progress without being observed by work_duration. Large values indicate stuck threads. The number of stuck threads can be deduced by observing the rate at which this value increases. |
 | kubevirt_workqueue_work_duration_seconds | Metric | Histogram | How long in seconds processing an item from workqueue takes. |
 | cluster:kubevirt_non_schedulable_nodes:sum | Recording rule | Gauge | The number of non-schedulable nodes in the cluster. |
+| cluster:kubevirt_virt_api_pods_running:count | Recording rule | Gauge | The number of virt-api pods that are running. |
+| cluster:kubevirt_virt_api_ready:sum | Recording rule | Gauge | The number of virt-api pods that are ready. |
 | cluster:kubevirt_virt_controller_pods_running:count | Recording rule | Gauge | The number of virt-controller pods that are running. |
+| cluster:kubevirt_virt_handler_pods_running:count | Recording rule | Gauge | The number of virt-handler pods that are running. |
+| cluster:kubevirt_virt_handler_ready:sum | Recording rule | Gauge | The number of virt-handler pods that are ready. |
 | cluster:kubevirt_virt_operator_pods_running:count | Recording rule | Gauge | The number of virt-operator pods that are running. |
 | kubevirt_allocatable_nodes | Recording rule | Gauge | The number of allocatable nodes in the cluster. |
 | kubevirt_api_request_deprecated_total | Recording rule | Counter | The total number of requests to deprecated KubeVirt APIs. |
