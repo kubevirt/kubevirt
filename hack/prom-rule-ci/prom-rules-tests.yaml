@@ -483,13 +483,13 @@ tests:
   # Some nodes without KVM resources
   - interval: 1m
     input_series:
-      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node1"}'
-        values: "110 110 110 110 110 110"
-      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node2 "}'
-        values: "0 0 0 0 0 0"
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node="node1"}'
+        values: "110 110 110 110 110 110 110"
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node="node2"}'
+        values: "0 0 0 0 0 0 0"
 
     alert_rule_test:
-      - eval_time: 5m
+      - eval_time: 6m
         alertname: LowKVMNodesCount
         exp_alerts:
           - exp_annotations:
@@ -505,13 +505,13 @@ tests:
   # All nodes without KVM resources
   - interval: 1m
     input_series:
-      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node1"}'
-        values: "0 0 0 0 0 0"
-      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node2 "}'
-        values: "0 0 0 0 0 0"
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node="node1"}'
+        values: "0 0 0 0 0 0 0"
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node="node2"}'
+        values: "0 0 0 0 0 0 0"
 
     alert_rule_test:
-      - eval_time: 5m
+      - eval_time: 6m
         alertname: LowKVMNodesCount
         exp_alerts:
           - exp_annotations:
@@ -527,9 +527,9 @@ tests:
   # Two nodes with KVM resources
   - interval: 1m
     input_series:
-      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node1"}'
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node="node1"}'
         values: "110 110 110 110 110 110"
-      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node ="node2 "}'
+      - series: 'kube_node_status_allocatable{resource="devices_kubevirt_io_kvm", node="node2"}'
         values: "110 110 110 110 110 110"
 
     alert_rule_test:
