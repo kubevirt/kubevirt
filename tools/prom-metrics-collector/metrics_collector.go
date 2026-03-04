@@ -33,7 +33,13 @@ import (
 // https://sdk.operatorframework.io/docs/best-practices/observability-best-practices/#metrics-guidelines
 // should be ignored.
 var excludedMetrics = map[string]struct{}{
-	"kubevirt_vmi_phase_count": {},
+	"kubevirt_vmi_phase_count":                            {},
+	"kubevirt_vmi_migration_data_total_bytes":             {},
+	"cluster:kubevirt_virt_controller_pods_running:count": {},
+	"kubevirt_vmi_vcpu_count":                             {},
+	// The metric is in the correct format for recording rules. It was
+	// backported, and the current version of the validator doesn't support it.
+	"cluster:kubevirt_non_schedulable_nodes:sum": {},
 }
 
 // Extract the name, help, and type from the metrics doc file
