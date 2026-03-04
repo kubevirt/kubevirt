@@ -3134,6 +3134,35 @@ func (c *Controller) syncDynamicAnnotationsAndLabelsToVMI(vm *virtv1.VirtualMach
 	return updatedVMI, nil
 }
 
+// syncPCITopologyAnnotationsToVM copies PCI topology annotations from the VMI
+// back to the VM template so they persist across reboots. This is needed for
+// VMs that were detected as v2 by virt-handler — the frozen placeholder count
+// must be preserved in the VM template for future VMI incarnations.
+func syncPCITopologyAnnotationsToVM(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance) {
+	if vm == nil || vmi == nil {
+		return
+	}
+
+	vmiVersion := vmi.Annotations[virtv1.PciTopologyVersionAnnotation]
+	if vmiVersion == "" {
+		return
+	}
+
+	if vm.Spec.Template.ObjectMeta.Annotations[virtv1.PciTopologyVersionAnnotation] != "" {
+		return
+	}
+
+	if vm.Spec.Template.ObjectMeta.Annotations == nil {
+		vm.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+	}
+
+	vm.Spec.Template.ObjectMeta.Annotations[virtv1.PciTopologyVersionAnnotation] = vmiVersion
+
+	if count, exists := vmi.Annotations[virtv1.PciInterfaceSlotCountAnnotation]; exists {
+		vm.Spec.Template.ObjectMeta.Annotations[virtv1.PciInterfaceSlotCountAnnotation] = count
+	}
+}
+
 func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineInstance, key string) (*virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, common.SyncError, error) {
 
 	defer virtControllerVMWorkQueueTracer.StepTrace(key, "sync", trace.Field{Key: "VM Name", Value: vm.Name})
@@ -3263,6 +3292,8 @@ func (c *Controller) sync(vm *virtv1.VirtualMachine, vmi *virtv1.VirtualMachineI
 	if vmi, err = c.syncDynamicAnnotationsAndLabelsToVMI(vmCopy, vmi); err != nil {
 		return vm, vmi, common.NewSyncError(fmt.Errorf("Error encountered while handling annotation and labels sync request: %v", err), annotationsLabelsChangeErrorReason), nil
 	}
+
+	syncPCITopologyAnnotationsToVM(vmCopy, vmi)
 
 	conditionManager := controller.NewVirtualMachineConditionManager()
 	if c.clusterConfig.IsVMRolloutStrategyLiveUpdate() && !restartRequired && !conditionManager.HasCondition(vm, virtv1.VirtualMachineRestartRequired) {
