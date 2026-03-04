@@ -37,6 +37,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter"
+	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
 const (
@@ -74,7 +75,7 @@ var _ = Describe("Changed Block Tracking", func() {
 	Context("ApplyChangedBlockTracking", func() {
 		var (
 			vmi                      *v1.VirtualMachineInstance
-			converterContext         *converter.ConverterContext
+			converterContext         *convertertypes.ConverterContext
 			createQCOW2OverlayCalled int
 			blockDevCalled           int
 		)
@@ -82,7 +83,7 @@ var _ = Describe("Changed Block Tracking", func() {
 		BeforeEach(func() {
 			vmi = newVMI(testNamespace, testVmName)
 			cbt.SetCBTState(&vmi.Status.ChangedBlockTracking, v1.ChangedBlockTrackingInitializing)
-			converterContext = &converter.ConverterContext{
+			converterContext = &convertertypes.ConverterContext{
 				IsBlockPVC: make(map[string]bool),
 				IsBlockDV:  make(map[string]bool),
 			}
