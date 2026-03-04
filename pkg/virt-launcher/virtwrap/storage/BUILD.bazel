@@ -13,6 +13,7 @@ go_library(
     importpath = "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/storage",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/efi:go_default_library",
         "//pkg/os/disk:go_default_library",
         "//pkg/storage/cbt:go_default_library",
         "//pkg/storage/cbt/nbd/v1:go_default_library",
