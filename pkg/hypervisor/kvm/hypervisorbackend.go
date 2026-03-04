@@ -157,6 +157,10 @@ func (k *KvmHypervisorBackend) GetMemoryOverhead(vmi *v1.VirtualMachineInstance,
 		overhead.Add(resource.MustParse("100Mi"))
 	}
 
+	if util.RequiresMemoryOverheadReservation(vmi) {
+		overhead.Add(*vmi.Spec.Domain.Memory.ReservedOverhead.AddedOverhead)
+	}
+
 	// Multiplying the ratio is expected to be the last calculation before returning overhead
 	if additionalOverheadRatio != nil && *additionalOverheadRatio != "" {
 		ratio, err := strconv.ParseFloat(*additionalOverheadRatio, 64)

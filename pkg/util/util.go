@@ -84,6 +84,21 @@ func IsVFIOVMI(vmi *v1.VirtualMachineInstance) bool {
 	return false
 }
 
+// Check if a VMI spec requests memory overhead
+func RequiresMemoryOverheadReservation(v *v1.VirtualMachineInstance) bool {
+	return v.Spec.Domain.Memory != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead.AddedOverhead != nil
+}
+
+// Check if a VMI spec requests locking VM's memory (e.g. for DMA)
+func RequiresLockingMemory(v *v1.VirtualMachineInstance) bool {
+	return v.Spec.Domain.Memory != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead != nil &&
+		v.Spec.Domain.Memory.ReservedOverhead.MemLock != nil &&
+		*v.Spec.Domain.Memory.ReservedOverhead.MemLock == v1.MemLockRequired
+}
+
 func UseLaunchSecurity(vmi *v1.VirtualMachineInstance) bool {
 	return IsSEVVMI(vmi) || IsSecureExecutionVMI(vmi) || IsTDXVMI(vmi)
 }
