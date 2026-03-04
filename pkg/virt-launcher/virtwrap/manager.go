@@ -1515,26 +1515,110 @@ func (l *LibvirtDomainManager) allocateHotplugPorts(
 ) (cli.VirDomain, error) {
 	logger := log.Log.Object(vmi)
 
-	count, err := calculateHotplugPortCountV2(vmi, domainSpec)
+	placeholderCount, err := calculatePlaceholderCount(vmi)
 	if err != nil {
-		logger.Reason(err).Error("Failed to calculate hotplug port count")
 		return nil, err
 	}
 
-	logger.V(1).Infof("Allocating %d hotplug ports", count)
+	extraControllers, err := calculateExtraControllerCount(vmi, domainSpec, placeholderCount)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Infof("Allocating %d placeholder interfaces and %d direct controllers for hotplug (memory=%d unit=%s)",
+		placeholderCount, extraControllers, domainSpec.Memory.Value, domainSpec.Memory.Unit)
 
 	setDomainFn := func(v *v1.VirtualMachineInstance, s *api.DomainSpec) (cli.VirDomain, error) {
 		return l.setDomainSpecWithHooks(v, s)
 	}
 
-	// leverage existing hotplug nic code to allocate ports
-	// should work for disks and any other devices as well
-	dom, err := network.WithNetworkIfacesResources(vmi, domainSpec, count, setDomainFn)
+	dom, err := network.WithNetworkIfacesResources(vmi, domainSpec, placeholderCount, setDomainFn)
 	if err != nil {
 		return nil, err
 	}
 
+	// Extra controllers must be added AFTER WithNetworkIfacesResources so
+	// that libvirt has already assigned devices to root ports. Controllers
+	// appended here get indices above the occupied ports and remain empty,
+	// providing genuine hotplug capacity.
+	if extraControllers > 0 {
+		appendPCIeRootPortControllers(domainSpec, extraControllers)
+		dom.Free()
+		dom, err = l.setDomainSpecWithHooks(vmi, domainSpec)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return dom, nil
+}
+
+// calculatePlaceholderCount determines how many placeholder interfaces to use.
+// If a frozen interface slot total is stored (detected v2 VM), derive
+// placeholders as max(0, slotTotal - currentInterfaces). This absorbs
+// interface additions/removals while stopped without shifting PCI addresses.
+// Otherwise use the v1 formula for backward compatibility.
+func calculatePlaceholderCount(vmi *v1.VirtualMachineInstance) (int, error) {
+	if totalStr, exists := vmi.Annotations[v1.PciInterfaceSlotCountAnnotation]; exists {
+		total, err := strconv.Atoi(totalStr)
+		if err != nil {
+			return 0, fmt.Errorf("invalid %s annotation value %q: %v",
+				v1.PciInterfaceSlotCountAnnotation, totalStr, err)
+		}
+		return max(0, total-len(vmi.Spec.Domain.Devices.Interfaces)), nil
+	}
+	return calculateHotplugPortCountV1(vmi), nil
+}
+
+// calculateExtraControllerCount determines how many direct pcie-root-port controllers
+// to add for additional hotplug capacity beyond the placeholder interfaces.
+// Uses v2-style scaling (based on memory and device count) minus the placeholder count.
+func calculateExtraControllerCount(vmi *v1.VirtualMachineInstance, domainSpec *api.DomainSpec, placeholderCount int) (int, error) {
+	if vmi.Annotations[v1.PlacePCIDevicesOnRootComplex] == "true" {
+		return 0, nil
+	}
+
+	desiredFreePorts, err := calculateHotplugPortCountV2(vmi, domainSpec)
+	if err != nil {
+		return 0, err
+	}
+
+	return max(0, desiredFreePorts-placeholderCount), nil
+}
+
+// maxPCIBusIndex is the highest PCI bus index we allow. Each pcie-root-port
+// occupies a slot on bus 0, which has 32 slots (indices 0-31).
+const maxPCIBusIndex = 31
+
+// appendPCIeRootPortControllers adds pcie-root-port controllers directly to the domain
+// spec. These controllers provide hotplug capacity without shifting device PCI addresses.
+// The total is capped to avoid exceeding the bus 0 slot limit.
+func appendPCIeRootPortControllers(domainSpec *api.DomainSpec, count int) {
+	nextIndex := maxPCIControllerIndex(domainSpec) + 1
+	for i := 0; i < count; i++ {
+		if nextIndex+i > maxPCIBusIndex {
+			break
+		}
+		domainSpec.Devices.Controllers = append(domainSpec.Devices.Controllers, api.Controller{
+			Type:  "pci",
+			Index: fmt.Sprintf("%d", nextIndex+i),
+			Model: "pcie-root-port",
+		})
+	}
+}
+
+// maxPCIControllerIndex returns the highest index among PCI controllers in the domain spec.
+func maxPCIControllerIndex(domainSpec *api.DomainSpec) int {
+	maxIdx := 0
+	for _, c := range domainSpec.Devices.Controllers {
+		if c.Type != "pci" {
+			continue
+		}
+		if idx, err := strconv.Atoi(c.Index); err == nil && idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+	return maxIdx
 }
 
 func getSourceFile(disk api.Disk) string {
