@@ -140,9 +140,9 @@ var _ = Describe("findIsolatedQemuProcess", func() {
 			qemuSystemProc,
 		),
 	)
-	It("should fail when no QEMU process exists", func() {
+	It("should return nil when no QEMU process exists", func() {
 		proc, err := FindIsolatedQemuProcess(qemuProcessExecutablePrefixes, virtLauncherProcesses, virtLauncherPid)
-		Expect(err).To(HaveOccurred())
+		Expect(err).ToNot(HaveOccurred())
 		Expect(proc).To(BeNil())
 	})
 })
