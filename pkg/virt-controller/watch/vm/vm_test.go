@@ -4733,6 +4733,7 @@ var _ = Describe("VirtualMachine", func() {
 					clusterPreferenceInformerStore,
 					controllerrevisionInformerStore,
 					virtClient,
+					virtClient,
 					config,
 					controller.recorder,
 				)
@@ -6219,6 +6220,7 @@ var _ = Describe("VirtualMachine", func() {
 						nil,
 						nil,
 						controllerrevisionInformerStore,
+						virtClient,
 						virtClient,
 						config,
 						controller.recorder,

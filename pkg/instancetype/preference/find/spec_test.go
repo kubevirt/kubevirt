@@ -96,7 +96,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		controllerRevisionInformer, _ := testutils.NewFakeInformerFor(&appsv1.ControllerRevision{})
 		controllerRevisionInformerStore = controllerRevisionInformer.GetStore()
 
-		finder = find.NewSpecFinder(preferenceInformerStore, clusterPreferenceInformerStore, controllerRevisionInformerStore, virtClient)
+		finder = find.NewSpecFinder(preferenceInformerStore, clusterPreferenceInformerStore, controllerRevisionInformerStore, virtClient, fakeK8sClientSet)
 	})
 
 	It("find returns nil when no preference is specified", func() {
@@ -234,7 +234,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		})
 
 		It("returns expected preference using only the client", func() {
-			finder = find.NewSpecFinder(nil, nil, nil, virtClient)
+			finder = find.NewSpecFinder(nil, nil, nil, virtClient, fakeK8sClientSet)
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preferenceSpec).To(HaveValue(Equal(clusterPreference.Spec)))
@@ -399,7 +399,7 @@ var _ = Describe("Preference SpecFinder", func() {
 		})
 
 		It("returns expected preference using only the client", func() {
-			finder = find.NewSpecFinder(nil, nil, nil, virtClient)
+			finder = find.NewSpecFinder(nil, nil, nil, virtClient, fakeK8sClientSet)
 			preferenceSpec, err := finder.FindPreference(vm)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(preferenceSpec).To(HaveValue(Equal(preference.Spec)))
