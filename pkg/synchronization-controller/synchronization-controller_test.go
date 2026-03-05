@@ -35,6 +35,7 @@ import (
 
 	k8sv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -271,6 +272,91 @@ var _ = Describe("VMI status synchronization controller", func() {
 				},
 			}, "", false),
 		)
+
+		It("should return success when source migration is final without updating VMI", func() {
+			By("Set up migration as final (succeeded)")
+			migration.Status.Phase = virtv1.MigrationSucceeded
+			err := controller.migrationInformer.GetStore().Update(migration)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Set up VMI with migration state")
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+			}
+			vmi, err = controller.client.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Create request with source state")
+			remoteStatus := &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+				},
+			}
+			vmiStatusJson, err := json.Marshal(remoteStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+
+			By("Call SyncSourceMigrationStatus")
+			resp, err := controller.SyncSourceMigrationStatus(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Message).To(Equal(successMessage))
+
+			By("Verify VMI was not updated (SourceState should still be nil)")
+			updatedVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.SourceState).To(BeNil())
+		})
+
+		It("should return success when source VMI migration UID doesn't match without updating VMI", func() {
+			By("Set up VMI with different migration UID")
+			differentMigrationUID := "different-migration-uid"
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: types.UID(differentMigrationUID),
+			}
+			vmi, err := controller.client.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Create request with source state")
+			remoteStatus := &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					SourceState: &virtv1.VirtualMachineInstanceMigrationSourceState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+				},
+			}
+			vmiStatusJson, err := json.Marshal(remoteStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+
+			By("Call SyncSourceMigrationStatus")
+			resp, err := controller.SyncSourceMigrationStatus(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Message).To(Equal(successMessage))
+
+			By("Verify VMI was not updated (SourceState should still be nil)")
+			updatedVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.SourceState).To(BeNil())
+			Expect(updatedVMI.Status.MigrationState.MigrationUID).To(Equal(types.UID(differentMigrationUID)))
+		})
 	})
 
 	Context("grpc SyncTargetMigrationStatus", func() {
@@ -422,6 +508,91 @@ var _ = Describe("VMI status synchronization controller", func() {
 				},
 			}, "", false),
 		)
+
+		It("should return success when target migration is final without updating VMI", func() {
+			By("Set up migration as final (failed)")
+			migration.Status.Phase = virtv1.MigrationFailed
+			err := controller.migrationInformer.GetStore().Update(migration)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Set up VMI with migration state")
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: migration.UID,
+			}
+			vmi, err = controller.client.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Create request with target state")
+			remoteStatus := &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+				},
+			}
+			vmiStatusJson, err := json.Marshal(remoteStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+
+			By("Call SyncTargetMigrationStatus")
+			resp, err := controller.SyncTargetMigrationStatus(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Message).To(Equal(successMessage))
+
+			By("Verify VMI was not updated (TargetState should still be nil)")
+			updatedVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.TargetState).To(BeNil())
+		})
+
+		It("should return success when target VMI migration UID doesn't match without updating VMI", func() {
+			By("Set up VMI with different migration UID")
+			differentMigrationUID := "different-migration-uid"
+			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
+				MigrationUID: types.UID(differentMigrationUID),
+			}
+			vmi, err := controller.client.VirtualMachineInstance(vmi.Namespace).Update(context.Background(), vmi, metav1.UpdateOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			err = controller.vmiInformer.GetStore().Update(vmi)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Create request with target state")
+			remoteStatus := &virtv1.VirtualMachineInstanceStatus{
+				MigrationState: &virtv1.VirtualMachineInstanceMigrationState{
+					TargetState: &virtv1.VirtualMachineInstanceMigrationTargetState{
+						VirtualMachineInstanceCommonMigrationState: virtv1.VirtualMachineInstanceCommonMigrationState{
+							Node: "node1",
+						},
+					},
+				},
+			}
+			vmiStatusJson, err := json.Marshal(remoteStatus)
+			Expect(err).ToNot(HaveOccurred())
+			request := &syncv1.VMIStatusRequest{
+				MigrationID: testMigrationID,
+				VmiStatus: &syncv1.VMIStatus{
+					VmiStatusJson: vmiStatusJson,
+				},
+			}
+
+			By("Call SyncTargetMigrationStatus")
+			resp, err := controller.SyncTargetMigrationStatus(context.TODO(), request)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp.Message).To(Equal(successMessage))
+
+			By("Verify VMI was not updated (TargetState should still be nil)")
+			updatedVMI, err := controller.client.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(updatedVMI.Status.MigrationState.TargetState).To(BeNil())
+			Expect(updatedVMI.Status.MigrationState.MigrationUID).To(Equal(types.UID(differentMigrationUID)))
+		})
 	})
 
 	verifySource := func(controller *SynchronizationController, vmi *virtv1.VirtualMachineInstance, url string) {
