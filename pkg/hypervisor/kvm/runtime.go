@@ -63,15 +63,21 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 		return err
 	}
 
-	// If the VMI is running, we adjust the QEMU process
-	// otherwise, we adjust the virtqemud process
+	// If the VMI is running, we try adjusting the QEMU process first.
+	// Otherwise, we adjust the virtqemud process
 	var targetProcess ps.Process
 	if vmi.IsRunning() {
 		targetProcess, err = GetQEMUProcess(isolationResult)
 		if err != nil {
 			return err
 		}
-	} else {
+	}
+
+	// vmi.IsRunning being true does not mean qemu process exists.
+	// We could be trying to run this on the target migration pod, which
+	// is still being prepared. If we can't find QEMU yet, try with
+	// virtqemud.
+	if targetProcess == nil {
 		processes, err := ps.Processes()
 		if err != nil {
 			return fmt.Errorf("failed to get all processes: %v", err)
