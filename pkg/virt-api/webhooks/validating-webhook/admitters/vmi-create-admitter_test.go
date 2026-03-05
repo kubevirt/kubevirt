@@ -184,6 +184,7 @@ var _ = Describe("Validating VMICreate Admitter", func() {
 	},
 		Entry("when path is not absolute", "a/b/c", "spec.volumes[0].containerDisk must be an absolute path to a file without relative components"),
 		Entry("when path contains relative components", "/a/b/c/../d", "spec.volumes[0].containerDisk must be an absolute path to a file without relative components"),
+		Entry("when path starts with relative components", "../test", "spec.volumes[0].containerDisk must be an absolute path to a file without relative components"),
 		Entry("when path is root", "/", "spec.volumes[0].containerDisk must not point to root"),
 	)
 

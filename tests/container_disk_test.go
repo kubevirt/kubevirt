@@ -205,21 +205,6 @@ var _ = Describe("[rfe_id:588][crit:medium][vendor:cnv-qe@redhat.com][level:comp
 			})
 		})
 	})
-	Describe("Bogus container disk path", func() {
-		Context("that points to outside of the volume", func() {
-			//TODO this could be unit test
-			It("should be rejected on VMI creation", func() {
-				vmi := libvmifact.NewAlpine()
-				vmi.Spec.Volumes[0].ContainerDisk.Path = "../test"
-				By("Starting the VirtualMachineInstance")
-				_, err := virtClient.RestClient().Post().Resource("virtualmachineinstances").Namespace(testsuite.GetTestNamespace(vmi)).Body(vmi).Do(context.Background()).Get()
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("admission webhook"))
-				Expect(err.Error()).To(ContainSubstring("denied the request"))
-				Expect(err.Error()).To(ContainSubstring("must be an absolute path to a file without relative components"))
-			})
-		})
-	})
 
 	Describe("Simulate an upgrade from a version where ImageVolume was disabled to a version where it is enabled", Serial, decorators.ImageVolume, decorators.NoFlakeCheck, func() {
 		BeforeEach(func() {
