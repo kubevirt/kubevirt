@@ -1057,23 +1057,22 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 	// Map the VirtualMachineInstance to the Domain
 
 	c := &convertertypes.ConverterContext{
-		Architecture:              arch.NewConverter(runtime.GOARCH),
-		VirtualMachine:            vmi,
-		AllowEmulation:            allowEmulation,
-		HypervisorDeviceAvailable: l.hypervisorDeviceAvailable,
-		CPUSet:                    podCPUSet,
-		IsBlockPVC:                isBlockPVCMap,
-		IsBlockDV:                 isBlockDVMap,
-		EFIConfiguration:          efiConf,
-		UseVirtioTransitional:     vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
-		PermanentVolumes:          permanentVolumes,
-		EphemeraldiskCreator:      l.ephemeralDiskCreator,
-		UseLaunchSecuritySEV:      kutil.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
-		UseLaunchSecurityTDX:      kutil.IsTDXVMI(vmi),
-		UseLaunchSecurityPV:       kutil.IsSecureExecutionVMI(vmi),
-		FreePageReporting:         isFreePageReportingEnabled(false, vmi),
-		SerialConsoleLog:          isSerialConsoleLogEnabled(false, vmi),
-		HypervisorName:            l.hypervisorName,
+		Architecture:          arch.NewConverter(runtime.GOARCH),
+		VirtualMachine:        vmi,
+		UseEmulation:          allowEmulation && !l.hypervisorDeviceAvailable,
+		CPUSet:                podCPUSet,
+		IsBlockPVC:            isBlockPVCMap,
+		IsBlockDV:             isBlockDVMap,
+		EFIConfiguration:      efiConf,
+		UseVirtioTransitional: vmi.Spec.Domain.Devices.UseVirtioTransitional != nil && *vmi.Spec.Domain.Devices.UseVirtioTransitional,
+		PermanentVolumes:      permanentVolumes,
+		EphemeraldiskCreator:  l.ephemeralDiskCreator,
+		UseLaunchSecuritySEV:  kutil.IsSEVVMI(vmi), // Return true whenever SEV/ES/SNP is set
+		UseLaunchSecurityTDX:  kutil.IsTDXVMI(vmi),
+		UseLaunchSecurityPV:   kutil.IsSecureExecutionVMI(vmi),
+		FreePageReporting:     isFreePageReportingEnabled(false, vmi),
+		SerialConsoleLog:      isSerialConsoleLogEnabled(false, vmi),
+		HypervisorName:        l.hypervisorName,
 	}
 
 	if options != nil {

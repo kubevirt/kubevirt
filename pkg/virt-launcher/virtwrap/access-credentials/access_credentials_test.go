@@ -80,7 +80,6 @@ var _ = Describe("AccessCredentials", func() {
 		c := &convertertypes.ConverterContext{
 			Architecture:   arch.NewConverter(runtime.GOARCH),
 			VirtualMachine: vmi,
-			AllowEmulation: true,
 			SMBios:         &cmdv1.SMBios{},
 		}
 		Expect(converter.Convert_v1_VirtualMachineInstance_To_api_Domain(vmi, domain, c)).To(Succeed())
