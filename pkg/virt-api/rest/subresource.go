@@ -82,8 +82,8 @@ func NewSubresourceAPIApp(virtCli kubecli.KubevirtClient, consoleServerPort int,
 	if virtCli != nil {
 		instancetypeExpander = expand.New(
 			clusterConfig,
-			find.NewSpecFinder(nil, nil, nil, virtCli),
-			preferenceFind.NewSpecFinder(nil, nil, nil, virtCli),
+			find.NewSpecFinder(nil, nil, nil, virtCli, virtCli),
+			preferenceFind.NewSpecFinder(nil, nil, nil, virtCli, virtCli),
 		)
 	}
 
