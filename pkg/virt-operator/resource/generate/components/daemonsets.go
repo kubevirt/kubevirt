@@ -348,6 +348,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
 		{"kubelet-pods", kubeletPodsPath, "/pods", nil},
 		{"kubelet", util.KubeletRoot, util.KubeletRoot, &bidi},
 		{"node-labeller", nodeLabellerVolumePath, nodeLabellerVolumePath, nil},
+		{"cilium-run", "/var/run/cilium", "/var/run/cilium", nil},
 	}
 
 	for _, volume := range volumes {

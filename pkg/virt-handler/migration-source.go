@@ -49,6 +49,7 @@ import (
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 
+	"kubevirt.io/kubevirt/pkg/virt-handler/conntrack"
 	launcher_clients "kubevirt.io/kubevirt/pkg/virt-handler/launcher-clients"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
@@ -73,6 +74,7 @@ type MigrationSourceController struct {
 	vmiExpectations             *controller.UIDTrackingControllerExpectations
 	netStat                     netstat
 	passtRepairHandler          passtRepairSourceHandler
+	conntrackSync               *conntrack.SourceHandler
 }
 
 func NewMigrationSourceController(
@@ -88,6 +90,7 @@ func NewMigrationSourceController(
 	virtLauncherFSRunDirPattern string,
 	netStat netstat,
 	passtRepairHandler passtRepairSourceHandler,
+	conntrackSync *conntrack.SourceHandler,
 ) (*MigrationSourceController, error) {
 
 	baseCtrl, err := NewBaseController(
@@ -118,6 +121,7 @@ func NewMigrationSourceController(
 		vmiExpectations:             controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectations()),
 		netStat:                     netStat,
 		passtRepairHandler:          passtRepairHandler,
+		conntrackSync:               conntrackSync,
 	}
 
 	_, err = vmiInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -425,6 +429,9 @@ func (c *MigrationSourceController) execute(key string) error {
 
 	// post migration clean up
 	if isMigrationDone(vmi.Status.MigrationState) {
+		if c.conntrackSync != nil {
+			c.conntrackSync.Cleanup(vmi.UID)
+		}
 		c.migrationProxy.StopSourceListener(string(vmi.UID))
 		return nil
 	}
@@ -592,6 +599,26 @@ func (c *MigrationSourceController) processVMI(vmi *v1.VirtualMachineInstance, d
 	if !domainAlive {
 		log.Log.V(4).Object(vmi).Info("domain is not alive")
 		return nil
+	}
+
+	if c.conntrackSync != nil &&
+		domain.Status.Status == api.Paused &&
+		domain.Status.Reason == api.ReasonPausedMigration &&
+		!c.conntrackSync.HasSentCT(vmi.UID) {
+		go func() {
+			res, err := c.podIsolationDetector.Detect(vmi)
+			if err != nil {
+				log.Log.Object(vmi).Warningf("Conntrack sync: failed to detect pod isolation: %v", err)
+				return
+			}
+			baseDir := fmt.Sprintf(filepath.Join(c.virtLauncherFSRunDirPattern, "kubevirt"), res.Pid())
+			ctSyncKey := migrationproxy.ConstructProxyKey(string(vmi.UID), migrationproxy.ConntrackSyncPort)
+			socketPath := migrationproxy.SourceUnixFile(baseDir, ctSyncKey)
+
+			if err := c.conntrackSync.ExportAndSend(vmi, socketPath); err != nil {
+				log.Log.Object(vmi).Warningf("Conntrack sync: failed to export and send CT: %v", err)
+			}
+		}()
 	}
 
 	return c.migrateVMI(vmi, domain)

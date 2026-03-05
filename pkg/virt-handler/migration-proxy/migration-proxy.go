@@ -41,9 +41,10 @@ import (
 const (
 	LibvirtDirectMigrationPort = 49152
 	LibvirtBlockMigrationPort  = 49153
+	ConntrackSyncPort          = 49154
 )
 
-var migrationPortsRange = []int{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort}
+var migrationPortsRange = []int{LibvirtDirectMigrationPort, LibvirtBlockMigrationPort, ConntrackSyncPort}
 
 type ProxyManager interface {
 	StartTargetListener(key string, targetUnixFiles []string) error

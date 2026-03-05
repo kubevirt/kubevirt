@@ -79,6 +79,7 @@ import (
 	virthandler "kubevirt.io/kubevirt/pkg/virt-handler"
 	virtcache "kubevirt.io/kubevirt/pkg/virt-handler/cache"
 	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
+	"kubevirt.io/kubevirt/pkg/virt-handler/conntrack"
 	dmetricsmanager "kubevirt.io/kubevirt/pkg/virt-handler/dmetrics-manager"
 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 	migrationproxy "kubevirt.io/kubevirt/pkg/virt-handler/migration-proxy"
@@ -123,6 +124,9 @@ const (
 	defaultClientKeyFilePath  = "/etc/virt-handler/clientcertificates/tls.key"
 	defaultTlsCertFilePath    = "/etc/virt-handler/servercertificates/tls.crt"
 	defaultTlsKeyFilePath     = "/etc/virt-handler/servercertificates/tls.key"
+
+	// Path pattern for accessing virt-launcher filesystem from virt-handler via /proc
+	virtLauncherFSRunDirPattern = "/proc/%d/root/var/run"
 )
 
 type virtHandlerApp struct {
@@ -346,6 +350,18 @@ func (app *virtHandlerApp) Run() {
 	netStat := netsetup.NewNetStat()
 	passtRepairHandler := passt.NewRepairManager(app.clusterConfig)
 
+	// Initialize conntrack sync handlers for migration
+	var ctSourceHandler *conntrack.SourceHandler
+	var ctTargetHandler *conntrack.TargetHandler
+	ciliumClient := conntrack.NewCiliumClient()
+	if ciliumClient.IsAvailable() {
+		ctSourceHandler = conntrack.NewSourceHandler(ciliumClient)
+		ctTargetHandler = conntrack.NewTargetHandler(ciliumClient)
+		log.Log.Info("Conntrack sync: Cilium client available, CT sync enabled")
+	} else {
+		log.Log.Info("Conntrack sync: Cilium client not available, CT sync disabled")
+	}
+
 	migrationSourceController, err := virthandler.NewMigrationSourceController(
 		recorder,
 		app.virtCli,
@@ -356,9 +372,10 @@ func (app *virtHandlerApp) Run() {
 		app.clusterConfig,
 		podIsolationDetector,
 		migrationProxy,
-		"/proc/%d/root/var/run",
+		virtLauncherFSRunDirPattern,
 		netStat,
 		passtRepairHandler,
+		ctSourceHandler,
 	)
 	if err != nil {
 		panic(err)
@@ -377,11 +394,13 @@ func (app *virtHandlerApp) Run() {
 		app.clusterConfig,
 		podIsolationDetector,
 		migrationProxy,
+		virtLauncherFSRunDirPattern,
 		&capabilities,
 		netConf,
 		netStat,
 		netbinding.MemoryCalculator{},
 		passtRepairHandler,
+		ctTargetHandler,
 	)
 	if err != nil {
 		panic(err)
