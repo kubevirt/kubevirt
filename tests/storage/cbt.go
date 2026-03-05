@@ -47,8 +47,6 @@ import (
 	"kubevirt.io/kubevirt/tests/exec"
 	"kubevirt.io/kubevirt/tests/framework/kubevirt"
 	. "kubevirt.io/kubevirt/tests/framework/matcher"
-	"kubevirt.io/kubevirt/tests/libkubevirt"
-	kvconfig "kubevirt.io/kubevirt/tests/libkubevirt/config"
 	"kubevirt.io/kubevirt/tests/libmigration"
 	"kubevirt.io/kubevirt/tests/libnamespace"
 	"kubevirt.io/kubevirt/tests/libpod"
@@ -195,169 +193,6 @@ var _ = Describe(SIG("CBT", func() {
 		}),
 	)
 
-	writeDataToDisk := func(vmi *v1.VirtualMachineInstance) {
-		By("Writing data to disk to trigger CBT tracking")
-		err := console.RunCommand(vmi, "dd if=/dev/zero of=/tmp/testfile bs=1M count=2 && sync", 30*time.Second)
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	createConsumerPod := func(vm *v1.VirtualMachine, pvcName string) *k8sv1.Pod {
-		By("Creating consumer pod to inspect qcow2 overlay")
-
-		pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-
-		pod := libstorage.RenderPodWithPVC(
-			"cbt-consumer-"+rand.String(5),
-			[]string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"},
-			nil, pvc,
-		)
-
-		pod, err = libpod.Run(pod, vm.Namespace)
-		ExpectWithOffset(1, err).ToNot(HaveOccurred())
-
-		return pod
-	}
-
-	runQemuImgInfo := func(pod *k8sv1.Pod, filePath string) string {
-		By(fmt.Sprintf("Running qemu-img info on %s", filePath))
-
-		containerName := pod.Spec.Containers[0].Name
-		stdout, err := exec.ExecuteCommandOnPod(pod, containerName, []string{"/bin/sh", "-c", fmt.Sprintf("qemu-img info %s/%s", libstorage.DefaultPvcMountPath, filePath)})
-		Expect(err).ToNot(HaveOccurred())
-
-		return stdout
-	}
-
-	cleanupConsumerPod := func(pod *k8sv1.Pod) {
-		By(fmt.Sprintf("Cleaning up consumer pod %s", pod.Name))
-		err := virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
-		Expect(err).ToNot(HaveOccurred())
-	}
-
-	checkCBTIntegrity := func(vm *v1.VirtualMachine, cbtOverlayPath string) {
-		By("Checking CBT data integrity")
-		vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ShouldNot(HaveOccurred())
-
-		pvcName := backendstorage.CurrentPVCName(vmi)
-		Expect(pvcName).ToNot(BeEmpty(), "Backend storage PVC name should not be empty")
-
-		vm = libvmops.StopVirtualMachine(vm)
-
-		consumerPod := createConsumerPod(vm, pvcName)
-		output := runQemuImgInfo(consumerPod, cbtOverlayPath)
-
-		By("Verifying qcow2 file is not corrupted")
-		Expect(output).To(ContainSubstring("corrupt: false"))
-		cleanupConsumerPod(consumerPod)
-	}
-
-	migrateVMI := func(vmi *v1.VirtualMachineInstance) {
-		By("Performing live migration")
-		migration := libmigration.New(vmi.Name, vmi.Namespace)
-		migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
-		libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
-	}
-
-	restartVM := func(vm *v1.VirtualMachine) {
-		By("Restarting VM")
-		libvmops.StopVirtualMachine(vm)
-		libvmops.StartVirtualMachine(vm)
-	}
-
-	testCBTPersistence := func(op string) {
-		sc, foundSC := libstorage.GetRWOBlockStorageClass()
-		accessMode := k8sv1.ReadWriteOnce
-		volumeMode := k8sv1.PersistentVolumeBlock
-		if op == "migrate" {
-			sc, foundSC = libstorage.GetRWXFileSystemStorageClass()
-			accessMode = k8sv1.ReadWriteMany
-			volumeMode = k8sv1.PersistentVolumeFilesystem
-		}
-		if !foundSC {
-			Fail(fmt.Sprintf("Fail test when no %s Block storage is not present", accessMode))
-		}
-		vm = libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
-			libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
-			libdv.WithStorage(
-				libdv.StorageWithStorageClass(sc),
-				libdv.StorageWithVolumeMode(volumeMode),
-				libdv.StorageWithAccessMode(accessMode),
-				libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
-			),
-		),
-			libvmi.WithLabels(cbt.CBTLabel),
-			libvmi.WithRunStrategy(v1.RunStrategyAlways),
-		)
-		volumeName := vm.Spec.Template.Spec.Volumes[0].Name
-
-		vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
-		vmi, err = virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
-		Expect(err).ToNot(HaveOccurred())
-		vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
-
-		By("Verifying CBT is enabled")
-
-		libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
-
-		By("Writing data to disk to trigger CBT tracking")
-		writeDataToDisk(vmi)
-
-		By("Running the requested operations and ensuring CBT is not curropted")
-
-		switch op {
-		case "migrate":
-			migrateVMI(vmi)
-		case "restart":
-			restartVM(vm)
-		}
-		cbtOverlayPath := fmt.Sprintf("/cbt/%s.qcow2", volumeName)
-		checkCBTIntegrity(vm, cbtOverlayPath)
-	}
-
-	Context("CBT migration with vmStateStorageClass configuration", func() {
-		var originalVMStateStorageClass string
-
-		BeforeEach(func() {
-			By("Saving original vmStateStorageClass configuration")
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			originalVMStateStorageClass = kv.Spec.Configuration.VMStateStorageClass
-
-			By("Patching KubeVirt CR to use RWXFilesystem storage class for vmStateStorageClass")
-			rwxFsStorageClass, found := libstorage.GetRWXFileSystemStorageClass()
-			if !found {
-				Fail("RWXFilesystem storage class not found, skipping test")
-			}
-
-			// Get current configuration and update vmStateStorageClass
-			config := kv.Spec.Configuration.DeepCopy()
-			config.VMStateStorageClass = rwxFsStorageClass
-			kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-		})
-
-		AfterEach(func() {
-			By("Restoring original vmStateStorageClass configuration")
-			kv := libkubevirt.GetCurrentKv(virtClient)
-			config := kv.Spec.Configuration.DeepCopy()
-			config.VMStateStorageClass = originalVMStateStorageClass
-			kvconfig.UpdateKubeVirtConfigValueAndWait(*config)
-		})
-
-		// NOTE: Currently there is a bug in libvirt where the qcow2 overlay has to be on a shared storage
-		// or the migration fails. Will change the test to run with RWO once the bug is fixed.
-		// Bug: https://issues.redhat.com/browse/RHEL-113574
-		It("should persist CBT data across live migration", Serial, decorators.SigComputeMigrations, decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWXFsVMStateStorageClass, func() {
-			testCBTPersistence("migrate")
-		})
-	})
-
-	It("should persist CBT data across restart", func() {
-		testCBTPersistence("restart")
-	})
-
 	DescribeTable("should create CBT overlay for hotplug volume and remove it on unplug",
 		func(volumeMode k8sv1.PersistentVolumeMode) {
 			var sc string
@@ -429,4 +264,102 @@ var _ = Describe(SIG("CBT", func() {
 		Entry("Filesystem", k8sv1.PersistentVolumeFilesystem),
 		Entry("Block", decorators.RequiresBlockStorage, k8sv1.PersistentVolumeBlock),
 	)
+
+	It("should persist CBT data across restart", func() {
+		runCBTPersistenceTest(virtClient, "restart")
+	})
+
 }))
+
+var _ = Describe("[sig-compute-migrations] CBT with migration", decorators.SigComputeMigrations, func() {
+	var virtClient kubecli.KubevirtClient
+
+	BeforeEach(func() {
+		virtClient = kubevirt.Client()
+	})
+
+	// NOTE: Currently there is a bug in libvirt where if the qcow2 overlay is on a RWO block storage,
+	// the bitmap migration fails. resulting in the deletion of previous bitmaps. Will add a test with RWO block storage once the bug is fixed.
+	// Bug: https://issues.redhat.com/browse/RHEL-145770
+	It("should persist CBT data across live migration", decorators.RequiresTwoSchedulableNodes, decorators.RequiresRWXFsVMStateStorageClass, func() {
+		runCBTPersistenceTest(virtClient, "migrate")
+	})
+})
+
+func runCBTPersistenceTest(virtClient kubecli.KubevirtClient, op string) {
+	sc, foundSC := libstorage.GetRWOFileSystemStorageClass()
+	accessMode := k8sv1.ReadWriteOnce
+	if op == "migrate" {
+		sc, foundSC = libstorage.GetRWXFileSystemStorageClass()
+		accessMode = k8sv1.ReadWriteMany
+	}
+	if !foundSC {
+		Fail(fmt.Sprintf("Fail test when %s storage is not present", accessMode))
+	}
+	vm := libstorage.RenderVMWithDataVolumeTemplate(libdv.NewDataVolume(
+		libdv.WithRegistryURLSource(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine)),
+		libdv.WithStorage(
+			libdv.StorageWithStorageClass(sc),
+			libdv.StorageWithVolumeMode(k8sv1.PersistentVolumeFilesystem),
+			libdv.StorageWithAccessMode(accessMode),
+			libdv.StorageWithVolumeSize(cd.ContainerDiskSizeBySourceURL(cd.DataVolumeImportUrlForContainerDisk(cd.ContainerDiskAlpine))),
+		),
+	),
+		libvmi.WithLabels(cbt.CBTLabel),
+		libvmi.WithRunStrategy(v1.RunStrategyAlways),
+	)
+	volumeName := vm.Spec.Template.Spec.Volumes[0].Name
+
+	vm, err := virtClient.VirtualMachine(testsuite.GetTestNamespace(vm)).Create(context.Background(), vm, metav1.CreateOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	Eventually(ThisVM(vm)).WithTimeout(300 * time.Second).WithPolling(time.Second).Should(BeReady())
+	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	vmi = libwait.WaitUntilVMIReady(vmi, console.LoginToAlpine)
+
+	By("Verifying CBT is enabled")
+	libstorage.WaitForCBTEnabled(virtClient, vm.Namespace, vm.Name)
+
+	By("Writing data to disk to trigger CBT tracking")
+	Expect(console.RunCommand(vmi, "dd if=/dev/zero of=/tmp/testfile bs=1M count=2 && sync", 30*time.Second)).ToNot(HaveOccurred())
+
+	By("Running the requested operations and ensuring CBT is not curropted")
+	switch op {
+	case "migrate":
+		By("Performing live migration")
+		migration := libmigration.New(vmi.Name, vmi.Namespace)
+		migration = libmigration.RunMigrationAndExpectToCompleteWithDefaultTimeout(virtClient, migration)
+		libmigration.ConfirmVMIPostMigration(virtClient, vmi, migration)
+	case "restart":
+		By("Restarting VM")
+		libvmops.StopVirtualMachine(vm)
+		libvmops.StartVirtualMachine(vm)
+	}
+	cbtOverlayPath := fmt.Sprintf("/cbt/%s.qcow2", volumeName)
+	checkCBTIntegrityForPersistenceTest(virtClient, vm, cbtOverlayPath)
+}
+
+func checkCBTIntegrityForPersistenceTest(virtClient kubecli.KubevirtClient, vm *v1.VirtualMachine, cbtOverlayPath string) {
+	By("Checking CBT data integrity")
+	vmi, err := virtClient.VirtualMachineInstance(vm.Namespace).Get(context.Background(), vm.Name, metav1.GetOptions{})
+	Expect(err).ShouldNot(HaveOccurred())
+	pvcName := backendstorage.CurrentPVCName(vmi)
+	Expect(pvcName).ToNot(BeEmpty(), "Backend storage PVC name should not be empty")
+	vm = libvmops.StopVirtualMachine(vm)
+	pvc, err := virtClient.CoreV1().PersistentVolumeClaims(vm.Namespace).Get(context.Background(), pvcName, metav1.GetOptions{})
+	Expect(err).ToNot(HaveOccurred())
+	pod := libstorage.RenderPodWithPVC(
+		"cbt-consumer-"+rand.String(5),
+		[]string{"/bin/bash", "-c", "touch /tmp/startup; while true; do echo hello; sleep 2; done"},
+		nil, pvc,
+	)
+	pod, err = libpod.Run(pod, vm.Namespace)
+	ExpectWithOffset(1, err).ToNot(HaveOccurred())
+	containerName := pod.Spec.Containers[0].Name
+	stdout, err := exec.ExecuteCommandOnPod(pod, containerName, []string{"/bin/sh", "-c", fmt.Sprintf("qemu-img info %s/%s", libstorage.DefaultPvcMountPath, cbtOverlayPath)})
+	Expect(err).ToNot(HaveOccurred())
+	By("Verifying qcow2 file is not corrupted")
+	Expect(stdout).To(ContainSubstring("corrupt: false"))
+	err = virtClient.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, metav1.DeleteOptions{})
+	Expect(err).ToNot(HaveOccurred())
+}
