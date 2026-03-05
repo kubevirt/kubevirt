@@ -34,10 +34,11 @@ type addDevicesTestCase struct {
 
 var _ = Describe("PCIe Expander Bus Assigner", func() {
 	var (
-		originalPciBasePath  string
-		originalNodeBasePath string
-		fakePciBasePath      string
-		fakeNodeBasePath     string
+		originalPciBasePath     string
+		originalNodeBasePath    string
+		originalDevicesBasePath string
+		fakePciBasePath         string
+		fakeNodeBasePath        string
 	)
 
 	createDomainSpecWithNUMA := func(numaCells []api.NUMACell, vcpuPins []api.CPUTuneVCPUPin) *api.DomainSpec {
@@ -83,6 +84,53 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 		}
 	}
 
+	// setupFakeSysfsWithPCIeRoots creates a sysfs structure with both NUMA node
+	// info and PCIe root symlinks. Each device gets a directory under a fake
+	// devices tree, and a symlink in fakePciBasePath pointing to it.
+	setupFakeSysfsWithPCIeRoots := func(
+		devices map[string]struct{ numaNode, pcieRoot string },
+		numaNodes map[string]string,
+	) {
+		var err error
+		fakePciBasePath, err = os.MkdirTemp("", "pci_devices")
+		Expect(err).ToNot(HaveOccurred())
+
+		fakeNodeBasePath, err = os.MkdirTemp("", "numa_nodes")
+		Expect(err).ToNot(HaveOccurred())
+
+		fakeDevicesBasePath, err := os.MkdirTemp("", "sys_devices")
+		Expect(err).ToNot(HaveOccurred())
+		hardware.DevicesBasePath = fakeDevicesBasePath
+
+		for pciAddr, info := range devices {
+			// Create the real device directory under the fake device tree
+			deviceDir := filepath.Join(fakeDevicesBasePath, info.pcieRoot, "0000:00:00.0", pciAddr)
+			err = os.MkdirAll(deviceDir, 0o755)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Write numa_node file in the real device directory
+			err = os.WriteFile(filepath.Join(deviceDir, "numa_node"), []byte(info.numaNode+"\n"), 0o644)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create symlink: fakePciBasePath/<address> -> fakeDevicesBasePath/<pcieRoot>/.../<address>
+			symlinkTarget := filepath.Join(fakeDevicesBasePath, info.pcieRoot, "0000:00:00.0", pciAddr)
+			err = os.Symlink(symlinkTarget, filepath.Join(fakePciBasePath, pciAddr))
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		for numaID, cpuList := range numaNodes {
+			numaNodePath := filepath.Join(fakeNodeBasePath, "node"+numaID)
+			err = os.MkdirAll(numaNodePath, 0o755)
+			Expect(err).ToNot(HaveOccurred())
+
+			err = os.WriteFile(filepath.Join(numaNodePath, "cpulist"), []byte(cpuList+"\n"), 0o644)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		hardware.PciBasePath = fakePciBasePath
+		hardware.NodeBasePath = fakeNodeBasePath
+	}
+
 	setupFakeSysfs := func() {
 		var err error
 		fakePciBasePath, err = os.MkdirTemp("", "pci_devices")
@@ -125,6 +173,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 	BeforeEach(func() {
 		originalPciBasePath = hardware.PciBasePath
 		originalNodeBasePath = hardware.NodeBasePath
+		originalDevicesBasePath = hardware.DevicesBasePath
 		setupFakeSysfs()
 		hardware.PciBasePath = fakePciBasePath
 		hardware.NodeBasePath = fakeNodeBasePath
@@ -133,6 +182,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 	AfterEach(func() {
 		hardware.PciBasePath = originalPciBasePath
 		hardware.NodeBasePath = originalNodeBasePath
+		hardware.DevicesBasePath = originalDevicesBasePath
 		if fakePciBasePath != "" {
 			os.RemoveAll(fakePciBasePath)
 		}
@@ -310,6 +360,146 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 		)
 	})
 
+	Describe("PCIe root alignment", func() {
+		countControllersByModel := func(controllers []api.Controller, model string) int {
+			count := 0
+			for _, c := range controllers {
+				if c.Model == model {
+					count++
+				}
+			}
+			return count
+		}
+
+		It("should create switch hierarchy when multiple devices share a PCIe root", func() {
+			setupFakeSysfsWithPCIeRoots(
+				map[string]struct{ numaNode, pcieRoot string }{
+					"0000:81:01.0": {"0", "pci0000:80"},
+					"0000:81:02.0": {"0", "pci0000:80"},
+				},
+				map[string]string{"0": "0-3"},
+			)
+
+			domainSpec := createDomainSpecWithNUMA(
+				[]api.NUMACell{{ID: "0", CPUs: "0-1"}},
+				[]api.CPUTuneVCPUPin{{VCPU: 0, CPUSet: "0"}},
+			)
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("device1", "0x81"),
+				createPCIDevice("device2", "0x81"),
+			}
+			// Fix source addresses to match fake sysfs
+			domainSpec.Devices.HostDevices[0].Source.Address.Slot = "0x01"
+			domainSpec.Devices.HostDevices[1].Source.Address.Slot = "0x02"
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			controllers := domainSpec.Devices.Controllers
+			// 1 expander bus + 1 root port + 1 upstream switch + 2 downstream switches = 5
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeExpanderBus)).To(Equal(1))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeRootPort)).To(Equal(1))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeSwitchUpstream)).To(Equal(1))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeSwitchDownstream)).To(Equal(2))
+		})
+
+		It("should not create switches for a single device on a PCIe root", func() {
+			setupFakeSysfsWithPCIeRoots(
+				map[string]struct{ numaNode, pcieRoot string }{
+					"0000:81:01.0": {"0", "pci0000:80"},
+				},
+				map[string]string{"0": "0-3"},
+			)
+
+			domainSpec := createDomainSpecWithNUMA(
+				[]api.NUMACell{{ID: "0", CPUs: "0-1"}},
+				[]api.CPUTuneVCPUPin{{VCPU: 0, CPUSet: "0"}},
+			)
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("device1", "0x81"),
+			}
+			domainSpec.Devices.HostDevices[0].Source.Address.Slot = "0x01"
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			controllers := domainSpec.Devices.Controllers
+			// 1 expander bus + 1 root port = 2 (no switches)
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeExpanderBus)).To(Equal(1))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeRootPort)).To(Equal(1))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeSwitchUpstream)).To(Equal(0))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeSwitchDownstream)).To(Equal(0))
+		})
+
+		It("should create separate root ports for devices on different PCIe roots", func() {
+			setupFakeSysfsWithPCIeRoots(
+				map[string]struct{ numaNode, pcieRoot string }{
+					"0000:81:01.0": {"0", "pci0000:80"},
+					"0000:91:01.0": {"0", "pci0000:90"},
+				},
+				map[string]string{"0": "0-3"},
+			)
+
+			domainSpec := createDomainSpecWithNUMA(
+				[]api.NUMACell{{ID: "0", CPUs: "0-1"}},
+				[]api.CPUTuneVCPUPin{{VCPU: 0, CPUSet: "0"}},
+			)
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("device1", "0x81"),
+				createPCIDevice("device2", "0x91"),
+			}
+			domainSpec.Devices.HostDevices[0].Source.Address.Slot = "0x01"
+			domainSpec.Devices.HostDevices[1].Source.Address.Slot = "0x01"
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			controllers := domainSpec.Devices.Controllers
+			// 1 expander bus + 2 root ports = 3 (no switches, different PCIe roots)
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeExpanderBus)).To(Equal(1))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeRootPort)).To(Equal(2))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeSwitchUpstream)).To(Equal(0))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeSwitchDownstream)).To(Equal(0))
+		})
+
+		It("should handle mixed PCIe roots on the same NUMA node", func() {
+			setupFakeSysfsWithPCIeRoots(
+				map[string]struct{ numaNode, pcieRoot string }{
+					"0000:81:01.0": {"0", "pci0000:80"},
+					"0000:81:02.0": {"0", "pci0000:80"},
+					"0000:91:01.0": {"0", "pci0000:90"},
+				},
+				map[string]string{"0": "0-3"},
+			)
+
+			domainSpec := createDomainSpecWithNUMA(
+				[]api.NUMACell{{ID: "0", CPUs: "0-1"}},
+				[]api.CPUTuneVCPUPin{{VCPU: 0, CPUSet: "0"}},
+			)
+			domainSpec.Devices.HostDevices = []api.HostDevice{
+				createPCIDevice("device1", "0x81"),
+				createPCIDevice("device2", "0x81"),
+				createPCIDevice("device3", "0x91"),
+			}
+			domainSpec.Devices.HostDevices[0].Source.Address.Slot = "0x01"
+			domainSpec.Devices.HostDevices[1].Source.Address.Slot = "0x02"
+			domainSpec.Devices.HostDevices[2].Source.Address.Slot = "0x01"
+
+			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
+			Expect(err).ToNot(HaveOccurred())
+
+			controllers := domainSpec.Devices.Controllers
+			// pci0000:80 has 2 devices -> root port + upstream + 2 downstream
+			// pci0000:90 has 1 device -> root port only
+			// + 1 expander bus
+			// Total: 1 expander + 2 root ports + 1 upstream + 2 downstream = 6
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeExpanderBus)).To(Equal(1))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeRootPort)).To(Equal(2))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeSwitchUpstream)).To(Equal(1))
+			Expect(countControllersByModel(controllers, api.ControllerModelPCIeSwitchDownstream)).To(Equal(2))
+		})
+	})
+
 	Describe("PlacePCIDevicesWithNUMAAlignment", func() {
 		var domainSpec *api.DomainSpec
 
@@ -346,7 +536,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 			err := PlacePCIDevicesWithNUMAAlignment(domainSpec)
 			Expect(err).ToNot(HaveOccurred())
 
-			// Bus numbers calculated as 254 - controllerCount + 1:
+			// Bus numbers calculated as 255 - controllerCount + 1:
 			// NUMA 0: 255 - 2 + 1 = 254 (after creating expander bus + root port)
 			// NUMA 1: 255 - 4 + 1 = 252 (after creating 2nd expander bus + root port)
 			expectedBusNumbers := map[uint32]bool{254: false, 252: false}
@@ -356,7 +546,7 @@ var _ = Describe("PCIe Expander Bus Assigner", func() {
 					Expect(controller.Target.BusNr).ToNot(BeNil())
 					busNr := *controller.Target.BusNr
 					_, expected := expectedBusNumbers[busNr]
-					Expect(expected).To(BeTrue(), "Bus number %d should be one of the expected values (253, 251)", busNr)
+					Expect(expected).To(BeTrue(), "Bus number %d should be one of the expected values (254, 252)", busNr)
 					expectedBusNumbers[busNr] = true
 				}
 			}
