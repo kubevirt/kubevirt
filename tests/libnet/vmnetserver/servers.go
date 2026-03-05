@@ -37,12 +37,17 @@ import (
 type server string
 
 const (
-	TCPServer  = server("\"Hello World!\"&\n")
+	TCPServer  = server("'Hello World!'&\n")
 	HTTPServer = server("\"HTTP/1.1 200 OK\\nContent-Length: 12\\n\\nHello World!\"&\n")
 )
 
-func (s server) composeNetcatServerCommand(port int, extraArgs ...string) string {
-	return fmt.Sprintf("nc %s -klp %d -e echo -e %s", strings.Join(extraArgs, " "), port, string(s))
+func (s server) composeServerCommand(port int, extraArgs ...string) string {
+	ncBase := fmt.Sprintf("nc %s -klp %d", strings.Join(extraArgs, " "), port)
+	if s == HTTPServer {
+		payload := `printf "HTTP/1.1 200 OK\nContent-Length: 12\n\nHello World!"; sleep 2`
+		return fmt.Sprintf("%s -e sh -c %q&", ncBase, payload)
+	}
+	return fmt.Sprintf("%s -e printf %s", ncBase, string(s))
 }
 
 func StartTCPServer(vmi *v1.VirtualMachineInstance, port int, loginTo console.LoginToFunction) {
@@ -88,5 +93,5 @@ EOL`, inetSuffix, port)
 }
 
 func (s server) Start(vmi *v1.VirtualMachineInstance, port int, extraArgs ...string) {
-	Expect(console.RunCommand(vmi, s.composeNetcatServerCommand(port, extraArgs...), 60*time.Second)).To(Succeed())
+	Expect(console.RunCommand(vmi, s.composeServerCommand(port, extraArgs...), 60*time.Second)).To(Succeed())
 }
