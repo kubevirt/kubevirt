@@ -17,7 +17,7 @@
  *
  */
 
-package kvm
+package mshv
 
 import (
 	v1 "kubevirt.io/api/core/v1"
@@ -29,11 +29,11 @@ import (
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/metadata"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/network"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/storage"
-	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
+	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/virtio"
 )
 
-func MakeDomainBuilder(vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) *convertertypes.DomainBuilder {
+func MakeDomainBuilder(vmi *v1.VirtualMachineInstance, c *types.ConverterContext) *types.DomainBuilder {
 	architecture := c.Architecture.GetArchitecture()
 	virtioModel := virtio.InterpretTransitionalModelType(
 		vmi.Spec.Domain.Devices.UseVirtioTransitional,
@@ -54,7 +54,7 @@ func MakeDomainBuilder(vmi *v1.VirtualMachineInstance, c *convertertypes.Convert
 		ioThreadCount, autoThreads = iothreads.GetIOThreadsCountType(vmi)
 	}
 
-	builder := convertertypes.NewDomainBuilder(
+	builder := types.NewDomainBuilder(
 		metadata.DomainConfigurator{},
 		network.NewDomainConfigurator(
 			network.WithDomainAttachmentByInterfaceName(c.DomainAttachmentByInterfaceName),
@@ -65,7 +65,7 @@ func MakeDomainBuilder(vmi *v1.VirtualMachineInstance, c *convertertypes.Convert
 		),
 		compute.TPMDomainConfigurator{},
 		compute.VSOCKDomainConfigurator{},
-		NewKvmDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable),
+		NewMshvDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable),
 		compute.NewLaunchSecurityDomainConfigurator(architecture),
 		compute.ChannelsDomainConfigurator{},
 		compute.ClockDomainConfigurator{},

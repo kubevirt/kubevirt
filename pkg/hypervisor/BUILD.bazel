@@ -12,6 +12,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//pkg/hypervisor/kvm:go_default_library",
+        "//pkg/hypervisor/mshv:go_default_library",
         "//pkg/virt-handler/cgroup:go_default_library",
         "//pkg/virt-handler/isolation:go_default_library",
         "//pkg/virt-launcher/virtwrap/api:go_default_library",
