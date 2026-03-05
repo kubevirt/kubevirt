@@ -1067,9 +1067,9 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 
 	switch c.HypervisorName {
 	case v1.HyperVDirectHypervisorName:
-		configurators = append(configurators, mshv.NewMshvDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))
+		configurators = append(configurators, mshv.NewMshvDomainConfigurator(c.UseEmulation))
 	default:
-		configurators = append(configurators, kvm.NewKvmDomainConfigurator(c.AllowEmulation, c.HypervisorDeviceAvailable))
+		configurators = append(configurators, kvm.NewKvmDomainConfigurator(c.UseEmulation))
 	}
 
 	builder := convertertypes.NewDomainBuilder(configurators...)

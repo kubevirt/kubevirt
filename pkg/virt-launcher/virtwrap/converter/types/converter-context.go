@@ -38,8 +38,7 @@ type EFIConfiguration struct {
 
 type ConverterContext struct {
 	Architecture                    arch.Converter
-	AllowEmulation                  bool
-	HypervisorDeviceAvailable       bool
+	UseEmulation                    bool
 	VirtualMachine                  *v1.VirtualMachineInstance
 	CPUSet                          []int
 	IsBlockPVC                      map[string]bool
