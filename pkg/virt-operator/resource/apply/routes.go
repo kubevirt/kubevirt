@@ -35,10 +35,6 @@ func (r *Reconciler) createOrUpdateRoutes(caBundle []byte) error {
 }
 
 func (r *Reconciler) syncExportProxyRoute(route *routev1.Route, caBundle []byte) error {
-	if !r.exportProxyEnabled() {
-		return r.deleteRoute(route)
-	}
-
 	return r.syncRoute(route, caBundle)
 }
 
