@@ -118,6 +118,17 @@ func validateDRAGPUs(field *k8sfield.Path, gpus []v1.GPU, checker DRAConfigCheck
 		}
 	}
 
+	// in case of GPUs having device plugin and DRA drivers on the same node will be problematic
+	// hence this validation is added to reject the creation of VMI if both DRA and non-DRA GPUs are present
+	if len(nonDRAGPUs) > 0 && len(draGPUs) > 0 {
+		causes = append(causes, metav1.StatusCause{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Message: "vmi.spec.domain.devices.gpus contains both DRA and non-DRA GPUs; each GPU must be either DRA or non-DRA",
+			Field:   gpusField.String(),
+		})
+		return causes, sets.Set[string](sets.NewString())
+	}
+
 	for _, gpu := range nonDRAGPUs {
 		if gpu.DeviceName == "" {
 			causes = append(causes, metav1.StatusCause{
@@ -145,7 +156,11 @@ func validateDRAGPUs(field *k8sfield.Path, gpus []v1.GPU, checker DRAConfigCheck
 		return causes, sets.New[string]()
 	}
 
-	var validDRAGPUs []v1.GPU
+	type indexedGPU struct {
+		index int
+		gpu   v1.GPU
+	}
+	var validDRAGPUs []indexedGPU
 	for i, gpu := range draGPUs {
 		valid := true
 		if gpu.ClaimName == nil || *gpu.ClaimName == "" {
@@ -165,65 +180,65 @@ func validateDRAGPUs(field *k8sfield.Path, gpus []v1.GPU, checker DRAConfigCheck
 			valid = false
 		}
 		if valid {
-			validDRAGPUs = append(validDRAGPUs, gpu)
+			validDRAGPUs = append(validDRAGPUs, indexedGPU{index: i, gpu: gpu})
 		}
 	}
 
 	claimRequestPairs := sets.New[string]()
-	for i, gpu := range validDRAGPUs {
-		key := *gpu.ClaimName + "/" + *gpu.RequestName
+	for _, vg := range validDRAGPUs {
+		key := *vg.gpu.ClaimName + "/" + *vg.gpu.RequestName
 		if claimRequestPairs.Has(key) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueDuplicate,
 				Message: fmt.Sprintf("duplicate claimName/requestName pair %q", key),
-				Field:   gpusField.Index(i).String(),
+				Field:   gpusField.Index(vg.index).String(),
 			})
 		}
 		claimRequestPairs.Insert(key)
 	}
 
 	claimNames := sets.New[string]()
-	for _, gpu := range validDRAGPUs {
-		claimNames.Insert(*gpu.ClaimName)
+	for _, vg := range validDRAGPUs {
+		claimNames.Insert(*vg.gpu.ClaimName)
 	}
 
 	return causes, claimNames
 }
 
 func validateDRAHostDevices(field *k8sfield.Path, hostDevices []v1.HostDevice, checker DRAConfigChecker) ([]metav1.StatusCause, sets.Set[string]) {
-	var (
-		causes    []metav1.StatusCause
-		draHDs    []v1.HostDevice
-		nonDRAHDs []v1.HostDevice
-	)
+	var causes []metav1.StatusCause
 	hdField := field.Child("domain", "devices", "hostDevices")
 
-	for _, hd := range hostDevices {
+	type indexedHD struct {
+		index int
+		hd    v1.HostDevice
+	}
+
+	var draHDs []indexedHD
+	hasDRA := false
+	for i, hd := range hostDevices {
 		if drautil.IsHostDeviceDRA(hd) {
-			draHDs = append(draHDs, hd)
+			draHDs = append(draHDs, indexedHD{index: i, hd: hd})
+			hasDRA = true
 		} else {
-			nonDRAHDs = append(nonDRAHDs, hd)
+			if hd.DeviceName == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueRequired,
+					Message: "vmi.spec.domain.devices.hostDevices contains HostDevices without deviceName or claimRequest; each HostDevice must specify either a deviceName or a claimRequest",
+					Field:   hdField.String(),
+				})
+			}
+			if hd.DeviceName != "" && hd.ClaimRequest != nil {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Message: "vmi.spec.domain.devices.hostDevices contains HostDevices with both deviceName and claimRequest",
+					Field:   hdField.String(),
+				})
+			}
 		}
 	}
 
-	for _, hd := range nonDRAHDs {
-		if hd.DeviceName == "" {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueRequired,
-				Message: "vmi.spec.domain.devices.hostDevices contains HostDevices without deviceName or claimRequest; each HostDevice must specify either a deviceName or a claimRequest",
-				Field:   hdField.String(),
-			})
-		}
-		if hd.DeviceName != "" && hd.ClaimRequest != nil {
-			causes = append(causes, metav1.StatusCause{
-				Type:    metav1.CauseTypeFieldValueInvalid,
-				Message: "vmi.spec.domain.devices.hostDevices contains HostDevices with both deviceName and claimRequest",
-				Field:   hdField.String(),
-			})
-		}
-	}
-
-	if len(draHDs) > 0 && !checker.HostDevicesWithDRAEnabled() {
+	if hasDRA && !checker.HostDevicesWithDRAEnabled() {
 		causes = append(causes, metav1.StatusCause{
 			Type:    metav1.CauseTypeFieldValueInvalid,
 			Message: "vmi.spec.domain.devices.hostDevices contains DRA enabled HostDevices but feature gate is not enabled",
@@ -232,46 +247,46 @@ func validateDRAHostDevices(field *k8sfield.Path, hostDevices []v1.HostDevice, c
 		return causes, sets.New[string]()
 	}
 
-	var validDRAHDs []v1.HostDevice
-	for i, hd := range draHDs {
+	var validDRAHDs []indexedHD
+	for _, ih := range draHDs {
 		valid := true
-		if hd.ClaimName == nil || *hd.ClaimName == "" {
+		if ih.hd.ClaimName == nil || *ih.hd.ClaimName == "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: "claimName is required for DRA HostDevice",
-				Field:   hdField.Index(i).Child("claimName").String(),
+				Field:   hdField.Index(ih.index).Child("claimName").String(),
 			})
 			valid = false
 		}
-		if hd.RequestName == nil || *hd.RequestName == "" {
+		if ih.hd.RequestName == nil || *ih.hd.RequestName == "" {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueRequired,
 				Message: "requestName is required for DRA HostDevice",
-				Field:   hdField.Index(i).Child("requestName").String(),
+				Field:   hdField.Index(ih.index).Child("requestName").String(),
 			})
 			valid = false
 		}
 		if valid {
-			validDRAHDs = append(validDRAHDs, hd)
+			validDRAHDs = append(validDRAHDs, ih)
 		}
 	}
 
 	claimRequestPairs := sets.New[string]()
-	for i, hd := range validDRAHDs {
-		key := *hd.ClaimName + "/" + *hd.RequestName
+	for _, vh := range validDRAHDs {
+		key := *vh.hd.ClaimName + "/" + *vh.hd.RequestName
 		if claimRequestPairs.Has(key) {
 			causes = append(causes, metav1.StatusCause{
 				Type:    metav1.CauseTypeFieldValueDuplicate,
 				Message: fmt.Sprintf("duplicate claimName/requestName pair %q", key),
-				Field:   hdField.Index(i).String(),
+				Field:   hdField.Index(vh.index).String(),
 			})
 		}
 		claimRequestPairs.Insert(key)
 	}
 
 	claimNames := sets.New[string]()
-	for _, hd := range validDRAHDs {
-		claimNames.Insert(*hd.ClaimName)
+	for _, vh := range validDRAHDs {
+		claimNames.Insert(*vh.hd.ClaimName)
 	}
 
 	return causes, claimNames
