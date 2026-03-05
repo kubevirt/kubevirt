@@ -101,6 +101,11 @@ const (
 	HostDeviceUSB  = "usb"
 	AddressPCI     = "pci"
 	AddressCCW     = "ccw"
+
+	ControllerTypePCI              = "pci"
+	ControllerModelPCIeRoot        = "pcie-root"
+	ControllerModelPCIeRootPort    = "pcie-root-port"
+	ControllerModelPCIeExpanderBus = "pcie-expander-bus"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -727,6 +732,7 @@ type Controller struct {
 	Alias     *Alias            `xml:"alias,omitempty"`
 	Address   *Address          `xml:"address,omitempty"`
 	PCIHole64 *PCIHole64        `xml:"pcihole64,omitempty"`
+	Target    *ControllerTarget `xml:"target,omitempty"`
 }
 
 // END Controller -----------------------------
@@ -747,6 +753,14 @@ type PCIHole64 struct {
 }
 
 // END PCIHole64
+
+// BEGIN ControllerTarget
+type ControllerTarget struct {
+	BusNr    *uint32 `xml:"busNr,attr,omitempty"`
+	NUMANode *uint32 `xml:"node,omitempty"`
+}
+
+// END ControllerTarget
 
 // BEGIN Disk -----------------------------
 
