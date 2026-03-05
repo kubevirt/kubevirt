@@ -23,6 +23,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1277,6 +1278,100 @@ var _ = Describe("Apply Apps", func() {
 			Entry("large cluster with 1000 nodes", 1000, 0, 100),
 			Entry("large cluster with 10 schedulable nodes", 10, 990, 2),
 		)
+
+		Context("virt-template TLS injection", func() {
+			const (
+				tlsCipherSuitesArg = "--tls-cipher-suites"
+				tlsMinVersionArg   = "--tls-min-version"
+			)
+
+			var reconciler *Reconciler
+
+			BeforeEach(func() {
+				reconciler = &Reconciler{
+					clientset:    clientset,
+					kv:           kv,
+					expectations: &util.Expectations{Deployment: controller.NewUIDTrackingControllerExpectations(controller.NewControllerExpectationsWithName("Deployment"))},
+					stores:       stores,
+				}
+			})
+
+			DescribeTable("should inject TLS config for virt-template deployments", func(deploymentName, containerName string, tlsConfig *v1.TLSConfiguration, expectedCiphers, expectedMinVersion string) {
+				reconciler.stores = util.Stores{DeploymentCache: &MockStore{get: nil}}
+
+				kv.Spec.Configuration.TLSConfiguration = tlsConfig
+				deployment := strategyDeployment.DeepCopy()
+				deployment.Name = deploymentName
+				deployment.Spec.Template.Spec.Containers[0].Name = containerName
+
+				createdDeployment, err := reconciler.syncDeployment(deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				containerIdx := slices.IndexFunc(createdDeployment.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
+					return c.Name == containerName
+				})
+				Expect(containerIdx).ToNot(Equal(-1))
+				args := createdDeployment.Spec.Template.Spec.Containers[containerIdx].Args
+				if expectedCiphers != "" {
+					Expect(args).To(ContainElements(tlsCipherSuitesArg, expectedCiphers))
+				} else {
+					Expect(args).NotTo(ContainElement(tlsCipherSuitesArg))
+				}
+				if expectedMinVersion != "" {
+					Expect(args).To(ContainElements(tlsMinVersionArg, expectedMinVersion))
+				}
+			},
+				Entry("virt-template-apiserver with default TLS config",
+					components.VirtTemplateApiserverDeploymentName,
+					components.VirtTemplateApiserverContainerName,
+					nil,
+					"",
+					string(v1.VersionTLS12),
+				),
+				Entry("virt-template-controller with default TLS config",
+					components.VirtTemplateControllerDeploymentName,
+					components.VirtTemplateControllerContainerName,
+					nil,
+					"",
+					string(v1.VersionTLS12),
+				),
+				Entry("virt-template-apiserver with custom TLS config",
+					components.VirtTemplateApiserverDeploymentName,
+					components.VirtTemplateApiserverContainerName,
+					&v1.TLSConfiguration{
+						MinTLSVersion: v1.VersionTLS13,
+						Ciphers:       []string{"TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384"},
+					},
+					"TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384",
+					string(v1.VersionTLS13),
+				),
+				Entry("virt-template-controller with custom TLS config",
+					components.VirtTemplateControllerDeploymentName,
+					components.VirtTemplateControllerContainerName,
+					&v1.TLSConfiguration{
+						MinTLSVersion: v1.VersionTLS13,
+						Ciphers:       []string{"TLS_AES_128_GCM_SHA256"},
+					},
+					"TLS_AES_128_GCM_SHA256",
+					string(v1.VersionTLS13),
+				),
+			)
+
+			It("should not inject TLS config for non-virt-template deployments", func() {
+				kv.Spec.Configuration.TLSConfiguration = &v1.TLSConfiguration{
+					MinTLSVersion: v1.VersionTLS13,
+					Ciphers:       []string{"TLS_AES_128_GCM_SHA256"},
+				}
+				deployment := strategyDeployment.DeepCopy()
+
+				createdDeployment, err := reconciler.syncDeployment(deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				args := createdDeployment.Spec.Template.Spec.Containers[0].Args
+				Expect(args).NotTo(ContainElement(tlsCipherSuitesArg))
+				Expect(args).NotTo(ContainElement(tlsMinVersionArg))
+			})
+		})
 	})
 })
 
