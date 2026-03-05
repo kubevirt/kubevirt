@@ -41,6 +41,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	certificate2 "k8s.io/client-go/util/certificate"
 	"k8s.io/client-go/util/flowcontrol"
@@ -109,6 +110,7 @@ type virtAPIApp struct {
 	service.ServiceListen
 	SubresourcesOnly bool
 	virtCli          kubecli.KubevirtClient
+	k8sClient        kubernetes.Interface
 	aggregatorClient *aggregatorclient.Clientset
 	authorizor       rest.VirtApiAuthorizor
 	certsDirectory   string
@@ -168,6 +170,11 @@ func (app *virtAPIApp) Execute() {
 	}
 	clientConfig.RateLimiter = app.reloadableRateLimiter
 	app.virtCli, err = kubecli.GetKubevirtClientFromRESTConfig(clientConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	app.k8sClient, err = kubecli.GetK8sClientFromRESTConfig(clientConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -232,7 +239,7 @@ func (app *virtAPIApp) composeSubresources() {
 		subws.Doc(fmt.Sprintf("KubeVirt \"%s\" Subresource API.", version.Version))
 		subws.Path(definitions.GroupVersionBasePath(version))
 
-		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
+		subresourceApp := rest.NewSubresourceAPIApp(app.virtCli, app.k8sClient, app.consoleServerPort, app.handlerTLSConfiguration, app.clusterConfig)
 
 		restartRouteBuilder := subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("restart")).
 			To(subresourceApp.RestartVMRequestHandler).

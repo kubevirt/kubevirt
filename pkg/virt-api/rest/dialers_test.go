@@ -33,6 +33,7 @@ import (
 	"go.uber.org/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
@@ -119,7 +120,7 @@ var _ = Describe("NetDialer", func() {
 
 		runningStatus := libvmistatus.WithStatus(libvmistatus.New(libvmistatus.WithPhase(v1.Running)))
 		vmi := libvmi.New(runningStatus)
-		app := NewSubresourceAPIApp(virtClient, int(port), nil, config)
+		app := NewSubresourceAPIApp(virtClient, k8sfake.NewSimpleClientset(), int(port), nil, config)
 		dialer := app.virtHandlerDialer(func(_ *v1.VirtualMachineInstance, _ kubecli.VirtHandlerConn) (string, error) {
 			return fullURL, nil
 		})
