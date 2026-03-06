@@ -278,16 +278,6 @@ var _ = Describe("VirtualMachineInstance migration target", func() {
 		Expect(err).NotTo(HaveOccurred())
 		defer socket.Close()
 
-		// since a random port is generated, we have to create the proxy
-		// here in order to know what port will be in the update.
-		err = controller.handleTargetMigrationProxy(vmi)
-		Expect(err).NotTo(HaveOccurred())
-
-		destSrcPorts := controller.migrationProxy.GetTargetListenerPorts(string(vmi.UID))
-		updatedVmi := vmi.DeepCopy()
-		updatedVmi.Status.MigrationState.TargetNodeAddress = controller.migrationIpAddress
-		updatedVmi.Status.MigrationState.TargetDirectMigrationNodePorts = destSrcPorts
-
 		client.EXPECT().SyncMigrationTarget(vmi, gomock.Any())
 		createVMI(vmi)
 		sanityExecute()
