@@ -88,8 +88,14 @@ func (k *KvmVirtRuntime) AdjustResources(vmi *v1.VirtualMachineInstance, config 
 
 	targetProcessID := targetProcess.Pid()
 
-	// make the best estimate for memory required by libvirt
-	memlockSize := k.GetMemoryOverhead(vmi, runtime.GOARCH, config.AdditionalGuestMemoryOverheadRatio)
+	var memlockSize resource.Quantity
+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.TargetMemoryOverhead != nil {
+		memlockSize = *vmi.Status.MigrationState.TargetMemoryOverhead
+	} else {
+		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
+		// and we are sure that all VMIs include the MemoryOverhead status field
+		memlockSize = k.GetMemoryOverhead(vmi, runtime.GOARCH, config.AdditionalGuestMemoryOverheadRatio)
+	}
 	// Add memory assigned to the VM
 	vmiBaseMemory := getVMIBaseMemory(vmi)
 
