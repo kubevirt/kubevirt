@@ -46,6 +46,7 @@ import (
 	"kubevirt.io/client-go/precond"
 
 	drautil "kubevirt.io/kubevirt/pkg/dra"
+	"kubevirt.io/kubevirt/pkg/handlermatcher"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/pointer"
 
@@ -217,6 +218,68 @@ func modifyNodeAffintyToRejectLabel(origAffinity *k8sv1.Affinity, labelToReject 
 	return affinity
 }
 
+// overrideLauncherImage replaces all container images in the pod that match
+// the default launcher image with the pool-specific launcher image.
+func overrideLauncherImage(pod *k8sv1.Pod, poolImage, defaultImage string) {
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Image == defaultImage {
+			pod.Spec.Containers[i].Image = poolImage
+		}
+	}
+	for i := range pod.Spec.InitContainers {
+		if pod.Spec.InitContainers[i].Image == defaultImage {
+			pod.Spec.InitContainers[i].Image = poolImage
+		}
+	}
+}
+
+// mergePoolNodeSelector adds the pool's nodeSelector as required node affinity
+// expressions to the pod, ensuring the VMI lands on a node served by the
+// matched pool's virt-handler. The expressions are AND'd with each existing
+// NodeSelectorTerm so that pool node requirements don't weaken existing
+// constraints (e.g., CPU model, hyperv features).
+func mergePoolNodeSelector(pod *k8sv1.Pod, nodeSelector map[string]string) {
+	if len(nodeSelector) == 0 {
+		return
+	}
+
+	var expressions []k8sv1.NodeSelectorRequirement
+	for key, value := range nodeSelector {
+		expressions = append(expressions, k8sv1.NodeSelectorRequirement{
+			Key:      key,
+			Operator: k8sv1.NodeSelectorOpIn,
+			Values:   []string{value},
+		})
+	}
+
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &k8sv1.Affinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		pod.Spec.Affinity.NodeAffinity = &k8sv1.NodeAffinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &k8sv1.NodeSelector{}
+	}
+
+	required := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+	if len(required.NodeSelectorTerms) == 0 {
+		// No existing terms — create one with just the pool expressions.
+		required.NodeSelectorTerms = []k8sv1.NodeSelectorTerm{
+			{MatchExpressions: expressions},
+		}
+	} else {
+		// AND the pool expressions into each existing term so that
+		// existing constraints (CPU model, hyperv, etc.) are preserved.
+		for i := range required.NodeSelectorTerms {
+			required.NodeSelectorTerms[i].MatchExpressions = append(
+				required.NodeSelectorTerms[i].MatchExpressions,
+				expressions...,
+			)
+		}
+	}
+}
+
 func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, error) {
 	logger := log.DefaultLogger()
 	if sysprepVolume.Secret != nil {
@@ -241,6 +304,21 @@ func sysprepVolumeSource(sysprepVolume v1.SysprepSource) (k8sv1.VolumeSource, er
 
 func (t *TemplateService) GetLauncherImage() string {
 	return t.launcherImage
+}
+
+// getEffectiveLauncherImage returns the launcher image and matched pool for the
+// given VMI. If a handler pool matches, the pool's launcher image is used;
+// otherwise the default launcher image is returned and pool is nil.
+func (t *TemplateService) getEffectiveLauncherImage(vmi *v1.VirtualMachineInstance) (string, *v1.VirtHandlerPoolConfig) {
+	kv := t.clusterConfig.GetConfigFromKubeVirtCR()
+	if kv == nil || len(kv.Spec.VirtHandlerPools) == 0 {
+		return t.launcherImage, nil
+	}
+	pool := handlermatcher.MatchVMIToHandlerPool(kv.Spec.VirtHandlerPools, vmi)
+	if pool != nil && pool.VirtLauncherImage != "" {
+		return pool.VirtLauncherImage, pool
+	}
+	return t.launcherImage, pool
 }
 
 func (t *TemplateService) RenderLaunchManifestNoVm(vmi *v1.VirtualMachineInstance) (*k8sv1.Pod, error) {
@@ -331,6 +409,9 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	precond.MustNotBeNil(vmi)
 	domain := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetName())
 	namespace := precond.MustNotBeEmpty(vmi.GetObjectMeta().GetNamespace())
+
+	// Determine pool-aware launcher image
+	launcherImage, matchedPool := t.getEffectiveLauncherImage(vmi)
 
 	var userId int64 = util.RootUser
 
@@ -699,6 +780,15 @@ func (t *TemplateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
 	}
 
 	pod.Spec.Volumes = append(pod.Spec.Volumes, sidecarVolumes...)
+
+	// Apply handler pool overrides if a pool matched
+	if matchedPool != nil {
+		if launcherImage != t.launcherImage {
+			overrideLauncherImage(&pod, launcherImage, t.launcherImage)
+		}
+		mergePoolNodeSelector(&pod, matchedPool.NodeSelector)
+		pod.Annotations[v1.HandlerPoolLabel] = matchedPool.Name
+	}
 
 	return &pod, nil
 }
