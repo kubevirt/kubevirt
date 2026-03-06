@@ -17,12 +17,15 @@
  *
  */
 
-package isolation
+package common
 
 import (
+	"fmt"
 	"strings"
+	"unsafe"
 
 	"github.com/mitchellh/go-ps"
+	"golang.org/x/sys/unix"
 )
 
 // childProcesses given a list of processes, it returns the ones that are children
@@ -48,6 +51,27 @@ func lookupProcessByExecutablePrefix(processes []ps.Process, execPrefix string) 
 		if strings.HasPrefix(process.Executable(), execPrefix) {
 			return process
 		}
+	}
+
+	return nil
+}
+
+// SetProcessMemoryLockRLimit Adjusts process MEMLOCK
+// soft-limit (current) and hard-limit (max) to the given size.
+func SetProcessMemoryLockRLimit(pid int, size int64) error {
+	// standard golang libraries don't provide API to set runtime limits
+	// for other processes, so we have to directly call to kernel
+	rlimit := unix.Rlimit{
+		Cur: uint64(size),
+		Max: uint64(size),
+	}
+	_, _, errno := unix.RawSyscall6(unix.SYS_PRLIMIT64,
+		uintptr(pid),
+		uintptr(unix.RLIMIT_MEMLOCK),
+		uintptr(unsafe.Pointer(&rlimit)), // #nosec used in unix RawSyscall6
+		0, 0, 0)
+	if errno != 0 {
+		return fmt.Errorf("error setting prlimit: %v", errno)
 	}
 
 	return nil

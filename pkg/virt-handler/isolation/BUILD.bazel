@@ -7,12 +7,10 @@ go_library(
         "generated_mock_detector.go",
         "generated_mock_isolation.go",
         "isolation.go",
-        "process.go",
     ],
     importpath = "kubevirt.io/kubevirt/pkg/virt-handler/isolation",
     visibility = ["//visibility:public"],
     deps = [
-        "//pkg/hypervisor:go_default_library",
         "//pkg/safepath:go_default_library",
         "//pkg/unsafepath:go_default_library",
         "//pkg/util:go_default_library",
@@ -22,8 +20,6 @@ go_library(
         "//vendor/github.com/mitchellh/go-ps:go_default_library",
         "//vendor/github.com/moby/sys/mountinfo:go_default_library",
         "//vendor/go.uber.org/mock/gomock:go_default_library",
-        "//vendor/golang.org/x/sys/unix:go_default_library",
-        "//vendor/k8s.io/apimachinery/pkg/api/resource:go_default_library",
     ],
 )
 
@@ -33,7 +29,6 @@ go_test(
         "detector_test.go",
         "isolation_suite_test.go",
         "isolation_test.go",
-        "process_test.go",
     ],
     data = glob(["testdata/**"]),
     embed = [":go_default_library"],
@@ -46,7 +41,6 @@ go_test(
         "//staging/src/kubevirt.io/api/core/v1:go_default_library",
         "//staging/src/kubevirt.io/client-go/api:go_default_library",
         "//staging/src/kubevirt.io/client-go/testutils:go_default_library",
-        "//vendor/github.com/mitchellh/go-ps:go_default_library",
         "//vendor/github.com/moby/sys/mountinfo:go_default_library",
         "//vendor/github.com/onsi/ginkgo/v2:go_default_library",
         "//vendor/github.com/onsi/gomega:go_default_library",

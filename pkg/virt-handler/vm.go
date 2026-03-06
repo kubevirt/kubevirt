@@ -29,13 +29,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/mitchellh/go-ps"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
-	"golang.org/x/sys/unix"
 	"libvirt.org/go/libvirtxml"
 
 	k8sv1 "k8s.io/api/core/v1"
@@ -59,6 +56,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/executor"
 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
 	hotplugdisk "kubevirt.io/kubevirt/pkg/hotplug-disk"
+	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/network/domainspec"
 	neterrors "kubevirt.io/kubevirt/pkg/network/errors"
 	netsetup "kubevirt.io/kubevirt/pkg/network/setup"
@@ -67,7 +65,6 @@ import (
 	"kubevirt.io/kubevirt/pkg/storage/reservation"
 	storagetypes "kubevirt.io/kubevirt/pkg/storage/types"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/util/hardware"
 	"kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
 	"kubevirt.io/kubevirt/pkg/virt-controller/watch/topology"
@@ -117,8 +114,8 @@ type VirtualMachineController struct {
 	cbtHandler               *CBTHandler
 }
 
-var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string) (cgroup.Manager, error) {
-	return cgroup.NewManagerFromVM(vmi, host)
+var getCgroupManager = func(vmi *v1.VirtualMachineInstance, host string, hypervisorNodeInfo hypervisor.HypervisorNodeInformation) (cgroup.Manager, error) {
+	return cgroup.NewManagerFromVM(vmi, host, hypervisorNodeInfo.GetHypervisorDevice())
 }
 
 func NewVirtualMachineController(
@@ -150,6 +147,8 @@ func NewVirtualMachineController(
 	)
 	logger := log.Log.With("controller", "vm")
 
+	hypervisorName := clusterConfig.GetHypervisor().Name
+
 	baseCtrl, err := NewBaseController(
 		logger,
 		host,
@@ -164,6 +163,8 @@ func NewVirtualMachineController(
 		migrationProxy,
 		"/proc/%d/root/var/run",
 		netStat,
+		hypervisor.NewHypervisorNodeInformation(hypervisorName),
+		hypervisor.GetVirtRuntime(podIsolationDetector, hypervisorName),
 	)
 	if err != nil {
 		return nil, err
@@ -231,7 +232,7 @@ func NewVirtualMachineController(
 		c.host,
 		maxDevices,
 		permissions,
-		deviceManager.PermanentHostDevicePlugins(maxDevices, permissions),
+		deviceManager.PermanentHostDevicePlugins(c.hypervisorNodeInfo.GetHypervisorDevice(), maxDevices, permissions),
 		clusterConfig,
 		nodeStore)
 	c.heartBeat = heartbeat.NewHeartBeat(clientset.CoreV1(), c.deviceManagerController, clusterConfig, host)
@@ -1527,7 +1528,7 @@ func (c *VirtualMachineController) processVmCleanup(vmi *v1.VirtualMachineInstan
 
 	// UnmountAll does the cleanup on the "best effort" basis: it is
 	// safe to pass a nil cgroupManager.
-	cgroupManager, _ := getCgroupManager(vmi, c.host)
+	cgroupManager, _ := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo)
 	if err := c.hotplugVolumeMounter.UnmountAll(vmi, cgroupManager); err != nil {
 		return err
 	}
@@ -1824,122 +1825,7 @@ func isVMIPausedDuringMigration(vmi *v1.VirtualMachineInstance) bool {
 		!vmi.Status.MigrationState.Completed
 }
 
-func (c *VirtualMachineController) affinePitThread(vmi *v1.VirtualMachineInstance) error {
-	res, err := c.podIsolationDetector.Detect(vmi)
-	if err != nil {
-		return err
-	}
-	var Mask unix.CPUSet
-	Mask.Zero()
-	qemuprocess, err := res.GetQEMUProcess()
-	if err != nil {
-		return err
-	}
-	qemupid := qemuprocess.Pid()
-	if qemupid == -1 {
-		return nil
-	}
-
-	pitpid, err := res.KvmPitPid()
-	if err != nil {
-		return err
-	}
-	if pitpid == -1 {
-		return nil
-	}
-	if vmi.IsRealtimeEnabled() {
-		param := schedParam{priority: 2}
-		err = schedSetScheduler(pitpid, schedFIFO, param)
-		if err != nil {
-			return fmt.Errorf("failed to set FIFO scheduling and priority 2 for thread %d: %w", pitpid, err)
-		}
-	}
-	vcpus, err := getVCPUThreadIDs(qemupid)
-	if err != nil {
-		return err
-	}
-	vpid, ok := vcpus["0"]
-	if ok == false {
-		return nil
-	}
-	vcpupid, err := strconv.Atoi(vpid)
-	if err != nil {
-		return err
-	}
-	err = unix.SchedGetaffinity(vcpupid, &Mask)
-	if err != nil {
-		return err
-	}
-	return unix.SchedSetaffinity(pitpid, &Mask)
-}
-
-func (c *VirtualMachineController) configureHousekeepingCgroup(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager) error {
-	if err := cgroupManager.CreateChildCgroup("housekeeping", "cpuset"); err != nil {
-		c.logger.Reason(err).Error("CreateChildCgroup ")
-		return err
-	}
-
-	key := controller.VirtualMachineInstanceKey(vmi)
-	domain, domainExists, _, err := c.getDomainFromCache(key)
-	if err != nil {
-		return err
-	}
-	// bail out if domain does not exist
-	if domainExists == false {
-		return nil
-	}
-
-	if domain.Spec.CPUTune == nil || domain.Spec.CPUTune.EmulatorPin == nil {
-		return nil
-	}
-
-	hkcpus, err := hardware.ParseCPUSetLine(domain.Spec.CPUTune.EmulatorPin.CPUSet, 100)
-	if err != nil {
-		return err
-	}
-
-	c.logger.V(3).Object(vmi).Infof("housekeeping cpu: %v", hkcpus)
-
-	err = cgroupManager.SetCpuSet("housekeeping", hkcpus)
-	if err != nil {
-		return err
-	}
-
-	tids, err := cgroupManager.GetCgroupThreads()
-	if err != nil {
-		return err
-	}
-	hktids := make([]int, 0, 10)
-
-	for _, tid := range tids {
-		proc, err := ps.FindProcess(tid)
-		if err != nil {
-			c.logger.Object(vmi).Errorf("Failure to find process: %s", err.Error())
-			return err
-		}
-		if proc == nil {
-			return fmt.Errorf("failed to find process with tid: %d", tid)
-		}
-		comm := proc.Executable()
-		if strings.Contains(comm, "CPU ") && strings.Contains(comm, "KVM") {
-			continue
-		}
-		hktids = append(hktids, tid)
-	}
-
-	c.logger.V(3).Object(vmi).Infof("hk thread ids: %v", hktids)
-	for _, tid := range hktids {
-		err = cgroupManager.AttachTID("cpuset", "housekeeping", tid)
-		if err != nil {
-			c.logger.Object(vmi).Errorf("Error attaching tid %d: %v", tid, err.Error())
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineInstance, domainExists bool) error {
+func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineInstance, domain *api.Domain) error {
 	client, err := c.launcherClients.GetLauncherClient(vmi)
 	if err != nil {
 		return fmt.Errorf(unableCreateVirtLauncherConnectionFmt, err)
@@ -1952,7 +1838,7 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 		return err
 	}
 
-	cgroupManager, err := getCgroupManager(vmi, c.host)
+	cgroupManager, err := getCgroupManager(vmi, c.host, c.hypervisorNodeInfo)
 	if err != nil {
 		return err
 	}
@@ -1973,10 +1859,21 @@ func (c *VirtualMachineController) vmUpdateHelperDefault(vmi *v1.VirtualMachineI
 		return err
 	}
 
+	if domain == nil {
+		c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), VMIDefined)
+	}
+
 	// Post-sync housekeeping
-	err = c.handleHousekeeping(vmi, cgroupManager, domainExists)
+	err = c.hypervisorRuntime.HandleHousekeeping(vmi, cgroupManager, domain)
 	if err != nil {
 		return err
+	}
+
+	if vmi.IsRunning() {
+		// Umount any disks no longer mounted
+		if err := c.hotplugVolumeMounter.Unmount(vmi, cgroupManager); err != nil {
+			return err
+		}
 	}
 
 	return errors.NewAggregate(errorTolerantFeaturesError)
@@ -2087,7 +1984,8 @@ func (c *VirtualMachineController) handleStartingVMI(
 }
 
 func (c *VirtualMachineController) adjustResources(vmi *v1.VirtualMachineInstance) error {
-	err := c.podIsolationDetector.AdjustResources(vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio)
+	err := c.hypervisorRuntime.AdjustResources(vmi, c.clusterConfig.GetConfig())
+
 	if err != nil {
 		return fmt.Errorf("failed to adjust resources: %v", err)
 	}
@@ -2118,40 +2016,6 @@ func (c *VirtualMachineController) syncVirtualMachine(client cmdclient.LauncherC
 	}
 
 	return err
-}
-
-func (c *VirtualMachineController) handleHousekeeping(vmi *v1.VirtualMachineInstance, cgroupManager cgroup.Manager, domainExists bool) error {
-	if vmi.IsCPUDedicated() && vmi.Spec.Domain.CPU.IsolateEmulatorThread {
-		err := c.configureHousekeepingCgroup(vmi, cgroupManager)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Configure vcpu scheduler for realtime workloads and affine PIT thread for dedicated CPU
-	if vmi.IsRealtimeEnabled() && !vmi.IsRunning() && !vmi.IsFinal() {
-		c.logger.Object(vmi).Info("Configuring vcpus for real time workloads")
-		if err := c.configureVCPUScheduler(vmi); err != nil {
-			return err
-		}
-	}
-	if vmi.IsCPUDedicated() && !vmi.IsRunning() && !vmi.IsFinal() {
-		c.logger.V(3).Object(vmi).Info("Affining PIT thread")
-		if err := c.affinePitThread(vmi); err != nil {
-			return err
-		}
-	}
-	if !domainExists {
-		c.recorder.Event(vmi, k8sv1.EventTypeNormal, v1.Created.String(), VMIDefined)
-	}
-
-	if vmi.IsRunning() {
-		// Umount any disks no longer mounted
-		if err := c.hotplugVolumeMounter.Unmount(vmi, cgroupManager); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (c *VirtualMachineController) getPreallocatedVolumes(vmi *v1.VirtualMachineInstance) []string {
@@ -2198,7 +2062,7 @@ func (c *VirtualMachineController) hotplugSriovInterfacesCommand(vmi *v1.Virtual
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
 
-	if err := isolation.AdjustQemuProcessMemoryLimits(c.podIsolationDetector, vmi, c.clusterConfig.GetConfig().AdditionalGuestMemoryOverheadRatio); err != nil {
+	if err := c.hypervisorRuntime.AdjustResources(vmi, c.clusterConfig.GetConfig()); err != nil {
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, err.Error(), err.Error())
 		return fmt.Errorf("%s: %v", errMsgPrefix, err)
 	}
@@ -2271,7 +2135,7 @@ func (c *VirtualMachineController) processVmUpdate(vmi *v1.VirtualMachineInstanc
 		return err
 	}
 
-	return c.vmUpdateHelperDefault(vmi, domain != nil)
+	return c.vmUpdateHelperDefault(vmi, domain)
 }
 
 func (c *VirtualMachineController) setVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) error {
