@@ -80,7 +80,7 @@ var _ = Describe(SIG("VMIDefaults", func() {
 
 		BeforeEach(func() {
 			// create VMI with missing disk target
-			vmi = libvmi.New(
+			vmi = libvmifact.NewGuestless(
 				libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
 				libvmi.WithNetwork(v1.DefaultPodNetwork()),
 				libvmi.WithMemoryRequest("128Mi"),
