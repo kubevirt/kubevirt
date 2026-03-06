@@ -118,6 +118,8 @@ func (admitter *KubeVirtUpdateAdmitter) Admit(ctx context.Context, ar *admission
 		results = append(results, validateFeatureGates(newKV.Spec.Configuration.DeveloperConfiguration)...)
 	}
 
+	results = append(results, validateVirtHandlerPools(&newKV.Spec)...)
+
 	response := validating_webhooks.NewAdmissionResponse(results)
 
 	if featureGatesChanged(&currKV.Spec, &newKV.Spec) {
@@ -562,4 +564,86 @@ func validateRoleAggregationStrategy(config *v1.KubeVirtConfiguration) []metav1.
 		Field:   "spec.configuration.roleAggregationStrategy",
 		Message: fmt.Sprintf("RoleAggregationStrategy cannot be set to Manual without enabling the %s feature gate", featuregate.OptOutRoleAggregation),
 	}}
+}
+
+func validateVirtHandlerPools(spec *v1.KubeVirtSpec) []metav1.StatusCause {
+	pools := spec.VirtHandlerPools
+	if len(pools) == 0 {
+		return nil
+	}
+
+	if !hasFeatureGateEnabled(&spec.Configuration, featuregate.VirtHandlerPools) {
+		return []metav1.StatusCause{{
+			Type:    metav1.CauseTypeFieldValueInvalid,
+			Field:   "spec.virtHandlerPools",
+			Message: fmt.Sprintf("virtHandlerPools cannot be set without enabling the %s feature gate", featuregate.VirtHandlerPools),
+		}}
+	}
+
+	var causes []metav1.StatusCause
+	poolsPath := field.NewPath("spec", "virtHandlerPools")
+	seenNames := make(map[string]bool)
+
+	for i, pool := range pools {
+		poolPath := poolsPath.Index(i)
+
+		// Unique name
+		if seenNames[pool.Name] {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueDuplicate,
+				Field:   poolPath.Child("name").String(),
+				Message: fmt.Sprintf("pool name %q is duplicated", pool.Name),
+			})
+		}
+		seenNames[pool.Name] = true
+
+		// At least one image override
+		if pool.VirtHandlerImage == "" && pool.VirtLauncherImage == "" {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Field:   poolPath.String(),
+				Message: "pool must specify at least one of virtHandlerImage or virtLauncherImage",
+			})
+		}
+
+		// nodeSelector must have at least one entry
+		if len(pool.NodeSelector) == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Field:   poolPath.Child("nodeSelector").String(),
+				Message: "nodeSelector must have at least one entry",
+			})
+		}
+
+		// Selector must have at least one of deviceNames or vmLabels
+		if len(pool.Selector.DeviceNames) == 0 && pool.Selector.VMLabels == nil {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Field:   poolPath.Child("selector").String(),
+				Message: "selector must define at least one of deviceNames or vmLabels",
+			})
+		}
+
+		// deviceNames entries must be non-empty
+		for j, dn := range pool.Selector.DeviceNames {
+			if dn == "" {
+				causes = append(causes, metav1.StatusCause{
+					Type:    metav1.CauseTypeFieldValueInvalid,
+					Field:   poolPath.Child("selector", "deviceNames").Index(j).String(),
+					Message: "deviceNames entry must not be empty",
+				})
+			}
+		}
+
+		// vmLabels.matchLabels must have at least one entry when vmLabels is set
+		if pool.Selector.VMLabels != nil && len(pool.Selector.VMLabels.MatchLabels) == 0 {
+			causes = append(causes, metav1.StatusCause{
+				Type:    metav1.CauseTypeFieldValueRequired,
+				Field:   poolPath.Child("selector", "vmLabels", "matchLabels").String(),
+				Message: "matchLabels must have at least one entry when vmLabels is set",
+			})
+		}
+	}
+
+	return causes
 }

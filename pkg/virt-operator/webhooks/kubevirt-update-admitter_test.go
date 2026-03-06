@@ -427,6 +427,123 @@ var _ = Describe("Validating KubeVirtUpdate Admitter", func() {
 		)
 	})
 
+	Context("VirtHandlerPools validation", func() {
+		validPool := func() v1.VirtHandlerPoolConfig {
+			return v1.VirtHandlerPoolConfig{
+				Name:              "gpu-pool",
+				VirtLauncherImage: "registry.example.com/virt-launcher:gpu",
+				NodeSelector:      map[string]string{"nvidia.com/gpu.product": "Tesla-T4"},
+				Selector: v1.VirtHandlerPoolSelector{
+					DeviceNames: []string{"nvidia.com/TU104GL_Tesla_T4"},
+				},
+			}
+		}
+
+		specWithPools := func(pools ...v1.VirtHandlerPoolConfig) v1.KubeVirtSpec {
+			return v1.KubeVirtSpec{
+				Configuration: v1.KubeVirtConfiguration{
+					DeveloperConfiguration: &v1.DeveloperConfiguration{
+						FeatureGates: []string{featuregate.VirtHandlerPools},
+					},
+				},
+				VirtHandlerPools: pools,
+			}
+		}
+
+		DescribeTable("validateVirtHandlerPools", func(spec v1.KubeVirtSpec, expectedCauses int, expectedFields ...string) {
+			causes := validateVirtHandlerPools(&spec)
+			Expect(causes).To(HaveLen(expectedCauses), "causes: %v", causes)
+			for _, f := range expectedFields {
+				Expect(causes).To(ContainElement(HaveField("Field", f)))
+			}
+		},
+			Entry("should accept a valid pool",
+				specWithPools(validPool()),
+				0,
+			),
+			Entry("should reject pools without feature gate",
+				v1.KubeVirtSpec{
+					VirtHandlerPools: []v1.VirtHandlerPoolConfig{validPool()},
+				},
+				1, "spec.virtHandlerPools",
+			),
+			Entry("should accept empty pools without feature gate",
+				v1.KubeVirtSpec{},
+				0,
+			),
+			Entry("should reject duplicate pool names",
+				specWithPools(validPool(), validPool()),
+				1, "spec.virtHandlerPools[1].name",
+			),
+			Entry("should reject pool without any image override",
+				func() v1.KubeVirtSpec {
+					p := validPool()
+					p.VirtHandlerImage = ""
+					p.VirtLauncherImage = ""
+					return specWithPools(p)
+				}(),
+				1, "spec.virtHandlerPools[0]",
+			),
+			Entry("should accept pool with only virtHandlerImage",
+				func() v1.KubeVirtSpec {
+					p := validPool()
+					p.VirtHandlerImage = "registry.example.com/virt-handler:gpu"
+					p.VirtLauncherImage = ""
+					return specWithPools(p)
+				}(),
+				0,
+			),
+			Entry("should reject pool with empty nodeSelector",
+				func() v1.KubeVirtSpec {
+					p := validPool()
+					p.NodeSelector = map[string]string{}
+					return specWithPools(p)
+				}(),
+				1, "spec.virtHandlerPools[0].nodeSelector",
+			),
+			Entry("should reject pool with empty selector",
+				func() v1.KubeVirtSpec {
+					p := validPool()
+					p.Selector = v1.VirtHandlerPoolSelector{}
+					return specWithPools(p)
+				}(),
+				1, "spec.virtHandlerPools[0].selector",
+			),
+			Entry("should reject empty deviceNames entry",
+				func() v1.KubeVirtSpec {
+					p := validPool()
+					p.Selector.DeviceNames = []string{"nvidia.com/TU104GL_Tesla_T4", ""}
+					return specWithPools(p)
+				}(),
+				1, "spec.virtHandlerPools[0].selector.deviceNames[1]",
+			),
+			Entry("should reject vmLabels with empty matchLabels",
+				func() v1.KubeVirtSpec {
+					p := validPool()
+					p.Selector = v1.VirtHandlerPoolSelector{
+						VMLabels: &v1.VirtHandlerPoolVMLabels{
+							MatchLabels: map[string]string{},
+						},
+					}
+					return specWithPools(p)
+				}(),
+				1, "spec.virtHandlerPools[0].selector.vmLabels.matchLabels",
+			),
+			Entry("should accept pool with vmLabels selector",
+				func() v1.KubeVirtSpec {
+					p := validPool()
+					p.Selector = v1.VirtHandlerPoolSelector{
+						VMLabels: &v1.VirtHandlerPoolVMLabels{
+							MatchLabels: map[string]string{"workload-class": "secure"},
+						},
+					}
+					return specWithPools(p)
+				}(),
+				0,
+			),
+		)
+	})
+
 	Context("Feature Gate Validation", func() {
 		var admitter *KubeVirtUpdateAdmitter
 

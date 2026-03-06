@@ -229,6 +229,14 @@ const (
 	// Owner: SIG network
 	// Beta: v1.8
 	LiveUpdateNADRef = "LiveUpdateNADRef"
+
+	// Owner: sig-compute
+	// Alpha: v1.8.0
+	//
+	// VirtHandlerPools enables deploying additional virt-handler DaemonSets
+	// targeting specific node pools with custom virt-handler and virt-launcher images.
+	// VMIs are automatically matched to pools via device name and label selectors.
+	VirtHandlerPools = "VirtHandlerPools"
 )
 
 func init() {
@@ -275,4 +283,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: ReservedOverheadMemlock, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: OptOutRoleAggregation, State: Alpha})
 	RegisterFeatureGate(FeatureGate{Name: LiveUpdateNADRef, State: Beta})
+	RegisterFeatureGate(FeatureGate{Name: VirtHandlerPools, State: Alpha})
 }
