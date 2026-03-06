@@ -734,6 +734,98 @@ var _ = Describe("Workload Updater", func() {
 		)
 	})
 
+	Context("handler pool aware outdated detection", func() {
+		var gpuPool v1.VirtHandlerPoolConfig
+
+		BeforeEach(func() {
+			gpuPool = v1.VirtHandlerPoolConfig{
+				Name:              "gpu-pool",
+				VirtLauncherImage: "gpu-launcher:v1",
+				NodeSelector:      map[string]string{"nvidia.com/gpu.product": "Tesla-T4"},
+				Selector: v1.VirtHandlerPoolSelector{
+					DeviceNames: []string{"nvidia.com/TU104GL_Tesla_T4"},
+				},
+			}
+
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+				},
+				Spec: v1.KubeVirtSpec{
+					VirtHandlerPools: []v1.VirtHandlerPoolConfig{gpuPool},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+				},
+			}
+			config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+			controller.clusterConfig = config
+		})
+
+		It("should not consider VMI outdated when running pool launcher image", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "gpu-launcher:v1")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{Name: "gpu1", DeviceName: "nvidia.com/TU104GL_Tesla_T4"},
+			}
+
+			Expect(controller.isOutdated(vmi)).To(BeFalse())
+		})
+
+		It("should consider VMI outdated when running wrong image for pool", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "old-gpu-launcher:v0")
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{Name: "gpu1", DeviceName: "nvidia.com/TU104GL_Tesla_T4"},
+			}
+
+			Expect(controller.isOutdated(vmi)).To(BeTrue())
+		})
+
+		It("should use default image for VMI not matching any pool", func() {
+			vmi := newVirtualMachineInstance("testvm", true, expectedImage)
+
+			Expect(controller.isOutdated(vmi)).To(BeFalse())
+		})
+
+		It("should consider non-pool VMI outdated when running pool image", func() {
+			vmi := newVirtualMachineInstance("testvm", true, "gpu-launcher:v1")
+
+			Expect(controller.isOutdated(vmi)).To(BeTrue())
+		})
+
+		It("should use default image when pool has no launcher override", func() {
+			kv := &v1.KubeVirt{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "default",
+				},
+				Spec: v1.KubeVirtSpec{
+					VirtHandlerPools: []v1.VirtHandlerPoolConfig{
+						{
+							Name:         "handler-only-pool",
+							NodeSelector: map[string]string{"k": "v"},
+							Selector: v1.VirtHandlerPoolSelector{
+								DeviceNames: []string{"nvidia.com/TU104GL_Tesla_T4"},
+							},
+						},
+					},
+				},
+				Status: v1.KubeVirtStatus{
+					Phase: v1.KubeVirtPhaseDeployed,
+				},
+			}
+			config, _, _ := testutils.NewFakeClusterConfigUsingKV(kv)
+			controller.clusterConfig = config
+
+			vmi := newVirtualMachineInstance("testvm", true, expectedImage)
+			vmi.Spec.Domain.Devices.GPUs = []v1.GPU{
+				{Name: "gpu1", DeviceName: "nvidia.com/TU104GL_Tesla_T4"},
+			}
+
+			Expect(controller.isOutdated(vmi)).To(BeFalse())
+		})
+	})
+
 	AfterEach(func() {
 		Expect(recorder.Events).To(BeEmpty())
 	})

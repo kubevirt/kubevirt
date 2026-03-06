@@ -28,6 +28,7 @@ import (
 
 	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 	"kubevirt.io/kubevirt/pkg/controller"
+	"kubevirt.io/kubevirt/pkg/handlermatcher"
 	metrics "kubevirt.io/kubevirt/pkg/monitoring/metrics/virt-controller"
 	migrationutils "kubevirt.io/kubevirt/pkg/util/migrations"
 	virtconfig "kubevirt.io/kubevirt/pkg/virt-config"
@@ -310,11 +311,21 @@ func (c *WorkloadUpdateController) isOutdated(vmi *virtv1.VirtualMachineInstance
 	// either the VMI is either running or done migrating.
 	if vmi.Status.LauncherContainerImageVersion == "" {
 		return false
-	} else if vmi.Status.LauncherContainerImageVersion != c.launcherImage {
-		return true
 	}
 
-	return false
+	expectedImage := c.getExpectedLauncherImage(vmi)
+	return vmi.Status.LauncherContainerImageVersion != expectedImage
+}
+
+// getExpectedLauncherImage returns the launcher image that the VMI should be
+// running. If handler pools are configured and a pool matches the VMI, the
+// pool's launcher image is returned; otherwise the default is used.
+func (c *WorkloadUpdateController) getExpectedLauncherImage(vmi *virtv1.VirtualMachineInstance) string {
+	kv := c.clusterConfig.GetConfigFromKubeVirtCR()
+	if kv != nil && len(kv.Spec.VirtHandlerPools) > 0 {
+		return handlermatcher.GetLauncherImageForVMI(kv.Spec.VirtHandlerPools, vmi, c.launcherImage)
+	}
+	return c.launcherImage
 }
 
 func isHotplugInProgress(vmi *virtv1.VirtualMachineInstance) bool {
