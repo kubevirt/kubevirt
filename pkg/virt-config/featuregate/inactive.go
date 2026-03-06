@@ -128,6 +128,13 @@ const (
 	//
 	// ExpandDisksGate allows for expanding the storage available for in-use virtual machines.
 	ExpandDisksGate = "ExpandDisks"
+
+	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
+	// user can tell Kubevirt to use it
+	// Alpha: v0.59.0
+	// Beta: v1.8.0
+	// GA: v1.9.0
+	KubevirtSeccompProfile = "KubevirtSeccompProfile"
 )
 
 func init() {
@@ -164,4 +171,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VirtIOFSConfigVolumesGate, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: DisableMediatedDevicesHandling, State: Deprecated, Message: "DisableMDEVConfiguration has been deprecated since v1.8.0"})
 	RegisterFeatureGate(FeatureGate{Name: ExpandDisksGate, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: GA})
 }
