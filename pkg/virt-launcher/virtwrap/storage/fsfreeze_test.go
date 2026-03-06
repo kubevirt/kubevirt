@@ -77,6 +77,29 @@ var _ = Describe("FSFreeze", func() {
 		ctrl.Finish()
 	})
 
+	It("IsFreezeInProgress is true while FSFreeze is in progress", func() {
+		vmi := newVMI(testNamespace, testVmName)
+		blockCh := make(chan struct{})
+		mockConn.EXPECT().QemuAgentCommand(`{"execute":"`+string(agentpoller.GetFSFreezeStatus)+`"}`, testDomainName).Return(expectedThawedOutput, nil)
+		mockConn.EXPECT().LookupDomainByName(testDomainName).Return(mockDomain, nil).Times(1)
+		mockDomain.EXPECT().Free().Times(1)
+		mockDomain.EXPECT().FSFreeze(nil, uint32(0)).DoAndReturn(func(_ []string, _ uint32) error {
+			<-blockCh
+			return nil
+		})
+
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			_ = manager.FreezeVMI(vmi, 0)
+		}()
+
+		Eventually(manager.IsFreezeInProgress, 2*time.Second, 10*time.Millisecond).Should(BeTrue())
+		close(blockCh)
+		<-done
+		Expect(manager.IsFreezeInProgress()).To(BeFalse())
+	})
+
 	It("should freeze a VirtualMachineInstance", func() {
 		vmi := newVMI(testNamespace, testVmName)
 
