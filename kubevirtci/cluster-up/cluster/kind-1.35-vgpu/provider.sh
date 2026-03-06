@@ -45,9 +45,6 @@ function up() {
 
     configure_registry_proxy
 
-    # remove the rancher.io kind default storageClass
-    _kubectl delete sc standard
-
     ${KUBEVIRTCI_PATH}/cluster/$KUBEVIRT_PROVIDER/config_vgpu_cluster.sh
 
     echo "$KUBEVIRT_PROVIDER cluster '$CLUSTER_NAME' is ready"

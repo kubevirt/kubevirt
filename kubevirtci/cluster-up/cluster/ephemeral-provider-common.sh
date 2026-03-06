@@ -250,10 +250,9 @@ function _add_common_params() {
         params=" --swapiness=$KUBEVIRT_SWAPPINESS $params"
     fi
 
-    if [ $KUBEVIRT_UNLIMITEDSWAP == "true" ]; then
-        params=" --unlimited-swap $params"
+    if [ ! -z "$KUBEVIRT_SWAP_BEHAVIOR" ]; then
+        params=" --swap-behavior=$KUBEVIRT_SWAP_BEHAVIOR $params"
     fi
-
 
     if [ -n "$KUBEVIRTCI_PROXY" ]; then
         params=" --docker-proxy=$KUBEVIRTCI_PROXY $params"
