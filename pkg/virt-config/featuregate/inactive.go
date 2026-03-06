@@ -187,6 +187,13 @@ const (
 	// Beta: v1.8.0
 	// GA: v1.9.0
 	MigrationPriorityQueue = "MigrationPriorityQueue"
+
+	// KubevirtSeccompProfile indicate that Kubevirt will install its custom profile and
+	// user can tell Kubevirt to use it
+	// Alpha: v0.59.0
+	// Beta: v1.8.0
+	// GA: v1.9.0
+	KubevirtSeccompProfile = "KubevirtSeccompProfile"
 )
 
 func init() {
@@ -231,4 +238,5 @@ func init() {
 	RegisterFeatureGate(FeatureGate{Name: VideoConfig, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: SecureExecution, State: GA})
 	RegisterFeatureGate(FeatureGate{Name: MigrationPriorityQueue, State: GA})
+	RegisterFeatureGate(FeatureGate{Name: KubevirtSeccompProfile, State: GA})
 }
