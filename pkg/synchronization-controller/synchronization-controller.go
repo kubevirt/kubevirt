@@ -964,6 +964,7 @@ func (s *SynchronizationController) SyncSourceMigrationStatus(ctx context.Contex
 		log.Log.Object(newVMI).V(5).Info("SyncSourceMigrationStatus: No source migrated volumes found")
 	}
 	newVMI.Status.MigrationMethod = remoteStatus.MigrationMethod
+	newVMI.Status.MigrationTransport = remoteStatus.MigrationTransport
 	if !apiequality.Semantic.DeepEqual(vmi.Status, newVMI.Status) {
 		if err := s.patchVMI(ctx, vmi, newVMI); err != nil {
 			return &syncv1.VMIStatusResponse{
@@ -1161,6 +1162,18 @@ func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVM
 			patchSet.AddOption(
 				patch.WithTest("/status/migrationMethod", origVMI.Status.MigrationMethod),
 				patch.WithReplace("/status/migrationMethod", newVMI.Status.MigrationMethod),
+			)
+		}
+	}
+
+	if !apiequality.Semantic.DeepEqual(origVMI.Status.MigrationTransport, newVMI.Status.MigrationTransport) {
+		if origVMI.Status.MigrationTransport == "" {
+			patchSet.AddOption(
+				patch.WithAdd("/status/migrationTransport", newVMI.Status.MigrationTransport))
+		} else {
+			patchSet.AddOption(
+				patch.WithTest("/status/migrationTransport", origVMI.Status.MigrationTransport),
+				patch.WithReplace("/status/migrationTransport", newVMI.Status.MigrationTransport),
 			)
 		}
 	}
