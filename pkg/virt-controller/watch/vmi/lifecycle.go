@@ -319,6 +319,9 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		c.updateMemoryOverheadStatusFromPod(vmiCopy, pod)
 	}
 
+	migrationTargetFailed := vmiCopy.IsMigrationTarget() &&
+		vmiCopy.Status.MigrationState != nil && vmiCopy.Status.MigrationState.Failed
+
 	switch {
 	case vmi.IsUnprocessed():
 		if vmiPodExists {
@@ -509,9 +512,9 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		c.checkEphemeralHotplugVolumes(vmiCopy)
 
 	case vmi.IsScheduled():
-		if !vmiPodExists {
-			if vmiCopy.IsDecentralizedMigration() && vmiCopy.IsMigrationTarget() {
-				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduled because pod does not exist")
+		if !vmiPodExists || (vmiCopy.IsMigrationTarget() && controller.PodIsDown(pod)) || migrationTargetFailed {
+			if vmiCopy.IsMigrationTarget() {
+				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduled because pod does not exist, is down, or migration failed")
 				vmiCopy.Status.Phase = virtv1.WaitingForSync
 				if vmiCopy.Status.MigrationState != nil {
 					vmiCopy.Status.MigrationState.Failed = true
@@ -539,7 +542,7 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 				// if there's no owner VM around still, then remove the VM controller's finalizer if it exists
 				controller.RemoveFinalizer(vmiCopy, virtv1.VirtualMachineControllerFinalizer)
 			}
-		} else if vmiPodExists {
+		} else if vmiPodExists && !migrationTargetFailed && !(vmiCopy.IsMigrationTarget() && controller.PodIsDown(pod)) {
 			vmiCopy.Status.Phase = virtv1.Scheduling
 		}
 	default:

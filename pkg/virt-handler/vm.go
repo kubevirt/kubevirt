@@ -2167,6 +2167,9 @@ func isACPIEnabled(vmi *v1.VirtualMachineInstance, domain *api.Domain) bool {
 func (c *VirtualMachineController) calculateVmPhaseForStatusReason(domain *api.Domain, vmi *v1.VirtualMachineInstance) (v1.VirtualMachineInstancePhase, error) {
 
 	if domain == nil {
+		if vmi.IsMigrationTarget() && vmi.Status.MigrationState != nil && vmi.Status.MigrationState.Failed {
+			return vmi.Status.Phase, nil
+		}
 		switch {
 		case vmi.IsScheduled():
 			isUnresponsive, isInitialized, err := c.launcherClients.IsLauncherClientUnresponsive(vmi)
