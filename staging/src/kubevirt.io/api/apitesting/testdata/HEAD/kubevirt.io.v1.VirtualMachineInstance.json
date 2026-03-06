@@ -1203,7 +1203,9 @@
         "volumes": [
           {
             "volumeName": "volumeNameValue",
-            "diskTarget": "diskTargetValue"
+            "diskTarget": "diskTargetValue",
+            "dataEndpoint": "dataEndpointValue",
+            "mapEndpoint": "mapEndpointValue"
           }
         ]
       }

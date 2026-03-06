@@ -285,3 +285,41 @@ func NewSecretCertificateManager(name string, namespace string, store cache.Stor
 		crtLock:   &sync.Mutex{},
 	}
 }
+
+type MockCertificateManager struct {
+	crt *tls.Certificate
+}
+
+func NewMockCertificateManager() (*MockCertificateManager, error) {
+	caKeyPair, _ := triple.NewCA("test.kubevirt.io", time.Hour)
+
+	encodedCert := cert.EncodeCertPEM(caKeyPair.Cert)
+	encodedKey := cert.EncodePrivateKeyPEM(caKeyPair.Key)
+
+	crt, err := tls.X509KeyPair(encodedCert, encodedKey)
+	if err != nil {
+		return nil, err
+	}
+	leaf, err := cert.ParseCertsPEM(encodedCert)
+	if err != nil {
+		return nil, err
+	}
+	crt.Leaf = leaf[0]
+	return &MockCertificateManager{
+		crt: &crt,
+	}, nil
+}
+
+func (f *MockCertificateManager) Start() {
+}
+
+func (f *MockCertificateManager) Stop() {
+}
+
+func (f *MockCertificateManager) Current() *tls.Certificate {
+	return f.crt
+}
+
+func (f *MockCertificateManager) ServerHealthy() bool {
+	return true
+}
