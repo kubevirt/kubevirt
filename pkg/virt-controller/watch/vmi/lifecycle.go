@@ -471,7 +471,17 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		}
 
 	case vmi.IsRunning():
-		if !vmiPodExists {
+		if !vmiPodExists || (vmiCopy.IsMigrationTarget() && controller.PodIsDown(pod)) {
+			if vmiCopy.IsMigrationTarget() {
+				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while running because pod does not exist or is down")
+				vmiCopy.Status.Phase = virtv1.WaitingForSync
+				if vmiCopy.Status.MigrationState != nil {
+					vmiCopy.Status.MigrationState.Failed = true
+					vmiCopy.Status.MigrationState.Completed = true
+					vmiCopy.Status.MigrationState.EndTimestamp = pointer.P(metav1.Now())
+				}
+				break
+			}
 			log.Log.Object(vmi).V(5).Infof("setting VMI to failed while running because pod does not exist")
 			vmiCopy.Status.Phase = virtv1.Failed
 			break
@@ -509,9 +519,9 @@ func (c *Controller) updateStatus(vmi *virtv1.VirtualMachineInstance, pod *k8sv1
 		c.checkEphemeralHotplugVolumes(vmiCopy)
 
 	case vmi.IsScheduled():
-		if !vmiPodExists {
-			if vmiCopy.IsDecentralizedMigration() && vmiCopy.IsMigrationTarget() {
-				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduled because pod does not exist")
+		if !vmiPodExists || (vmiCopy.IsMigrationTarget() && controller.PodIsDown(pod)) {
+			if vmiCopy.IsMigrationTarget() {
+				log.Log.Object(vmi).V(2).Infof("setting VMI to WaitingForSync while scheduled because pod does not exist or is down")
 				vmiCopy.Status.Phase = virtv1.WaitingForSync
 				if vmiCopy.Status.MigrationState != nil {
 					vmiCopy.Status.MigrationState.Failed = true
