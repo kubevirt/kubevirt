@@ -403,3 +403,102 @@ func NewHandlerDaemonSet(config *operatorutil.KubeVirtDeploymentConfig, productN
 	return daemonset
 
 }
+
+// NewHandlerPoolDaemonSet creates a virt-handler DaemonSet for a handler pool.
+// It clones the primary handler DaemonSet and applies pool-specific overrides:
+// name, image, nodeSelector, and the handler-pool label.
+func NewHandlerPoolDaemonSet(primaryHandler *appsv1.DaemonSet, pool virtv1.VirtHandlerPoolConfig) *appsv1.DaemonSet {
+	ds := primaryHandler.DeepCopy()
+
+	poolName := fmt.Sprintf("%s-%s", VirtHandlerName, pool.Name)
+	ds.Name = poolName
+	ds.Labels[virtv1.HandlerPoolLabel] = pool.Name
+	ds.Spec.Template.Labels[virtv1.HandlerPoolLabel] = pool.Name
+
+	// Update label selector to match pool-specific pods
+	ds.Spec.Selector = &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"kubevirt.io":          VirtHandlerName,
+			virtv1.HandlerPoolLabel: pool.Name,
+		},
+	}
+
+	// Override handler image if specified
+	if pool.VirtHandlerImage != "" && len(ds.Spec.Template.Spec.Containers) > 0 {
+		ds.Spec.Template.Spec.Containers[0].Image = pool.VirtHandlerImage
+	}
+
+	// Override launcher image in init container and image-holder sidecar
+	if pool.VirtLauncherImage != "" {
+		for i := range ds.Spec.Template.Spec.InitContainers {
+			if ds.Spec.Template.Spec.InitContainers[i].Name == "virt-launcher" {
+				ds.Spec.Template.Spec.InitContainers[i].Image = pool.VirtLauncherImage
+			}
+		}
+		for i := range ds.Spec.Template.Spec.Containers {
+			if ds.Spec.Template.Spec.Containers[i].Name == "virt-launcher-image-holder" {
+				ds.Spec.Template.Spec.Containers[i].Image = pool.VirtLauncherImage
+			}
+		}
+	}
+
+	// Merge pool nodeSelector with the primary handler's nodeSelector so that
+	// inherited selectors (e.g., kubernetes.io/os: linux) are preserved.
+	if ds.Spec.Template.Spec.NodeSelector == nil {
+		ds.Spec.Template.Spec.NodeSelector = make(map[string]string)
+	}
+	for key, value := range pool.NodeSelector {
+		ds.Spec.Template.Spec.NodeSelector[key] = value
+	}
+
+	return ds
+}
+
+// ApplyPoolAntiAffinityToPrimaryHandler adds NotIn node affinity expressions
+// to the primary virt-handler DaemonSet so that it does not schedule on nodes
+// claimed by handler pools.
+//
+// Note: when a pool has multiple nodeSelector keys, the anti-affinity excludes
+// nodes matching ANY individual key rather than only nodes matching ALL keys.
+// This is because Kubernetes node affinity cannot express NOT(AND(...)). In
+// practice pools should use a single distinguishing label in nodeSelector to
+// avoid nodes being excluded from both the primary and pool handlers.
+func ApplyPoolAntiAffinityToPrimaryHandler(handler *appsv1.DaemonSet, pools []virtv1.VirtHandlerPoolConfig) {
+	if len(pools) == 0 {
+		return
+	}
+
+	var expressions []corev1.NodeSelectorRequirement
+	for _, pool := range pools {
+		for key, value := range pool.NodeSelector {
+			expressions = append(expressions, corev1.NodeSelectorRequirement{
+				Key:      key,
+				Operator: corev1.NodeSelectorOpNotIn,
+				Values:   []string{value},
+			})
+		}
+	}
+
+	if len(expressions) == 0 {
+		return
+	}
+
+	term := corev1.NodeSelectorTerm{
+		MatchExpressions: expressions,
+	}
+
+	pod := &handler.Spec.Template.Spec
+	if pod.Affinity == nil {
+		pod.Affinity = &corev1.Affinity{}
+	}
+	if pod.Affinity.NodeAffinity == nil {
+		pod.Affinity.NodeAffinity = &corev1.NodeAffinity{}
+	}
+	if pod.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		pod.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
+	}
+	pod.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+		pod.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+		term,
+	)
+}

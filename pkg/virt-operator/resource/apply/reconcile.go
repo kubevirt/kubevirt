@@ -49,6 +49,7 @@ import (
 	"kubevirt.io/kubevirt/pkg/certificates/triple/cert"
 	"kubevirt.io/kubevirt/pkg/controller"
 	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
+	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
 	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/install"
 	"kubevirt.io/kubevirt/pkg/virt-operator/util"
 )
@@ -645,8 +646,20 @@ func (r *Reconciler) createOrRollBackSystem(apiDeploymentsRolledOver bool) (bool
 
 	// create/update Daemonsets
 	for _, daemonSet := range r.targetStrategy.DaemonSets() {
+		// Apply anti-affinity to primary handler when pools are configured
+		if daemonSet.Name == components.VirtHandlerName && r.isFeatureGateEnabled(featuregate.VirtHandlerPools) {
+			daemonSet = daemonSet.DeepCopy()
+			components.ApplyPoolAntiAffinityToPrimaryHandler(daemonSet, r.kv.Spec.VirtHandlerPools)
+		}
 		finished, err := r.syncDaemonSet(daemonSet)
 		if !finished || err != nil {
+			return false, err
+		}
+	}
+
+	// create/update handler pool DaemonSets
+	if r.isFeatureGateEnabled(featuregate.VirtHandlerPools) {
+		if err := r.syncHandlerPoolDaemonSets(); err != nil {
 			return false, err
 		}
 	}
@@ -901,6 +914,17 @@ func (r *Reconciler) deleteObjectsNotInInstallStrategy() error {
 				if targetDs.Name == ds.Name && targetDs.Namespace == ds.Namespace {
 					found = true
 					break
+				}
+			}
+			// Check if this is a handler pool DaemonSet still in the KubeVirt CR
+			if !found && r.isFeatureGateEnabled(featuregate.VirtHandlerPools) {
+				if poolName, ok := ds.Labels[v1.HandlerPoolLabel]; ok {
+					for _, pool := range r.kv.Spec.VirtHandlerPools {
+						if pool.Name == poolName {
+							found = true
+							break
+						}
+					}
 				}
 			}
 			if !found {
@@ -1265,6 +1289,36 @@ func (r *Reconciler) virtTemplateDeploymentEnabled() bool {
 	}
 	virtTemplateDeployment := r.kv.Spec.Configuration.VirtTemplateDeployment
 	return virtTemplateDeployment == nil || virtTemplateDeployment.Enabled == nil || *virtTemplateDeployment.Enabled
+}
+
+// syncHandlerPoolDaemonSets creates or updates pool DaemonSets by cloning the
+// primary virt-handler DaemonSet and applying pool-specific overrides.
+func (r *Reconciler) syncHandlerPoolDaemonSets() error {
+	pools := r.kv.Spec.VirtHandlerPools
+	if len(pools) == 0 {
+		return nil
+	}
+
+	// Find the primary handler DaemonSet from the strategy
+	var primaryHandler *appsv1.DaemonSet
+	for _, ds := range r.targetStrategy.DaemonSets() {
+		if ds.Name == components.VirtHandlerName {
+			primaryHandler = ds
+			break
+		}
+	}
+	if primaryHandler == nil {
+		return fmt.Errorf("primary virt-handler DaemonSet not found in install strategy")
+	}
+
+	for _, pool := range pools {
+		poolDS := components.NewHandlerPoolDaemonSet(primaryHandler, pool)
+		finished, err := r.syncDaemonSet(poolDS)
+		if !finished || err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func getInstallStrategyAnnotations(meta *metav1.ObjectMeta) (imageTag, imageRegistry, id string, ok bool) {
