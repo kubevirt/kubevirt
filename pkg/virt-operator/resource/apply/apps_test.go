@@ -441,6 +441,88 @@ var _ = Describe("Apply Apps", func() {
 				}
 			}
 
+			It("should not restart canary when generation is unknown but spec is up-to-date", func() {
+				addCustomTargetDeployment(kv, daemonSet)
+				markHandlerReady(daemonSet)
+
+				r := &Reconciler{
+					clientset:    clientset,
+					kv:           kv,
+					expectations: expectations,
+					stores:       stores,
+					recorder:     record.NewFakeRecorder(100),
+				}
+
+				// Simulate a DS that is up-to-date (annotations match KV target)
+				currentDs := daemonSet.DeepCopy()
+				addCustomTargetDeployment(kv, currentDs)
+				currentDs.Status = daemonSet.Status
+
+				mockDSCacheStore.get = daemonSet
+				SetGeneration(&kv.Status.Generations, currentDs)
+
+				_, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Create(context.TODO(), currentDs, v12.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				// objectChanged=false simulates generationUnknown without specChanged
+				_, err, status := r.processCanaryUpgrade(currentDs, daemonSet, false)
+
+				Expect(err).ToNot(HaveOccurred())
+				// Should NOT return Started (which would mean canary was restarted)
+				Expect(status).ToNot(Equal(Started))
+			})
+
+			It("should continue rollout without restarting canary when generation is unknown during ongoing rollout", func() {
+				addCustomTargetDeployment(kv, daemonSet)
+
+				// Prepare the desired DS with all metadata that syncDaemonSet would inject
+				imageTag, imageRegistry, id := getTargetVersionRegistryID(kv)
+				desiredDs := daemonSet.DeepCopy()
+				injectOperatorMetadata(kv, &desiredDs.ObjectMeta, imageTag, imageRegistry, id, true)
+				injectOperatorMetadata(kv, &desiredDs.Spec.Template.ObjectMeta, imageTag, imageRegistry, id, false)
+				placement.InjectPlacementMetadata(kv.Spec.Workloads, &desiredDs.Spec.Template.Spec, placement.AnyNode)
+
+				// Use the fully-prepared desired DS as the cached DS with ongoing rollout
+				cachedDs := desiredDs.DeepCopy()
+				cachedDs.Generation = 2
+				// Simulate a multi-node cluster with 1 of 2 pods updated
+				cachedDs.Status.DesiredNumberScheduled = 2
+				cachedDs.Status.NumberReady = 1
+				maxUnavailable := intstr.FromString("10%")
+				cachedDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
+					MaxUnavailable: &maxUnavailable,
+				}
+				mockDSCacheStore.get = cachedDs
+				// Record generation 1 so that the cached generation 2 is "unknown"
+				SetGeneration(&kv.Status.Generations, daemonSet)
+
+				markHandlerCanaryReady(daemonSet)
+
+				r := &Reconciler{
+					clientset:    clientset,
+					kv:           kv,
+					expectations: expectations,
+					stores:       stores,
+					recorder:     record.NewFakeRecorder(100),
+				}
+
+				_, err := r.clientset.AppsV1().DaemonSets(cachedDs.Namespace).Create(context.TODO(), cachedDs, v12.CreateOptions{})
+				Expect(err).ToNot(HaveOccurred())
+
+				done, err := r.syncDaemonSet(daemonSet)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(done).To(BeFalse())
+
+				// Verify rollout continued at 10% (not restarted at MaxUnavailable=1)
+				patchedDs, err := r.clientset.AppsV1().DaemonSets(cachedDs.Namespace).Get(context.TODO(), cachedDs.Name, v12.GetOptions{})
+				Expect(err).ToNot(HaveOccurred())
+				rollingUpdate := patchedDs.Spec.UpdateStrategy.RollingUpdate
+				Expect(rollingUpdate).ToNot(BeNil())
+				Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
+				Expect(rollingUpdate.MaxUnavailable.String()).ToNot(Equal("1"))
+			})
+
 			It("should start canary upgrade if updating virt-handler", func() {
 				mockDSCacheStore.get = daemonSet
 				SetGeneration(&kv.Status.Generations, daemonSet)
@@ -516,7 +598,9 @@ var _ = Describe("Apply Apps", func() {
 					_, err := r.clientset.AppsV1().DaemonSets(currentDs.Namespace).Create(context.TODO(), currentDs, v12.CreateOptions{})
 					Expect(err).ToNot(HaveOccurred())
 
-					done, err, status := r.processCanaryUpgrade(currentDs, newDs, false)
+					// Calculate objectChanged based on whether the daemonset is up-to-date
+					objectChanged := !util.DaemonSetIsUpToDate(kv, currentDs)
+					done, err, status := r.processCanaryUpgrade(currentDs, newDs, objectChanged)
 
 					patched := false
 					for _, action := range dsClient.Fake.Actions() {
@@ -552,7 +636,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
 						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
 					},
-					CanaryUpgradeStatusStarted, false, false, true,
+					Started, false, false, true,
 				),
 				Entry("should wait for canary pod to be created",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -563,7 +647,7 @@ var _ = Describe("Apply Apps", func() {
 						return currentDs, newDs
 					},
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
-					CanaryUpgradeStatusStarted, false, false, false,
+					Canary, false, false, false,
 				),
 				Entry("should wait for canary pod to be ready",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -574,7 +658,7 @@ var _ = Describe("Apply Apps", func() {
 						return currentDs, newDs
 					},
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
-					CanaryUpgradeStatusStarted, false, false, false,
+					Canary, false, false, false,
 				),
 				Entry("should restart daemonset rollout with MaxUnavailable 10%",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -594,7 +678,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
 						Expect(rollingUpdate.MaxUnavailable.String()).To(Equal("10%"))
 					},
-					CanaryUpgradeStatusUpgradingDaemonSet, false, false, true,
+					Increasing, false, false, true,
 				),
 				Entry("should report an error when canary pod fails",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -605,7 +689,7 @@ var _ = Describe("Apply Apps", func() {
 						return currentDs, newDs
 					},
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
-					CanaryUpgradeStatusFailed, false, true, false,
+					Failed, false, true, false,
 				),
 				Entry("should wait for new daemonset rollout",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -620,7 +704,7 @@ var _ = Describe("Apply Apps", func() {
 						return currentDs, newDs
 					},
 					func(kv *v1.KubeVirt, daemonSet *appsv1.DaemonSet) {},
-					CanaryUpgradeStatusWaitingDaemonSetRollout, false, false, false,
+					Waiting, false, false, false,
 				),
 				Entry("should complete rollout",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -629,6 +713,7 @@ var _ = Describe("Apply Apps", func() {
 						addCustomTargetDeployment(kv, newDs)
 						addCustomTargetDeployment(kv, currentDs)
 						markHandlerReady(daemonSet)
+						currentDs.Status = daemonSet.Status
 						currentDs.Spec.UpdateStrategy.RollingUpdate = &appsv1.RollingUpdateDaemonSet{
 							MaxUnavailable: &maxUnavailable,
 						}
@@ -645,7 +730,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable).ToNot(BeNil())
 						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
 					},
-					CanaryUpgradeStatusSuccessful, true, false, false,
+					Successful, true, false, true,
 				),
 
 				Entry("should unattach secret before complete rollout",
@@ -672,7 +757,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
 						hasCertificateSecret(&daemonSet.Spec.Template.Spec, components.VirtHandlerCertSecretName)
 					},
-					CanaryUpgradeStatusSuccessful, true, false, true,
+					Waiting, false, false, true,
 				),
 				Entry("should switch to tls rollout",
 					func(kv *v1.KubeVirt, currentDs *appsv1.DaemonSet) (*appsv1.DaemonSet, *appsv1.DaemonSet) {
@@ -684,6 +769,7 @@ var _ = Describe("Apply Apps", func() {
 						addCustomTargetDeployment(kv, newDs)
 						addCustomTargetDeployment(kv, currentDs)
 						markHandlerReady(daemonSet)
+						currentDs.Status = daemonSet.Status
 
 						return currentDs, newDs
 					},
@@ -695,7 +781,7 @@ var _ = Describe("Apply Apps", func() {
 						Expect(rollingUpdate.MaxUnavailable.IntValue()).To(Equal(1))
 						Expect(daemonSet.Spec.Template.Spec.Containers[0].Args).To(ContainElements("--migration-cn-types", "migration"))
 					},
-					CanaryUpgradeStatusWaitingDaemonSetRollout, false, false, true,
+					Waiting, false, false, true,
 				),
 			)
 		})
