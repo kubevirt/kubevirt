@@ -169,4 +169,93 @@ var _ = Describe("Apply", func() {
 			Expect(id).To(Equal("fakeid"))
 		})
 	})
+
+	Context("exportProxyEnabled", func() {
+		It("should return false when VMExport configuration is not set and feature gate is not enabled", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{},
+				},
+			}
+			reconciler := &Reconciler{kv: kv}
+			Expect(reconciler.exportProxyEnabled()).To(BeFalse())
+		})
+
+		It("should return true when VMExport configuration is explicitly enabled", func() {
+			enabled := true
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						VMExport: &v1.VMExportConfiguration{
+							Enabled: &enabled,
+						},
+					},
+				},
+			}
+			reconciler := &Reconciler{kv: kv}
+			Expect(reconciler.exportProxyEnabled()).To(BeTrue())
+		})
+
+		It("should return false when VMExport configuration is explicitly disabled", func() {
+			disabled := false
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						VMExport: &v1.VMExportConfiguration{
+							Enabled: &disabled,
+						},
+					},
+				},
+			}
+			reconciler := &Reconciler{kv: kv}
+			Expect(reconciler.exportProxyEnabled()).To(BeFalse())
+		})
+
+		It("should return true when VMExport feature gate is set (backward compatibility)", func() {
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"VMExport"},
+						},
+					},
+				},
+			}
+			reconciler := &Reconciler{kv: kv}
+			Expect(reconciler.exportProxyEnabled()).To(BeTrue())
+		})
+
+		It("should prefer explicit configuration over feature gate (disabled overrides enabled gate)", func() {
+			disabled := false
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						VMExport: &v1.VMExportConfiguration{
+							Enabled: &disabled,
+						},
+						DeveloperConfiguration: &v1.DeveloperConfiguration{
+							FeatureGates: []string{"VMExport"},
+						},
+					},
+				},
+			}
+			reconciler := &Reconciler{kv: kv}
+			Expect(reconciler.exportProxyEnabled()).To(BeFalse())
+		})
+
+		It("should prefer explicit configuration over feature gate (enabled works without gate)", func() {
+			enabled := true
+			kv := &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						VMExport: &v1.VMExportConfiguration{
+							Enabled: &enabled,
+						},
+					},
+				},
+			}
+			reconciler := &Reconciler{kv: kv}
+			Expect(reconciler.exportProxyEnabled()).To(BeTrue())
+		})
+	})
 })

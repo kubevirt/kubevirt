@@ -45,9 +45,50 @@ var _ = Describe("Validating VirtualMachineExport Admitter", func() {
 	kubevirtApiGroup := "kubevirt.io"
 	backupApiGroup := "backup.kubevirt.io"
 
-	config, _, _ := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
+	config, _, kvStore := testutils.NewFakeClusterConfigUsingKVConfig(&v1.KubeVirtConfiguration{})
 
-	Context("VMExport", func() {
+	Context("With VMExport disabled", func() {
+		It("should reject creation", func() {
+			export := &exportv1.VirtualMachineExport{
+				Spec: exportv1.VirtualMachineExportSpec{},
+			}
+
+			ar := createExportAdmissionReview(export)
+			resp := createTestVMExportAdmitter(config).Admit(context.Background(), ar)
+			Expect(resp.Allowed).To(BeFalse())
+			Expect(resp.Result.Message).Should(Equal("vm export feature gate not enabled"))
+		})
+	})
+
+	Context("With VMExport enabled", func() {
+		enableVMExport := func() {
+			enabled := true
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{
+						VMExport: &v1.VMExportConfiguration{
+							Enabled: &enabled,
+						},
+					},
+				},
+			})
+		}
+		disableVMExport := func() {
+			testutils.UpdateFakeKubeVirtClusterConfig(kvStore, &v1.KubeVirt{
+				Spec: v1.KubeVirtSpec{
+					Configuration: v1.KubeVirtConfiguration{},
+				},
+			})
+		}
+
+		BeforeEach(func() {
+			enableVMExport()
+		})
+
+		AfterEach(func() {
+			disableVMExport()
+		})
+
 		It("should reject invalid request resource", func() {
 			ar := &admissionv1.AdmissionReview{
 				Request: &admissionv1.AdmissionRequest{

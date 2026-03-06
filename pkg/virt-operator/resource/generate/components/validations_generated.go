@@ -1793,6 +1793,17 @@ var CRDsValidation map[string]string = map[string]string{
                     The value can be individually overridden for each VM, not relevant if AutoattachSerialConsole is disabled.
                   type: object
               type: object
+            vmExport:
+              description: VMExport controls the enablement of the VM export feature
+                and its related resources (export proxy).
+              nullable: true
+              properties:
+                enabled:
+                  description: |-
+                    Enabled can be used to enable or disable the VMExport feature and its related resources (export proxy).
+                    Defaults to false.
+                  type: boolean
+              type: object
             vmRolloutStrategy:
               description: |-
                 VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory,

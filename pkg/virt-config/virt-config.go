@@ -525,3 +525,25 @@ func GetHypervisorFromKvConfig(kvConfig *v1.KubeVirtConfiguration, configHypervi
 		Name: v1.KvmHypervisorName,
 	}
 }
+
+func (c *ClusterConfig) VMExportEnabled() bool {
+	if vmExportConfig := c.GetConfig().VMExport; vmExportConfig != nil && vmExportConfig.Enabled != nil {
+		return *vmExportConfig.Enabled
+	}
+
+	cfg := c.GetConfig()
+	if cfg.DeveloperConfiguration == nil {
+		return false
+	}
+
+	// Check if feature gate is explicitly enabled (for backward compatibility)
+	// we don't use isFeatureGateEnabled() here because it returns true for GA features,
+	// but VMExport should remain opt-in even though it's GA
+	for _, fg := range cfg.DeveloperConfiguration.FeatureGates {
+		if fg == featuregate.VMExportGate {
+			return true
+		}
+	}
+
+	return false
+}

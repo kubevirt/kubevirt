@@ -424,7 +424,10 @@
           }
         }
       },
-      "roleAggregationStrategy": "roleAggregationStrategyValue"
+      "roleAggregationStrategy": "roleAggregationStrategyValue",
+      "vmExport": {
+        "enabled": true
+      }
     },
     "infra": {
       "nodePlacement": {

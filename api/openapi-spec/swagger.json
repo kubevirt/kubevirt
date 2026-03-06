@@ -16140,6 +16140,10 @@
      "virtualMachineOptions": {
       "$ref": "#/definitions/v1.VirtualMachineOptions"
      },
+     "vmExport": {
+      "description": "VMExport controls the enablement of the VM export feature and its related resources (export proxy).",
+      "$ref": "#/definitions/v1.VMExportConfiguration"
+     },
      "vmRolloutStrategy": {
       "description": "VMRolloutStrategy defines how live-updatable fields, like CPU sockets, memory, tolerations, and affinity, are propagated from a VM to its VMI.",
       "type": "string"
@@ -18039,6 +18043,16 @@
     "properties": {
      "display": {
       "$ref": "#/definitions/v1.VGPUDisplayOptions"
+     }
+    }
+   },
+   "v1.VMExportConfiguration": {
+    "description": "VMExportConfiguration holds configuration options for the VMExport feature.",
+    "type": "object",
+    "properties": {
+     "enabled": {
+      "description": "Enabled can be used to enable or disable the VMExport feature and its related resources (export proxy). Defaults to false.",
+      "type": "boolean"
      }
     }
    },
