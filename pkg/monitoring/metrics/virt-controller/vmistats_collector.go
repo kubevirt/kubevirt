@@ -182,14 +182,25 @@ func reportVmisStats(vmis []*k6tv1.VirtualMachineInstance) []operatormetrics.Col
 }
 
 func collectVMILauncherMemoryOverhead(vmi *k6tv1.VirtualMachineInstance) operatormetrics.CollectorResult {
-	// Create the hypervisor resources calculator based on the cluster configuration, as the overhead calculation may differ between different hypervisors
-	launcherHypervisorResources := hypervisor.NewLauncherHypervisorResources(clusterConfig.GetHypervisor().Name)
-	memoryOverhead := services.CalculateMemoryOverhead(clusterConfig, netresources.MemoryCalculator{}, vmi, launcherHypervisorResources)
+	var memoryOverheadValue int64
+	// Use the stored memory overhead from VMI status if available to ensure
+	// consistency with the actual pod configuration, especially after upgrades
+	// where the calculation logic might have changed
+	if vmi.Status.Memory != nil && vmi.Status.Memory.MemoryOverhead != nil {
+		memoryOverheadValue = vmi.Status.Memory.MemoryOverhead.Value()
+	} else {
+		// TODO: Remove this fallback once VmiMemoryOverheadReport feature gate is GA
+		// and we are sure that all VMIs include the MemoryOverhead status field
+		// Create the hypervisor resources calculator based on the cluster configuration, as the overhead calculation may differ between different hypervisors
+		launcherHypervisorResources := hypervisor.NewLauncherHypervisorResources(clusterConfig.GetHypervisor().Name)
+		memoryOverhead := services.CalculateMemoryOverhead(clusterConfig, netresources.MemoryCalculator{}, vmi, launcherHypervisorResources)
+		memoryOverheadValue = memoryOverhead.Value()
+	}
 
 	return operatormetrics.CollectorResult{
 		Metric: vmiLauncherMemoryOverhead,
 		Labels: []string{vmi.Namespace, vmi.Name},
-		Value:  float64(memoryOverhead.Value()),
+		Value:  float64(memoryOverheadValue),
 	}
 }
 
