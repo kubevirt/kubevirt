@@ -236,7 +236,7 @@ type VirtualMachineInstanceStatus struct {
 	NodeName string `json:"nodeName,omitempty"`
 	// A brief CamelCase message indicating details about why the VMI is in this state. e.g. 'NodeUnresponsive'
 	// +optional
-	Reason string `json:"reason,omitempty"`
+	Reason VirtualMachineInstanceReason `json:"reason,omitempty"`
 	// Conditions are specific points in VirtualMachineInstance's pod runtime.
 	Conditions []VirtualMachineInstanceCondition `json:"conditions,omitempty"`
 	// Phase is the status of the VirtualMachineInstance in kubernetes world. It is not the VirtualMachineInstance status, but partially correlates to it.
@@ -337,6 +337,24 @@ type VirtualMachineInstanceStatus struct {
 	// +optional
 	ChangedBlockTracking *ChangedBlockTrackingStatus `json:"changedBlockTracking,omitempty" optional:"true"`
 }
+
+// VirtualMachineInstanceReason is a label for the reason of the state of a VirtualMachineInstance.
+type VirtualMachineInstanceReason string
+
+// These are the valid reasons of vmis.
+const (
+	// When a VirtualMachineInstance Object is first initialized and no reason is present.
+	VmiReasonUnset VirtualMachineInstanceReason = ""
+
+	// NodeUnresponsiveReason is in various places as reason to indicate that
+	// an action was taken because virt-handler became unresponsive.
+	NodeUnresponsiveReason VirtualMachineInstanceReason = "NodeUnresponsive"
+
+	// Reasons reflecting domain state changes
+	ShutdownReason  VirtualMachineInstanceReason = "Shutdown"
+	CrashedReason   VirtualMachineInstanceReason = "Crashed"
+	DestroyedReason VirtualMachineInstanceReason = "Destroyed"
+)
 
 // DeviceStatus has the information of all devices allocated spec.domain.devices
 // +k8s:openapi-gen=true
