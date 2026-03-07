@@ -94,7 +94,7 @@ var _ = Describe("[sig-compute]VM Affinity", decorators.SigCompute, decorators.S
 		It("[test_id:11208]should successfully update node selector", func() {
 
 			By("Creating a running VM")
-			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking(), libvmi.WithCPUCount(1, 2, 1))
+			vmi := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
 			vmi.Namespace = testsuite.GetTestNamespace(vmi)
 			vm := libvmi.NewVirtualMachine(vmi, libvmi.WithRunStrategy(v1.RunStrategyAlways))
 
