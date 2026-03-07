@@ -17,14 +17,19 @@
  *
  */
 
-package kvm_test
+package hypervisor
 
 import (
-	"testing"
+	v1 "kubevirt.io/api/core/v1"
 
-	"kubevirt.io/client-go/testutils"
+	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
+	convertertypes "kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/types"
 )
 
-func TestKvm(t *testing.T) {
-	testutils.KubeVirtTestSuiteSetup(t)
+func MakeDomainBuilder(hypervisor string, vmi *v1.VirtualMachineInstance, c *convertertypes.ConverterContext) *convertertypes.DomainBuilder {
+	switch hypervisor {
+	// Other hypervisors can be added here
+	default:
+		return kvm.MakeDomainBuilder(vmi, c)
+	}
 }

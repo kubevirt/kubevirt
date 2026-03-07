@@ -17,7 +17,7 @@
  *
  */
 
-package compute_test
+package kvm_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -25,9 +25,9 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	"kubevirt.io/kubevirt/pkg/hypervisor/kvm"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
-	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/converter/compute"
 )
 
 var _ = Describe("Hypervisor Domain Configurator", func() {
@@ -47,7 +47,7 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 
 	Context("When KVM is available", func() {
 		It("Should not modify domain type", func() {
-			configurator := compute.NewHypervisorDomainConfigurator(!emulationAllowed, kvmEnabled)
+			configurator := kvm.NewKvmDomainConfigurator(!emulationAllowed, kvmEnabled)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal(""))
 			Expect(domain).To(Equal(api.Domain{}))
@@ -55,7 +55,7 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 		})
 
 		It("Should not modify domain type even when emulation is allowed", func() {
-			configurator := compute.NewHypervisorDomainConfigurator(emulationAllowed, kvmEnabled)
+			configurator := kvm.NewKvmDomainConfigurator(emulationAllowed, kvmEnabled)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal(""))
 			Expect(domain).To(Equal(api.Domain{}))
@@ -64,14 +64,14 @@ var _ = Describe("Hypervisor Domain Configurator", func() {
 
 	Context("When KVM is not available", func() {
 		It("Should return error when emulation is not allowed", func() {
-			configurator := compute.NewHypervisorDomainConfigurator(!emulationAllowed, !kvmEnabled)
+			configurator := kvm.NewKvmDomainConfigurator(!emulationAllowed, !kvmEnabled)
 			err := configurator.Configure(vmi, &domain)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("kvm not present"))
 		})
 
 		It("Should set domain type to qemu when emulation is allowed", func() {
-			configurator := compute.NewHypervisorDomainConfigurator(emulationAllowed, !kvmEnabled)
+			configurator := kvm.NewKvmDomainConfigurator(emulationAllowed, !kvmEnabled)
 			Expect(configurator.Configure(vmi, &domain)).To(Succeed())
 			Expect(domain.Spec.Type).To(Equal("qemu"))
 		})

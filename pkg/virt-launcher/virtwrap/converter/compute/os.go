@@ -30,7 +30,6 @@ import (
 	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/pointer"
 	"kubevirt.io/kubevirt/pkg/util"
-	"kubevirt.io/kubevirt/pkg/virt-controller/services"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/api"
 )
 
@@ -121,7 +120,7 @@ func (o OSDomainConfigurator) configureEFI(vmi *v1.VirtualMachineInstance, domai
 		domain.Spec.OS.BootLoader.Type = "pflash"
 		domain.Spec.OS.NVRam = &api.NVRam{
 			Template: o.efiConfiguration.EFIVars,
-			NVRam:    filepath.Join(services.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
+			NVRam:    filepath.Join(util.PathForNVram(vmi), vmi.Name+"_VARS.fd"),
 		}
 	}
 }
