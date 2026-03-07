@@ -30,8 +30,10 @@ import (
 	"path"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/emicklei/go-restful/v3"
+	"github.com/gorilla/websocket"
 	"github.com/mdlayher/vsock"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -323,6 +325,21 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 		return
 	}
 	defer clientSocket.Close()
+
+	// High serial output can block the websocket writer (in CopyTo) for > 1s waiting on congested TCP window.
+	// If the kube-apiserver intermediate proxy sends a keep-alive Ping during this window, the default
+	// gorilla/websocket PingHandler tries to write a Pong and times out after 1 second, silently dropping it.
+	// A dropped Pong causes the apiserver to drop the connection leading to EOF 1006.
+	// Using a custom PingHandler with a larger timeout avoids this without freezing the read loop.
+	clientSocket.SetPingHandler(func(message string) error {
+		err := clientSocket.WriteControl(websocket.PongMessage, []byte(message), time.Now().Add(10*time.Second))
+		if err == websocket.ErrCloseSent {
+			return nil
+		} else if e, ok := err.(net.Error); ok && e.Timeout() {
+			return nil
+		}
+		return err
+	})
 
 	log.Log.Object(vmi).Infof("Websocket connection upgraded")
 
