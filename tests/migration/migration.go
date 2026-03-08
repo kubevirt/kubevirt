@@ -1020,7 +1020,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 			var dv *cdiv1.DataVolume
 			var storageClass string
 
-			createDV := func(namespace string) {
+			createDV := func() {
 				url := "docker://" + cd.ContainerDiskFor(cd.ContainerDiskFedoraTestTooling)
 				dv = libdv.NewDataVolume(
 					libdv.WithRegistryURLSourceAndPullMethod(url, cdiv1.RegistryPullNode),
@@ -1034,6 +1034,8 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 				var err error
 				dv, err = virtClient.CdiClient().CdiV1beta1().DataVolumes(testsuite.GetTestNamespace(nil)).Create(context.Background(), dv, metav1.CreateOptions{})
 				Expect(err).ToNot(HaveOccurred())
+				By("Waiting for the Fedora DataVolume import (RWX + registry pull can exceed VMI launch timeout if not awaited)")
+				libstorage.EventuallyDV(dv, 600, Or(matcher.HaveSucceeded(), matcher.WaitForFirstConsumer()))
 			}
 
 			BeforeEach(func() {
@@ -1046,13 +1048,13 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 
 			It("[test_id:2653] should be migrated successfully, using guest agent on VM with default migration configuration", func() {
 				By("Creating the DV")
-				createDV(testsuite.NamespacePrivileged)
+				createDV()
 				VMIMigrationWithGuestAgent(virtClient, dv.Name, fedoraVMSize, nil)
 			})
 
 			It("[test_id:6975] should have guest agent functional after migration", func() {
 				By("Creating the DV")
-				createDV(testsuite.GetTestNamespace(nil))
+				createDV()
 				By("Creating the VMI")
 				vmi = libvmi.New(
 					libvmi.WithInterface(libvmi.InterfaceDeviceWithMasqueradeBinding()),
@@ -1063,7 +1065,7 @@ var _ = Describe(SIG("VM Live Migration", decorators.RequiresTwoSchedulableNodes
 					libvmi.WithCloudInitNoCloud(libvmifact.WithDummyCloudForFastBoot()),
 				)
 
-				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, 180)
+				vmi = libvmops.RunVMIAndExpectLaunchIgnoreWarnings(vmi, libvmops.StartupTimeoutSecondsHuge)
 
 				By("Checking guest agent")
 				Eventually(matcher.ThisVMI(vmi), 12*time.Minute, 2*time.Second).Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceAgentConnected))
