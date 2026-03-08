@@ -289,7 +289,7 @@ func setupSharedVM(virtClient kubecli.KubevirtClient) *v1.VirtualMachine {
 	vm := createRunningVM(virtClient, vmi, v1.RunStrategyAlways, true)
 
 	By("Waiting for the VM to be reported")
-	libmonitoring.WaitForMetricValueWithLabels(virtClient, "kubevirt_number_of_vms", 1, map[string]string{"namespace": vm.Namespace}, 1)
+	libmonitoring.WaitForMetricValueWithLabels(virtClient, "namespace:kubevirt_vm:sum", 1, map[string]string{"namespace": vm.Namespace}, 1)
 
 	By("Waiting for the VMI to be reported")
 	labels := map[string]string{
