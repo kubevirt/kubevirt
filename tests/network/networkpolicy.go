@@ -23,6 +23,8 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
+	libvmi "kubevirt.io/kubevirt/pkg/libvmi"
+
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
 	"kubevirt.io/kubevirt/tests/libnet"
@@ -56,7 +58,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			assertIPsNotEmptyForVMI(serverVMI)
 		})
 
-		Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", decorators.WgS390x, func() {
+		Context("and connectivity between VMI/s is blocked by Default-deny networkpolicy", func() {
 			var policy *networkv1.NetworkPolicy
 
 			BeforeEach(func() {
@@ -139,7 +141,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			})
 		})
 
-		Context("and ingress traffic to VMI identified via label at networkprofile's labelSelector is blocked", decorators.WgS390x, func() {
+		Context("and ingress traffic to VMI identified via label at networkprofile's labelSelector is blocked", func() {
 			var policy *networkv1.NetworkPolicy
 
 			BeforeEach(func() {
@@ -203,7 +205,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 						assertIPsNotEmptyForVMI(clientVMIAlternativeNamespace)
 					})
 
-					It("[test_id:1517] should success to reach clientVMI from clientVMIAlternativeNamespace", decorators.WgS390x, func() {
+					It("[test_id:1517] should success to reach clientVMI from clientVMIAlternativeNamespace", func() {
 						By("Connect clientVMI from clientVMIAlternativeNamespace")
 						assertPingSucceed(clientVMIAlternativeNamespace, clientVMI)
 					})
@@ -211,7 +213,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 			})
 		})
 
-		Context("and TCP connectivity on ports 80 and 81 between VMI/s is allowed by networkpolicy", decorators.WgS390x, func() {
+		Context("and TCP connectivity on ports 80 and 81 between VMI/s is allowed by networkpolicy", func() {
 			var policy *networkv1.NetworkPolicy
 
 			BeforeEach(func() {
@@ -242,7 +244,7 @@ var _ = Describe(SIG("[rfe_id:150][crit:high][vendor:cnv-qe@redhat.com][level:co
 				assertHTTPPingSucceed(clientVMI, serverVMI, 81)
 			})
 		})
-		Context("and TCP connectivity on ports 80 between VMI/s is allowed by networkpolicy", decorators.WgS390x, func() {
+		Context("and TCP connectivity on ports 80 between VMI/s is allowed by networkpolicy", func() {
 			var policy *networkv1.NetworkPolicy
 
 			BeforeEach(func() {
@@ -392,9 +394,13 @@ func assertIPsNotEmptyForVMI(vmi *v1.VirtualMachineInstance) {
 }
 
 func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.VirtualMachineInstance, error) {
-	clientVMI := libvmifact.NewAlpineWithTestTooling(libnet.WithMasqueradeNetworking())
-	var err error
-	clientVMI, err = virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI, metav1.CreateOptions{})
+	clientVMI := libvmifact.NewAlpineWithTestTooling(
+		libvmi.WithCloudInitNoCloud(
+			libvmifact.WithDummyCloudForFastBoot(),
+		),
+		libnet.WithMasqueradeNetworking(),
+	)
+	clientVMI, err := virtClient.VirtualMachineInstance(namespace).Create(context.Background(), clientVMI, metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -405,6 +411,9 @@ func createClientVmi(namespace string, virtClient kubecli.KubevirtClient) (*v1.V
 
 func createServerVmi(virtClient kubecli.KubevirtClient, namespace string, serverVMILabels map[string]string) (*v1.VirtualMachineInstance, error) {
 	serverVMI := libvmifact.NewAlpineWithTestTooling(
+		libvmi.WithCloudInitNoCloud(
+			libvmifact.WithDummyCloudForFastBoot(),
+		),
 		libnet.WithMasqueradeNetworking(
 			v1.Port{
 				Name:     "http80",
