@@ -1,0 +1,16 @@
+# CodeRabbit Configuration
+# This file configures CodeRabbit behavior for this repository
+
+reviews:
+  review_status: false
+  collapse_walkthrough: true
+
+  auto_review:
+    enabled: false
+    description_keyword: ""
+    auto_incremental_review: false
+
+ignore:
+  - "vendor/**"
+  - "node_modules/**"
+  - ".git/**"

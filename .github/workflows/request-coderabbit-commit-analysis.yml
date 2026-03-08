@@ -1,0 +1,180 @@
+name: Request CodeRabbit commit analysis
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to analyze'
+        required: true
+        type: string
+
+permissions:
+  pull-requests: write
+  contents: read
+  issues: write
+
+jobs:
+  analyze-commits:
+    # Run if: manual trigger OR (PR comment contains /analyze-commits and not from renovate)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request &&
+       contains(github.event.comment.body, '/analyze-commits') &&
+       !contains(github.event.comment.user.login, 'renovate'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post comment to CodeRabbit
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.AUTO_FLOW_USER }}
+          script: |
+            // Determine PR number from event type
+            let prNumber;
+            if (github.event_name === 'workflow_dispatch') {
+              prNumber = parseInt(github.event.inputs.pr_number);
+              console.log('Manual trigger for PR:', prNumber);
+            } else {
+              // Debug: Log the comment body to see what we received
+              const userComment = context.payload.comment.body.trim();
+              console.log('User comment body:', userComment);
+              console.log('Issue number:', context.issue.number);
+              console.log('Is PR:', !!context.payload.issue.pull_request);
+              console.log('User login:', context.payload.comment.user.login);
+              
+              // Double-check the condition (in case the workflow condition didn't work as expected)
+              if (!context.payload.issue.pull_request) {
+                console.log('Not a PR comment, skipping');
+                return;
+              }
+              
+              if (!userComment.includes('/analyze-commits')) {
+                console.log('Comment does not contain /analyze-commits, skipping');
+                return;
+              }
+              
+              prNumber = context.issue.number;
+            }
+            
+            if (!prNumber) {
+              console.log('No PR number found, skipping');
+              return;
+            }
+            
+            const codeRabbitComment = `@coderabbitai
+            <details>
+              <summary>Commit message analysis request</summary>
+              
+              CRITICAL: You MUST post a comment analyzing the commit messages in this PR.
+              Analyze all commits in this pull request (up to 20 commits, or all if fewer than 20).
+              
+              ## Instructions
+              
+              Please analyze all commit messages in this PR for:
+              
+              1. **Format compliance** - Check if commit messages follow common patterns (in order of preference):
+                 - Component prefix pattern (~80%): \`component: description\` or \`component1, component2: description\`
+                   Example: \`network: Add support for SR-IOV interfaces\`
+                 - Capitalized component prefix (~10%): \`Component: Description\`
+                   Example: \`Network: Add support for SR-IOV interfaces\`
+                 - Conventional commits (~5%): \`type(scope): description\` or \`type: description\`
+                   Example: \`feat(network): Add support for SR-IOV interfaces\`
+                 - No prefix (~5%): Acceptable but less common - Direct description starting with capital letter
+                   Example: \`Add support for SR-IOV interfaces\`
+              
+              2. **Common characteristics**:
+                 - Imperative mood (Add, Fix, Refactor, Remove, Update, Improve, Implement, Change, Move, Rename, Clean, Simplify, Optimize, Enable, Disable, Support, Handle, Create, Delete, Modify)
+                 - First word capitalized (required)
+                 - First line length: max 72 characters (recommended: ≤50 characters)
+                 - Descriptive and clear (minimum 10 characters, avoid generic words like "stuff", "things", "fix", "update", "change", "modify")
+                 - Signed-off-by line present (DCO compliance)
+              
+              3. **Alignment Validation** - CRITICAL: You MUST examine the actual code changes (diff) for each commit and verify the commit message accurately describes what was changed:
+                 
+                 **For each commit, you MUST:**
+                 - Examine the actual file changes (added lines, removed lines, modified lines)
+                 - Identify what was ACTUALLY changed:
+                   * Functions: Were functions added, removed, or modified?
+                   * Variables: Were variables added, removed, or renamed?
+                   * Comments: Were comments added, removed, or modified?
+                   * Imports: Were imports added or removed?
+                   * Configuration: Were config files or settings changed?
+                   * Tests: Were tests added, removed, or modified?
+                   * Documentation: Was documentation added or modified?
+                 - Compare what the commit message CLAIMS vs what was ACTUALLY changed
+                 - Flag commits where the message is misleading, incorrect, or doesn't match reality
+                 
+                 **Examples of MISMATCHES to flag:**
+                 - Commit says "Added new function" but only comments were added
+                 - Commit says "Fixed bug in X" but X wasn't modified, only unrelated code was changed
+                 - Commit says "Refactored Y" but Y wasn't touched, only imports were reorganized
+                 - Commit says "Removed deprecated code" but nothing was removed, only comments updated
+                 - Commit says "Updated tests" but test files weren't modified
+                 - Commit message describes changes to FileA but only FileB was modified
+                 
+                 **What constitutes GOOD alignment:**
+                 - Commit message accurately describes the primary changes made
+                 - File names mentioned in commit message match files that were actually changed
+                 - Action verbs (Add, Fix, Remove, etc.) match what was actually done
+                 - If commit mentions specific functionality, that functionality was actually modified
+              
+              ## Expected Output Format
+              
+              **IMPORTANT: Wrap your entire response in a collapsible section using:**
+              \`\`\`
+              <details>
+              <summary>Commit Message Analysis</summary>
+              
+              [Your analysis here]
+              
+              </details>
+              \`\`\`
+              
+              Please post a regular PR comment (not an inline review comment) with ONLY the following sections:
+              
+              - **Format Issues**: ONLY list commits that DON'T follow the patterns above. If all commits follow the patterns, skip this section entirely.
+              - **Alignment Issues**: CRITICAL - For each commit with alignment problems, you MUST:
+                * List the commit hash and message
+                * Explain what the commit message CLAIMS was changed
+                * Explain what was ACTUALLY changed (based on the diff)
+                * Clearly state the mismatch
+                * Example format:
+                  \`\`\`
+                  Commit abc1234: "Added new function in kubevirt.go"
+                  - Claims: Added a new function
+                  - Reality: Only added a comment, no function was added
+                  - Mismatch: Commit message is misleading
+                  \`\`\`
+                If all commits have good alignment, write a brief positive summary like "All commits have excellent alignment between message and code changes" and skip detailed analysis.
+              - **Recommendations**: ONLY provide short examples of improved commit messages for commits with issues. 
+                **CRITICAL: Do NOT include:**
+                * Headers like "To fix these issues:" or "How to fix:" or "To fix:"
+                * Git commands (git rebase, git commit --amend, git rebase --continue, etc.)
+                * Instructions on how to fix the issues
+                * Any sections explaining how to fix things
+                * Code blocks with git commands
+                Just provide the improved commit message examples directly. If there are no issues, skip this section entirely.
+              
+              ## Important Notes
+              
+              - Analyze ALL commits in the PR (up to 20 commits)
+              - **For Alignment Validation: You MUST examine the actual code diff for each commit - do not rely solely on commit messages**
+              - Look at what files were changed, what lines were added/removed/modified
+              - Compare the commit message claims against the actual diff/changes
+              - ONLY report issues - do not list commits that are compliant
+              - If a section has no issues, either skip it entirely or provide a brief positive summary (one sentence max)
+              - Keep responses concise - focus only on what needs to be fixed
+              - **DO NOT include any "how to fix" sections, git commands, or instructions on fixing issues**
+              - **DO NOT add sections like "To fix these issues:" with git rebase/commit commands**
+              - **Wrap your entire response in a collapsible details section (using HTML <details> tags) to save PR space**
+              - Post your analysis as a regular comment and stop (no confirmation messages needed)
+              - Be constructive and helpful
+            </details>`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: codeRabbitComment
+            });
