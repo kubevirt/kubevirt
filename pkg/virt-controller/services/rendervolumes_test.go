@@ -12,6 +12,7 @@ import (
 
 	v1 "kubevirt.io/api/core/v1"
 
+	containerdisk "kubevirt.io/kubevirt/pkg/container-disk"
 	"kubevirt.io/kubevirt/pkg/libvmi"
 	libvmistatus "kubevirt.io/kubevirt/pkg/libvmi/status"
 	"kubevirt.io/kubevirt/pkg/storage/cbt"
@@ -389,6 +390,43 @@ var _ = Describe("Container spec renderer", func() {
 
 			Expect(vsr.Mounts()).To(ContainElement(expectedMount))
 		})
+	})
+
+	Context("image pull policy propagation", func() {
+		DescribeTable("should set the image pull policy from the getter", func(pullPolicy k8sv1.PullPolicy) {
+			const imageVolumeFeatureGateEnabled = true
+			vmi := libvmi.New(
+				libvmi.WithContainerDisk("test-disk", "registry/image:tag"),
+			)
+
+			var err error
+			vsr, err = NewVolumeRenderer(
+				stubImagePullPolicyGetter{imagePullPolicy: pullPolicy},
+				imageVolumeFeatureGateEnabled,
+				launcherImage,
+				make(map[string]string),
+				namespace,
+				ephemeralDisk,
+				containerDisk,
+				virtShareDir,
+				withImageVolumes(vmi),
+			)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(vsr.Volumes()).To(ContainElement(k8sv1.Volume{
+				Name: containerdisk.LauncherVolume,
+				VolumeSource: k8sv1.VolumeSource{
+					Image: &k8sv1.ImageVolumeSource{
+						Reference:  launcherImage,
+						PullPolicy: pullPolicy,
+					},
+				},
+			}))
+		},
+			Entry("PullAlways", k8sv1.PullAlways),
+			Entry("PullNever", k8sv1.PullNever),
+			Entry("PullIfNotPresent", k8sv1.PullIfNotPresent),
+		)
 	})
 })
 
