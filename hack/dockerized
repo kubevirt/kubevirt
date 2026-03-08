@@ -16,8 +16,8 @@ kubevirt_builder_version="2602201229-4494d1587"
 kubevirt_cs10_builder_version=${KUBEVIRT_CS10_BUILDER_VERSION:-""}
 
 # CentOS Stream 9 builder images (default)
-default_kubevirt_builder_image="quay.io/kubevirt/builder:${kubevirt_builder_version}"
-kubevirt_cross_compile_image="quay.io/kubevirt/builder-cross:${kubevirt_builder_version}"
+default_kubevirt_builder_image="quay.io/vamsi_siddu/builder:2604270748-4fd793f67a"
+kubevirt_cross_compile_image="quay.io/vamsi_siddu/builder-cross:2604270748-4fd793f67a"
 
 # CentOS Stream 10 builder images
 default_kubevirt_cs10_builder_image="quay.io/kubevirt/builder-cs10:${kubevirt_cs10_builder_version}"

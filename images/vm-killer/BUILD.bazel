@@ -1,6 +1,6 @@
-load("@rules_oci//oci:defs.bzl", "oci_image")
+load("@rules_img//img:image.bzl", "image_manifest")
 
-oci_image(
+image_manifest(
     name = "vm-killer-image",
     base = "//images:kubevirt-testing-base",
     user = "1001",

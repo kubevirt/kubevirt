@@ -40,22 +40,29 @@ other_images_x86_64_aarch64="
     //cmd/sidecars/cloudinit:example-cloudinit-hook-sidecar-image
     //cmd/sidecars/network-slirp-binding:network-slirp-binding-image
     //cmd/sidecars/network-passt-binding:network-passt-binding-image
-    //cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image
     //cmd/pr-helper:pr-helper-image
     //containerimages:cirros-container-disk-image
     //containerimages:cirros-custom-container-disk-image
     //containerimages:virtio-container-disk-image
-    //containerimages:alpine-ext-kernel-boot-demo-container
-    //containerimages:alpine-with-test-tooling
-    //containerimages:fedora-realtime
     //images/winrmcli:winrmcli-image
     //tests:conformance_image
+"
+
+other_images_x86_64_only="
+    //containerimages:fedora-realtime
+    //containerimages:alpine-ext-kernel-boot-demo-container
+    //cmd/cniplugins/passt-binding/cmd:network-passt-binding-cni-image
+"
+
+other_images_x86_64_s390x="
+    //containerimages:alpine-with-test-tooling
 "
 
 case ${ARCHITECTURE} in
 "s390x" | "crossbuild-s390x")
     other_images="
         $other_images_default
+        $other_images_x86_64_s390x
     "
     ;;
 "aarch64" | "crossbuild-aarch64")
@@ -68,6 +75,8 @@ case ${ARCHITECTURE} in
     other_images="
         $other_images_default
         $other_images_x86_64_aarch64
+        $other_images_x86_64_only
+        $other_images_x86_64_s390x
     "
     ;;
 esac
