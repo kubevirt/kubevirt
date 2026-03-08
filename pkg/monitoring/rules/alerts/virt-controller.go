@@ -30,7 +30,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 	return []promv1.Rule{
 		{
 			Alert: "LowReadyVirtControllersCount",
-			Expr:  intstr.FromString("kubevirt_virt_controller_ready < cluster:kubevirt_virt_controller_pods_running:count"),
+			Expr:  intstr.FromString("cluster:kubevirt_virt_controller_ready:sum < cluster:kubevirt_virt_controller_pods_running:count"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "Some virt controllers are running but not ready.",
@@ -42,7 +42,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		},
 		{
 			Alert: "NoReadyVirtController",
-			Expr:  intstr.FromString("kubevirt_virt_controller_ready == 0"),
+			Expr:  intstr.FromString("cluster:kubevirt_virt_controller_ready:sum == 0"),
 			For:   ptr.To(promv1.Duration("10m")),
 			Annotations: map[string]string{
 				summaryAnnotationKey: "No ready virt-controller was detected for the last 10 min.",
@@ -67,7 +67,7 @@ func virtControllerAlerts(namespace string) []promv1.Rule {
 		{
 			Alert: "LowVirtControllersCount",
 			Expr: intstr.FromString(fmt.Sprintf(
-				"kubevirt_virt_controller_up / on() kube_deployment_spec_replicas{deployment='virt-controller', namespace='%s'} < 0.75",
+				"cluster:kubevirt_virt_controller_up:sum / on() kube_deployment_spec_replicas{deployment='virt-controller', namespace='%s'} < 0.75",
 				namespace,
 			)),
 			For: ptr.To(promv1.Duration("10m")),

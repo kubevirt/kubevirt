@@ -27,7 +27,7 @@ import (
 var vmiRecordingRules = []operatorrules.RecordingRule{
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_phase_count",
+			Name: "node:kubevirt_vmi_phase:sum",
 			Help: "Sum of VMIs per phase and node. `phase` can be one of the following: " +
 				"[`Pending`, `Scheduling`, `Scheduled`, `Running`, `Succeeded`, `Failed`, `Unknown`].",
 		},
@@ -41,7 +41,7 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_memory_used_bytes",
+			Name: "vmi:kubevirt_vmi_memory_used_bytes:sum",
 			Help: "Amount of `used` memory as seen by the domain.",
 		},
 		MetricType: operatormetrics.GaugeType,
@@ -57,11 +57,11 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_guest_vcpu_queue",
+			Name: "vmi:kubevirt_vmi_guest_queue_length:sum",
 			Help: "Guest queue length.",
 		},
 		MetricType: operatormetrics.GaugeType,
-		Expr:       intstr.FromString("clamp_min(kubevirt_vmi_guest_load_1m - vmi:kubevirt_vmi_vcpu:count, 0)"),
+		Expr:       intstr.FromString("sum by (name, namespace) (clamp_min(kubevirt_vmi_guest_load_1m - vmi:kubevirt_vmi_vcpu:count, 0))"),
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
@@ -118,13 +118,5 @@ var vmiRecordingRules = []operatorrules.RecordingRule{
 			"sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_in_traffic_bytes[30m])) + " +
 				" sum by (name, namespace) (rate(kubevirt_vmi_memory_swap_out_traffic_bytes[30m]))",
 		),
-	},
-	{
-		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_vmi_migration_data_total_bytes",
-			Help: "[Deprecated] Replaced by kubevirt_vmi_migration_data_bytes_total.",
-		},
-		MetricType: operatormetrics.CounterType,
-		Expr:       intstr.FromString("kubevirt_vmi_migration_data_bytes_total"),
 	},
 }

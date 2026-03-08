@@ -35,7 +35,7 @@ var nodesRecordingRules = []operatorrules.RecordingRule{
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_allocatable_nodes",
+			Name: "cluster:kubevirt_nodes_allocatable:count",
 			Help: "The number of allocatable nodes in the cluster.",
 		},
 		MetricType: operatormetrics.GaugeType,
@@ -43,7 +43,7 @@ var nodesRecordingRules = []operatorrules.RecordingRule{
 	},
 	{
 		MetricsOpts: operatormetrics.MetricOpts{
-			Name: "kubevirt_nodes_with_kvm",
+			Name: "cluster:kubevirt_nodes_with_kvm:count",
 			Help: "The number of nodes in the cluster that have the devices.kubevirt.io/kvm resource available.",
 		},
 		MetricType: operatormetrics.GaugeType,

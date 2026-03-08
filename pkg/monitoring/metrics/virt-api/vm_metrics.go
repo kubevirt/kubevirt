@@ -32,7 +32,7 @@ var (
 	vmsCreatedCounter = operatormetrics.NewCounterVec(
 		operatormetrics.MetricOpts{
 			Name: "kubevirt_vm_created_by_pod_total",
-			Help: "The total number of VMs created by namespace and virt-api pod, since install.",
+			Help: "[Deprecated] The total number of VMs created by namespace and virt-api pod, since install.",
 		},
 		[]string{"namespace"},
 	)

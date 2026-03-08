@@ -30,7 +30,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 	return []operatorrules.RecordingRule{
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
-				Name: "kubevirt_virt_api_up",
+				Name: "cluster:kubevirt_virt_api_up:sum",
 				Help: "The number of virt-api pods that are up.",
 			},
 			MetricType: operatormetrics.GaugeType,
@@ -50,7 +50,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 		},
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
-				Name: "kubevirt_virt_controller_up",
+				Name: "cluster:kubevirt_virt_controller_up:sum",
 				Help: "The number of virt-controller pods that are up.",
 			},
 			MetricType: operatormetrics.GaugeType,
@@ -60,7 +60,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 		},
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
-				Name: "kubevirt_virt_controller_ready",
+				Name: "cluster:kubevirt_virt_controller_ready:sum",
 				Help: "The number of virt-controller pods that are ready.",
 			},
 			MetricType: operatormetrics.GaugeType,
@@ -71,7 +71,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 		},
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
-				Name: "kubevirt_virt_operator_up",
+				Name: "cluster:kubevirt_virt_operator_up:sum",
 				Help: "The number of virt-operator pods that are up.",
 			},
 			MetricType: operatormetrics.GaugeType,
@@ -91,7 +91,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 		},
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
-				Name: "kubevirt_virt_operator_ready",
+				Name: "cluster:kubevirt_virt_operator_ready:sum",
 				Help: "The number of virt-operator pods that are ready.",
 			},
 			MetricType: operatormetrics.GaugeType,
@@ -102,7 +102,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 		},
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
-				Name: "kubevirt_virt_operator_leading",
+				Name: "cluster:kubevirt_virt_operator_leading:sum",
 				Help: "The number of virt-operator pods that are leading.",
 			},
 			MetricType: operatormetrics.GaugeType,
@@ -112,7 +112,7 @@ func virtRecordingRules(namespace string) []operatorrules.RecordingRule {
 		},
 		{
 			MetricsOpts: operatormetrics.MetricOpts{
-				Name: "kubevirt_virt_handler_up",
+				Name: "cluster:kubevirt_virt_handler_up:sum",
 				Help: "The number of virt-handler pods that are up.",
 			},
 			MetricType: operatormetrics.GaugeType,
