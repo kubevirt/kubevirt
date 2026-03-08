@@ -120,7 +120,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 	Context("Up metrics", func() {
 		It("VirtOperatorDown should be triggered when virt-operator is down", func() {
 			By("Waiting for the operator to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_up", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_up:sum", 0)
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, virtOperator.downAlert)
@@ -128,7 +128,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 
 		It("NoReadyVirtOperator should be triggered when virt-operator is down", func() {
 			By("Waiting for the operator to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_ready", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_ready:sum", 0)
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, virtOperator.noReadyAlert)
@@ -139,7 +139,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			scales.UpdateScale(virtController.deploymentName, int32(0))
 
 			By("Waiting for the controller to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_controller_up", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_controller_up:sum", 0)
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, virtController.downAlert)
@@ -150,7 +150,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			scales.UpdateScale(virtController.deploymentName, int32(0))
 
 			By("Waiting for the controller to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_controller_ready", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_controller_ready:sum", 0)
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, virtController.noReadyAlert)
@@ -161,7 +161,7 @@ var _ = Describe("[sig-monitoring]Component Monitoring", Serial, Ordered, decora
 			scales.UpdateScale(virtAPI.deploymentName, int32(0))
 
 			By("Waiting for the api to be down")
-			libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_api_up", 0)
+			libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_api_up:sum", 0)
 
 			By("Verifying the alert exists")
 			libmonitoring.VerifyAlertExist(virtClient, virtAPI.downAlert)
@@ -339,14 +339,14 @@ func restoreOperator(virtClient kubecli.KubevirtClient, scales *libmonitoring.Sc
 		scales.UpdateScale(virtOperator.deploymentName, replica)
 
 		By("Waiting for the operator to be up")
-		libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_up", float64(replica))
+		libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_up:sum", float64(replica))
 
 		By("Waiting for the operator to be ready")
-		libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_ready", float64(replica))
+		libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_ready:sum", float64(replica))
 	}
 
 	By("Waiting for an operator to be leading")
-	libmonitoring.WaitForMetricValue(virtClient, "kubevirt_virt_operator_leading", 1.0)
+	libmonitoring.WaitForMetricValue(virtClient, "cluster:kubevirt_virt_operator_leading:sum", 1.0)
 }
 
 func checkRESTErrorsBurst(virtClient kubecli.KubevirtClient, roleBindingName, alertName string) {
