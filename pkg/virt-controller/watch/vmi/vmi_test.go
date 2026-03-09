@@ -3437,7 +3437,7 @@ var _ = Describe("VirtualMachineInstance watcher", func() {
 		)
 
 		DescribeTable("Should find active and old pods", func(hotplugVolumes []*virtv1.Volume, attachmentPods []*k8sv1.Pod, expectedActive *k8sv1.Pod, expectedOld []*k8sv1.Pod) {
-			active, old := getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
+			active, old := controller.getActiveAndOldAttachmentPods(hotplugVolumes, attachmentPods)
 			Expect(active).To(Equal(expectedActive))
 			Expect(old).To(ContainElements(expectedOld))
 		},
