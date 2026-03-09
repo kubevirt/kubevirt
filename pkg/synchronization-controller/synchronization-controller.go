@@ -1184,6 +1184,13 @@ func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVM
 // unrelated MigrationState fields (e.g. the virt-handler setting
 // ports while the sync controller sets SourceState).
 func addMigrationStateFieldPatches(patchSet *patch.PatchSet, origMS, newMS *virtv1.VirtualMachineInstanceMigrationState) {
+	if newMS == nil {
+		patchSet.AddOption(
+			patch.WithTest("/status/migrationState", origMS),
+			patch.WithRemove("/status/migrationState"),
+		)
+		return
+	}
 	origVal := reflect.ValueOf(origMS).Elem()
 	newVal := reflect.ValueOf(newMS).Elem()
 	origType := origVal.Type()

@@ -486,7 +486,7 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 		c.logger.Object(vmi).Infof("VMI is in phase: %v | Domain does not exist", vmi.Status.Phase)
 	}
 
-	syncErr, syncReEnqueued := c.processVMI(vmi)
+	syncErr, skipSyncExpectations := c.processVMI(vmi)
 	if syncErr != nil {
 		c.recorder.Event(vmi, k8sv1.EventTypeWarning, v1.SyncFailed.String(), syncErr.Error())
 		// `syncErr` will be propagated anyway, and it will be logged in `re-enqueueing`
@@ -494,16 +494,18 @@ func (c *MigrationTargetController) sync(vmi *v1.VirtualMachineInstance, domain 
 		c.logger.Object(vmi).Reason(syncErr).Error("Synchronizing the VirtualMachineInstance failed.")
 	}
 
-	updateErr, updateReEnqueued := c.updateStatus(vmi, domain)
+	updateErr, skipUpdateExpectations := c.updateStatus(vmi, domain)
 	if updateErr != nil {
 		c.logger.Object(vmi).Reason(updateErr).Error("Updating the migration status failed.")
 		return updateErr
 	}
 
-	// If processVMI is just waiting for something to be ready, we can't and don't need to increase expectations.
-	// We can't because the VMI may not update before the thing is ready, deadlocking us
-	// We don't need to because every time processVMI is waiting for something it re-adds the key to the queue
-	updateVMIErr := c.updateVMI(vmi, &oldSpec, &oldStatus, oldLabels, !syncReEnqueued && !updateReEnqueued)
+	// Skip expectations when processVMI or updateStatus indicated they have
+	// nothing left to do (e.g. migration already prepared, waiting for sync).
+	// Setting expectations in that case would block the controller from
+	// processing external events (domain updates, sync controller patches)
+	// until the VMI update from the expectation is observed.
+	updateVMIErr := c.updateVMI(vmi, &oldSpec, &oldStatus, oldLabels, !skipSyncExpectations && !skipUpdateExpectations)
 	if updateVMIErr != nil {
 		return updateVMIErr
 	}
@@ -720,7 +722,9 @@ func (c *MigrationTargetController) unmountVolumes(originalVMI *v1.VirtualMachin
 }
 
 // processVMI handles the necessary operations to prepare/cleanup for/after a migration.
-// It returns an error and a boolean informing the caller if the key was re-enqueued by us.
+// It returns an error and a boolean indicating whether the caller should skip setting
+// expectations (true when processVMI has nothing left to do and the controller should
+// remain responsive to external events without blocking on expectation satisfaction).
 func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (error, bool) {
 	if migrationNeedsFinalization(vmi.Status.MigrationState) {
 		c.logger.Object(vmi).V(4).Info("finalize migration")
@@ -731,9 +735,9 @@ func (c *MigrationTargetController) processVMI(vmi *v1.VirtualMachineInstance) (
 	// migration proxy listening), there is nothing left for processVMI to
 	// do until the migration completes. Return early to avoid re-running
 	// the full preparation while QEMU is actively migrating.
-	// Return (nil, true) so that updateVMI skips setting expectations,
-	// keeping the controller responsive to external events (domain
-	// updates, sync controller VMI patches) without re-enqueuing.
+	// Return skipExpectations=true so the caller does not block the
+	// controller from processing external events (domain updates, sync
+	// controller VMI patches).
 	if len(c.migrationProxy.GetTargetListenerPorts(migrationProxyKey(vmi))) > 0 {
 		c.logger.Object(vmi).V(4).Info("migration target already prepared, nothing to do")
 		return nil, true
