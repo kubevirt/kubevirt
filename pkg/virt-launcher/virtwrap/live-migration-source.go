@@ -531,6 +531,29 @@ func (m *migrationMonitor) processInflightMigration(dom cli.VirDomain, stats *li
 				return nil
 			}
 			m.l.updateVMIMigrationMode(v1.MigrationPostCopy)
+		} else if virtutil.IsVFIOVMI(m.vmi) {
+			logger.Info("Setting large max downtime to trigger migration switchover")
+			// TODO: once the VGPULiveMigration featuregate graduates
+			//  (and even possibly other VFIO live migration featuregates)
+			//  we should consider merging this with the "else" case below.
+			// Setting a very high max downtime causes QEMU to
+			//  trigger its internal switchover, which pauses vCPUs and
+			//  transitions VFIO devices to _STOP_COPY. This is more
+			//  correct than dom.Suspend() which only pauses vCPUs but
+			//  leaves VFIO devices in _RUNNING with perpetual dirty
+			//  page reporting.
+			maxDowntimeSec := m.acceptableCompletionTime * 2
+			// qemu doesn't allow max downtime larger than 2000s
+			err := dom.MigrateSetMaxDowntime(min(uint64(maxDowntimeSec)*1000, 2_000_000), 0)
+			if err != nil {
+				logger.Reason(err).Error("Setting max downtime failed.")
+				return nil
+			}
+			logger.Infof("Set max downtime to %ds for %s", maxDowntimeSec, m.vmi.GetObjectMeta().GetName())
+
+			m.acceptableCompletionTime = maxDowntimeSec
+			m.l.paused.add(m.vmi.UID)
+			m.l.updateVMIMigrationMode(v1.MigrationPaused)
 		} else {
 			logger.Info("Pausing the guest to allow migration to complete")
 			// if a migration has stalled too long, the guest will be paused
