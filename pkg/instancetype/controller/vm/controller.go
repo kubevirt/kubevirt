@@ -93,15 +93,15 @@ func New(
 	k8sClient kubernetes.Interface,
 	clusterConfig *virtconfig.ClusterConfig, recorder record.EventRecorder,
 ) *controller {
-	finder := find.NewSpecFinder(instancetypeStore, clusterInstancetypeStore, revisionStore, virtClient)
-	prefFinder := preferencefind.NewSpecFinder(preferenceStore, clusterPreferenceStore, revisionStore, virtClient)
+	finder := find.NewSpecFinder(instancetypeStore, clusterInstancetypeStore, revisionStore, virtClient, k8sClient)
+	prefFinder := preferencefind.NewSpecFinder(preferenceStore, clusterPreferenceStore, revisionStore, virtClient, k8sClient)
 	return &controller{
 		instancetypeFindHandler: finder,
 		preferenceFindHandler:   prefFinder,
 		applyVMHandler:          apply.NewVMApplier(finder, prefFinder),
-		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient),
+		storeHandler:            revision.New(instancetypeStore, clusterInstancetypeStore, preferenceStore, clusterPreferenceStore, virtClient, k8sClient),
 		expandHandler:           expand.New(clusterConfig, finder, prefFinder),
-		upgradeHandler:          upgrade.New(revisionStore, virtClient),
+		upgradeHandler:          upgrade.New(revisionStore, virtClient, k8sClient),
 		virtClient:              virtClient,
 		k8sClient:               k8sClient,
 		clusterConfig:           clusterConfig,
