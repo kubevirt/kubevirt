@@ -79,7 +79,6 @@ func (c *Controller) getActiveAndOldAttachmentPods(readyHotplugVolumes []*v1.Vol
 	for _, attachmentPod := range hotplugAttachmentPods {
 		if trigger, _ := c.templateService.AttachmentPodIsTrigger(attachmentPod); trigger {
 			// This is a trigger pod... ignore
-			fmt.Printf("XXX Ignoring trigger pod: %s\n", attachmentPod.Name)
 			continue
 		}
 		if !podVolumesMatchesReadyVolumes(attachmentPod, readyHotplugVolumes) {

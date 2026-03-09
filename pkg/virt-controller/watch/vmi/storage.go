@@ -229,19 +229,19 @@ func (c *Controller) processHotplugVolumeStatus(
 		}
 	} else {
 		if podHasVolume(attachmentPod, &volume) {
-			status.HotplugVolume.AttachPodName = attachmentPod.Name
+			statusCopy.HotplugVolume.AttachPodName = attachmentPod.Name
 			if len(attachmentPod.Status.ContainerStatuses) == 1 && attachmentPod.Status.ContainerStatuses[0].Ready {
-				status.HotplugVolume.AttachPodUID = attachmentPod.UID
+				statusCopy.HotplugVolume.AttachPodUID = attachmentPod.UID
 			} else {
 				// Remove UID of old pod if a new one is available, but not yet ready
-				status.HotplugVolume.AttachPodUID = ""
+				statusCopy.HotplugVolume.AttachPodUID = ""
 			}
 			if canMoveToAttachedPhase(status.Phase) {
-				status.Phase = virtv1.HotplugVolumeAttachedToNode
-				log.Log.V(3).Infof("Setting phase %s for volume %s", status.Phase, volume.Name)
-				status.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)
-				status.Reason = controller.SuccessfulCreatePodReason
-				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, status.Reason, status.Message)
+				statusCopy.Phase = virtv1.HotplugVolumeAttachedToNode
+				log.Log.V(3).Infof("Setting phase %s for volume %s", statusCopy.Phase, volume.Name)
+				statusCopy.Message = fmt.Sprintf("Created hotplug attachment pod %s, for volume %s", attachmentPod.Name, volume.Name)
+				statusCopy.Reason = controller.SuccessfulCreatePodReason
+				c.recorder.Eventf(vmi, k8sv1.EventTypeNormal, statusCopy.Reason, status.Message)
 			}
 		}
 	}
