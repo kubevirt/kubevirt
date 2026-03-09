@@ -2167,6 +2167,36 @@ var _ = Describe("Migration watcher", func() {
 			Entry("in failed state and pod does not exist", v1.MigrationFailed, false, k8sv1.PodFailed, false),
 		)
 
+		It("should set EndTimestamp on failed migration without overwriting existing StartTimestamp", func() {
+			vmi := newVirtualMachine("testvmi", v1.Running)
+			addNodeNameToVMI(vmi, "node02")
+			migration := newMigration("testmigration", vmi.Name, v1.MigrationFailed)
+
+			pastTime := metav1.NewTime(time.Now().Add(-30 * time.Second).Truncate(time.Second))
+			vmi.Status.MigrationState = &v1.VirtualMachineInstanceMigrationState{
+				MigrationUID:   migration.UID,
+				TargetNode:     "node01",
+				SourceNode:     "node02",
+				StartTimestamp: &pastTime,
+			}
+			addMigration(migration)
+			addVirtualMachineInstance(vmi)
+			addPod(newSourcePodForVirtualMachine(vmi))
+			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodFailed)
+			targetPod.Spec.NodeName = "node01"
+			addPod(targetPod)
+
+			sanityExecute()
+
+			expectVirtualMachineInstanceMigrationState(vmi.Namespace, vmi.Name, PointTo(MatchFields(IgnoreExtras, Fields{
+				"StartTimestamp": Equal(&pastTime),
+				"EndTimestamp":   Not(BeNil()),
+				"Completed":      BeTrue(),
+				"Failed":         BeTrue(),
+			})))
+			testutils.ExpectEvent(recorder, virtcontroller.FailedMigrationReason)
+		})
+
 		DescribeTable("with CPU mode which is", func(toDefineHostModelCPU bool) {
 			const nodeName = "testNode"
 
