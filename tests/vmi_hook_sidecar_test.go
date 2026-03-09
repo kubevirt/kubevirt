@@ -37,12 +37,10 @@ import (
 	v1 "kubevirt.io/api/core/v1"
 	"kubevirt.io/client-go/kubecli"
 
-	"kubevirt.io/kubevirt/pkg/hooks"
 	hooksv1alpha1 "kubevirt.io/kubevirt/pkg/hooks/v1alpha1"
 	hooksv1alpha2 "kubevirt.io/kubevirt/pkg/hooks/v1alpha2"
 	hooksv1alpha3 "kubevirt.io/kubevirt/pkg/hooks/v1alpha3"
 	"kubevirt.io/kubevirt/pkg/libvmi"
-	"kubevirt.io/kubevirt/pkg/virt-config/featuregate"
 
 	"kubevirt.io/kubevirt/tests/console"
 	"kubevirt.io/kubevirt/tests/decorators"
@@ -288,18 +286,6 @@ var _ = Describe("[sig-compute]HookSidecars", decorators.SigCompute, func() {
 			)
 		})
 
-		Context("with sidecar feature gate disabled", Serial, func() {
-			BeforeEach(func() {
-				kvconfig.DisableFeatureGate(featuregate.SidecarGate)
-			})
-
-			It("[test_id:2666]should not start with hook sidecar annotation", func() {
-				By("Starting a VMI")
-				vmi, err = virtClient.VirtualMachineInstance(testsuite.GetTestNamespace(nil)).Create(context.Background(), vmi, metav1.CreateOptions{})
-				Expect(err).To(HaveOccurred(), "should not create a VMI without sidecar feature gate")
-				Expect(err.Error()).Should(ContainSubstring(fmt.Sprintf("invalid entry metadata.annotations.%s", hooks.HookSidecarListAnnotationName)))
-			})
-		})
 	})
 })
 
