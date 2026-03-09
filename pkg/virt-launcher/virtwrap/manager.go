@@ -42,6 +42,7 @@ import (
 	"syscall"
 	"time"
 
+	drautil "kubevirt.io/kubevirt/pkg/dra"
 	"kubevirt.io/kubevirt/pkg/hypervisor"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/dra"
 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/network"
@@ -1113,19 +1114,19 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
 		}
 		c.GenericHostDevices = genericHostDevices
 
-		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi)
-		if err != nil {
-			return nil, err
-		}
-		c.GenericHostDevices = append(c.GenericHostDevices, genericDRAHostDevices...)
-
 		gpuHostDevices, err := gpu.CreateHostDevices(vmi.Spec.Domain.Devices.GPUs)
 		if err != nil {
 			return nil, err
 		}
 		c.GPUHostDevices = gpuHostDevices
 
-		gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi)
+		genericDRAHostDevices, err := dra.CreateDRAHostDevices(vmi, drautil.DefaultMetadataBasePath)
+		if err != nil {
+			return nil, err
+		}
+		c.GenericHostDevices = append(c.GenericHostDevices, genericDRAHostDevices...)
+
+		gpuDRAHostDevices, err := dra.CreateDRAGPUHostDevices(vmi, drautil.DefaultMetadataBasePath)
 		if err != nil {
 			return nil, err
 		}
