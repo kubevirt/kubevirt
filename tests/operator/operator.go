@@ -1819,27 +1819,39 @@ var _ = Describe("[sig-operator]Operator", Serial, decorators.SigOperator, func(
 		})
 	})
 
-	Context("VMExport", func() {
+	Context("with VMExport configuration toggled", Serial, func() {
+
+		enableVMExport := func() {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			kvConfig := kv.Spec.Configuration.DeepCopy()
+			kvConfig.VMExport = &v1.VMExportConfiguration{
+				Enabled: pointer.P(true),
+			}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+		}
+
+		disableVMExport := func() {
+			kv := libkubevirt.GetCurrentKv(virtClient)
+			kvConfig := kv.Spec.Configuration.DeepCopy()
+			kvConfig.VMExport = &v1.VMExportConfiguration{
+				Enabled: pointer.P(false),
+			}
+			kvconfig.UpdateKubeVirtConfigValueAndWait(*kvConfig)
+		}
 
 		AfterEach(func() {
+			enableVMExport()
 			testsuite.WaitExportProxyReady()
 		})
 
 		It("should delete and recreate virt-exportproxy", func() {
 			testsuite.WaitExportProxyReady()
+			disableVMExport()
 
-			By("Deleting the virt-exportproxy deployment")
-			err := virtClient.AppsV1().Deployments(originalKv.Namespace).Delete(context.TODO(), "virt-exportproxy", metav1.DeleteOptions{})
-			Expect(err).ToNot(HaveOccurred())
-
-			By("Waiting for the deployment to be deleted")
 			Eventually(func() error {
 				_, err := virtClient.AppsV1().Deployments(originalKv.Namespace).Get(context.TODO(), "virt-exportproxy", metav1.GetOptions{})
 				return err
 			}, time.Minute*5, time.Second*2).Should(MatchError(errors.IsNotFound, "k8serrors.IsNotFound"))
-
-			By("Waiting for the operator to recreate the deployment")
-			testsuite.WaitExportProxyReady()
 		})
 	})
 

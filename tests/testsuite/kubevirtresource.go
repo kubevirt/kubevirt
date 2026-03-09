@@ -139,6 +139,11 @@ func AdjustKubeVirtResource() {
 		kv.Spec.Configuration.VMStateStorageClass = storageClass
 	}
 
+	// Enable VMExport
+	kv.Spec.Configuration.VMExport = &v1.VMExportConfiguration{
+		Enabled: pointer.P(true),
+	}
+
 	data, err := json.Marshal(kv.Spec)
 	Expect(err).ToNot(HaveOccurred())
 	patchData := fmt.Sprintf(`[{ "op": "replace", "path": "/spec", "value": %s }]`, string(data))
