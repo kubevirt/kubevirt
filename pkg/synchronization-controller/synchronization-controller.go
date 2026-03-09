@@ -25,7 +25,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"reflect"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -1158,10 +1160,7 @@ func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVM
 			patchSet.AddOption(
 				patch.WithAdd("/status/migrationState", newVMI.Status.MigrationState))
 		} else {
-			patchSet.AddOption(
-				patch.WithTest("/status/migrationState", origVMI.Status.MigrationState),
-				patch.WithReplace("/status/migrationState", newVMI.Status.MigrationState),
-			)
+			addMigrationStateFieldPatches(patchSet, origVMI.Status.MigrationState, newVMI.Status.MigrationState)
 		}
 	}
 
@@ -1176,6 +1175,45 @@ func (s *SynchronizationController) patchVMI(ctx context.Context, origVMI, newVM
 		}
 	}
 	return nil
+}
+
+// addMigrationStateFieldPatches generates individual JSON Patch
+// operations for each changed field in MigrationState, rather than a
+// single test+replace of the entire object. This prevents spurious
+// patch failures when another controller concurrently modifies
+// unrelated MigrationState fields (e.g. the virt-handler setting
+// ports while the sync controller sets SourceState).
+func addMigrationStateFieldPatches(patchSet *patch.PatchSet, origMS, newMS *virtv1.VirtualMachineInstanceMigrationState) {
+	origVal := reflect.ValueOf(origMS).Elem()
+	newVal := reflect.ValueOf(newMS).Elem()
+	origType := origVal.Type()
+
+	for i := 0; i < origType.NumField(); i++ {
+		field := origType.Field(i)
+		jsonTag := field.Tag.Get("json")
+		if jsonTag == "" || jsonTag == "-" {
+			continue
+		}
+		parts := strings.SplitN(jsonTag, ",", 2)
+		jsonName := parts[0]
+		omitempty := len(parts) > 1 && strings.Contains(parts[1], "omitempty")
+
+		origField := origVal.Field(i).Interface()
+		newField := newVal.Field(i).Interface()
+		if apiequality.Semantic.DeepEqual(origField, newField) {
+			continue
+		}
+
+		path := "/status/migrationState/" + jsonName
+		if omitempty && origVal.Field(i).IsZero() {
+			patchSet.AddOption(patch.WithAdd(path, newField))
+		} else {
+			patchSet.AddOption(
+				patch.WithTest(path, origField),
+				patch.WithReplace(path, newField),
+			)
+		}
+	}
 }
 
 func indexByMigrationUID(obj interface{}) ([]string, error) {
