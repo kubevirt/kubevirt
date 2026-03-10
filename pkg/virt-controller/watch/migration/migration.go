@@ -1114,29 +1114,43 @@ func (c *Controller) handleMigrationBackoff(key string, vmi *virtv1.VirtualMachi
 }
 
 func (c *Controller) handleMarkMigrationFailedOnVMI(migration *virtv1.VirtualMachineInstanceMigration, vmi *virtv1.VirtualMachineInstance) error {
-
-	vmiCopy := vmi.DeepCopy()
-
 	now := v1.NewTime(time.Now())
-	if vmiCopy.Status.MigrationState.StartTimestamp == nil {
-		vmiCopy.Status.MigrationState.StartTimestamp = &now
-	}
-	vmiCopy.Status.MigrationState.EndTimestamp = &now
-	vmiCopy.Status.MigrationState.Failed = true
-	vmiCopy.Status.MigrationState.Completed = true
 
-	err := c.patchVMI(vmi, vmiCopy)
+	// Use field-level "add" patches instead of whole-object test+replace.
+	// The RFC 6902 "add" operation creates the member when absent (omitempty
+	// fields like "failed" and "completed" are absent when false) and
+	// replaces it when present, making the patch idempotent and free from
+	// conflicts with concurrent sync-controller field-level patches.
+	// A test on migrationUid ensures the patch is rejected if a new
+	// migration has replaced the MigrationState since we read it.
+	failureReason := "Target pod is down"
+
+	patchSet := patch.New()
+	patchSet.AddOption(patch.WithTest("/status/migrationState/migrationUid", string(migration.UID)))
+	patchSet.AddOption(patch.WithAdd("/status/migrationState/failed", true))
+	patchSet.AddOption(patch.WithAdd("/status/migrationState/completed", true))
+	if vmi.Status.MigrationState.EndTimestamp == nil {
+		patchSet.AddOption(patch.WithAdd("/status/migrationState/endTimestamp", now))
+	}
+	if vmi.Status.MigrationState.StartTimestamp == nil {
+		patchSet.AddOption(patch.WithAdd("/status/migrationState/startTimestamp", now))
+	}
+	if vmi.Status.MigrationState.FailureReason == "" {
+		patchSet.AddOption(patch.WithAdd("/status/migrationState/failureReason", failureReason))
+	}
+
+	patchBytes, err := patchSet.GeneratePayload()
 	if err != nil {
+		return err
+	}
+	log.Log.Object(vmi).V(4).Infof("patch VMI with %s", string(patchBytes))
+	if _, err = c.clientset.VirtualMachineInstance(vmi.Namespace).Patch(context.Background(), vmi.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{}); err != nil {
 		log.Log.Reason(err).Object(vmi).Errorf("Failed to patch VMI status to indicate migration %s/%s failed.", migration.Namespace, migration.Name)
 		return err
 	}
+
 	log.Log.Object(vmi).Infof("Marked Migration %s/%s failed on vmi due to target pod disappearing before migration kicked off.", migration.Namespace, migration.Name)
-	failureReason := "Target pod is down"
 	c.recorder.Event(vmi, k8sv1.EventTypeWarning, controller.FailedMigrationReason, fmt.Sprintf("VirtualMachineInstance migration uid %s failed. reason: %s", string(migration.UID), failureReason))
-	if vmiCopy.Status.MigrationState.FailureReason == "" {
-		// Only set the failure reason if empty, as virt-handler may already have provided a better one
-		vmiCopy.Status.MigrationState.FailureReason = failureReason
-	}
 
 	return nil
 }
@@ -1916,7 +1930,7 @@ func (c *Controller) sync(key string, migration *virtv1.VirtualMachineInstanceMi
 	case virtv1.MigrationFailed:
 		if migration.IsLocalOrDecentralizedTarget() &&
 			vmi.IsMigrationSynchronized(migration) &&
-			vmi.Status.MigrationState.EndTimestamp == nil {
+			!vmi.Status.MigrationState.Failed {
 
 			err = c.handleMarkMigrationFailedOnVMI(migration, vmi)
 			if err != nil {
