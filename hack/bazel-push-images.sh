@@ -73,6 +73,11 @@ fi
 PUSH_TARGETS=(${PUSH_TARGETS:-${default_targets}})
 KUBEVIRT_PUSH_PARALLELISM=${KUBEVIRT_PUSH_PARALLELISM:-1}
 
+if ! [[ "${KUBEVIRT_PUSH_PARALLELISM}" =~ ^[0-9]+$ ]] || [[ "${KUBEVIRT_PUSH_PARALLELISM}" -lt 1 ]]; then
+    echo "KUBEVIRT_PUSH_PARALLELISM must be a positive integer, got '${KUBEVIRT_PUSH_PARALLELISM}'"
+    exit 1
+fi
+
 function push_image() {
     local target=$1
     local repository=$2
