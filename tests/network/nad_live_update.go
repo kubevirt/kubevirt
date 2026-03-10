@@ -187,6 +187,15 @@ var _ = Describe(SIG("NAD name live update", decorators.RequiresTwoSchedulableNo
 		Expect(err).ToNot(HaveOccurred())
 
 		const ipAfterChange = "10.1.2.100"
+
+		Eventually(func() v1.VirtualMachineInstancePhase {
+			vmi, err = virtClient.VirtualMachineInstance(vmi.Namespace).Get(context.Background(), vmi.Name, metav1.GetOptions{})
+			Expect(err).ToNot(HaveOccurred())
+			return vmi.Status.Phase
+		}, timeoutInterval, pollingInterval).Should(Equal(v1.Running))
+		Eventually(matcher.ThisVMI(vmi), timeoutInterval, pollingInterval).
+			Should(matcher.HaveConditionTrue(v1.VirtualMachineInstanceReady))
+
 		Expect(console.LoginToAlpine(vmi)).To(Succeed())
 		err = configureIPInGuest(vmi, ipAfterChange+subnetMask)
 		Expect(err).NotTo(HaveOccurred())
