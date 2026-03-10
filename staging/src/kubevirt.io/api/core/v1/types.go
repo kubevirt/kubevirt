@@ -3166,7 +3166,6 @@ type VirtTemplateDeployment struct {
 }
 
 // RoleAggregationStrategy represents the strategy for RBAC role aggregation
-// +kubebuilder:validation:Enum=AggregateToDefault;Manual
 type RoleAggregationStrategy string
 
 const (
